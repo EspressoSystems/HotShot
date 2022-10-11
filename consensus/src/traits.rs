@@ -48,7 +48,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     fn generate_vote_token(
         &self,
         view_number: ViewNumber,
-        next_state: Commitment<I::State>,
+        next_state: Commitment<Leaf<I::State>>,
     ) -> Option<Vec<u8>>;
 
     // fn vali(

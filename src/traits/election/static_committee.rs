@@ -1,6 +1,6 @@
 use commit::Commitment;
 use hotshot_types::{
-    data::ViewNumber,
+    data::{Leaf, ViewNumber},
     traits::{
         election::Election,
         signature_key::{
@@ -59,7 +59,7 @@ where
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: Self::VoteToken,
-        next_state: Commitment<Self::State>,
+        next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::ValidatedVoteToken> {
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());
@@ -76,7 +76,7 @@ where
         _table: &Self::StakeTable,
         view_number: ViewNumber,
         private_key: &Ed25519Priv,
-        next_state: Commitment<Self::State>,
+        next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::VoteToken> {
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());

@@ -1,7 +1,7 @@
 use bincode::Options;
 use commit::Commitment;
 use hotshot_types::{
-    data::ViewNumber,
+    data::{Leaf, ViewNumber},
     traits::{
         election::Election,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
@@ -344,7 +344,7 @@ where
         view_number: ViewNumber,
         pub_key: BLSPubKey,
         token: Self::VoteToken,
-        _next_state: Commitment<Self::State>,
+        _next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::ValidatedVoteToken> {
         let mut validated_votes: Vec<_> = vec![];
         for (vote, vote_index) in token.proofs {
@@ -381,7 +381,7 @@ where
         table: &Self::StakeTable,
         view_number: ViewNumber,
         private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
-        _next_state: Commitment<Self::State>,
+        _next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::VoteToken> {
         let pub_key = BLSPubKey::from_private(private_key);
         if let Some(votes) = table.get(&pub_key) {

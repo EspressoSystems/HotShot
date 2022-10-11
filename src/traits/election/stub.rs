@@ -1,6 +1,6 @@
 use commit::Commitment;
 use hotshot_types::{
-    data::ViewNumber,
+    data::{Leaf, ViewNumber},
     traits::{
         election::Election,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
@@ -227,7 +227,7 @@ where
         view_number: ViewNumber,
         pub_key: HashVrfKey,
         token: Self::VoteToken,
-        _next_state: Commitment<Self::State>,
+        _next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::ValidatedVoteToken> {
         warn!("Validating vote token");
         let selection_threshold = self.calculate_selection_threshold(table);
@@ -254,7 +254,7 @@ where
         table: &Self::StakeTable,
         view_number: ViewNumber,
         private_key: &HashVrfKey,
-        _next_state: Commitment<Self::State>,
+        _next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::VoteToken> {
         warn!("Making vote token");
         if let Some(votes) = table.get(private_key) {
@@ -275,8 +275,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::demos::dentry::random_leaf;
     use commit::Committable;
-    use hotshot_types::traits::block_contents::dummy::DummyState;
+    use hotshot_types::traits::block_contents::dummy::{DummyBlock, DummyState};
 
     // Make sure the selection threshold is calculated properly
     #[test]
@@ -285,7 +286,7 @@ mod tests {
         let key = HashVrfKey::random();
         let seed = HashVrfSeed::random();
         let vrf = HashElection::<DummyState>::new([(key, 1)], seed);
-        let next_state = DummyState::random().commit();
+        let next_state = random_leaf(DummyBlock::random()).commit();
         // Our strategy here is to run 10,000 trials and make sure the number of hits is within around
         // 10% of the expected parameter
         let mut hits: u64 = 0;

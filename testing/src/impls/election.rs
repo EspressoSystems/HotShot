@@ -1,5 +1,5 @@
 use commit::Commitment;
-use hotshot::traits::dummy::DummyState;
+use hotshot::{data::Leaf, traits::dummy::DummyState};
 use hotshot_types::{
     data::ViewNumber,
     traits::{
@@ -43,7 +43,7 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: Self::VoteToken,
-        next_state: Commitment<Self::State>,
+        next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::ValidatedVoteToken> {
         Some(())
     }
@@ -59,7 +59,7 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
         table: &Self::StakeTable,
         view_number: ViewNumber,
         _private_key: &Ed25519Priv,
-        next_state: Commitment<Self::State>,
+        next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::VoteToken> {
         unimplemented!()
     }

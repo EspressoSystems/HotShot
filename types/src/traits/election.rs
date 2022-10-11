@@ -1,7 +1,10 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 use super::{state::ConsensusTime, StateContents};
-use crate::{data::ViewNumber, traits::signature_key::SignatureKey};
+use crate::{
+    data::{Leaf, ViewNumber},
+    traits::signature_key::SignatureKey,
+};
 use commit::Commitment;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -31,7 +34,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         view_number: ViewNumber,
         pub_key: P,
         token: Self::VoteToken,
-        next_state: Commitment<Self::State>,
+        next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::ValidatedVoteToken>;
 
     /// Returns the number of votes the validated vote token has
@@ -45,7 +48,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         table: &Self::StakeTable,
         view_number: ViewNumber,
         private_key: &<P as SignatureKey>::PrivateKey,
-        next_state: Commitment<Self::State>,
+        next_state: Commitment<Leaf<Self::State>>,
     ) -> Option<Self::VoteToken>;
 
     // checks fee table validity, adds it to the block, this gets called by the leader when proposing the block

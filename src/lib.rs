@@ -719,7 +719,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     fn generate_vote_token(
         &self,
         view_number: ViewNumber,
-        next_state: Commitment<I::State>,
+        next_state: Commitment<Leaf<I::State>>,
     ) -> Option<Vec<u8>> {
         let HotShotElectionState {
             stake_table,
