@@ -44,6 +44,18 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// Returns the minimum transactions that must be in a block
     fn min_transactions(&self) -> usize;
 
+    /// Generates and encodes a vote token
+    fn generate_vote_token(
+        &self,
+        view_number: ViewNumber,
+        next_state: Commitment<I::State>,
+    ) -> Option<Vec<u8>>;
+
+    // fn vali(
+    //     &self,
+    //     message: &ConsensusMessage<I::Block, I::State, N>,
+    // ) -> bool;
+
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey;
 

@@ -8,7 +8,7 @@ version = "0.1.1"
 rust-version = "1.63.0"
 
 [features]
-default = ["demo", "docs", "doc-images"]
+default = ["demo", "docs", "doc-images", "full-ci"]
 
 async-std-executor = [
         "dep:async-std",

@@ -718,6 +718,16 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         self.inner.config.min_transactions
     }
 
+    /// Generates and encodes a vote token
+    fn generate_vote_token(
+        &self,
+        view_number: ViewNumber,
+        next_state: Commitment<I::State>,
+    ) -> Option<Vec<u8>> {
+        todo!()
+    }
+
+
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {
         let election = &self.inner.election;
         election
