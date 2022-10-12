@@ -102,7 +102,7 @@ where
         pub_key: Ed25519Pub,
         token: Self::VoteTokenType,
     ) -> Result<hotshot_types::traits::election::Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
-        todo!()
+        nll_todo()
     }
 
     // If its a validated token, it always has one vote

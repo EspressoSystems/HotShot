@@ -25,7 +25,7 @@ impl AsRef<[u8]> for EncodedSignature {
 
 /// Trait for abstracting public key signatures
 pub trait SignatureKey:
-    Send + Sync + Clone + Sized + Debug + Hash + Serialize + DeserializeOwned + PartialEq + Eq + Unpin
+    Send + Sync + Clone + Sized + Debug + Hash + Serialize + DeserializeOwned + PartialEq + Eq
 {
     /// The private key type for this signature algorithm
     type PrivateKey: Send + Sync + Sized;
