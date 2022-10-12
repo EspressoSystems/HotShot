@@ -1,6 +1,6 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
-use super::{state::ConsensusTime, StateContents};
+use super::{state::ConsensusTime, State};
 use crate::{
     data::{Leaf, ViewNumber},
     traits::signature_key::SignatureKey,
@@ -13,14 +13,14 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// Data structure describing the currently valid states
     type StakeTable: Send + Sync;
     /// The state type this election implementation is bound to
-    type State: StateContents;
+    type StateType: State;
     /// A membership proof
     type VoteToken: Serialize + DeserializeOwned;
     /// A type stated, validated membership proof
     type ValidatedVoteToken;
 
     /// Returns the table from the current committed state
-    fn get_stake_table(&self, state: &Self::State) -> Self::StakeTable;
+    fn get_stake_table(&self, state: &Self::StateType) -> Self::StakeTable;
 
     /// Returns leader for the current view number, given the current stake table
     fn get_leader(&self, view_number: ViewNumber) -> P;
@@ -33,7 +33,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         view_number: ViewNumber,
         pub_key: P,
         token: Self::VoteToken,
-        next_state: Commitment<Leaf<Self::State>>,
+        next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Option<Self::ValidatedVoteToken>;
 
     /// Returns the number of votes the validated vote token has
@@ -46,7 +46,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         &self,
         view_number: ViewNumber,
         private_key: &<P as SignatureKey>::PrivateKey,
-        next_state: Commitment<Leaf<Self::State>>,
+        next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Option<Self::VoteToken>;
 
     // checks fee table validity, adds it to the block, this gets called by the leader when proposing the block

@@ -8,7 +8,7 @@ use hotshot_types::{
             EncodedSignature, SignatureKey,
         },
         state::ConsensusTime,
-        StateContents,
+        State,
     },
 };
 use std::marker::PhantomData;
@@ -33,18 +33,18 @@ impl<S> StaticCommittee<S> {
 
 impl<S, T> Election<Ed25519Pub, T> for StaticCommittee<S>
 where
-    S: Send + Sync + StateContents,
+    S: Send + Sync + State,
     T: ConsensusTime,
 {
     /// Just use the vector of public keys for the stake table
     type StakeTable = Vec<Ed25519Pub>;
-    type State = S;
+    type StateType = S;
     /// The vote token is just a signature
     type VoteToken = EncodedSignature;
     /// Same for the validated vote token
     type ValidatedVoteToken = (EncodedSignature, Ed25519Pub);
     /// Clone the static table
-    fn get_stake_table(&self, _state: &Self::State) -> Self::StakeTable {
+    fn get_stake_table(&self, _state: &Self::StateType) -> Self::StakeTable {
         self.nodes.clone()
     }
     /// Index the vector of public keys with the current view number
@@ -58,7 +58,7 @@ where
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: Self::VoteToken,
-        next_state: Commitment<Leaf<Self::State>>,
+        next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Option<Self::ValidatedVoteToken> {
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());
@@ -74,7 +74,7 @@ where
         &self,
         view_number: ViewNumber,
         private_key: &Ed25519Priv,
-        next_state: Commitment<Leaf<Self::State>>,
+        next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Option<Self::VoteToken> {
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());

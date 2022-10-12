@@ -8,7 +8,7 @@ use crate::{
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         storage::StoredView,
-        BlockContents, StateContents, state::ConsensusTime,
+        Block, State, state::ConsensusTime,
     },
 };
 use commit::{Commitment, Committable};
@@ -57,7 +57,7 @@ impl std::ops::Deref for ViewNumber {
     }
 }
 
-impl<STATE: StateContents> QuorumCertificate<STATE> {
+impl<STATE: State> QuorumCertificate<STATE> {
     /// To be used only for generating the genesis quorum certificate; will fail if used anywhere else
     pub fn genesis() -> Self {
         Self {
@@ -75,15 +75,15 @@ impl<STATE: StateContents> QuorumCertificate<STATE> {
 /// A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
 /// metadata, such as the [`Stage`] of consensus the quorum certificate was generated during.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, custom_debug::Debug, std::hash::Hash)]
-pub struct QuorumCertificate<STATE: StateContents> {
+pub struct QuorumCertificate<STATE: State> {
     /// Hash of the block refereed to by this Quorum Certificate.
     ///
     /// This is included for convenience, and is not fundamental to consensus or covered by the
     /// signature. This _must_ be identical to the [`BlockContents`] provided hash of the `item` in
     /// the referenced leaf.
     #[debug(skip)]
-    #[serde(deserialize_with = "<Commitment<STATE::Block> as Deserialize>::deserialize")]
-    pub block_commitment: Commitment<STATE::Block>,
+    #[serde(deserialize_with = "<Commitment<STATE::BlockType> as Deserialize>::deserialize")]
+    pub block_commitment: Commitment<STATE::BlockType>,
 
     /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
@@ -114,15 +114,15 @@ pub struct QuorumCertificate<STATE: StateContents> {
     pub genesis: bool,
 }
 
-/// The `Transaction` type associated with a `StateContents`, as a syntactic shortcut
-pub type Transaction<STATE> = <<STATE as StateContents>::Block as BlockContents>::Transaction;
-/// `Commitment` to the `Transaction` type associated with a `StateContents`, as a syntactic shortcut
+/// The `Transaction` type associated with a `State`, as a syntactic shortcut
+pub type Transaction<STATE> = <<STATE as State>::BlockType as Block>::Transaction;
+/// `Commitment` to the `Transaction` type associated with a `State`, as a syntactic shortcut
 pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 
 /// subset of state that we stick into a leaf.
 #[derive(Clone, Derivative, Serialize, Deserialize, custom_debug::Debug)]
 #[derivative(PartialEq, Eq, Hash)]
-pub struct ProposalLeaf<STATE: StateContents> {
+pub struct ProposalLeaf<STATE: State> {
     /// CurView from leader when proposing leaf
     pub view_number: ViewNumber,
 
@@ -137,8 +137,8 @@ pub struct ProposalLeaf<STATE: StateContents> {
     pub parent_commitment: Commitment<Leaf<STATE>>,
 
     /// Block leaf wants to apply
-    #[serde(deserialize_with = "STATE::Block::deserialize")]
-    pub deltas: STATE::Block,
+    #[serde(deserialize_with = "STATE::BlockType::deserialize")]
+    pub deltas: STATE::BlockType,
 
     /// What the state should be after applying `self.deltas`
     #[serde(deserialize_with = "<Commitment<STATE> as Deserialize>::deserialize")]
@@ -159,7 +159,7 @@ pub struct ProposalLeaf<STATE: StateContents> {
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
 #[derive(Serialize, Deserialize, custom_debug::Debug, Clone, Derivative)]
 #[derivative(PartialEq, Eq)]
-pub struct Leaf<STATE: StateContents> {
+pub struct Leaf<STATE: State> {
     /// CurView from leader when proposing leaf
     pub view_number: ViewNumber,
 
@@ -174,8 +174,8 @@ pub struct Leaf<STATE: StateContents> {
     pub parent_commitment: Commitment<Leaf<STATE>>,
 
     /// Block leaf wants to apply
-    #[serde(deserialize_with = "STATE::Block::deserialize")]
-    pub deltas: STATE::Block,
+    #[serde(deserialize_with = "STATE::BlockType::deserialize")]
+    pub deltas: STATE::BlockType,
 
     /// What the state should be AFTER applying `self.deltas`
     #[serde(deserialize_with = "STATE::deserialize")]
@@ -209,7 +209,7 @@ pub fn random_commitment<S: Committable>() -> Commitment<S> {
         .finalize()
 }
 
-impl<STATE: StateContents> Committable for Leaf<STATE> {
+impl<STATE: State> Committable for Leaf<STATE> {
     fn commit(&self) -> commit::Commitment<Self> {
         let mut signatures_bytes = vec![];
         for (k, v) in &self.justify_qc.signatures {
@@ -239,7 +239,7 @@ impl<STATE: StateContents> Committable for Leaf<STATE> {
     }
 }
 
-impl<STATE: StateContents> From<Leaf<STATE>> for ProposalLeaf<STATE> {
+impl<STATE: State> From<Leaf<STATE>> for ProposalLeaf<STATE> {
     fn from(leaf: Leaf<STATE>) -> Self {
         Self {
             view_number: leaf.view_number,
@@ -253,7 +253,7 @@ impl<STATE: StateContents> From<Leaf<STATE>> for ProposalLeaf<STATE> {
     }
 }
 
-impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
+impl<STATE: State<Time = ViewNumber>> Leaf<STATE> {
     /// Creates a new leaf with the specified block and parent
     ///
     /// # Arguments
@@ -262,7 +262,7 @@ impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         state: STATE,
-        deltas: STATE::Block,
+        deltas: STATE::BlockType,
         parent_commitment: Commitment<Leaf<STATE>>,
         justify_qc: QuorumCertificate<STATE>,
         view_number: ViewNumber,
@@ -291,7 +291,7 @@ impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
     ///
     /// Panics if deltas is not a valid genesis block,
     /// or if state cannot extend deltas from default()
-    pub fn genesis(deltas: STATE::Block) -> Self {
+    pub fn genesis(deltas: STATE::BlockType) -> Self {
         // if this fails, we're not able to initialize consensus.
         let state = STATE::default().append(&deltas, &ViewNumber::genesis()).unwrap();
         Self {
@@ -308,7 +308,7 @@ impl<STATE: StateContents<Time = ViewNumber>> Leaf<STATE> {
 }
 
 
-impl<STATE: StateContents<Time = ViewNumber>> From<StoredView<STATE>> for Leaf<STATE> {
+impl<STATE: State<Time = ViewNumber>> From<StoredView<STATE>> for Leaf<STATE> {
     fn from(append: StoredView<STATE>) -> Self {
         Leaf::new(
             append.state,
@@ -323,7 +323,7 @@ impl<STATE: StateContents<Time = ViewNumber>> From<StoredView<STATE>> for Leaf<S
     }
 }
 
-impl<STATE: StateContents> From<Leaf<STATE>> for StoredView<STATE> {
+impl<STATE: State> From<Leaf<STATE>> for StoredView<STATE> {
     fn from(val: Leaf<STATE>) -> Self {
         StoredView {
             view_number: val.view_number,

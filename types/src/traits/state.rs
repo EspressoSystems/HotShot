@@ -3,7 +3,7 @@
 //! This module provides the [`State`] trait, which serves as an abstraction over the current
 //! network state, which is modified by the transactions contained within blocks.
 
-use crate::{traits::BlockContents, data::ViewNumber};
+use crate::{traits::Block, data::ViewNumber};
 use commit::Committable;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash};
@@ -19,7 +19,7 @@ use std::{error::Error, fmt::Debug, hash::Hash};
 ///     ([`validate_block`](State::validate_block))
 ///   * The ability to produce a new state, with the modifications from the block applied
 ///     ([`append`](State::append))
-pub trait StateContents:
+pub trait State:
     Serialize
     + DeserializeOwned
     + Clone
@@ -35,20 +35,20 @@ pub trait StateContents:
     /// The error type for this particular type of ledger state
     type Error: Error + Debug + Send + Sync;
     /// The type of block this state is associated with
-    type Block: BlockContents;
+    type BlockType: Block;
     /// Time abstraction needed for reward collection
     type Time: ConsensusTime;
 
     /// Returns an empty, template next block given this current state
-    fn next_block(&self) -> Self::Block;
+    fn next_block(&self) -> Self::BlockType;
     /// Returns true if and only if the provided block is valid and can extend this state
-    fn validate_block(&self, block: &Self::Block, time: &Self::Time) -> bool;
+    fn validate_block(&self, block: &Self::BlockType, time: &Self::Time) -> bool;
     /// Appends the given block to this state, returning an new state
     ///
     /// # Errors
     ///
     /// Should produce and error if appending this block would lead to an invalid state
-    fn append(&self, block: &Self::Block, time: &Self::Time) -> Result<Self, Self::Error>;
+    fn append(&self, block: &Self::BlockType, time: &Self::Time) -> Result<Self, Self::Error>;
     /// Gets called to notify the persistence backend that this state has been committed
     fn on_commit(&self);
 }
@@ -57,17 +57,17 @@ pub trait StateContents:
 pub trait ConsensusTime: PartialOrd {}
 
 /// extra functions required on state to be usable by hotshot-testing
-pub trait TestableState: StateContents<Time = ViewNumber>
+pub trait TestableState: State<Time = ViewNumber>
 where
-    <Self as StateContents>::Block: TestableBlock,
+    <Self as State>::BlockType: TestableBlock,
 {
     /// Creates random transaction if possible
     /// otherwise panics
-    fn create_random_transaction(&self) -> <Self::Block as BlockContents>::Transaction;
+    fn create_random_transaction(&self) -> <Self::BlockType as Block>::Transaction;
 }
 
 /// extra functions required on block to be usable by hotshot-testing
-pub trait TestableBlock: BlockContents {
+pub trait TestableBlock: Block {
     /// generate a genesis block
     fn genesis() -> Self;
 }
@@ -103,21 +103,21 @@ pub mod dummy {
         }
     }
 
-    impl StateContents for DummyState {
+    impl State for DummyState {
         type Error = DummyError;
 
-        type Block = DummyBlock;
+        type BlockType = DummyBlock;
         type Time = ViewNumber;
 
-        fn next_block(&self) -> Self::Block {
+        fn next_block(&self) -> Self::BlockType {
             DummyBlock::random()
         }
 
-        fn validate_block(&self, _block: &Self::Block, _time: &Self::Time) -> bool {
+        fn validate_block(&self, _block: &Self::BlockType, _time: &Self::Time) -> bool {
             false
         }
 
-        fn append(&self, _block: &Self::Block, _time: &Self::Time) -> Result<Self, Self::Error> {
+        fn append(&self, _block: &Self::BlockType, _time: &Self::Time) -> Result<Self, Self::Error> {
             Err(DummyError)
         }
 

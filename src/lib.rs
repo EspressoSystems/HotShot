@@ -39,7 +39,7 @@ mod tasks;
 
 use crate::{
     data::{Leaf, QuorumCertificate},
-    traits::{BlockContents, NetworkingImplementation, NodeImplementation, Storage},
+    traits::{Block, NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
@@ -61,7 +61,7 @@ use hotshot_types::{
         node_implementation::TypeMap,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         storage::{StoredView, ViewEntry},
-        StateContents,
+        State,
     },
     HotShotConfig,
 };
@@ -119,7 +119,7 @@ pub struct HotShotInner<I: NodeImplementation> {
     election: I::Election,
 
     /// Sender for [`Event`]s
-    event_sender: RwLock<Option<BroadcastSender<Event<I::State>>>>,
+    event_sender: RwLock<Option<BroadcastSender<Event<I::StateType>>>>,
 
     /// Senders to the background tasks.
     background_task_handle: tasks::TaskHandle,
@@ -175,7 +175,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
-        initializer: HotShotInitializer<I::State>,
+        initializer: HotShotInitializer<I::StateType>,
     ) -> Result<Self> {
         info!("Creating a new hotshot");
         let inner: Arc<HotShotInner<I>> = Arc::new(HotShotInner {
@@ -257,10 +257,10 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     pub async fn timeout_view(
         &self,
         current_view: ViewNumber,
-        send_replica: UnboundedSender<ConsensusMessage<I::State>>,
-        send_next_leader: Option<UnboundedSender<ConsensusMessage<I::State>>>,
+        send_replica: UnboundedSender<ConsensusMessage<I::StateType>>,
+        send_next_leader: Option<UnboundedSender<ConsensusMessage<I::StateType>>>,
     ) {
-        let msg = ConsensusMessage::<I::State>::NextViewInterrupt(current_view);
+        let msg = ConsensusMessage::<I::StateType>::NextViewInterrupt(current_view);
         if let Some(chan) = send_next_leader {
             if chan.send(msg.clone()).await.is_err() {
                 warn!("Error timing out next leader task");
@@ -280,7 +280,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     #[instrument(skip(self), err)]
     pub async fn publish_transaction_async(
         &self,
-        transaction: <<<I as NodeImplementation>::State as StateContents>::Block as BlockContents>::Transaction,
+        transaction: <<<I as NodeImplementation>::StateType as State>::BlockType as Block>::Transaction,
     ) -> Result<()> {
         // Add the transaction to our own queue first
         trace!("Adding transaction to our own queue");
@@ -299,14 +299,14 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// # Panics
     ///
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_state(&self) -> I::State {
+    pub async fn get_state(&self) -> I::StateType {
         self.hotstuff.read().await.get_decided_leaf().state
     }
 
     /// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_decided_leaf(&self) -> Leaf<I::State> {
+    pub async fn get_decided_leaf(&self) -> Leaf<I::StateType> {
         self.hotstuff.read().await.get_decided_leaf()
     }
 
@@ -332,7 +332,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
-        initializer: HotShotInitializer<I::State>,
+        initializer: HotShotInitializer<I::StateType>,
     ) -> Result<HotShotHandle<I>> {
         // Save a clone of the storage for the handle
         let hotshot = Self::new(
@@ -696,7 +696,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     fn generate_vote_token(
         &self,
         view_number: ViewNumber,
-        next_state: Commitment<Leaf<I::State>>,
+        next_state: Commitment<Leaf<I::StateType>>,
     ) -> Option<Vec<u8>> {
         let vote_token = self.inner.election.make_vote_token(
             view_number,
@@ -755,7 +755,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
             .await
     }
 
-    async fn send_event(&self, event: Event<I::State>) {
+    async fn send_event(&self, event: Event<I::StateType>) {
         debug!(?event, "send_event");
         let mut event_sender = self.inner.event_sender.write().await;
         if let Some(sender) = &*event_sender {
@@ -775,7 +775,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     }
 
     #[instrument(skip(self, qc))]
-    fn validate_qc(&self, qc: &QuorumCertificate<I::State>) -> bool {
+    fn validate_qc(&self, qc: &QuorumCertificate<I::StateType>) -> bool {
         if qc.genesis && qc.view_number == ViewNumber::genesis() {
             return true;
         }
@@ -799,7 +799,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<Leaf<I::State>>,
+        hash: Commitment<Leaf<I::StateType>>,
     ) -> bool {
         if let Some(key) = <I::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
             let contains = self.inner.cluster_public_keys.contains(&key);
@@ -812,16 +812,16 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
 }
 
 /// initializer struct for creating starting block
-pub struct HotShotInitializer<STATE: StateContents> {
+pub struct HotShotInitializer<STATE: State> {
     /// the leaf specified initialization
     inner: Leaf<STATE>,
 }
 
-impl<STATE: StateContents<Time = ViewNumber>> HotShotInitializer<STATE> {
+impl<STATE: State<Time = ViewNumber>> HotShotInitializer<STATE> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    pub fn from_genesis(genesis_block: <STATE as StateContents>::Block) -> Result<Self> {
+    pub fn from_genesis(genesis_block: <STATE as State>::BlockType) -> Result<Self> {
         let state = STATE::default()
             .append(&genesis_block, &ViewNumber::new(0))
             .map_err(|err| HotShotError::Misc {

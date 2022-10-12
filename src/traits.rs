@@ -4,7 +4,7 @@ mod networking;
 mod node_implementation;
 mod storage;
 
-pub use hotshot_types::traits::{BlockContents, StateContents};
+pub use hotshot_types::traits::{Block, State};
 pub use networking::{NetworkError, NetworkReliability, NetworkingImplementation};
 pub use node_implementation::NodeImplementation;
 pub use storage::{Result as StorageResult, Storage};

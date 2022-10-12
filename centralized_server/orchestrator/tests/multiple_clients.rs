@@ -1,6 +1,6 @@
 use commit::{Commitment, Committable};
 use hotshot::{
-    traits::{BlockContents, StateContents},
+    traits::{Block, State},
     types::SignatureKey,
 };
 use hotshot_centralized_server::{TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend};
@@ -241,7 +241,7 @@ impl Committable for TestBlock {
     }
 }
 
-impl BlockContents for TestBlock {
+impl Block for TestBlock {
     type Error = TestError;
     type Transaction = TestTransaction;
 
@@ -278,20 +278,20 @@ impl Committable for TestState {
     }
 }
 
-impl StateContents for TestState {
+impl State for TestState {
     type Error = TestError;
-    type Block = TestBlock;
+    type BlockType = TestBlock;
     type Time = ViewNumber;
 
-    fn next_block(&self) -> Self::Block {
+    fn next_block(&self) -> Self::BlockType {
         TestBlock {}
     }
 
-    fn validate_block(&self, _block: &Self::Block, _time: &Self::Time) -> bool {
+    fn validate_block(&self, _block: &Self::BlockType, _time: &Self::Time) -> bool {
         true
     }
 
-    fn append(&self, _block: &Self::Block, _time: &Self::Time) -> Result<Self, Self::Error> {
+    fn append(&self, _block: &Self::BlockType, _time: &Self::Time) -> Result<Self, Self::Error> {
         Ok(Self {})
     }
 

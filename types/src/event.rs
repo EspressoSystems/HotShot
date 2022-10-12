@@ -3,7 +3,7 @@
 use crate::{
     data::{Leaf, ViewNumber},
     error::HotShotError,
-    traits::StateContents,
+    traits::State,
 };
 use std::sync::Arc;
 
@@ -12,7 +12,7 @@ use std::sync::Arc;
 /// This includes some metadata, such as the stage and view number that the event was generated in,
 /// as well as an inner [`EventType`] describing the event proper.
 #[derive(Clone, Debug)]
-pub struct Event<S: StateContents + Send + Sync> {
+pub struct Event<S: State + Send + Sync> {
     /// The view number that this event originates from
     pub view_number: ViewNumber,
     /// The underlying event
@@ -25,7 +25,7 @@ pub struct Event<S: StateContents + Send + Sync> {
 /// number, and is thus always returned wrapped in an [`Event`].
 #[non_exhaustive]
 #[derive(Clone, Debug)]
-pub enum EventType<S: StateContents> {
+pub enum EventType<S: State> {
     /// A view encountered an error and was interrupted
     Error {
         /// The underlying error

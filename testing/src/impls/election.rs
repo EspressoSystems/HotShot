@@ -18,11 +18,11 @@ pub struct TestElection {
 
 impl Election<Ed25519Pub, ViewNumber> for TestElection {
     type StakeTable = ();
-    type State = DummyState;
+    type StateType = DummyState;
     type VoteToken = ();
     type ValidatedVoteToken = ();
 
-    fn get_stake_table(&self, _: &Self::State) -> Self::StakeTable {}
+    fn get_stake_table(&self, _: &Self::StateType) -> Self::StakeTable {}
 
     fn get_leader(&self, view_number: ViewNumber) -> Ed25519Pub {
         match self.leaders.get(*view_number as usize) {
@@ -42,7 +42,7 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: Self::VoteToken,
-        next_state: Commitment<Leaf<Self::State>>,
+        next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Option<Self::ValidatedVoteToken> {
         Some(())
     }
@@ -57,7 +57,7 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
         &self,
         view_number: ViewNumber,
         _private_key: &Ed25519Priv,
-        next_state: Commitment<Leaf<Self::State>>,
+        next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Option<Self::VoteToken> {
         unimplemented!()
     }

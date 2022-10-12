@@ -6,7 +6,7 @@ use hotshot_types::{
         election::Election,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
-        StateContents,
+        State,
     },
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -323,14 +323,14 @@ pub struct ValidatedBLSToken {
 impl<T, STATE> Election<BLSPubKey, T> for BLSVRF<STATE>
 where
     T: ConsensusTime,
-    STATE: StateContents,
+    STATE: State,
 {
     type StakeTable = BTreeMap<BLSPubKey, NonZeroU64>;
-    type State = STATE;
+    type StateType = STATE;
     type VoteToken = BLSToken;
     type ValidatedVoteToken = ValidatedBLSToken;
 
-    fn get_stake_table(&self, _state: &Self::State) -> Self::StakeTable {
+    fn get_stake_table(&self, _state: &Self::StateType) -> Self::StakeTable {
         self.stake_table.clone()
     }
 
@@ -343,7 +343,7 @@ where
         view_number: ViewNumber,
         pub_key: BLSPubKey,
         token: Self::VoteToken,
-        _next_state: Commitment<Leaf<Self::State>>,
+        _next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Option<Self::ValidatedVoteToken> {
         let mut validated_votes: Vec<_> = vec![];
         for (vote, vote_index) in token.proofs {
@@ -379,7 +379,7 @@ where
         &self,
         view_number: ViewNumber,
         private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
-        _next_state: Commitment<Leaf<Self::State>>,
+        _next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Option<Self::VoteToken> {
         let pub_key = BLSPubKey::from_private(private_key);
         if let Some(votes) = self.stake_table.get(&pub_key) {

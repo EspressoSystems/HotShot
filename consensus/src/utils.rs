@@ -9,7 +9,7 @@ use hotshot_types::{
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
         signature_key::{EncodedPublicKey, EncodedSignature},
-        BlockContents, StateContents,
+        Block, State,
     },
 };
 use hotshot_utils::channel::{unbounded, UnboundedReceiver, UnboundedSender};
@@ -22,7 +22,7 @@ use std::{
 
 /// A view's state
 #[derive(Debug)]
-pub enum ViewInner<STATE: StateContents> {
+pub enum ViewInner<STATE: State> {
     /// Undecided view
     Leaf {
         /// Proposed leaf
@@ -32,7 +32,7 @@ pub enum ViewInner<STATE: StateContents> {
     Failed,
 }
 
-impl<STATE: StateContents> ViewInner<STATE> {
+impl<STATE: State> ViewInner<STATE> {
     /// return the underlying leaf hash if it exists
     #[must_use]
     pub fn get_leaf_commitment(&self) -> Option<&Commitment<Leaf<STATE>>> {
@@ -44,7 +44,7 @@ impl<STATE: StateContents> ViewInner<STATE> {
     }
 }
 
-impl<STATE: StateContents> Deref for View<STATE> {
+impl<STATE: State> Deref for View<STATE> {
     type Target = ViewInner<STATE>;
 
     fn deref(&self) -> &Self::Target {
@@ -56,10 +56,10 @@ impl<STATE: StateContents> Deref for View<STATE> {
 #[derive(Clone)]
 pub struct ViewQueue<I: NodeImplementation> {
     /// to send networking events to Replica
-    pub sender_chan: UnboundedSender<ConsensusMessage<I::State>>,
+    pub sender_chan: UnboundedSender<ConsensusMessage<I::StateType>>,
 
     /// to recv networking events for Replica
-    pub receiver_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::State>>>>,
+    pub receiver_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::StateType>>>>,
 
     /// `true` if this queue has already received a proposal
     pub has_received_proposal: Arc<AtomicBool>,
@@ -101,7 +101,7 @@ impl<I: NodeImplementation> SendToTasks<I> {
 
 /// This exists so we can perform state transitions mutably
 #[derive(Debug)]
-pub struct View<STATE: StateContents> {
+pub struct View<STATE: State> {
     /// The view data. Wrapped in a struct so we can mutate
     pub view_inner: ViewInner<STATE>,
 }
@@ -125,7 +125,7 @@ pub type TransactionStorage<I> = Arc<SubscribableRwLock<TransactionHashMap<I>>>;
 /// Map that stores transactions
 pub type TransactionHashMap<I> = HashMap<
     Commitment<
-        <<<I as NodeImplementation>::State as StateContents>::Block as BlockContents>::Transaction,
+        <<<I as NodeImplementation>::StateType as State>::BlockType as Block>::Transaction,
     >,
     <I as TypeMap>::Transaction,
 >;

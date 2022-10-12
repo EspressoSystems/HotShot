@@ -5,7 +5,7 @@ use hotshot_types::{
         election::Election,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
-        StateContents,
+        State,
     },
 };
 use rand::RngCore;
@@ -209,16 +209,16 @@ impl<S> HashElection<S> {
 impl<S, T> Election<HashVrfKey, T> for HashElection<S>
 where
     T: ConsensusTime,
-    S: StateContents,
+    S: State,
 {
     /// Mapping of a public key to the number of allowed voting attempts and the associated
     /// `HashVrfKey`
     type StakeTable = BTreeMap<HashVrfKey, u64>;
-    type State = S;
+    type StateType = S;
     type VoteToken = (HashVrfKey, u64);
     type ValidatedVoteToken = (HashVrfKey, u64, u64);
 
-    fn get_stake_table(&self, _state: &Self::State) -> Self::StakeTable {
+    fn get_stake_table(&self, _state: &Self::StateType) -> Self::StakeTable {
         self.stake_table.clone()
     }
 
@@ -231,7 +231,7 @@ where
         view_number: ViewNumber,
         pub_key: HashVrfKey,
         token: Self::VoteToken,
-        _next_state: Commitment<Leaf<Self::State>>,
+        _next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Option<Self::ValidatedVoteToken> {
         warn!("Validating vote token");
         let selection_threshold = self.calculate_selection_threshold();
@@ -257,7 +257,7 @@ where
         &self,
         view_number: ViewNumber,
         private_key: &HashVrfKey,
-        _next_state: Commitment<Leaf<Self::State>>,
+        _next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Option<Self::VoteToken> {
         warn!("Making vote token");
         if let Some(votes) = self.stake_table.get(private_key) {

@@ -1,14 +1,14 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 use crate::{
-    traits::{BlockContents, NetworkError::ShutDown, NodeImplementation},
+    traits::{Block, NetworkError::ShutDown, NodeImplementation},
     types::{Event, HotShotError::NetworkFault},
     HotShot, Result,
 };
 use hotshot_types::{
     data::{Leaf, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
-    traits::{network::NetworkingImplementation, storage::Storage, StateContents}, event::EventType,
+    traits::{network::NetworkingImplementation, storage::Storage, State}, event::EventType,
 };
 use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 use std::sync::{
@@ -39,11 +39,11 @@ pub struct HotShotHandle<I: NodeImplementation + Send + Sync + 'static> {
     ///
     /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
     /// method is needed to generate new receivers for cloning the handle.
-    pub(crate) sender_handle: Arc<BroadcastSender<Event<I::State>>>,
+    pub(crate) sender_handle: Arc<BroadcastSender<Event<I::StateType>>>,
     /// Internal reference to the underlying [`HotShot`]
     pub(crate) hotshot: HotShot<I>,
     /// The [`BroadcastReceiver`] we get the events from
-    pub(crate) stream_output: BroadcastReceiver<Event<I::State>>,
+    pub(crate) stream_output: BroadcastReceiver<Event<I::StateType>>,
     /// Global to signify the `HotShot` should be closed after completing the next round
     pub(crate) shut_down: Arc<AtomicBool>,
     /// Our copy of the `Storage` view for a hotshot
@@ -68,7 +68,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// # Errors
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] has been closed.
-    pub async fn next_event(&mut self) -> Result<Event<I::State>> {
+    pub async fn next_event(&mut self) -> Result<Event<I::StateType>> {
         let result = self.stream_output.recv_async().await;
         match result {
             Ok(result) => Ok(result),
@@ -80,7 +80,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// # Errors
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down
-    pub fn try_next_event(&mut self) -> Result<Option<Event<I::State>>> {
+    pub fn try_next_event(&mut self) -> Result<Option<Event<I::StateType>>> {
         let result = self.stream_output.try_recv();
         Ok(result)
     }
@@ -91,7 +91,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut
     /// down.
-    pub fn available_events(&mut self) -> Result<Vec<Event<I::State>>> {
+    pub fn available_events(&mut self) -> Result<Vec<Event<I::StateType>>> {
         let mut output = vec![];
         // Loop to pull out all the outputs
         loop {
@@ -110,7 +110,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// # Errors
     ///
     /// Returns an error if the underlying `Storage` returns an error
-    pub async fn get_state(&self) -> I::State {
+    pub async fn get_state(&self) -> I::StateType {
         self.hotshot.get_state().await
     }
 
@@ -118,7 +118,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// # Panics
     ///
     /// Panics if internal consensus is in an inconsistent state.
-    pub async fn get_decided_leaf(&self) -> Leaf<I::State> {
+    pub async fn get_decided_leaf(&self) -> Leaf<I::StateType> {
         self.hotshot.get_decided_leaf().await
     }
 
@@ -132,7 +132,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// [`HotShot`] instance.
     pub async fn submit_transaction(
         &self,
-        tx: <<<I as NodeImplementation>::State as StateContents>::Block as BlockContents>::Transaction,
+        tx: <<<I as NodeImplementation>::StateType as State>::BlockType as Block>::Transaction,
     ) -> Result<()> {
         self.hotshot.publish_transaction_async(tx).await
     }
@@ -180,7 +180,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// Panics if the event stream is shut down while this is running
     pub async fn collect_round_events(
         &mut self,
-    ) -> Result<(Vec<I::State>, Vec<<I::State as StateContents>::Block>)> {
+    ) -> Result<(Vec<I::StateType>, Vec<<I::StateType as State>::BlockType>)> {
         // TODO we should probably do a view check
         // but we can do that later. It's non-obvious how to get the view number out
         // to check against
@@ -268,7 +268,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     #[cfg(feature = "hotshot-testing")]
     pub fn sign_proposal(
         &self,
-        leaf_commitment: &Commitment<Leaf<I::State>>,
+        leaf_commitment: &Commitment<Leaf<I::StateType>>,
         view_number: ViewNumber,
     ) -> EncodedSignature {
         let api = HotShotConsensusApi {
@@ -281,7 +281,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     #[cfg(feature = "hotshot-testing")]
     pub fn sign_vote(
         &self,
-        leaf_commitment: &Commitment<Leaf<I::State>>,
+        leaf_commitment: &Commitment<Leaf<I::StateType>>,
         view_number: ViewNumber,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let api = HotShotConsensusApi {
@@ -292,7 +292,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
 
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
     #[cfg(feature = "hotshot-testing")]
-    pub async fn send_broadcast_consensus_message(&self, msg: ConsensusMessage<I::State>) {
+    pub async fn send_broadcast_consensus_message(&self, msg: ConsensusMessage<I::StateType>) {
         let _result = self.hotshot.send_broadcast_message(msg).await;
     }
 
@@ -300,7 +300,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_direct_consensus_message(
         &self,
-        msg: ConsensusMessage<I::State>,
+        msg: ConsensusMessage<I::StateType>,
         recipient: I::SignatureKey,
     ) {
         let _result = self.hotshot.send_direct_message(msg, recipient).await;

@@ -13,7 +13,7 @@ use hotshot_types::{
         node_implementation::NodeImplementation,
         signature_key::SignatureKey,
         storage::{Storage, StoredView},
-        BlockContents, StateContents,
+        Block, State,
     },
 };
 use hotshot_utils::channel::UnboundedReceiver;
@@ -28,11 +28,11 @@ pub struct Replica<A: ConsensusApi<I>, I: NodeImplementation> {
     /// Reference to consensus. Replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<I>>>,
     /// channel for accepting leader proposals and timeouts messages
-    pub proposal_collection_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::State>>>>,
+    pub proposal_collection_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::StateType>>>>,
     /// view number this view is executing in
     pub cur_view: ViewNumber,
     /// genericQC from the pseudocode
-    pub high_qc: QuorumCertificate<I::State>,
+    pub high_qc: QuorumCertificate<I::StateType>,
     /// hotshot consensus api
     pub api: A,
 }
@@ -40,7 +40,7 @@ pub struct Replica<A: ConsensusApi<I>, I: NodeImplementation> {
 /// convenience type alias
 type ValidMsgResult<'a, I> = (
     RwLockUpgradableReadGuard<'a, Consensus<I>>,
-    std::result::Result<Leaf<<I as NodeImplementation>::State>, ()>,
+    std::result::Result<Leaf<<I as NodeImplementation>::StateType>, ()>,
 );
 
 impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
@@ -82,7 +82,13 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 "Inconsistency in recv-ed proposal. The parent's view number, {:?} did not match the justify_qc view number, {:?}",
                                 parent.view_number, justify_qc.view_number
                             );
-                            return (consensus, Err(()));
+                            continue;
+                        }
+
+                        // check that the justify_qc is valid
+                        if !self.api.validate_qc(&justify_qc) {
+                            warn!("Invalid justify_qc in proposal! Skipping proposal.");
+                            continue;
                         }
 
                         // check that we can indeed create the state
@@ -113,6 +119,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             warn!(?p.signature, "Could not verify proposal.");
                             continue;
                         }
+
 
                         // TODO change to locked_view + 2 after VRF integration
                         let liveness_check = justify_qc.view_number > consensus.locked_view;
@@ -146,9 +153,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         let leaf_commitment = leaf.commit();
                         let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
-                        let vote = ConsensusMessage::<I::State>::Vote(Vote {
+                        let vote = ConsensusMessage::<I::StateType>::Vote(Vote {
                             block_commitment:
-                                <<I::State as StateContents>::Block as Committable>::commit(
+                                <<I::StateType as State>::BlockType as Committable>::commit(
                                     &leaf.deltas,
                                 ),
                             justify_qc: leaf.justify_qc.clone(),
@@ -222,7 +229,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
     /// run one view of replica
     /// returns the `high_qc`
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<I::State> {
+    pub async fn run_view(self) -> QuorumCertificate<I::StateType> {
         info!("Replica task started!");
         let consensus = self.consensus.upgradable_read().await;
         let view_leader_key = self.api.get_leader(self.cur_view).await;
