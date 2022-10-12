@@ -56,7 +56,7 @@ use hotshot_types::{
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
-        election::Election,
+        election::{Election, ElectionError},
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
@@ -697,17 +697,12 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         &self,
         view_number: ViewNumber,
         next_state: Commitment<Leaf<I::StateType>>,
-    ) -> Option<Vec<u8>> {
-        let vote_token = self.inner.election.make_vote_token(
+    ) -> Result<<I::Election as Election<I::SignatureKey, ViewNumber>>::VoteToken, ElectionError> {
+        self.inner.election.make_vote_token(
             view_number,
             &self.inner.private_key,
             next_state,
-        )?;
-
-        let bytes = bincode_opts()
-            .serialize(&vote_token)
-            .expect("Could not serialize vote token");
-        Some(bytes)
+        )
     }
 
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {

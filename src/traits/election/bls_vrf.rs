@@ -295,7 +295,7 @@ impl<STATE> BLSVRF<STATE> {
         // selecting the cuttoff
         //
         // note: the u64 in the return type is the vote index
-        todo!()
+        nll_todo()
     }
 }
 

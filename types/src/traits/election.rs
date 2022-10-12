@@ -7,6 +7,14 @@ use crate::{
 };
 use commit::Commitment;
 use serde::{de::DeserializeOwned, Serialize};
+use snafu::Snafu;
+
+/// Error for election problems
+#[derive(Snafu, Debug)]
+pub enum ElectionError {
+    /// stub error to be filled in
+    StubError
+}
 
 /// Describes how `HotShot` chooses committees and leaders
 pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
@@ -34,7 +42,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         pub_key: P,
         token: Self::VoteToken,
         next_state: Commitment<Leaf<Self::StateType>>,
-    ) -> Option<Self::ValidatedVoteToken>;
+    ) -> Result<Self::ValidatedVoteToken, ElectionError>;
 
     /// Returns the number of votes the validated vote token has
     fn get_vote_count(&self, token: &Self::ValidatedVoteToken) -> u64;
@@ -47,7 +55,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         view_number: ViewNumber,
         private_key: &<P as SignatureKey>::PrivateKey,
         next_state: Commitment<Leaf<Self::StateType>>,
-    ) -> Option<Self::VoteToken>;
+    ) -> Result<Self::VoteToken, ElectionError>;
 
     // checks fee table validity, adds it to the block, this gets called by the leader when proposing the block
     // fn attach_proposed_fee_table(&self, b: &mut Block, fees: Vec<(ReceiverKey,u64)>) -> Result<()>

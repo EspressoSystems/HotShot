@@ -158,8 +158,6 @@ pub struct Proposal<STATE: State> {
 }
 
 /// A nodes vote on the prepare field.
-///
-/// This should not be used directly. Consider using [`PrepareVote`], [`PreCommitVote`] or [`CommitVote`] instead.
 #[derive(Serialize, Deserialize, Clone, custom_debug::Debug, std::hash::Hash, PartialEq, Eq)]
 pub struct Vote<STATE: State> {
     /// hash of the block being proposed
@@ -173,6 +171,7 @@ pub struct Vote<STATE: State> {
     #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
     pub justify_qc: QuorumCertificate<STATE>,
     /// The signature share associated with this vote
+    /// TODO ct/vrf: use VoteToken
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// Hash of the item being voted on
     #[debug(skip)]
