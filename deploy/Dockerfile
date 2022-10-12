@@ -2,7 +2,7 @@
 FROM ubuntu:jammy
 
 # assuming this is built already
-COPY target/release/examples/multi-machine-libp2p /bin/multi-machine-libp2p
+COPY target/release-lto/examples/multi-machine-libp2p /bin/multi-machine-libp2p
 
 # total number of nodes: regular + bootstrap
 ENV NUM_NODES="20"

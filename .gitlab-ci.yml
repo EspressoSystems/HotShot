@@ -74,11 +74,11 @@ build:
   tags:
     - docker
   script:
-    - cargo build --release --examples
+    - cargo build --profile=release-lto --examples
   artifacts:
     paths:
-      - target/release/examples/dentry-simulator
-      - target/release/examples/multi-machine
+      - target/release-lto/examples/dentry-simulator
+      - target/release-lto/examples/multi-machine
     expire_in: 2 weeks
   cache:
     key: build-cache
@@ -91,7 +91,7 @@ test:cargo:
   tags:
     - docker
   script:
-    - cargo test --release --all-features
+    - cargo test --profile=release-lto --all-features
   dependencies: []
   cache:
     key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
@@ -105,7 +105,7 @@ test:dentry-simulator:
   tags:
     - docker
   script:
-    - ./target/release/examples/dentry-simulator
+    - ./target/release-lto/examples/dentry-simulator
   dependencies:
     - build
   retry: 2

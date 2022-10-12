@@ -41,7 +41,7 @@ jobs:
 
       - name: Generate coverage reports
         run: |
-          nix develop .#perfShell -c cargo-llvm-cov llvm-cov --features=full-ci --lib --bins --tests --benches --release --workspace --lcov --output-path lcov.info -- --test-threads=1
+          nix develop .#perfShell -c cargo-llvm-cov llvm-cov --features=full-ci --lib --bins --tests --benches --profile=release-lto --workspace --lcov --output-path lcov.info -- --test-threads=1
         timeout-minutes: 90
 
       - name: Coveralls upload

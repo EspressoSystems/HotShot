@@ -2,7 +2,7 @@
 FROM ubuntu:jammy
 
 # assuming this is built already
-COPY target/release/benchmark_client /bin/benchmark_client
+COPY target/release-lto/benchmark_client /bin/benchmark_client
 
 # logging
 ENV RUST_LOG="warn"

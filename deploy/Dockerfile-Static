@@ -3,8 +3,8 @@ FROM ubuntu:jammy
 
 # assuming this is built already
 # to build:
-#    `nix develop .#staticShell -c bash -c "cargo build --features=async-std-executor --workspace --release  --examples"`
-COPY target/x86_64-unknown-linux-musl/release/examples/multi-machine-libp2p /bin/multi-machine-libp2p
+#    `nix develop .#staticShell -c bash -c "cargo build --features=async-std-executor --workspace --profile=release-lto  --examples"`
+COPY target/x86_64-unknown-linux-musl/release-lto/examples/multi-machine-libp2p /bin/multi-machine-libp2p
 
 # total number of nodes: regular + bootstrap
 ENV NUM_NODES="20"
