@@ -45,11 +45,12 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     fn min_transactions(&self) -> usize;
 
     /// Generates and encodes a vote token
+    #[allow(clippy::type_complexity)]
     fn generate_vote_token(
         &self,
         view_number: ViewNumber,
         next_state: Commitment<Leaf<I::StateType>>,
-    ) -> Result<<I::Election as Election<I::SignatureKey, ViewNumber>>::VoteToken, ElectionError>;
+    ) -> Result<Option<<I::Election as Election<I::SignatureKey, ViewNumber>>::VoteTokenType>, ElectionError>;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey;

@@ -44,7 +44,6 @@ use crate::{
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
-use bincode::Options;
 use commit::{Commitment, Committable};
 use hotshot_consensus::{
     Consensus, ConsensusApi, SendToTasks, TransactionHashMap, TransactionStorage, View, ViewInner,
@@ -65,7 +64,7 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use hotshot_utils::{art::async_spawn, bincode::bincode_opts, broadcast::BroadcastSender};
+use hotshot_utils::{art::async_spawn, broadcast::BroadcastSender};
 use hotshot_utils::{
     art::async_spawn_local,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -697,7 +696,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         &self,
         view_number: ViewNumber,
         next_state: Commitment<Leaf<I::StateType>>,
-    ) -> Result<<I::Election as Election<I::SignatureKey, ViewNumber>>::VoteToken, ElectionError> {
+    ) -> std::result::Result<std::option::Option<<<I as NodeImplementation>::Election as Election<<I as NodeImplementation>::SignatureKey, ViewNumber>>::VoteTokenType>, ElectionError> {
         self.inner.election.make_vote_token(
             view_number,
             &self.inner.private_key,

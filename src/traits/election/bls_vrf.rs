@@ -3,13 +3,13 @@ use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, ViewNumber},
     traits::{
-        election::Election,
+        election::{Election, ElectionError, VoteToken},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
         State,
     },
 };
-use hotshot_utils::bincode::bincode_opts;
+use hotshot_utils::{bincode::bincode_opts, hack::nll_todo};
 use jf_primitives::signatures::{
     bls::{BLSSignKey, BLSSignature, BLSSignatureScheme, BLSVerKey},
     SignatureScheme,
@@ -300,24 +300,32 @@ impl<STATE> BLSVRF<STATE> {
 }
 
 /// A structure for representing a vote token
+// #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, Hash)]
+// pub struct BLSToken {
+//     /// The public key assocaited with this token
+//     pub pub_key: BLSPubKey,
+//
+//     /// The list of signatures
+//     pub proofs: Vec<(EncodedSignature, u64)>,
+// }
+
+/// A structure for representing a validated vote token
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, Hash)]
 pub struct BLSToken {
     /// The public key assocaited with this token
     pub pub_key: BLSPubKey,
-
     /// The list of signatures
-    pub proofs: Vec<(EncodedSignature, u64)>,
-}
-
-/// A structure for representing a validated vote token
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, Hash)]
-pub struct ValidatedBLSToken {
-    /// The public key assocaited with this token
-    pub pub_key: BLSPubKey,
-    /// The list of signatures
+    /// TODO (ct) this is not correct, need to fix
     pub proofs: Vec<(EncodedSignature, u64)>,
     /// The number of signatures that are valid
+    /// TODO (ct) this should be sorition outbput
     pub valid_proofs: u64,
+}
+
+impl VoteToken for BLSToken {
+    fn vote_count(&self) -> u64 {
+        nll_todo()
+    }
 }
 
 impl<T, STATE> Election<BLSPubKey, T> for BLSVRF<STATE>
@@ -327,10 +335,9 @@ where
 {
     type StakeTable = BTreeMap<BLSPubKey, NonZeroU64>;
     type StateType = STATE;
-    type VoteToken = BLSToken;
-    type ValidatedVoteToken = ValidatedBLSToken;
+    type VoteTokenType = BLSToken;
 
-    fn get_stake_table(&self, _state: &Self::StateType) -> Self::StakeTable {
+    fn get_stake_table(&self, view_number: ViewNumber, _state: &Self::StateType) -> Self::StakeTable {
         self.stake_table.clone()
     }
 
@@ -338,64 +345,74 @@ where
         self.select_leader(&self.stake_table, view_number)
     }
 
-    fn get_votes(
-        &self,
-        view_number: ViewNumber,
-        pub_key: BLSPubKey,
-        token: Self::VoteToken,
-        _next_state: Commitment<Leaf<Self::StateType>>,
-    ) -> Option<Self::ValidatedVoteToken> {
-        let mut validated_votes: Vec<_> = vec![];
-        for (vote, vote_index) in token.proofs {
-            // Recalculate the input
-            let mut buf = Vec::<u8>::new();
-            buf.extend(&self.seed.0);
-            buf.extend(view_number.to_le_bytes());
-            buf.extend(vote_index.to_le_bytes());
-            // Verify it
-            if token.pub_key.validate(&vote, &buf) {
-                // TODO(nm-vacation) insert a check against your selection threshold here
-                // todo!();
-                validated_votes.push((vote, vote_index));
-            }
-        }
-        if validated_votes.is_empty() {
-            None
-        } else {
-            let len = validated_votes.len().try_into().unwrap();
-            Some(ValidatedBLSToken {
-                pub_key,
-                proofs: validated_votes,
-                valid_proofs: len,
-            })
-        }
-    }
+    // fn get_votes(
+    //     &self,
+    //     view_number: ViewNumber,
+    //     pub_key: BLSPubKey,
+    //     token: Self::VoteToken,
+    //     _next_state: Commitment<Leaf<Self::StateType>>,
+    // ) -> Option<Self::ValidatedVoteToken> {
+    //     let mut validated_votes: Vec<_> = vec![];
+    //     for (vote, vote_index) in token.proofs {
+    //         // Recalculate the input
+    //         let mut buf = Vec::<u8>::new();
+    //         buf.extend(&self.seed.0);
+    //         buf.extend(view_number.to_le_bytes());
+    //         buf.extend(vote_index.to_le_bytes());
+    //         // Verify it
+    //         if token.pub_key.validate(&vote, &buf) {
+    //             // TODO(nm-vacation) insert a check against your selection threshold here
+    //             // todo!();
+    //             validated_votes.push((vote, vote_index));
+    //         }
+    //     }
+    //     if validated_votes.is_empty() {
+    //         None
+    //     } else {
+    //         let len = validated_votes.len().try_into().unwrap();
+    //         Some(ValidatedBLSToken {
+    //             pub_key,
+    //             proofs: validated_votes,
+    //             valid_proofs: len,
+    //         })
+    //     }
+    // }
 
-    fn get_vote_count(&self, token: &Self::ValidatedVoteToken) -> u64 {
-        token.valid_proofs
-    }
-
+    // fn get_vote_count(&self, token: &Self::ValidatedVoteToken) -> u64 {
+    //     token.valid_proofs
+    // }
+    //
     fn make_vote_token(
         &self,
         view_number: ViewNumber,
         private_key: &<BLSPubKey as SignatureKey>::PrivateKey,
         _next_state: Commitment<Leaf<Self::StateType>>,
-    ) -> Option<Self::VoteToken> {
-        let pub_key = BLSPubKey::from_private(private_key);
-        if let Some(votes) = self.stake_table.get(&pub_key) {
-            // Get the votes for our self
-            let hashes = self.vote_proofs(private_key, view_number, votes.get());
-            if hashes.is_empty() {
-                None
-            } else {
-                Some(BLSToken {
-                    pub_key: BLSPubKey::from_private(private_key),
-                    proofs: hashes,
-                })
-            }
-        } else {
-            None
-        }
+    ) -> Result<Option<Self::VoteTokenType>, ElectionError> {
+        nll_todo()
+        // let pub_key = BLSPubKey::from_private(private_key);
+        // if let Some(votes) = self.stake_table.get(&pub_key) {
+        //     // Get the votes for our self
+        //     let hashes = self.vote_proofs(private_key, view_number, votes.get());
+        //     if hashes.is_empty() {
+        //         None
+        //     } else {
+        //         Some(BLSToken {
+        //             pub_key: BLSPubKey::from_private(private_key),
+        //             proofs: hashes,
+        //         })
+        //     }
+        // } else {
+        //     None
+        // }
+    }
+
+    fn validate_vote_token(
+        &self,
+        view_number: ViewNumber,
+        pub_key: BLSPubKey,
+        token: Self::VoteTokenType,
+    ) -> Result<hotshot_types::traits::election::Checked<Self::VoteTokenType>, ElectionError> {
+        nll_todo()
     }
 }
 

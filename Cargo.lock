@@ -2250,6 +2250,7 @@ dependencies = [
  "hotshot-utils",
  "proptest",
  "rand 0.8.5",
+ "serde",
  "snafu",
  "tempfile",
  "tokio",

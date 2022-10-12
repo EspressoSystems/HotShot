@@ -3,10 +3,11 @@ use hotshot::{data::Leaf, traits::dummy::DummyState};
 use hotshot_types::{
     data::ViewNumber,
     traits::{
-        election::Election,
+        election::{Election, VoteToken},
         signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
     },
 };
+use hotshot_utils::hack::nll_todo;
 use tracing::{info, instrument};
 
 /// A testable interface for the election trait.
@@ -16,13 +17,25 @@ pub struct TestElection {
     pub leaders: Vec<Ed25519Pub>,
 }
 
+use serde::{Deserialize, Serialize};
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, Hash)]
+pub struct StubToken {}
+
+impl VoteToken for StubToken {
+    fn vote_count(&self) -> u64 {
+        nll_todo()
+    }
+}
+
 impl Election<Ed25519Pub, ViewNumber> for TestElection {
     type StakeTable = ();
     type StateType = DummyState;
-    type VoteToken = ();
-    type ValidatedVoteToken = ();
 
-    fn get_stake_table(&self, _: &Self::StateType) -> Self::StakeTable {}
+    type VoteTokenType = StubToken;
+
+    fn get_stake_table(&self, view_number: ViewNumber, state: &Self::StateType) -> Self::StakeTable {
+        nll_todo()
+    }
 
     fn get_leader(&self, view_number: ViewNumber) -> Ed25519Pub {
         match self.leaders.get(*view_number as usize) {
@@ -36,29 +49,24 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
         }
     }
 
-    #[instrument]
-    fn get_votes(
-        &self,
-        view_number: ViewNumber,
-        pub_key: Ed25519Pub,
-        token: Self::VoteToken,
-        next_state: Commitment<Leaf<Self::StateType>>,
-    ) -> Option<Self::ValidatedVoteToken> {
-        Some(())
-    }
-
-    #[instrument]
-    fn get_vote_count(&self, token: &Self::ValidatedVoteToken) -> u64 {
-        unimplemented!()
-    }
-
-    #[instrument(skip(_private_key))]
     fn make_vote_token(
         &self,
         view_number: ViewNumber,
-        _private_key: &Ed25519Priv,
+        private_key: &<Ed25519Pub as hotshot::types::SignatureKey>::PrivateKey,
+        // TODO (ct) this should be replaced with something else...
         next_state: Commitment<Leaf<Self::StateType>>,
-    ) -> Option<Self::VoteToken> {
-        unimplemented!()
+    ) -> Result<Option<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
+        nll_todo()
     }
+
+
+    fn validate_vote_token(
+        &self,
+        view_number: ViewNumber,
+        pub_key: Ed25519Pub,
+        token: Self::VoteTokenType,
+    ) -> Result<hotshot_types::traits::election::Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
+        nll_todo()
+    }
+
 }
