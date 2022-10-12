@@ -21,8 +21,11 @@ async-std-executor = [
 ]
 # Enable demo/testing logic
 demo = ["blake3", "hotshot-types/demo", "libp2p/rsa"]
-# Build the extended documentation
 
+# Features required for binaries
+bin-orchestrator = ["toml", "clap"]
+
+# Build the extended documentation
 docs = []
 doc-images = []
 full-ci = [
@@ -80,6 +83,10 @@ required-features = ["demo", "async-std-executor"]
 name = "multi-machine-libp2p"
 required-features = ["demo", "libp2p/rsa"]
 
+[[bin]]
+name = "orchestrator"
+required-features = ["bin-orchestrator"]
+
 [dependencies]
 async-lock = "2.5"
 async-std = { version = "1.12", optional = true }
@@ -90,6 +97,7 @@ bimap = "0.6.2"
 bincode = "1.3.3"
 blake3 = { version = "1.1.0", optional = true }
 cfg-if = "1"
+clap = { version = "4.0", features = ["derive", "env"], optional = true }
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.0" }
 custom_debug = "0.5"
 dashmap = "5.3.4"
@@ -131,6 +139,7 @@ serde = { version = "1.0.145", features = ["derive", "rc"] }
 snafu = { version = "0.7.2", features = ["backtraces"] }
 tempfile = "3.3.0"
 time = "0.3.15"
+toml = { version = "0.5.9", optional = true }
 tokio = { version = "1", optional = true, features = [
         "fs",
         "io-util",
@@ -193,7 +202,6 @@ incremental = true
 
 members = [
         "centralized_server",
-        "centralized_server/orchestrator",
         "centralized_server/benchmark_client",
         "consensus",
         "libp2p-networking",
