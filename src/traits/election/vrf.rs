@@ -6,6 +6,7 @@ use jf_primitives::{signatures::{
     bls::{BLSSignKey, BLSSignature, BLSSignatureScheme, BLSVerKey},
     SignatureScheme,
 }, vrf::Vrf};
+use num::{rational::Ratio, FromPrimitive, BigUint};
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
 
 // TODO wrong palce for this
@@ -279,22 +280,35 @@ fn generate_view_seed<STATE: State>(next_state: commit::Commitment<hotshot_types
 // p = tau / W, where tau is the sortition parameter (controlling committee size)
 // this is why we need W and tau
 // TODO (ct) better error handling
-fn calculate_threshold(j: u64, w: u64, W: u64, tau: u64) -> [u8; 32]{
+// TODO (jr) better names
+fn calculate_threshold(j: u32, w: u64, W: u64, tau: u64) -> Ratio<BigUint>{
     // TODO (ct) better error handling
-    if j > w {
+    if j as u64 > w {
         panic!("j is larger than amount of stake we are allowed");
     }
-    let p = tau / W;
-    // let num_permutations = factorial(w) / (factorial(j) * factorial(w - j ));
 
-    // let result = num_permutations * (p.pow(j) * (1 - p).pow(w-j));
-    // TODO figure out how to return the result while making the types match
+    let j_big = BigUint::from_u64(j as u64).unwrap();
 
-    nll_todo()
+    let tau_big : BigUint = BigUint::from_u64(tau).unwrap();
+    let w_big : BigUint = BigUint::from_u64(w).unwrap();
+    let W_big : BigUint = BigUint::from_u64(tau).unwrap();
+
+    let p = Ratio::new(tau_big, W_big);
+
+    let failed_num = w - (j as u64);
+
+    let num_permutations = factorial(w) / (factorial(j as u64) * factorial(failed_num));
+    let num_permutations = Ratio::new(num_permutations, BigUint::from_u8(1).unwrap());
+
+    let one = Ratio::new(BigUint::from_u8(1).unwrap(), BigUint::from_u8(1).unwrap());
+
+    let result = num_permutations * (p.pow(j as i32) * (one - p).pow(failed_num as i32));
+
+    result
 }
 
-fn factorial(mut i: usize) -> usize {
-    let mut result = 1;
+fn factorial(mut i: u64) -> BigUint {
+    let mut result = BigUint::from_usize(1).unwrap();
     while i > 0 {
         result *= i;
         i -= 1;
@@ -302,24 +316,23 @@ fn factorial(mut i: usize) -> usize {
     result
 }
 
-fn add_arrays(a: &[u8; 32], b: &[u8; 32]) -> [u8; 32]{
-    let mut r = a.clone();
-    for i in 0..32 {
-        r[i] += b[i]
-    }
-    r
-}
-
 fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<u64> {
+    let unnormalized_seed = BigUint::from_bytes_le(unnormalized_seed);
+    let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from_u8(1).unwrap().pow(256));
     let mut j = 0;
-    let mut left_threshold : [u8; 32] = [0; 32];
+    // left_threshold corresponds to the sum of all bernoulli distributions
+    // from i in 0 to j: B(i; replicas_stake; p). Where p is calculated later and corresponds to
+    // algorands paper
+    let mut left_threshold = Ratio::new(BigUint::from_u8(0).unwrap(), BigUint::from_u8(1).unwrap());
     loop {
         let bin_val = calculate_threshold(j + 1, replicas_stake, total_stake, sortition_parameter);
-        let right_range = add_arrays(&left_threshold, &bin_val);
-        if *unnormalized_seed < right_range {
-            return Some(j);
+        // corresponds to right range from apper
+        let right_threshold = left_threshold + bin_val;
+        // from i in 0 to j + 1: B(i; replicas_stake; p)
+        if normalized_seed < right_threshold {
+            return Some(j as u64);
         } else {
-            left_threshold = right_range;
+            left_threshold = right_threshold;
         }
     }
 }
