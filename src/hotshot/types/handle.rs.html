@@ -355,11 +355,11 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">hotshot_consensus::ConsensusApi</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">hotshot_types</span>::{
-    <span class="ident">data::ViewNumber</span>,
-    <span class="ident">message::ConsensusMessage</span>,
-    <span class="ident">traits::signature_key</span>::{<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>},
-};
+<span class="kw">use</span> <span class="ident">hotshot_types::message::ConsensusMessage</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">hotshot_types::traits::signature_key</span>::{<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>};
+
+<span class="kw">use</span> <span class="ident">hotshot_types::data::ViewNumber</span>;
 
 <span class="doccomment">/// Event streaming handle for a [`HotShot`] instance running in the background</span>
 <span class="doccomment">///</span>
