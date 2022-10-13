@@ -8,6 +8,8 @@ use jf_primitives::{signatures::{
 }, vrf::Vrf};
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
 
+// TODO abstraction this function's impl into a trait
+// TODO do we necessariy want the units of stake to be a u64? or generics
 #[derive(Serialize, Deserialize, Clone)]
 pub struct VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>
 {
@@ -16,6 +18,18 @@ pub struct VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>
     _pd_0: PhantomData<VRF>,
     _pd_1: PhantomData<VRFHASHER>,
     _pd_2: PhantomData<VRFPARAMS>,
+}
+
+impl<VRF, VRFHASHER, VRFPARAMS> VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>
+    where VRF: Vrf<VRFHASHER, VRFPARAMS>,
+          <VRF as Vrf<VRFHASHER, VRFPARAMS>>::PublicKey : SignatureKey {
+    pub fn get_all_stake(&self) -> u64 {
+        self.total_stake
+    }
+    pub fn get_stake(&self, pk: &VRF::PublicKey) -> Option<u64> {
+        let encoded = pk.to_bytes();
+        self.mapping.get(&encoded).map(|val| val.get())
+    }
 }
 
 // struct Orderable<T> {
@@ -157,8 +171,10 @@ where
     ) -> Result<Option<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
         let my_pub_key = <VRF::PublicKey as SignatureKey>::from_private(&private_key);
         // TODO (ct) what should state be?
-        let state : Self::StateType = nll_todo();
-        // let my_stake = self.get_stake_table(view_number, &state);
+        let my_stake = match self.stake_table.get_stake(&my_pub_key) {
+            Some(val) => val,
+            None => return Ok(None),
+        };
         nll_todo()
     }
 
