@@ -244,7 +244,7 @@ where
             Checked::Unchecked(token) => {
                 let stake : Option<u64> = self.stake_table.get_stake(&pub_key);
                 if let Some(stake) = stake {
-                    if let Ok(r) = VRF::verify(&self.proof_parameters, &token.proof, &pub_key, &<[u8; 32]>::from(next_state)) {
+                    if let Ok(true) = VRF::verify(&self.proof_parameters, &token.proof, &pub_key, &<[u8; 32]>::from(next_state)) {
                         if let Ok(seed) = VRF::evaluate(&self.proof_parameters, &token.proof) {
                             let total_stake = self.stake_table.total_stake;
                             if let Some(true) = check_bin_idx(token.count, stake, total_stake, SORTITION_PARAMETER, &seed) {
@@ -270,48 +270,62 @@ where
     }
 }
 
+// checks that the expected aomunt of stake matches the VRF output
 // TODO this can be optimized most likely
 fn check_bin_idx(expected_amount_of_stake: u64, replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<bool> {
-
     let bin_idx = find_bin_idx(replicas_stake, total_stake, sortition_parameter, unnormalized_seed);
     bin_idx.map(|idx| idx == expected_amount_of_stake)
 }
 
+/// generates the seed from algorand paper
+/// baseed on `next_state` commitment as of now, but in the future will be other things
+/// this is a stop-gap
 fn generate_view_seed<STATE: State>(next_state: commit::Commitment<hotshot_types::data::Leaf<STATE>>) -> [u8; 32] {
     <[u8; 32]>::from(next_state)
 }
 
-// calculates B(j; w; p)
+// Calculates B(j; w; p) where B means bernoulli distribution.
+// That is: run w trials, with p probability of success for each trial, and return the probability
+// of j successes.
 // p = tau / W, where tau is the sortition parameter (controlling committee size)
-// this is why we need W and tau
+// this is the only usage of W and tau
+//
+// Translation:
+// stake_attempt: our guess at what the stake might be. This is j
+// replicas_stake: the units of stake owned by the replica. This is w
+// total_stake: the units of stake owned in total. This is W
+// sorition_parameter: the parameter controlling the committee size. This is tau
+//
 // TODO (ct) better error handling
-// TODO (jr) better names
 // returns none if one of our calculations fails
-fn calculate_threshold(j: u32, w: u64, W: u64, tau: u64) -> Option<Ratio<BigUint>> {
+fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64, sortition_parameter: u64) -> Option<Ratio<BigUint>> {
     // TODO (ct) better error handling
-    if j as u64 > w {
+    if stake_attempt as u64 > replicas_stake {
         panic!("j is larger than amount of stake we are allowed");
     }
 
 
-    let tau_big : BigUint = BigUint::from_u64(tau)?;
-    let w_big : BigUint = BigUint::from_u64(w)?;
-    let W_big : BigUint = BigUint::from_u64(tau)?;
+    let sortition_parameter_big : BigUint = BigUint::from_u64(sortition_parameter)?;
+    let replicas_stake_big : BigUint = BigUint::from_u64(replicas_stake)?;
+    let total_stake_big : BigUint = BigUint::from_u64(sortition_parameter)?;
 
-    let p = Ratio::new(tau_big, W_big);
+    // this is the p parameter for the bernoulli distribution
+    let p = Ratio::new(sortition_parameter_big, total_stake_big);
 
-    let failed_num = w - (j as u64);
+    // number of tails in bernoulli
+    let failed_num = replicas_stake - (stake_attempt as u64);
 
-    let num_permutations = factorial(w) / (factorial(j as u64) * factorial(failed_num));
+    let num_permutations = factorial(replicas_stake) / (factorial(stake_attempt as u64) * factorial(failed_num));
     let num_permutations = Ratio::new(num_permutations, BigUint::from_u8(1)?);
 
     let one = Ratio::new(BigUint::from_u8(1)?, BigUint::from_u8(1)?);
 
-    let result = num_permutations * (p.pow(j as i32) * (one - p).pow(failed_num as i32));
+    let result = num_permutations * (p.pow(stake_attempt as i32) * (one - p).pow(failed_num as i32));
 
     Some(result)
 }
 
+// calculated i! as a biguint
 fn factorial(mut i: u64) -> BigUint {
     let mut result = BigUint::from_usize(1).unwrap();
     while i > 0 {
@@ -321,6 +335,7 @@ fn factorial(mut i: u64) -> BigUint {
     result
 }
 
+/// find the amount of stake we rolled.
 fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<u64> {
     let unnormalized_seed = BigUint::from_bytes_le(unnormalized_seed);
     let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from_u8(1)?.pow(256));
@@ -342,36 +357,4 @@ fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64,
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
