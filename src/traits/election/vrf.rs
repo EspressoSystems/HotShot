@@ -8,6 +8,9 @@ use jf_primitives::{signatures::{
 }, vrf::Vrf};
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
 
+// TODO wrong palce for this
+pub const SORTITION_PARAMETER: u64 = 100;
+
 // TODO abstraction this function's impl into a trait
 // TODO do we necessariy want the units of stake to be a u64? or generics
 #[derive(Serialize, Deserialize, Clone)]
@@ -136,7 +139,7 @@ impl<
     STATE
 > Election<VRF::PublicKey, TIME> for VrfImpl<STATE, VRF, VRFHASHER, VRFPARAMS>
 where
-    VRF: Vrf<VRFHASHER, VRFPARAMS, Input = [u8; 32]> + Clone + Sync + Send,
+    VRF: Vrf<VRFHASHER, VRFPARAMS, Input = [u8; 32], Output = [u8; 32]> + Clone + Sync + Send,
     VRF::PublicKey : SignatureKey<PrivateKey = VRF::SecretKey> + Ord,
     VRF::Proof : Clone + Sync + Send + Serialize + DeserializeOwned,
     VRF::PublicParameter: Sync + Send,
@@ -184,23 +187,38 @@ where
         next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
     ) -> Result<Option<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
         let pub_key = <VRF::PublicKey as SignatureKey>::from_private(&private_key);
-        // TODO (ct) what should state be?
-        let my_stake = match self.stake_table.get_stake(&pub_key) {
+        let replicas_stake = match self.stake_table.get_stake(&pub_key) {
             Some(val) => val,
             None => return Ok(None),
         };
+        let view_seed = generate_view_seed(next_state);
+        // TODO (ct) this can fail, return Result::Err
+        let proof = VRF::prove(
+            &self.proof_parameters,
+            private_key,
+            &view_seed,
+            &mut *self.prng.lock().unwrap()
+        ).unwrap();
+
+        // TODO (ct) this can fail, return result::err
+        let hash = VRF::evaluate(&self.proof_parameters, &proof).unwrap();
+
+        // hardcoded to be 32
+        let _hash_len = 1 << (32 * 8);
+
+        // TODO (ct) this should invoke the get_stake_table function
+        let total_stake = self.stake_table.total_stake;
+
+        // let seed: u64 = hash / hash_len;
+
+
+
         // calculate hash / 2^ thing
         // iterate through buckets and pick the correct one
-        let my_view_selected_stake = calculate_stake(my_stake);
-        match my_view_selected_stake {
+        // the stake we selected
+        let selected_stake = find_bin_idx(replicas_stake, total_stake, SORTITION_PARAMETER, &hash);
+        match selected_stake {
             Some(count) => {
-                // TODO (ct) this can fail, return Result::Err
-                let proof = VRF::prove(
-                    &self.proof_parameters,
-                    private_key,
-                    &<[u8; 32]>::from(next_state),
-                    &mut *self.prng.lock().unwrap()
-                ).unwrap();
 
                 Ok(Some(VRFVoteToken {
                     pub_key,
@@ -222,14 +240,18 @@ where
     ) -> Result<Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
         match token {
             Checked::Unchecked(token) => {
-                let pubkey = nll_todo();
                 let stake : Option<u64> = nll_todo();
                 if let Some(stake) = stake {
                     if token.count != stake {
                         return Err(ElectionError::StubError);
                     }
-                    if let Ok(r) = VRF::verify(&self.proof_parameters, &token.proof, &pubkey, &<[u8; 32]>::from(next_state)) {
-                        Ok(Checked::Valid(token))
+                    if let Ok(r) = VRF::verify(&self.proof_parameters, &token.proof, &pub_key, &<[u8; 32]>::from(next_state)) {
+                        // check that we actually fall into the right bin
+                        if let Some(true) = check_bin_idx(nll_todo(), nll_todo()) {
+                            Ok(Checked::Valid(token))
+                        } else {
+                            Ok(Checked::Inval(token))
+                        }
                     } else {
                         Ok(Checked::Inval(token))
                     }
@@ -241,9 +263,96 @@ where
             already_checked => Ok(already_checked)
         }
     }
+}
 
+// TODO the parameters here will need to be more
+fn check_bin_idx(stake: u64, bin_idx: u64) -> Option<bool> {
+    let bin_idx = find_bin_idx(nll_todo(), nll_todo(), nll_todo(), nll_todo());
+    bin_idx.map(|idx| idx == stake)
 }
-fn calculate_stake(stake: u64) -> Option<u64> {
-    Some(stake)
+
+fn generate_view_seed<STATE: State>(next_state: commit::Commitment<hotshot_types::data::Leaf<STATE>>) -> [u8; 32] {
+    <[u8; 32]>::from(next_state)
 }
+
+// calculates B(j; w; p)
+// p = tau / W, where tau is the sortition parameter (controlling committee size)
+// this is why we need W and tau
+// TODO (ct) better error handling
+fn calculate_threshold(j: u64, w: u64, W: u64, tau: u64) -> [u8; 32]{
+    // TODO (ct) better error handling
+    if j > w {
+        panic!("j is larger than amount of stake we are allowed");
+    }
+    let p = tau / W;
+    // let num_permutations = factorial(w) / (factorial(j) * factorial(w - j ));
+
+    // let result = num_permutations * (p.pow(j) * (1 - p).pow(w-j));
+    // TODO figure out how to return the result while making the types match
+
+    nll_todo()
+}
+
+fn factorial(mut i: usize) -> usize {
+    let mut result = 1;
+    while i > 0 {
+        result *= i;
+        i -= 1;
+    }
+    result
+}
+
+fn add_arrays(a: &[u8; 32], b: &[u8; 32]) -> [u8; 32]{
+    let mut r = a.clone();
+    for i in 0..32 {
+        r[i] += b[i]
+    }
+    r
+}
+
+fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<u64> {
+    let mut j = 0;
+    let mut left_threshold : [u8; 32] = [0; 32];
+    loop {
+        let bin_val = calculate_threshold(j + 1, replicas_stake, total_stake, sortition_parameter);
+        let right_range = add_arrays(&left_threshold, &bin_val);
+        if *unnormalized_seed < right_range {
+            return Some(j);
+        } else {
+            left_threshold = right_range;
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
