@@ -63,11 +63,9 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// Returns true if signatures have enough votes to pass the committee threshold
     fn check_threshold(
         &self,
-        _signatures: &BTreeMap<EncodedPublicKey, EncodedSignature>,
+        _signatures: &BTreeMap<EncodedPublicKey, (EncodedSignature, Vec<u8>)>,
         _threshold: NonZeroUsize,
-    ) -> bool {
-        nll_todo()
-    }
+    ) -> bool;
 
     /// Attempts to generate a vote token for self
     ///

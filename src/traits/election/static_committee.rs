@@ -2,7 +2,7 @@ use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, ViewNumber},
     traits::{
-        election::{Election, VoteToken, ElectionError, Checked},
+        election::{Checked, Election, ElectionError, VoteToken},
         signature_key::{
             ed25519::{Ed25519Priv, Ed25519Pub},
             EncodedSignature, SignatureKey,
@@ -36,7 +36,7 @@ impl<S> StaticCommittee<S> {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct StaticVoteToken {
     signature: EncodedSignature,
-    pub_key: Ed25519Pub
+    pub_key: Ed25519Pub,
 }
 
 impl VoteToken for StaticVoteToken {
@@ -55,13 +55,30 @@ where
     type StateType = S;
     type VoteTokenType = StaticVoteToken;
     /// Clone the static table
-    fn get_stake_table(&self, view_number: ViewNumber, _state: &Self::StateType) -> Self::StakeTable {
+    fn get_stake_table(
+        &self,
+        view_number: ViewNumber,
+        _state: &Self::StateType,
+    ) -> Self::StakeTable {
         self.nodes.clone()
     }
     /// Index the vector of public keys with the current view number
     fn get_leader(&self, view_number: ViewNumber) -> Ed25519Pub {
         let index = (*view_number % self.nodes.len() as u64) as usize;
         self.nodes[index]
+    }
+    fn check_threshold(
+        &self,
+        _signatures: &BTreeMap<
+            EncodedPublicKey,
+            (
+                hotshot_types::traits::signature_key::EncodedSignature,
+                Vec<u8>,
+            ),
+        >,
+        _threshold: std::num::NonZeroUsize,
+    ) -> bool {
+        nll_todo()
     }
     /// Simply verify the signature and check the membership list
     // fn get_votes(
@@ -102,7 +119,10 @@ where
         pub_key: Ed25519Pub,
         token: Checked<Self::VoteTokenType>,
         next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
-    ) -> Result<hotshot_types::traits::election::Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
+    ) -> Result<
+        hotshot_types::traits::election::Checked<Self::VoteTokenType>,
+        hotshot_types::traits::election::ElectionError,
+    > {
         nll_todo()
     }
 

@@ -7,7 +7,7 @@ use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     message::ConsensusMessage,
-    traits::{election::Election, node_implementation::NodeImplementation, State},
+    traits::{election::Election, node_implementation::NodeImplementation, State, signature_key::{EncodedPublicKey, EncodedSignature}},
 };
 use hotshot_types::traits::election::Checked::Unchecked;
 use hotshot_utils::{channel::UnboundedReceiver, bincode::bincode_opts};
@@ -46,7 +46,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
         #[allow(clippy::type_complexity)]
         let mut vote_outcomes: HashMap<
             Commitment<Leaf<I::StateType>>,
-            (Commitment<<I::StateType as State>::BlockType>, Signatures),
+            (Commitment<<I::StateType as State>::BlockType>, BTreeMap<EncodedPublicKey, (EncodedSignature, Vec<u8>)>),
         > = HashMap::new();
         // TODO will need to refactor this during VRF integration
         let threshold = self.api.threshold();
@@ -65,13 +65,14 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     // if the signature on the vote is invalid,
                     // assume it's sent by byzantine node
                     // and ignore
+                    let vote_token = bincode_opts().deserialize(&vote.vote_token).unwrap();
                     if !self.api.is_valid_signature(
                         &vote.signature.0,
                         &vote.signature.1,
                         vote.leaf_commitment,
                         vote.current_view,
                         // Ignoring deserialization errors below since we are getting rid of it soon
-                        Unchecked(bincode_opts().deserialize(&vote.vote_token).unwrap())
+                        Unchecked(vote_token)
                     ) {
                         continue;
                     }
@@ -81,11 +82,11 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     match vote_outcomes.entry(vote.leaf_commitment) {
                         std::collections::hash_map::Entry::Occupied(mut o) => {
                             let (_bh, map) = o.get_mut();
-                            map.insert(vote.signature.0.clone(), vote.signature.1.clone());
+                            map.insert(vote.signature.0.clone(), (vote.signature.1.clone(), vote.vote_token));
                         }
                         std::collections::hash_map::Entry::Vacant(location) => {
                             let mut map = BTreeMap::new();
-                            map.insert(vote.signature.0, vote.signature.1);
+                            map.insert(vote.signature.0, (vote.signature.1, vote.vote_token));
                             location.insert((vote.block_commitment, map));
                         }
                     }

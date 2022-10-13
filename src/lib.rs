@@ -58,7 +58,7 @@ use hotshot_types::{
         election::{Election, ElectionError, Checked::{Unchecked, Valid, Inval}},
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, self},
         storage::{StoredView, ViewEntry},
         State,
     },
@@ -777,7 +777,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         let mut num_valid = 0;
         // TODO ed - double check for VRF changes
         for signature in qc.signatures.clone() {
-            if self.is_valid_signature(&signature.0, &signature.1, hash) {
+            if self.is_valid_signature(&signature.0, &signature.1.0, hash, qc.view_number, &signature.1.1) {
                 num_valid += 1;
             }
 
