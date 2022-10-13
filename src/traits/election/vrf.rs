@@ -217,6 +217,7 @@ where
         // calculate hash / 2^ thing
         // iterate through buckets and pick the correct one
         // the stake we selected
+        // TODO (jr) this error handling is NOTGOOD
         let selected_stake = find_bin_idx(replicas_stake, total_stake, SORTITION_PARAMETER, &hash);
         match selected_stake {
             Some(count) => {
@@ -281,30 +282,30 @@ fn generate_view_seed<STATE: State>(next_state: commit::Commitment<hotshot_types
 // this is why we need W and tau
 // TODO (ct) better error handling
 // TODO (jr) better names
-fn calculate_threshold(j: u32, w: u64, W: u64, tau: u64) -> Ratio<BigUint>{
+// returns none if one of our calculations fails
+fn calculate_threshold(j: u32, w: u64, W: u64, tau: u64) -> Option<Ratio<BigUint>> {
     // TODO (ct) better error handling
     if j as u64 > w {
         panic!("j is larger than amount of stake we are allowed");
     }
 
-    let j_big = BigUint::from_u64(j as u64).unwrap();
 
-    let tau_big : BigUint = BigUint::from_u64(tau).unwrap();
-    let w_big : BigUint = BigUint::from_u64(w).unwrap();
-    let W_big : BigUint = BigUint::from_u64(tau).unwrap();
+    let tau_big : BigUint = BigUint::from_u64(tau)?;
+    let w_big : BigUint = BigUint::from_u64(w)?;
+    let W_big : BigUint = BigUint::from_u64(tau)?;
 
     let p = Ratio::new(tau_big, W_big);
 
     let failed_num = w - (j as u64);
 
     let num_permutations = factorial(w) / (factorial(j as u64) * factorial(failed_num));
-    let num_permutations = Ratio::new(num_permutations, BigUint::from_u8(1).unwrap());
+    let num_permutations = Ratio::new(num_permutations, BigUint::from_u8(1)?);
 
-    let one = Ratio::new(BigUint::from_u8(1).unwrap(), BigUint::from_u8(1).unwrap());
+    let one = Ratio::new(BigUint::from_u8(1)?, BigUint::from_u8(1)?);
 
     let result = num_permutations * (p.pow(j as i32) * (one - p).pow(failed_num as i32));
 
-    result
+    Some(result)
 }
 
 fn factorial(mut i: u64) -> BigUint {
@@ -318,14 +319,14 @@ fn factorial(mut i: u64) -> BigUint {
 
 fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<u64> {
     let unnormalized_seed = BigUint::from_bytes_le(unnormalized_seed);
-    let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from_u8(1).unwrap().pow(256));
+    let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from_u8(1)?.pow(256));
     let mut j = 0;
     // left_threshold corresponds to the sum of all bernoulli distributions
     // from i in 0 to j: B(i; replicas_stake; p). Where p is calculated later and corresponds to
     // algorands paper
-    let mut left_threshold = Ratio::new(BigUint::from_u8(0).unwrap(), BigUint::from_u8(1).unwrap());
+    let mut left_threshold = Ratio::new(BigUint::from_u8(0)?, BigUint::from_u8(1)?);
     loop {
-        let bin_val = calculate_threshold(j + 1, replicas_stake, total_stake, sortition_parameter);
+        let bin_val = calculate_threshold(j + 1, replicas_stake, total_stake, sortition_parameter)?;
         // corresponds to right range from apper
         let right_threshold = left_threshold + bin_val;
         // from i in 0 to j + 1: B(i; replicas_stake; p)
@@ -333,6 +334,7 @@ fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64,
             return Some(j as u64);
         } else {
             left_threshold = right_threshold;
+            j += 1;
         }
     }
 }

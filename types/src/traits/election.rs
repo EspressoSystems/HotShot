@@ -13,7 +13,11 @@ use snafu::Snafu;
 #[derive(Snafu, Debug)]
 pub enum ElectionError {
     /// stub error to be filled in
-    StubError
+    StubError,
+    /// Math error doing something
+    /// NOTE: it would be better to make Election polymorphic over
+    /// the election error and then have specific math errors
+    MathError
 }
 
 /// For items that will always have the same validity outcome on a successful check,
