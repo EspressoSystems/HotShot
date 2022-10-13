@@ -5,6 +5,6 @@ COPY . /app
 RUN cargo audit || true
 RUN cargo clippy -- -D warnings --features=async-std-executor
 RUN cargo fmt -- --check
-RUN cargo build --release-lto --features=async-std-executor
-RUN cargo test --release-lto --features=full-ci
+RUN cargo build --profile=release-lto --features=async-std-executor
+RUN cargo test --profile=release-lto --features=full-ci
 
