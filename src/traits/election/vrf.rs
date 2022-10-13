@@ -76,7 +76,7 @@ impl<VRF, VRFHASHER, VRFPARAMS> VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>
 // impl std::cmp::Ord for Orderable<T> {}
 
 /// TODO this may not be correct for KEY
-#[derive(Serialize, Clone)]
+#[derive(Clone)]
 pub struct VrfImpl<
     STATE,
     VRF,
@@ -91,6 +91,9 @@ where STATE: State,
     VRF: Vrf<VRFHASHER, VRFPARAMS> + Clone + Sync + Send,
 {
     stake_table: VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>,
+    proof_parameters: VRF::PublicParameter,
+    // #[serde(ignore)]
+    prng: std::sync::Arc<std::sync::Mutex<rand_chacha::ChaChaRng>>,
     // TODO (fst2) accessor to stake table
     // stake_table:
     _pd_0: PhantomData<VRFHASHER>,
@@ -133,11 +136,12 @@ impl<
     STATE
 > Election<VRF::PublicKey, TIME> for VrfImpl<STATE, VRF, VRFHASHER, VRFPARAMS>
 where
+    VRF: Vrf<VRFHASHER, VRFPARAMS, Input = [u8; 32]> + Clone + Sync + Send,
     VRF::PublicKey : SignatureKey<PrivateKey = VRF::SecretKey> + Ord,
     VRF::Proof : Clone + Sync + Send + Serialize + DeserializeOwned,
+    VRF::PublicParameter: Sync + Send,
     VRFHASHER: Clone + Sync + Send + Serialize + DeserializeOwned,
     VRFPARAMS: Clone + Sync + Send + Serialize + DeserializeOwned,
-    VRF: Vrf<VRFHASHER, VRFPARAMS> + Clone + Sync + Send,
     TIME: ConsensusTime,
     STATE: State,
 {
@@ -157,25 +161,53 @@ where
     }
 
     fn get_leader(&self, view_number: hotshot_types::data::ViewNumber) -> VRF::PublicKey {
-        nll_todo()
+        // TODO fst2 (ct) this is round robin, we should make this dependent on
+        // the VRF + some source of randomness
+        let mapping = &self.stake_table.mapping;
+        let index = ((*view_number) as usize) % mapping.len();
+        let encoded = mapping.keys().nth(index).unwrap();
+        SignatureKey::from_bytes(encoded).unwrap()
     }
 
     // what this is doing:
     // -
     fn make_vote_token(
+        // TODO see if we can make this take &mut self
+        // because we're using a mutable prng
         &self,
         view_number: hotshot_types::data::ViewNumber,
         private_key: &VRF::SecretKey,
         // TODO (ct) this should be replaced with something else...
         next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
     ) -> Result<Option<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
-        let my_pub_key = <VRF::PublicKey as SignatureKey>::from_private(&private_key);
+        let pub_key = <VRF::PublicKey as SignatureKey>::from_private(&private_key);
         // TODO (ct) what should state be?
-        let my_stake = match self.stake_table.get_stake(&my_pub_key) {
+        let my_stake = match self.stake_table.get_stake(&pub_key) {
             Some(val) => val,
             None => return Ok(None),
         };
-        nll_todo()
+        // calculate hash / 2^ thing
+        // iterate through buckets and pick the correct one
+        let my_view_selected_stake = calculate_stake(my_stake);
+        match my_view_selected_stake {
+            Some(count) => {
+                // TODO (ct) this can fail, return Result::Err
+                let proof = VRF::prove(
+                    &self.proof_parameters,
+                    private_key,
+                    &<[u8; 32]>::from(next_state),
+                    &mut *self.prng.lock().unwrap()
+                ).unwrap();
+
+                Ok(Some(VRFVoteToken {
+                    pub_key,
+                    proof,
+                    count,
+                }))
+
+            },
+            None => Ok(None),
+        }
     }
 
     fn validate_vote_token(
@@ -188,3 +220,7 @@ where
     }
 
 }
+fn calculate_stake(stake: u64) -> Option<u64> {
+    Some(stake)
+}
+
