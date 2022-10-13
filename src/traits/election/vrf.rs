@@ -242,18 +242,21 @@ where
     ) -> Result<Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
         match token {
             Checked::Unchecked(token) => {
-                let stake : Option<u64> = nll_todo();
+                let stake : Option<u64> = self.stake_table.get_stake(&pub_key);
                 if let Some(stake) = stake {
-                    if token.count != stake {
-                        return Err(ElectionError::StubError);
-                    }
                     if let Ok(r) = VRF::verify(&self.proof_parameters, &token.proof, &pub_key, &<[u8; 32]>::from(next_state)) {
-                        // check that we actually fall into the right bin
-                        if let Some(true) = check_bin_idx(nll_todo(), nll_todo()) {
-                            Ok(Checked::Valid(token))
-                        } else {
+                        if let Ok(seed) = VRF::evaluate(&self.proof_parameters, &token.proof) {
+                            let total_stake = self.stake_table.total_stake;
+                            if let Some(true) = check_bin_idx(token.count, stake, total_stake, SORTITION_PARAMETER, &seed) {
+                                Ok(Checked::Valid(token))
+                            } else {
+                                Ok(Checked::Inval(token))
+                            }
+                        }
+                        else {
                             Ok(Checked::Inval(token))
                         }
+
                     } else {
                         Ok(Checked::Inval(token))
                     }
@@ -267,10 +270,11 @@ where
     }
 }
 
-// TODO the parameters here will need to be more
-fn check_bin_idx(stake: u64, bin_idx: u64) -> Option<bool> {
-    let bin_idx = find_bin_idx(nll_todo(), nll_todo(), nll_todo(), nll_todo());
-    bin_idx.map(|idx| idx == stake)
+// TODO this can be optimized most likely
+fn check_bin_idx(expected_amount_of_stake: u64, replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<bool> {
+
+    let bin_idx = find_bin_idx(replicas_stake, total_stake, sortition_parameter, unnormalized_seed);
+    bin_idx.map(|idx| idx == expected_amount_of_stake)
 }
 
 fn generate_view_seed<STATE: State>(next_state: commit::Commitment<hotshot_types::data::Leaf<STATE>>) -> [u8; 32] {
