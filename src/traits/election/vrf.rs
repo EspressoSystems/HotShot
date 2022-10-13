@@ -1,15 +1,68 @@
 use std::{marker::PhantomData, collections::BTreeMap, num::NonZeroU64};
 
-use hotshot_types::traits::{signature_key::SignatureKey, state::ConsensusTime, election::{Election, VoteToken}, State};
-use hotshot_utils::hack::nll_todo;
+use hotshot_types::traits::{signature_key::{SignatureKey, EncodedPublicKey}, state::ConsensusTime, election::{Election, VoteToken}, State};
+use hotshot_utils::{hack::nll_todo, bincode::bincode_opts};
 use jf_primitives::{signatures::{
     bls::{BLSSignKey, BLSSignature, BLSSignatureScheme, BLSVerKey},
     SignatureScheme,
 }, vrf::Vrf};
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>
+{
+    mapping: BTreeMap<EncodedPublicKey, NonZeroU64>,
+    total_stake: u64,
+    _pd_0: PhantomData<VRF>,
+    _pd_1: PhantomData<VRFHASHER>,
+    _pd_2: PhantomData<VRFPARAMS>,
+}
+
+// struct Orderable<T> {
+//     pub value: T,
+//     serialized: Vec<u8>,
+// }
+//
+// impl<T: serde::Serialize> serde::Serialize for Orderable<T> {
+// }
+//
+//
+// impl<T: serde::Serialize> Orderable<T> {
+//     pub fn new(t: T) -> Self {
+//         let bytes = bincode_opts().serialize(&t).unwrap();
+//         Self {
+//             value: t,
+//             serialized: bytes
+//         }
+//     }
+// }
+//
+// impl<T> Ord for Orderable<T> {
+//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+//         self.serialized.cmp(&other.serialized)
+//     }
+// }
+// impl<T> PartialOrd for Orderable<T> {
+//     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+//         self.serialized.partial_cmp(&other.serialized)
+//     }
+// }
+//
+// impl<T> Eq for Orderable<T> {
+// }
+//
+// impl<T> PartialEq for Orderable<T> {
+//     fn eq(&self, other: &Self) -> bool {
+//         self.serialized == other.serialized
+//     }
+// }
+//
+
+// impl std::cmp::PartialOrd for Orderable<T> {}
+// impl std::cmp::Ord for Orderable<T> {}
+
 /// TODO this may not be correct for KEY
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Clone)]
 pub struct VrfImpl<
     STATE,
     VRF,
@@ -17,10 +70,13 @@ pub struct VrfImpl<
     VRFPARAMS,
 >
 where STATE: State,
-      VRF: Vrf<VRFHASHER, VRFPARAMS>,
-
-
+    VRF::PublicKey : Clone + Sync + Send + Serialize + DeserializeOwned + SignatureKey<PrivateKey = VRF::SecretKey>,
+    VRF::Proof : Clone + Sync + Send + Serialize + DeserializeOwned,
+    VRFHASHER: Clone + Sync + Send + Serialize + DeserializeOwned,
+    VRFPARAMS: Clone + Sync + Send + Serialize + DeserializeOwned,
+    VRF: Vrf<VRFHASHER, VRFPARAMS> + Clone + Sync + Send,
 {
+    stake_table: VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>,
     // TODO (fst2) accessor to stake table
     // stake_table:
     _pd_0: PhantomData<VRFHASHER>,
@@ -29,13 +85,14 @@ where STATE: State,
     _pd_3: PhantomData<VRF>,
 }
 
-// pub type VRFStakeTable =
+pub fn get_total_stake() {
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct VRFVoteToken<
-    VRFPARAMS,
-    VRFHASHER,
     VRF: Vrf<VRFHASHER, VRFPARAMS>,
+    VRFHASHER,
+    VRFPARAMS,
 > {
     /// The public key assocaited with this token
     pub pub_key: VRF::PublicKey,
@@ -46,137 +103,12 @@ pub struct VRFVoteToken<
     pub count: u64,
 }
 
-// TODO parametrize only on the public key
-#[derive(Serialize, Deserialize, Clone)]
-pub struct VRFPubKey<VRF, VRFHASHER, VRFPARAMS>
-where
-  VRF: Vrf<VRFHASHER, VRFPARAMS>,
-{
-    inner: VRF::PublicKey
-}
-
-impl<VRF, VRFHASHER, VRFPARAMS> std::hash::Hash for VRFPubKey<VRF, VRFHASHER, VRFPARAMS>
-where
-  VRF: Vrf<VRFHASHER, VRFPARAMS>,
-{
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // self.to_bytes().hash(state);
-        nll_todo()
-    }
-}
-
-impl <VRF, VRFHASHER, VRFPARAMS>std::fmt::Debug for VRFPubKey<VRF, VRFHASHER, VRFPARAMS>
-where
-  VRF: Vrf<VRFHASHER, VRFPARAMS>,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        nll_todo()
-        // f.debug_struct("VRFPubKey")
-        //     .field("pub_key", &"A Public Key!")
-        //     .finish()
-    }
-}
-
-impl<VRF, VRFHASHER, VRFPARAMS> PartialEq for VRFPubKey<VRF, VRFHASHER, VRFPARAMS>
-where
-  VRF: Vrf<VRFHASHER, VRFPARAMS>,
-{
-    fn eq(&self, other: &Self) -> bool {
-        nll_todo()
-        // self.to_bytes() == other.to_bytes()
-    }
-}
-
-impl<VRF, VRFHASHER, VRFPARAMS> Eq for VRFPubKey<VRF, VRFHASHER, VRFPARAMS>
-where
-  VRF: Vrf<VRFHASHER, VRFPARAMS>,
-{}
-
-impl<VRF, VRFHASHER, VRFPARAMS> Ord for VRFPubKey<VRF, VRFHASHER, VRFPARAMS>
-where
-  VRF: Vrf<VRFHASHER, VRFPARAMS>,
-{
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        // self.to_bytes().cmp(&other.to_bytes())
-        nll_todo()
-    }
-}
-
-impl<VRF, VRFHASHER, VRFPARAMS> PartialOrd for VRFPubKey<VRF, VRFHASHER, VRFPARAMS>
-where
-  VRF: Vrf<VRFHASHER, VRFPARAMS>,
-{
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        nll_todo()
-        // self.to_bytes().partial_cmp(&other.to_bytes())
-    }
-}
-
-impl<VRF, VRFHASHER, VRFPARAMS> SignatureKey for VRFPubKey<VRF, VRFHASHER, VRFPARAMS>
-where
-    VRF::PublicKey : Clone + Sync + Send + Serialize + DeserializeOwned,
-    VRFHASHER: Clone + Sync + Send + Serialize + DeserializeOwned,
-    VRFPARAMS: Clone + Sync + Send + Serialize + DeserializeOwned,
-    VRF: Vrf<VRFHASHER, VRFPARAMS> + Clone + Sync + Send,
-{
-    // TODO
-    type PrivateKey = VRFPrivKey<VRF, VRFHASHER, VRFPARAMS>;
-
-    fn validate(&self, signature: &hotshot_types::traits::signature_key::EncodedSignature, data: &[u8]) -> bool {
-        nll_todo()
-    }
-
-    fn sign(private_key: &Self::PrivateKey, data: &[u8]) -> hotshot_types::traits::signature_key::EncodedSignature {
-        nll_todo()
-    }
-
-    fn from_private(private_key: &Self::PrivateKey) -> Self {
-        nll_todo()
-    }
-
-    fn to_bytes(&self) -> hotshot_types::traits::signature_key::EncodedPublicKey {
-        nll_todo()
-    }
-
-    fn from_bytes(bytes: &hotshot_types::traits::signature_key::EncodedPublicKey) -> Option<Self> {
-        nll_todo()
-    }
-}
-
-
-#[derive(Serialize, Deserialize)]
-pub struct VRFPrivKey<VRF, VRFHASHER, VRFPARAMS>
-where
-  VRF: Vrf<VRFHASHER, VRFPARAMS> + Clone + Sync + Send,
-{
-    pub_key: VRF::PublicKey,
-    priv_key: VRF::SecretKey
-}
-
-unsafe impl<VRF, VRFHASHER, VRFPARAMS> Send for VRFPrivKey<VRF, VRFHASHER, VRFPARAMS>
-where
-  VRF: Vrf<VRFHASHER, VRFPARAMS> + Clone + Sync + Send,
-{ }
-
-unsafe impl<VRF, VRFHASHER, VRFPARAMS> Sync for VRFPrivKey<VRF, VRFHASHER, VRFPARAMS>
-where
-  VRF: Vrf<VRFHASHER, VRFPARAMS> + Clone + Sync + Send,
-{ }
-
-// impl VoteToken for VRFVoteToken<>
-
-impl<VRFPARAMS, VRFHASHER, VRF> VoteToken for VRFVoteToken<VRFPARAMS, VRFHASHER, VRF>
-where
-    VRF::PublicKey : Clone + Sync + Send + Serialize + DeserializeOwned,
-    VRFHASHER: Clone + Sync + Send + Serialize + DeserializeOwned,
-    VRFPARAMS: Clone + Sync + Send + Serialize + DeserializeOwned,
-    VRF: Vrf<VRFHASHER, VRFPARAMS> + Clone + Sync + Send,
-{
+impl<VRF, VRFHASHER, VRFPARAMS> VoteToken for VRFVoteToken<VRF, VRFHASHER, VRFPARAMS>
+    where VRF: Vrf<VRFHASHER, VRFPARAMS> {
     fn vote_count(&self) -> u64 {
-        nll_todo()
+        self.count
     }
 }
-
 
 // KEY is VRFPubKey
 impl<
@@ -185,9 +117,9 @@ impl<
     VRF,
     TIME,
     STATE
-> Election<VRFPubKey<VRF, VRFHASHER, VRFPARAMS>, TIME> for VrfImpl<STATE, VRF, VRFHASHER, VRFPARAMS>
+> Election<VRF::PublicKey, TIME> for VrfImpl<STATE, VRF, VRFHASHER, VRFPARAMS>
 where
-    VRF::PublicKey : Clone + Sync + Send + Serialize + DeserializeOwned,
+    VRF::PublicKey : SignatureKey<PrivateKey = VRF::SecretKey> + Ord,
     VRF::Proof : Clone + Sync + Send + Serialize + DeserializeOwned,
     VRFHASHER: Clone + Sync + Send + Serialize + DeserializeOwned,
     VRFPARAMS: Clone + Sync + Send + Serialize + DeserializeOwned,
@@ -196,36 +128,44 @@ where
     STATE: State,
 {
     // pubkey -> unit of stake
-    type StakeTable = BTreeMap<VRFPubKey<VRF, VRFHASHER, VRFPARAMS>, NonZeroU64>;
+    type StakeTable = VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>;
 
     type StateType = STATE;
 
     // TODO generics in terms of vrf trait output(s)
     // represents a vote on a proposal
-    type VoteTokenType = VRFVoteToken<VRFPARAMS, VRFHASHER, VRF>;
+    type VoteTokenType = VRFVoteToken<VRF, VRFHASHER, VRFPARAMS>;
 
-    fn get_stake_table(&self, view_number: hotshot_types::data::ViewNumber, state: &Self::StateType) -> Self::StakeTable {
+    // FIXED STAKE
+    // just return the state
+    fn get_stake_table(&self, _view_number: hotshot_types::data::ViewNumber, _state: &Self::StateType) -> Self::StakeTable {
+        self.stake_table.clone()
+    }
+
+    fn get_leader(&self, view_number: hotshot_types::data::ViewNumber) -> VRF::PublicKey {
         nll_todo()
     }
 
-    fn get_leader(&self, view_number: hotshot_types::data::ViewNumber) -> VRFPubKey<VRF, VRFHASHER, VRFPARAMS> {
-        nll_todo()
-    }
-
+    // what this is doing:
+    // -
     fn make_vote_token(
         &self,
         view_number: hotshot_types::data::ViewNumber,
-        private_key: &VRFPrivKey<VRF, VRFHASHER, VRFPARAMS>,
+        private_key: &VRF::SecretKey,
         // TODO (ct) this should be replaced with something else...
         next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
     ) -> Result<Option<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
+        let my_pub_key = <VRF::PublicKey as SignatureKey>::from_private(&private_key);
+        // TODO (ct) what should state be?
+        let state : Self::StateType = nll_todo();
+        // let my_stake = self.get_stake_table(view_number, &state);
         nll_todo()
     }
 
     fn validate_vote_token(
         &self,
         view_number: hotshot_types::data::ViewNumber,
-        pub_key: VRFPubKey<VRF, VRFHASHER, VRFPARAMS>,
+        pub_key: VRF::PublicKey,
         token: Self::VoteTokenType,
     ) -> Result<hotshot_types::traits::election::Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
         nll_todo()
