@@ -16,9 +16,10 @@ use derivative::Derivative;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
+use ark_serialize::*;
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
 pub struct ViewNumber(u64);
 
 impl ConsensusTime for ViewNumber {}
