@@ -9,4 +9,5 @@ pub mod static_committee;
 /// private key. This is for testing purposes only and is designed to be insecure
 pub mod stub;
 
+/// generic over anything that implements jf-primitives::vrf::Vrf
 pub mod vrf;
