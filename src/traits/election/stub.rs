@@ -2,7 +2,7 @@ use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, ViewNumber},
     traits::{
-        election::{Election, ElectionError, VoteToken},
+        election::{Election, ElectionError, VoteToken, Checked},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
         State,
@@ -293,7 +293,8 @@ where
         &self,
         view_number: ViewNumber,
         pub_key: HashVrfKey,
-        token: Self::VoteTokenType,
+        token: Checked<Self::VoteTokenType>,
+        next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
     ) -> Result<hotshot_types::traits::election::Checked<Self::VoteTokenType>, ElectionError> {
         nll_todo()
     }

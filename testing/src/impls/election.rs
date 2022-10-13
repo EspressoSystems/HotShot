@@ -64,7 +64,7 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
         &self,
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
-        token: Self::VoteTokenType,
+        token: Checked<Self::VoteTokenType>,
     ) -> Result<hotshot_types::traits::election::Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
         nll_todo()
     }

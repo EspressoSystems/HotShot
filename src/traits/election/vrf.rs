@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, collections::BTreeMap, num::NonZeroU64};
 
-use hotshot_types::traits::{signature_key::{SignatureKey, EncodedPublicKey}, state::ConsensusTime, election::{Election, VoteToken}, State};
+use hotshot_types::traits::{signature_key::{SignatureKey, EncodedPublicKey}, state::ConsensusTime, election::{Election, VoteToken, ElectionError, Checked}, State};
 use hotshot_utils::{hack::nll_todo, bincode::bincode_opts};
 use jf_primitives::{signatures::{
     bls::{BLSSignKey, BLSSignature, BLSSignatureScheme, BLSVerKey},
@@ -163,6 +163,9 @@ where
     fn get_leader(&self, view_number: hotshot_types::data::ViewNumber) -> VRF::PublicKey {
         // TODO fst2 (ct) this is round robin, we should make this dependent on
         // the VRF + some source of randomness
+
+        // TODO for now do by stake table of how much stake each
+        // participant has
         let mapping = &self.stake_table.mapping;
         let index = ((*view_number) as usize) % mapping.len();
         let encoded = mapping.keys().nth(index).unwrap();
@@ -214,9 +217,29 @@ where
         &self,
         view_number: hotshot_types::data::ViewNumber,
         pub_key: VRF::PublicKey,
-        token: Self::VoteTokenType,
-    ) -> Result<hotshot_types::traits::election::Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
-        nll_todo()
+        token: Checked<Self::VoteTokenType>,
+        next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
+    ) -> Result<Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
+        match token {
+            Checked::Unchecked(token) => {
+                let pubkey = nll_todo();
+                let stake : Option<u64> = nll_todo();
+                if let Some(stake) = stake {
+                    if token.count != stake {
+                        return Err(ElectionError::StubError);
+                    }
+                    if let Ok(r) = VRF::verify(&self.proof_parameters, &token.proof, &pubkey, &<[u8; 32]>::from(next_state)) {
+                        Ok(Checked::Valid(token))
+                    } else {
+                        Ok(Checked::Inval(token))
+                    }
+                } else {
+                    // TODO better error
+                    Err(ElectionError::StubError)
+                }
+            },
+            already_checked => Ok(already_checked)
+        }
     }
 
 }

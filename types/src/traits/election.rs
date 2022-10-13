@@ -73,6 +73,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         &self,
         view_number: ViewNumber,
         pub_key: P,
-        token: Self::VoteTokenType,
+        token: Checked<Self::VoteTokenType>,
+        next_state: commit::Commitment<Leaf<Self::StateType>>,
     ) -> Result<Checked<Self::VoteTokenType>, ElectionError>;
 }
