@@ -55,7 +55,7 @@ use hotshot_types::{
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
-        election::{Election, ElectionError, VoteToken},
+        election::{Election, ElectionError, Checked::{Unchecked, Valid, Inval}},
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
@@ -775,6 +775,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         }
         let hash = qc.leaf_commitment;
         let mut num_valid = 0;
+        // TODO ed - double check for VRF changes
         for signature in qc.signatures.clone() {
             if self.is_valid_signature(&signature.0, &signature.1, hash) {
                 num_valid += 1;
@@ -789,29 +790,29 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         false
     }
 
-    // TODO ed - refactor once leader selection is updated to use VRF
     fn is_valid_signature(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
         hash: Commitment<Leaf<I::StateType>>,
+        view_number: ViewNumber, 
+        vote_token: Checked<<<I as NodeImplementation>::Election as Election<<I as NodeImplementation>::SignatureKey, ViewNumber>>::VoteTokenType>
     ) -> bool {
+        let mut is_valid_vote_token = false; 
+        let mut is_valid_signature = false; 
         if let Some(key) = <I::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
-            // let contains = self.inner.cluster_public_keys.contains(&key);
-            let valid = key.validate(encoded_signature, hash.as_ref());
-            valid
-            // TODO validate_vote_token
-        } else {
-            false
+            is_valid_signature = key.validate(encoded_signature, hash.as_ref());
+            let valid2 = self.get_election().validate_vote_token(view_number, key, vote_token, hash);
+            is_valid_vote_token = match valid2 {
+                Err(_) => {
+                    warn!("Vote token was invalid");
+                    false 
+                }
+                Ok(Valid(_)) => true, 
+                Ok(Inval(_)) | Ok(Unchecked(_)) => false,
+            };
         }
-    }
-    fn is_valid_election_signature(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-    ) -> bool
-    {
-        nll_todo()
+        is_valid_signature && is_valid_vote_token
     }
 }
 

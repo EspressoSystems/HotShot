@@ -2,13 +2,15 @@
 
 use crate::{utils::Signatures, ConsensusApi};
 use async_lock::Mutex;
+use bincode::Options;
 use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     message::ConsensusMessage,
     traits::{election::Election, node_implementation::NodeImplementation, State},
 };
-use hotshot_utils::channel::UnboundedReceiver;
+use hotshot_types::traits::election::Checked::Unchecked;
+use hotshot_utils::{channel::UnboundedReceiver, bincode::bincode_opts};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
@@ -63,10 +65,14 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     // if the signature on the vote is invalid,
                     // assume it's sent by byzantine node
                     // and ignore
-                    if !self
-                        .api
-                        .is_valid_election_signature(&vote.signature.0, &vote.signature.1)
-                    {
+                    if !self.api.is_valid_signature(
+                        &vote.signature.0,
+                        &vote.signature.1,
+                        vote.leaf_commitment,
+                        vote.current_view,
+                        // Ignoring deserialization errors below since we are getting rid of it soon
+                        Unchecked(bincode_opts().deserialize(&vote.vote_token).unwrap())
+                    ) {
                         continue;
                     }
 

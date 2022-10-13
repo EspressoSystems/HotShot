@@ -43,6 +43,14 @@ pub trait SignatureKey:
     fn from_bytes(bytes: &EncodedPublicKey) -> Option<Self>;
 }
 
+/// Trait for abstracting signatures
+pub trait Signature:
+    Send + Sync + Clone + Sized + Debug + Hash + Serialize + DeserializeOwned
+{
+    /// Deserialize an EncodedSignature into an underlying Signature
+    fn from_bytes(&self) -> Option<Self>;
+}
+
 /// Trait for generation of keys during testing
 pub trait TestableSignatureKey: SignatureKey {
     /// Generates a private key from the given integer seed

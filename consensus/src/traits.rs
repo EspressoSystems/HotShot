@@ -13,6 +13,7 @@ use hotshot_types::{
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
+use hotshot_types::traits::election::Checked;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
@@ -169,11 +170,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
         hash: Commitment<Leaf<I::StateType>>,
-    ) -> bool;
-
-    fn is_valid_election_signature(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
+        view_number: ViewNumber, 
+        vote_token: Checked<<<I as NodeImplementation>::Election as Election<<I as NodeImplementation>::SignatureKey, ViewNumber>>::VoteTokenType>
     ) -> bool;
 }

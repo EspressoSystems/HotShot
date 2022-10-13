@@ -6,6 +6,7 @@ use crate::{
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use commit::Committable;
+use bincode::Options;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     message::{ConsensusMessage, TimedOut, Vote},
@@ -17,7 +18,7 @@ use hotshot_types::{
         Block, State,
     },
 };
-use hotshot_utils::channel::UnboundedReceiver;
+use hotshot_utils::{bincode::bincode_opts, channel::UnboundedReceiver};
 use std::{collections::HashSet, sync::Arc};
 use tracing::{error, info, instrument, warn};
 
@@ -183,6 +184,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                     signature,
                                     leaf_commitment,
                                     current_view: self.cur_view,
+                                    // Going to ignore serialization errors belwo since we are getting rid of this soon
+                                    vote_token: bincode_opts().serialize(&vote_token).unwrap()
                                 });
 
                                 let next_leader = self.api.get_leader(self.cur_view + 1).await;
