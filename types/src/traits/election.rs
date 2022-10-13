@@ -44,7 +44,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// The state type this election implementation is bound to
     type StateType: State;
     /// A membership proof
-    type VoteTokenType: VoteToken + Serialize + DeserializeOwned;
+    type VoteTokenType: VoteToken + Serialize + DeserializeOwned + Send + Sync;
 
     /// Returns the table from the current committed state
     fn get_stake_table(&self, view_number: ViewNumber, state: &Self::StateType) -> Self::StakeTable;

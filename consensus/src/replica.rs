@@ -5,18 +5,20 @@ use crate::{
     Consensus, ConsensusApi,
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
+use bincode::Options;
 use commit::Committable;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     message::{ConsensusMessage, TimedOut, Vote},
     traits::{
+        election::Election,
         node_implementation::NodeImplementation,
         signature_key::SignatureKey,
         storage::{Storage, StoredView},
         Block, State,
     },
 };
-use hotshot_utils::channel::UnboundedReceiver;
+use hotshot_utils::{bincode::bincode_opts, channel::UnboundedReceiver};
 use std::{collections::HashSet, sync::Arc};
 use tracing::{error, info, instrument, warn};
 
@@ -51,8 +53,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         &self,
         view_leader_key: <I as NodeImplementation>::SignatureKey,
         consensus: RwLockUpgradableReadGuard<'a, Consensus<I>>,
-    ) -> ValidMsgResult<'a, I>
-        {
+    ) -> ValidMsgResult<'a, I> {
         let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
             let msg = lock.recv().await;
@@ -120,9 +121,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             continue;
                         }
 
-
-                        // TODO change to locked_view + 2 after VRF integration
-                        let liveness_check = justify_qc.view_number > consensus.locked_view;
+                        let liveness_check = justify_qc.view_number > consensus.locked_view + 2;
 
                         // check if proposal extends from the locked leaf
                         let outcome = consensus.visit_leaf_ancestors(
@@ -150,36 +149,59 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             continue;
                         }
 
-                        let leaf_commitment = leaf.commit();
-                        let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
+                        let election = self.api.get_election();
+                        let vote_token = election.make_vote_token(
+                            self.cur_view,
+                            self.api.private_key(),
+                            leaf.commit(),
+                        );
 
-                        let vote = ConsensusMessage::<I::StateType>::Vote(Vote {
-                            block_commitment:
-                                <<I::StateType as State>::BlockType as Committable>::commit(
-                                    &leaf.deltas,
-                                ),
-                            justify_qc: leaf.justify_qc.clone(),
-                            signature,
-                            leaf_commitment,
-                            current_view: self.cur_view,
-                        });
+                        match vote_token {
+                            Err(e) => {
+                                error!(
+                                    "Failed to generate vote token for {:?} {:?}",
+                                    self.cur_view, e
+                                );
+                                continue;
+                            }
+                            Ok(None) => {
+                                info!("We were not chosen for committee on {:?}", self.cur_view);
+                                continue;
+                            }
+                            Ok(Some(vote_token)) => {
+                                info!("We were chosen for committee on {:?}. Sending our vote to the next leader", self.cur_view);
+                                let leaf_commitment = leaf.commit();
+                                // TODO Not error checking serialization errors here because we are going to delete it soon
+                                let signature = bincode_opts().serialize(&vote_token).unwrap();
 
-                        // send out vote
+                                // Generate and send vote
+                                let vote = ConsensusMessage::<I::StateType>::Vote(Vote {
+                                    block_commitment:
+                                        <<I::StateType as State>::BlockType as Committable>::commit(
+                                            &leaf.deltas,
+                                        ),
+                                    justify_qc: leaf.justify_qc.clone(),
+                                    signature,
+                                    leaf_commitment,
+                                    current_view: self.cur_view,
+                                });
 
-                        let next_leader = self.api.get_leader(self.cur_view + 1).await;
+                                let next_leader = self.api.get_leader(self.cur_view + 1).await;
 
-                        info!("Sending vote to next leader {:?}", vote);
+                                info!("Sending vote to next leader {:?}", vote);
 
-                        if self
-                            .api
-                            .send_direct_message(next_leader, vote)
-                            .await
-                            .is_err()
-                        {
-                            warn!("Failed to send vote to next leader");
+                                if self
+                                    .api
+                                    .send_direct_message(next_leader, vote)
+                                    .await
+                                    .is_err()
+                                {
+                                    warn!("Failed to send vote to next leader");
+                                }
+
+                                break leaf;
+                            }
                         }
-
-                        break leaf;
                     }
                     ConsensusMessage::NextViewInterrupt(_view_number) => {
                         let next_leader = self.api.get_leader(self.cur_view + 1).await;

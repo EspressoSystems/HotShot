@@ -679,10 +679,6 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         &self.inner.storage
     }
 
-    fn leader_acts_as_replica(&self) -> bool {
-        true
-    }
-
     fn max_transactions(&self) -> NonZeroUsize {
         self.inner.config.max_transactions
     }
@@ -702,6 +698,10 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
             &self.inner.private_key,
             next_state,
         )
+    }
+
+    fn get_election(&self) -> <I as NodeImplementation>::Election {
+        self.inner.election
     }
 
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {

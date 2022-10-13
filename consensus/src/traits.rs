@@ -7,9 +7,10 @@ use hotshot_types::{
     error::HotShotError,
     event::{Event, EventType},
     traits::{
+        election::{Election, ElectionError},
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey}, election::{Election, ElectionError},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
@@ -50,7 +51,12 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         &self,
         view_number: ViewNumber,
         next_state: Commitment<Leaf<I::StateType>>,
-    ) -> Result<Option<<I::Election as Election<I::SignatureKey, ViewNumber>>::VoteTokenType>, ElectionError>;
+    ) -> Result<
+        Option<<I::Election as Election<I::SignatureKey, ViewNumber>>::VoteTokenType>,
+        ElectionError,
+    >;
+
+    fn get_election(&self) -> I::Election;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey;

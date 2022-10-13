@@ -9,6 +9,7 @@ use hotshot_types::{
 };
 use hotshot_utils::hack::nll_todo;
 use tracing::{info, instrument};
+use hotshot_types::traits::election::Checked;
 
 /// A testable interface for the election trait.
 #[derive(Debug)]
@@ -65,6 +66,7 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: Checked<Self::VoteTokenType>,
+        next_state: Commitment<Leaf<Self::StateType>>
     ) -> Result<hotshot_types::traits::election::Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
         nll_todo()
     }
