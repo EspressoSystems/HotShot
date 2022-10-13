@@ -55,7 +55,7 @@ use hotshot_types::{
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
-        election::{Election, ElectionError},
+        election::{Election, ElectionError, VoteToken},
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
@@ -64,7 +64,7 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use hotshot_utils::{art::async_spawn, broadcast::BroadcastSender};
+use hotshot_utils::{art::async_spawn, broadcast::BroadcastSender, hack::nll_todo};
 use hotshot_utils::{
     art::async_spawn_local,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -700,8 +700,8 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         )
     }
 
-    fn get_election(&self) -> <I as NodeImplementation>::Election {
-        self.inner.election
+    fn get_election(&self) -> &<I as NodeImplementation>::Election {
+        &self.inner.election
     }
 
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {
@@ -789,6 +789,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         false
     }
 
+    // TODO ed - refactor once leader selection is updated to use VRF
     fn is_valid_signature(
         &self,
         encoded_key: &EncodedPublicKey,
@@ -796,12 +797,21 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         hash: Commitment<Leaf<I::StateType>>,
     ) -> bool {
         if let Some(key) = <I::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
-            let contains = self.inner.cluster_public_keys.contains(&key);
+            // let contains = self.inner.cluster_public_keys.contains(&key);
             let valid = key.validate(encoded_signature, hash.as_ref());
-            valid && contains
+            valid
+            // TODO validate_vote_token
         } else {
             false
         }
+    }
+    fn is_valid_election_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+    ) -> bool
+    {
+        nll_todo()
     }
 }
 

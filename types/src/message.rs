@@ -173,7 +173,7 @@ pub struct Vote<STATE: State> {
     /// The signature share associated with this vote
     /// TODO ct/vrf: use VoteToken
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a Vec<u8>
-    pub signature: Vec<u8>,
+    pub signature: (EncodedPublicKey, EncodedSignature),
     /// Hash of the item being voted on
     #[debug(skip)]
     #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]

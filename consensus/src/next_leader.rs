@@ -6,7 +6,7 @@ use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     message::ConsensusMessage,
-    traits::{node_implementation::NodeImplementation, State},
+    traits::{election::Election, node_implementation::NodeImplementation, State},
 };
 use hotshot_utils::channel::UnboundedReceiver;
 use std::{
@@ -46,7 +46,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
             Commitment<Leaf<I::StateType>>,
             (Commitment<<I::StateType as State>::BlockType>, Signatures),
         > = HashMap::new();
-        // NOTE will need to refactor this during VRF integration
+        // TODO will need to refactor this during VRF integration
         let threshold = self.api.threshold();
 
         let lock = self.vote_collection_chan.lock().await;
@@ -63,11 +63,10 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     // if the signature on the vote is invalid,
                     // assume it's sent by byzantine node
                     // and ignore
-                    if !self.api.is_valid_signature(
-                        &vote.signature.0,
-                        &vote.signature.1,
-                        vote.leaf_commitment,
-                    ) {
+                    if !self
+                        .api
+                        .is_valid_election_signature(&vote.signature.0, &vote.signature.1)
+                    {
                         continue;
                     }
 
@@ -75,10 +74,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
 
                     match vote_outcomes.entry(vote.leaf_commitment) {
                         std::collections::hash_map::Entry::Occupied(mut o) => {
-                            let (bh, map) = o.get_mut();
-                            if *bh != vote.block_commitment {
-                                warn!("Mismatch between commitments in received votes. This is probably an error without byzantine nodes.");
-                            }
+                            let (_bh, map) = o.get_mut();
                             map.insert(vote.signature.0.clone(), vote.signature.1.clone());
                         }
                         std::collections::hash_map::Entry::Vacant(location) => {
@@ -91,7 +87,11 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     // unwraps here are fine since we *just* inserted the key
                     let (_, valid_signatures) = vote_outcomes.get(&vote.leaf_commitment).unwrap();
 
-                    if valid_signatures.len() >= threshold.into() {
+                    if self
+                        .api
+                        .get_election()
+                        .check_threshold(valid_signatures, threshold)
+                    {
                         let (block_commitment, valid_signatures) =
                             vote_outcomes.remove(&vote.leaf_commitment).unwrap();
                         // construct QC

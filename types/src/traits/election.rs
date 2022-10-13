@@ -1,11 +1,18 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
-use super::{state::ConsensusTime, State};
+use std::{collections::BTreeMap, num::NonZeroUsize};
+
+use super::{
+    signature_key::{EncodedPublicKey, EncodedSignature},
+    state::ConsensusTime,
+    State,
+};
 use crate::{
     data::{Leaf, ViewNumber},
     traits::signature_key::SignatureKey,
 };
 use commit::Commitment;
+use hotshot_utils::hack::nll_todo;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 
@@ -13,7 +20,7 @@ use snafu::Snafu;
 #[derive(Snafu, Debug)]
 pub enum ElectionError {
     /// stub error to be filled in
-    StubError
+    StubError,
 }
 
 /// For items that will always have the same validity outcome on a successful check,
@@ -47,10 +54,20 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     type VoteTokenType: VoteToken + Serialize + DeserializeOwned + Send + Sync;
 
     /// Returns the table from the current committed state
-    fn get_stake_table(&self, view_number: ViewNumber, state: &Self::StateType) -> Self::StakeTable;
+    fn get_stake_table(&self, view_number: ViewNumber, state: &Self::StateType)
+        -> Self::StakeTable;
 
     /// Returns leader for the current view number, given the current stake table
     fn get_leader(&self, view_number: ViewNumber) -> P;
+
+    /// Returns true if signatures have enough votes to pass the committee threshold
+    fn check_threshold(
+        &self,
+        _signatures: &BTreeMap<EncodedPublicKey, EncodedSignature>,
+        _threshold: NonZeroUsize,
+    ) -> bool {
+        nll_todo()
+    }
 
     /// Attempts to generate a vote token for self
     ///

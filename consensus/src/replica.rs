@@ -5,7 +5,6 @@ use crate::{
     Consensus, ConsensusApi,
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
-use bincode::Options;
 use commit::Committable;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
@@ -18,7 +17,7 @@ use hotshot_types::{
         Block, State,
     },
 };
-use hotshot_utils::{bincode::bincode_opts, channel::UnboundedReceiver};
+use hotshot_utils::channel::UnboundedReceiver;
 use std::{collections::HashSet, sync::Arc};
 use tracing::{error, info, instrument, warn};
 
@@ -171,8 +170,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                             Ok(Some(vote_token)) => {
                                 info!("We were chosen for committee on {:?}. Sending our vote to the next leader", self.cur_view);
                                 let leaf_commitment = leaf.commit();
-                                // TODO Not error checking serialization errors here because we are going to delete it soon
-                                let signature = bincode_opts().serialize(&vote_token).unwrap();
+
+                                let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
                                 // Generate and send vote
                                 let vote = ConsensusMessage::<I::StateType>::Vote(Vote {

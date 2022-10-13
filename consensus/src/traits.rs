@@ -36,9 +36,6 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// Get a reference to the storage implementation
     fn storage(&self) -> &I::Storage;
 
-    /// Returns `true` if the leader should also act as a replica.  This will make the leader cast votes.
-    fn leader_acts_as_replica(&self) -> bool;
-
     /// Retuns the maximum transactions allowed in a block
     fn max_transactions(&self) -> NonZeroUsize;
 
@@ -56,7 +53,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         ElectionError,
     >;
 
-    fn get_election(&self) -> I::Election;
+    fn get_election(&self) -> &I::Election;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey;
@@ -93,11 +90,6 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// returns `true` if the current node is a leader for the given `view_number`
     async fn is_leader(&self, view_number: ViewNumber) -> bool {
         &self.get_leader(view_number).await == self.public_key()
-    }
-
-    /// returns `true` if the current node should act as a replica for the given `view_number`
-    async fn is_replica(&self, view_number: ViewNumber) -> bool {
-        self.leader_acts_as_replica() || !self.is_leader(view_number).await
     }
 
     /// notifies client of an error
@@ -177,5 +169,11 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
         hash: Commitment<Leaf<I::StateType>>,
+    ) -> bool;
+
+    fn is_valid_election_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
     ) -> bool;
 }
