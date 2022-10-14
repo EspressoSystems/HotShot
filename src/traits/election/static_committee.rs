@@ -2,10 +2,10 @@ use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, ViewNumber},
     traits::{
-        election::{Election, VoteToken, ElectionError, Checked},
+        election::{Checked, Election, ElectionError, VoteToken},
         signature_key::{
             ed25519::{Ed25519Priv, Ed25519Pub},
-            EncodedSignature, SignatureKey,
+            EncodedSignature,
         },
         state::ConsensusTime,
         State,
@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 /// Dummy implementation of [`Election`]
+
+#[derive(Clone, Debug)]
 pub struct StaticCommittee<S> {
     /// The nodes participating
     nodes: Vec<Ed25519Pub>,
@@ -36,7 +38,7 @@ impl<S> StaticCommittee<S> {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct StaticVoteToken {
     signature: EncodedSignature,
-    pub_key: Ed25519Pub
+    pub_key: Ed25519Pub,
 }
 
 impl VoteToken for StaticVoteToken {
@@ -55,7 +57,11 @@ where
     type StateType = S;
     type VoteTokenType = StaticVoteToken;
     /// Clone the static table
-    fn get_stake_table(&self, view_number: ViewNumber, _state: &Self::StateType) -> Self::StakeTable {
+    fn get_stake_table(
+        &self,
+        view_number: ViewNumber,
+        _state: &Self::StateType,
+    ) -> Self::StakeTable {
         self.nodes.clone()
     }
     /// Index the vector of public keys with the current view number
@@ -102,7 +108,10 @@ where
         pub_key: Ed25519Pub,
         token: Checked<Self::VoteTokenType>,
         next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
-    ) -> Result<hotshot_types::traits::election::Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
+    ) -> Result<
+        hotshot_types::traits::election::Checked<Self::VoteTokenType>,
+        hotshot_types::traits::election::ElectionError,
+    > {
         nll_todo()
     }
 

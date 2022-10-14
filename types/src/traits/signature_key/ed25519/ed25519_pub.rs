@@ -99,6 +99,11 @@ impl SignatureKey for Ed25519Pub {
             }
         }
     }
+
+    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
+        let priv_key = Self::PrivateKey::generated_from_seed_indexed(seed, index);
+        (Self::from_private(&priv_key), priv_key)
+    }
 }
 
 impl TestableSignatureKey for Ed25519Pub {

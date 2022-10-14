@@ -627,13 +627,11 @@ pub struct CentralizedServerNetwork<K: SignatureKey> {
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
-impl CentralizedServerNetwork<Ed25519Pub> {
+impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
     /// Connect with the server running at `addr` and retrieve the config from the server.
     ///
     /// The config is returned along with the current run index and the running `CentralizedServerNetwork`
-    pub async fn connect_with_server_config(
-        addr: SocketAddr,
-    ) -> (NetworkConfig<Ed25519Pub>, Run, Self) {
+    pub async fn connect_with_server_config(addr: SocketAddr) -> (NetworkConfig<K>, Run, Self) {
         let (streams, run, config) = loop {
             let (mut recv_stream, mut send_stream) = match TcpStream::connect(addr).await {
                 Ok(stream) => {
@@ -668,8 +666,7 @@ impl CentralizedServerNetwork<Ed25519Pub> {
             }
         };
 
-        let key = Ed25519Priv::generated_from_seed_indexed(config.seed, config.node_index);
-        let key = Ed25519Pub::from_private(&key);
+        let (pub_key, priv_key) = K::generated_from_seed_indexed(config.seed, config.node_index);
         let known_nodes = config.config.known_nodes.clone();
 
         let mut streams = Some(streams);
@@ -687,7 +684,7 @@ impl CentralizedServerNetwork<Ed25519Pub> {
                 }
                 .boxed()
             },
-            key,
+            pub_key,
         );
         (config, run, result)
     }

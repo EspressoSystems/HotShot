@@ -51,7 +51,8 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     type VoteTokenType: VoteToken + Serialize + DeserializeOwned;
 
     /// Returns the table from the current committed state
-    fn get_stake_table(&self, view_number: ViewNumber, state: &Self::StateType) -> Self::StakeTable;
+    fn get_stake_table(&self, view_number: ViewNumber, state: &Self::StateType)
+        -> Self::StakeTable;
 
     /// Returns leader for the current view number, given the current stake table
     fn get_leader(&self, view_number: ViewNumber) -> P;
@@ -64,7 +65,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     fn make_vote_token(
         &self,
         view_number: ViewNumber,
-        private_key: &<P as SignatureKey>::PrivateKey,
+        priv_key: &<P as SignatureKey>::PrivateKey,
         // TODO (ct) this should be replaced with something else...
         next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Result<Option<Self::VoteTokenType>, ElectionError>;

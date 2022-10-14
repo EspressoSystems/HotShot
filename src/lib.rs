@@ -696,12 +696,18 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         &self,
         view_number: ViewNumber,
         next_state: Commitment<Leaf<I::StateType>>,
-    ) -> std::result::Result<std::option::Option<<<I as NodeImplementation>::Election as Election<<I as NodeImplementation>::SignatureKey, ViewNumber>>::VoteTokenType>, ElectionError> {
-        self.inner.election.make_vote_token(
-            view_number,
-            &self.inner.private_key,
-            next_state,
-        )
+    ) -> std::result::Result<
+        std::option::Option<
+            <<I as NodeImplementation>::Election as Election<
+                <I as NodeImplementation>::SignatureKey,
+                ViewNumber,
+            >>::VoteTokenType,
+        >,
+        ElectionError,
+    > {
+        self.inner
+            .election
+            .make_vote_token(view_number, &self.inner.private_key, next_state)
     }
 
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {

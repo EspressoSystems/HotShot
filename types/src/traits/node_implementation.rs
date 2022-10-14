@@ -4,11 +4,12 @@
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
 
 use crate::{
+    data::ViewNumber,
     message::{ConsensusMessage, DataMessage, Message, MessageKind},
     traits::{
         election::Election, network::NetworkingImplementation, signature_key::SignatureKey,
         storage::Storage, Block,
-    }, data::ViewNumber,
+    },
 };
 use std::fmt::Debug;
 

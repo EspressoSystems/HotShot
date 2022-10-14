@@ -2140,6 +2140,8 @@ version = "0.1.1"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
+ "ark-serialize",
+ "ark-std",
  "async-lock",
  "async-std",
  "async-trait",
@@ -2168,6 +2170,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rand_xoshiro",
  "serde",
+ "sha2 0.10.6",
  "snafu",
  "tempfile",
  "time 0.3.15",

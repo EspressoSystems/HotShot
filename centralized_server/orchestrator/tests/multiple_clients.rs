@@ -334,4 +334,8 @@ impl SignatureKey for TestSignatureKey {
             idx: u64::from_le_bytes(bytes),
         })
     }
+
+    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
+        (Self { idx: index }, index)
+    }
 }
