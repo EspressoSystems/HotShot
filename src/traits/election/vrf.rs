@@ -6,7 +6,7 @@ use hotshot_types::traits::{
     state::ConsensusTime,
     State,
 };
-use hotshot_utils::{bincode::bincode_opts, hack::nll_todo};
+use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
     hash_to_group::SWHashToGroup,
     signatures::{bls::BLSVerKey, BLSSignatureScheme, SignatureScheme},
@@ -26,6 +26,14 @@ use std::{
     num::NonZeroU64,
     sync::{Arc, Mutex},
 };
+
+use jf_primitives::{signatures::{
+    bls::{BLSSignKey, BLSSignature},
+}};
+use num::{rational::Ratio, FromPrimitive, BigUint};
+
+// TODO wrong palce for this
+pub const SORTITION_PARAMETER: u64 = 100;
 
 // TODO abstraction this function's impl into a trait
 // TODO do we necessariy want the units of stake to be a u64? or generics
@@ -343,6 +351,7 @@ where
             VRFHASHER,
             VRFPARAMS,
             Input = [u8; 32],
+            Output = [u8; 32],
             PublicKey = SIGSCHEME::VerificationKey,
             SecretKey = SIGSCHEME::SigningKey,
         > + Sync
@@ -399,14 +408,38 @@ where
         next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
     ) -> Result<Option<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
         let pub_key = VRFPubKey::<SIGSCHEME>::from_native(private_key.1.clone());
-        let my_stake = match self.stake_table.get_stake(&pub_key) {
+        let replicas_stake = match self.stake_table.get_stake(&pub_key) {
             Some(val) => val,
             None => return Ok(None),
         };
+        let view_seed = generate_view_seed(next_state);
+        // TODO (ct) this can fail, return Result::Err
+        let proof = VRF::prove(
+            &self.proof_parameters,
+            &private_key.0.clone(),
+            &view_seed,
+            &mut *self.prng.lock().unwrap()
+        ).unwrap();
+
+        // TODO (ct) this can fail, return result::err
+        let hash = VRF::evaluate(&self.proof_parameters, &proof).unwrap();
+
+        // hardcoded to be 32
+        let _hash_len = 1 << (32 * 8);
+
+        // TODO (ct) this should invoke the get_stake_table function
+        let total_stake = self.stake_table.total_stake;
+
+        // let seed: u64 = hash / hash_len;
+
+
+
         // calculate hash / 2^ thing
         // iterate through buckets and pick the correct one
-        let my_view_selected_stake = calculate_stake(my_stake);
-        match my_view_selected_stake {
+        // the stake we selected
+        // TODO (jr) this error handling is NOTGOOD
+        let selected_stake = find_bin_idx(replicas_stake, total_stake, SORTITION_PARAMETER, &hash);
+        match selected_stake {
             Some(count) => {
                 // TODO (ct) this can fail, return Result::Err
                 let proof = VRF::prove(
@@ -436,19 +469,20 @@ where
     ) -> Result<Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
         match token {
             Checked::Unchecked(token) => {
-                let pubkey = nll_todo();
-                let stake: Option<u64> = nll_todo();
+                let stake : Option<u64> = self.stake_table.get_stake(&pub_key);
                 if let Some(stake) = stake {
-                    if token.count != stake {
-                        return Err(ElectionError::StubError);
-                    }
-                    if let Ok(r) = VRF::verify(
-                        &self.proof_parameters,
-                        &token.proof,
-                        &pubkey,
-                        &<[u8; 32]>::from(next_state),
-                    ) {
-                        Ok(Checked::Valid(token))
+                    if let Ok(true) = VRF::verify(&self.proof_parameters, &token.proof, &pub_key.pk, &<[u8; 32]>::from(next_state)) {
+                        if let Ok(seed) = VRF::evaluate(&self.proof_parameters, &token.proof) {
+                            let total_stake = self.stake_table.total_stake;
+                            if let Some(true) = check_bin_idx(token.count, stake, total_stake, SORTITION_PARAMETER, &seed) {
+                                Ok(Checked::Valid(token))
+                            } else {
+                                Ok(Checked::Inval(token))
+                            }
+                        }
+                        else {
+                            Ok(Checked::Inval(token))
+                        }
                     } else {
                         Ok(Checked::Inval(token))
                     }
@@ -462,8 +496,92 @@ where
     }
 }
 
-fn calculate_stake(stake: u64) -> Option<u64> {
-    Some(stake)
+// checks that the expected aomunt of stake matches the VRF output
+// TODO this can be optimized most likely
+fn check_bin_idx(expected_amount_of_stake: u64, replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<bool> {
+    let bin_idx = find_bin_idx(replicas_stake, total_stake, sortition_parameter, unnormalized_seed);
+    bin_idx.map(|idx| idx == expected_amount_of_stake)
+}
+
+/// generates the seed from algorand paper
+/// baseed on `next_state` commitment as of now, but in the future will be other things
+/// this is a stop-gap
+fn generate_view_seed<STATE: State>(next_state: commit::Commitment<hotshot_types::data::Leaf<STATE>>) -> [u8; 32] {
+    <[u8; 32]>::from(next_state)
+}
+
+// Calculates B(j; w; p) where B means bernoulli distribution.
+// That is: run w trials, with p probability of success for each trial, and return the probability
+// of j successes.
+// p = tau / W, where tau is the sortition parameter (controlling committee size)
+// this is the only usage of W and tau
+//
+// Translation:
+// stake_attempt: our guess at what the stake might be. This is j
+// replicas_stake: the units of stake owned by the replica. This is w
+// total_stake: the units of stake owned in total. This is W
+// sorition_parameter: the parameter controlling the committee size. This is tau
+//
+// TODO (ct) better error handling
+// returns none if one of our calculations fails
+fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64, sortition_parameter: u64) -> Option<Ratio<BigUint>> {
+    // TODO (ct) better error handling
+    if stake_attempt as u64 > replicas_stake {
+        panic!("j is larger than amount of stake we are allowed");
+    }
+
+
+    let sortition_parameter_big : BigUint = BigUint::from_u64(sortition_parameter)?;
+    let replicas_stake_big : BigUint = BigUint::from_u64(replicas_stake)?;
+    let total_stake_big : BigUint = BigUint::from_u64(sortition_parameter)?;
+
+    // this is the p parameter for the bernoulli distribution
+    let p = Ratio::new(sortition_parameter_big, total_stake_big);
+
+    // number of tails in bernoulli
+    let failed_num = replicas_stake - (stake_attempt as u64);
+
+    let num_permutations = factorial(replicas_stake) / (factorial(stake_attempt as u64) * factorial(failed_num));
+    let num_permutations = Ratio::new(num_permutations, BigUint::from_u8(1)?);
+
+    let one = Ratio::new(BigUint::from_u8(1)?, BigUint::from_u8(1)?);
+
+    let result = num_permutations * (p.pow(stake_attempt as i32) * (one - p).pow(failed_num as i32));
+
+    Some(result)
+}
+
+// calculated i! as a biguint
+fn factorial(mut i: u64) -> BigUint {
+    let mut result = BigUint::from_usize(1).unwrap();
+    while i > 0 {
+        result *= i;
+        i -= 1;
+    }
+    result
+}
+
+/// find the amount of stake we rolled.
+fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<u64> {
+    let unnormalized_seed = BigUint::from_bytes_le(unnormalized_seed);
+    let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from_u8(1)?.pow(256));
+    let mut j = 0;
+    // left_threshold corresponds to the sum of all bernoulli distributions
+    // from i in 0 to j: B(i; replicas_stake; p). Where p is calculated later and corresponds to
+    // algorands paper
+    let mut left_threshold = Ratio::new(BigUint::from_u8(0)?, BigUint::from_u8(1)?);
+    loop {
+        let bin_val = calculate_threshold(j + 1, replicas_stake, total_stake, sortition_parameter)?;
+        // corresponds to right range from apper
+        let right_threshold = left_threshold + bin_val;
+        // from i in 0 to j + 1: B(i; replicas_stake; p)
+        if normalized_seed < right_threshold {
+            return Some(j as u64);
+        } else {
+            left_threshold = right_threshold;
+            j += 1;
+        }
+    }
 }
 
 impl<STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>

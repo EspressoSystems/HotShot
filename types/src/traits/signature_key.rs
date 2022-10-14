@@ -1,5 +1,5 @@
 //! Minimal abstraction over public key signatures
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 
 #[cfg(feature = "demo")]
