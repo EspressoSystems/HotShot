@@ -1,10 +1,12 @@
+use std::collections::BTreeMap;
+
 use commit::Commitment;
 use hotshot::{data::Leaf, traits::dummy::DummyState};
 use hotshot_types::{
     data::ViewNumber,
     traits::{
         election::{Election, VoteToken},
-        signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
+        signature_key::{ed25519::{Ed25519Priv, Ed25519Pub}, EncodedPublicKey},
     },
 };
 use hotshot_utils::hack::nll_todo;
@@ -49,6 +51,13 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
             }
         }
     }
+    fn check_threshold(
+        &self,
+        _signatures: &BTreeMap<EncodedPublicKey, (hotshot_types::traits::signature_key::EncodedSignature, Vec<u8>)>,
+        _threshold: std::num::NonZeroUsize,
+    ) -> bool {
+    nll_todo()
+}
 
     fn make_vote_token(
         &self,

@@ -49,13 +49,14 @@ use hotshot_consensus::{
     Consensus, ConsensusApi, SendToTasks, TransactionHashMap, TransactionStorage, View, ViewInner,
     ViewQueue,
 };
+use bincode::Options;
 use hotshot_types::{
     constants::genesis_proposer_id,
     data::{fake_commitment, ViewNumber},
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
-        election::{Election, ElectionError, Checked::{Unchecked, Valid, Inval}},
+        election::{Election, ElectionError, Checked::{Unchecked, Valid, Inval, self}},
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, self},
@@ -64,7 +65,7 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use hotshot_utils::{art::async_spawn, broadcast::BroadcastSender, hack::nll_todo};
+use hotshot_utils::{art::async_spawn, broadcast::BroadcastSender, hack::nll_todo, bincode::bincode_opts};
 use hotshot_utils::{
     art::async_spawn_local,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -776,8 +777,18 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         let hash = qc.leaf_commitment;
         let mut num_valid = 0;
         // TODO ed - double check for VRF changes
+        let mut signature_map: BTreeMap<EncodedPublicKey, (EncodedSignature, <<I as NodeImplementation>::Election as Election<<I as NodeImplementation>::SignatureKey, ViewNumber>>::VoteTokenType)> = BTreeMap::new();
         for signature in qc.signatures.clone() {
-            if self.is_valid_signature(&signature.0, &signature.1.0, hash, qc.view_number, &signature.1.1) {
+                        let decoded_vote_token = bincode_opts().deserialize(&signature.1.1).unwrap();
+
+            signature_map.insert(signature.0, (signature.1.0, decoded_vote_token));
+        }
+        // &qc.signatures.clone().iter().map(|x| {
+    //         let decoded_vote_token = bincode_opts().deserialize(x.1.1).unwrap();
+    //         *x.1.1 = decoded_vote_token;
+    // });
+        for signature in signature_map {
+            if self.is_valid_signature(&signature.0, &signature.1.0, hash, qc.view_number, Unchecked(signature.1.1)) {
                 num_valid += 1;
             }
 

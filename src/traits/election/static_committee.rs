@@ -11,6 +11,8 @@ use hotshot_types::{
         State,
     },
 };
+use crate::BTreeMap;
+use crate::EncodedPublicKey;
 use hotshot_utils::hack::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;

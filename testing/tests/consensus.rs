@@ -75,6 +75,8 @@ async fn submit_vote(
         current_view: leaf.view_number,
         block_commitment: leaf.deltas.commit(),
         leaf_commitment: leaf.commit(),
+        // TODO placeholder below
+        vote_token: Vec::new(),
     });
 
     let recipient = runner
