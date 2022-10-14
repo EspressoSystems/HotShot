@@ -782,6 +782,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         &self.inner.private_key
     }
 
+    // TODO ed - refactor this function to only acc stake, and not check validity
     fn validated_stake(&self, 
         hash: Commitment<Leaf<I::StateType>>,
         view_number: ViewNumber,
@@ -827,6 +828,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
                 >>::VoteTokenType,
             ),
         > = BTreeMap::new();
+        // TODO ed - refactor once I is impled for Vote
         for signature in qc.signatures.clone() {
             let decoded_vote_token = bincode_opts().deserialize(&signature.1 .1).unwrap();
             signature_map.insert(signature.0, (signature.1 .0, decoded_vote_token));

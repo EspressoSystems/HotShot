@@ -161,7 +161,9 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         signature
     }
 
-    fn validated_stake(&self, 
+    /// Returns the accumulated amount of validated stake based on signatures and vote tokens
+    fn validated_stake(
+        &self,
         hash: Commitment<Leaf<I::StateType>>,
         view_number: ViewNumber,
         signatures: BTreeMap<

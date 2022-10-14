@@ -60,8 +60,6 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// Returns leader for the current view number, given the current stake table
     fn get_leader(&self, view_number: ViewNumber) -> P;
 
-
-
     /// Attempts to generate a vote token for self
     ///
     /// Returns `None` if the number of seats would be zero

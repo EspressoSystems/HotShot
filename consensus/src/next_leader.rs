@@ -104,24 +104,31 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
 
                     // unwraps here are fine since we *just* inserted the key
                     let (_, valid_signatures) = vote_outcomes.get(&vote.leaf_commitment).unwrap();
+                    // TODO ed - this is repeated code from validate_qc, but should clean itself up once we implement I for Vote
                     let mut signature_map: BTreeMap<
-                    EncodedPublicKey,
-                    (
-                        EncodedSignature,
-                        <<I as NodeImplementation>::Election as Election<
-                            <I as NodeImplementation>::SignatureKey,
-                            ViewNumber,
-                        >>::VoteTokenType,
-                    ),
-                > = BTreeMap::new();
-                for signature in valid_signatures.clone() {
-                    let decoded_vote_token = bincode_opts().deserialize(&signature.1 .1).unwrap();
-                    signature_map.insert(signature.0, (signature.1 .0, decoded_vote_token));
-                }
-        
-                let stake = self.api.validated_stake(vote.leaf_commitment, self.cur_view, signature_map);
-                    if stake as usize >= threshold.into()
-                    {
+                        EncodedPublicKey,
+                        (
+                            EncodedSignature,
+                            <<I as NodeImplementation>::Election as Election<
+                                <I as NodeImplementation>::SignatureKey,
+                                ViewNumber,
+                            >>::VoteTokenType,
+                        ),
+                    > = BTreeMap::new();
+                    // TODO ed - there is a better way to do this, but it should be gone once I is impled for Vote
+                    for signature in valid_signatures.clone() {
+                        let decoded_vote_token =
+                            bincode_opts().deserialize(&signature.1 .1).unwrap();
+                        signature_map.insert(signature.0, (signature.1 .0, decoded_vote_token));
+                    }
+
+                    // TODO ed - current validated_stake rechecks that all votes are valid, which isn't necessary here
+                    let stake = self.api.validated_stake(
+                        vote.leaf_commitment,
+                        self.cur_view,
+                        signature_map,
+                    );
+                    if stake as usize >= threshold.into() {
                         let (block_commitment, valid_signatures) =
                             vote_outcomes.remove(&vote.leaf_commitment).unwrap();
                         // construct QC
