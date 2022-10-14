@@ -32,9 +32,9 @@ use hotshot_types::{
             ed25519::{Ed25519Priv, Ed25519Pub},
             SignatureKey,
         },
-        state::{TestableBlock, TestableState},
+        state::{TestableBlock, TestableState}, election::Election, node_implementation::TestableNodeImplementation,
     },
-    HotShotConfig,
+    HotShotConfig, data::ViewNumber,
 };
 use snafu::Snafu;
 use std::{collections::HashMap, fmt, marker::PhantomData};
@@ -59,54 +59,43 @@ pub struct RoundResult<STATE: State> {
 }
 
 /// Type of function used for checking results after running a view of consensus
-pub type RoundPostSafetyCheck<NETWORK, STORAGE, STATE> = Box<
+pub type RoundPostSafetyCheck<I: TestableNodeImplementation> = Box<
     dyn FnOnce(
-        &TestRunner<NETWORK, STORAGE, STATE>,
-        RoundResult<STATE>,
+        &TestRunner<I>,
+        RoundResult<I::StateType>,
     ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
 >;
 
 /// Type of function used for configuring a round of consensus
-pub type RoundSetup<NETWORK, STORAGE, STATE> = Box<
+pub type RoundSetup<I: TestableNodeImplementation> = Box<
     dyn FnOnce(
-        &mut TestRunner<NETWORK, STORAGE, STATE>,
-    ) -> LocalBoxFuture<Vec<<<STATE as State>::BlockType as Block>::Transaction>>,
+        &mut TestRunner<I>,
+    ) -> LocalBoxFuture<Vec<<<I::StateType as State>::BlockType as Block>::Transaction>>,
 >;
 
 /// Type of function used for checking safety before beginnning consensus
-pub type RoundPreSafetyCheck<NETWORK, STORAGE, STATE> = Box<
+pub type RoundPreSafetyCheck<I: TestableNodeImplementation> = Box<
     dyn FnOnce(
-        &TestRunner<NETWORK, STORAGE, STATE>,
+        &TestRunner<I>,
     ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
 >;
 
 /// functions to run a round of consensus
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
-pub struct Round<
-    NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
-    STORAGE: Storage<STATE> + 'static,
-    STATE: TestableState + 'static,
-> where
-    <STATE as State>::BlockType: TestableBlock,
+pub struct Round<I: TestableNodeImplementation> where
 {
     /// Safety check before round is set up and run
     /// to ensure consistent state
-    pub safety_check_post: Option<RoundPostSafetyCheck<NETWORK, STORAGE, STATE>>,
+    pub safety_check_post: Option<RoundPostSafetyCheck<I>>,
 
     /// Round set up
-    pub setup_round: Option<RoundSetup<NETWORK, STORAGE, STATE>>,
+    pub setup_round: Option<RoundSetup<I>>,
 
     /// Safety check after round is complete
-    pub safety_check_pre: Option<RoundPreSafetyCheck<NETWORK, STORAGE, STATE>>,
+    pub safety_check_pre: Option<RoundPreSafetyCheck<I>>,
 }
 
-impl<
-        NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
-        STORAGE: Storage<STATE> + 'static,
-        STATE: TestableState + 'static,
-    > Default for Round<NETWORK, STORAGE, STATE>
-where
-    <STATE as State>::BlockType: TestableBlock,
+impl<I: TestableNodeImplementation> Default for Round<I>
 {
     fn default() -> Self {
         Self {
@@ -119,43 +108,28 @@ where
 
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
-pub struct TestRunner<
-    NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
-    STORAGE: Storage<STATE> + 'static,
-    STATE: TestableState + 'static,
-> where
-    <STATE as State>::BlockType: TestableBlock,
+pub struct TestRunner<I: TestableNodeImplementation> where
 {
-    network_generator: Generator<NETWORK>,
-    storage_generator: Generator<STORAGE>,
-    default_node_config: HotShotConfig<Ed25519Pub>,
-    nodes: Vec<Node<NETWORK, STORAGE, STATE>>,
+    network_generator: Generator<I::Networking>,
+    storage_generator: Generator<I::Storage>,
+    default_node_config: HotShotConfig<I::SignatureKey>,
+    nodes: Vec<Node<I>>,
     next_node_id: u64,
-    rounds: Vec<Round<NETWORK, STORAGE, STATE>>,
+    rounds: Vec<Round<I>>,
 }
 
 #[allow(dead_code)]
-struct Node<
-    NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
-    STORAGE: Storage<STATE> + 'static,
-    STATE: TestableState + 'static,
-> where
-    <STATE as State>::BlockType: TestableBlock,
+struct Node<I: TestableNodeImplementation> where
 {
     pub node_id: u64,
-    pub handle: HotShotHandle<TestNodeImpl<NETWORK, STORAGE, STATE>>,
+    pub handle: HotShotHandle<TestNodeImpl<I::Networking, I::Storage, I::StateType, I::Election, I::SignatureKey>>,
 }
 
-impl<
-        NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
-        STORAGE: Storage<STATE> + 'static,
-        STATE: TestableState + 'static,
-    > TestRunner<NETWORK, STORAGE, STATE>
+impl<I: TestableNodeImplementation> TestRunner<I>
 where
-    <STATE as State>::BlockType: TestableBlock,
 {
     pub(self) fn new(
-        launcher: TestLauncher<NETWORK, STORAGE, <STATE as State>::BlockType, STATE>,
+        launcher: TestLauncher<I>,
     ) -> Self {
         Self {
             network_generator: launcher.network,
@@ -571,33 +545,39 @@ pub enum ConsensusTestError {
 
 /// An implementation to make the trio `NETWORK`, `STORAGE` and `STATE` implement [`NodeImplementation`]
 #[derive(Clone)]
-pub struct TestNodeImpl<NETWORK, STORAGE, STATE> {
+pub struct TestNodeImpl<NETWORK, STORAGE, STATE, ELECTION, KEY> {
     network: PhantomData<NETWORK>,
     storage: PhantomData<STORAGE>,
     state: PhantomData<STATE>,
+    election: PhantomData<ELECTION>,
+    key: PhantomData<KEY>
 }
 
 impl<
-        NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+        NETWORK: NetworkingImplementation<Message<STATE, KEY>, KEY> + Clone + 'static,
         STORAGE: Storage<STATE> + 'static,
         STATE: TestableState + 'static,
-    > NodeImplementation for TestNodeImpl<NETWORK, STORAGE, STATE>
+        ELECTION: Election<KEY, ViewNumber>,
+        KEY: SignatureKey
+    > NodeImplementation for TestNodeImpl<NETWORK, STORAGE, STATE, ELECTION, KEY>
 where
     <STATE as State>::BlockType: TestableBlock,
 {
     type StateType = STATE;
     type Storage = STORAGE;
     type Networking = NETWORK;
-    type Election = StaticCommittee<STATE>;
-    type SignatureKey = Ed25519Pub;
+    type Election = ELECTION;
+    type SignatureKey = KEY;
 }
 
-impl<NETWORK, STORAGE, STATE> fmt::Debug for TestNodeImpl<NETWORK, STORAGE, STATE> {
+impl<NETWORK, STORAGE, STATE, ELECTION, KEY> fmt::Debug for TestNodeImpl<NETWORK, STORAGE, STATE, ELECTION, KEY> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("TestNodeImpl")
             .field("network", &std::any::type_name::<NETWORK>())
             .field("storage", &std::any::type_name::<STORAGE>())
             .field("state", &std::any::type_name::<STATE>())
+            .field("election", &std::any::type_name::<ELECTION>())
+            .field("key", &std::any::type_name::<KEY>())
             .finish_non_exhaustive()
     }
 }

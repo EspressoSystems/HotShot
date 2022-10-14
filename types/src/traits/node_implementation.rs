@@ -13,7 +13,7 @@ use crate::{
 };
 use std::fmt::Debug;
 
-use super::State;
+use super::{State, state::{TestableState, TestableBlock}, network::TestableNetworkingImplementation, signature_key::TestableSignatureKey};
 
 /// Node implementation aggregate trait
 ///
@@ -37,6 +37,14 @@ pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
     /// consensus protocols
     type Election: Election<Self::SignatureKey, ViewNumber, StateType = Self::StateType>;
 }
+
+/// testable trait
+pub trait TestableNodeImplementation: NodeImplementation where
+    <Self as NodeImplementation>::StateType: TestableState + 'static,
+    <Self as NodeImplementation>::Networking: TestableNetworkingImplementation<Message<Self::StateType, Self::SignatureKey>, Self::SignatureKey> + Clone + 'static,
+    <<Self as NodeImplementation>::StateType as State>::BlockType: TestableBlock + 'static,
+    <Self as NodeImplementation>::SignatureKey: TestableSignatureKey
+{}
 
 /// Helper trait to make aliases.
 ///

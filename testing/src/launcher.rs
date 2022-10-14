@@ -2,7 +2,7 @@ use std::{marker::PhantomData, num::NonZeroUsize, time::Duration};
 
 use super::{Generator, TestRunner};
 use hotshot::{
-    traits::Storage,
+    traits::{Storage, State, NodeImplementation},
     types::{ed25519::Ed25519Pub, Message, SignatureKey},
 };
 use hotshot_types::{
@@ -10,27 +10,20 @@ use hotshot_types::{
         network::TestableNetworkingImplementation,
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState},
-        storage::TestableStorage,
+        storage::TestableStorage, node_implementation::TestableNodeImplementation,
     },
     ExecutionType, HotShotConfig,
 };
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
-pub struct TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
-    pub(super) network: Generator<NETWORK>,
-    pub(super) storage: Generator<STORAGE>,
-    pub(super) block: Generator<BLOCK>,
-    pub(super) config: HotShotConfig<Ed25519Pub>,
-    state: PhantomData<STATE>,
+pub struct TestLauncher<I: TestableNodeImplementation> {
+    pub(super) network: Generator<I::Networking>,
+    pub(super) storage: Generator<I::Storage>,
+    pub(super) block: Generator<<I::StateType as State>::BlockType>,
+    pub(super) config: HotShotConfig<I::SignatureKey>,
 }
 
-impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
-where
-    NETWORK:
-        TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
-    STORAGE: TestableStorage<STATE> + 'static,
-    BLOCK: TestableBlock + 'static,
-    STATE: TestableState<BlockType = BLOCK> + 'static,
+impl<I: TestableNodeImplementation> TestLauncher<I>
 {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
@@ -60,23 +53,22 @@ where
         };
 
         Self {
-            network: NETWORK::generator(expected_node_count, num_bootstrap_nodes),
+            network: I::Networking::generator(expected_node_count, num_bootstrap_nodes),
             storage: Box::new(|_| {
-                <STORAGE as TestableStorage<STATE>>::construct_tmp_storage().unwrap()
+                <I::Storage as TestableStorage<I::StateType>>::construct_tmp_storage().unwrap()
             }),
-            block: Box::new(|_| BLOCK::genesis()),
+            block: Box::new(|_| <<I as NodeImplementation>::StateType as State>::BlockType::genesis()),
             config,
-            state: PhantomData::default(),
         }
     }
 }
 
-impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE> {
+impl<I: TestableNodeImplementation> TestLauncher<I> {
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_network<NewNetwork>(
         self,
         network: impl Fn(u64, Ed25519Pub) -> NewNetwork + 'static,
-    ) -> TestLauncher<NewNetwork, STORAGE, BLOCK, STATE> {
+    ) -> TestLauncher<I> {
         TestLauncher {
             network: Box::new({
                 move |node_id| {
@@ -91,7 +83,6 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
             storage: self.storage,
             block: self.block,
             config: self.config,
-            state: PhantomData::default(),
         }
     }
 
@@ -99,13 +90,12 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     pub fn with_storage<NewStorage>(
         self,
         storage: impl Fn(u64) -> NewStorage + 'static,
-    ) -> TestLauncher<NETWORK, NewStorage, BLOCK, STATE> {
+    ) -> TestLauncher<I> {
         TestLauncher {
             network: self.network,
             storage: Box::new(storage),
             block: self.block,
             config: self.config,
-            state: PhantomData::default(),
         }
     }
 
@@ -113,13 +103,12 @@ impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE
     pub fn with_block<NewBlock>(
         self,
         block: impl Fn(u64) -> NewBlock + 'static,
-    ) -> TestLauncher<NETWORK, STORAGE, NewBlock, STATE> {
+    ) -> TestLauncher<I> {
         TestLauncher {
             network: self.network,
             storage: self.storage,
             block: Box::new(block),
             config: self.config,
-            state: PhantomData::default(),
         }
     }
 

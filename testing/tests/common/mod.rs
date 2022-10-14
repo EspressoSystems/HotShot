@@ -20,7 +20,7 @@ use hotshot_types::{
         network::TestableNetworkingImplementation,
         signature_key::ed25519::Ed25519Pub,
         state::{TestableBlock, TestableState},
-        storage::TestableStorage,
+        storage::TestableStorage, node_implementation::TestableNodeImplementation,
     },
     HotShotConfig,
 };
@@ -91,12 +91,7 @@ pub struct GeneralTestDescriptionBuilder {
     pub propose_max_round_time: Duration,
 }
 
-pub struct DetailedTestDescriptionBuilder<
-    NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
-    STORAGE: Storage<STATE> + 'static,
-    STATE: TestableState + 'static,
-> where
-    <STATE as State>::BlockType: TestableBlock,
+pub struct DetailedTestDescriptionBuilder<I: TestableNodeImplementation> where
 {
     pub general_info: GeneralTestDescriptionBuilder,
 

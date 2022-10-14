@@ -528,6 +528,9 @@ fn generate_view_seed<STATE: State>(_view_number: ViewNumber, next_state: commit
 //
 // TODO (ct) better error handling
 // returns none if one of our calculations fails
+//
+// TODO keep data around from last iteration so less calculation is needed
+// TODO test this "correct/simple" implementation against any optimized version
 #[instrument]
 fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64, sortition_parameter: u64) -> Option<Ratio<BigUint>> {
     tracing::info!("Running calculate threshold");
@@ -551,14 +554,16 @@ fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64
     // number of tails in bernoulli
     let failed_num = replicas_stake - (stake_attempt as u64);
 
+    // TODO cancel things out (avoid calculating factorial)
+    // TODO can just do division
     let num_permutations = Ratio::new(factorial(replicas_stake), factorial(stake_attempt as u64) * factorial(failed_num));
 
     info!("num permutations is {num_permutations:?}, failed_num is {failed_num:?}");
 
     let one = Ratio::from_integer(one_big);
 
+    // TODO can keep results from last try
     let result = num_permutations * (p.pow(stake_attempt as i32) * (one - p).pow(failed_num as i32));
-    // let result = num_permutations * (p.pow(stake_attempt as i32) * (one - p.pow(failed_num as i32)));
 
     assert!(result.numer() < result.denom());
 
@@ -587,6 +592,10 @@ fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64,
     let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from(2_u32).pow(256));
     assert!(normalized_seed.numer() < normalized_seed.denom());
     let mut j = 0;
+
+    // [j, j+1)
+    // [cdf(j),cdf(j+1))
+
     // left_threshold corresponds to the sum of all bernoulli distributions
     // from i in 0 to j: B(i; replicas_stake; p). Where p is calculated later and corresponds to
     // algorands paper
@@ -597,10 +606,13 @@ fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64,
         // corresponds to right range from apper
         let right_threshold = left_threshold + bin_val.clone();
 
-        let right_threshold_float = ToPrimitive::to_f64(&right_threshold.clone());
-        let bin_val_float = ToPrimitive::to_f64(&bin_val.clone());
-        let normalized_seed_float = ToPrimitive::to_f64(&normalized_seed.clone());
-        info!("rightthreshold: {right_threshold_float:?}, bin: {bin_val_float:?}, seed: {normalized_seed_float:?}");
+        {
+            let right_threshold_float = ToPrimitive::to_f64(&right_threshold.clone());
+            let bin_val_float = ToPrimitive::to_f64(&bin_val.clone());
+            let normalized_seed_float = ToPrimitive::to_f64(&normalized_seed.clone());
+            info!("rightthreshold: {right_threshold_float:?}, bin: {bin_val_float:?}, seed: {normalized_seed_float:?}");
+        }
+
         // from i in 0 to j + 1: B(i; replicas_stake; p)
         if normalized_seed < right_threshold {
             return Some(j as u64);
@@ -636,6 +648,7 @@ where
     VRFPARAMS: Bls12Parameters,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
 {
+    // TODO switch out parameters
     pub fn with_initial_stake(known_nodes: Vec<VRFPubKey<SIGSCHEME>>, sortition_parameter: u64) -> Self {
         VrfImpl {
             stake_table: VRFStakeTable {
