@@ -40,8 +40,10 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Generate coverage reports
+        # Use the `release` profile rather than `release-lto` as other workflows do, since `--
+        # profile=release-lto` will cause the `failed to generate report` error.
         run: |
-          nix develop .#perfShell -c cargo-llvm-cov llvm-cov --features=full-ci --lib --bins --tests --benches --workspace --lcov --output-path lcov.info --profile=release-lto -- --test-threads=1
+          nix develop .#perfShell -c cargo-llvm-cov llvm-cov --features=full-ci --lib --bins --tests --benches --release --workspace --lcov --output-path lcov.info -- --test-threads=1
         timeout-minutes: 90
 
       - name: Coveralls upload
