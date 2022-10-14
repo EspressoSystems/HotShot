@@ -863,7 +863,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
                     .validate_vote_token(view_number, key, vote_token, hash);
             is_valid_vote_token = match valid_vote_token {
                 Err(_) => {
-                    warn!("Vote token was invalid");
+                    error!("Vote token was invalid");
                     false
                 }
                 Ok(Valid(_)) => true,
