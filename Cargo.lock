@@ -2140,6 +2140,7 @@ version = "0.1.1"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
+ "ark-serialize",
  "async-lock",
  "async-std",
  "async-trait",

@@ -30,7 +30,8 @@ use std::{
 };
 use tracing::{debug, error};
 
-type Node = DEntryNode<CentralizedServerNetwork<Ed25519Pub>>;
+type Node =
+    DEntryNode<CentralizedServerNetwork<Ed25519Pub>, StaticCommittee<DEntryState>, Ed25519Pub>;
 
 #[derive(Debug, Parser)]
 #[clap(

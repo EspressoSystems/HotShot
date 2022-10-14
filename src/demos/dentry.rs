@@ -7,10 +7,7 @@
 //! production use.
 
 use crate::{
-    traits::{
-        election::static_committee::StaticCommittee, implementations::MemoryStorage, Block,
-        NetworkingImplementation, NodeImplementation,
-    },
+    traits::{implementations::MemoryStorage, Block, NetworkingImplementation, NodeImplementation},
     types::Message,
 };
 use commit::{Commitment, Committable};
@@ -18,7 +15,8 @@ use hotshot_types::{
     constants::genesis_proposer_id,
     data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
     traits::{
-        signature_key::ed25519::Ed25519Pub,
+        election::Election,
+        signature_key::SignatureKey,
         state::{TestableBlock, TestableState},
         State,
     },
@@ -467,21 +465,27 @@ impl Block for DEntryBlock {
 
 /// The node implementation for the dentry demo
 #[derive(Clone)]
-pub struct DEntryNode<NET> {
+pub struct DEntryNode<NET, ELE, KEY> {
     /// Network phantom
-    _phantom: PhantomData<NET>,
+    _phantom_0: PhantomData<NET>,
+    /// Election phantom
+    _phantom_1: PhantomData<ELE>,
+    /// Key phantom
+    _phantom_2: PhantomData<KEY>,
 }
 
-impl<NET> DEntryNode<NET> {
+impl<NET, ELE, KEY> DEntryNode<NET, ELE, KEY> {
     /// Create a new `DEntryNode`
     pub fn new() -> Self {
         DEntryNode {
-            _phantom: PhantomData,
+            _phantom_0: PhantomData,
+            _phantom_1: PhantomData,
+            _phantom_2: PhantomData,
         }
     }
 }
 
-impl<NET> Debug for DEntryNode<NET> {
+impl<NET, ELE, KEY> Debug for DEntryNode<NET, ELE, KEY> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DEntryNode")
             .field("_phantom", &"phantom")
@@ -489,24 +493,23 @@ impl<NET> Debug for DEntryNode<NET> {
     }
 }
 
-impl<NET> Default for DEntryNode<NET> {
+impl<NET, ELE, KEY> Default for DEntryNode<NET, ELE, KEY> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<NET> NodeImplementation for DEntryNode<NET>
+impl<NET, ELE, KEY> NodeImplementation for DEntryNode<NET, ELE, KEY>
 where
-    NET: NetworkingImplementation<Message<DEntryState, Ed25519Pub>, Ed25519Pub>
-        + Clone
-        + Debug
-        + 'static,
+    NET: NetworkingImplementation<Message<DEntryState, KEY>, KEY> + Clone + Debug + 'static,
+    ELE: Election<KEY, ViewNumber, StateType = DEntryState> + Clone + 'static,
+    KEY: SignatureKey + Clone + 'static,
 {
     type StateType = DEntryState;
     type Storage = MemoryStorage<DEntryState>;
     type Networking = NET;
-    type Election = StaticCommittee<Self::StateType>;
-    type SignatureKey = Ed25519Pub;
+    type Election = ELE;
+    type SignatureKey = KEY;
 }
 
 /// Provides a random [`QuorumCertificate`]
