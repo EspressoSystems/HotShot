@@ -1,11 +1,11 @@
 use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
-use hotshot_types::traits::{
+use hotshot_types::{traits::{
     election::{Checked, Election, ElectionError, VoteToken},
     signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     state::ConsensusTime,
     State,
-};
+}, data::ViewNumber};
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
     hash_to_group::SWHashToGroup,
@@ -286,8 +286,8 @@ where
 {
     stake_table: VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>,
     proof_parameters: VRF::PublicParameter,
-    // #[serde(ignore)]
     prng: std::sync::Arc<std::sync::Mutex<rand_chacha::ChaChaRng>>,
+    sortition_parameter: u64,
     // TODO (fst2) accessor to stake table
     // stake_table:
     _pd_0: PhantomData<VRFHASHER>,
@@ -306,6 +306,7 @@ where
             stake_table: self.stake_table.clone(),
             proof_parameters: (),
             prng: self.prng.clone(),
+            sortition_parameter: self.sortition_parameter,
             _pd_0: PhantomData,
             _pd_1: PhantomData,
             _pd_2: PhantomData,
@@ -396,8 +397,6 @@ where
         SignatureKey::from_bytes(encoded).unwrap()
     }
 
-    // what this is doing:
-    // -
     fn make_vote_token(
         // TODO see if we can make this take &mut self
         // because we're using a mutable prng
@@ -412,7 +411,7 @@ where
             Some(val) => val,
             None => return Ok(None),
         };
-        let view_seed = generate_view_seed(next_state);
+        let view_seed = generate_view_seed(view_number, next_state);
         // TODO (ct) this can fail, return Result::Err
         let proof = VRF::prove(
             &self.proof_parameters,
@@ -424,19 +423,9 @@ where
         // TODO (ct) this can fail, return result::err
         let hash = VRF::evaluate(&self.proof_parameters, &proof).unwrap();
 
-        // hardcoded to be 32
-        let _hash_len = 1 << (32 * 8);
-
         // TODO (ct) this should invoke the get_stake_table function
         let total_stake = self.stake_table.total_stake;
 
-        // let seed: u64 = hash / hash_len;
-
-
-
-        // calculate hash / 2^ thing
-        // iterate through buckets and pick the correct one
-        // the stake we selected
         // TODO (jr) this error handling is NOTGOOD
         let selected_stake = find_bin_idx(replicas_stake, total_stake, SORTITION_PARAMETER, &hash);
         match selected_stake {
@@ -506,7 +495,7 @@ fn check_bin_idx(expected_amount_of_stake: u64, replicas_stake: u64, total_stake
 /// generates the seed from algorand paper
 /// baseed on `next_state` commitment as of now, but in the future will be other things
 /// this is a stop-gap
-fn generate_view_seed<STATE: State>(next_state: commit::Commitment<hotshot_types::data::Leaf<STATE>>) -> [u8; 32] {
+fn generate_view_seed<STATE: State>(_view_number: ViewNumber, next_state: commit::Commitment<hotshot_types::data::Leaf<STATE>>) -> [u8; 32] {
     <[u8; 32]>::from(next_state)
 }
 
@@ -532,7 +521,6 @@ fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64
 
 
     let sortition_parameter_big : BigUint = BigUint::from_u64(sortition_parameter)?;
-    let replicas_stake_big : BigUint = BigUint::from_u64(replicas_stake)?;
     let total_stake_big : BigUint = BigUint::from_u64(sortition_parameter)?;
 
     // this is the p parameter for the bernoulli distribution
@@ -562,6 +550,7 @@ fn factorial(mut i: u64) -> BigUint {
 }
 
 /// find the amount of stake we rolled.
+/// NOTE: in the future this requires a view numb
 fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<u64> {
     let unnormalized_seed = BigUint::from_bytes_le(unnormalized_seed);
     let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from_u8(1)?.pow(256));
@@ -596,6 +585,7 @@ where
             VRFPARAMS,
             PublicParameter = (),
             Input = [u8; 32],
+            Output = [u8; 32],
             PublicKey = SIGSCHEME::VerificationKey,
             SecretKey = SIGSCHEME::SigningKey,
         > + Sync
@@ -608,7 +598,7 @@ where
     VRFPARAMS: Bls12Parameters,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
 {
-    pub fn with_initial_stake(known_nodes: Vec<VRFPubKey<SIGSCHEME>>) -> Self {
+    pub fn with_initial_stake(known_nodes: Vec<VRFPubKey<SIGSCHEME>>, sortition_parameter: u64) -> Self {
         VrfImpl {
             stake_table: VRFStakeTable {
                 mapping: known_nodes
@@ -621,6 +611,7 @@ where
                 _pd_2: PhantomData,
             },
             proof_parameters: (),
+            sortition_parameter,
             // #[serde(ignore)]
             prng: Arc::new(Mutex::new(ChaChaRng::from_seed(Default::default()))),
             // TODO (fst2) accessor to stake table
@@ -632,4 +623,98 @@ where
             _pd_4: PhantomData,
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use blake3::Hasher;
+    use commit::{RawCommitmentBuilder, Commitment};
+    use hotshot_types::{traits::state::dummy::DummyState, data::{ViewNumber, fake_commitment, Leaf, random_commitment}};
+    use hotshot_utils::hack::nll_todo;
+    use jf_primitives::vrf::blsvrf::BLSVRFScheme;
+    use rand::RngCore;
+    use std::collections::BTreeMap;
+    use ark_std::{rand::prelude::StdRng, test_rng};
+    use sha2::Sha256;
+    use ark_bls12_381::Parameters as Param381;
+
+    pub fn gen_vrf_impl(num_nodes: usize) -> (VrfImpl<DummyState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>, Vec<(jf_primitives::signatures::bls::BLSSignKey<Param381>, jf_primitives::signatures::bls::BLSVerKey<Param381>)>) {
+        let mut known_nodes = Vec::new();
+        let mut keys = Vec::new();
+        for i in 0..num_nodes {
+            let rng = &mut test_rng();
+            let parameters = BLSSignatureScheme::<Param381>::param_gen(Some(rng)).unwrap();
+            let (sk, pk) = BLSSignatureScheme::<Param381>::key_gen(&parameters, rng).unwrap();
+            keys.push((sk.clone(), pk.clone()));
+            known_nodes.push(VRFPubKey::from_native(pk.clone()));
+        }
+        let stake_table = VrfImpl::with_initial_stake(known_nodes, SORTITION_PARAMETER);
+        (stake_table, keys)
+    }
+
+    #[test]
+    pub fn test_sorition(){
+        let (vrf_impl, keys) = gen_vrf_impl(10);
+        let rounds = 1;
+
+        for i in 0..rounds {
+            let next_state_commitment : Commitment<Leaf<DummyState>> = random_commitment();
+            for (pk, sk) in keys.iter() {
+                let token =
+                    <crate::traits::election::vrf::VrfImpl<hotshot_types::traits::block_contents::dummy::DummyState, jf_primitives::signatures::BLSSignatureScheme<ark_bls12_381::Parameters>, BLSVRFScheme<ark_bls12_381::Parameters>, blake3::Hasher, ark_bls12_381::Parameters> as hotshot_types::traits::election::Election<crate::traits::election::vrf::VRFPubKey<jf_primitives::signatures::BLSSignatureScheme<ark_bls12_381::Parameters>>, ViewNumber>>::make_vote_token(&vrf_impl, ViewNumber::new(i), &(pk.clone(), sk.clone()), next_state_commitment).unwrap().unwrap();
+                // vrf_impl.validate_vote_token(i, pk, token, next_state_commitment)
+                nll_todo()
+            }
+        }
+
+
+
+        let sortition_parameter = 10;
+
+        let unnormalized_seed : [u8; 32] = nll_todo();
+
+        let message = [0u8; 32];
+        let message_bad = [1u8; 32];
+        // find_bin_idx();
+    }
+
+    // macro_rules! test_bls_vrf {
+    //     ($curve_param:tt) => {
+    //         let message = [0u8; 32];
+    //         let message_bad = [1u8; 32];
+    //         sign_and_verify::<BLSVRFScheme<$curve_param>, Sha256, _>(&message);
+    //         failed_verification::<BLSVRFScheme<$curve_param>, Sha256, _>(&message, &message_bad);
+    //     };
+    // }
+    //
+    // fn test_bls_vrf() {
+    //     test_bls_vrf!(Param377);
+    //     test_bls_vrf!(Param381);
+    // }
+    //
+    // pub(crate) fn sign_and_verify<S: SignatureScheme>(message: &[S::MessageUnit]) {
+    //     let rng = &mut test_rng();
+    //     let parameters = S::param_gen(Some(rng)).unwrap();
+    //     let (sk, pk) = S::key_gen(&parameters, rng).unwrap();
+    //     let sig = S::sign(&parameters, &sk, &message, rng).unwrap();
+    //     assert!(S::verify(&parameters, &pk, &message, &sig).is_ok());
+    //
+    //     let parameters = S::param_gen::<StdRng>(None).unwrap();
+    //     let (sk, pk) = S::key_gen(&parameters, rng).unwrap();
+    //     let sig = S::sign(&parameters, &sk, &message, rng).unwrap();
+    //     assert!(S::verify(&parameters, &pk, &message, &sig).is_ok());
+    // }
+
+    // pub(crate) fn failed_verification<S: SignatureScheme>(
+    //     message: &[S::MessageUnit],
+    //     bad_message: &[S::MessageUnit],
+    // ) {
+    //     let rng = &mut test_rng();
+    //     let parameters = S::param_gen(Some(rng)).unwrap();
+    //     let (sk, pk) = S::key_gen(&parameters, rng).unwrap();
+    //     let sig = S::sign(&parameters, &sk, message, rng).unwrap();
+    //     assert!(!S::verify(&parameters, &pk, bad_message, &sig).is_ok());
+    // }
+
 }

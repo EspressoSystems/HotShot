@@ -6,7 +6,7 @@ use hotshot::{
     traits::{
         election::{
             static_committee::StaticCommittee,
-            vrf::{VRFPubKey, VrfImpl},
+            vrf::{VRFPubKey, VrfImpl, SORTITION_PARAMETER},
         },
         implementations::{CentralizedServerNetwork, MemoryStorage},
         Storage,
@@ -92,15 +92,16 @@ async fn init_state_and_hotshot(
     let (priv_key, pub_key) =
         <BLSVRFScheme<Param381> as Vrf<Hasher, Param381>>::key_gen(&parameters, prng).unwrap();
     let known_nodes = config.known_nodes.clone();
+    let vrf_impl = VrfImpl::with_initial_stake(known_nodes.clone(), SORTITION_PARAMETER);
     let hotshot = HotShot::init(
-        known_nodes.clone(),
+        known_nodes,
         VRFPubKey::from_native(pub_key.clone()),
         (priv_key, pub_key),
         node_id,
         config,
         networking,
         MemoryStorage::new(),
-        VrfImpl::with_initial_stake(known_nodes),
+        vrf_impl,
         initializer,
     )
     .await
