@@ -1,10 +1,12 @@
+use std::collections::BTreeMap;
+
 use commit::Commitment;
 use hotshot::{data::Leaf, traits::dummy::DummyState};
 use hotshot_types::{
     data::ViewNumber,
     traits::{
+        signature_key::{ed25519::{Ed25519Priv, Ed25519Pub}, EncodedPublicKey},
         election::{Checked, Election, VoteToken},
-        signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
     },
 };
 use hotshot_utils::hack::nll_todo;

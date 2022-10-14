@@ -1,11 +1,18 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
-use super::{state::ConsensusTime, State};
+use std::{collections::BTreeMap, num::NonZeroUsize};
+
+use super::{
+    signature_key::{EncodedPublicKey, EncodedSignature},
+    state::ConsensusTime,
+    State,
+};
 use crate::{
     data::{Leaf, ViewNumber},
     traits::signature_key::SignatureKey,
 };
 use commit::Commitment;
+use hotshot_utils::hack::nll_todo;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 
@@ -48,7 +55,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// The state type this election implementation is bound to
     type StateType: State;
     /// A membership proof
-    type VoteTokenType: VoteToken + Serialize + DeserializeOwned;
+    type VoteTokenType: VoteToken + Serialize + DeserializeOwned + Send + Sync + Clone;
 
     /// Returns the table from the current committed state
     fn get_stake_table(&self, view_number: ViewNumber, state: &Self::StateType)

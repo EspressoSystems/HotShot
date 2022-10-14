@@ -2,16 +2,19 @@
 
 use async_trait::async_trait;
 use commit::Commitment;
+use hotshot_types::traits::election::Checked;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     error::HotShotError,
     event::{Event, EventType},
     traits::{
+        election::{Election, ElectionError},
         network::NetworkError,
         node_implementation::{NodeImplementation, TypeMap},
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey}, election::{Election, ElectionError},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
+use std::collections::BTreeMap;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
@@ -35,9 +38,6 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// Get a reference to the storage implementation
     fn storage(&self) -> &I::Storage;
 
-    /// Returns `true` if the leader should also act as a replica.  This will make the leader cast votes.
-    fn leader_acts_as_replica(&self) -> bool;
-
     /// Retuns the maximum transactions allowed in a block
     fn max_transactions(&self) -> NonZeroUsize;
 
@@ -50,7 +50,12 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         &self,
         view_number: ViewNumber,
         next_state: Commitment<Leaf<I::StateType>>,
-    ) -> Result<Option<<I::Election as Election<I::SignatureKey, ViewNumber>>::VoteTokenType>, ElectionError>;
+    ) -> Result<
+        Option<<I::Election as Election<I::SignatureKey, ViewNumber>>::VoteTokenType>,
+        ElectionError,
+    >;
+
+    fn get_election(&self) -> &I::Election;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey;
@@ -87,11 +92,6 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// returns `true` if the current node is a leader for the given `view_number`
     async fn is_leader(&self, view_number: ViewNumber) -> bool {
         &self.get_leader(view_number).await == self.public_key()
-    }
-
-    /// returns `true` if the current node should act as a replica for the given `view_number`
-    async fn is_replica(&self, view_number: ViewNumber) -> bool {
-        self.leader_acts_as_replica() || !self.is_leader(view_number).await
     }
 
     /// notifies client of an error
@@ -161,6 +161,23 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         signature
     }
 
+    /// Returns the accumulated amount of validated stake based on signatures and vote tokens
+    fn validated_stake(
+        &self,
+        hash: Commitment<Leaf<I::StateType>>,
+        view_number: ViewNumber,
+        signatures: BTreeMap<
+            EncodedPublicKey,
+            (
+                EncodedSignature,
+                <<I as NodeImplementation>::Election as Election<
+                    <I as NodeImplementation>::SignatureKey,
+                    ViewNumber,
+                >>::VoteTokenType,
+            ),
+        >,
+    ) -> u64;
+
     /// Validate a quorum certificate by checking
     /// signatures
     fn validate_qc(&self, quorum_certificate: &QuorumCertificate<I::StateType>) -> bool;
@@ -171,5 +188,12 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
         hash: Commitment<Leaf<I::StateType>>,
+        view_number: ViewNumber,
+        vote_token: Checked<
+            <<I as NodeImplementation>::Election as Election<
+                <I as NodeImplementation>::SignatureKey,
+                ViewNumber,
+            >>::VoteTokenType,
+        >,
     ) -> bool;
 }

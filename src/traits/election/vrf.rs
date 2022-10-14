@@ -357,11 +357,12 @@ where
             PublicKey = SIGSCHEME::VerificationKey,
             SecretKey = SIGSCHEME::SigningKey,
         > + Sync
-        + Send,
+        + Send + std::clone::Clone,
     VRF::Proof: Clone + Sync + Send + Serialize + for<'a> Deserialize<'a>,
     VRF::PublicParameter: Sync + Send,
     VRFHASHER: Clone + Sync + Send,
-    VRFPARAMS: Sync + Send,
+    VRFPARAMS: Sync + Send + std::clone::Clone,
+    TIME: ConsensusTime,
     STATE: State,
     VRFPARAMS: Bls12Parameters,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
@@ -397,6 +398,8 @@ where
         SignatureKey::from_bytes(encoded).unwrap()
     }
 
+    // what this is doing:
+    // -
     fn make_vote_token(
         // TODO see if we can make this take &mut self
         // because we're using a mutable prng

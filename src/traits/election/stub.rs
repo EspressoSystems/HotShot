@@ -248,6 +248,8 @@ where
         self.select_leader(&self.stake_table, view_number)
     }
 
+
+
     // fn get_votes(
     //     &self,
     //     view_number: ViewNumber,

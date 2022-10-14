@@ -3,7 +3,7 @@ use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, ViewNumber},
     traits::{
-        election::{Election, ElectionError, VoteToken, Checked},
+        election::{Checked, Election, ElectionError, VoteToken},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
         State,
@@ -337,13 +337,19 @@ where
     type StateType = STATE;
     type VoteTokenType = BLSToken;
 
-    fn get_stake_table(&self, view_number: ViewNumber, _state: &Self::StateType) -> Self::StakeTable {
+    fn get_stake_table(
+        &self,
+        view_number: ViewNumber,
+        _state: &Self::StateType,
+    ) -> Self::StakeTable {
         self.stake_table.clone()
     }
 
     fn get_leader(&self, view_number: ViewNumber) -> BLSPubKey {
         self.select_leader(&self.stake_table, view_number)
     }
+
+
 
     // fn get_votes(
     //     &self,
