@@ -5,8 +5,8 @@ use hotshot::{data::Leaf, traits::dummy::DummyState};
 use hotshot_types::{
     data::ViewNumber,
     traits::{
-        election::{Election, VoteToken},
         signature_key::{ed25519::{Ed25519Priv, Ed25519Pub}, EncodedPublicKey},
+        election::{Checked, Election, VoteToken},
     },
 };
 use hotshot_utils::hack::nll_todo;
@@ -36,7 +36,11 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
 
     type VoteTokenType = StubToken;
 
-    fn get_stake_table(&self, view_number: ViewNumber, state: &Self::StateType) -> Self::StakeTable {
+    fn get_stake_table(
+        &self,
+        view_number: ViewNumber,
+        state: &Self::StateType,
+    ) -> Self::StakeTable {
         nll_todo()
     }
 
@@ -62,15 +66,16 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
         nll_todo()
     }
 
-
     fn validate_vote_token(
         &self,
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: Checked<Self::VoteTokenType>,
-        next_state: Commitment<Leaf<Self::StateType>>
-    ) -> Result<hotshot_types::traits::election::Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
+        next_state: Commitment<Leaf<Self::StateType>>,
+    ) -> Result<
+        hotshot_types::traits::election::Checked<Self::VoteTokenType>,
+        hotshot_types::traits::election::ElectionError,
+    > {
         nll_todo()
     }
-
 }

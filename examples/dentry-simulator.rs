@@ -30,7 +30,11 @@ use hotshot::{
     HotShot,
 };
 
-type Node = DEntryNode<WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
+type Node = DEntryNode<
+    WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
+    StaticCommittee<DEntryState>,
+    Ed25519Pub,
+>;
 
 #[derive(Debug, Parser)]
 #[command(

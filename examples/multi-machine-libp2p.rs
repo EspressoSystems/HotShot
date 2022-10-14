@@ -360,7 +360,11 @@ impl CliStandalone {
     }
 }
 
-type Node = DEntryNode<Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
+type Node = DEntryNode<
+    Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
+    StaticCommittee<DEntryState>,
+    Ed25519Pub,
+>;
 struct Config {
     run: Run,
     privkey: Ed25519Priv,

@@ -21,6 +21,10 @@ use snafu::Snafu;
 pub enum ElectionError {
     /// stub error to be filled in
     StubError,
+    /// Math error doing something
+    /// NOTE: it would be better to make Election polymorphic over
+    /// the election error and then have specific math errors
+    MathError,
 }
 
 /// For items that will always have the same validity outcome on a successful check,
@@ -68,7 +72,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     fn make_vote_token(
         &self,
         view_number: ViewNumber,
-        private_key: &<P as SignatureKey>::PrivateKey,
+        priv_key: &<P as SignatureKey>::PrivateKey,
         // TODO (ct) this should be replaced with something else...
         next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Result<Option<Self::VoteTokenType>, ElectionError>;

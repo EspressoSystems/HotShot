@@ -2,7 +2,7 @@ use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, ViewNumber},
     traits::{
-        election::{Election, ElectionError, VoteToken, Checked},
+        election::{Checked, Election, ElectionError, VoteToken},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
         State,
@@ -72,6 +72,10 @@ impl SignatureKey for HashVrfKey {
             Ok(x) => Some(Self(x)),
             Err(_) => None,
         }
+    }
+    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
+        let k = HashVrfKey::generated_from_seed_indexed(seed, index);
+        (k.clone(), k)
     }
 }
 
@@ -212,12 +216,12 @@ pub struct HashElectionVoteToken {
     key: HashVrfKey,
     stake: u64,
     // TODO (ct) is this the right name?
-    valid_stake: u64
+    valid_stake: u64,
 }
 
 impl VoteToken for HashElectionVoteToken {
     fn vote_count(&self) -> u64 {
-      nll_todo()
+        nll_todo()
     }
 }
 
@@ -232,7 +236,11 @@ where
     type StateType = S;
     type VoteTokenType = HashElectionVoteToken;
 
-    fn get_stake_table(&self, view_number: ViewNumber, _state: &Self::StateType) -> Self::StakeTable {
+    fn get_stake_table(
+        &self,
+        view_number: ViewNumber,
+        _state: &Self::StateType,
+    ) -> Self::StakeTable {
         self.stake_table.clone()
     }
 
@@ -274,7 +282,7 @@ where
         view_number: ViewNumber,
         private_key: &HashVrfKey,
         _next_state: Commitment<Leaf<Self::StateType>>,
-    ) -> Result<Option<Self::VoteTokenType>, ElectionError>{
+    ) -> Result<Option<Self::VoteTokenType>, ElectionError> {
         nll_todo()
         // warn!("Making vote token");
         // if let Some(votes) = self.stake_table.get(private_key) {

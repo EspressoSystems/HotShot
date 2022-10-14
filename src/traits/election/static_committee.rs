@@ -5,7 +5,7 @@ use hotshot_types::{
         election::{Checked, Election, ElectionError, VoteToken},
         signature_key::{
             ed25519::{Ed25519Priv, Ed25519Pub},
-            EncodedSignature, SignatureKey,
+            EncodedSignature,
         },
         state::ConsensusTime,
         State,
@@ -18,6 +18,8 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 /// Dummy implementation of [`Election`]
+
+#[derive(Clone, Debug)]
 pub struct StaticCommittee<S> {
     /// The nodes participating
     nodes: Vec<Ed25519Pub>,
