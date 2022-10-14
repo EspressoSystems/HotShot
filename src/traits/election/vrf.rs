@@ -689,7 +689,7 @@ mod tests {
     pub fn test_sortition(){
         setup_logging();
         let (vrf_impl, keys) = gen_vrf_impl(10);
-        let views = 1;
+        let views = 100;
 
         for view in 0..views {
             let next_state_commitment : Commitment<Leaf<DummyState>> = random_commitment();
