@@ -31,10 +31,10 @@ use std::{
 use jf_primitives::{signatures::{
     bls::{BLSSignKey, BLSSignature},
 }};
-use num::{rational::Ratio, FromPrimitive, BigUint};
+use num::{rational::Ratio, FromPrimitive, BigUint, ToPrimitive};
 
 // TODO wrong palce for this
-pub const SORTITION_PARAMETER: u64 = 1;
+pub const SORTITION_PARAMETER: u64 = 100;
 
 // TODO abstraction this function's impl into a trait
 // TODO do we necessariy want the units of stake to be a u64? or generics
@@ -523,21 +523,31 @@ fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64
 
 
     let sortition_parameter_big : BigUint = BigUint::from(sortition_parameter);
-    let total_stake_big : BigUint = BigUint::from(sortition_parameter);
+    let total_stake_big : BigUint = BigUint::from(total_stake);
     let one_big = BigUint::from(1_u32);
 
     // this is the p parameter for the bernoulli distribution
     let p = Ratio::new(sortition_parameter_big, total_stake_big);
 
+    assert!(p.numer() < p.denom());
+
+    info!("p is {p:?}");
+
     // number of tails in bernoulli
     let failed_num = replicas_stake - (stake_attempt as u64);
 
-    let num_permutations = factorial(replicas_stake) / (factorial(stake_attempt as u64) * factorial(failed_num));
-    let num_permutations = Ratio::new(num_permutations, one_big.clone());
+    let num_permutations = Ratio::new(factorial(replicas_stake), factorial(stake_attempt as u64) * factorial(failed_num));
+
+    info!("num permutations is {num_permutations:?}, failed_num is {failed_num:?}");
 
     let one = Ratio::from_integer(one_big);
 
     let result = num_permutations * (p.pow(stake_attempt as i32) * (one - p).pow(failed_num as i32));
+    // let result = num_permutations * (p.pow(stake_attempt as i32) * (one - p.pow(failed_num as i32)));
+
+    assert!(result.numer() < result.denom());
+
+    info!("result is is {result:?}");
 
     Some(result)
 }
@@ -546,7 +556,7 @@ fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64
 fn factorial(mut i: u64) -> BigUint {
     if i == 0 { return BigUint::from(1u32) }
 
-    let mut result = BigUint::from(i);
+    let mut result = BigUint::from(1u32);
     while i > 0 {
         result *= i;
         i -= 1;
@@ -560,16 +570,22 @@ fn factorial(mut i: u64) -> BigUint {
 fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<u64> {
     let unnormalized_seed = BigUint::from_bytes_le(unnormalized_seed);
     let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from(2_u32).pow(256));
+    assert!(normalized_seed.numer() < normalized_seed.denom());
     let mut j = 0;
     // left_threshold corresponds to the sum of all bernoulli distributions
     // from i in 0 to j: B(i; replicas_stake; p). Where p is calculated later and corresponds to
     // algorands paper
     let mut left_threshold = Ratio::from_integer(BigUint::from(0u32));
     loop {
+        assert!(left_threshold.numer() < left_threshold.denom());
         let bin_val = calculate_threshold(j + 1, replicas_stake, total_stake, sortition_parameter)?;
         // corresponds to right range from apper
         let right_threshold = left_threshold + bin_val.clone();
-        info!("rightthreshold: {right_threshold:?}, bin: {bin_val:?}, seed: {normalized_seed:?}");
+
+        let right_threshold_float = ToPrimitive::to_f64(&right_threshold.clone());
+        let bin_val_float = ToPrimitive::to_f64(&bin_val.clone());
+        let normalized_seed_float = ToPrimitive::to_f64(&normalized_seed.clone());
+        info!("rightthreshold: {right_threshold_float:?}, bin: {bin_val_float:?}, seed: {normalized_seed_float:?}");
         // from i in 0 to j + 1: B(i; replicas_stake; p)
         if normalized_seed < right_threshold {
             return Some(j as u64);
@@ -649,8 +665,8 @@ mod tests {
     pub fn gen_vrf_impl(num_nodes: usize) -> (VrfImpl<DummyState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>, Vec<(jf_primitives::signatures::bls::BLSSignKey<Param381>, jf_primitives::signatures::bls::BLSVerKey<Param381>)>) {
         let mut known_nodes = Vec::new();
         let mut keys = Vec::new();
-        for i in 0..num_nodes {
-            let rng = &mut test_rng();
+        let rng = &mut test_rng();
+        for _i in 0..num_nodes {
             let parameters = BLSSignatureScheme::<Param381>::param_gen(Some(rng)).unwrap();
             let (sk, pk) = BLSSignatureScheme::<Param381>::key_gen(&parameters, rng).unwrap();
             keys.push((sk.clone(), pk.clone()));
@@ -688,6 +704,15 @@ mod tests {
         }
     }
 
+    #[test]
+    pub fn test_factorial(){
+        assert_eq!(factorial(0), BigUint::from(1u32));
+        assert_eq!(factorial(1), BigUint::from(1u32));
+        assert_eq!(factorial(2), BigUint::from(2u32));
+        assert_eq!(factorial(3), BigUint::from(6u32));
+        assert_eq!(factorial(4), BigUint::from(24u32));
+        assert_eq!(factorial(5), BigUint::from(120u32));
+    }
 
     // TODO add failure case
 }
