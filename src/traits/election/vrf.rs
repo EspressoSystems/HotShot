@@ -18,6 +18,7 @@ use serde::{
     de::{self, DeserializeOwned},
     Deserialize, Serialize,
 };
+use tracing::{instrument, error, info};
 use std::{
     collections::BTreeMap,
     fmt::Debug,
@@ -30,7 +31,7 @@ use std::{
 use jf_primitives::{signatures::{
     bls::{BLSSignKey, BLSSignature},
 }};
-use num::{rational::Ratio, FromPrimitive, BigUint};
+use num::{rational::Ratio, FromPrimitive, BigUint, ToPrimitive};
 
 // TODO wrong palce for this
 pub const SORTITION_PARAMETER: u64 = 100;
@@ -341,7 +342,7 @@ where
 }
 
 // KEY is VRFPubKey
-impl<VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, TIME, STATE> Election<VRFPubKey<SIGSCHEME>, TIME>
+impl<VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, STATE> Election<VRFPubKey<SIGSCHEME>, <STATE as State>::Time>
     for VrfImpl<STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send,
@@ -515,35 +516,50 @@ fn generate_view_seed<STATE: State>(_view_number: ViewNumber, next_state: commit
 //
 // TODO (ct) better error handling
 // returns none if one of our calculations fails
+#[instrument]
 fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64, sortition_parameter: u64) -> Option<Ratio<BigUint>> {
+    tracing::info!("Running calculate threshold");
     // TODO (ct) better error handling
     if stake_attempt as u64 > replicas_stake {
         panic!("j is larger than amount of stake we are allowed");
     }
 
 
-    let sortition_parameter_big : BigUint = BigUint::from_u64(sortition_parameter)?;
-    let total_stake_big : BigUint = BigUint::from_u64(sortition_parameter)?;
+    let sortition_parameter_big : BigUint = BigUint::from(sortition_parameter);
+    let total_stake_big : BigUint = BigUint::from(total_stake);
+    let one_big = BigUint::from(1_u32);
 
     // this is the p parameter for the bernoulli distribution
     let p = Ratio::new(sortition_parameter_big, total_stake_big);
 
+    assert!(p.numer() < p.denom());
+
+    info!("p is {p:?}");
+
     // number of tails in bernoulli
     let failed_num = replicas_stake - (stake_attempt as u64);
 
-    let num_permutations = factorial(replicas_stake) / (factorial(stake_attempt as u64) * factorial(failed_num));
-    let num_permutations = Ratio::new(num_permutations, BigUint::from_u8(1)?);
+    let num_permutations = Ratio::new(factorial(replicas_stake), factorial(stake_attempt as u64) * factorial(failed_num));
 
-    let one = Ratio::new(BigUint::from_u8(1)?, BigUint::from_u8(1)?);
+    info!("num permutations is {num_permutations:?}, failed_num is {failed_num:?}");
+
+    let one = Ratio::from_integer(one_big);
 
     let result = num_permutations * (p.pow(stake_attempt as i32) * (one - p).pow(failed_num as i32));
+    // let result = num_permutations * (p.pow(stake_attempt as i32) * (one - p.pow(failed_num as i32)));
+
+    assert!(result.numer() < result.denom());
+
+    info!("result is is {result:?}");
 
     Some(result)
 }
 
 // calculated i! as a biguint
 fn factorial(mut i: u64) -> BigUint {
-    let mut result = BigUint::from_usize(1).unwrap();
+    if i == 0 { return BigUint::from(1u32) }
+
+    let mut result = BigUint::from(1u32);
     while i > 0 {
         result *= i;
         i -= 1;
@@ -553,18 +569,26 @@ fn factorial(mut i: u64) -> BigUint {
 
 /// find the amount of stake we rolled.
 /// NOTE: in the future this requires a view numb
+#[instrument]
 fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<u64> {
     let unnormalized_seed = BigUint::from_bytes_le(unnormalized_seed);
-    let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from_u8(1)?.pow(256));
+    let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from(2_u32).pow(256));
+    assert!(normalized_seed.numer() < normalized_seed.denom());
     let mut j = 0;
     // left_threshold corresponds to the sum of all bernoulli distributions
     // from i in 0 to j: B(i; replicas_stake; p). Where p is calculated later and corresponds to
     // algorands paper
-    let mut left_threshold = Ratio::new(BigUint::from_u8(0)?, BigUint::from_u8(1)?);
+    let mut left_threshold = Ratio::from_integer(BigUint::from(0u32));
     loop {
+        assert!(left_threshold.numer() < left_threshold.denom());
         let bin_val = calculate_threshold(j + 1, replicas_stake, total_stake, sortition_parameter)?;
         // corresponds to right range from apper
-        let right_threshold = left_threshold + bin_val;
+        let right_threshold = left_threshold + bin_val.clone();
+
+        let right_threshold_float = ToPrimitive::to_f64(&right_threshold.clone());
+        let bin_val_float = ToPrimitive::to_f64(&bin_val.clone());
+        let normalized_seed_float = ToPrimitive::to_f64(&normalized_seed.clone());
+        info!("rightthreshold: {right_threshold_float:?}, bin: {bin_val_float:?}, seed: {normalized_seed_float:?}");
         // from i in 0 to j + 1: B(i; replicas_stake; p)
         if normalized_seed < right_threshold {
             return Some(j as u64);
@@ -633,7 +657,7 @@ mod tests {
     use blake3::Hasher;
     use commit::{RawCommitmentBuilder, Commitment};
     use hotshot_types::{traits::state::dummy::DummyState, data::{ViewNumber, fake_commitment, Leaf, random_commitment}};
-    use hotshot_utils::hack::nll_todo;
+    use hotshot_utils::{hack::nll_todo, test_util::setup_logging};
     use jf_primitives::vrf::blsvrf::BLSVRFScheme;
     use rand::RngCore;
     use std::collections::BTreeMap;
@@ -644,8 +668,8 @@ mod tests {
     pub fn gen_vrf_impl(num_nodes: usize) -> (VrfImpl<DummyState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>, Vec<(jf_primitives::signatures::bls::BLSSignKey<Param381>, jf_primitives::signatures::bls::BLSVerKey<Param381>)>) {
         let mut known_nodes = Vec::new();
         let mut keys = Vec::new();
-        for i in 0..num_nodes {
-            let rng = &mut test_rng();
+        let rng = &mut test_rng();
+        for _i in 0..num_nodes {
             let parameters = BLSSignatureScheme::<Param381>::param_gen(Some(rng)).unwrap();
             let (sk, pk) = BLSSignatureScheme::<Param381>::key_gen(&parameters, rng).unwrap();
             keys.push((sk.clone(), pk.clone()));
@@ -655,68 +679,43 @@ mod tests {
         (stake_table, keys)
     }
 
-    #[test]
-    pub fn test_sorition(){
-        let (vrf_impl, keys) = gen_vrf_impl(10);
-        let rounds = 1;
-
-        for i in 0..rounds {
-            let next_state_commitment : Commitment<Leaf<DummyState>> = random_commitment();
-            for (pk, sk) in keys.iter() {
-                let token =
-                    <crate::traits::election::vrf::VrfImpl<hotshot_types::traits::block_contents::dummy::DummyState, jf_primitives::signatures::BLSSignatureScheme<ark_bls12_381::Parameters>, BLSVRFScheme<ark_bls12_381::Parameters>, blake3::Hasher, ark_bls12_381::Parameters> as hotshot_types::traits::election::Election<crate::traits::election::vrf::VRFPubKey<jf_primitives::signatures::BLSSignatureScheme<ark_bls12_381::Parameters>>, ViewNumber>>::make_vote_token(&vrf_impl, ViewNumber::new(i), &(pk.clone(), sk.clone()), next_state_commitment).unwrap().unwrap();
-                // vrf_impl.validate_vote_token(i, pk, token, next_state_commitment)
-                nll_todo()
-            }
+    pub fn check_if_valid<T>(token: Checked<T>) -> bool {
+        match token {
+            Checked::Valid(_) => true,
+            Checked::Inval(_) => false,
+            Checked::Unchecked(_) => false,
         }
 
-
-
-        let sortition_parameter = 10;
-
-        let unnormalized_seed : [u8; 32] = nll_todo();
-
-        let message = [0u8; 32];
-        let message_bad = [1u8; 32];
-        // find_bin_idx();
     }
 
-    // macro_rules! test_bls_vrf {
-    //     ($curve_param:tt) => {
-    //         let message = [0u8; 32];
-    //         let message_bad = [1u8; 32];
-    //         sign_and_verify::<BLSVRFScheme<$curve_param>, Sha256, _>(&message);
-    //         failed_verification::<BLSVRFScheme<$curve_param>, Sha256, _>(&message, &message_bad);
-    //     };
-    // }
-    //
-    // fn test_bls_vrf() {
-    //     test_bls_vrf!(Param377);
-    //     test_bls_vrf!(Param381);
-    // }
-    //
-    // pub(crate) fn sign_and_verify<S: SignatureScheme>(message: &[S::MessageUnit]) {
-    //     let rng = &mut test_rng();
-    //     let parameters = S::param_gen(Some(rng)).unwrap();
-    //     let (sk, pk) = S::key_gen(&parameters, rng).unwrap();
-    //     let sig = S::sign(&parameters, &sk, &message, rng).unwrap();
-    //     assert!(S::verify(&parameters, &pk, &message, &sig).is_ok());
-    //
-    //     let parameters = S::param_gen::<StdRng>(None).unwrap();
-    //     let (sk, pk) = S::key_gen(&parameters, rng).unwrap();
-    //     let sig = S::sign(&parameters, &sk, &message, rng).unwrap();
-    //     assert!(S::verify(&parameters, &pk, &message, &sig).is_ok());
-    // }
+    #[test]
+    pub fn test_sortition(){
+        setup_logging();
+        let (vrf_impl, keys) = gen_vrf_impl(10);
+        let views = 100;
 
-    // pub(crate) fn failed_verification<S: SignatureScheme>(
-    //     message: &[S::MessageUnit],
-    //     bad_message: &[S::MessageUnit],
-    // ) {
-    //     let rng = &mut test_rng();
-    //     let parameters = S::param_gen(Some(rng)).unwrap();
-    //     let (sk, pk) = S::key_gen(&parameters, rng).unwrap();
-    //     let sig = S::sign(&parameters, &sk, message, rng).unwrap();
-    //     assert!(!S::verify(&parameters, &pk, bad_message, &sig).is_ok());
-    // }
+        for view in 0..views {
+            let next_state_commitment : Commitment<Leaf<DummyState>> = random_commitment();
+            for (node_idx, (sk, pk)) in keys.iter().enumerate() {
+                let token = vrf_impl.make_vote_token(ViewNumber::new(view), &(sk.clone(), pk.clone()), next_state_commitment).unwrap().unwrap();
+                let count = token.count;
+                let result = vrf_impl.validate_vote_token(ViewNumber::new(view), VRFPubKey::from_native(pk.clone()), Checked::Unchecked(token), next_state_commitment).unwrap();
+                let result_is_valid = check_if_valid(result);
+                error!("view {view:?}, node_idx {node_idx:?}, stake {count:?} ");
+                assert!(result_is_valid)
+            }
+        }
+    }
 
+    #[test]
+    pub fn test_factorial(){
+        assert_eq!(factorial(0), BigUint::from(1u32));
+        assert_eq!(factorial(1), BigUint::from(1u32));
+        assert_eq!(factorial(2), BigUint::from(2u32));
+        assert_eq!(factorial(3), BigUint::from(6u32));
+        assert_eq!(factorial(4), BigUint::from(24u32));
+        assert_eq!(factorial(5), BigUint::from(120u32));
+    }
+
+    // TODO add failure case
 }
