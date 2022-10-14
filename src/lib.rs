@@ -44,32 +44,39 @@ use crate::{
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
+use bincode::Options;
 use commit::{Commitment, Committable};
 use hotshot_consensus::{
     Consensus, ConsensusApi, SendToTasks, TransactionHashMap, TransactionStorage, View, ViewInner,
     ViewQueue,
 };
-use bincode::Options;
+use hotshot_types::traits::election::VoteToken;
 use hotshot_types::{
     constants::genesis_proposer_id,
     data::{fake_commitment, ViewNumber},
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
-        election::{Election, ElectionError, Checked::{Unchecked, Valid, Inval, self}},
+        election::{
+            Checked::{self, Inval, Unchecked, Valid},
+            Election, ElectionError,
+        },
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, self},
+        signature_key::{self, EncodedPublicKey, EncodedSignature, SignatureKey},
         storage::{StoredView, ViewEntry},
         State,
     },
     HotShotConfig,
 };
-use hotshot_utils::{art::async_spawn, broadcast::BroadcastSender, hack::nll_todo, bincode::bincode_opts};
+use hotshot_utils::{
+    art::async_spawn, bincode::bincode_opts, broadcast::BroadcastSender, hack::nll_todo,
+};
 use hotshot_utils::{
     art::async_spawn_local,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
+use jf_primitives::circuit::signature;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -693,12 +700,18 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         &self,
         view_number: ViewNumber,
         next_state: Commitment<Leaf<I::StateType>>,
-    ) -> std::result::Result<std::option::Option<<<I as NodeImplementation>::Election as Election<<I as NodeImplementation>::SignatureKey, ViewNumber>>::VoteTokenType>, ElectionError> {
-        self.inner.election.make_vote_token(
-            view_number,
-            &self.inner.private_key,
-            next_state,
-        )
+    ) -> std::result::Result<
+        std::option::Option<
+            <<I as NodeImplementation>::Election as Election<
+                <I as NodeImplementation>::SignatureKey,
+                ViewNumber,
+            >>::VoteTokenType,
+        >,
+        ElectionError,
+    > {
+        self.inner
+            .election
+            .make_vote_token(view_number, &self.inner.private_key, next_state)
     }
 
     fn get_election(&self) -> &<I as NodeImplementation>::Election {
@@ -769,34 +782,59 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         &self.inner.private_key
     }
 
+    fn validated_stake(&self, 
+        hash: Commitment<Leaf<I::StateType>>,
+        view_number: ViewNumber,
+        signatures: BTreeMap<
+            EncodedPublicKey,
+            (
+                EncodedSignature,
+                <<I as NodeImplementation>::Election as Election<
+                    <I as NodeImplementation>::SignatureKey,
+                    ViewNumber,
+                >>::VoteTokenType,
+            ),
+        >,
+    ) -> u64 {
+        let stake = signatures
+            .iter()
+            .filter(|signature| {
+                self.is_valid_signature(
+                    &signature.0,
+                    &signature.1 .0,
+                    hash,
+                    view_number,
+                    Unchecked(signature.1 .1.clone()),
+                )
+            })
+            .fold(0, |acc, x| (acc + x.1 .1.vote_count()));
+        stake
+    }
+
     #[instrument(skip(self, qc))]
     fn validate_qc(&self, qc: &QuorumCertificate<I::StateType>) -> bool {
         if qc.genesis && qc.view_number == ViewNumber::genesis() {
             return true;
         }
         let hash = qc.leaf_commitment;
-        let mut num_valid = 0;
-        // TODO ed - double check for VRF changes
-        let mut signature_map: BTreeMap<EncodedPublicKey, (EncodedSignature, <<I as NodeImplementation>::Election as Election<<I as NodeImplementation>::SignatureKey, ViewNumber>>::VoteTokenType)> = BTreeMap::new();
+        let mut signature_map: BTreeMap<
+            EncodedPublicKey,
+            (
+                EncodedSignature,
+                <<I as NodeImplementation>::Election as Election<
+                    <I as NodeImplementation>::SignatureKey,
+                    ViewNumber,
+                >>::VoteTokenType,
+            ),
+        > = BTreeMap::new();
         for signature in qc.signatures.clone() {
-                        let decoded_vote_token = bincode_opts().deserialize(&signature.1.1).unwrap();
-
-            signature_map.insert(signature.0, (signature.1.0, decoded_vote_token));
+            let decoded_vote_token = bincode_opts().deserialize(&signature.1 .1).unwrap();
+            signature_map.insert(signature.0, (signature.1 .0, decoded_vote_token));
         }
-        // &qc.signatures.clone().iter().map(|x| {
-    //         let decoded_vote_token = bincode_opts().deserialize(x.1.1).unwrap();
-    //         *x.1.1 = decoded_vote_token;
-    // });
-        for signature in signature_map {
-            if self.is_valid_signature(&signature.0, &signature.1.0, hash, qc.view_number, Unchecked(signature.1.1)) {
-                num_valid += 1;
-            }
 
-            // pre-emptive short circuit, since signature checking is presumably expensive
-            // and a byzantine node might try to include a *lot* of signatures
-            if num_valid >= self.inner.config.threshold.get() {
-                return true;
-            }
+        let stake = self.validated_stake(hash, qc.view_number, signature_map);
+        if stake as usize >= self.threshold().into() {
+            return true;
         }
         false
     }
@@ -806,20 +844,27 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
         hash: Commitment<Leaf<I::StateType>>,
-        view_number: ViewNumber, 
-        vote_token: Checked<<<I as NodeImplementation>::Election as Election<<I as NodeImplementation>::SignatureKey, ViewNumber>>::VoteTokenType>
+        view_number: ViewNumber,
+        vote_token: Checked<
+            <<I as NodeImplementation>::Election as Election<
+                <I as NodeImplementation>::SignatureKey,
+                ViewNumber,
+            >>::VoteTokenType,
+        >,
     ) -> bool {
-        let mut is_valid_vote_token = false; 
-        let mut is_valid_signature = false; 
+        let mut is_valid_vote_token = false;
+        let mut is_valid_signature = false;
         if let Some(key) = <I::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
             is_valid_signature = key.validate(encoded_signature, hash.as_ref());
-            let valid2 = self.get_election().validate_vote_token(view_number, key, vote_token, hash);
-            is_valid_vote_token = match valid2 {
+            let valid_vote_token =
+                self.get_election()
+                    .validate_vote_token(view_number, key, vote_token, hash);
+            is_valid_vote_token = match valid_vote_token {
                 Err(_) => {
                     warn!("Vote token was invalid");
-                    false 
+                    false
                 }
-                Ok(Valid(_)) => true, 
+                Ok(Valid(_)) => true,
                 Ok(Inval(_)) | Ok(Unchecked(_)) => false,
             };
         }

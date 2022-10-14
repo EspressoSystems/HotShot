@@ -240,13 +240,7 @@ where
         self.select_leader(&self.stake_table, view_number)
     }
 
-    fn check_threshold(
-        &self,
-        _signatures: &BTreeMap<EncodedPublicKey, (hotshot_types::traits::signature_key::EncodedSignature, Vec<u8>)>,
-        _threshold: std::num::NonZeroUsize,
-    ) -> bool {
-    nll_todo()
-}
+
 
     // fn get_votes(
     //     &self,

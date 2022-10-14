@@ -2,6 +2,7 @@
 
 use async_trait::async_trait;
 use commit::Commitment;
+use hotshot_types::traits::election::Checked;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     error::HotShotError,
@@ -13,7 +14,7 @@ use hotshot_types::{
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
-use hotshot_types::traits::election::Checked;
+use std::collections::BTreeMap;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
@@ -160,6 +161,21 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         signature
     }
 
+    fn validated_stake(&self, 
+        hash: Commitment<Leaf<I::StateType>>,
+        view_number: ViewNumber,
+        signatures: BTreeMap<
+            EncodedPublicKey,
+            (
+                EncodedSignature,
+                <<I as NodeImplementation>::Election as Election<
+                    <I as NodeImplementation>::SignatureKey,
+                    ViewNumber,
+                >>::VoteTokenType,
+            ),
+        >,
+    ) -> u64;
+
     /// Validate a quorum certificate by checking
     /// signatures
     fn validate_qc(&self, quorum_certificate: &QuorumCertificate<I::StateType>) -> bool;
@@ -170,7 +186,12 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
         hash: Commitment<Leaf<I::StateType>>,
-        view_number: ViewNumber, 
-        vote_token: Checked<<<I as NodeImplementation>::Election as Election<<I as NodeImplementation>::SignatureKey, ViewNumber>>::VoteTokenType>
+        view_number: ViewNumber,
+        vote_token: Checked<
+            <<I as NodeImplementation>::Election as Election<
+                <I as NodeImplementation>::SignatureKey,
+                ViewNumber,
+            >>::VoteTokenType,
+        >,
     ) -> bool;
 }

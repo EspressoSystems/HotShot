@@ -51,7 +51,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// The state type this election implementation is bound to
     type StateType: State;
     /// A membership proof
-    type VoteTokenType: VoteToken + Serialize + DeserializeOwned + Send + Sync;
+    type VoteTokenType: VoteToken + Serialize + DeserializeOwned + Send + Sync + Clone;
 
     /// Returns the table from the current committed state
     fn get_stake_table(&self, view_number: ViewNumber, state: &Self::StateType)
@@ -60,12 +60,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// Returns leader for the current view number, given the current stake table
     fn get_leader(&self, view_number: ViewNumber) -> P;
 
-    /// Returns true if signatures have enough votes to pass the committee threshold
-    fn check_threshold(
-        &self,
-        _signatures: &BTreeMap<EncodedPublicKey, (EncodedSignature, Vec<u8>)>,
-        _threshold: NonZeroUsize,
-    ) -> bool;
+
 
     /// Attempts to generate a vote token for self
     ///

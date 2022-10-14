@@ -69,19 +69,7 @@ where
         let index = (*view_number % self.nodes.len() as u64) as usize;
         self.nodes[index]
     }
-    fn check_threshold(
-        &self,
-        _signatures: &BTreeMap<
-            EncodedPublicKey,
-            (
-                hotshot_types::traits::signature_key::EncodedSignature,
-                Vec<u8>,
-            ),
-        >,
-        _threshold: std::num::NonZeroUsize,
-    ) -> bool {
-        nll_todo()
-    }
+
     /// Simply verify the signature and check the membership list
     // fn get_votes(
     //     &self,

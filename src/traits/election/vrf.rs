@@ -172,13 +172,7 @@ where
         SignatureKey::from_bytes(encoded).unwrap()
     }
 
-    fn check_threshold(
-            &self,
-            _signatures: &BTreeMap<EncodedPublicKey, (hotshot_types::traits::signature_key::EncodedSignature, Vec<u8>)>,
-            _threshold: std::num::NonZeroUsize,
-        ) -> bool {
-        nll_todo()
-    }
+
 
     // what this is doing:
     // -

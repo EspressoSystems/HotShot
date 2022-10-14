@@ -1,16 +1,21 @@
 //! Contains the [`NextLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
 
-use crate::{utils::Signatures, ConsensusApi};
+use crate::ConsensusApi;
 use async_lock::Mutex;
 use bincode::Options;
 use commit::Commitment;
+use hotshot_types::traits::election::Checked::Unchecked;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     message::ConsensusMessage,
-    traits::{election::Election, node_implementation::NodeImplementation, State, signature_key::{EncodedPublicKey, EncodedSignature}},
+    traits::{
+        election::Election,
+        node_implementation::NodeImplementation,
+        signature_key::{EncodedPublicKey, EncodedSignature},
+        State,
+    },
 };
-use hotshot_types::traits::election::Checked::Unchecked;
-use hotshot_utils::{channel::UnboundedReceiver, bincode::bincode_opts};
+use hotshot_utils::{bincode::bincode_opts, channel::UnboundedReceiver};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
@@ -46,7 +51,10 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
         #[allow(clippy::type_complexity)]
         let mut vote_outcomes: HashMap<
             Commitment<Leaf<I::StateType>>,
-            (Commitment<<I::StateType as State>::BlockType>, BTreeMap<EncodedPublicKey, (EncodedSignature, Vec<u8>)>),
+            (
+                Commitment<<I::StateType as State>::BlockType>,
+                BTreeMap<EncodedPublicKey, (EncodedSignature, Vec<u8>)>,
+            ),
         > = HashMap::new();
         // TODO will need to refactor this during VRF integration
         let threshold = self.api.threshold();
@@ -72,7 +80,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         vote.leaf_commitment,
                         vote.current_view,
                         // Ignoring deserialization errors below since we are getting rid of it soon
-                        Unchecked(vote_token)
+                        Unchecked(vote_token),
                     ) {
                         continue;
                     }
@@ -82,7 +90,10 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     match vote_outcomes.entry(vote.leaf_commitment) {
                         std::collections::hash_map::Entry::Occupied(mut o) => {
                             let (_bh, map) = o.get_mut();
-                            map.insert(vote.signature.0.clone(), (vote.signature.1.clone(), vote.vote_token));
+                            map.insert(
+                                vote.signature.0.clone(),
+                                (vote.signature.1.clone(), vote.vote_token),
+                            );
                         }
                         std::collections::hash_map::Entry::Vacant(location) => {
                             let mut map = BTreeMap::new();
@@ -93,11 +104,23 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
 
                     // unwraps here are fine since we *just* inserted the key
                     let (_, valid_signatures) = vote_outcomes.get(&vote.leaf_commitment).unwrap();
-
-                    if self
-                        .api
-                        .get_election()
-                        .check_threshold(valid_signatures, threshold)
+                    let mut signature_map: BTreeMap<
+                    EncodedPublicKey,
+                    (
+                        EncodedSignature,
+                        <<I as NodeImplementation>::Election as Election<
+                            <I as NodeImplementation>::SignatureKey,
+                            ViewNumber,
+                        >>::VoteTokenType,
+                    ),
+                > = BTreeMap::new();
+                for signature in valid_signatures.clone() {
+                    let decoded_vote_token = bincode_opts().deserialize(&signature.1 .1).unwrap();
+                    signature_map.insert(signature.0, (signature.1 .0, decoded_vote_token));
+                }
+        
+                let stake = self.api.validated_stake(vote.leaf_commitment, self.cur_view, signature_map);
+                    if stake as usize >= threshold.into()
                     {
                         let (block_commitment, valid_signatures) =
                             vote_outcomes.remove(&vote.leaf_commitment).unwrap();
