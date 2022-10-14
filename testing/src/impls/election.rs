@@ -11,7 +11,6 @@ use hotshot_types::{
 };
 use hotshot_utils::hack::nll_todo;
 use tracing::{info, instrument};
-use hotshot_types::traits::election::Checked;
 
 /// A testable interface for the election trait.
 #[derive(Debug)]

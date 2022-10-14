@@ -87,23 +87,10 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
 
                     qcs.insert(vote.justify_qc);
 
-                    match vote_outcomes.entry(vote.leaf_commitment) {
-                        std::collections::hash_map::Entry::Occupied(mut o) => {
-                            let (_bh, map) = o.get_mut();
-                            map.insert(
-                                vote.signature.0.clone(),
-                                (vote.signature.1.clone(), vote.vote_token),
-                            );
-                        }
-                        std::collections::hash_map::Entry::Vacant(location) => {
-                            let mut map = BTreeMap::new();
-                            map.insert(vote.signature.0, (vote.signature.1, vote.vote_token));
-                            location.insert((vote.block_commitment, map));
-                        }
-                    }
+                    let (_bh, map)= vote_outcomes.entry(vote.leaf_commitment).or_insert_with(|| (vote.block_commitment, BTreeMap::new()));
+                    map.insert(vote.signature.0.clone(), (vote.signature.1.clone(), vote.vote_token));
+                    let valid_signatures = map;
 
-                    // unwraps here are fine since we *just* inserted the key
-                    let (_, valid_signatures) = vote_outcomes.get(&vote.leaf_commitment).unwrap();
                     // TODO ed - this is repeated code from validate_qc, but should clean itself up once we implement I for Vote
                     let mut signature_map: BTreeMap<
                         EncodedPublicKey,

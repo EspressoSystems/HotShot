@@ -356,11 +356,11 @@ where
             PublicKey = SIGSCHEME::VerificationKey,
             SecretKey = SIGSCHEME::SigningKey,
         > + Sync
-        + Send,
+        + Send + std::clone::Clone,
     VRF::Proof: Clone + Sync + Send + Serialize + for<'a> Deserialize<'a>,
     VRF::PublicParameter: Sync + Send,
     VRFHASHER: Clone + Sync + Send,
-    VRFPARAMS: Sync + Send,
+    VRFPARAMS: Sync + Send + std::clone::Clone,
     TIME: ConsensusTime,
     STATE: State,
     VRFPARAMS: Bls12Parameters,
