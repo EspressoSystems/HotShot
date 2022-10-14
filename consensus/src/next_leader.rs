@@ -73,7 +73,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     // if the signature on the vote is invalid,
                     // assume it's sent by byzantine node
                     // and ignore
+                    // TODO ed - ignoring serialization errors since we are changing this type in the future
                     let vote_token = bincode_opts().deserialize(&vote.vote_token).unwrap();
+                    
                     if !self.api.is_valid_signature(
                         &vote.signature.0,
                         &vote.signature.1,

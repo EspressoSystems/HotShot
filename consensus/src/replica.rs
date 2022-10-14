@@ -170,7 +170,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 continue;
                             }
                             Ok(Some(vote_token)) => {
-                                info!("We were chosen for committee on {:?}. Sending our vote to the next leader", self.cur_view);
+                                info!("We were chosen for committee on {:?}", self.cur_view);
                                 let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
                                 // Generate and send vote

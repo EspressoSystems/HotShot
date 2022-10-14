@@ -5,15 +5,12 @@ use hotshot_types::{
         election::{Checked, Election, ElectionError, VoteToken},
         signature_key::{
             ed25519::{Ed25519Priv, Ed25519Pub},
-            EncodedSignature,
+            EncodedSignature, SignatureKey,
         },
         state::ConsensusTime,
         State,
     },
 };
-use crate::BTreeMap;
-use crate::EncodedPublicKey;
-use hotshot_utils::hack::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
@@ -38,6 +35,7 @@ impl<S> StaticCommittee<S> {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+/// TODO ed - docs
 pub struct StaticVoteToken {
     signature: EncodedSignature,
     pub_key: Ed25519Pub,
@@ -45,7 +43,7 @@ pub struct StaticVoteToken {
 
 impl VoteToken for StaticVoteToken {
     fn vote_count(&self) -> u64 {
-        nll_todo()
+        1
     }
 }
 
@@ -61,7 +59,7 @@ where
     /// Clone the static table
     fn get_stake_table(
         &self,
-        view_number: ViewNumber,
+        _view_number: ViewNumber,
         _state: &Self::StateType,
     ) -> Self::StakeTable {
         self.nodes.clone()
@@ -97,29 +95,30 @@ where
         private_key: &Ed25519Priv,
         next_state: Commitment<Leaf<Self::StateType>>,
     ) -> std::result::Result<std::option::Option<StaticVoteToken>, ElectionError> {
-        nll_todo()
-        // let mut message: Vec<u8> = vec![];
-        // message.extend(&view_number.to_le_bytes());
-        // message.extend(next_state.as_ref());
-        // let token = Ed25519Pub::sign(private_key, &message);
-        // Ok(Some(token))
+        let mut message: Vec<u8> = vec![];
+        message.extend(&view_number.to_le_bytes());
+        message.extend(next_state.as_ref());
+        let signature = Ed25519Pub::sign(private_key, &message);
+        Ok(Some(StaticVoteToken {
+            signature,
+            pub_key: Ed25519Pub::from_private(private_key),
+        }))
     }
 
     fn validate_vote_token(
         &self,
-        view_number: ViewNumber,
-        pub_key: Ed25519Pub,
+        _view_number: ViewNumber,
+        _pub_key: Ed25519Pub,
         token: Checked<Self::VoteTokenType>,
-        next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
+        _next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
     ) -> Result<
         hotshot_types::traits::election::Checked<Self::VoteTokenType>,
         hotshot_types::traits::election::ElectionError,
     > {
-        nll_todo()
+        match token {
+            Checked::Valid(t)| Checked::Unchecked(t) => Ok(Checked::Valid(t)),
+            Checked::Inval(t) => Ok(Checked::Inval(t))
+        }
     }
 
-    // If its a validated token, it always has one vote
-    // fn get_vote_count(&self, _token: &Self::ValidatedVoteToken) -> u64 {
-    //     1
-    // }
 }
