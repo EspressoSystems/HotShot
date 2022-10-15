@@ -32,8 +32,8 @@ impl<I: TestableNodeImplementation> TestLauncher<I>
 
         let known_nodes = (0..expected_node_count)
             .map(|id| {
-                let priv_key = Ed25519Pub::generate_test_key(id as u64);
-                Ed25519Pub::from_private(&priv_key)
+                let priv_key = I::SignatureKey::generate_test_key(id as u64);
+                I::SignatureKey::from_private(&priv_key)
             })
             .collect();
         let config = HotShotConfig {
@@ -57,17 +57,19 @@ impl<I: TestableNodeImplementation> TestLauncher<I>
             storage: Box::new(|_| {
                 <I::Storage as TestableStorage<I::StateType>>::construct_tmp_storage().unwrap()
             }),
-            block: Box::new(|_| <<I as NodeImplementation>::StateType as State>::BlockType::genesis()),
+            block: Box::new(|_| <<I as TestableNodeImplementation>::StateType as State>::BlockType::genesis()),
             config,
         }
     }
 }
 
+// TODO make these functions generic over the target networking/storage/other generics
+// so we can hotswap out
 impl<I: TestableNodeImplementation> TestLauncher<I> {
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_network<NewNetwork>(
+    pub fn with_network(
         self,
-        network: impl Fn(u64, Ed25519Pub) -> NewNetwork + 'static,
+        network: impl Fn(u64, Ed25519Pub) -> I::Networking + 'static,
     ) -> TestLauncher<I> {
         TestLauncher {
             network: Box::new({
@@ -87,9 +89,9 @@ impl<I: TestableNodeImplementation> TestLauncher<I> {
     }
 
     /// Set a custom storage generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_storage<NewStorage>(
+    pub fn with_storage(
         self,
-        storage: impl Fn(u64) -> NewStorage + 'static,
+        storage: impl Fn(u64) -> I::Storage + 'static,
     ) -> TestLauncher<I> {
         TestLauncher {
             network: self.network,
@@ -100,9 +102,9 @@ impl<I: TestableNodeImplementation> TestLauncher<I> {
     }
 
     /// Set a custom block generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_block<NewBlock>(
+    pub fn with_block(
         self,
-        block: impl Fn(u64) -> NewBlock + 'static,
+        block: impl Fn(u64) -> I::Block,
     ) -> TestLauncher<I> {
         TestLauncher {
             network: self.network,
@@ -113,7 +115,7 @@ impl<I: TestableNodeImplementation> TestLauncher<I> {
     }
 
     /// Set the default config of each node. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_default_config(mut self, config: HotShotConfig<Ed25519Pub>) -> Self {
+    pub fn with_default_config(mut self, config: HotShotConfig<I::SignatureKey>) -> Self {
         self.config = config;
         self
     }
@@ -121,7 +123,7 @@ impl<I: TestableNodeImplementation> TestLauncher<I> {
     /// Modifies the config used when generating nodes with `f`
     pub fn modify_default_config(
         mut self,
-        mut f: impl FnMut(&mut HotShotConfig<Ed25519Pub>),
+        mut f: impl FnMut(&mut HotShotConfig<I::SignatureKey>),
     ) -> Self {
         f(&mut self.config);
         self

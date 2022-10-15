@@ -13,7 +13,7 @@ use crate::{
 };
 use std::fmt::Debug;
 
-use super::{State, state::{TestableState, TestableBlock}, network::TestableNetworkingImplementation, signature_key::TestableSignatureKey};
+use super::{State, state::{TestableState, TestableBlock}, network::TestableNetworkingImplementation, signature_key::TestableSignatureKey, storage::TestableStorage};
 
 /// Node implementation aggregate trait
 ///
@@ -38,13 +38,25 @@ pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
     type Election: Election<Self::SignatureKey, ViewNumber, StateType = Self::StateType>;
 }
 
-/// testable trait
-pub trait TestableNodeImplementation: NodeImplementation where
-    <Self as NodeImplementation>::StateType: TestableState + 'static,
-    <Self as NodeImplementation>::Networking: TestableNetworkingImplementation<Message<Self::StateType, Self::SignatureKey>, Self::SignatureKey> + Clone + 'static,
-    <<Self as NodeImplementation>::StateType as State>::BlockType: TestableBlock + 'static,
-    <Self as NodeImplementation>::SignatureKey: TestableSignatureKey
-{}
+pub trait TestableNodeImplementation: Send + Sync + Debug + Clone + 'static {
+    /// State type for this consensus implementation
+    type StateType: TestableState<BlockType = Self::Block>;
+    /// Storage type for this consensus implementation
+    type Storage: TestableStorage<Self::StateType>;
+    /// Networking type for this consensus implementation
+    type Networking: TestableNetworkingImplementation<Message<Self::StateType, Self::SignatureKey>, Self::SignatureKey>;
+    /// The signature key type for this implementation
+    type SignatureKey: TestableSignatureKey;
+    /// Election
+    /// Time is generic here to allow multiple implementations of election trait for difference
+    /// consensus protocols
+    type Election;
+    /// block
+    type Block: TestableBlock;
+
+    /// propagate
+    type NodeImplementation: NodeImplementation<StateType = Self::StateType, Storage = Self::Storage, Networking = Self::Networking, SignatureKey = Self::SignatureKey, Election = Self::Election>;
+}
 
 /// Helper trait to make aliases.
 ///

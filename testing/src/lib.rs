@@ -118,11 +118,13 @@ pub struct TestRunner<I: TestableNodeImplementation> where
     rounds: Vec<Round<I>>,
 }
 
-#[allow(dead_code)]
 struct Node<I: TestableNodeImplementation> where
 {
     pub node_id: u64,
-    pub handle: HotShotHandle<TestNodeImpl<I::Networking, I::Storage, I::StateType, I::Election, I::SignatureKey>>,
+    pub handle: HotShotHandle<I::NodeImplementation
+        // TestNodeImpl
+        // <I::Networking, I::Storage, I::StateType, I::Election, I::SignatureKey>
+        >,
 }
 
 impl<I: TestableNodeImplementation> TestRunner<I>
@@ -159,7 +161,7 @@ where
             let storage = (self.storage_generator)(node_id);
             let config = self.default_node_config.clone();
             let initializer = HotShotInitializer::from_genesis(
-                <<STATE as State>::BlockType as TestableBlock>::genesis(),
+                <<I::StateType as State>::BlockType as TestableBlock>::genesis(),
             )
             .unwrap();
             let node_id = self
@@ -192,14 +194,13 @@ where
         network: I::Networking,
         storage: I::Storage,
         initializer: HotShotInitializer<I::StateType>,
-        config: HotShotConfig<Ed25519Pub>,
+        config: HotShotConfig<I::SignatureKey>,
     ) -> u64 {
         let node_id = self.next_node_id;
         self.next_node_id += 1;
 
         let known_nodes = config.known_nodes.clone();
-        let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
-        let public_key = Ed25519Pub::from_private(&private_key);
+        let (public_key, private_key) = I::SignatureKey::generated_from_seed_indexed([0_u8; 32], node_id);
         let handle = HotShot::init(
             known_nodes.clone(),
             public_key,
@@ -348,7 +349,7 @@ where
     pub fn get_handle(
         &self,
         id: u64,
-    ) -> Option<HotShotHandle<TestNodeImpl<I::Networking, I::Storage, I::StateType, I::Election, I::SignatureKey>>> {
+    ) -> Option<HotShotHandle<I::NodeImplementation>> {
         self.nodes.iter().find_map(|node| {
             if node.node_id == id {
                 Some(node.handle.clone())
@@ -533,51 +534,27 @@ pub enum ConsensusTestError {
 
 /// An implementation to make the trio `NETWORK`, `STORAGE` and `STATE` implement [`NodeImplementation`]
 #[derive(Clone)]
-pub struct TestNodeImpl<NETWORK, STORAGE, STATE, ELECTION, KEY> {
-    network: PhantomData<NETWORK>,
-    storage: PhantomData<STORAGE>,
-    state: PhantomData<STATE>,
-    election: PhantomData<ELECTION>,
-    key: PhantomData<KEY>
-}
+pub struct TestNodeImpl{}
 
-impl<
-        NETWORK: NetworkingImplementation<Message<STATE, KEY>, KEY> + Clone + 'static,
-        STORAGE: Storage<STATE> + 'static,
-        STATE: TestableState + 'static,
-        ELECTION: Election<KEY, ViewNumber>,
-        KEY: SignatureKey
-    > NodeImplementation for TestNodeImpl<NETWORK, STORAGE, STATE, ELECTION, KEY>
-where
-    <STATE as State>::BlockType: TestableBlock,
+impl
+// <STATE, STORAGE, NETWORKING, ELECTION, KEY>
+    TestableNodeImplementation for TestNodeImpl
 {
-    type StateType = STATE;
-    type Storage = STORAGE;
-    type Networking = NETWORK;
-    type Election = ELECTION;
-    type SignatureKey = KEY;
+    // type StateType = STATE;
+    // type Storage = STORAGE;
+    // type Networking = NETWORKING;
+    // type Election = ELECTION;
+    // type SignatureKey = KEY;
 }
 
-impl<
-        NETWORK: TestableNetworkingImplementation<Message<STATE, KEY>, KEY> + Clone + 'static,
-        STORAGE: Storage<STATE> + 'static,
-        STATE: TestableState + 'static,
-        ELECTION: Election<KEY, ViewNumber>,
-        KEY: TestableSignatureKey
-    > TestableNodeImplementation for TestNodeImpl<NETWORK, STORAGE, STATE, ELECTION, KEY>
-where
-    <STATE as State>::BlockType: TestableBlock,
-{
-}
-
-impl<NETWORK, STORAGE, STATE, ELECTION, KEY> fmt::Debug for TestNodeImpl<NETWORK, STORAGE, STATE, ELECTION, KEY> {
+impl fmt::Debug for TestNodeImpl{
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("TestNodeImpl")
-            .field("network", &std::any::type_name::<NETWORK>())
-            .field("storage", &std::any::type_name::<STORAGE>())
-            .field("state", &std::any::type_name::<STATE>())
-            .field("election", &std::any::type_name::<ELECTION>())
-            .field("key", &std::any::type_name::<KEY>())
+            .field("network", &std::any::type_name::<<Self as TestableNodeImplementation>::Networking>())
+            .field("storage", &std::any::type_name::<<Self as TestableNodeImplementation>::Storage>())
+            .field("state", &std::any::type_name::<<Self as TestableNodeImplementation>::StateType>())
+            .field("election", &std::any::type_name::<<Self as TestableNodeImplementation>::Election>())
+            .field("key", &std::any::type_name::<<Self as TestableNodeImplementation>::SignatureKey>())
             .finish_non_exhaustive()
     }
 }
