@@ -321,8 +321,9 @@ where
 pub fn get_total_stake() {}
 
 /// TODO doc me
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct VRFVoteToken<VRF: Vrf<VRFHASHER, VRFPARAMS>, VRFHASHER, VRFPARAMS> {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct VRFVoteToken<VRF: Vrf<VRFHASHER, VRFPARAMS>, VRFHASHER, VRFPARAMS>
+{
     /// The public key assocaited with this token
     pub pub_key: VRF::PublicKey,
     /// The list of signatures
@@ -330,6 +331,18 @@ pub struct VRFVoteToken<VRF: Vrf<VRFHASHER, VRFPARAMS>, VRFHASHER, VRFPARAMS> {
     /// The number of signatures that are valid
     /// TODO (ct) this should be the sorition outbput
     pub count: u64,
+}
+
+impl<VRF: Vrf<VRFHASHER, VRFPARAMS>, VRFHASHER, VRFPARAMS> Clone for VRFVoteToken<VRF, VRFHASHER, VRFPARAMS>
+where VRF::PublicKey: Clone, VRF::Proof: Clone
+{
+    fn clone(&self) -> Self {
+        Self {
+            pub_key: self.pub_key.clone(),
+            proof: self.proof.clone(),
+            count: self.count.clone()
+        }
+    }
 }
 
 impl<VRF, VRFHASHER, VRFPARAMS> VoteToken for VRFVoteToken<VRF, VRFHASHER, VRFPARAMS>
@@ -357,12 +370,11 @@ where
             PublicKey = SIGSCHEME::VerificationKey,
             SecretKey = SIGSCHEME::SigningKey,
         > + Sync
-        + Send + std::clone::Clone,
+        + Send,
     VRF::Proof: Clone + Sync + Send + Serialize + for<'a> Deserialize<'a>,
     VRF::PublicParameter: Sync + Send,
     VRFHASHER: Clone + Sync + Send,
-    VRFPARAMS: Sync + Send + std::clone::Clone,
-    TIME: ConsensusTime,
+    VRFPARAMS: Sync + Send,
     STATE: State,
     VRFPARAMS: Bls12Parameters,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
