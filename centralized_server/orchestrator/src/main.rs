@@ -1,8 +1,8 @@
 use clap::Parser;
-use hotshot::types::{
+use hotshot::{types::{
     ed25519::{Ed25519Priv, Ed25519Pub},
     SignatureKey,
-};
+}, traits::election::static_committee::StaticElectionConfig};
 use hotshot_centralized_server::{
     config::{HotShotConfigFile, Libp2pConfigFile, NetworkConfigFile, RoundConfig},
     NetworkConfig, Server,
@@ -28,14 +28,14 @@ async fn main() {
     };
     let configs = load_configs(is_libp2p).expect("Could not load configs");
 
-    Server::<Ed25519Pub>::new(host.parse().expect("Invalid host address"), port)
+    Server::<Ed25519Pub, StaticElectionConfig>::new(host.parse().expect("Invalid host address"), port)
         .await
         .with_round_config(RoundConfig::new(configs))
         .run()
         .await;
 }
 
-fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub>>> {
+fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub, StaticElectionConfig>>> {
     let mut result = Vec::new();
     for file in fs::read_dir(".")? {
         let file = file?;
@@ -48,7 +48,7 @@ fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub
                 );
                 let str = fs::read_to_string(file.path())?;
                 let run = toml::from_str::<NetworkConfigFile>(&str).expect("Invalid TOML");
-                let mut run: NetworkConfig<Ed25519Pub> = run.into();
+                let mut run: NetworkConfig<Ed25519Pub, StaticElectionConfig> = run.into();
 
                 run.config.known_nodes = (0..run.config.total_nodes.get())
                     .map(|node_id| {

@@ -112,7 +112,7 @@ pub struct TestRunner<I: TestableNodeImplementation> where
 {
     network_generator: Generator<I::Networking>,
     storage_generator: Generator<I::Storage>,
-    default_node_config: HotShotConfig<I::SignatureKey>,
+    default_node_config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>,
     nodes: Vec<Node<I>>,
     next_node_id: u64,
     rounds: Vec<Round<I>>,
@@ -194,7 +194,7 @@ where
         network: I::Networking,
         storage: I::Storage,
         initializer: HotShotInitializer<I::StateType>,
-        config: HotShotConfig<I::SignatureKey>,
+        config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>,
     ) -> u64 {
         let node_id = self.next_node_id;
         self.next_node_id += 1;
@@ -202,14 +202,14 @@ where
         let known_nodes = config.known_nodes.clone();
         let (public_key, private_key) = I::SignatureKey::generated_from_seed_indexed([0_u8; 32], node_id);
         let handle = HotShot::init(
-            known_nodes.clone(),
             public_key,
             private_key,
             node_id,
             config,
             network,
             storage,
-            StaticCommittee::new(known_nodes),
+            // StaticCommittee::new(known_nodes),
+            <I::Election as Election<I::SignatureKey, ViewNumber>>::create_election(known_nodes, config.election_config),
             initializer,
         )
         .await

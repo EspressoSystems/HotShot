@@ -274,9 +274,6 @@ where
 }
 
 /// TODO doc me
-pub fn get_total_stake() {}
-
-/// TODO doc me
 #[derive(Serialize, Deserialize, Debug)]
 pub struct VRFVoteToken<VRF: Vrf<VRFHASHER, VRFPARAMS>, VRFHASHER, VRFPARAMS>
 {
@@ -321,6 +318,7 @@ where
     VRF: Vrf<
             VRFHASHER,
             VRFPARAMS,
+            PublicParameter = (),
             Input = [u8; 32],
             Output = [u8; 32],
             PublicKey = SIGSCHEME::VerificationKey,
@@ -461,25 +459,29 @@ where
         VrfImpl::with_initial_stake(keys, config)
     }
 
+    // TODO this is the wrong palce for this
+    // slash: delete this
+    // e.g. belongs in a generator
     fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType {
+        nll_todo()
 
-        let mut known_nodes = Vec::new();
-        let mut keys = Vec::new();
-        let rng = &mut test_rng();
-        let mut stake_distribution = Vec::new();
-        let stake_per_node = NonZeroU64::new(100).unwrap();
-        for _i in 0..num_nodes {
-            let parameters = Self::SignatureKey::param_gen(Some(rng)).unwrap();
-            let (sk, pk) = Self::SignatureKey::key_gen(&parameters, rng).unwrap();
-            keys.push((sk.clone(), pk.clone()));
-            known_nodes.push(VRFPubKey::from_native(pk.clone()));
-            stake_distribution.push(stake_per_node);
-        }
-        let stake_table = VrfImpl::with_initial_stake(known_nodes, VRFStakeTableConfig {
-            sortition_parameter: SORTITION_PARAMETER,
-            distribution: stake_distribution
-        });
-        (stake_table, keys)
+        // let mut known_nodes = Vec::new();
+        // let mut keys = Vec::new();
+        // let rng = &mut test_rng();
+        // let mut stake_distribution = Vec::new();
+        // let stake_per_node = NonZeroU64::new(100).unwrap();
+        // for _i in 0..num_nodes {
+        //     let parameters = VRF::param_gen(Some(rng)).unwrap();
+        //     let (sk, pk) = VRF::key_gen(&parameters, rng).unwrap();
+        //     keys.push((sk.clone(), pk.clone()));
+        //     known_nodes.push(VRFPubKey::from_native(pk.clone()));
+        //     stake_distribution.push(stake_per_node);
+        // }
+        // Self::ElectionConfigType {
+        //     distribution: stake_distribution,
+        //     sortition_parameter: SORTITION_PARAMETER
+        //
+        // }
     }
 }
 
@@ -616,7 +618,7 @@ where
     VRF: Vrf<
             VRFHASHER,
             VRFPARAMS,
-            // PublicParameter = (),
+            PublicParameter = (),
             Input = [u8; 32],
             Output = [u8; 32],
             PublicKey = SIGSCHEME::VerificationKey,
@@ -634,7 +636,7 @@ where
     // TODO switch out parameters
     pub fn with_initial_stake(known_nodes: Vec<VRFPubKey<SIGSCHEME>>, config: VRFStakeTableConfig) -> Self {
         assert_eq!(known_nodes.iter().len(), config.distribution.len());
-        let key_with_stake = known_nodes.into_iter().map(|x| x.to_bytes()).zip(config.distribution).collect();
+        let key_with_stake = known_nodes.into_iter().map(|x| x.to_bytes()).zip(config.distribution.clone()).collect();
         VrfImpl {
             stake_table: VRFStakeTable {
                 mapping: key_with_stake,
@@ -659,8 +661,8 @@ where
 
 #[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
 pub struct VRFStakeTableConfig {
-    sortition_parameter: u64,
-    distribution: Vec<NonZeroU64>
+    pub sortition_parameter: u64,
+    pub distribution: Vec<NonZeroU64>
 }
 
 impl ElectionConfig for VRFStakeTableConfig {

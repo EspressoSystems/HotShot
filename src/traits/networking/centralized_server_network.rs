@@ -631,7 +631,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
     /// Connect with the server running at `addr` and retrieve the config from the server.
     ///
     /// The config is returned along with the current run index and the running `CentralizedServerNetwork`
-    pub async fn connect_with_server_config(addr: SocketAddr) -> (NetworkConfig<K>, Run, Self) {
+    pub async fn connect_with_server_config(addr: SocketAddr) -> (NetworkConfig<K, E>, Run, Self) {
         let (streams, run, config) = loop {
             let (mut recv_stream, mut send_stream) = match TcpStream::connect(addr).await {
                 Ok(stream) => {
@@ -1075,7 +1075,7 @@ where
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
 
-        let server = async_block_on(hotshot_centralized_server::Server::<P>::new(
+        let server = async_block_on(hotshot_centralized_server::Server::<P, E>::new(
             Ipv4Addr::LOCALHOST.into(),
             0,
         ))

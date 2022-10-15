@@ -10,9 +10,9 @@ use hotshot_types::{
         network::TestableNetworkingImplementation,
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState},
-        storage::TestableStorage, node_implementation::TestableNodeImplementation,
+        storage::TestableStorage, node_implementation::TestableNodeImplementation, election::{ElectionConfig, Election},
     },
-    ExecutionType, HotShotConfig,
+    ExecutionType, HotShotConfig, data::ViewNumber,
 };
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
@@ -20,7 +20,7 @@ pub struct TestLauncher<I: TestableNodeImplementation> {
     pub(super) network: Generator<I::Networking>,
     pub(super) storage: Generator<I::Storage>,
     pub(super) block: Generator<<I::StateType as State>::BlockType>,
-    pub(super) config: HotShotConfig<I::SignatureKey>,
+    pub(super) config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>,
 }
 
 impl<I: TestableNodeImplementation> TestLauncher<I>
@@ -116,7 +116,7 @@ impl<I: TestableNodeImplementation> TestLauncher<I> {
     }
 
     /// Set the default config of each node. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_default_config(mut self, config: HotShotConfig<I::SignatureKey>) -> Self {
+    pub fn with_default_config(mut self, config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>) -> Self {
         self.config = config;
         self
     }
@@ -124,7 +124,7 @@ impl<I: TestableNodeImplementation> TestLauncher<I> {
     /// Modifies the config used when generating nodes with `f`
     pub fn modify_default_config(
         mut self,
-        mut f: impl FnMut(&mut HotShotConfig<I::SignatureKey>),
+        mut f: impl FnMut(&mut HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>),
     ) -> Self {
         f(&mut self.config);
         self

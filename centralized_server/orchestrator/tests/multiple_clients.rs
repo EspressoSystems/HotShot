@@ -1,6 +1,6 @@
 use commit::{Commitment, Committable};
 use hotshot::{
-    traits::{Block, State},
+    traits::{Block, State, election::static_committee::StaticElectionConfig},
     types::SignatureKey,
 };
 use hotshot_centralized_server::{TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend};
@@ -15,9 +15,9 @@ use hotshot_utils::{
 use std::{collections::HashSet, fmt, net::Ipv4Addr, time::Duration};
 use tracing::instrument;
 
-type Server = hotshot_centralized_server::Server<TestSignatureKey>;
+type Server = hotshot_centralized_server::Server<TestSignatureKey, StaticElectionConfig>;
 type ToServer = hotshot_centralized_server::ToServer<TestSignatureKey>;
-type FromServer = hotshot_centralized_server::FromServer<TestSignatureKey>;
+type FromServer = hotshot_centralized_server::FromServer<TestSignatureKey, StaticElectionConfig>;
 
 #[cfg_attr(
     feature = "tokio-executor",
