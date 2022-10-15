@@ -128,20 +128,14 @@ impl<I: TestableNodeImplementation> TestLauncher<I> {
     }
 }
 
-impl<NETWORK, STORAGE, BLOCK, STATE> TestLauncher<NETWORK, STORAGE, BLOCK, STATE>
-where
-    NETWORK:
-        TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
-    STORAGE: Storage<STATE>,
-    BLOCK: TestableBlock,
-    STATE: TestableState<BlockType = BLOCK> + 'static,
+impl<I: TestableNodeImplementation> TestLauncher<I>
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///
     /// - `NETWORK` implements [`NetworkingImplementation`] and [`TestableNetworkingImplementation`]
     /// - `STORAGE` implements [`Storage`]
     /// - `BLOCK` implements [`BlockContents`] and [`TestableBlock`]
-    pub fn launch(self) -> TestRunner<NETWORK, STORAGE, STATE> {
+    pub fn launch(self) -> TestRunner<I> {
         TestRunner::new(self)
     }
 }
