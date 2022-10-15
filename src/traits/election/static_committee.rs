@@ -2,7 +2,7 @@ use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, ViewNumber},
     traits::{
-        election::{Checked, Election, ElectionError, VoteToken},
+        election::{Checked, Election, ElectionError, VoteToken, ElectionConfig},
         signature_key::{
             ed25519::{Ed25519Priv, Ed25519Pub},
             EncodedSignature, SignatureKey,
@@ -11,6 +11,7 @@ use hotshot_types::{
         State,
     },
 };
+use hotshot_utils::hack::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
@@ -47,6 +48,13 @@ impl VoteToken for StaticVoteToken {
     }
 }
 
+#[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
+pub struct StaticElectionConfig {
+}
+
+impl ElectionConfig for StaticElectionConfig {
+}
+
 impl<S, T> Election<Ed25519Pub, T> for StaticCommittee<S>
 where
     S: Send + Sync + State,
@@ -56,6 +64,9 @@ where
     type StakeTable = Vec<Ed25519Pub>;
     type StateType = S;
     type VoteTokenType = StaticVoteToken;
+
+    type ElectionConfigType = StaticElectionConfig;
+
     /// Clone the static table
     fn get_stake_table(
         &self,
@@ -119,6 +130,14 @@ where
             Checked::Valid(t)| Checked::Unchecked(t) => Ok(Checked::Valid(t)),
             Checked::Inval(t) => Ok(Checked::Inval(t))
         }
+    }
+
+    fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType {
+        nll_todo()
+    }
+
+    fn create_election(keys: Vec<Ed25519Pub>, config: Self::ElectionConfigType) -> Self {
+        nll_todo()
     }
 
 }

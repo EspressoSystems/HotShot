@@ -48,6 +48,8 @@ pub trait VoteToken {
     fn vote_count(&self) -> u64;
 }
 
+pub trait ElectionConfig: Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug {}
+
 /// Describes how `HotShot` chooses committees and leaders
 pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// Data structure describing the currently valid states
@@ -58,13 +60,13 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     type VoteTokenType: VoteToken + Serialize + DeserializeOwned + Send + Sync + Clone;
 
     /// configuration for election
-    type ElectionConfig: Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug;
+    type ElectionConfigType: ElectionConfig;
 
-    fn default_election_config(num_nodes: u64) -> Self::ElectionConfig;
+    fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType;
 
     /// create an election
     /// TODO may want to move this to a testableelection trait
-    fn create_election(keys: Vec<P>, config: Self::ElectionConfig) -> Self;
+    fn create_election(keys: Vec<P>, config: Self::ElectionConfigType) -> Self;
 
     /// Returns the table from the current committed state
     fn get_stake_table(&self, view_number: ViewNumber, state: &Self::StateType)

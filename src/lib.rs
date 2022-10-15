@@ -110,7 +110,7 @@ pub struct HotShotInner<I: NodeImplementation> {
     private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Configuration items for this hotshot instance
-    config: HotShotConfig<I>,
+    config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey,ViewNumber>>::ElectionConfigType>,
 
     /// Networking interface for this hotshot instance
     networking: I::Networking,
@@ -172,7 +172,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         public_key: I::SignatureKey,
         private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
-        config: HotShotConfig<I>,
+        config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>,
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
@@ -327,7 +327,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         public_key: I::SignatureKey,
         private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
-        config: HotShotConfig<I>,
+        config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>,
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,

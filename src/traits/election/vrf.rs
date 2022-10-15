@@ -1,7 +1,8 @@
 use ark_ec::bls12::Bls12Parameters;
+use ark_std::test_rng;
 use bincode::Options;
 use hotshot_types::{traits::{
-    election::{Checked, Election, ElectionError, VoteToken},
+    election::{Checked, Election, ElectionError, VoteToken, ElectionConfig},
     signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     state::ConsensusTime,
     State,
@@ -343,7 +344,7 @@ where
     // represents a vote on a proposal
     type VoteTokenType = VRFVoteToken<VRF, VRFHASHER, VRFPARAMS>;
 
-    type ElectionConfig = VRFStakeTableConfig;
+    type ElectionConfigType = VRFStakeTableConfig;
 
     // FIXED STAKE
     // just return the state
@@ -456,15 +457,11 @@ where
         }
     }
 
-    fn create_election(keys: Vec<VRFPubKey<SIGSCHEME>>, config: Self::ElectionConfig) -> Self {
-        let stake_table = VrfImpl::with_initial_stake(keys, VRFStakeTableConfig {
-            sortition_parameter: SORTITION_PARAMETER,
-            distribution: config.stake_distribution
-        });
-        (stake_table, keys)
+    fn create_election(keys: Vec<VRFPubKey<SIGSCHEME>>, config: Self::ElectionConfigType) -> Self {
+        VrfImpl::with_initial_stake(keys, config)
     }
 
-    fn default_election_config(num_nodes: u64) -> Self::ElectionConfig {
+    fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType {
 
         let mut known_nodes = Vec::new();
         let mut keys = Vec::new();
@@ -619,7 +616,7 @@ where
     VRF: Vrf<
             VRFHASHER,
             VRFPARAMS,
-            PublicParameter = (),
+            // PublicParameter = (),
             Input = [u8; 32],
             Output = [u8; 32],
             PublicKey = SIGSCHEME::VerificationKey,
@@ -660,9 +657,13 @@ where
     }
 }
 
+#[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
 pub struct VRFStakeTableConfig {
     sortition_parameter: u64,
     distribution: Vec<NonZeroU64>
+}
+
+impl ElectionConfig for VRFStakeTableConfig {
 }
 
 #[cfg(test)]

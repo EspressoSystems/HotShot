@@ -27,7 +27,7 @@ use bincode::Options;
 use clients::Clients;
 use config::ClientConfig;
 use futures::FutureExt as _;
-use hotshot_types::traits::{signature_key::SignatureKey, node_implementation::NodeImplementation};
+use hotshot_types::traits::{signature_key::SignatureKey, node_implementation::NodeImplementation, election::ElectionConfig};
 use hotshot_utils::{
     art::{async_spawn, async_timeout},
     bincode::bincode_opts,
@@ -49,16 +49,16 @@ use tracing::{debug, error};
 pub(crate) const MAX_CHUNK_SIZE: usize = 256 * 1024;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-pub enum ToServer<I: NodeImplementation> {
+pub enum ToServer<K> {
     GetConfig,
-    Identify { key: I::SignatureKey },
+    Identify { key: K},
     Broadcast { message_len: u64 },
-    Direct { target: I::SignatureKey, message_len: u64 },
+    Direct { target: K, message_len: u64 },
     RequestClientCount,
     Results(RunResults),
 }
 
-impl<I: NodeImplementation> ToServer<I> {
+impl<K> ToServer<K> {
     pub fn payload_len(&self) -> Option<NonZeroUsize> {
         match self {
             Self::GetConfig
@@ -90,41 +90,40 @@ pub struct RunResults {
 pub struct Run(pub usize);
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-#[serde(bound = "")]
-pub enum FromServer<I: NodeImplementation> {
+pub enum FromServer<K, E> {
     Config {
-        config: NetworkConfig<I>,
+        config: NetworkConfig<K, E>,
         run: Run,
     },
     NodeConnected {
-        key: I::SignatureKey,
+        key: K,
     },
     NodeDisconnected {
-        key: I::SignatureKey,
+        key: K,
     },
     Broadcast {
-        source: I::SignatureKey,
+        source: K,
         message_len: u64,
         payload_len: u64,
     },
     BroadcastPayload {
-        source: I::SignatureKey,
+        source: K,
         payload_len: u64,
     },
     Direct {
-        source: I::SignatureKey,
+        source: K,
         message_len: u64,
         payload_len: u64,
     },
     DirectPayload {
-        source: I::SignatureKey,
+        source: K,
         payload_len: u64,
     },
     ClientCount(u32),
     Start,
 }
 
-impl<I: NodeImplementation> FromServer<I> {
+impl<K, E> FromServer<K, E> {
     pub fn payload_len(&self) -> Option<NonZeroUsize> {
         match self {
             Self::Config { .. }
@@ -141,31 +140,31 @@ impl<I: NodeImplementation> FromServer<I> {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct FromBackground<I: NodeImplementation> {
-    header: FromServer<I>,
+pub struct FromBackground<K, E> {
+    header: FromServer<K, E>,
     payload: Option<Vec<u8>>,
 }
 
-impl<I: NodeImplementation> FromBackground<I> {
-    pub fn config(config: NetworkConfig<I>, run: Run) -> FromBackground<I> {
+impl<K, E> FromBackground<K, E> {
+    pub fn config(config: NetworkConfig<K, E>, run: Run) -> FromBackground<K, E> {
         FromBackground {
             header: FromServer::Config { config, run },
             payload: None,
         }
     }
-    pub fn node_connected(key: I::SignatureKey) -> FromBackground<I> {
+    pub fn node_connected(key: K) -> FromBackground<K, E> {
         FromBackground {
             header: FromServer::NodeConnected { key },
             payload: None,
         }
     }
-    pub fn node_disconnected(key: I::SignatureKey) -> FromBackground<I> {
+    pub fn node_disconnected(key: K) -> FromBackground<K, E> {
         FromBackground {
             header: FromServer::NodeDisconnected { key },
             payload: None,
         }
     }
-    pub fn broadcast(source: I::SignatureKey, message_len: u64, payload: Option<Vec<u8>>) -> FromBackground<I> {
+    pub fn broadcast(source: K, message_len: u64, payload: Option<Vec<u8>>) -> FromBackground<K, E> {
         FromBackground {
             header: FromServer::Broadcast {
                 source,
@@ -179,7 +178,7 @@ impl<I: NodeImplementation> FromBackground<I> {
             payload,
         }
     }
-    pub fn broadcast_payload(source: I::SignatureKey, payload: Vec<u8>) -> FromBackground<I> {
+    pub fn broadcast_payload(source: K, payload: Vec<u8>) -> FromBackground<K, E> {
         FromBackground {
             header: FromServer::BroadcastPayload {
                 source,
@@ -188,7 +187,7 @@ impl<I: NodeImplementation> FromBackground<I> {
             payload: Some(payload),
         }
     }
-    pub fn direct(source: I::SignatureKey, message_len: u64, payload: Option<Vec<u8>>) -> FromBackground<I> {
+    pub fn direct(source: K, message_len: u64, payload: Option<Vec<u8>>) -> FromBackground<K, E> {
         FromBackground {
             header: FromServer::Direct {
                 source,
@@ -202,7 +201,7 @@ impl<I: NodeImplementation> FromBackground<I> {
             payload,
         }
     }
-    pub fn direct_payload(source: I::SignatureKey, payload: Vec<u8>) -> FromBackground<I> {
+    pub fn direct_payload(source: K, payload: Vec<u8>) -> FromBackground<K, E> {
         FromBackground {
             header: FromServer::DirectPayload {
                 source,
@@ -211,13 +210,13 @@ impl<I: NodeImplementation> FromBackground<I> {
             payload: Some(payload),
         }
     }
-    pub fn client_count(client_count: u32) -> FromBackground<I> {
+    pub fn client_count(client_count: u32) -> FromBackground<K, E> {
         FromBackground {
             header: FromServer::ClientCount(client_count),
             payload: None,
         }
     }
-    pub fn start() -> FromBackground<I> {
+    pub fn start() -> FromBackground<K, E> {
         FromBackground {
             header: FromServer::Start,
             payload: None,
@@ -225,14 +224,13 @@ impl<I: NodeImplementation> FromBackground<I> {
     }
 }
 
-pub struct Server<I: NodeImplementation> {
+pub struct Server<K: SignatureKey + 'static, E: ElectionConfig + 'static> {
     listener: TcpListener,
     shutdown: Option<OneShotReceiver<()>>,
-    config: Option<RoundConfig<I>>,
-    _k: PhantomData<I>,
+    config: Option<RoundConfig<K, E>>,
 }
 
-impl<I: NodeImplementation> Server<I> {
+impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> Server<K, E> {
     /// Create a new instance of the centralized server.
     pub async fn new(host: IpAddr, port: u16) -> Self {
         let listener = TcpListener::bind((host, port))
@@ -242,7 +240,6 @@ impl<I: NodeImplementation> Server<I> {
             listener,
             shutdown: None,
             config: None,
-            _k: PhantomData,
         }
     }
 
@@ -265,7 +262,7 @@ impl<I: NodeImplementation> Server<I> {
     }
 
     /// Set the network config. Setting this will allow clients to request this config when they connect to the server.
-    pub fn with_round_config(mut self, config: RoundConfig<I>) -> Self {
+    pub fn with_round_config(mut self, config: RoundConfig<K, E>) -> Self {
         self.config = Some(config);
         self
     }
@@ -299,7 +296,7 @@ impl<I: NodeImplementation> Server<I> {
                 result = listener_fuse => {
                     match result {
                         Ok((stream, addr)) => {
-                            async_spawn(client::spawn::<I>(addr, stream, sender.clone()));
+                            async_spawn(client::spawn::<K, E>(addr, stream, sender.clone()));
                         },
                         Err(e) => {
                             error!("Could not accept new client: {:?}", e);
@@ -341,10 +338,10 @@ impl<I: NodeImplementation> Server<I> {
 /// - React to incoming messages,
 /// - Keep track of the clients connected,
 /// - Send direct/broadcast messages to clients
-async fn background_task<I: NodeImplementation>(
-    self_sender: Sender<ToBackground<I>>,
-    mut receiver: Receiver<ToBackground<I>>,
-    mut config: Option<RoundConfig<I>>,
+async fn background_task<K: SignatureKey + 'static, E: ElectionConfig + 'static>(
+    self_sender: Sender<ToBackground<K, E>>,
+    mut receiver: Receiver<ToBackground<K, E>>,
+    mut config: Option<RoundConfig<K, E>>,
 ) -> Result<(), Error> {
     let mut clients = Clients::new();
     loop {
@@ -465,50 +462,50 @@ async fn background_task<I: NodeImplementation>(
 }
 
 #[derive(Debug)]
-pub enum ToBackground<I: NodeImplementation> {
+pub enum ToBackground<K, E> {
     Shutdown,
     StartRun(Run),
     NewClient {
         run: Run,
-        key: I::SignatureKey,
-        sender: Sender<FromBackground<I>>,
+        key: K,
+        sender: Sender<FromBackground<K, E>>,
     },
     ClientDisconnected {
         run: Run,
-        key: I::SignatureKey,
+        key: K,
     },
     IncomingBroadcast {
         run: Run,
-        sender: I::SignatureKey,
+        sender: K,
         message_len: u64,
     },
     IncomingDirectMessage {
         run: Run,
-        sender: I::SignatureKey,
-        receiver: I::SignatureKey,
+        sender: K,
+        receiver: K,
         message_len: u64,
     },
     IncomingBroadcastChunk {
         run: Run,
-        sender: I::SignatureKey,
+        sender: K,
         message_chunk: Vec<u8>,
     },
     IncomingDirectMessageChunk {
         run: Run,
-        sender: I::SignatureKey,
-        receiver: I::SignatureKey,
+        sender: K,
+        receiver: K,
         message_chunk: Vec<u8>,
     },
     RequestClientCount {
         run: Run,
-        sender: I::SignatureKey,
+        sender: K,
     },
     Results {
         results: RunResults,
     },
     ClientConnected {
         addr: SocketAddr,
-        sender: OneShotSender<ClientConfig<I>>,
+        sender: OneShotSender<ClientConfig<K, E>>,
     },
 }
 

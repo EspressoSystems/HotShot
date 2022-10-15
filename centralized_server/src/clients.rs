@@ -1,18 +1,18 @@
 use crate::{FromBackground, Run};
 use futures::FutureExt;
-use hotshot_types::traits::{signature_key::{EncodedPublicKey, SignatureKey}, node_implementation::NodeImplementation};
+use hotshot_types::traits::{signature_key::{EncodedPublicKey, SignatureKey}, node_implementation::NodeImplementation, election::ElectionConfig};
 use hotshot_utils::channel::Sender;
 use std::collections::{BTreeMap, BTreeSet};
 use tracing::debug;
 
-pub struct Clients<I: NodeImplementation>(Vec<BTreeMap<OrdKey<I::SignatureKey>, Sender<FromBackground<I>>>>);
+pub struct Clients<K: SignatureKey, E: ElectionConfig>(Vec<BTreeMap<OrdKey<K>, Sender<FromBackground<K, E>>>>);
 
-impl<I: NodeImplementation> Clients<I> {
+impl<K: SignatureKey + PartialEq, E: ElectionConfig> Clients<K, E> {
     pub fn new() -> Self {
         Self(Vec::new())
     }
 
-    pub async fn broadcast(&mut self, run: Run, msg: FromBackground<I>) {
+    pub async fn broadcast(&mut self, run: Run, msg: FromBackground<K, E>) {
         self.ensure_run_exists(run);
         let clients = &mut self.0[run.0];
         let futures = futures::future::join_all(
@@ -31,8 +31,8 @@ impl<I: NodeImplementation> Clients<I> {
     pub async fn broadcast_except_self(
         &mut self,
         run: Run,
-        sender_key: I::SignatureKey,
-        message: FromBackground<I>,
+        sender_key: K,
+        message: FromBackground<K, E>,
     ) {
         self.ensure_run_exists(run);
         let clients = &mut self.0[run.0];
@@ -61,7 +61,7 @@ impl<I: NodeImplementation> Clients<I> {
         }
     }
 
-    pub async fn direct_message(&mut self, run: Run, receiver: I::SignatureKey, msg: FromBackground<I>) {
+    pub async fn direct_message(&mut self, run: Run, receiver: K, msg: FromBackground<K, E>) {
         self.ensure_run_exists(run);
         let clients = &mut self.0[run.0];
         let receiver = OrdKey::from(receiver);
@@ -74,7 +74,7 @@ impl<I: NodeImplementation> Clients<I> {
         }
     }
 
-    async fn prune_nodes(&mut self, run: Run, mut clients_with_error: BTreeSet<OrdKey<I::SignatureKey>>) {
+    async fn prune_nodes(&mut self, run: Run, mut clients_with_error: BTreeSet<OrdKey<K>>) {
         self.ensure_run_exists(run);
         // While notifying the clients of other clients disconnecting, those clients can be disconnected too
         // we solve this by looping over this until we've removed all failing nodes and have successfully notified everyone else.
@@ -106,12 +106,12 @@ impl<I: NodeImplementation> Clients<I> {
         self.0.get(run.0).map(|r| r.len()).unwrap_or(0)
     }
 
-    pub fn insert(&mut self, run: Run, key: I::SignatureKey, sender: Sender<FromBackground<I>>) {
+    pub fn insert(&mut self, run: Run, key: K, sender: Sender<FromBackground<K, E>>) {
         self.ensure_run_exists(run);
         self.0[run.0].insert(key.into(), sender);
     }
 
-    pub fn remove(&mut self, run: Run, key: I::SignatureKey) {
+    pub fn remove(&mut self, run: Run, key: K) {
         self.ensure_run_exists(run);
         let key = OrdKey::from(key);
         self.0[run.0].remove(&key);

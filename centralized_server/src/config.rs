@@ -1,19 +1,20 @@
 pub use crate::runs::RoundConfig;
 
 use crate::Run;
-use hotshot_types::{ExecutionType, HotShotConfig, traits::{node_implementation::NodeImplementation, election::Election}, data::ViewNumber};
+use hotshot_types::{ExecutionType, HotShotConfig, traits::{node_implementation::NodeImplementation, election::Election, signature_key::SignatureKey}, data::ViewNumber};
+use hotshot_utils::hack::nll_todo;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     num::NonZeroUsize,
     time::Duration,
 };
 
-pub struct ClientConfig<I: NodeImplementation> {
+pub struct ClientConfig<K, E> {
     pub run: Run,
-    pub config: NetworkConfig<I>,
+    pub config: NetworkConfig<K, E>,
 }
 
-impl<I: NodeImplementation> Default for ClientConfig<I> {
+impl<K, E> Default for ClientConfig<K, E> {
     fn default() -> Self {
         Self {
             run: Run(0),
@@ -63,19 +64,18 @@ pub struct Libp2pConfigFile {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-#[serde(bound = "")]
-pub struct NetworkConfig<I: NodeImplementation> {
+pub struct NetworkConfig<KEY, ELECTION> {
     pub rounds: usize,
     pub transactions_per_round: usize,
     pub node_index: u64,
     pub seed: [u8; 32],
     pub padding: usize,
     pub libp2p_config: Option<Libp2pConfig>,
-    pub config: HotShotConfig<I>,
+    pub config: HotShotConfig<KEY, ELECTION>,
     pub start_delay_seconds: u64,
 }
 
-impl<I: NodeImplementation> Default for NetworkConfig<I> {
+impl<K, E> Default for NetworkConfig<K, E> {
     fn default() -> Self {
         Self {
             rounds: default_rounds(),
@@ -110,7 +110,7 @@ pub struct NetworkConfigFile {
     pub config: HotShotConfigFile,
 }
 
-impl<I: NodeImplementation> From<NetworkConfigFile> for NetworkConfig<I> {
+impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
     fn from(val: NetworkConfigFile) -> Self {
         NetworkConfig {
             rounds: val.rounds,
@@ -171,7 +171,10 @@ pub struct HotShotConfigFile {
     pub propose_max_round_time: Duration,
 }
 
-impl<I: NodeImplementation> From<HotShotConfigFile> for HotShotConfig<I> {
+impl<K, E> From<HotShotConfigFile> for HotShotConfig<K, E>
+// where
+//     E: Election<K, ViewNumber>,
+{
     fn from(val: HotShotConfigFile) -> Self {
         HotShotConfig {
             execution_type: ExecutionType::Continuous,
@@ -188,7 +191,8 @@ impl<I: NodeImplementation> From<HotShotConfigFile> for HotShotConfig<I> {
             propose_min_round_time: val.propose_min_round_time,
             propose_max_round_time: val.propose_max_round_time,
             // TODO fix this to be from the config file
-            election_config: <I::Election as Election<I::SignatureKey, ViewNumber>>::default_election_config(val.total_nodes.get() as u64)
+            // election_config: <E as Election<K, ViewNumber>>::default_election_config(val.total_nodes.get() as u64)
+            election_config: nll_todo()
         }
     }
 }
