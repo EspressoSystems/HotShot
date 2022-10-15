@@ -27,7 +27,7 @@ impl<I: TestableNodeImplementation> TestLauncher<I>
 {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
-    pub fn new(expected_node_count: usize, num_bootstrap_nodes: usize, min_transactions: usize) -> Self {
+    pub fn new<ELECTION_CONFIG>(expected_node_count: usize, num_bootstrap_nodes: usize, min_transactions: usize, election_config: ELECTION_CONFIG) -> Self {
         let threshold = ((expected_node_count * 2) / 3) + 1;
 
         let known_nodes = (0..expected_node_count)
@@ -50,6 +50,7 @@ impl<I: TestableNodeImplementation> TestLauncher<I>
             start_delay: 1,
             propose_min_round_time: Duration::from_millis(0),
             propose_max_round_time: Duration::from_millis(1000),
+            election_config
         };
 
         Self {

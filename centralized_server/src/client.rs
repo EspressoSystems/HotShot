@@ -2,11 +2,12 @@ use crate::{
     config::ClientConfig, Error, FromBackground, Run, TcpStreamRecvUtil, TcpStreamSendUtil,
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToBackground, ToServer,
 };
-use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_types::traits::{signature_key::SignatureKey, node_implementation::NodeImplementation};
 use hotshot_utils::{
     art::{async_spawn, split_stream},
     channel::{bounded, oneshot, Sender},
 };
+use serde::Serialize;
 use std::{net::SocketAddr, num::NonZeroUsize};
 use tracing::{debug, warn};
 
@@ -20,10 +21,10 @@ cfg_if::cfg_if! {
     }
 }
 
-pub(crate) async fn spawn<K: SignatureKey + 'static>(
+pub(crate) async fn spawn<I: NodeImplementation>(
     addr: SocketAddr,
     stream: TcpStream,
-    sender: Sender<ToBackground<K>>,
+    sender: Sender<ToBackground<I>>,
 ) {
     // We want to know the signature key and the run # that this client ran on
     // so we store those here and pass a mutable reference to `run_client`
@@ -43,16 +44,17 @@ pub(crate) async fn spawn<K: SignatureKey + 'static>(
     }
 }
 
-async fn run_client<K: SignatureKey + 'static>(
+async fn run_client<I: NodeImplementation>(
     address: SocketAddr,
     stream: TcpStream,
-    parent_key: &mut Option<K>,
+    parent_key: &mut Option<I::SignatureKey>,
     parent_run: &mut Option<Run>,
-    to_background: Sender<ToBackground<K>>,
-) -> Result<(), Error> {
+    to_background: Sender<ToBackground<I>>,
+) -> Result<(), Error>
+{
     let (read_stream, write_stream) = split_stream(stream);
 
-    let (sender, mut receiver) = bounded::<FromBackground<K>>(10);
+    let (sender, mut receiver) = bounded::<FromBackground<I>>(10);
 
     // Start up a loopback task, which will receive messages from the background (see `background_task` in `src/lib.rs`) and forward them to our `TcpStream`.
     async_spawn({
@@ -108,7 +110,7 @@ async fn run_client<K: SignatureKey + 'static>(
 
     let mut recv_stream = TcpStreamRecvUtil::new(read_stream);
     loop {
-        let msg = recv_stream.recv::<ToServer<K>>().await?;
+        let msg = recv_stream.recv::<ToServer<I>>().await?;
 
         // Most of these messages are mapped to `ToBackground` and send to the background thread.
         // See `background_task` in `src/lib.rs` for more information

@@ -102,17 +102,11 @@ pub struct DetailedTestDescriptionBuilder<I: TestableNodeImplementation> where
     pub gen_runner: GenRunner<NETWORK, STORAGE, STATE>,
 }
 
-impl<
-        NETWORK: TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
-        STORAGE: TestableStorage<STATE> + 'static,
-        STATE: State + TestableState + 'static,
-    > TestDescription<NETWORK, STORAGE, STATE>
-where
-    <STATE as State>::BlockType: TestableBlock,
+impl<I: TestableNodeImplementation> TestDescription<I>
 {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<NETWORK, STORAGE, STATE> {
-        let launcher = TestLauncher::new(self.total_nodes, self.num_bootstrap_nodes, self.min_transactions);
+        let launcher = TestLauncher::new(self.total_nodes, self.num_bootstrap_nodes, self.min_transactions, nll_todo());
         // modify runner to recognize timing params
         let set_timing_params = |a: &mut HotShotConfig<Ed25519Pub>| {
             a.next_view_timeout = self.timing_config.next_view_timeout;
@@ -222,12 +216,7 @@ where
 }
 
 /// Description of a test. Contains all metadata necessary to execute test
-pub struct TestDescription<
-    NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
-    STORAGE: Storage<STATE> + 'static,
-    STATE: TestableState + 'static,
-> where
-    <STATE as State>::BlockType: TestableBlock,
+pub struct TestDescription<I: TestableNodeImplementation>
 {
     /// TODO unneeded (should be sufficient to have gen runner)
     /// the ronds to run for the test

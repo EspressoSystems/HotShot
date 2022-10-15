@@ -10,6 +10,9 @@
 #![allow(clippy::must_use_candidate, clippy::module_name_repetitions)]
 
 use std::{num::NonZeroUsize, time::Duration};
+
+use data::ViewNumber;
+use traits::{network::NetworkingImplementation, node_implementation::NodeImplementation, election::Election};
 pub mod constants;
 pub mod data;
 pub mod error;
@@ -31,8 +34,9 @@ pub enum ExecutionType {
 }
 
 /// Holds configuration for a `HotShot`
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct HotShotConfig<P> {
+#[derive(Clone, serde::Serialize, serde::Deserialize, Debug)]
+#[serde(bound = "")]
+pub struct HotShotConfig<I: NodeImplementation> {
     /// Whether to run one view or continuous views
     pub execution_type: ExecutionType,
     /// Total number of nodes in the network
@@ -44,7 +48,7 @@ pub struct HotShotConfig<P> {
     /// Maximum transactions per block
     pub max_transactions: NonZeroUsize,
     /// List of known node's public keys, including own, sorted by nonce ()
-    pub known_nodes: Vec<P>,
+    pub known_nodes: Vec<I::SignatureKey>,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
     /// The exponential backoff ration for the next-view timeout
@@ -59,4 +63,6 @@ pub struct HotShotConfig<P> {
     pub propose_min_round_time: Duration,
     /// The maximum amount of time a leader can wait to start a round
     pub propose_max_round_time: Duration,
+    /// the election configuration
+    pub election_config: <<I as NodeImplementation>::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfig,
 }

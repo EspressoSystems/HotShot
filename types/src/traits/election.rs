@@ -13,7 +13,7 @@ use crate::{
 };
 use commit::Commitment;
 use hotshot_utils::hack::nll_todo;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Serialize, Deserialize};
 use snafu::Snafu;
 
 /// Error for election problems
@@ -56,6 +56,15 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     type StateType: State;
     /// A membership proof
     type VoteTokenType: VoteToken + Serialize + DeserializeOwned + Send + Sync + Clone;
+
+    /// configuration for election
+    type ElectionConfig: Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug;
+
+    fn default_election_config(num_nodes: u64) -> Self::ElectionConfig;
+
+    /// create an election
+    /// TODO may want to move this to a testableelection trait
+    fn create_election(keys: Vec<P>, config: Self::ElectionConfig) -> Self;
 
     /// Returns the table from the current committed state
     fn get_stake_table(&self, view_number: ViewNumber, state: &Self::StateType)

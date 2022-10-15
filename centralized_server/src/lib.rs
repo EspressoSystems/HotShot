@@ -27,7 +27,7 @@ use bincode::Options;
 use clients::Clients;
 use config::ClientConfig;
 use futures::FutureExt as _;
-use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_types::traits::{signature_key::SignatureKey, node_implementation::NodeImplementation};
 use hotshot_utils::{
     art::{async_spawn, async_timeout},
     bincode::bincode_opts,
@@ -49,16 +49,16 @@ use tracing::{debug, error};
 pub(crate) const MAX_CHUNK_SIZE: usize = 256 * 1024;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-pub enum ToServer<K> {
+pub enum ToServer<I: NodeImplementation> {
     GetConfig,
-    Identify { key: K },
+    Identify { key: I::SignatureKey },
     Broadcast { message_len: u64 },
-    Direct { target: K, message_len: u64 },
+    Direct { target: I::SignatureKey, message_len: u64 },
     RequestClientCount,
     Results(RunResults),
 }
 
-impl<K: SignatureKey> ToServer<K> {
+impl<I: NodeImplementation> ToServer<I> {
     pub fn payload_len(&self) -> Option<NonZeroUsize> {
         match self {
             Self::GetConfig
@@ -90,40 +90,41 @@ pub struct RunResults {
 pub struct Run(pub usize);
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub enum FromServer<K> {
+#[serde(bound = "")]
+pub enum FromServer<I: NodeImplementation> {
     Config {
-        config: NetworkConfig<K>,
+        config: NetworkConfig<I>,
         run: Run,
     },
     NodeConnected {
-        key: K,
+        key: I::SignatureKey,
     },
     NodeDisconnected {
-        key: K,
+        key: I::SignatureKey,
     },
     Broadcast {
-        source: K,
+        source: I::SignatureKey,
         message_len: u64,
         payload_len: u64,
     },
     BroadcastPayload {
-        source: K,
+        source: I::SignatureKey,
         payload_len: u64,
     },
     Direct {
-        source: K,
+        source: I::SignatureKey,
         message_len: u64,
         payload_len: u64,
     },
     DirectPayload {
-        source: K,
+        source: I::SignatureKey,
         payload_len: u64,
     },
     ClientCount(u32),
     Start,
 }
 
-impl<K> FromServer<K> {
+impl<I: NodeImplementation> FromServer<I> {
     pub fn payload_len(&self) -> Option<NonZeroUsize> {
         match self {
             Self::Config { .. }
@@ -140,31 +141,31 @@ impl<K> FromServer<K> {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct FromBackground<K> {
-    header: FromServer<K>,
+pub struct FromBackground<I: NodeImplementation> {
+    header: FromServer<I>,
     payload: Option<Vec<u8>>,
 }
 
-impl<K> FromBackground<K> {
-    pub fn config(config: NetworkConfig<K>, run: Run) -> FromBackground<K> {
+impl<I: NodeImplementation> FromBackground<I> {
+    pub fn config(config: NetworkConfig<I>, run: Run) -> FromBackground<I> {
         FromBackground {
             header: FromServer::Config { config, run },
             payload: None,
         }
     }
-    pub fn node_connected(key: K) -> FromBackground<K> {
+    pub fn node_connected(key: I::SignatureKey) -> FromBackground<I> {
         FromBackground {
             header: FromServer::NodeConnected { key },
             payload: None,
         }
     }
-    pub fn node_disconnected(key: K) -> FromBackground<K> {
+    pub fn node_disconnected(key: I::SignatureKey) -> FromBackground<I> {
         FromBackground {
             header: FromServer::NodeDisconnected { key },
             payload: None,
         }
     }
-    pub fn broadcast(source: K, message_len: u64, payload: Option<Vec<u8>>) -> FromBackground<K> {
+    pub fn broadcast(source: I::SignatureKey, message_len: u64, payload: Option<Vec<u8>>) -> FromBackground<I> {
         FromBackground {
             header: FromServer::Broadcast {
                 source,
@@ -178,7 +179,7 @@ impl<K> FromBackground<K> {
             payload,
         }
     }
-    pub fn broadcast_payload(source: K, payload: Vec<u8>) -> FromBackground<K> {
+    pub fn broadcast_payload(source: I::SignatureKey, payload: Vec<u8>) -> FromBackground<I> {
         FromBackground {
             header: FromServer::BroadcastPayload {
                 source,
@@ -187,7 +188,7 @@ impl<K> FromBackground<K> {
             payload: Some(payload),
         }
     }
-    pub fn direct(source: K, message_len: u64, payload: Option<Vec<u8>>) -> FromBackground<K> {
+    pub fn direct(source: I::SignatureKey, message_len: u64, payload: Option<Vec<u8>>) -> FromBackground<I> {
         FromBackground {
             header: FromServer::Direct {
                 source,
@@ -201,7 +202,7 @@ impl<K> FromBackground<K> {
             payload,
         }
     }
-    pub fn direct_payload(source: K, payload: Vec<u8>) -> FromBackground<K> {
+    pub fn direct_payload(source: I::SignatureKey, payload: Vec<u8>) -> FromBackground<I> {
         FromBackground {
             header: FromServer::DirectPayload {
                 source,
@@ -210,13 +211,13 @@ impl<K> FromBackground<K> {
             payload: Some(payload),
         }
     }
-    pub fn client_count(client_count: u32) -> FromBackground<K> {
+    pub fn client_count(client_count: u32) -> FromBackground<I> {
         FromBackground {
             header: FromServer::ClientCount(client_count),
             payload: None,
         }
     }
-    pub fn start() -> FromBackground<K> {
+    pub fn start() -> FromBackground<I> {
         FromBackground {
             header: FromServer::Start,
             payload: None,
@@ -224,14 +225,14 @@ impl<K> FromBackground<K> {
     }
 }
 
-pub struct Server<K: SignatureKey + 'static> {
+pub struct Server<I: NodeImplementation> {
     listener: TcpListener,
     shutdown: Option<OneShotReceiver<()>>,
-    config: Option<RoundConfig<K>>,
-    _k: PhantomData<&'static K>,
+    config: Option<RoundConfig<I>>,
+    _k: PhantomData<I>,
 }
 
-impl<K: SignatureKey + 'static> Server<K> {
+impl<I: NodeImplementation> Server<I> {
     /// Create a new instance of the centralized server.
     pub async fn new(host: IpAddr, port: u16) -> Self {
         let listener = TcpListener::bind((host, port))
@@ -264,7 +265,7 @@ impl<K: SignatureKey + 'static> Server<K> {
     }
 
     /// Set the network config. Setting this will allow clients to request this config when they connect to the server.
-    pub fn with_round_config(mut self, config: RoundConfig<K>) -> Self {
+    pub fn with_round_config(mut self, config: RoundConfig<I>) -> Self {
         self.config = Some(config);
         self
     }
@@ -298,7 +299,7 @@ impl<K: SignatureKey + 'static> Server<K> {
                 result = listener_fuse => {
                     match result {
                         Ok((stream, addr)) => {
-                            async_spawn(client::spawn::<K>(addr, stream, sender.clone()));
+                            async_spawn(client::spawn::<I>(addr, stream, sender.clone()));
                         },
                         Err(e) => {
                             error!("Could not accept new client: {:?}", e);
@@ -340,10 +341,10 @@ impl<K: SignatureKey + 'static> Server<K> {
 /// - React to incoming messages,
 /// - Keep track of the clients connected,
 /// - Send direct/broadcast messages to clients
-async fn background_task<K: SignatureKey + 'static>(
-    self_sender: Sender<ToBackground<K>>,
-    mut receiver: Receiver<ToBackground<K>>,
-    mut config: Option<RoundConfig<K>>,
+async fn background_task<I: NodeImplementation>(
+    self_sender: Sender<ToBackground<I>>,
+    mut receiver: Receiver<ToBackground<I>>,
+    mut config: Option<RoundConfig<I>>,
 ) -> Result<(), Error> {
     let mut clients = Clients::new();
     loop {
@@ -464,50 +465,50 @@ async fn background_task<K: SignatureKey + 'static>(
 }
 
 #[derive(Debug)]
-pub enum ToBackground<K> {
+pub enum ToBackground<I: NodeImplementation> {
     Shutdown,
     StartRun(Run),
     NewClient {
         run: Run,
-        key: K,
-        sender: Sender<FromBackground<K>>,
+        key: I::SignatureKey,
+        sender: Sender<FromBackground<I>>,
     },
     ClientDisconnected {
         run: Run,
-        key: K,
+        key: I::SignatureKey,
     },
     IncomingBroadcast {
         run: Run,
-        sender: K,
+        sender: I::SignatureKey,
         message_len: u64,
     },
     IncomingDirectMessage {
         run: Run,
-        sender: K,
-        receiver: K,
+        sender: I::SignatureKey,
+        receiver: I::SignatureKey,
         message_len: u64,
     },
     IncomingBroadcastChunk {
         run: Run,
-        sender: K,
+        sender: I::SignatureKey,
         message_chunk: Vec<u8>,
     },
     IncomingDirectMessageChunk {
         run: Run,
-        sender: K,
-        receiver: K,
+        sender: I::SignatureKey,
+        receiver: I::SignatureKey,
         message_chunk: Vec<u8>,
     },
     RequestClientCount {
         run: Run,
-        sender: K,
+        sender: I::SignatureKey,
     },
     Results {
         results: RunResults,
     },
     ClientConnected {
         addr: SocketAddr,
-        sender: OneShotSender<ClientConfig<K>>,
+        sender: OneShotSender<ClientConfig<I>>,
     },
 }
 
