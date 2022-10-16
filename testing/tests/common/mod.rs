@@ -1,12 +1,13 @@
 #![allow(dead_code)]
 
+use blake3::Hasher;
 use either::Either;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
     demos::dentry::{DEntryBlock, DEntryState},
     traits::{
         implementations::{Libp2pNetwork, MemoryNetwork, MemoryStorage},
-        Block, NetworkReliability, NetworkingImplementation, State, election::static_committee::StaticCommittee,
+        Block, NetworkReliability, NetworkingImplementation, State, election::{vrf::{VRFPubKey, VrfImpl}},
     },
     types::Message,
     HotShotError,
@@ -23,6 +24,7 @@ use hotshot_types::{
     HotShotConfig, data::ViewNumber,
 };
 use hotshot_utils::{test_util::{setup_backtrace, setup_logging}};
+use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use snafu::Snafu;
 use std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
 use tracing::{error, info};
@@ -252,8 +254,10 @@ pub type TestSetup<I> = Vec<
     >,
 >;
 
+use ark_bls12_381::Parameters as Param381;
+
 /// type alias for the typical network we use
-pub type TestNetwork = MemoryNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>;
+pub type TestNetwork = MemoryNetwork<Message<DEntryState, VRFPubKey<BLSSignatureScheme<Param381>>>, VRFPubKey<BLSSignatureScheme<Param381>>>;
 /// type alias for in memory storage we use
 pub type TestStorage = MemoryStorage<DEntryState>;
 /// type alias for the test transaction type
@@ -262,7 +266,7 @@ pub type TestTransaction = <DEntryBlock as Block>::Transaction;
 pub type AppliedTestRunner = TestRunner<AppliedTestNodeImpl>;
 /// type alias for the result of a test round
 pub type TestRoundResult = RoundResult<DEntryState>;
-pub type AppliedTestNodeImpl = TestNodeImpl<DEntryState, TestStorage, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>;
+pub type AppliedTestNodeImpl = TestNodeImpl<DEntryState, TestStorage, TestNetwork, VRFPubKey<BLSSignatureScheme<Param381>>, VrfImpl<DEntryState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>>;
 
 // FIXME THIS is why we need to split up metadat and anonymous functions
 impl Default for GeneralTestDescriptionBuilder {

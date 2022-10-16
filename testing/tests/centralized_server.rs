@@ -39,8 +39,7 @@ async fn centralized_server_network_vrf() {
         .build::<TestNodeImpl<
             DEntryState,
             MemoryStorage<DEntryState>,
-            CentralizedServerNetwork<VRFPubKey<BLSSignatureScheme<Param381>>,
-            VRFStakeTableConfig>,
+            CentralizedServerNetwork<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
             VRFPubKey<BLSSignatureScheme<Param381>>,
             VrfImpl<DEntryState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
             >>()

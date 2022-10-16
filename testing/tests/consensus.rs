@@ -1,26 +1,47 @@
 mod common;
+use blake3::Hasher;
 use commit::Committable;
 use common::{
-    AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder, TestNetwork,
+    AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
     TestRoundResult, TestTransaction,
 };
 use either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
     demos::dentry::{random_leaf, DEntryBlock, DEntryState},
-    traits::{implementations::MemoryStorage, election::static_committee::StaticCommittee},
-    types::{Vote, ed25519::Ed25519Pub},
+    traits::{implementations::{MemoryStorage, MemoryNetwork}, election::{vrf::{VRFPubKey, VrfImpl}, static_committee::StaticCommittee}},
+    types::{Vote, Message, ed25519::Ed25519Pub},
 };
 use hotshot_testing::{ConsensusRoundError, TestNodeImpl};
 use hotshot_types::{
     data::ViewNumber,
     message::{ConsensusMessage, Proposal},
 };
+use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use std::time::Duration;
 use std::time::Instant;
 use tracing::{instrument, warn};
+use ark_bls12_381::Parameters as Param381;
 
-pub type StandardNodeImplType = TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>;
+/// type synonym for vrf committee election
+/// with in-memory network
+pub type StandardNodeImplType = TestNodeImpl<
+            DEntryState,
+            MemoryStorage<DEntryState>,
+            MemoryNetwork<Message<DEntryState, VRFPubKey<BLSSignatureScheme<Param381>>>, VRFPubKey<BLSSignatureScheme<Param381>>>,
+            VRFPubKey<BLSSignatureScheme<Param381>>,
+            VrfImpl<DEntryState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
+            >;
+
+/// type synonym for static committee
+/// with in-memory network
+pub type StaticNodeImplType = TestNodeImpl<
+            DEntryState,
+            MemoryStorage<DEntryState>,
+            MemoryNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
+            Ed25519Pub,
+            StaticCommittee<DEntryState>
+            >;
 
 const NUM_VIEWS: u64 = 100;
 const DEFAULT_NODE_ID: u64 = 0;
@@ -491,7 +512,7 @@ async fn test_bad_vote() {
 async fn test_single_node_network() {
     let num_rounds = 100;
     let description: DetailedTestDescriptionBuilder<
-        StandardNodeImplType
+        StaticNodeImplType
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 1,
