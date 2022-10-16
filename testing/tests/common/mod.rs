@@ -107,7 +107,7 @@ impl<I: TestableNodeImplementation> TestDescription<I>
     pub fn gen_runner(&self) -> TestRunner<I> {
         let launcher = TestLauncher::new(self.total_nodes, self.num_bootstrap_nodes, self.min_transactions, <I::Election as Election<I::SignatureKey, ViewNumber>>::default_election_config(self.total_nodes as u64));
         // modify runner to recognize timing params
-        let set_timing_params = |a: &mut HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>| {
+        let set_timing_params = |a: &mut HotShotConfig<I::SignatureKey, <I::Election as Election<_, _>>::ElectionConfigType>| {
             a.next_view_timeout = self.timing_config.next_view_timeout;
             a.timeout_ratio = self.timing_config.timeout_ratio;
             a.round_start_delay = self.timing_config.round_start_delay;

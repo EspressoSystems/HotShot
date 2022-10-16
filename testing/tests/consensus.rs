@@ -20,6 +20,8 @@ use std::time::Duration;
 use std::time::Instant;
 use tracing::{instrument, warn};
 
+pub type StandardNodeImplType = TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>;
+
 const NUM_VIEWS: u64 = 100;
 const DEFAULT_NODE_ID: u64 = 0;
 
@@ -357,7 +359,7 @@ fn test_bad_vote_post_safety_check(
 async fn test_proposal_queueing() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
-        TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
+        StandardNodeImplType
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 4,
@@ -390,7 +392,7 @@ async fn test_proposal_queueing() {
 async fn test_vote_queueing() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
-TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
+        StandardNodeImplType
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 4,
@@ -424,7 +426,7 @@ TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, S
 async fn test_bad_proposal() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
-TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
+        StandardNodeImplType
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 4,
@@ -457,7 +459,7 @@ TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, S
 async fn test_bad_vote() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
-TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
+        StandardNodeImplType
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 4,
@@ -489,7 +491,7 @@ TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, S
 async fn test_single_node_network() {
     let num_rounds = 100;
     let description: DetailedTestDescriptionBuilder<
-TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
+        StandardNodeImplType
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 1,
@@ -518,7 +520,7 @@ async fn test_min_propose() {
     let propose_min_round_time = Duration::new(1, 0);
     let propose_max_round_time = Duration::new(5, 0);
     let description: DetailedTestDescriptionBuilder<
-TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
+        StandardNodeImplType
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 5,
@@ -559,8 +561,7 @@ async fn test_max_propose() {
     let propose_max_round_time = Duration::new(1, 0);
     let min_transactions: usize = 10;
     let description: DetailedTestDescriptionBuilder<
-
-TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
+        StandardNodeImplType
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 5,
