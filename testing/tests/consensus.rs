@@ -8,10 +8,10 @@ use either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
     demos::dentry::{random_leaf, DEntryBlock, DEntryState},
-    traits::implementations::MemoryStorage,
-    types::Vote,
+    traits::{implementations::MemoryStorage, election::static_committee::StaticCommittee},
+    types::{Vote, ed25519::Ed25519Pub},
 };
-use hotshot_testing::ConsensusRoundError;
+use hotshot_testing::{ConsensusRoundError, TestNodeImpl};
 use hotshot_types::{
     data::ViewNumber,
     message::{ConsensusMessage, Proposal},
@@ -357,9 +357,7 @@ fn test_bad_vote_post_safety_check(
 async fn test_proposal_queueing() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
-        TestNetwork,
-        MemoryStorage<DEntryState>,
-        DEntryState,
+        TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 4,
@@ -392,9 +390,7 @@ async fn test_proposal_queueing() {
 async fn test_vote_queueing() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
-        TestNetwork,
-        MemoryStorage<DEntryState>,
-        DEntryState,
+TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 4,
@@ -428,9 +424,7 @@ async fn test_vote_queueing() {
 async fn test_bad_proposal() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
-        TestNetwork,
-        MemoryStorage<DEntryState>,
-        DEntryState,
+TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 4,
@@ -463,9 +457,7 @@ async fn test_bad_proposal() {
 async fn test_bad_vote() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<
-        TestNetwork,
-        MemoryStorage<DEntryState>,
-        DEntryState,
+TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 4,
@@ -497,9 +489,7 @@ async fn test_bad_vote() {
 async fn test_single_node_network() {
     let num_rounds = 100;
     let description: DetailedTestDescriptionBuilder<
-        TestNetwork,
-        MemoryStorage<DEntryState>,
-        DEntryState,
+TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 1,
@@ -528,9 +518,7 @@ async fn test_min_propose() {
     let propose_min_round_time = Duration::new(1, 0);
     let propose_max_round_time = Duration::new(5, 0);
     let description: DetailedTestDescriptionBuilder<
-        TestNetwork,
-        MemoryStorage<DEntryState>,
-        DEntryState,
+TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 5,
@@ -571,9 +559,8 @@ async fn test_max_propose() {
     let propose_max_round_time = Duration::new(1, 0);
     let min_transactions: usize = 10;
     let description: DetailedTestDescriptionBuilder<
-        TestNetwork,
-        MemoryStorage<DEntryState>,
-        DEntryState,
+
+TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
     > = DetailedTestDescriptionBuilder {
         general_info: GeneralTestDescriptionBuilder {
             total_nodes: 5,

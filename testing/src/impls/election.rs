@@ -6,7 +6,7 @@ use hotshot_types::{
     data::ViewNumber,
     traits::{
         signature_key::{ed25519::{Ed25519Priv, Ed25519Pub}, EncodedPublicKey},
-        election::{Checked, Election, VoteToken},
+        election::{Checked, Election, VoteToken, ElectionConfig},
     },
 };
 use hotshot_utils::hack::nll_todo;
@@ -77,4 +77,19 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
     > {
         nll_todo()
     }
+
+    type ElectionConfigType = ElectionConfigStub;
+
+    fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType {
+        todo!()
+    }
+
+    fn create_election(keys: Vec<Ed25519Pub>, config: Self::ElectionConfigType) -> Self {
+        todo!()
+    }
 }
+
+#[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
+pub struct ElectionConfigStub {}
+
+impl ElectionConfig for ElectionConfigStub {}

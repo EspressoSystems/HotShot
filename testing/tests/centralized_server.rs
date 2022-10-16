@@ -4,8 +4,9 @@ use common::*;
 use either::Either::Right;
 use hotshot::{
     demos::dentry::DEntryState,
-    traits::implementations::{CentralizedServerNetwork, MemoryStorage},
+    traits::{implementations::{CentralizedServerNetwork, MemoryStorage}, election::static_committee::{StaticCommittee, StaticElectionConfig}},
 };
+use hotshot_testing::TestNodeImpl;
 use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
 use hotshot_utils::test_util::shutdown_logging;
 use tracing::instrument;
@@ -32,7 +33,7 @@ async fn centralized_server_network() {
     };
 
     description
-        .build::<CentralizedServerNetwork<Ed25519Pub>, MemoryStorage<DEntryState>, DEntryState>()
+        .build::<TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, CentralizedServerNetwork<Ed25519Pub, StaticElectionConfig>, Ed25519Pub, StaticCommittee<DEntryState>>>()
         .execute()
         .await
         .unwrap();
@@ -62,7 +63,7 @@ async fn test_stress_centralized_server_network() {
     };
 
     description
-        .build::<CentralizedServerNetwork<Ed25519Pub>, MemoryStorage<DEntryState>, DEntryState>()
+        .build::<TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, CentralizedServerNetwork<Ed25519Pub, StaticElectionConfig>, Ed25519Pub, StaticCommittee<DEntryState>>>()
         .execute()
         .await
         .unwrap();

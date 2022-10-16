@@ -50,7 +50,7 @@ pub trait TestableNodeImplementation: Send + Sync + Debug + Clone + 'static {
     /// Election
     /// Time is generic here to allow multiple implementations of election trait for difference
     /// consensus protocols
-    type Election;
+    type Election: Election<Self::SignatureKey, ViewNumber, StateType = Self::StateType>;
     /// block
     type Block: TestableBlock;
 

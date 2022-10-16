@@ -27,7 +27,7 @@ impl<I: TestableNodeImplementation> TestLauncher<I>
 {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
-    pub fn new<ELECTION_CONFIG>(expected_node_count: usize, num_bootstrap_nodes: usize, min_transactions: usize, election_config: ELECTION_CONFIG) -> Self {
+    pub fn new(expected_node_count: usize, num_bootstrap_nodes: usize, min_transactions: usize, election_config: <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType) -> Self {
         let threshold = ((expected_node_count * 2) / 3) + 1;
 
         let known_nodes = (0..expected_node_count)
@@ -105,7 +105,7 @@ impl<I: TestableNodeImplementation> TestLauncher<I> {
     /// Set a custom block generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_block(
         self,
-        block: impl Fn(u64) -> I::Block,
+        block: impl Fn(u64) -> I::Block + 'static,
     ) -> TestLauncher<I> {
         TestLauncher {
             network: self.network,
