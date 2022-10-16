@@ -634,6 +634,8 @@ macro_rules! cross_test {
 ///   - true is a noop
 ///   - false forces test to be ignored
 /// - $args: list of arguments to fuzz over (fed to proptest)
+///
+// TestNodeImpl<DEntryState, MemoryStorage<DEntryState>, TestNetwork, Ed25519Pub, StaticCommittee<DEntryState>>
 #[macro_export]
 macro_rules! cross_tests {
     // reduce networks -> individual network modules
@@ -701,10 +703,7 @@ macro_rules! cross_tests {
     // NOTE: unclear why `tt` is needed instead of `ty`
     ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, $STATE:tt, $fn_name:ident, $e:expr, keep: $keep:tt, slow: true, args: $($args:tt)*) => {
         #[cfg(feature = "slow-tests")]
-        type TestType = $crate::TestDescription< $NETWORK<hotshot::types::Message< $STATE, hotshot_types::traits::signature_key::ed25519::Ed25519Pub >, hotshot_types::traits::signature_key::ed25519::Ed25519Pub>,
-        $STORAGE< $STATE >,
-        $STATE
-            >;
+        type TestType = $crate::TestDescription<$crate::TestNodeImpl<$STATE, $STORAGE<$STATE>, $NETWORK, hotshot_types::traits::signature_key::ed25519::Ed25519Pub, hotshot::traits::election::static_committee::StaticCommittee<$STATE>>>;
 
         cross_test!(TestType, $fn_name, $e, keep: $keep, slow: true, args: $($args)*);
     };
