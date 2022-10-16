@@ -20,7 +20,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
-use tracing::{info, instrument, warn};
+use tracing::{info, instrument, warn, error};
 
 /// The next view's leader
 #[derive(Debug, Clone)]
@@ -44,7 +44,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
     /// unless there is a bug in std
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<I::StateType> {
-        info!("Next Leader task started!");
+        error!("Next Leader task started!");
         let mut qcs = HashSet::<QuorumCertificate<I::StateType>>::new();
         qcs.insert(self.generic_qc.clone());
 
@@ -61,7 +61,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
-            info!("recv-ed message {:?}", msg.clone());
+            error!("recv-ed message {:?}", msg.clone());
             if msg.view_number() != self.cur_view {
                 continue;
             }
@@ -75,7 +75,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     // and ignore
                     // TODO ed - ignoring serialization errors since we are changing this type in the future
                     let vote_token = bincode_opts().deserialize(&vote.vote_token).unwrap();
-                    
+
                     if !self.api.is_valid_signature(
                         &vote.signature.0,
                         &vote.signature.1,

@@ -39,7 +39,7 @@ pub const SORTITION_PARAMETER: u64 = 100;
 
 // TODO abstraction this function's impl into a trait
 // TODO do we necessariy want the units of stake to be a u64? or generics
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct VRFStakeTable<VRF, VRFHASHER, VRFPARAMS> {
     mapping: BTreeMap<EncodedPublicKey, NonZeroU64>,
     total_stake: u64,
@@ -642,13 +642,17 @@ where
     pub fn with_initial_stake(known_nodes: Vec<VRFPubKey<SIGSCHEME>>, config: VRFStakeTableConfig) -> Self {
         assert_eq!(known_nodes.iter().len(), config.distribution.len());
         let key_with_stake = known_nodes.into_iter().map(|x| x.to_bytes()).zip(config.distribution.clone()).collect();
+        error!("stake table: {:?}", key_with_stake);
         VrfImpl {
-            stake_table: VRFStakeTable {
-                mapping: key_with_stake,
-                total_stake: config.distribution.iter().map(|x| x.get()).sum(),
-                _pd_0: PhantomData,
-                _pd_1: PhantomData,
-                _pd_2: PhantomData,
+            stake_table: {
+                let st=VRFStakeTable {
+                    mapping: key_with_stake,
+                    total_stake: config.distribution.iter().map(|x| x.get()).sum(),
+                    _pd_0: PhantomData,
+                    _pd_1: PhantomData,
+                    _pd_2: PhantomData,
+                };
+                st
             },
             proof_parameters: (),
             prng: Arc::new(Mutex::new(ChaChaRng::from_seed(Default::default()))),

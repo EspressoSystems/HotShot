@@ -200,7 +200,8 @@ where
         self.next_node_id += 1;
 
         let known_nodes = config.known_nodes.clone();
-        let (public_key, private_key) = I::SignatureKey::generated_from_seed_indexed([0_u8; 32], node_id);
+        let private_key = <I::SignatureKey as TestableSignatureKey>::generate_test_key(node_id);
+        let public_key = <I::SignatureKey as SignatureKey>::from_private(&private_key);
         let election_config = config.election_config.clone().unwrap_or_else(|| <I::Election as Election<_, _>>::default_election_config(config.total_nodes.get() as u64));
         let handle = HotShot::init(
             public_key,

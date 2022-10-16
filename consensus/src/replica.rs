@@ -57,7 +57,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
             let msg = lock.recv().await;
-            info!("recv-ed message {:?}", msg.clone());
+            error!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
                 if msg.view_number() != self.cur_view {
@@ -150,7 +150,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         }
 
                         let election = self.api.get_election();
-                        let leaf_commitment = leaf.commit(); 
+                        let leaf_commitment = leaf.commit();
                         let vote_token = election.make_vote_token(
                             self.cur_view,
                             self.api.private_key(),
@@ -166,11 +166,11 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 continue;
                             }
                             Ok(None) => {
-                                info!("We were not chosen for committee on {:?}", self.cur_view);
+                                error!("We were not chosen for committee on {:?}", self.cur_view);
                                 continue;
                             }
                             Ok(Some(vote_token)) => {
-                                info!("We were chosen for committee on {:?}", self.cur_view);
+                                error!("We were chosen for committee on {:?}", self.cur_view);
                                 let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
                                 // Generate and send vote
@@ -189,7 +189,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
 
                                 let next_leader = self.api.get_leader(self.cur_view + 1).await;
 
-                                info!("Sending vote to next leader {:?}", vote);
+                                error!("Sending vote to next leader {:?}", vote);
 
                                 if self
                                     .api
@@ -253,7 +253,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
     /// returns the `high_qc`
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<I::StateType> {
-        info!("Replica task started!");
+        error!("Replica task started!");
         let consensus = self.consensus.upgradable_read().await;
         let view_leader_key = self.api.get_leader(self.cur_view).await;
 

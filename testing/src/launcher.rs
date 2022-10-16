@@ -70,7 +70,7 @@ impl<I: TestableNodeImplementation> TestLauncher<I> {
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_network(
         self,
-        network: impl Fn(u64, Ed25519Pub) -> I::Networking + 'static,
+        network: impl Fn(u64, I::SignatureKey) -> I::Networking + 'static,
     ) -> TestLauncher<I> {
         TestLauncher {
             network: Box::new({
@@ -78,8 +78,8 @@ impl<I: TestableNodeImplementation> TestLauncher<I> {
                     // FIXME perhaps this pk generation is a separate function
                     // to add as an input
                     // that way we don't rely on threshold crypto
-                    let priv_key = Ed25519Pub::generate_test_key(node_id);
-                    let pubkey = Ed25519Pub::from_private(&priv_key);
+                    let priv_key = I::SignatureKey::generate_test_key(node_id);
+                    let pubkey = I::SignatureKey::from_private(&priv_key);
                     network(node_id, pubkey)
                 }
             }),
