@@ -150,7 +150,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         }
 
                         let election = self.api.get_election();
-                        let leaf_commitment = leaf.commit(); 
+                        let leaf_commitment = leaf.commit();
                         let vote_token = election.make_vote_token(
                             self.cur_view,
                             self.api.private_key(),
@@ -166,11 +166,11 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 continue;
                             }
                             Ok(None) => {
-                                info!("We were not chosen for committee on {:?}", self.cur_view);
+                                error!("We were not chosen for committee on {:?}", self.cur_view);
                                 continue;
                             }
                             Ok(Some(vote_token)) => {
-                                info!("We were chosen for committee on {:?}", self.cur_view);
+                                error!("We were chosen for committee on {:?}", self.cur_view);
                                 let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
                                 // Generate and send vote

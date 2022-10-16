@@ -12,15 +12,26 @@ build_async_std:
   echo Building with async std executor
   cargo build --verbose --release --workspace --examples --bins --tests --lib --benches --features=full-ci
 
-test: test_tokio test_async_std
+test: test_tokio test_async_std_all
 
 test_tokio:
   echo Testing with tokio executor
   cargo test --verbose --release --features=tokio-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
 
-test_async_std:
+test_async_std_all:
   echo Testing with async std executor
   cargo test --verbose --release --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
+
+test_pkg := "hotshot-testing"
+
+test_name := "centralized_server_network_vrf"
+
+test_async_std_pkg_all pkg=test_pkg:
+  cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --package={{pkg}} --no-fail-fast -- --test-threads=1 --nocapture
+
+
+test_async_std_pkg_test pkg=test_pkg name=test_name:
+  cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --package={{pkg}} --no-fail-fast {{name}} -- --test-threads=1 --nocapture
 
 lint: fmt lint_tokio lint_tokio_flume lint_async_std lint_async_std_flume
 

@@ -2243,8 +2243,10 @@ dependencies = [
 name = "hotshot-testing"
 version = "0.1.0"
 dependencies = [
+ "ark-bls12-381",
  "async-std",
  "async-trait",
+ "blake3",
  "cfg-if",
  "commit",
  "either",
@@ -2253,6 +2255,7 @@ dependencies = [
  "hotshot-consensus",
  "hotshot-types",
  "hotshot-utils",
+ "jf-primitives",
  "proptest",
  "rand 0.8.5",
  "serde",

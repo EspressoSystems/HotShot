@@ -1,18 +1,19 @@
 use crate::{FromBackground, Run};
 use futures::FutureExt;
-use hotshot_types::traits::signature_key::{EncodedPublicKey, SignatureKey};
+use hotshot_types::traits::{signature_key::{EncodedPublicKey, SignatureKey}, election::ElectionConfig};
 use hotshot_utils::channel::Sender;
 use std::collections::{BTreeMap, BTreeSet};
 use tracing::debug;
 
-pub struct Clients<K: SignatureKey>(Vec<BTreeMap<OrdKey<K>, Sender<FromBackground<K>>>>);
+#[allow(clippy::type_complexity)]
+pub struct Clients<K: SignatureKey, E: ElectionConfig>(Vec<BTreeMap<OrdKey<K>, Sender<FromBackground<K, E>>>>);
 
-impl<K: SignatureKey + PartialEq> Clients<K> {
+impl<K: SignatureKey + PartialEq, E: ElectionConfig> Clients<K, E> {
     pub fn new() -> Self {
         Self(Vec::new())
     }
 
-    pub async fn broadcast(&mut self, run: Run, msg: FromBackground<K>) {
+    pub async fn broadcast(&mut self, run: Run, msg: FromBackground<K, E>) {
         self.ensure_run_exists(run);
         let clients = &mut self.0[run.0];
         let futures = futures::future::join_all(
@@ -32,7 +33,7 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
         &mut self,
         run: Run,
         sender_key: K,
-        message: FromBackground<K>,
+        message: FromBackground<K, E>,
     ) {
         self.ensure_run_exists(run);
         let clients = &mut self.0[run.0];
@@ -61,7 +62,7 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
         }
     }
 
-    pub async fn direct_message(&mut self, run: Run, receiver: K, msg: FromBackground<K>) {
+    pub async fn direct_message(&mut self, run: Run, receiver: K, msg: FromBackground<K, E>) {
         self.ensure_run_exists(run);
         let clients = &mut self.0[run.0];
         let receiver = OrdKey::from(receiver);
@@ -106,7 +107,7 @@ impl<K: SignatureKey + PartialEq> Clients<K> {
         self.0.get(run.0).map(|r| r.len()).unwrap_or(0)
     }
 
-    pub fn insert(&mut self, run: Run, key: K, sender: Sender<FromBackground<K>>) {
+    pub fn insert(&mut self, run: Run, key: K, sender: Sender<FromBackground<K, E>>) {
         self.ensure_run_exists(run);
         self.0[run.0].insert(key.into(), sender);
     }

@@ -2,7 +2,7 @@ use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::static_committee::StaticCommittee,
+        election::static_committee::{StaticCommittee, StaticElectionConfig},
         implementations::{CentralizedServerNetwork, MemoryStorage},
         Storage,
     },
@@ -31,7 +31,7 @@ use std::{
 use tracing::{debug, error};
 
 type Node =
-    DEntryNode<CentralizedServerNetwork<Ed25519Pub>, StaticCommittee<DEntryState>, Ed25519Pub>;
+    DEntryNode<CentralizedServerNetwork<Ed25519Pub, StaticElectionConfig>, StaticCommittee<DEntryState>, Ed25519Pub>;
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -49,8 +49,8 @@ struct NodeOpt {
 /// Creates the initial state and hotshot for simulation.
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
 async fn init_state_and_hotshot(
-    networking: CentralizedServerNetwork<Ed25519Pub>,
-    config: HotShotConfig<Ed25519Pub>,
+    networking: CentralizedServerNetwork<Ed25519Pub, StaticElectionConfig>,
+    config: HotShotConfig<Ed25519Pub, StaticElectionConfig>,
     seed: [u8; 32],
     node_id: u64,
 ) -> (DEntryState, HotShotHandle<Node>) {
@@ -72,7 +72,6 @@ async fn init_state_and_hotshot(
     let pub_key = Ed25519Pub::from_private(&priv_key);
     let known_nodes = config.known_nodes.clone();
     let hotshot = HotShot::init(
-        known_nodes.clone(),
         pub_key,
         priv_key,
         node_id,
@@ -215,7 +214,7 @@ async fn main() {
     );
     debug!("All rounds completed");
 
-    let networking: &CentralizedServerNetwork<Ed25519Pub> = hotshot.networking();
+    let networking: &CentralizedServerNetwork<Ed25519Pub, StaticElectionConfig> = hotshot.networking();
     networking
         .send_results(RunResults {
             run,

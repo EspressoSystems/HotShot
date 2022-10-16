@@ -1,6 +1,7 @@
 //! Contains the [`NextLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
 
 use crate::ConsensusApi;
+use crate::traits::Signatures;
 use async_lock::Mutex;
 use bincode::Options;
 use commit::Commitment;
@@ -9,7 +10,6 @@ use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     message::ConsensusMessage,
     traits::{
-        election::Election,
         node_implementation::NodeImplementation,
         signature_key::{EncodedPublicKey, EncodedSignature},
         State,
@@ -21,6 +21,7 @@ use std::{
     sync::Arc,
 };
 use tracing::{info, instrument, warn};
+
 
 /// The next view's leader
 #[derive(Debug, Clone)]
@@ -61,7 +62,6 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
-            info!("recv-ed message {:?}", msg.clone());
             if msg.view_number() != self.cur_view {
                 continue;
             }
@@ -75,7 +75,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     // and ignore
                     // TODO ed - ignoring serialization errors since we are changing this type in the future
                     let vote_token = bincode_opts().deserialize(&vote.vote_token).unwrap();
-                    
+
                     if !self.api.is_valid_signature(
                         &vote.signature.0,
                         &vote.signature.1,
@@ -94,16 +94,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     let valid_signatures = map;
 
                     // TODO ed - this is repeated code from validate_qc, but should clean itself up once we implement I for Vote
-                    let mut signature_map: BTreeMap<
-                        EncodedPublicKey,
-                        (
-                            EncodedSignature,
-                            <<I as NodeImplementation>::Election as Election<
-                                <I as NodeImplementation>::SignatureKey,
-                                ViewNumber,
-                            >>::VoteTokenType,
-                        ),
-                    > = BTreeMap::new();
+                    let mut signature_map: Signatures<I>
+                        = BTreeMap::new();
                     // TODO ed - there is a better way to do this, but it should be gone once I is impled for Vote
                     for signature in valid_signatures.clone() {
                         let decoded_vote_token =
@@ -117,7 +109,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         self.cur_view,
                         signature_map,
                     );
-                    if stake as usize >= threshold.into() {
+                    let stake_casted : usize = stake.try_into().unwrap();
+                    if stake_casted >= threshold.into() {
                         let (block_commitment, valid_signatures) =
                             vote_outcomes.remove(&vote.leaf_commitment).unwrap();
                         // construct QC

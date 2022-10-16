@@ -43,7 +43,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<I::StateType> {
         let pk = self.api.public_key();
-        info!("Leader task started!");
+        error!("Leader task started!");
 
         let task_start_time = Instant::now();
         let parent_view_number = self.high_qc.view_number;
@@ -160,7 +160,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let leaf: ProposalLeaf<I::StateType> = leaf.into();
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
-            info!("Sending out proposal {:?}", message);
+            error!("Sending out proposal {:?}", message);
 
             if let Err(e) = self.api.send_broadcast_message(message.clone()).await {
                 warn!(?message, ?e, "Could not broadcast leader proposal");

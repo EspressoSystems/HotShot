@@ -8,12 +8,12 @@ use std::{
     time::Duration,
 };
 
-pub struct ClientConfig<K> {
+pub struct ClientConfig<K, E> {
     pub run: Run,
-    pub config: NetworkConfig<K>,
+    pub config: NetworkConfig<K, E>,
 }
 
-impl<K> Default for ClientConfig<K> {
+impl<K, E> Default for ClientConfig<K, E> {
     fn default() -> Self {
         Self {
             run: Run(0),
@@ -62,19 +62,19 @@ pub struct Libp2pConfigFile {
     pub base_port: u16,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
-pub struct NetworkConfig<K> {
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct NetworkConfig<KEY, ELECTION> {
     pub rounds: usize,
     pub transactions_per_round: usize,
     pub node_index: u64,
     pub seed: [u8; 32],
     pub padding: usize,
     pub libp2p_config: Option<Libp2pConfig>,
-    pub config: HotShotConfig<K>,
+    pub config: HotShotConfig<KEY, ELECTION>,
     pub start_delay_seconds: u64,
 }
 
-impl<K> Default for NetworkConfig<K> {
+impl<K, E> Default for NetworkConfig<K, E> {
     fn default() -> Self {
         Self {
             rounds: default_rounds(),
@@ -109,7 +109,7 @@ pub struct NetworkConfigFile {
     pub config: HotShotConfigFile,
 }
 
-impl<K> From<NetworkConfigFile> for NetworkConfig<K> {
+impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
     fn from(val: NetworkConfigFile) -> Self {
         NetworkConfig {
             rounds: val.rounds,
@@ -170,7 +170,10 @@ pub struct HotShotConfigFile {
     pub propose_max_round_time: Duration,
 }
 
-impl<K> From<HotShotConfigFile> for HotShotConfig<K> {
+impl<K, E> From<HotShotConfigFile> for HotShotConfig<K, E>
+// where
+//     E: Election<K, ViewNumber>,
+{
     fn from(val: HotShotConfigFile) -> Self {
         HotShotConfig {
             execution_type: ExecutionType::Continuous,
@@ -186,6 +189,9 @@ impl<K> From<HotShotConfigFile> for HotShotConfig<K> {
             num_bootstrap: val.num_bootstrap,
             propose_min_round_time: val.propose_min_round_time,
             propose_max_round_time: val.propose_max_round_time,
+            // TODO fix this to be from the config file
+            election_config: None
+            // election_config: nll_todo()
         }
     }
 }

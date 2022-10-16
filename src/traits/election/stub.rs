@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, marker::PhantomData, num::NonZeroU64};
 use tracing::{error, warn};
 
+use super::static_committee::StaticElectionConfig;
+
 /// Output of the simulated VRF
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct HashVrf(u128);
@@ -307,6 +309,17 @@ where
         next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
     ) -> Result<hotshot_types::traits::election::Checked<Self::VoteTokenType>, ElectionError> {
         nll_todo()
+    }
+
+    // TODO fix
+    type ElectionConfigType = StaticElectionConfig;
+
+    fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType {
+        todo!()
+    }
+
+    fn create_election(keys: Vec<HashVrfKey>, config: Self::ElectionConfigType) -> Self {
+        todo!()
     }
 }
 

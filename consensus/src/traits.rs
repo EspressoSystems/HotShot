@@ -16,7 +16,20 @@ use hotshot_types::{
 };
 use std::collections::BTreeMap;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
+/// type synonym for singature map
+pub(crate) type Signatures<I> =
+                        BTreeMap<
+                        EncodedPublicKey,
+                        (
+                            EncodedSignature,
+                            <<I as NodeImplementation>::Election as Election<
+                                <I as NodeImplementation>::SignatureKey,
+                                ViewNumber,
+                            >>::VoteTokenType,
+                        ),
+                    > ;
 
+// FIXME these should be nonzero u64s
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
 ///
 /// [`HotStuff`]: struct.HotStuff.html
@@ -55,6 +68,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         ElectionError,
     >;
 
+    /// return a reference to the election
     fn get_election(&self) -> &I::Election;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
@@ -166,16 +180,17 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         &self,
         hash: Commitment<Leaf<I::StateType>>,
         view_number: ViewNumber,
-        signatures: BTreeMap<
-            EncodedPublicKey,
-            (
-                EncodedSignature,
-                <<I as NodeImplementation>::Election as Election<
-                    <I as NodeImplementation>::SignatureKey,
-                    ViewNumber,
-                >>::VoteTokenType,
-            ),
-        >,
+        signatures: Signatures<I>,
+        // BTreeMap<
+        //     EncodedPublicKey,
+        //     (
+        //         EncodedSignature,
+        //         <<I as NodeImplementation>::Election as Election<
+        //             <I as NodeImplementation>::SignatureKey,
+        //             ViewNumber,
+        //         >>::VoteTokenType,
+        //     ),
+        // >,
     ) -> u64;
 
     /// Validate a quorum certificate by checking

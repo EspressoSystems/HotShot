@@ -63,23 +63,22 @@ use hotshot_types::{
         },
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
-        signature_key::{self, EncodedPublicKey, EncodedSignature, SignatureKey},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         storage::{StoredView, ViewEntry},
         State,
     },
     HotShotConfig,
 };
 use hotshot_utils::{
-    art::async_spawn, bincode::bincode_opts, broadcast::BroadcastSender, hack::nll_todo,
+    art::async_spawn, bincode::bincode_opts, broadcast::BroadcastSender
 };
 use hotshot_utils::{
     art::async_spawn_local,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
-use jf_primitives::circuit::signature;
 use snafu::ResultExt;
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashMap},
     num::NonZeroUsize,
     sync::{atomic::Ordering, Arc},
     time::Duration,
@@ -109,12 +108,8 @@ pub struct HotShotInner<I: NodeImplementation> {
     /// The private key of this node
     private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
 
-    /// The public keys for the cluster
-    /// TODO: Move the functionality this expresses into the election trait
-    cluster_public_keys: HashSet<I::SignatureKey>,
-
     /// Configuration items for this hotshot instance
-    config: HotShotConfig<I::SignatureKey>,
+    config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey,ViewNumber>>::ElectionConfigType>,
 
     /// Networking interface for this hotshot instance
     networking: I::Networking,
@@ -167,18 +162,16 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     #[allow(clippy::too_many_arguments)]
     #[instrument(skip(
         private_key,
-        cluster_public_keys,
         networking,
         storage,
         election,
         initializer
     ))]
     pub async fn new(
-        cluster_public_keys: impl IntoIterator<Item = I::SignatureKey>,
         public_key: I::SignatureKey,
         private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
-        config: HotShotConfig<I::SignatureKey>,
+        config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>,
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
@@ -194,7 +187,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             election,
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
-            cluster_public_keys: cluster_public_keys.into_iter().collect(),
         });
 
         let anchored_leaf = initializer.inner;
@@ -331,11 +323,10 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Will return an error when the storage failed to insert the first `QuorumCertificate`
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     pub async fn init(
-        cluster_public_keys: impl IntoIterator<Item = I::SignatureKey>,
         public_key: I::SignatureKey,
         private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
-        config: HotShotConfig<I::SignatureKey>,
+        config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>,
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
@@ -343,7 +334,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     ) -> Result<HotShotHandle<I>> {
         // Save a clone of the storage for the handle
         let hotshot = Self::new(
-            cluster_public_keys,
             public_key,
             private_key,
             node_id,
@@ -783,7 +773,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     }
 
     // TODO ed - refactor this function to only acc stake, and not check validity
-    fn validated_stake(&self, 
+    fn validated_stake(&self,
         hash: Commitment<Leaf<I::StateType>>,
         view_number: ViewNumber,
         signatures: BTreeMap<
@@ -801,7 +791,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
             .iter()
             .filter(|signature| {
                 self.is_valid_signature(
-                    &signature.0,
+                    signature.0,
                     &signature.1 .0,
                     hash,
                     view_number,
@@ -867,7 +857,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
                     false
                 }
                 Ok(Valid(_)) => true,
-                Ok(Inval(_)) | Ok(Unchecked(_)) => false,
+                Ok(Inval(_) | Unchecked(_)) => false,
             };
         }
         is_valid_signature && is_valid_vote_token

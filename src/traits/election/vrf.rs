@@ -1,21 +1,20 @@
 use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
 use hotshot_types::{traits::{
-    election::{Checked, Election, ElectionError, VoteToken},
-    signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-    state::ConsensusTime,
+    election::{Checked, Election, ElectionError, VoteToken, ElectionConfig},
+    signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
     State,
 }, data::ViewNumber};
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
     hash_to_group::SWHashToGroup,
-    signatures::{bls::BLSVerKey, BLSSignatureScheme, SignatureScheme},
+    signatures::SignatureScheme,
     vrf::Vrf,
 };
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use serde::{
-    de::{self, DeserializeOwned},
+    de::{self},
     Deserialize, Serialize,
 };
 use tracing::{instrument, error, info};
@@ -28,22 +27,26 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use jf_primitives::{signatures::{
-    bls::{BLSSignKey, BLSSignature},
-}};
-use num::{rational::Ratio, FromPrimitive, BigUint, ToPrimitive};
+use num::{rational::Ratio, BigUint, ToPrimitive};
 
 // TODO wrong palce for this
+/// the sortition committee size parameter
 pub const SORTITION_PARAMETER: u64 = 100;
 
 // TODO abstraction this function's impl into a trait
 // TODO do we necessariy want the units of stake to be a u64? or generics
-#[derive(Serialize, Deserialize)]
+/// The stake table for VRFs
+#[derive(Serialize, Deserialize, Debug)]
 pub struct VRFStakeTable<VRF, VRFHASHER, VRFPARAMS> {
+    /// the mapping of id -> stake
     mapping: BTreeMap<EncodedPublicKey, NonZeroU64>,
+    /// total stake present
     total_stake: u64,
+    /// PhantomData for VRF
     _pd_0: PhantomData<VRF>,
+    /// PhantomData for VRFHASEHR
     _pd_1: PhantomData<VRFHASHER>,
+    /// PhantomData for VRFPARAMS
     _pd_2: PhantomData<VRFPARAMS>,
 }
 
@@ -59,14 +62,36 @@ impl<VRF, VRFHASHER, VRFPARAMS> Clone for VRFStakeTable<VRF, VRFHASHER, VRFPARAM
     }
 }
 
+/// type wrapper for VRF's public key
 #[derive(Deserialize, Serialize)]
 pub struct VRFPubKey<SIGSCHEME>
 where
     SIGSCHEME: SignatureScheme,
     SIGSCHEME::VerificationKey: Clone,
 {
+    /// the public key
     pk: SIGSCHEME::VerificationKey,
+    /// phantom data
     _pd_0: PhantomData<SIGSCHEME::SigningKey>,
+}
+
+impl<SIGSCHEME> TestableSignatureKey for VRFPubKey<SIGSCHEME>
+where
+    SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send,
+    SIGSCHEME::VerificationKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
+    SIGSCHEME::SigningKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
+    SIGSCHEME::Signature: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
+{
+    fn generate_test_key(id: u64) -> Self::PrivateKey {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&id.to_le_bytes());
+        let new_seed = *hasher.finalize().as_bytes();
+        let mut prng = rand::rngs::StdRng::from_seed(new_seed);
+        // TODO we should make this more general/use different parameters
+        #[allow(clippy::let_unit_value)]
+        let parameters = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
+        SIGSCHEME::key_gen(&parameters, &mut prng).unwrap()
+    }
 }
 
 impl<SIGSCHEME> VRFPubKey<SIGSCHEME>
@@ -74,6 +99,7 @@ where
     SIGSCHEME: SignatureScheme,
     SIGSCHEME::VerificationKey: Clone,
 {
+    /// wrap the public key
     pub fn from_native(pk: SIGSCHEME::VerificationKey) -> Self {
         Self {
             pk,
@@ -117,9 +143,6 @@ where
         self.to_bytes() == other.to_bytes()
     }
 
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
-    }
 }
 impl<SIGSCHEME> Eq for VRFPubKey<SIGSCHEME>
 where
@@ -192,9 +215,12 @@ where
             _pd_0: PhantomData,
         })
     }
-    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
+    // TODO this is wrong.
+    fn generated_from_seed_indexed(_seed: [u8; 32], _index: u64) -> (Self, Self::PrivateKey) {
         let mut prng = rand::thread_rng();
 
+        // TODO we should make this more general/use different parameters
+        #[allow(clippy::let_unit_value)]
         let param = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
         let (sk, pk) = SIGSCHEME::key_gen(&param, &mut prng).unwrap();
         (
@@ -208,6 +234,7 @@ where
 }
 
 impl<VRF, VRFHASHER, VRFPARAMS> VRFStakeTable<VRF, VRFHASHER, VRFPARAMS> {
+    /// get total stake
     pub fn get_all_stake(&self) -> u64 {
         self.total_stake
     }
@@ -220,6 +247,7 @@ where
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
     VRF::PublicKey: Clone,
 {
+    /// get total stake
     pub fn get_stake<SIGSCHEME>(&self, pk: &VRFPubKey<SIGSCHEME>) -> Option<u64>
     where
         SIGSCHEME: SignatureScheme<
@@ -236,65 +264,30 @@ where
     }
 }
 
-// struct Orderable<T> {
-//     pub value: T,
-//     serialized: Vec<u8>,
-// }
-//
-// impl<T: serde::Serialize> serde::Serialize for Orderable<T> {
-// }
-//
-//
-// impl<T: serde::Serialize> Orderable<T> {
-//     pub fn new(t: T) -> Self {
-//         let bytes = bincode_opts().serialize(&t).unwrap();
-//         Self {
-//             value: t,
-//             serialized: bytes
-//         }
-//     }
-// }
-//
-// impl<T> Ord for Orderable<T> {
-//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-//         self.serialized.cmp(&other.serialized)
-//     }
-// }
-// impl<T> PartialOrd for Orderable<T> {
-//     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-//         self.serialized.partial_cmp(&other.serialized)
-//     }
-// }
-//
-// impl<T> Eq for Orderable<T> {
-// }
-//
-// impl<T> PartialEq for Orderable<T> {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.serialized == other.serialized
-//     }
-// }
-//
-
-// impl std::cmp::PartialOrd for Orderable<T> {}
-// impl std::cmp::Ord for Orderable<T> {}
-
-/// TODO this may not be correct for KEY
-
+/// the vrf implementation
 pub struct VrfImpl<STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS> + Sync + Send,
 {
+    /// the stake table
     stake_table: VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>,
+    /// the proof params
     proof_parameters: VRF::PublicParameter,
+    /// the rng
     prng: std::sync::Arc<std::sync::Mutex<rand_chacha::ChaChaRng>>,
+    /// the committee parameter
     sortition_parameter: u64,
     // TODO (fst2) accessor to stake table
     // stake_table:
+    /// phantom data
     _pd_0: PhantomData<VRFHASHER>,
+    /// phantom data
     _pd_1: PhantomData<VRFPARAMS>,
+    /// phantom data
     _pd_2: PhantomData<STATE>,
+    /// phantom data
     _pd_3: PhantomData<VRF>,
+    /// phantom data
     _pd_4: PhantomData<SIGSCHEME>,
 }
 impl<STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS> Clone
@@ -318,9 +311,6 @@ where
 }
 
 /// TODO doc me
-pub fn get_total_stake() {}
-
-/// TODO doc me
 #[derive(Serialize, Deserialize, Debug)]
 pub struct VRFVoteToken<VRF: Vrf<VRFHASHER, VRFPARAMS>, VRFHASHER, VRFPARAMS>
 {
@@ -340,7 +330,7 @@ where VRF::PublicKey: Clone, VRF::Proof: Clone
         Self {
             pub_key: self.pub_key.clone(),
             proof: self.proof.clone(),
-            count: self.count.clone()
+            count: self.count
         }
     }
 }
@@ -365,6 +355,7 @@ where
     VRF: Vrf<
             VRFHASHER,
             VRFPARAMS,
+            PublicParameter = (),
             Input = [u8; 32],
             Output = [u8; 32],
             PublicKey = SIGSCHEME::VerificationKey,
@@ -374,9 +365,8 @@ where
     VRF::Proof: Clone + Sync + Send + Serialize + for<'a> Deserialize<'a>,
     VRF::PublicParameter: Sync + Send,
     VRFHASHER: Clone + Sync + Send,
-    VRFPARAMS: Sync + Send,
+    VRFPARAMS: Sync + Send + Bls12Parameters,
     STATE: State,
-    VRFPARAMS: Bls12Parameters,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
 {
     // pubkey -> unit of stake
@@ -387,6 +377,8 @@ where
     // TODO generics in terms of vrf trait output(s)
     // represents a vote on a proposal
     type VoteTokenType = VRFVoteToken<VRF, VRFHASHER, VRFPARAMS>;
+
+    type ElectionConfigType = VRFStakeTableConfig;
 
     // FIXED STAKE
     // just return the state
@@ -466,7 +458,7 @@ where
 
     fn validate_vote_token(
         &self,
-        view_number: hotshot_types::data::ViewNumber,
+        _view_number: hotshot_types::data::ViewNumber,
         pub_key: VRFPubKey<SIGSCHEME>,
         token: Checked<Self::VoteTokenType>,
         next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
@@ -498,10 +490,27 @@ where
             already_checked => Ok(already_checked),
         }
     }
+
+    fn create_election(keys: Vec<VRFPubKey<SIGSCHEME>>, config: Self::ElectionConfigType) -> Self {
+        VrfImpl::with_initial_stake(keys, &config)
+    }
+
+    fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType {
+        let mut stake = Vec::new();
+        let units_of_stake_per_node = NonZeroU64::new(100).unwrap();
+        for _ in 0..num_nodes {
+            stake.push(units_of_stake_per_node);
+
+        }
+        VRFStakeTableConfig {
+            sortition_parameter: SORTITION_PARAMETER,
+            distribution: stake,
+        }
+    }
 }
 
-// checks that the expected aomunt of stake matches the VRF output
-// TODO this can be optimized most likely
+/// checks that the expected aomunt of stake matches the VRF output
+/// TODO this can be optimized most likely
 fn check_bin_idx(expected_amount_of_stake: u64, replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<bool> {
     let bin_idx = find_bin_idx(replicas_stake, total_stake, sortition_parameter, unnormalized_seed);
     bin_idx.map(|idx| idx == expected_amount_of_stake)
@@ -528,12 +537,17 @@ fn generate_view_seed<STATE: State>(_view_number: ViewNumber, next_state: commit
 //
 // TODO (ct) better error handling
 // returns none if one of our calculations fails
+//
+// TODO keep data around from last iteration so less calculation is needed
+// TODO test this "correct/simple" implementation against any optimized version
 #[instrument]
 fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64, sortition_parameter: u64) -> Option<Ratio<BigUint>> {
+    let stake_attempt = u64::from(stake_attempt);
     tracing::info!("Running calculate threshold");
     // TODO (ct) better error handling
     if stake_attempt as u64 > replicas_stake {
-        panic!("j is larger than amount of stake we are allowed");
+        error!("j is larger than amount of stake we are allowed");
+        return None;
     }
 
 
@@ -549,16 +563,18 @@ fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64
     info!("p is {p:?}");
 
     // number of tails in bernoulli
-    let failed_num = replicas_stake - (stake_attempt as u64);
+    let failed_num = replicas_stake - stake_attempt;
 
-    let num_permutations = Ratio::new(factorial(replicas_stake), factorial(stake_attempt as u64) * factorial(failed_num));
+    // TODO cancel things out (avoid calculating factorial)
+    // TODO can just do division
+    let num_permutations = Ratio::new(factorial(replicas_stake), factorial(stake_attempt) * factorial(failed_num));
 
     info!("num permutations is {num_permutations:?}, failed_num is {failed_num:?}");
 
     let one = Ratio::from_integer(one_big);
 
-    let result = num_permutations * (p.pow(stake_attempt as i32) * (one - p).pow(failed_num as i32));
-    // let result = num_permutations * (p.pow(stake_attempt as i32) * (one - p.pow(failed_num as i32)));
+    // TODO can keep results from last try
+    let result = num_permutations * (p.pow(i32::try_from(stake_attempt).ok()?) * (one - p).pow(i32::try_from(failed_num).ok()?));
 
     assert!(result.numer() < result.denom());
 
@@ -567,7 +583,7 @@ fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64
     Some(result)
 }
 
-// calculated i! as a biguint
+/// compute i! as a biguint
 fn factorial(mut i: u64) -> BigUint {
     if i == 0 { return BigUint::from(1u32) }
 
@@ -587,6 +603,10 @@ fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64,
     let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from(2_u32).pow(256));
     assert!(normalized_seed.numer() < normalized_seed.denom());
     let mut j = 0;
+
+    // [j, j+1)
+    // [cdf(j),cdf(j+1))
+
     // left_threshold corresponds to the sum of all bernoulli distributions
     // from i in 0 to j: B(i; replicas_stake; p). Where p is calculated later and corresponds to
     // algorands paper
@@ -597,17 +617,19 @@ fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64,
         // corresponds to right range from apper
         let right_threshold = left_threshold + bin_val.clone();
 
-        let right_threshold_float = ToPrimitive::to_f64(&right_threshold.clone());
-        let bin_val_float = ToPrimitive::to_f64(&bin_val.clone());
-        let normalized_seed_float = ToPrimitive::to_f64(&normalized_seed.clone());
-        info!("rightthreshold: {right_threshold_float:?}, bin: {bin_val_float:?}, seed: {normalized_seed_float:?}");
+        {
+            let right_threshold_float = ToPrimitive::to_f64(&right_threshold.clone());
+            let bin_val_float = ToPrimitive::to_f64(&bin_val.clone());
+            let normalized_seed_float = ToPrimitive::to_f64(&normalized_seed.clone());
+            info!("rightthreshold: {right_threshold_float:?}, bin: {bin_val_float:?}, seed: {normalized_seed_float:?}");
+        }
+
         // from i in 0 to j + 1: B(i; replicas_stake; p)
         if normalized_seed < right_threshold {
-            return Some(j as u64);
-        } else {
-            left_threshold = right_threshold;
-            j += 1;
+            return Some(u64::from(j));
         }
+        left_threshold = right_threshold;
+        j += 1;
     }
 }
 
@@ -631,26 +653,29 @@ where
     VRF::Proof: Clone + Sync + Send + Serialize + for<'a> Deserialize<'a>,
     VRF::PublicParameter: Sync + Send,
     VRFHASHER: Clone + Sync + Send,
-    VRFPARAMS: Sync + Send,
+    VRFPARAMS: Sync + Send + Bls12Parameters,
     STATE: State,
-    VRFPARAMS: Bls12Parameters,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
 {
-    pub fn with_initial_stake(known_nodes: Vec<VRFPubKey<SIGSCHEME>>, sortition_parameter: u64) -> Self {
+    /// create stake table with this initial stake
+    /// # Panics
+    /// TODO
+    pub fn with_initial_stake(known_nodes: Vec<VRFPubKey<SIGSCHEME>>, config: &VRFStakeTableConfig) -> Self {
+        assert_eq!(known_nodes.iter().len(), config.distribution.len());
+        let key_with_stake = known_nodes.into_iter().map(|x| x.to_bytes()).zip(config.distribution.clone()).collect();
+        error!("stake table: {:?}", key_with_stake);
         VrfImpl {
-            stake_table: VRFStakeTable {
-                mapping: known_nodes
-                    .iter()
-                    .map(|k| (k.to_bytes(), NonZeroU64::new(100u64).unwrap()))
-                    .collect(),
-                total_stake: known_nodes.len() as u64 * 100,
-                _pd_0: PhantomData,
-                _pd_1: PhantomData,
-                _pd_2: PhantomData,
+            stake_table: {
+                let st=VRFStakeTable {
+                    mapping: key_with_stake,
+                    total_stake: config.distribution.iter().map(|x| x.get()).sum(),
+                    _pd_0: PhantomData,
+                    _pd_1: PhantomData,
+                    _pd_2: PhantomData,
+                };
+                st
             },
             proof_parameters: (),
-            sortition_parameter,
-            // #[serde(ignore)]
             prng: Arc::new(Mutex::new(ChaChaRng::from_seed(Default::default()))),
             // TODO (fst2) accessor to stake table
             // stake_table:
@@ -659,43 +684,60 @@ where
             _pd_2: PhantomData,
             _pd_3: PhantomData,
             _pd_4: PhantomData,
+            sortition_parameter: config.sortition_parameter,
         }
     }
+}
+
+/// configuration specifying the stake table
+#[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
+pub struct VRFStakeTableConfig {
+    /// the committee size parameter
+    pub sortition_parameter: u64,
+    /// the ordered distribution of stake across nodes
+    pub distribution: Vec<NonZeroU64>
+}
+
+impl ElectionConfig for VRFStakeTableConfig {
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use blake3::Hasher;
-    use commit::{RawCommitmentBuilder, Commitment};
-    use hotshot_types::{traits::state::dummy::DummyState, data::{ViewNumber, fake_commitment, Leaf, random_commitment}};
-    use hotshot_utils::{hack::nll_todo, test_util::setup_logging};
-    use jf_primitives::vrf::blsvrf::BLSVRFScheme;
-    use rand::RngCore;
-    use std::collections::BTreeMap;
-    use ark_std::{rand::prelude::StdRng, test_rng};
-    use sha2::Sha256;
+    use commit::Commitment;
+    use hotshot_types::{traits::state::dummy::DummyState, data::{ViewNumber, Leaf, random_commitment}};
+    use hotshot_utils::test_util::setup_logging;
+    use jf_primitives::{vrf::blsvrf::BLSVRFScheme, signatures::BLSSignatureScheme};
+    use ark_std::test_rng;
     use ark_bls12_381::Parameters as Param381;
 
     pub fn gen_vrf_impl(num_nodes: usize) -> (VrfImpl<DummyState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>, Vec<(jf_primitives::signatures::bls::BLSSignKey<Param381>, jf_primitives::signatures::bls::BLSVerKey<Param381>)>) {
         let mut known_nodes = Vec::new();
         let mut keys = Vec::new();
         let rng = &mut test_rng();
+        let mut stake_distribution = Vec::new();
+        let stake_per_node = NonZeroU64::new(100).unwrap();
         for _i in 0..num_nodes {
+            // TODO we should make this more general/use different parameters
+            #[allow(clippy::let_unit_value)]
             let parameters = BLSSignatureScheme::<Param381>::param_gen(Some(rng)).unwrap();
             let (sk, pk) = BLSSignatureScheme::<Param381>::key_gen(&parameters, rng).unwrap();
             keys.push((sk.clone(), pk.clone()));
             known_nodes.push(VRFPubKey::from_native(pk.clone()));
+            stake_distribution.push(stake_per_node);
         }
-        let stake_table = VrfImpl::with_initial_stake(known_nodes, SORTITION_PARAMETER);
+        let stake_table = VrfImpl::with_initial_stake(known_nodes, &VRFStakeTableConfig {
+            sortition_parameter: SORTITION_PARAMETER,
+            distribution: stake_distribution
+        });
         (stake_table, keys)
     }
 
-    pub fn check_if_valid<T>(token: Checked<T>) -> bool {
+    pub fn check_if_valid<T>(token: &Checked<T>) -> bool {
         match token {
             Checked::Valid(_) => true,
-            Checked::Inval(_) => false,
-            Checked::Unchecked(_) => false,
+            Checked::Inval(_) | Checked::Unchecked(_) => false,
         }
 
     }
@@ -712,9 +754,9 @@ mod tests {
                 let token = vrf_impl.make_vote_token(ViewNumber::new(view), &(sk.clone(), pk.clone()), next_state_commitment).unwrap().unwrap();
                 let count = token.count;
                 let result = vrf_impl.validate_vote_token(ViewNumber::new(view), VRFPubKey::from_native(pk.clone()), Checked::Unchecked(token), next_state_commitment).unwrap();
-                let result_is_valid = check_if_valid(result);
+                let result_is_valid = check_if_valid(&result);
                 error!("view {view:?}, node_idx {node_idx:?}, stake {count:?} ");
-                assert!(result_is_valid)
+                assert!(result_is_valid);
             }
         }
     }

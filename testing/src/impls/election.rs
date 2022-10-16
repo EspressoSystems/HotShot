@@ -1,16 +1,15 @@
-use std::collections::BTreeMap;
 
 use commit::Commitment;
 use hotshot::{data::Leaf, traits::dummy::DummyState};
 use hotshot_types::{
     data::ViewNumber,
     traits::{
-        signature_key::{ed25519::{Ed25519Priv, Ed25519Pub}, EncodedPublicKey},
-        election::{Checked, Election, VoteToken},
+        signature_key::{ed25519::Ed25519Pub},
+        election::{Checked, Election, VoteToken, ElectionConfig},
     },
 };
 use hotshot_utils::hack::nll_todo;
-use tracing::{info, instrument};
+use tracing::{info};
 
 /// A testable interface for the election trait.
 #[derive(Debug)]
@@ -77,4 +76,19 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
     > {
         nll_todo()
     }
+
+    type ElectionConfigType = ElectionConfigStub;
+
+    fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType {
+        ElectionConfigStub {}
+    }
+
+    fn create_election(keys: Vec<Ed25519Pub>, config: Self::ElectionConfigType) -> Self {
+        todo!()
+    }
 }
+
+#[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
+pub struct ElectionConfigStub {}
+
+impl ElectionConfig for ElectionConfigStub {}

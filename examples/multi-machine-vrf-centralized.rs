@@ -5,8 +5,7 @@ use hotshot::{
     demos::dentry::*,
     traits::{
         election::{
-            static_committee::StaticCommittee,
-            vrf::{VRFPubKey, VrfImpl, SORTITION_PARAMETER},
+            vrf::{VRFPubKey, VrfImpl, SORTITION_PARAMETER, VRFStakeTableConfig},
         },
         implementations::{CentralizedServerNetwork, MemoryStorage},
         Storage,
@@ -17,7 +16,6 @@ use hotshot::{
 use hotshot_centralized_server::{NetworkConfig, RunResults};
 use hotshot_types::{
     traits::{
-        signature_key::{EncodedSignature, SignatureKey},
         state::TestableState,
     },
     HotShotConfig,
@@ -28,25 +26,22 @@ use hotshot_utils::{
 };
 use jf_primitives::{
     signatures::{
-        bls::{BLSSignKey, BLSVerKey},
         BLSSignatureScheme,
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
-use serde::{Deserialize, Serialize};
 use std::{
     cmp,
     collections::{BTreeMap, VecDeque},
     fmt::Debug,
-    hash::Hash,
     mem,
     net::{IpAddr, SocketAddr},
-    time::{Duration, Instant},
+    time::{Duration, Instant}, num::NonZeroU64,
 };
 use tracing::{debug, error};
 
 type Node = DEntryNode<
-    CentralizedServerNetwork<VRFPubKey<BLSSignatureScheme<Param381>>>,
+    CentralizedServerNetwork<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
     VrfImpl<DEntryState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
     VRFPubKey<BLSSignatureScheme<Param381>>,
 >;
@@ -67,9 +62,9 @@ struct NodeOpt {
 /// Creates the initial state and hotshot for simulation.
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
 async fn init_state_and_hotshot(
-    networking: CentralizedServerNetwork<VRFPubKey<BLSSignatureScheme<Param381>>>,
-    config: HotShotConfig<VRFPubKey<BLSSignatureScheme<Param381>>>,
-    seed: [u8; 32],
+    networking: CentralizedServerNetwork<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
+    config: HotShotConfig<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
+    _seed: [u8; 32],
     node_id: u64,
 ) -> (DEntryState, HotShotHandle<Node>) {
     // Create the initial block
@@ -87,14 +82,24 @@ async fn init_state_and_hotshot(
     let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
     let prng = &mut rand::thread_rng();
+    // TODO we should make this more general/use different parameters
+    #[allow(clippy::let_unit_value)]
     let parameters =
         <BLSVRFScheme<Param381> as Vrf<Hasher, Param381>>::param_gen(Some(prng)).unwrap();
     let (priv_key, pub_key) =
         <BLSVRFScheme<Param381> as Vrf<Hasher, Param381>>::key_gen(&parameters, prng).unwrap();
     let known_nodes = config.known_nodes.clone();
-    let vrf_impl = VrfImpl::with_initial_stake(known_nodes.clone(), SORTITION_PARAMETER);
+    // let vrf_impl = VrfImpl::with_initial_stake(known_nodes.clone(), SORTITION_PARAMETER);
+    let mut distribution = Vec::new();
+    let stake_per_node = NonZeroU64::new(100).unwrap();
+    for _ in known_nodes.iter() {
+        distribution.push(stake_per_node);
+    }
+    let vrf_impl = VrfImpl::with_initial_stake(known_nodes.clone(), &VRFStakeTableConfig {
+        sortition_parameter: SORTITION_PARAMETER,
+        distribution,
+    });
     let hotshot = HotShot::init(
-        known_nodes,
         VRFPubKey::from_native(pub_key.clone()),
         (priv_key, pub_key),
         node_id,
@@ -237,7 +242,7 @@ async fn main() {
     );
     debug!("All rounds completed");
 
-    let networking: &CentralizedServerNetwork<VRFPubKey<BLSSignatureScheme<Param381>>> =
+    let networking: &CentralizedServerNetwork<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig> =
         hotshot.networking();
     networking
         .send_results(RunResults {

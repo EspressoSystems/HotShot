@@ -14,7 +14,7 @@ use std::{net::ToSocketAddrs, time::Instant};
 use tracing::{error, info};
 
 type ToServer = hotshot_centralized_server::ToServer<Ed25519Pub>;
-type FromServer = hotshot_centralized_server::FromServer<Ed25519Pub>;
+type FromServer = hotshot_centralized_server::FromServer<Ed25519Pub, ()>;
 
 #[async_main]
 async fn main() {
