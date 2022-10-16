@@ -481,7 +481,7 @@ macro_rules! gen_inner_fn {
         hotshot_utils::art::async_block_on(async move {
             hotshot_utils::test_util::setup_logging();
             hotshot_utils::test_util::setup_backtrace();
-            let description: $crate::GeneralTestDescriptionBuilder = $e;
+            let description = $e;
             let built: $TEST_TYPE = description.build();
             built.execute().await.unwrap()
         });
@@ -496,7 +496,7 @@ macro_rules! gen_inner_fn_proptest {
         hotshot_utils::art::async_block_on_with_runtime(async move {
             hotshot_utils::test_util::setup_logging();
             hotshot_utils::test_util::setup_backtrace();
-            let description: $crate::GeneralTestDescriptionBuilder = $e;
+            let description  = $e;
             let built: $TEST_TYPE = description.build();
             built.execute().await.unwrap()
         });
@@ -693,17 +693,15 @@ macro_rules! cross_tests {
     // base reduction
     // NOTE: unclear why `tt` is needed instead of `ty`
     ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, $STATE:tt, $fn_name:ident, $e:expr, keep: $keep:tt, slow: false, args: $($args:tt)*) => {
-        type TestType = $crate::TestDescription< $NETWORK<hotshot::types::Message< $STATE, hotshot_types::traits::signature_key::ed25519::Ed25519Pub >, hotshot_types::traits::signature_key::ed25519::Ed25519Pub>,
-        $STORAGE<$STATE >,
-        $STATE
-            >;
+
+        type TestType = $crate::TestDescription<hotshot_testing::TestNodeImpl<$STATE, $STORAGE<$STATE>, $NETWORK<hotshot::types::Message<$STATE, hotshot_types::traits::signature_key::ed25519::Ed25519Pub>, hotshot_types::traits::signature_key::ed25519::Ed25519Pub>, hotshot_types::traits::signature_key::ed25519::Ed25519Pub, hotshot::traits::election::static_committee::StaticCommittee<$STATE>>>;
         cross_test!(TestType, $fn_name, $e, keep: $keep, slow: false, args: $($args)*);
     };
     // base reduction
     // NOTE: unclear why `tt` is needed instead of `ty`
     ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, $STATE:tt, $fn_name:ident, $e:expr, keep: $keep:tt, slow: true, args: $($args:tt)*) => {
         #[cfg(feature = "slow-tests")]
-        type TestType = $crate::TestDescription<$crate::TestNodeImpl<$STATE, $STORAGE<$STATE>, $NETWORK, hotshot_types::traits::signature_key::ed25519::Ed25519Pub, hotshot::traits::election::static_committee::StaticCommittee<$STATE>>>;
+        type TestType = $crate::TestDescription<hotshot_testing::TestNodeImpl<$STATE, $STORAGE<$STATE>, $NETWORK<hotshot::types::Message<$STATE, hotshot_types::traits::signature_key::ed25519::Ed25519Pub>, hotshot_types::traits::signature_key::ed25519::Ed25519Pub>, hotshot_types::traits::signature_key::ed25519::Ed25519Pub, hotshot::traits::election::static_committee::StaticCommittee<$STATE>>>;
 
         cross_test!(TestType, $fn_name, $e, keep: $keep, slow: true, args: $($args)*);
     };
