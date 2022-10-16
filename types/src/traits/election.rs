@@ -1,9 +1,7 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
-use std::{collections::BTreeMap, num::NonZeroUsize};
 
 use super::{
-    signature_key::{EncodedPublicKey, EncodedSignature},
     state::ConsensusTime,
     State,
 };
@@ -12,8 +10,7 @@ use crate::{
     traits::signature_key::SignatureKey,
 };
 use commit::Commitment;
-use hotshot_utils::hack::nll_todo;
-use serde::{de::DeserializeOwned, Serialize, Deserialize};
+use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 
 /// Error for election problems
@@ -48,6 +45,7 @@ pub trait VoteToken {
     fn vote_count(&self) -> u64;
 }
 
+/// election config
 pub trait ElectionConfig: Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug {}
 
 /// Describes how `HotShot` chooses committees and leaders
@@ -62,6 +60,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// configuration for election
     type ElectionConfigType: ElectionConfig;
 
+    /// generate a default election configuration
     fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType;
 
     /// create an election

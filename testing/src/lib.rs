@@ -13,13 +13,13 @@ mod launcher;
 /// implementations of various networking models
 pub mod network_reliability;
 
-pub use self::{impls::TestElection, launcher::TestLauncher};
+pub use self::{/* impls::TestElection,  */launcher::TestLauncher};
 
 use futures::future::LocalBoxFuture;
 use hotshot::{
     data::Leaf,
     traits::{
-        election::static_committee::StaticCommittee, Block, NetworkingImplementation,
+        Block, NetworkingImplementation,
         NodeImplementation, State, Storage,
     },
     types::{HotShotHandle, Message},
@@ -29,14 +29,12 @@ use hotshot_types::{
     traits::{
         network::TestableNetworkingImplementation,
         signature_key::{
-            ed25519::{Ed25519Priv, Ed25519Pub},
             SignatureKey, TestableSignatureKey,
         },
         state::{TestableBlock, TestableState}, election::Election, node_implementation::TestableNodeImplementation, storage::TestableStorage,
     },
     HotShotConfig, data::ViewNumber,
 };
-use hotshot_utils::hack::nll_todo;
 use snafu::Snafu;
 use std::{collections::HashMap, fmt, marker::PhantomData};
 use tracing::{debug, error, info, warn};
@@ -60,22 +58,22 @@ pub struct RoundResult<STATE: State> {
 }
 
 /// Type of function used for checking results after running a view of consensus
-pub type RoundPostSafetyCheck<I: TestableNodeImplementation> = Box<
+pub type RoundPostSafetyCheck<I> = Box<
     dyn FnOnce(
         &TestRunner<I>,
-        RoundResult<I::StateType>,
+        RoundResult<<I as TestableNodeImplementation>::StateType>,
     ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
 >;
 
 /// Type of function used for configuring a round of consensus
-pub type RoundSetup<I: TestableNodeImplementation> = Box<
+pub type RoundSetup<I> = Box<
     dyn FnOnce(
         &mut TestRunner<I>,
-    ) -> LocalBoxFuture<Vec<<<I::StateType as State>::BlockType as Block>::Transaction>>,
+    ) -> LocalBoxFuture<Vec<<<<I as TestableNodeImplementation>::StateType as State>::BlockType as Block>::Transaction>>,
 >;
 
 /// Type of function used for checking safety before beginnning consensus
-pub type RoundPreSafetyCheck<I: TestableNodeImplementation> = Box<
+pub type RoundPreSafetyCheck<I> = Box<
     dyn FnOnce(
         &TestRunner<I>,
     ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,

@@ -38,6 +38,7 @@ pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
     type Election: Election<Self::SignatureKey, ViewNumber, StateType = Self::StateType>;
 }
 
+/// testable node implmeentation trait
 pub trait TestableNodeImplementation: Send + Sync + Debug + Clone + 'static {
     /// State type for this consensus implementation
     type StateType: TestableState<BlockType = Self::Block>;

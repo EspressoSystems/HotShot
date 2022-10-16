@@ -11,7 +11,6 @@ use hotshot_types::{
         State,
     },
 };
-use hotshot_utils::hack::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
@@ -48,6 +47,7 @@ impl VoteToken for StaticVoteToken {
     }
 }
 
+/// configuration for static committee. stub for now
 #[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
 pub struct StaticElectionConfig {
 }

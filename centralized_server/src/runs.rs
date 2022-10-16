@@ -1,5 +1,4 @@
 use crate::{ClientConfig, NetworkConfig, Run, RunResults, ToBackground};
-use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_utils::art::{async_sleep, async_spawn};
 use hotshot_utils::channel::{OneShotSender, Sender};
 use libp2p_core::PeerId;

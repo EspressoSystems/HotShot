@@ -11,8 +11,6 @@
 
 use std::{num::NonZeroUsize, time::Duration};
 
-use data::ViewNumber;
-use traits::{network::NetworkingImplementation, node_implementation::NodeImplementation, election::Election, signature_key::SignatureKey};
 pub mod constants;
 pub mod data;
 pub mod error;

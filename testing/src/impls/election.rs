@@ -1,16 +1,15 @@
-use std::collections::BTreeMap;
 
 use commit::Commitment;
 use hotshot::{data::Leaf, traits::dummy::DummyState};
 use hotshot_types::{
     data::ViewNumber,
     traits::{
-        signature_key::{ed25519::{Ed25519Priv, Ed25519Pub}, EncodedPublicKey},
+        signature_key::{ed25519::Ed25519Pub},
         election::{Checked, Election, VoteToken, ElectionConfig},
     },
 };
 use hotshot_utils::hack::nll_todo;
-use tracing::{info, instrument};
+use tracing::{info};
 
 /// A testable interface for the election trait.
 #[derive(Debug)]

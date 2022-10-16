@@ -55,6 +55,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         ElectionError,
     >;
 
+    /// return a reference to the election
     fn get_election(&self) -> &I::Election;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage

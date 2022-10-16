@@ -1,6 +1,6 @@
 use commit::{Commitment, Committable};
 use hotshot::{
-    traits::{Block, State, election::static_committee::StaticElectionConfig},
+    traits::{election::static_committee::StaticElectionConfig, Block, State},
     types::SignatureKey,
 };
 use hotshot_centralized_server::{TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend};
@@ -335,7 +335,7 @@ impl SignatureKey for TestSignatureKey {
         })
     }
 
-    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
+    fn generated_from_seed_indexed(_seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
         (Self { idx: index }, index)
     }
 }

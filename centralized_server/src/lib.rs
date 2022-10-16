@@ -27,7 +27,7 @@ use bincode::Options;
 use clients::Clients;
 use config::ClientConfig;
 use futures::FutureExt as _;
-use hotshot_types::traits::{signature_key::SignatureKey, node_implementation::NodeImplementation, election::ElectionConfig};
+use hotshot_types::traits::{signature_key::SignatureKey, election::ElectionConfig};
 use hotshot_utils::{
     art::{async_spawn, async_timeout},
     bincode::bincode_opts,
@@ -37,7 +37,7 @@ use runs::RoundConfig;
 use snafu::ResultExt;
 use std::{
     convert::TryInto,
-    marker::{PhantomData, Send},
+    marker::Send,
     net::{IpAddr, SocketAddr},
     num::NonZeroUsize,
     time::Duration,

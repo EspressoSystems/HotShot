@@ -6,7 +6,7 @@ use either::Either::Right;
 
 use hotshot::{
     demos::dentry::DEntryState,
-    traits::{implementations::{Libp2pNetwork, MemoryStorage, MemoryNetwork}, election::static_committee::StaticCommittee},
+    traits::{implementations::{Libp2pNetwork, MemoryStorage}, election::static_committee::StaticCommittee},
     types::Message,
 };
 use hotshot_testing::TestNodeImpl;

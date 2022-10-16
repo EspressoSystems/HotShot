@@ -1,16 +1,16 @@
-use std::{marker::PhantomData, num::NonZeroUsize, time::Duration};
+use std::{num::NonZeroUsize, time::Duration};
 
 use super::{Generator, TestRunner};
 use hotshot::{
-    traits::{Storage, State, NodeImplementation},
-    types::{ed25519::Ed25519Pub, Message, SignatureKey},
+    traits::{State},
+    types::{SignatureKey},
 };
 use hotshot_types::{
     traits::{
         network::TestableNetworkingImplementation,
         signature_key::TestableSignatureKey,
-        state::{TestableBlock, TestableState},
-        storage::TestableStorage, node_implementation::TestableNodeImplementation, election::{ElectionConfig, Election},
+        state::{TestableBlock},
+        storage::TestableStorage, node_implementation::TestableNodeImplementation, election::{Election},
     },
     ExecutionType, HotShotConfig, data::ViewNumber,
 };

@@ -1,22 +1,20 @@
 use ark_ec::bls12::Bls12Parameters;
-use ark_std::test_rng;
 use bincode::Options;
 use hotshot_types::{traits::{
     election::{Checked, Election, ElectionError, VoteToken, ElectionConfig},
     signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
-    state::ConsensusTime,
     State,
 }, data::ViewNumber};
-use hotshot_utils::{bincode::bincode_opts, hack::nll_todo};
+use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
     hash_to_group::SWHashToGroup,
-    signatures::{bls::BLSVerKey, BLSSignatureScheme, SignatureScheme},
+    signatures::SignatureScheme,
     vrf::Vrf,
 };
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use serde::{
-    de::{self, DeserializeOwned},
+    de::{self},
     Deserialize, Serialize,
 };
 use tracing::{instrument, error, info};
@@ -29,16 +27,15 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use jf_primitives::{signatures::{
-    bls::{BLSSignKey, BLSSignature},
-}};
-use num::{rational::Ratio, FromPrimitive, BigUint, ToPrimitive};
+use num::{rational::Ratio, BigUint, ToPrimitive};
 
 // TODO wrong palce for this
+/// the sortition committee size parameter
 pub const SORTITION_PARAMETER: u64 = 100;
 
 // TODO abstraction this function's impl into a trait
 // TODO do we necessariy want the units of stake to be a u64? or generics
+/// The stake table for VRFs
 #[derive(Serialize, Deserialize, Debug)]
 pub struct VRFStakeTable<VRF, VRFHASHER, VRFPARAMS> {
     mapping: BTreeMap<EncodedPublicKey, NonZeroU64>,
@@ -60,6 +57,7 @@ impl<VRF, VRFHASHER, VRFPARAMS> Clone for VRFStakeTable<VRF, VRFHASHER, VRFPARAM
     }
 }
 
+/// type wrapper for VRF's public key
 #[derive(Deserialize, Serialize)]
 pub struct VRFPubKey<SIGSCHEME>
 where
@@ -92,6 +90,7 @@ where
     SIGSCHEME: SignatureScheme,
     SIGSCHEME::VerificationKey: Clone,
 {
+    /// wrap the public key
     pub fn from_native(pk: SIGSCHEME::VerificationKey) -> Self {
         Self {
             pk,
@@ -210,7 +209,8 @@ where
             _pd_0: PhantomData,
         })
     }
-    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
+    // TODO this is wrong.
+    fn generated_from_seed_indexed(_seed: [u8; 32], _index: u64) -> (Self, Self::PrivateKey) {
         let mut prng = rand::thread_rng();
 
         let param = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
@@ -226,6 +226,7 @@ where
 }
 
 impl<VRF, VRFHASHER, VRFPARAMS> VRFStakeTable<VRF, VRFHASHER, VRFPARAMS> {
+    /// get total stake
     pub fn get_all_stake(&self) -> u64 {
         self.total_stake
     }
@@ -238,6 +239,7 @@ where
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
     VRF::PublicKey: Clone,
 {
+    /// get total stake
     pub fn get_stake<SIGSCHEME>(&self, pk: &VRFPubKey<SIGSCHEME>) -> Option<u64>
     where
         SIGSCHEME: SignatureScheme<
@@ -254,6 +256,7 @@ where
     }
 }
 
+/// the vrf implementation
 pub struct VrfImpl<STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS> + Sync + Send,
@@ -439,7 +442,7 @@ where
 
     fn validate_vote_token(
         &self,
-        view_number: hotshot_types::data::ViewNumber,
+        _view_number: hotshot_types::data::ViewNumber,
         pub_key: VRFPubKey<SIGSCHEME>,
         token: Checked<Self::VoteTokenType>,
         next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
@@ -638,7 +641,7 @@ where
     VRFPARAMS: Bls12Parameters,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
 {
-    // TODO switch out parameters
+    /// create stake table with this initial stake
     pub fn with_initial_stake(known_nodes: Vec<VRFPubKey<SIGSCHEME>>, config: VRFStakeTableConfig) -> Self {
         assert_eq!(known_nodes.iter().len(), config.distribution.len());
         let key_with_stake = known_nodes.into_iter().map(|x| x.to_bytes()).zip(config.distribution.clone()).collect();
@@ -668,9 +671,12 @@ where
     }
 }
 
+/// configuration specifying the stake table
 #[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
 pub struct VRFStakeTableConfig {
+    /// the committee size parameter
     pub sortition_parameter: u64,
+    /// the ordered distribution of stake across nodes
     pub distribution: Vec<NonZeroU64>
 }
 
@@ -681,14 +687,11 @@ impl ElectionConfig for VRFStakeTableConfig {
 mod tests {
     use super::*;
     use blake3::Hasher;
-    use commit::{RawCommitmentBuilder, Commitment};
-    use hotshot_types::{traits::state::dummy::DummyState, data::{ViewNumber, fake_commitment, Leaf, random_commitment}};
-    use hotshot_utils::{hack::nll_todo, test_util::setup_logging};
-    use jf_primitives::vrf::blsvrf::BLSVRFScheme;
-    use rand::RngCore;
-    use std::collections::BTreeMap;
-    use ark_std::{rand::prelude::StdRng, test_rng};
-    use sha2::Sha256;
+    use commit::Commitment;
+    use hotshot_types::{traits::state::dummy::DummyState, data::{ViewNumber, Leaf, random_commitment}};
+    use hotshot_utils::test_util::setup_logging;
+    use jf_primitives::{vrf::blsvrf::BLSVRFScheme, signatures::BLSSignatureScheme};
+    use ark_std::test_rng;
     use ark_bls12_381::Parameters as Param381;
 
     pub fn gen_vrf_impl(num_nodes: usize) -> (VrfImpl<DummyState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>, Vec<(jf_primitives::signatures::bls::BLSSignKey<Param381>, jf_primitives::signatures::bls::BLSVerKey<Param381>)>) {

@@ -2,12 +2,11 @@ use crate::{
     config::ClientConfig, Error, FromBackground, Run, TcpStreamRecvUtil, TcpStreamSendUtil,
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToBackground, ToServer,
 };
-use hotshot_types::traits::{signature_key::SignatureKey, node_implementation::NodeImplementation, election::ElectionConfig};
+use hotshot_types::traits::{signature_key::SignatureKey, election::ElectionConfig};
 use hotshot_utils::{
     art::{async_spawn, split_stream},
     channel::{bounded, oneshot, Sender},
 };
-use serde::Serialize;
 use std::{net::SocketAddr, num::NonZeroUsize};
 use tracing::{debug, warn};
 

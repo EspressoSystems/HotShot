@@ -8,7 +8,6 @@ use hotshot_types::{
     message::ConsensusMessage,
     traits::{
         node_implementation::{NodeImplementation, TypeMap},
-        signature_key::{EncodedPublicKey, EncodedSignature},
         Block, State,
     },
 };
@@ -108,9 +107,6 @@ pub struct View<STATE: State> {
 
 /// The result used in this crate
 pub type Result<T = ()> = std::result::Result<T, HotShotError>;
-
-/// type alias for a less ugly mapping of signatures
-pub type Signatures = BTreeMap<EncodedPublicKey, EncodedSignature>;
 
 /// A struct containing information about a finished round.
 #[derive(Debug, Clone)]

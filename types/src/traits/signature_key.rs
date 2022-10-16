@@ -46,7 +46,7 @@ pub trait SignatureKey:
     fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey);
 }
 
-/// TODO we don't need this if we have generated_from_seed_indexed
+/// TODO we don't need this if we have `generated_from_seed_indexed`
 /// should use one or the other
 /// Trait for generation of keys during testing
 pub trait TestableSignatureKey: SignatureKey {

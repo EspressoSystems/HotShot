@@ -8,7 +8,7 @@ use crate::{
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         storage::StoredView,
-        Block, State, state::ConsensusTime, election::VoteToken,
+        Block, State, state::ConsensusTime
     },
 };
 use commit::{Commitment, Committable};
@@ -216,7 +216,7 @@ impl<STATE: State> Committable for Leaf<STATE> {
             // TODO there is probably a way to avoid cloning.
             signatures_bytes.append(&mut k.0.clone());
             signatures_bytes.append(&mut v.0.0.clone());
-            signatures_bytes.append(&mut v.1.clone())
+            signatures_bytes.append(&mut v.1.clone());
         }
         commit::RawCommitmentBuilder::new("Leaf Comm")
             .constant_str("view_number")

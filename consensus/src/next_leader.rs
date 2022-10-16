@@ -20,7 +20,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
-use tracing::{info, instrument, warn, error};
+use tracing::{info, instrument, warn};
 
 /// The next view's leader
 #[derive(Debug, Clone)]
@@ -44,7 +44,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
     /// unless there is a bug in std
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<I::StateType> {
-        error!("Next Leader task started!");
+        info!("Next Leader task started!");
         let mut qcs = HashSet::<QuorumCertificate<I::StateType>>::new();
         qcs.insert(self.generic_qc.clone());
 
@@ -61,7 +61,6 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
-            error!("recv-ed message {:?}", msg.clone());
             if msg.view_number() != self.cur_view {
                 continue;
             }

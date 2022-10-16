@@ -25,7 +25,7 @@ use hotshot_types::traits::{
         NetworkingImplementation, TestableNetworkingImplementation,
     },
     signature_key::{
-        ed25519::{Ed25519Priv, Ed25519Pub},
+        ed25519::Ed25519Pub,
         SignatureKey, TestableSignatureKey,
     }, election::ElectionConfig,
 };
@@ -666,7 +666,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
             }
         };
 
-        let (pub_key, priv_key) = K::generated_from_seed_indexed(config.seed, config.node_index);
+        let (pub_key, _priv_key) = K::generated_from_seed_indexed(config.seed, config.node_index);
         let known_nodes = config.config.known_nodes.clone();
 
         let mut streams = Some(streams);

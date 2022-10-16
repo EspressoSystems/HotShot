@@ -1,6 +1,6 @@
 use crate::{FromBackground, Run};
 use futures::FutureExt;
-use hotshot_types::traits::{signature_key::{EncodedPublicKey, SignatureKey}, node_implementation::NodeImplementation, election::ElectionConfig};
+use hotshot_types::traits::{signature_key::{EncodedPublicKey, SignatureKey}, election::ElectionConfig};
 use hotshot_utils::channel::Sender;
 use std::collections::{BTreeMap, BTreeSet};
 use tracing::debug;

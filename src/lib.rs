@@ -63,23 +63,22 @@ use hotshot_types::{
         },
         network::{NetworkChange, NetworkError},
         node_implementation::TypeMap,
-        signature_key::{self, EncodedPublicKey, EncodedSignature, SignatureKey},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         storage::{StoredView, ViewEntry},
         State,
     },
     HotShotConfig,
 };
 use hotshot_utils::{
-    art::async_spawn, bincode::bincode_opts, broadcast::BroadcastSender, hack::nll_todo,
+    art::async_spawn, bincode::bincode_opts, broadcast::BroadcastSender
 };
 use hotshot_utils::{
     art::async_spawn_local,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
-use jf_primitives::circuit::signature;
 use snafu::ResultExt;
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashMap},
     num::NonZeroUsize,
     sync::{atomic::Ordering, Arc},
     time::Duration,

@@ -5,7 +5,6 @@ use hotshot::{
     demos::dentry::*,
     traits::{
         election::{
-            static_committee::StaticCommittee,
             vrf::{VRFPubKey, VrfImpl, SORTITION_PARAMETER, VRFStakeTableConfig},
         },
         implementations::{CentralizedServerNetwork, MemoryStorage},
@@ -17,7 +16,6 @@ use hotshot::{
 use hotshot_centralized_server::{NetworkConfig, RunResults};
 use hotshot_types::{
     traits::{
-        signature_key::{EncodedSignature, SignatureKey},
         state::TestableState,
     },
     HotShotConfig,
@@ -28,17 +26,14 @@ use hotshot_utils::{
 };
 use jf_primitives::{
     signatures::{
-        bls::{BLSSignKey, BLSVerKey},
         BLSSignatureScheme,
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
-use serde::{Deserialize, Serialize};
 use std::{
     cmp,
     collections::{BTreeMap, VecDeque},
     fmt::Debug,
-    hash::Hash,
     mem,
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant}, num::NonZeroU64,
@@ -69,7 +64,7 @@ struct NodeOpt {
 async fn init_state_and_hotshot(
     networking: CentralizedServerNetwork<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
     config: HotShotConfig<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
-    seed: [u8; 32],
+    _seed: [u8; 32],
     node_id: u64,
 ) -> (DEntryState, HotShotHandle<Node>) {
     // Create the initial block

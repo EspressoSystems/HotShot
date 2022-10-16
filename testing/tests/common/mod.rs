@@ -6,25 +6,23 @@ use hotshot::{
     demos::dentry::{DEntryBlock, DEntryState},
     traits::{
         implementations::{Libp2pNetwork, MemoryNetwork, MemoryStorage},
-        Block, NetworkReliability, NetworkingImplementation, State, Storage, election::static_committee::StaticCommittee,
+        Block, NetworkReliability, NetworkingImplementation, State, election::static_committee::StaticCommittee,
     },
     types::Message,
     HotShotError,
 };
 use hotshot_testing::{
     ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
-    TestRunner, TestNodeImpl, TestElection,
+    TestRunner, TestNodeImpl,
 };
 use hotshot_types::{
     traits::{
-        network::TestableNetworkingImplementation,
         signature_key::ed25519::Ed25519Pub,
-        state::{TestableBlock, TestableState},
-        storage::TestableStorage, node_implementation::TestableNodeImplementation, election::Election,
+        election::Election, node_implementation::TestableNodeImplementation,
     },
     HotShotConfig, data::ViewNumber,
 };
-use hotshot_utils::{test_util::{setup_backtrace, setup_logging}, hack::nll_todo};
+use hotshot_utils::{test_util::{setup_backtrace, setup_logging}};
 use snafu::Snafu;
 use std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
 use tracing::{error, info};
@@ -239,17 +237,17 @@ pub struct TestDescription<I: TestableNodeImplementation>
 }
 
 /// type alias for generating a [`TestRunner`]
-pub type GenRunner<I: TestableNodeImplementation> = Option<
+pub type GenRunner<I> = Option<
     Arc<dyn Fn(&TestDescription<I>) -> TestRunner<I>>,
 >;
 
 /// type alias for doing setup for a consensus round
-pub type TestSetup<I: TestableNodeImplementation> = Vec<
+pub type TestSetup<I> = Vec<
     Box<
         dyn FnOnce(
             &mut TestRunner<I>,
         ) -> LocalBoxFuture<
-            Vec<<<I::StateType as State>::BlockType as Block>::Transaction>,
+            Vec<<<<I as TestableNodeImplementation>::StateType as State>::BlockType as Block>::Transaction>,
         >,
     >,
 >;
