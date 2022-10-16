@@ -81,7 +81,7 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
     type ElectionConfigType = ElectionConfigStub;
 
     fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType {
-        todo!()
+        ElectionConfigStub {}
     }
 
     fn create_election(keys: Vec<Ed25519Pub>, config: Self::ElectionConfigType) -> Self {

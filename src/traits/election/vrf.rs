@@ -3,7 +3,7 @@ use ark_std::test_rng;
 use bincode::Options;
 use hotshot_types::{traits::{
     election::{Checked, Election, ElectionError, VoteToken, ElectionConfig},
-    signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+    signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
     state::ConsensusTime,
     State,
 }, data::ViewNumber};
@@ -68,6 +68,23 @@ where
 {
     pk: SIGSCHEME::VerificationKey,
     _pd_0: PhantomData<SIGSCHEME::SigningKey>,
+}
+
+impl<SIGSCHEME> TestableSignatureKey for VRFPubKey<SIGSCHEME>
+where
+    SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send,
+    SIGSCHEME::VerificationKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
+    SIGSCHEME::SigningKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
+    SIGSCHEME::Signature: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
+{
+    fn generate_test_key(id: u64) -> Self::PrivateKey {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&id.to_le_bytes());
+        let new_seed = *hasher.finalize().as_bytes();
+        let mut prng = rand::rngs::StdRng::from_seed(new_seed);
+        let parameters = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
+        SIGSCHEME::key_gen(&parameters, &mut prng).unwrap()
+    }
 }
 
 impl<SIGSCHEME> VRFPubKey<SIGSCHEME>
@@ -459,29 +476,17 @@ where
         VrfImpl::with_initial_stake(keys, config)
     }
 
-    // TODO this is the wrong palce for this
-    // slash: delete this
-    // e.g. belongs in a generator
     fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType {
-        nll_todo()
+        let mut stake = Vec::new();
+        let units_of_stake_per_node = NonZeroU64::new(100).unwrap();
+        for _ in 0..num_nodes {
+            stake.push(units_of_stake_per_node);
 
-        // let mut known_nodes = Vec::new();
-        // let mut keys = Vec::new();
-        // let rng = &mut test_rng();
-        // let mut stake_distribution = Vec::new();
-        // let stake_per_node = NonZeroU64::new(100).unwrap();
-        // for _i in 0..num_nodes {
-        //     let parameters = VRF::param_gen(Some(rng)).unwrap();
-        //     let (sk, pk) = VRF::key_gen(&parameters, rng).unwrap();
-        //     keys.push((sk.clone(), pk.clone()));
-        //     known_nodes.push(VRFPubKey::from_native(pk.clone()));
-        //     stake_distribution.push(stake_per_node);
-        // }
-        // Self::ElectionConfigType {
-        //     distribution: stake_distribution,
-        //     sortition_parameter: SORTITION_PARAMETER
-        //
-        // }
+        }
+        VRFStakeTableConfig {
+            sortition_parameter: SORTITION_PARAMETER,
+            distribution: stake,
+        }
     }
 }
 

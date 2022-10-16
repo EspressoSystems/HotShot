@@ -52,6 +52,7 @@ pub struct TimingData {
     pub propose_max_round_time: Duration,
 }
 
+/// TODO this should be taking in a election config
 pub struct GeneralTestDescriptionBuilder {
     /// Total number of nodes in the test
     pub total_nodes: usize,
@@ -106,7 +107,7 @@ impl<I: TestableNodeImplementation> TestDescription<I>
 {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<I> {
-        let launcher = TestLauncher::new(self.total_nodes, self.num_bootstrap_nodes, self.min_transactions, nll_todo());
+        let launcher = TestLauncher::new(self.total_nodes, self.num_bootstrap_nodes, self.min_transactions, <I::Election as Election<I::SignatureKey, ViewNumber>>::default_election_config(self.total_nodes as u64));
         // modify runner to recognize timing params
         let set_timing_params = |a: &mut HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>| {
             a.next_view_timeout = self.timing_config.next_view_timeout;

@@ -423,7 +423,7 @@ impl Config {
             propose_min_round_time: Duration::from_secs(self.propose_min_round_time),
             propose_max_round_time: Duration::from_secs(self.propose_max_round_time),
             num_bootstrap: 7,
-            election_config: StaticElectionConfig {}
+            election_config: Some(StaticElectionConfig {})
         };
         debug!(?config);
         let hotshot = HotShot::init(

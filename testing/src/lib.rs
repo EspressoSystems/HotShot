@@ -36,6 +36,7 @@ use hotshot_types::{
     },
     HotShotConfig, data::ViewNumber,
 };
+use hotshot_utils::hack::nll_todo;
 use snafu::Snafu;
 use std::{collections::HashMap, fmt, marker::PhantomData};
 use tracing::{debug, error, info, warn};
@@ -200,7 +201,7 @@ where
 
         let known_nodes = config.known_nodes.clone();
         let (public_key, private_key) = I::SignatureKey::generated_from_seed_indexed([0_u8; 32], node_id);
-        let election_config = config.election_config.clone();
+        let election_config = config.election_config.clone().unwrap_or_else(|| <I::Election as Election<_, _>>::default_election_config(config.total_nodes.get() as u64));
         let handle = HotShot::init(
             public_key,
             private_key,

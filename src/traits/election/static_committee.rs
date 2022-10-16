@@ -132,12 +132,15 @@ where
         }
     }
 
-    fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType {
-        nll_todo()
+    fn default_election_config(_num_nodes: u64) -> Self::ElectionConfigType {
+        StaticElectionConfig {}
     }
 
-    fn create_election(keys: Vec<Ed25519Pub>, config: Self::ElectionConfigType) -> Self {
-        nll_todo()
+    fn create_election(keys: Vec<Ed25519Pub>, _config: Self::ElectionConfigType) -> Self {
+        Self {
+            nodes: keys,
+            _state_phantom: PhantomData
+        }
     }
 
 }

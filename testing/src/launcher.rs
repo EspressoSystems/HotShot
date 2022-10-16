@@ -50,7 +50,7 @@ impl<I: TestableNodeImplementation> TestLauncher<I>
             start_delay: 1,
             propose_min_round_time: Duration::from_millis(0),
             propose_max_round_time: Duration::from_millis(1000),
-            election_config
+            election_config: Some(election_config)
         };
 
         Self {

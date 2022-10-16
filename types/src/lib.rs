@@ -63,5 +63,5 @@ pub struct HotShotConfig<K, ELECTION> {
     /// The maximum amount of time a leader can wait to start a round
     pub propose_max_round_time: Duration,
     /// the election configuration
-    pub election_config: ELECTION,
+    pub election_config: Option<ELECTION>,
 }
