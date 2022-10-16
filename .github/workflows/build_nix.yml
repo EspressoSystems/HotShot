@@ -19,16 +19,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: styfle/cancel-workflow-action@0.10.1
+      - uses: styfle/cancel-workflow-action@0.11.0
         name: Cancel Outdated Builds
         with:
           all_but_latest: true
           access_token: ${{ github.token }}
 
       - name: Install Nix
-        uses: cachix/install-nix-action@v17
+        uses: cachix/install-nix-action@v18
 
-      - uses: cachix/cachix-action@v10
+      - uses: cachix/cachix-action@v11
         with:
           name: espresso-systems-private
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
