@@ -5,6 +5,7 @@ use hotshot_utils::channel::Sender;
 use std::collections::{BTreeMap, BTreeSet};
 use tracing::debug;
 
+#[allow(clippy::type_complexity)]
 pub struct Clients<K: SignatureKey, E: ElectionConfig>(Vec<BTreeMap<OrdKey<K>, Sender<FromBackground<K, E>>>>);
 
 impl<K: SignatureKey + PartialEq, E: ElectionConfig> Clients<K, E> {

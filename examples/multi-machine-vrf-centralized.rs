@@ -82,6 +82,8 @@ async fn init_state_and_hotshot(
     let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
     let prng = &mut rand::thread_rng();
+    // TODO we should make this more general/use different parameters
+    #[allow(clippy::let_unit_value)]
     let parameters =
         <BLSVRFScheme<Param381> as Vrf<Hasher, Param381>>::param_gen(Some(prng)).unwrap();
     let (priv_key, pub_key) =
@@ -93,7 +95,7 @@ async fn init_state_and_hotshot(
     for _ in known_nodes.iter() {
         distribution.push(stake_per_node);
     }
-    let vrf_impl = VrfImpl::with_initial_stake(known_nodes.clone(), VRFStakeTableConfig {
+    let vrf_impl = VrfImpl::with_initial_stake(known_nodes.clone(), &VRFStakeTableConfig {
         sortition_parameter: SORTITION_PARAMETER,
         distribution,
     });

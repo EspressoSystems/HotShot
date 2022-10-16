@@ -37,7 +37,9 @@ impl<S> StaticCommittee<S> {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 /// TODO ed - docs
 pub struct StaticVoteToken {
+    /// signature
     signature: EncodedSignature,
+    /// public key
     pub_key: Ed25519Pub,
 }
 

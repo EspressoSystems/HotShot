@@ -791,7 +791,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
             .iter()
             .filter(|signature| {
                 self.is_valid_signature(
-                    &signature.0,
+                    signature.0,
                     &signature.1 .0,
                     hash,
                     view_number,
@@ -857,7 +857,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
                     false
                 }
                 Ok(Valid(_)) => true,
-                Ok(Inval(_)) | Ok(Unchecked(_)) => false,
+                Ok(Inval(_) | Unchecked(_)) => false,
             };
         }
         is_valid_signature && is_valid_vote_token
