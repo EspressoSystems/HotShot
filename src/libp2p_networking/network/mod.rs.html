@@ -308,7 +308,7 @@
     <span class="ident">build_multiaddr</span>,
     <span class="ident">core</span>::{<span class="ident">muxing::StreamMuxerBox</span>, <span class="ident">transport::Boxed</span>, <span class="ident">upgrade</span>},
     <span class="ident">gossipsub::TopicHash</span>,
-    <span class="ident">identify::IdentifyEvent</span>,
+    <span class="ident">identify::Event</span> <span class="kw">as</span> <span class="ident">IdentifyEvent</span>,
     <span class="ident">identity::Keypair</span>,
     <span class="ident">noise</span>,
     <span class="ident">request_response::ResponseChannel</span>,
@@ -392,7 +392,7 @@
         <span class="doccomment">/// msg contents</span>
         <span class="ident">contents</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
         <span class="doccomment">/// number of retries</span>
-        <span class="ident">retry_count</span>: <span class="ident">u8</span>
+        <span class="ident">retry_count</span>: <span class="ident">u8</span>,
     },
     <span class="doccomment">/// client request to send a direct reply to a message</span>
     <span class="ident">DirectResponse</span>(<span class="ident">ResponseChannel</span><span class="op">&lt;</span><span class="ident">DirectMessageResponse</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>),
@@ -420,7 +420,7 @@
         <span class="doccomment">/// Channel to notify caller of value (or failure to find value)</span>
         <span class="ident">notify</span>: <span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         <span class="doccomment">/// number of retries to make</span>
-        <span class="ident">retry_count</span>: <span class="ident">u8</span>
+        <span class="ident">retry_count</span>: <span class="ident">u8</span>,
     },
     <span class="doccomment">/// Request the number of connected peers</span>
     <span class="ident">GetConnectedPeerNum</span>(<span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>),

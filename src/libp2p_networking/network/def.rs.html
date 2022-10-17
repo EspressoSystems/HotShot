@@ -164,10 +164,21 @@
 <span id="164">164</span>
 <span id="165">165</span>
 <span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">futures::channel::oneshot::Sender</span>;
 <span class="kw">use</span> <span class="ident">libp2p</span>::{
     <span class="ident">gossipsub::IdentTopic</span> <span class="kw">as</span> <span class="ident">Topic</span>,
-    <span class="ident">identify</span>::{<span class="ident">Identify</span>, <span class="ident">IdentifyEvent</span>},
+    <span class="ident">identify</span>::{<span class="ident">Behaviour</span> <span class="kw">as</span> <span class="ident">IdentifyBehaviour</span>, <span class="ident">Event</span> <span class="kw">as</span> <span class="ident">IdentifyEvent</span>},
     <span class="ident">request_response::ResponseChannel</span>,
     <span class="ident">Multiaddr</span>, <span class="ident">NetworkBehaviour</span>, <span class="ident">PeerId</span>,
 };
@@ -209,7 +220,7 @@
 
     <span class="doccomment">/// purpose: identifying the addresses from an outside POV</span>
     <span class="attribute">#[<span class="ident">debug</span>(<span class="ident">skip</span>)]</span>
-    <span class="ident">identify</span>: <span class="ident">Identify</span>,
+    <span class="ident">identify</span>: <span class="ident">IdentifyBehaviour</span>,
 
     <span class="doccomment">/// purpose: directly messaging peer</span>
     <span class="attribute">#[<span class="ident">debug</span>(<span class="ident">skip</span>)]</span>
@@ -221,7 +232,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
         <span class="ident">gossipsub</span>: <span class="ident">GossipBehaviour</span>,
         <span class="ident">dht</span>: <span class="ident">DHTBehaviour</span>,
-        <span class="ident">identify</span>: <span class="ident">Identify</span>,
+        <span class="ident">identify</span>: <span class="ident">IdentifyBehaviour</span>,
         <span class="ident">request_response</span>: <span class="ident">DMBehaviour</span>,
     ) -&gt; <span class="ident">NetworkDef</span> {
         <span class="self">Self</span> {
@@ -278,9 +289,20 @@
     <span class="doccomment">/// Retrieve a value for a key from the DHT.</span>
     <span class="doccomment">/// Value (serialized) is sent over `chan`, and if a value is not found,</span>
     <span class="doccomment">/// a [`super::error::DHTError`] is sent instead.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_record</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">key</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">chan</span>: <span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">factor</span>: <span class="ident">NonZeroUsize</span>, <span class="ident">retry_count</span>: <span class="ident">u8</span>) {
-        <span class="self">self</span>.<span class="ident">dht</span>
-            .<span class="ident">get_record</span>(<span class="ident">key</span>, <span class="ident">chan</span>, <span class="ident">factor</span>, <span class="ident">ExponentialBackoff::default</span>(), <span class="ident">retry_count</span>);
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_record</span>(
+        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
+        <span class="ident">key</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+        <span class="ident">chan</span>: <span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">factor</span>: <span class="ident">NonZeroUsize</span>,
+        <span class="ident">retry_count</span>: <span class="ident">u8</span>,
+    ) {
+        <span class="self">self</span>.<span class="ident">dht</span>.<span class="ident">get_record</span>(
+            <span class="ident">key</span>,
+            <span class="ident">chan</span>,
+            <span class="ident">factor</span>,
+            <span class="ident">ExponentialBackoff::default</span>(),
+            <span class="ident">retry_count</span>,
+        );
     }
 }
 
@@ -292,7 +314,7 @@
             <span class="ident">peer_id</span>,
             <span class="ident">data</span>,
             <span class="ident">backoff</span>: <span class="ident">ExponentialBackoff::default</span>(),
-            <span class="ident">retry_count</span>
+            <span class="ident">retry_count</span>,
         };
         <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">add_direct_request</span>(<span class="ident">request</span>);
     }

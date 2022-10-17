@@ -598,6 +598,17 @@
 <span id="598">598</span>
 <span id="599">599</span>
 <span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">config</span>;
 <span class="kw">mod</span> <span class="ident">handle</span>;
 
@@ -636,7 +647,10 @@
         <span class="ident">error::GossipsubHandlerError</span>, <span class="ident">Gossipsub</span>, <span class="ident">GossipsubConfigBuilder</span>, <span class="ident">GossipsubMessage</span>,
         <span class="ident">MessageAuthenticity</span>, <span class="ident">MessageId</span>, <span class="ident">Topic</span>, <span class="ident">ValidationMode</span>,
     },
-    <span class="ident">identify</span>::{<span class="ident">Identify</span>, <span class="ident">IdentifyConfig</span>, <span class="ident">IdentifyEvent</span>, <span class="ident">IdentifyInfo</span>},
+    <span class="ident">identify</span>::{
+        <span class="ident">Behaviour</span> <span class="kw">as</span> <span class="ident">IdentifyBehaviour</span>, <span class="ident">Config</span> <span class="kw">as</span> <span class="ident">IdentifyConfig</span>, <span class="ident">Event</span> <span class="kw">as</span> <span class="ident">IdentifyEvent</span>,
+        <span class="ident">Info</span> <span class="kw">as</span> <span class="ident">IdentifyInfo</span>,
+    },
     <span class="ident">identity::Keypair</span>,
     <span class="ident">kad</span>::{<span class="ident">store::MemoryStore</span>, <span class="ident">Kademlia</span>, <span class="ident">KademliaConfig</span>},
     <span class="ident">request_response</span>::{<span class="ident">ProtocolSupport</span>, <span class="ident">RequestResponse</span>, <span class="ident">RequestResponseConfig</span>},
@@ -824,7 +838,7 @@
             <span class="comment">//   seeing the peer from behind a NAT</span>
             <span class="kw">let</span> <span class="ident">identify_cfg</span> <span class="op">=</span>
                 <span class="ident">IdentifyConfig::new</span>(<span class="string">&quot;HotShot/identify/1.0&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">identity</span>.<span class="ident">public</span>());
-            <span class="kw">let</span> <span class="ident">identify</span> <span class="op">=</span> <span class="ident">Identify::new</span>(<span class="ident">identify_cfg</span>);
+            <span class="kw">let</span> <span class="ident">identify</span> <span class="op">=</span> <span class="ident">IdentifyBehaviour::new</span>(<span class="ident">identify_cfg</span>);
 
             <span class="comment">// - Build DHT needed for peer discovery</span>
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">kconfig</span> <span class="op">=</span> <span class="ident">KademliaConfig::default</span>();
@@ -934,12 +948,16 @@
                             <span class="macro">error!</span>(<span class="string">&quot;error sending peer set to client&quot;</span>);
                         }
                     }
-                    <span class="ident">GetDHT</span> { <span class="ident">key</span>, <span class="ident">notify</span>, <span class="ident">retry_count</span> } =&gt; {
+                    <span class="ident">GetDHT</span> {
+                        <span class="ident">key</span>,
+                        <span class="ident">notify</span>,
+                        <span class="ident">retry_count</span>,
+                    } =&gt; {
                         <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">get_record</span>(
                             <span class="ident">key</span>,
                             <span class="ident">notify</span>,
                             <span class="ident">NonZeroUsize::new</span>(<span class="ident">NUM_REPLICATED_TO_TRUST</span>).<span class="ident">unwrap</span>(),
-                            <span class="ident">retry_count</span>
+                            <span class="ident">retry_count</span>,
                         );
                     }
                     <span class="ident">IgnorePeers</span>(<span class="ident">_peers</span>) =&gt; {
@@ -966,7 +984,11 @@
                             <span class="macro">error!</span>(<span class="string">&quot;finished unsubscribing but response channel dropped&quot;</span>);
                         }
                     }
-                    <span class="ident">DirectRequest</span>{<span class="ident">pid</span>, <span class="ident">contents</span>, <span class="ident">retry_count</span>} =&gt; {
+                    <span class="ident">DirectRequest</span> {
+                        <span class="ident">pid</span>,
+                        <span class="ident">contents</span>,
+                        <span class="ident">retry_count</span>,
+                    } =&gt; {
                         <span class="macro">info!</span>(<span class="string">&quot;pid {:?} adding direct request&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>);
                         <span class="ident">behaviour</span>.<span class="ident">add_direct_request</span>(<span class="ident">pid</span>, <span class="ident">contents</span>, <span class="ident">retry_count</span>);
                     }
