@@ -19,30 +19,13 @@ use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
 ///     ([`add_transaction_raw`](BlockContents::add_transaction_raw))
 ///   * Must be hashable ([`hash`](BlockContents::hash))
 pub trait Block:
-    Serialize
-    + Clone
-    + Debug
-    + Hash
-    + PartialEq
-    + Eq
-    + Send
-    + Sync
-    + Committable
-    + DeserializeOwned
+    Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Committable + DeserializeOwned
 {
     /// The error type for this type of block
     type Error: Error + Debug + Send + Sync;
 
     /// The type of the transitions we are applying
-    type Transaction: Clone
-        + Serialize
-        + DeserializeOwned
-        + Debug
-        + PartialEq
-        + Eq
-        + Sync
-        + Send
-        + Committable;
+    type Transaction: Transaction;
 
     /// Attempts to add a transaction, returning an Error if it would result in a structurally
     /// invalid block
@@ -55,6 +38,11 @@ pub trait Block:
 
     /// returns hashes of all the transactions in this block
     fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>>;
+}
+
+pub trait Transaction:
+    Clone + Serialize + DeserializeOwned + Debug + PartialEq + Eq + Sync + Send + Committable
+{
 }
 
 /// Dummy implementation of `BlockContents` for unit tests
@@ -99,6 +87,7 @@ pub mod dummy {
                 .finalize()
         }
     }
+    impl super::Transaction for DummyTransaction {}
 
     impl std::error::Error for DummyError {}
 

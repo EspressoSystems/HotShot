@@ -1,17 +1,12 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
-
-use super::{
-    state::ConsensusTime,
-    State,
-};
-use crate::{
-    data::{Leaf, ViewNumber},
-    traits::signature_key::SignatureKey,
-};
-use commit::Commitment;
+use super::node_implementation::NodeTypes;
+use crate::{data::Leaf, traits::signature_key::SignatureKey};
+use commit::{Commitment, Committable};
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
+use std::fmt::Debug;
+use std::hash::Hash;
 
 /// Error for election problems
 #[derive(Snafu, Debug)]
@@ -40,22 +35,30 @@ pub enum Checked<T> {
 }
 
 /// Proof of this entity's right to vote, and of the weight of those votes
-pub trait VoteToken {
+pub trait VoteToken:
+    Clone
+    + Debug
+    + Send
+    + serde::Serialize
+    + for<'de> serde::Deserialize<'de>
+    + PartialEq
+    + Hash
+    + Committable
+{
     /// the count, which validation will confirm
     fn vote_count(&self) -> u64;
 }
 
 /// election config
-pub trait ElectionConfig: Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug {}
+pub trait ElectionConfig:
+    Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug
+{
+}
 
 /// Describes how `HotShot` chooses committees and leaders
-pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
+pub trait Election<TYPES: NodeTypes>: Send + Sync {
     /// Data structure describing the currently valid states
     type StakeTable: Send + Sync;
-    /// The state type this election implementation is bound to
-    type StateType: State;
-    /// A membership proof
-    type VoteTokenType: VoteToken + Serialize + DeserializeOwned + Send + Sync + Clone;
 
     /// configuration for election
     type ElectionConfigType: ElectionConfig;
@@ -65,14 +68,13 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
 
     /// create an election
     /// TODO may want to move this to a testableelection trait
-    fn create_election(keys: Vec<P>, config: Self::ElectionConfigType) -> Self;
+    fn create_election(keys: Vec<TYPES::SignatureKey>, config: Self::ElectionConfigType) -> Self;
 
     /// Returns the table from the current committed state
-    fn get_stake_table(&self, view_number: ViewNumber, state: &Self::StateType)
-        -> Self::StakeTable;
+    fn get_stake_table(&self, time: TYPES::Time, state: &TYPES::StateType) -> Self::StakeTable;
 
     /// Returns leader for the current view number, given the current stake table
-    fn get_leader(&self, view_number: ViewNumber) -> P;
+    fn get_leader(&self, time: TYPES::Time) -> TYPES::SignatureKey;
 
     /// Attempts to generate a vote token for self
     ///
@@ -81,11 +83,11 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// TODO tbd
     fn make_vote_token(
         &self,
-        view_number: ViewNumber,
-        priv_key: &<P as SignatureKey>::PrivateKey,
+        time: TYPES::Time,
+        pub_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
         // TODO (ct) this should be replaced with something else...
-        next_state: Commitment<Leaf<Self::StateType>>,
-    ) -> Result<Option<Self::VoteTokenType>, ElectionError>;
+        next_state: Commitment<Leaf<TYPES>>,
+    ) -> Result<Option<TYPES::VoteTokenType>, ElectionError>;
 
     /// Checks the claims of a received vote token
     ///
@@ -93,9 +95,9 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
     /// TODO tbd
     fn validate_vote_token(
         &self,
-        view_number: ViewNumber,
-        pub_key: P,
-        token: Checked<Self::VoteTokenType>,
-        next_state: commit::Commitment<Leaf<Self::StateType>>,
-    ) -> Result<Checked<Self::VoteTokenType>, ElectionError>;
+        time: TYPES::Time,
+        pub_key: TYPES::SignatureKey,
+        token: Checked<TYPES::VoteTokenType>,
+        next_state: commit::Commitment<Leaf<TYPES>>,
+    ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError>;
 }

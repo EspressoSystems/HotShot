@@ -1,17 +1,16 @@
 //! Abstraction over on-disk storage of node state
 #![allow(missing_docs)]
 
+use super::{node_implementation::NodeTypes, signature_key::EncodedPublicKey};
 use crate::{
-    data::{Leaf, QuorumCertificate, TxnCommitment, ViewNumber},
-    traits::{Block, State},
+    data::{Leaf, QuorumCertificate, ViewNumber},
+    traits::Block,
 };
 use async_trait::async_trait;
 use commit::Commitment;
 use derivative::Derivative;
 use snafu::Snafu;
 use std::collections::{BTreeMap, BTreeSet};
-
-use super::signature_key::EncodedPublicKey;
 
 /// Errors that can occur in the storage layer.
 #[derive(Clone, Debug, Snafu)]
@@ -31,16 +30,16 @@ pub type Result<T = ()> = std::result::Result<T, StorageError>;
 ///
 /// This trait has been constructed for object saftey over convenience.
 #[async_trait]
-pub trait Storage<STATE>: Clone + Send + Sync
+pub trait Storage<TYPES>: Clone + Send + Sync
 where
-    STATE: State + 'static,
+    TYPES: NodeTypes + 'static,
 {
     /// Append the list of views to this storage
-    async fn append(&self, views: Vec<ViewEntry<STATE>>) -> Result;
+    async fn append(&self, views: Vec<ViewEntry<TYPES>>) -> Result;
     /// Cleans up the storage up to the given view. The given view number will still persist in this storage afterwards.
     async fn cleanup_storage_up_to_view(&self, view: ViewNumber) -> Result<usize>;
     /// Get the latest anchored view
-    async fn get_anchored_view(&self) -> Result<StoredView<STATE>>;
+    async fn get_anchored_view(&self) -> Result<StoredView<TYPES>>;
     /// Commit this storage.
     async fn commit(&self) -> Result;
 
@@ -48,7 +47,7 @@ where
     /// ```rust,ignore
     /// storage.append(vec![ViewEntry::Success(view)]).await
     /// ```
-    async fn append_single_view(&self, view: StoredView<STATE>) -> Result {
+    async fn append_single_view(&self, view: StoredView<TYPES>) -> Result {
         self.append(vec![ViewEntry::Success(view)]).await
     }
     // future improvement:
@@ -61,9 +60,9 @@ where
 
 /// Extra requirements on Storage implementations required for testing
 #[async_trait]
-pub trait TestableStorage<STATE>: Clone + Send + Sync + Storage<STATE>
+pub trait TestableStorage<TYPES>: Clone + Send + Sync + Storage<TYPES>
 where
-    STATE: State + 'static,
+    TYPES: NodeTypes + 'static,
 {
     /// Create ephemeral storage
     /// Will be deleted/lost immediately after storage is dropped
@@ -72,39 +71,39 @@ where
     fn construct_tmp_storage() -> Result<Self>;
 
     /// Return the full internal state. This is useful for debugging.
-    async fn get_full_state(&self) -> StorageState<STATE>;
+    async fn get_full_state(&self) -> StorageState<TYPES>;
 }
 
 /// An internal representation of the data stored in a [`Storage`].
 ///
 /// This should only be used for testing, never in production code.
 #[derive(Debug, PartialEq, Eq)]
-pub struct StorageState<STATE: State> {
+pub struct StorageState<TYPES: NodeTypes> {
     /// The views that have been successful
-    pub stored: BTreeMap<ViewNumber, StoredView<STATE>>,
+    pub stored: BTreeMap<ViewNumber, StoredView<TYPES>>,
     /// The views that have failed
     pub failed: BTreeSet<ViewNumber>,
 }
 
 /// An entry to `Storage::append`. This makes it possible to commit both succeeded and failed views at the same time
 #[derive(Debug, PartialEq, Eq)]
-pub enum ViewEntry<STATE>
+pub enum ViewEntry<TYPES>
 where
-    STATE: State,
+    TYPES: NodeTypes,
 {
     /// A succeeded view
-    Success(StoredView<STATE>),
+    Success(StoredView<TYPES>),
     /// A failed view
     Failed(ViewNumber),
     // future improvement:
     // InProgress(InProgressView),
 }
 
-impl<STATE> From<StoredView<STATE>> for ViewEntry<STATE>
+impl<TYPES> From<StoredView<TYPES>> for ViewEntry<TYPES>
 where
-    STATE: State,
+    TYPES: NodeTypes,
 {
-    fn from(view: StoredView<STATE>) -> Self {
+    fn from(view: StoredView<TYPES>) -> Self {
         Self::Success(view)
     }
 }
@@ -112,51 +111,51 @@ where
 /// A view stored in the [`Storage`]
 #[derive(Derivative, Debug)]
 #[derivative(PartialEq, Eq, Clone)]
-pub struct StoredView<STATE: State> {
+pub struct StoredView<TYPES: NodeTypes> {
     /// The view number of this view
-    pub view_number: ViewNumber,
+    pub time: TYPES::Time,
     /// The parent of this view
-    pub parent: Commitment<Leaf<STATE>>,
+    pub parent: Commitment<Leaf<TYPES>>,
     /// The justify QC of this view. See the hotstuff paper for more information on this.
-    pub justify_qc: QuorumCertificate<STATE>,
+    pub justify_qc: QuorumCertificate<TYPES>,
     /// The state of this view
-    pub state: STATE,
+    pub state: TYPES::StateType,
     /// The history of how this view came to be
-    pub append: ViewAppend<<STATE as State>::BlockType>,
+    pub append: ViewAppend<TYPES::BlockType>,
     /// transactions rejected in this view
-    pub rejected: Vec<TxnCommitment<STATE>>,
+    pub rejected: Vec<TYPES::Transaction>,
     /// the timestamp this view was recv-ed in nanonseconds
-    #[derivative(PartialEq="ignore")]
+    #[derivative(PartialEq = "ignore")]
     pub timestamp: i128,
     /// the proposer id
-    #[derivative(PartialEq="ignore")]
+    #[derivative(PartialEq = "ignore")]
     pub proposer_id: EncodedPublicKey,
 }
 
-impl<STATE> StoredView<STATE>
+impl<TYPES> StoredView<TYPES>
 where
-    STATE: State,
+    TYPES: NodeTypes,
 {
     /// Create a new `StoredView` from the given QC, Block and State.
     ///
     /// Note that this will set the `parent` to `LeafHash::default()`, so this will not have a parent.
     pub fn from_qc_block_and_state(
-        qc: QuorumCertificate<STATE>,
-        block: <STATE as State>::BlockType,
-        state: STATE,
-        parent_commitment: Commitment<Leaf<STATE>>,
-        rejected: Vec<TxnCommitment<STATE>>,
-        proposer_id: EncodedPublicKey
+        qc: QuorumCertificate<TYPES>,
+        block: TYPES::BlockType,
+        state: TYPES::StateType,
+        parent_commitment: Commitment<Leaf<TYPES>>,
+        rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
+        proposer_id: EncodedPublicKey,
     ) -> Self {
         Self {
             append: ViewAppend::Block { block },
-            view_number: qc.view_number,
+            time: qc.time.clone(),
             parent: parent_commitment,
             justify_qc: qc,
             state,
             rejected,
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-            proposer_id
+            proposer_id,
         }
     }
 }
