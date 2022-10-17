@@ -52,7 +52,9 @@ pub enum MessageKind<TYPES: NodeTypes> {
 //     }
 // }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, derivative::Derivative)]
+#[serde(bound = "")]
+#[derivative(Clone(bound = ""), Debug(bound = ""), PartialEq(bound = ""))]
 /// Messages related to the consensus protocol
 pub enum ConsensusMessage<TYPES: NodeTypes> {
     /// Leader's proposal
@@ -138,7 +140,9 @@ pub enum DataMessage<TYPES: NodeTypes> {
     SubmitTransaction(TYPES::Transaction),
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, derivative::Derivative)]
+#[serde(bound = "")]
+#[derivative(Clone(bound = ""), Debug(bound = ""), PartialEq(bound = ""))]
 /// Signals the start of a new view
 pub struct TimedOut<TYPES: NodeTypes> {
     /// The current view
@@ -148,7 +152,9 @@ pub struct TimedOut<TYPES: NodeTypes> {
     pub justify_qc: QuorumCertificate<TYPES>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, derivative::Derivative)]
+#[serde(bound = "")]
+#[derivative(Clone(bound = ""), Debug(bound = ""), PartialEq(bound = ""))]
 /// Prepare qc from the leader
 pub struct Proposal<TYPES: NodeTypes> {
     // NOTE: optimization could include view number to help look up parent leaf
@@ -161,11 +167,17 @@ pub struct Proposal<TYPES: NodeTypes> {
 }
 
 /// A nodes vote on the prepare field.
-#[derive(Serialize, Deserialize, Clone, custom_debug::Debug, std::hash::Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, derivative::Derivative)]
+#[serde(bound = "")]
+#[derivative(
+    Clone(bound = ""),
+    Debug(bound = ""),
+    PartialEq(bound = ""),
+    Debug(bound = "")
+)]
 pub struct Vote<TYPES: NodeTypes> {
     /// hash of the block being proposed
     /// TODO delete this when we delete block hash from the QC
-    #[debug(skip)]
     // #[serde(deserialize_with = "<Commitment<STATE::BlockType> as Deserialize>::deserialize")]
     pub block_commitment: Commitment<TYPES::BlockType>,
     /// TODO we should remove this
@@ -178,7 +190,6 @@ pub struct Vote<TYPES: NodeTypes> {
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a Vec<u8>
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// Hash of the item being voted on
-    #[debug(skip)]
     // #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
     pub leaf_commitment: Commitment<Leaf<TYPES>>,
     /// The view this vote was cast for

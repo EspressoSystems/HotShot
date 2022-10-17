@@ -1,60 +1,54 @@
 //! Contains the [`Leader`] struct used for the leader step in the hotstuff consensus algorithm.
 
-use crate::{
-    utils::{TransactionStorage, ViewInner},
-    Consensus, ConsensusApi,
-};
+use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_lock::RwLock;
 use commit::Committable;
 use hotshot_types::{
-    data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber},
+    data::{Leaf, ProposalLeaf, QuorumCertificate},
     message::{ConsensusMessage, Proposal},
-    traits::{
-        node_implementation::NodeImplementation, signature_key::SignatureKey, Block,
-        State,
-    },
+    traits::{node_implementation::NodeTypes, signature_key::SignatureKey, Block, State},
 };
 use hotshot_utils::{
     art::{async_sleep, async_timeout},
-    subscribable_rwlock::ReadView,
+    subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
 use std::{collections::HashSet, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
 
 /// This view's Leader
 #[derive(Debug, Clone)]
-pub struct Leader<A: ConsensusApi<I>, I: NodeImplementation> {
+pub struct Leader<A: ConsensusApi<TYPES>, TYPES: NodeTypes> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<I>>>,
+    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
     /// The `high_qc` per spec
-    pub high_qc: QuorumCertificate<I::StateType>,
+    pub high_qc: QuorumCertificate<TYPES>,
     /// The view number we're running on
-    pub cur_view: ViewNumber,
+    pub cur_view: TYPES::Time,
     /// Lock over the transactions list
-    pub transactions: TransactionStorage<I>,
+    pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
     /// Limited access to the consensus protocol
     pub api: A,
 }
 
-impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
+impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
     /// Run one view of the leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<I::StateType> {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES> {
         let pk = self.api.public_key();
         error!("Leader task started!");
 
         let task_start_time = Instant::now();
-        let parent_view_number = self.high_qc.view_number;
+        let parent_view_number = &self.high_qc.time;
         let consensus = self.consensus.read().await;
         let mut reached_decided = false;
 
-        let parent_leaf = if let Some(parent_view) = consensus.state_map.get(&parent_view_number) {
+        let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
             match &parent_view.view_inner {
                 ViewInner::Leaf { leaf } => {
                     if let Some(leaf) = consensus.saved_leaves.get(leaf) {
-                        if leaf.view_number == consensus.last_decided_view {
+                        if leaf.time == consensus.last_decided_view {
                             reached_decided = true;
                         }
                         leaf
@@ -83,7 +77,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
 
         if !reached_decided {
             while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash) {
-                if next_parent_leaf.view_number <= consensus.last_decided_view {
+                if next_parent_leaf.time <= consensus.last_decided_view {
                     break;
                 }
                 let next_parent_txns = next_parent_leaf.deltas.contained_transactions();
@@ -95,9 +89,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             // TODO do some sort of sanity check on the view number that it matches decided
         }
 
-        let previous_used_txns = previous_used_txns_vec
-            .into_iter()
-            .collect::<HashSet<TxnCommitment<I::StateType>>>();
+        let previous_used_txns = previous_used_txns_vec.into_iter().collect::<HashSet<_>>();
 
         let passed_time = task_start_time - Instant::now();
         async_sleep(self.api.propose_min_round_time() - passed_time).await;
@@ -148,7 +140,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
 
         if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
             let leaf = Leaf {
-                view_number: self.cur_view,
+                time: self.cur_view.clone(),
                 justify_qc: self.high_qc.clone(),
                 parent_commitment: original_parent_hash,
                 deltas: block,
@@ -158,7 +150,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
                 proposer_id: pk.to_bytes(),
             };
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
-            let leaf: ProposalLeaf<I::StateType> = leaf.into();
+            let leaf: ProposalLeaf<TYPES> = leaf.into();
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
             error!("Sending out proposal {:?}", message);
 

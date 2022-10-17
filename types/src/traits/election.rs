@@ -39,6 +39,7 @@ pub trait VoteToken:
     Clone
     + Debug
     + Send
+    + Sync
     + serde::Serialize
     + for<'de> serde::Deserialize<'de>
     + PartialEq

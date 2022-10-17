@@ -3,22 +3,20 @@
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
 
-use crate::traits::{
-    election::Election, network::NetworkingImplementation, signature_key::SignatureKey,
-    storage::Storage, Block,
-};
-use std::{fmt::Debug, marker::PhantomData};
-
 use super::{
     block_contents::Transaction,
     election::VoteToken,
     network::TestableNetworkingImplementation,
     signature_key::TestableSignatureKey,
-    // network::TestableNetworkingImplementation,
     state::{ConsensusTime, TestableBlock, TestableState},
     storage::TestableStorage,
     State,
 };
+use crate::traits::{
+    election::Election, network::NetworkingImplementation, signature_key::SignatureKey,
+    storage::Storage, Block,
+};
+use std::{fmt::Debug, marker::PhantomData};
 
 /// Node implementation aggregate trait
 ///
@@ -50,7 +48,7 @@ pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
     type Election: Election<NodeTypesImpl<Self>>;
 }
 
-pub trait NodeTypes {
+pub trait NodeTypes: 'static {
     type Time: ConsensusTime;
     type BlockType: Block<Transaction = Self::Transaction>;
     type SignatureKey: SignatureKey;

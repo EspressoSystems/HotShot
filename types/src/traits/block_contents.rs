@@ -41,7 +41,7 @@ pub trait Block:
 }
 
 pub trait Transaction:
-    Clone + Serialize + DeserializeOwned + Debug + PartialEq + Eq + Sync + Send + Committable
+    Clone + Serialize + DeserializeOwned + Debug + PartialEq + Eq + Sync + Send + Committable + Hash
 {
 }
 
@@ -74,7 +74,7 @@ pub mod dummy {
     pub struct DummyError;
 
     /// dummy transaction. No functionality
-    #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
     pub enum DummyTransaction {
         /// the only variant. Dummy.
         Dummy,

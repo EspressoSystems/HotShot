@@ -1,10 +1,6 @@
 //! Events that a `HotShot` instance can emit
 
-use crate::{
-    data::{Leaf, ViewNumber},
-    error::HotShotError,
-    traits::node_implementation::NodeTypes,
-};
+use crate::{data::Leaf, error::HotShotError, traits::node_implementation::NodeTypes};
 use std::sync::Arc;
 
 /// A status event emitted by a `HotShot` instance
@@ -14,7 +10,7 @@ use std::sync::Arc;
 #[derive(Clone, Debug)]
 pub struct Event<TYPES: NodeTypes> {
     /// The view number that this event originates from
-    pub view_number: ViewNumber,
+    pub time: TYPES::Time,
     /// The underlying event
     pub event: EventType<TYPES>,
 }

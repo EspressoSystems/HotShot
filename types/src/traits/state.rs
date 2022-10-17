@@ -6,7 +6,7 @@
 use crate::traits::Block;
 use commit::Committable;
 use serde::{de::DeserializeOwned, Serialize};
-use std::{error::Error, fmt::Debug, hash::Hash, ops::Deref};
+use std::{error::Error, fmt::Debug, hash::Hash, ops, ops::Deref};
 
 /// Abstraction over the state that blocks modify
 ///
@@ -56,13 +56,18 @@ pub trait State:
 /// Trait for time abstraction needed for reward collection
 pub trait ConsensusTime:
     PartialOrd
+    + Ord
     + Send
+    + Sync
     + Debug
     + Clone
     + Hash
     + Deref<Target = u64>
     + serde::Serialize
     + for<'de> serde::Deserialize<'de>
+    + ops::AddAssign<u64>
+    + ops::Add<u64, Output = Self>
+    + 'static
 {
     fn genesis() -> Self;
 }

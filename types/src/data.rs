@@ -90,7 +90,14 @@ impl<TYPES: NodeTypes> QuorumCertificate<TYPES> {
 ///
 /// A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
 /// metadata, such as the [`Stage`] of consensus the quorum certificate was generated during.
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, custom_debug::Debug, std::hash::Hash)]
+#[derive(derivative::Derivative, custom_debug::Debug, serde::Serialize, serde::Deserialize)]
+#[serde(bound = "")]
+#[derivative(
+    Clone(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = ""),
+    Hash(bound = "")
+)]
 pub struct QuorumCertificate<TYPES: NodeTypes> {
     /// Hash of the block refereed to by this Quorum Certificate.
     ///
@@ -131,8 +138,14 @@ pub struct QuorumCertificate<TYPES: NodeTypes> {
 }
 
 /// subset of state that we stick into a leaf.
-#[derive(Clone, Derivative, Serialize, Deserialize, custom_debug::Debug)]
-#[derivative(PartialEq, Eq)]
+#[derive(derivative::Derivative, custom_debug::Debug, Serialize, Deserialize)]
+#[serde(bound = "")]
+#[derivative(
+    Clone(bound = ""),
+    PartialEq(bound = ""),
+    Eq(bound = ""),
+    Hash(bound = "")
+)]
 pub struct ProposalLeaf<TYPES: NodeTypes> {
     /// CurView from leader when proposing leaf
     pub time: TYPES::Time,
@@ -168,8 +181,14 @@ pub struct ProposalLeaf<TYPES: NodeTypes> {
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
-#[derive(Serialize, Deserialize, custom_debug::Debug, Clone, Derivative)]
-#[derivative(PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Derivative)]
+#[serde(bound = "")]
+#[derivative(
+    PartialEq(bound = ""),
+    Eq(bound = ""),
+    Clone(bound = ""),
+    Debug(bound = "")
+)]
 pub struct Leaf<TYPES: NodeTypes> {
     /// CurView from leader when proposing leaf
     pub time: TYPES::Time,
@@ -180,7 +199,6 @@ pub struct Leaf<TYPES: NodeTypes> {
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
-    #[debug(skip)]
     // #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
     pub parent_commitment: Commitment<Leaf<TYPES>>,
 
