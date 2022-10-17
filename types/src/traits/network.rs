@@ -177,23 +177,21 @@ pub trait NetworkingImplementation<TYPES: NodeTypes>: Send + Sync {
     );
 }
 
-// /// Describes additional functionality needed by the test network implementation
-// pub trait TestableNetworkingImplementation<M, P>: NetworkingImplementation<M, P>
-// where
-//     M: Serialize + DeserializeOwned + Send + Clone + 'static,
-//     P: TestableSignatureKey + 'static,
-// {
-//     /// generates a network given an expected node count
-//     fn generator(
-//         expected_node_count: usize,
-//         num_bootstrap: usize,
-//     ) -> Box<dyn Fn(u64) -> Self + 'static>;
+/// Describes additional functionality needed by the test network implementation
+pub trait TestableNetworkingImplementation<TYPES: NodeTypes>:
+    NetworkingImplementation<TYPES>
+{
+    /// generates a network given an expected node count
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+    ) -> Box<dyn Fn(u64) -> Self + 'static>;
 
-//     /// Get the number of messages in-flight.
-//     ///
-//     /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
-//     fn in_flight_message_count(&self) -> Option<usize>;
-// }
+    /// Get the number of messages in-flight.
+    ///
+    /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
+    fn in_flight_message_count(&self) -> Option<usize>;
+}
 
 /// Changes that can occur in the network
 #[derive(Debug)]

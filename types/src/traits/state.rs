@@ -3,7 +3,7 @@
 //! This module provides the [`State`] trait, which serves as an abstraction over the current
 //! network state, which is modified by the transactions contained within blocks.
 
-use crate::{data::ViewNumber, traits::Block};
+use crate::traits::Block;
 use commit::Committable;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash, ops::Deref};
@@ -68,7 +68,7 @@ pub trait ConsensusTime:
 }
 
 /// extra functions required on state to be usable by hotshot-testing
-pub trait TestableState: State<Time = ViewNumber>
+pub trait TestableState: State
 where
     <Self as State>::BlockType: TestableBlock,
 {

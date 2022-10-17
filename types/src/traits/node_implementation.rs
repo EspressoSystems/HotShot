@@ -12,8 +12,11 @@ use std::{fmt::Debug, marker::PhantomData};
 use super::{
     block_contents::Transaction,
     election::VoteToken,
+    network::TestableNetworkingImplementation,
+    signature_key::TestableSignatureKey,
     // network::TestableNetworkingImplementation,
-    state::ConsensusTime,
+    state::{ConsensusTime, TestableBlock, TestableState},
+    storage::TestableStorage,
     State,
 };
 
@@ -71,32 +74,51 @@ where
     type Transaction = <I::BlockType as Block>::Transaction;
 }
 
-// /// testable node implmeentation trait
-// pub trait TestableNodeImplementation: Send + Sync + Debug + Clone + 'static {
-//     /// State type for this consensus implementation
-//     type StateType: TestableState<BlockType = Self::Block>;
-//     /// Storage type for this consensus implementation
-//     type Storage: TestableStorage<Self::StateType>;
-//     /// Networking type for this consensus implementation
-//     type Networking: TestableNetworkingImplementation<NodeBaseTypesImpl<Self::NodeImplementation>>;
-//     /// The signature key type for this implementation
-//     type SignatureKey: TestableSignatureKey;
-//     /// Election
-//     /// Time is generic here to allow multiple implementations of election trait for difference
-//     /// consensus protocols
-//     type Election: Election<Self::SignatureKey, ViewNumber, StateType = Self::StateType>;
-//     /// block
-//     type Block: TestableBlock;
+/// testable node implmeentation trait
+pub trait TestableNodeImplementation: Send + Sync + Debug + Clone + 'static {
+    ///
+    type Time: ConsensusTime;
 
-//     /// propagate
-//     type NodeImplementation: NodeImplementation<
-//         StateType = Self::StateType,
-//         Storage = Self::Storage,
-//         Networking = Self::Networking,
-//         SignatureKey = Self::SignatureKey,
-//         Election = Self::Election,
-//     >;
-// }
+    /// State type for this consensus implementation
+    type StateType: TestableState<BlockType = Self::BlockType, Time = Self::Time>;
+    /// Storage type for this consensus implementation
+    type Storage: TestableStorage<NodeTypesTestableImpl<Self>>;
+    /// Networking type for this consensus implementation
+    type Networking: TestableNetworkingImplementation<NodeTypesTestableImpl<Self>>;
+    /// The signature key type for this implementation
+    type SignatureKey: TestableSignatureKey;
+    /// Election
+    /// Time is generic here to allow multiple implementations of election trait for difference
+    /// consensus protocols
+    type Election: Election<NodeTypesTestableImpl<Self>>;
+    /// block
+    type BlockType: TestableBlock;
+    /// vote token
+    type VoteTokenType: VoteToken;
+
+    /// propagate
+    type NodeImplementation: NodeImplementation<
+        StateType = Self::StateType,
+        Storage = Self::Storage,
+        Networking = Self::Networking,
+        SignatureKey = Self::SignatureKey,
+        Election = Self::Election,
+    >;
+}
+
+pub struct NodeTypesTestableImpl<I>(PhantomData<I>);
+
+impl<I> NodeTypes for NodeTypesTestableImpl<I>
+where
+    I: TestableNodeImplementation,
+{
+    type Time = I::Time;
+    type SignatureKey = I::SignatureKey;
+    type BlockType = I::BlockType;
+    type StateType = I::StateType;
+    type VoteTokenType = I::VoteTokenType;
+    type Transaction = <I::BlockType as Block>::Transaction;
+}
 
 // /// Helper trait to make aliases.
 // ///
