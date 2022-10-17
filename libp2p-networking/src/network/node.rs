@@ -36,7 +36,10 @@ use libp2p::{
         error::GossipsubHandlerError, Gossipsub, GossipsubConfigBuilder, GossipsubMessage,
         MessageAuthenticity, MessageId, Topic, ValidationMode,
     },
-    identify::{Identify, IdentifyConfig, IdentifyEvent, IdentifyInfo},
+    identify::{
+        Behaviour as IdentifyBehaviour, Config as IdentifyConfig, Event as IdentifyEvent,
+        Info as IdentifyInfo,
+    },
     identity::Keypair,
     kad::{store::MemoryStore, Kademlia, KademliaConfig},
     request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
@@ -224,7 +227,7 @@ impl NetworkNode {
             //   seeing the peer from behind a NAT
             let identify_cfg =
                 IdentifyConfig::new("HotShot/identify/1.0".to_string(), identity.public());
-            let identify = Identify::new(identify_cfg);
+            let identify = IdentifyBehaviour::new(identify_cfg);
 
             // - Build DHT needed for peer discovery
             let mut kconfig = KademliaConfig::default();
@@ -334,12 +337,16 @@ impl NetworkNode {
                             error!("error sending peer set to client");
                         }
                     }
-                    GetDHT { key, notify, retry_count } => {
+                    GetDHT {
+                        key,
+                        notify,
+                        retry_count,
+                    } => {
                         self.swarm.behaviour_mut().get_record(
                             key,
                             notify,
                             NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),
-                            retry_count
+                            retry_count,
                         );
                     }
                     IgnorePeers(_peers) => {
@@ -366,7 +373,11 @@ impl NetworkNode {
                             error!("finished unsubscribing but response channel dropped");
                         }
                     }
-                    DirectRequest{pid, contents, retry_count} => {
+                    DirectRequest {
+                        pid,
+                        contents,
+                        retry_count,
+                    } => {
                         info!("pid {:?} adding direct request", self.peer_id);
                         behaviour.add_direct_request(pid, contents, retry_count);
                     }

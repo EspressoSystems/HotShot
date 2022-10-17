@@ -1,7 +1,7 @@
 use futures::channel::oneshot::Sender;
 use libp2p::{
     gossipsub::IdentTopic as Topic,
-    identify::{Identify, IdentifyEvent},
+    identify::{Behaviour as IdentifyBehaviour, Event as IdentifyEvent},
     request_response::ResponseChannel,
     Multiaddr, NetworkBehaviour, PeerId,
 };
@@ -43,7 +43,7 @@ pub struct NetworkDef {
 
     /// purpose: identifying the addresses from an outside POV
     #[debug(skip)]
-    identify: Identify,
+    identify: IdentifyBehaviour,
 
     /// purpose: directly messaging peer
     #[debug(skip)]
@@ -55,7 +55,7 @@ impl NetworkDef {
     pub fn new(
         gossipsub: GossipBehaviour,
         dht: DHTBehaviour,
-        identify: Identify,
+        identify: IdentifyBehaviour,
         request_response: DMBehaviour,
     ) -> NetworkDef {
         Self {
@@ -112,9 +112,20 @@ impl NetworkDef {
     /// Retrieve a value for a key from the DHT.
     /// Value (serialized) is sent over `chan`, and if a value is not found,
     /// a [`super::error::DHTError`] is sent instead.
-    pub fn get_record(&mut self, key: Vec<u8>, chan: Sender<Vec<u8>>, factor: NonZeroUsize, retry_count: u8) {
-        self.dht
-            .get_record(key, chan, factor, ExponentialBackoff::default(), retry_count);
+    pub fn get_record(
+        &mut self,
+        key: Vec<u8>,
+        chan: Sender<Vec<u8>>,
+        factor: NonZeroUsize,
+        retry_count: u8,
+    ) {
+        self.dht.get_record(
+            key,
+            chan,
+            factor,
+            ExponentialBackoff::default(),
+            retry_count,
+        );
     }
 }
 
@@ -126,7 +137,7 @@ impl NetworkDef {
             peer_id,
             data,
             backoff: ExponentialBackoff::default(),
-            retry_count
+            retry_count,
         };
         self.request_response.add_direct_request(request);
     }

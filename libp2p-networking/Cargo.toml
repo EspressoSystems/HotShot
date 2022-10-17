@@ -32,17 +32,13 @@ async-std-executor = [
     "dep:async-std",
     "hotshot-types/async-std-executor",
     "hotshot-utils/async-std-executor",
-    "libp2p/dns-async-std",
-    "libp2p/mdns-async-io",
-    "libp2p/tcp-async-io",
+    "libp2p/async-std",
 ]
 tokio-executor = [
     "dep:tokio",
     "hotshot-types/tokio-executor",
     "hotshot-utils/tokio-executor",
-    "libp2p/dns-tokio",
-    "libp2p/mdns-tokio",
-    "libp2p/tcp-tokio",
+    "libp2p/tokio",
 ]
 profiling = ["hotshot-utils/profiling"]
 channel-flume = ["hotshot-types/channel-flume", "hotshot-utils/channel-flume"]
@@ -71,10 +67,12 @@ hotshot-utils = { path = "../utils", version = "0.1.0", default-features = false
 libp2p = { version = "0.49", default-features = false, features = [
     "autonat",
     "deflate",
+    "dns",
     "floodsub",
+    "gossipsub",
     "identify",
     "kad",
-    "gossipsub",
+    "mdns",
     "mplex",
     "noise",
     "ping",
@@ -85,6 +83,7 @@ libp2p = { version = "0.49", default-features = false, features = [
     "rendezvous",
     "secp256k1",
     "serde",
+    "tcp",
     "uds",
     "wasm-ext",
     "websocket",
