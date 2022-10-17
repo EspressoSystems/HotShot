@@ -12,15 +12,15 @@ use std::{
 use tracing::error;
 
 /// Contains information about the current round
-pub struct RoundConfig<K> {
-    configs: Vec<NetworkConfig<K>>,
-    libp2p_config_sender: Vec<(IpAddr, OneShotSender<ClientConfig<K>>)>,
+pub struct RoundConfig<K, E> {
+    configs: Vec<NetworkConfig<K, E>>,
+    libp2p_config_sender: Vec<(IpAddr, OneShotSender<ClientConfig<K, E>>)>,
     current_run: usize,
     next_node_index: usize,
 }
 
-impl<K> RoundConfig<K> {
-    pub fn new(configs: Vec<NetworkConfig<K>>) -> Self {
+impl<K, E> RoundConfig<K, E> {
+    pub fn new(configs: Vec<NetworkConfig<K, E>>) -> Self {
         Self {
             configs,
             libp2p_config_sender: Vec::new(),
@@ -44,8 +44,7 @@ impl<K> RoundConfig<K> {
     ///
     /// Will panic if serialization to TOML fails
     pub async fn add_result(&mut self, result: RunResults) -> std::io::Result<()>
-    where
-        K: serde::Serialize,
+        where K: serde::Serialize, E: serde::Serialize
     {
         let run = result.run.0;
         let folder = run.to_string();
@@ -70,13 +69,15 @@ impl<K> RoundConfig<K> {
     pub async fn get_next_config(
         &mut self,
         addr: IpAddr,
-        sender: OneShotSender<ClientConfig<K>>,
-        start_round_sender: Sender<ToBackground<K>>,
-    ) where
-        K: Debug + Clone + Send + 'static,
+        sender: OneShotSender<ClientConfig<K, E>>,
+        start_round_sender: Sender<ToBackground<K, E>>,
+    )
+        where
+         K: Debug + Clone + Send + 'static,
+         E: Debug + Clone + Send + 'static,
     {
         let total_runs = self.configs.len();
-        let mut config: &mut NetworkConfig<K> = match self.configs.get_mut(self.current_run) {
+        let mut config: &mut NetworkConfig<K, E> = match self.configs.get_mut(self.current_run) {
             Some(config) => config,
             None => {
                 sender.send(ClientConfig::default());
@@ -192,14 +193,12 @@ impl<K> RoundConfig<K> {
     }
 }
 
-fn set_config<K>(
-    mut config: NetworkConfig<K>,
+fn set_config<K, E>(
+    mut config: NetworkConfig<K, E>,
     public_ip: IpAddr,
     run: Run,
     node_index: u64,
-) -> NetworkConfig<K>
-where
-    K: Clone,
+) -> NetworkConfig<K, E>
 {
     config.node_index = node_index;
     if let Some(libp2p) = &mut config.libp2p_config {

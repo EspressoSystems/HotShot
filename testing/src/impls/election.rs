@@ -1,13 +1,15 @@
+
 use commit::Commitment;
-use hotshot::traits::dummy::DummyState;
+use hotshot::{data::Leaf, traits::dummy::DummyState};
 use hotshot_types::{
     data::ViewNumber,
     traits::{
-        election::Election,
-        signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
+        signature_key::{ed25519::Ed25519Pub},
+        election::{Checked, Election, VoteToken, ElectionConfig},
     },
 };
-use tracing::{info, instrument};
+use hotshot_utils::hack::nll_todo;
+use tracing::{info};
 
 /// A testable interface for the election trait.
 #[derive(Debug)]
@@ -16,16 +18,31 @@ pub struct TestElection {
     pub leaders: Vec<Ed25519Pub>,
 }
 
+use serde::{Deserialize, Serialize};
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, Hash)]
+pub struct StubToken {}
+
+impl VoteToken for StubToken {
+    fn vote_count(&self) -> u64 {
+        nll_todo()
+    }
+}
+
 impl Election<Ed25519Pub, ViewNumber> for TestElection {
     type StakeTable = ();
-    type SelectionThreshold = ();
     type StateType = DummyState;
-    type VoteToken = ();
-    type ValidatedVoteToken = ();
 
-    fn get_stake_table(&self, _: &Self::StateType) -> Self::StakeTable {}
+    type VoteTokenType = StubToken;
 
-    fn get_leader(&self, _: &Self::StakeTable, view_number: ViewNumber) -> Ed25519Pub {
+    fn get_stake_table(
+        &self,
+        view_number: ViewNumber,
+        state: &Self::StateType,
+    ) -> Self::StakeTable {
+        nll_todo()
+    }
+
+    fn get_leader(&self, view_number: ViewNumber) -> Ed25519Pub {
         match self.leaders.get(*view_number as usize) {
             Some(leader) => {
                 info!("Round {:?} has leader {:?}", view_number, leader);
@@ -37,33 +54,41 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
         }
     }
 
-    #[instrument]
-    fn get_votes(
-        &self,
-        table: &Self::StakeTable,
-        selection_threshold: Self::SelectionThreshold,
-        view_number: ViewNumber,
-        pub_key: Ed25519Pub,
-        token: Self::VoteToken,
-        next_state: Commitment<Self::StateType>,
-    ) -> Option<Self::ValidatedVoteToken> {
-        None
-    }
-
-    #[instrument]
-    fn get_vote_count(&self, token: &Self::ValidatedVoteToken) -> u64 {
-        unimplemented!()
-    }
-
-    #[instrument(skip(_private_key))]
     fn make_vote_token(
         &self,
-        table: &Self::StakeTable,
-        selection_threshold: Self::SelectionThreshold,
         view_number: ViewNumber,
-        _private_key: &Ed25519Priv,
-        next_state: Commitment<Self::StateType>,
-    ) -> Option<Self::VoteToken> {
-        unimplemented!()
+        private_key: &<Ed25519Pub as hotshot::types::SignatureKey>::PrivateKey,
+        // TODO (ct) this should be replaced with something else...
+        next_state: Commitment<Leaf<Self::StateType>>,
+    ) -> Result<Option<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
+        nll_todo()
+    }
+
+    fn validate_vote_token(
+        &self,
+        view_number: ViewNumber,
+        pub_key: Ed25519Pub,
+        token: Checked<Self::VoteTokenType>,
+        next_state: Commitment<Leaf<Self::StateType>>,
+    ) -> Result<
+        hotshot_types::traits::election::Checked<Self::VoteTokenType>,
+        hotshot_types::traits::election::ElectionError,
+    > {
+        nll_todo()
+    }
+
+    type ElectionConfigType = ElectionConfigStub;
+
+    fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType {
+        ElectionConfigStub {}
+    }
+
+    fn create_election(keys: Vec<Ed25519Pub>, config: Self::ElectionConfigType) -> Self {
+        todo!()
     }
 }
+
+#[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
+pub struct ElectionConfigStub {}
+
+impl ElectionConfig for ElectionConfigStub {}

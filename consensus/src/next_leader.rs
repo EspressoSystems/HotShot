@@ -1,19 +1,27 @@
 //! Contains the [`NextLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
 
-use crate::{utils::Signatures, ConsensusApi};
+use crate::ConsensusApi;
+use crate::traits::Signatures;
 use async_lock::Mutex;
+use bincode::Options;
 use commit::Commitment;
+use hotshot_types::traits::election::Checked::Unchecked;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     message::ConsensusMessage,
-    traits::{node_implementation::NodeImplementation, State},
+    traits::{
+        node_implementation::NodeImplementation,
+        signature_key::{EncodedPublicKey, EncodedSignature},
+        State,
+    },
 };
-use hotshot_utils::channel::UnboundedReceiver;
+use hotshot_utils::{bincode::bincode_opts, channel::UnboundedReceiver};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
 use tracing::{info, instrument, warn};
+
 
 /// The next view's leader
 #[derive(Debug, Clone)]
@@ -44,14 +52,16 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
         #[allow(clippy::type_complexity)]
         let mut vote_outcomes: HashMap<
             Commitment<Leaf<I::StateType>>,
-            (Commitment<<I::StateType as State>::BlockType>, Signatures),
+            (
+                Commitment<<I::StateType as State>::BlockType>,
+                BTreeMap<EncodedPublicKey, (EncodedSignature, Vec<u8>)>,
+            ),
         > = HashMap::new();
-        // NOTE will need to refactor this during VRF integration
+        // TODO will need to refactor this during VRF integration
         let threshold = self.api.threshold();
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
-            info!("recv-ed message {:?}", msg.clone());
             if msg.view_number() != self.cur_view {
                 continue;
             }
@@ -63,35 +73,44 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     // if the signature on the vote is invalid,
                     // assume it's sent by byzantine node
                     // and ignore
+                    // TODO ed - ignoring serialization errors since we are changing this type in the future
+                    let vote_token = bincode_opts().deserialize(&vote.vote_token).unwrap();
+
                     if !self.api.is_valid_signature(
                         &vote.signature.0,
                         &vote.signature.1,
                         vote.leaf_commitment,
+                        vote.current_view,
+                        // Ignoring deserialization errors below since we are getting rid of it soon
+                        Unchecked(vote_token),
                     ) {
                         continue;
                     }
 
                     qcs.insert(vote.justify_qc);
 
-                    match vote_outcomes.entry(vote.leaf_commitment) {
-                        std::collections::hash_map::Entry::Occupied(mut o) => {
-                            let (bh, map) = o.get_mut();
-                            if *bh != vote.block_commitment {
-                                warn!("Mismatch between commitments in received votes. This is probably an error without byzantine nodes.");
-                            }
-                            map.insert(vote.signature.0.clone(), vote.signature.1.clone());
-                        }
-                        std::collections::hash_map::Entry::Vacant(location) => {
-                            let mut map = BTreeMap::new();
-                            map.insert(vote.signature.0, vote.signature.1);
-                            location.insert((vote.block_commitment, map));
-                        }
+                    let (_bh, map)= vote_outcomes.entry(vote.leaf_commitment).or_insert_with(|| (vote.block_commitment, BTreeMap::new()));
+                    map.insert(vote.signature.0.clone(), (vote.signature.1.clone(), vote.vote_token));
+                    let valid_signatures = map;
+
+                    // TODO ed - this is repeated code from validate_qc, but should clean itself up once we implement I for Vote
+                    let mut signature_map: Signatures<I>
+                        = BTreeMap::new();
+                    // TODO ed - there is a better way to do this, but it should be gone once I is impled for Vote
+                    for signature in valid_signatures.clone() {
+                        let decoded_vote_token =
+                            bincode_opts().deserialize(&signature.1 .1).unwrap();
+                        signature_map.insert(signature.0, (signature.1 .0, decoded_vote_token));
                     }
 
-                    // unwraps here are fine since we *just* inserted the key
-                    let (_, valid_signatures) = vote_outcomes.get(&vote.leaf_commitment).unwrap();
-
-                    if valid_signatures.len() >= threshold.into() {
+                    // TODO ed - current validated_stake rechecks that all votes are valid, which isn't necessary here
+                    let stake = self.api.validated_stake(
+                        vote.leaf_commitment,
+                        self.cur_view,
+                        signature_map,
+                    );
+                    let stake_casted : usize = stake.try_into().unwrap();
+                    if stake_casted >= threshold.into() {
                         let (block_commitment, valid_signatures) =
                             vote_outcomes.remove(&vote.leaf_commitment).unwrap();
                         // construct QC

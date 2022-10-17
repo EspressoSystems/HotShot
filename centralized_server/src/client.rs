@@ -2,7 +2,7 @@ use crate::{
     config::ClientConfig, Error, FromBackground, Run, TcpStreamRecvUtil, TcpStreamSendUtil,
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToBackground, ToServer,
 };
-use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_types::traits::{signature_key::SignatureKey, election::ElectionConfig};
 use hotshot_utils::{
     art::{async_spawn, split_stream},
     channel::{bounded, oneshot, Sender},
@@ -20,10 +20,10 @@ cfg_if::cfg_if! {
     }
 }
 
-pub(crate) async fn spawn<K: SignatureKey + 'static>(
+pub(crate) async fn spawn<K: SignatureKey + 'static, E: ElectionConfig + 'static>(
     addr: SocketAddr,
     stream: TcpStream,
-    sender: Sender<ToBackground<K>>,
+    sender: Sender<ToBackground<K, E>>,
 ) {
     // We want to know the signature key and the run # that this client ran on
     // so we store those here and pass a mutable reference to `run_client`
@@ -43,16 +43,17 @@ pub(crate) async fn spawn<K: SignatureKey + 'static>(
     }
 }
 
-async fn run_client<K: SignatureKey + 'static>(
+async fn run_client<K: SignatureKey + 'static, E: ElectionConfig + 'static>(
     address: SocketAddr,
     stream: TcpStream,
     parent_key: &mut Option<K>,
     parent_run: &mut Option<Run>,
-    to_background: Sender<ToBackground<K>>,
-) -> Result<(), Error> {
+    to_background: Sender<ToBackground<K, E>>,
+) -> Result<(), Error>
+{
     let (read_stream, write_stream) = split_stream(stream);
 
-    let (sender, mut receiver) = bounded::<FromBackground<K>>(10);
+    let (sender, mut receiver) = bounded::<FromBackground<K, E>>(10);
 
     // Start up a loopback task, which will receive messages from the background (see `background_task` in `src/lib.rs`) and forward them to our `TcpStream`.
     async_spawn({

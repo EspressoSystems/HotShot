@@ -1,7 +1,10 @@
 use clap::Parser;
-use hotshot::types::{
-    ed25519::{Ed25519Priv, Ed25519Pub},
-    SignatureKey,
+use hotshot::{
+    traits::election::static_committee::StaticElectionConfig,
+    types::{
+        ed25519::{Ed25519Priv, Ed25519Pub},
+        SignatureKey,
+    },
 };
 use hotshot_centralized_server::{
     config::{HotShotConfigFile, Libp2pConfigFile, NetworkConfigFile, RoundConfig},
@@ -28,14 +31,19 @@ async fn main() {
     };
     let configs = load_configs(is_libp2p).expect("Could not load configs");
 
-    Server::<Ed25519Pub>::new(host.parse().expect("Invalid host address"), port)
-        .await
-        .with_round_config(RoundConfig::new(configs))
-        .run()
-        .await;
+    Server::<Ed25519Pub, StaticElectionConfig>::new(
+        host.parse().expect("Invalid host address"),
+        port,
+    )
+    .await
+    .with_round_config(RoundConfig::new(configs))
+    .run()
+    .await;
 }
 
-fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub>>> {
+fn load_configs(
+    is_libp2p: bool,
+) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub, StaticElectionConfig>>> {
     let mut result = Vec::new();
     for file in fs::read_dir(".")? {
         let file = file?;
@@ -48,7 +56,7 @@ fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub
                 );
                 let str = fs::read_to_string(file.path())?;
                 let run = toml::from_str::<NetworkConfigFile>(&str).expect("Invalid TOML");
-                let mut run: NetworkConfig<Ed25519Pub> = run.into();
+                let mut run: NetworkConfig<Ed25519Pub, StaticElectionConfig> = run.into();
 
                 run.config.known_nodes = (0..run.config.total_nodes.get())
                     .map(|node_id| {
@@ -120,7 +128,7 @@ fn load_configs(is_libp2p: bool) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub
 mod tests {
     use commit::{Commitment, Committable};
     use hotshot::{
-        traits::{Block, State},
+        traits::{election::static_committee::StaticElectionConfig, Block, State},
         types::SignatureKey,
     };
     use hotshot_centralized_server::{TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend};
@@ -135,9 +143,10 @@ mod tests {
     use std::{collections::HashSet, fmt, net::Ipv4Addr, time::Duration};
     use tracing::instrument;
 
-    type Server = hotshot_centralized_server::Server<TestSignatureKey>;
+    type Server = hotshot_centralized_server::Server<TestSignatureKey, StaticElectionConfig>;
     type ToServer = hotshot_centralized_server::ToServer<TestSignatureKey>;
-    type FromServer = hotshot_centralized_server::FromServer<TestSignatureKey>;
+    type FromServer =
+        hotshot_centralized_server::FromServer<TestSignatureKey, StaticElectionConfig>;
 
     #[cfg_attr(
         feature = "tokio-executor",
@@ -457,6 +466,10 @@ mod tests {
             Some(Self {
                 idx: u64::from_le_bytes(bytes),
             })
+        }
+
+        fn generated_from_seed_indexed(_seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
+            (Self { idx: index }, index)
         }
     }
 }

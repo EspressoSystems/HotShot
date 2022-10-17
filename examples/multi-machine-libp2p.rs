@@ -13,7 +13,7 @@ use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::StaticCommittee,
+        election::static_committee::{StaticCommittee, StaticElectionConfig},
         implementations::{Libp2pNetwork, MemoryStorage},
         NetworkError, Storage,
     },
@@ -50,7 +50,7 @@ use std::{
 };
 use tracing::{debug, error, info};
 
-type FromServer = hotshot_centralized_server::FromServer<Ed25519Pub>;
+type FromServer = hotshot_centralized_server::FromServer<Ed25519Pub, StaticElectionConfig>;
 type ToServer = hotshot_centralized_server::ToServer<Ed25519Pub>;
 
 /// convert node string into multi addr
@@ -360,7 +360,11 @@ impl CliStandalone {
     }
 }
 
-type Node = DEntryNode<Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
+type Node = DEntryNode<
+    Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
+    StaticCommittee<DEntryState>,
+    Ed25519Pub,
+>;
 struct Config {
     run: Run,
     privkey: Ed25519Priv,
@@ -410,7 +414,7 @@ impl Config {
             total_nodes: NonZeroUsize::new(self.num_nodes as usize).unwrap(),
             threshold: NonZeroUsize::new(self.threshold as usize).unwrap(),
             max_transactions: NonZeroUsize::new(100).unwrap(),
-            min_transactions: 0, 
+            min_transactions: 0,
             known_nodes: known_nodes.clone(),
             next_view_timeout: self.next_view_timeout * 1000,
             timeout_ratio: (11, 10),
@@ -419,10 +423,10 @@ impl Config {
             propose_min_round_time: Duration::from_secs(self.propose_min_round_time),
             propose_max_round_time: Duration::from_secs(self.propose_max_round_time),
             num_bootstrap: 7,
+            election_config: Some(StaticElectionConfig {})
         };
         debug!(?config);
         let hotshot = HotShot::init(
-            known_nodes.clone(),
             self.pubkey,
             self.privkey.clone(),
             self.node_id as u64,

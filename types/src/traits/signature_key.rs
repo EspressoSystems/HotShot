@@ -1,5 +1,5 @@
 //! Minimal abstraction over public key signatures
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 
 #[cfg(feature = "demo")]
@@ -25,7 +25,7 @@ impl AsRef<[u8]> for EncodedSignature {
 
 /// Trait for abstracting public key signatures
 pub trait SignatureKey:
-    Send + Sync + Clone + Sized + Debug + Hash + Serialize + DeserializeOwned + PartialEq + Eq + Unpin
+    Send + Sync + Clone + Sized + Debug + Hash + Serialize + for<'a> Deserialize<'a> + PartialEq + Eq
 {
     /// The private key type for this signature algorithm
     type PrivateKey: Send + Sync + Sized;
@@ -41,8 +41,13 @@ pub trait SignatureKey:
     fn to_bytes(&self) -> EncodedPublicKey;
     /// Deserialize a public key from bytes
     fn from_bytes(bytes: &EncodedPublicKey) -> Option<Self>;
+
+    /// Generate a new key pair
+    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey);
 }
 
+/// TODO we don't need this if we have `generated_from_seed_indexed`
+/// should use one or the other
 /// Trait for generation of keys during testing
 pub trait TestableSignatureKey: SignatureKey {
     /// Generates a private key from the given integer seed

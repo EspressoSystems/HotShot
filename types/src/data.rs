@@ -8,7 +8,7 @@ use crate::{
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
         storage::StoredView,
-        Block, State, state::ConsensusTime,
+        Block, State, state::ConsensusTime
     },
 };
 use commit::{Commitment, Committable};
@@ -105,7 +105,7 @@ pub struct QuorumCertificate<STATE: State> {
     ///
     /// These formats are deliberatly done as a `Vec` instead of an array to prevent creating the
     /// assumption that singatures are constant in length
-    pub signatures: BTreeMap<EncodedPublicKey, EncodedSignature>,
+    pub signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, Vec<u8>)>,
 
     /// Temporary bypass for boostrapping
     ///
@@ -216,7 +216,8 @@ impl<STATE: State> Committable for Leaf<STATE> {
         for (k, v) in &self.justify_qc.signatures {
             // TODO there is probably a way to avoid cloning.
             signatures_bytes.append(&mut k.0.clone());
-            signatures_bytes.append(&mut v.0.clone());
+            signatures_bytes.append(&mut v.0.0.clone());
+            signatures_bytes.append(&mut v.1.clone());
         }
         commit::RawCommitmentBuilder::new("Leaf Comm")
             .constant_str("view_number")

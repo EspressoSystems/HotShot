@@ -25,9 +25,9 @@ use hotshot_types::traits::{
         NetworkingImplementation, TestableNetworkingImplementation,
     },
     signature_key::{
-        ed25519::{Ed25519Priv, Ed25519Pub},
+        ed25519::Ed25519Pub,
         SignatureKey, TestableSignatureKey,
-    },
+    }, election::ElectionConfig,
 };
 use hotshot_utils::{
     art::{async_block_on, async_sleep, async_spawn, split_stream},
@@ -51,7 +51,7 @@ use tracing::error;
 
 /// The inner state of the `CentralizedServerNetwork`
 #[derive(Debug)]
-struct Inner<K: SignatureKey> {
+struct Inner<K: SignatureKey, E: ElectionConfig> {
     /// Self-identifying public key
     own_key: K,
     /// List of all known nodes
@@ -64,11 +64,11 @@ struct Inner<K: SignatureKey> {
     /// Each message can optionally have a callback sender that will be invoked when the message is send.
     sending: UnboundedSender<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
     /// A loopback sender that will send to `receiving`, for broadcasting to self.
-    receiving_loopback: UnboundedSender<(FromServer<K>, Vec<u8>)>,
+    receiving_loopback: UnboundedSender<(FromServer<K, E>, Vec<u8>)>,
     /// A queue of messages to be received by this node. This is filled by `run_background`.
-    receiving: UnboundedReceiver<(FromServer<K>, Vec<u8>)>,
+    receiving: UnboundedReceiver<(FromServer<K, E>, Vec<u8>)>,
     /// An internal queue of messages and, for some message types, payloads that have been received but not yet processed.
-    incoming_queue: RwLock<Vec<(FromServer<K>, Vec<u8>)>>,
+    incoming_queue: RwLock<Vec<(FromServer<K, E>, Vec<u8>)>>,
     /// a sender used to immediately broadcast the amount of clients connected
     request_client_count_sender: RwLock<Vec<OneShotSender<u32>>>,
     /// `true` if the server indicated that the run is ready to start, otherwise `false`
@@ -98,7 +98,7 @@ struct MsgStepContext {
     accumulated_stream: Vec<u8>,
 }
 
-impl<K: SignatureKey> Inner<K> {
+impl<K: SignatureKey, E: ElectionConfig> Inner<K, E> {
     /// Send a broadcast mesasge to the server.
     async fn broadcast(&self, message: Vec<u8>) {
         self.sending
@@ -169,7 +169,7 @@ impl<K: SignatureKey> Inner<K> {
     async fn remove_next_message_from_queue<F, FAIL, RET>(&self, c: F, f: FAIL) -> RET
     where
         F: Fn(
-            &(FromServer<K>, Vec<u8>),
+            &(FromServer<K, E>, Vec<u8>),
             usize,
             &mut HashMap<K, MsgStepContext>,
         ) -> MsgStepOutcome<RET>,
@@ -255,7 +255,7 @@ impl<K: SignatureKey> Inner<K> {
     async fn remove_messages_from_queue<F, RET>(&self, c: F) -> Vec<RET>
     where
         F: Fn(
-            &(FromServer<K>, Vec<u8>),
+            &(FromServer<K, E>, Vec<u8>),
             usize,
             &mut HashMap<K, MsgStepContext>,
         ) -> MsgStepOutcome<RET>,
@@ -620,20 +620,18 @@ impl<K: SignatureKey> Inner<K> {
 
 /// Handle for connecting to a centralized server
 #[derive(Clone, Debug)]
-pub struct CentralizedServerNetwork<K: SignatureKey> {
+pub struct CentralizedServerNetwork<K: SignatureKey, E: ElectionConfig> {
     /// The inner state
-    inner: Arc<Inner<K>>,
+    inner: Arc<Inner<K, E>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
-impl CentralizedServerNetwork<Ed25519Pub> {
+impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNetwork<K, E> {
     /// Connect with the server running at `addr` and retrieve the config from the server.
     ///
     /// The config is returned along with the current run index and the running `CentralizedServerNetwork`
-    pub async fn connect_with_server_config(
-        addr: SocketAddr,
-    ) -> (NetworkConfig<Ed25519Pub>, Run, Self) {
+    pub async fn connect_with_server_config(addr: SocketAddr) -> (NetworkConfig<K, E>, Run, Self) {
         let (streams, run, config) = loop {
             let (mut recv_stream, mut send_stream) = match TcpStream::connect(addr).await {
                 Ok(stream) => {
@@ -668,8 +666,7 @@ impl CentralizedServerNetwork<Ed25519Pub> {
             }
         };
 
-        let key = Ed25519Priv::generated_from_seed_indexed(config.seed, config.node_index);
-        let key = Ed25519Pub::from_private(&key);
+        let (pub_key, _priv_key) = K::generated_from_seed_indexed(config.seed, config.node_index);
         let known_nodes = config.config.known_nodes.clone();
 
         let mut streams = Some(streams);
@@ -687,7 +684,7 @@ impl CentralizedServerNetwork<Ed25519Pub> {
                 }
                 .boxed()
             },
-            key,
+            pub_key,
         );
         (config, run, result)
     }
@@ -710,7 +707,7 @@ impl CentralizedServerNetwork<Ed25519Pub> {
     }
 }
 
-impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
+impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNetwork<K, E> {
     /// Connect to a given socket address. Will loop and try to connect every 5 seconds if the server is unreachable.
     fn connect_to(addr: SocketAddr) -> BoxFuture<'static, (TcpStreamRecvUtil, TcpStreamSendUtil)> {
         async move {
@@ -807,13 +804,13 @@ impl<K: SignatureKey + 'static> CentralizedServerNetwork<K> {
 ///
 /// - All messages sent to the sender of `to_background` will be sent to the server.
 /// - All messages received from the TCP stream will be sent to `from_background_sender`.
-async fn run_background<K: SignatureKey>(
+async fn run_background<K: SignatureKey, E: ElectionConfig>(
     recv_stream: TcpStreamRecvUtil,
     mut send_stream: TcpStreamSendUtil,
     key: K,
     to_background: &mut UnboundedReceiver<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
-    from_background_sender: UnboundedSender<(FromServer<K>, Vec<u8>)>,
-    connection: Arc<Inner<K>>,
+    from_background_sender: UnboundedSender<(FromServer<K, E>, Vec<u8>)>,
+    connection: Arc<Inner<K, E>>,
 ) -> Result<(), Error> {
     // let mut stream = TcpStreamUtil::new(TcpStream::connect(addr).await.context(StreamSnafu)?);
 
@@ -876,10 +873,10 @@ async fn run_background_send<K: SignatureKey>(
 /// Loop on the TCP recv stream.
 ///
 /// - All messages received from the TCP stream will be sent to `from_background_sender`.
-async fn run_background_recv<K: SignatureKey>(
+async fn run_background_recv<K: SignatureKey, E: ElectionConfig>(
     mut stream: TcpStreamRecvUtil,
-    from_background_sender: UnboundedSender<(FromServer<K>, Vec<u8>)>,
-    connection: Arc<Inner<K>>,
+    from_background_sender: UnboundedSender<(FromServer<K, E>, Vec<u8>)>,
+    connection: Arc<Inner<K, E>>,
 ) -> Result<(), Error> {
     loop {
         let msg = stream.recv().await?;
@@ -971,10 +968,11 @@ impl From<hotshot_centralized_server::Error> for Error {
 }
 
 #[async_trait]
-impl<M, P> NetworkingImplementation<M, P> for CentralizedServerNetwork<P>
+impl<M, P, E> NetworkingImplementation<M, P> for CentralizedServerNetwork<P, E>
 where
     M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static,
     P: SignatureKey + 'static,
+    E: ElectionConfig + 'static
 {
     async fn ready(&self) -> bool {
         while !self.inner.connected.load(Ordering::Relaxed) {
@@ -1064,10 +1062,11 @@ where
     }
 }
 
-impl<M, P> TestableNetworkingImplementation<M, P> for CentralizedServerNetwork<P>
+impl<M, P, E> TestableNetworkingImplementation<M, P> for CentralizedServerNetwork<P, E>
 where
     M: Serialize + DeserializeOwned + Sync + Send + Clone + 'static,
     P: TestableSignatureKey + 'static,
+    E: ElectionConfig + 'static
 {
     fn generator(
         expected_node_count: usize,
@@ -1076,7 +1075,7 @@ where
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
 
-        let server = async_block_on(hotshot_centralized_server::Server::<P>::new(
+        let server = async_block_on(hotshot_centralized_server::Server::<P, E>::new(
             Ipv4Addr::LOCALHOST.into(),
             0,
         ))
@@ -1105,7 +1104,7 @@ where
     }
 }
 
-impl<P: SignatureKey> Drop for CentralizedServerNetwork<P> {
+impl<P: SignatureKey, E: ElectionConfig> Drop for CentralizedServerNetwork<P, E> {
     fn drop(&mut self) {
         if let Some(shutdown) = self.server_shutdown_signal.take() {
             // we try to unwrap this Arc. If we're the last one with a reference to this arc, we'll be able to unwrap this

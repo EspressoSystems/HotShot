@@ -23,14 +23,18 @@ use tracing::{debug, error, instrument};
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::StaticCommittee,
+        election::static_committee::{StaticCommittee, StaticElectionConfig},
         implementations::{MemoryStorage, WNetwork},
     },
     types::{Event, EventType, HotShotHandle, Message},
     HotShot,
 };
 
-type Node = DEntryNode<WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>>;
+type Node = DEntryNode<
+    WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
+    StaticCommittee<DEntryState>,
+    Ed25519Pub,
+>;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -358,6 +362,7 @@ async fn get_hotshot(
         propose_min_round_time: Duration::from_millis(0),
         propose_max_round_time: Duration::from_millis(1000),
         num_bootstrap: 5,
+        election_config: Some(StaticElectionConfig {})
     };
     debug!(?config);
     let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
@@ -365,7 +370,6 @@ async fn get_hotshot(
     let genesis_block = DEntryBlock::genesis();
     let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
     let h = HotShot::init(
-        known_nodes.clone(),
         public_key,
         private_key,
         node_id,
