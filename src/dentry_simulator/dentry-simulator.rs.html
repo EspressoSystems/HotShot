@@ -380,6 +380,10 @@
 <span id="380">380</span>
 <span id="381">381</span>
 <span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">futures::future::join_all</span>;
 <span class="kw">use</span> <span class="ident">hotshot_types::traits</span>::{
@@ -405,14 +409,18 @@
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
     <span class="ident">traits</span>::{
-        <span class="ident">election::StaticCommittee</span>,
+        <span class="ident">election::static_committee</span>::{<span class="ident">StaticCommittee</span>, <span class="ident">StaticElectionConfig</span>},
         <span class="ident">implementations</span>::{<span class="ident">MemoryStorage</span>, <span class="ident">WNetwork</span>},
     },
     <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">HotShotHandle</span>, <span class="ident">Message</span>},
     <span class="ident">HotShot</span>,
 };
 
-<span class="kw">type</span> <span class="ident">Node</span> <span class="op">=</span> <span class="ident">DEntryNode</span><span class="op">&lt;</span><span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&lt;</span><span class="ident">DEntryState</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+<span class="kw">type</span> <span class="ident">Node</span> <span class="op">=</span> <span class="ident">DEntryNode</span><span class="op">&lt;</span>
+    <span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&lt;</span><span class="ident">DEntryState</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>,
+    <span class="ident">StaticCommittee</span><span class="op">&lt;</span><span class="ident">DEntryState</span><span class="op">&gt;</span>,
+    <span class="ident">Ed25519Pub</span>,
+<span class="op">&gt;</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
 <span class="attribute">#[<span class="ident">command</span>(
@@ -740,6 +748,7 @@
         <span class="ident">propose_min_round_time</span>: <span class="ident">Duration::from_millis</span>(<span class="number">0</span>),
         <span class="ident">propose_max_round_time</span>: <span class="ident">Duration::from_millis</span>(<span class="number">1000</span>),
         <span class="ident">num_bootstrap</span>: <span class="number">5</span>,
+        <span class="ident">election_config</span>: <span class="prelude-val">Some</span>(<span class="ident">StaticElectionConfig</span> {})
     };
     <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">config</span>);
     <span class="kw">let</span> <span class="ident">private_key</span> <span class="op">=</span> <span class="ident">Ed25519Priv::generated_from_seed_indexed</span>([<span class="number">0_u8</span>; <span class="number">32</span>], <span class="ident">node_id</span>);
@@ -747,7 +756,6 @@
     <span class="kw">let</span> <span class="ident">genesis_block</span> <span class="op">=</span> <span class="ident">DEntryBlock::genesis</span>();
     <span class="kw">let</span> <span class="ident">initializer</span> <span class="op">=</span> <span class="ident">hotshot::HotShotInitializer::from_genesis</span>(<span class="ident">genesis_block</span>).<span class="ident">unwrap</span>();
     <span class="kw">let</span> <span class="ident">h</span> <span class="op">=</span> <span class="ident">HotShot::init</span>(
-        <span class="ident">known_nodes</span>.<span class="ident">clone</span>(),
         <span class="ident">public_key</span>,
         <span class="ident">private_key</span>,
         <span class="ident">node_id</span>,

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["StaticCommittee","Dummy implementation of [`Election`]"],["StaticElectionConfig","configuration for static committee. stub for now"],["StaticVoteToken","TODO ed - docs"]]};

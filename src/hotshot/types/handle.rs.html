@@ -328,7 +328,6 @@
 <span id="328">328</span>
 <span id="329">329</span>
 <span id="330">330</span>
-<span id="331">331</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -337,7 +336,7 @@
     <span class="ident">HotShot</span>, <span class="prelude-ty">Result</span>,
 };
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
-    <span class="ident">data::Leaf</span>,
+    <span class="ident">data</span>::{<span class="ident">Leaf</span>, <span class="ident">ViewNumber</span>},
     <span class="ident">error</span>::{<span class="ident">HotShotError</span>, <span class="ident">RoundTimedoutState</span>},
     <span class="ident">traits</span>::{<span class="ident">network::NetworkingImplementation</span>, <span class="ident">storage::Storage</span>, <span class="ident">State</span>}, <span class="ident">event::EventType</span>,
 };
@@ -355,11 +354,10 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">hotshot_consensus::ConsensusApi</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">hotshot_types::message::ConsensusMessage</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">hotshot_types::traits::signature_key</span>::{<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>};
-
-<span class="kw">use</span> <span class="ident">hotshot_types::data::ViewNumber</span>;
+<span class="kw">use</span> <span class="ident">hotshot_types</span>::{
+    <span class="ident">message::ConsensusMessage</span>,
+    <span class="ident">traits::signature_key</span>::{<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>},
+};
 
 <span class="doccomment">/// Event streaming handle for a [`HotShot`] instance running in the background</span>
 <span class="doccomment">///</span>

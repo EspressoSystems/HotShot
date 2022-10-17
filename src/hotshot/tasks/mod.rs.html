@@ -543,6 +543,8 @@
 <span id="543">543</span>
 <span id="544">544</span>
 <span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">create_or_obtain_chan_from_write</span>, <span class="ident">types::HotShotHandle</span>, <span class="ident">HotShot</span>, <span class="ident">HotShotConsensusApi</span>};
@@ -820,6 +822,8 @@
     };
     <span class="kw">let</span> <span class="ident">replica_handle</span> <span class="op">=</span> <span class="ident">async_spawn</span>(<span class="kw">async</span> <span class="kw">move</span> { <span class="ident">replica</span>.<span class="ident">run_view</span>().<span class="kw">await</span> });
     <span class="ident">task_handles</span>.<span class="ident">push</span>(<span class="ident">replica_handle</span>);
+
+    <span class="macro">error!</span>(<span class="string">&quot;MY PUB KEY IS {:?}, \nLEADER PUB KEY IS {:?}, \nI AM leader: {:?}\n&quot;</span>, <span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>, <span class="ident">c_api</span>.<span class="ident">get_leader</span>(<span class="ident">cur_view</span>).<span class="kw">await</span>, <span class="ident">c_api</span>.<span class="ident">is_leader</span>(<span class="ident">cur_view</span>).<span class="kw">await</span>);
 
     <span class="kw">if</span> <span class="ident">c_api</span>.<span class="ident">is_leader</span>(<span class="ident">cur_view</span>).<span class="kw">await</span> {
         <span class="kw">let</span> <span class="ident">leader</span> <span class="op">=</span> <span class="ident">Leader</span> {

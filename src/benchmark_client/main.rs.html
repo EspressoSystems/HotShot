@@ -169,7 +169,7 @@
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">info</span>};
 
 <span class="kw">type</span> <span class="ident">ToServer</span> <span class="op">=</span> <span class="ident">hotshot_centralized_server::ToServer</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span>;
-<span class="kw">type</span> <span class="ident">FromServer</span> <span class="op">=</span> <span class="ident">hotshot_centralized_server::FromServer</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span>;
+<span class="kw">type</span> <span class="ident">FromServer</span> <span class="op">=</span> <span class="ident">hotshot_centralized_server::FromServer</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span>, ()<span class="op">&gt;</span>;
 
 <span class="attribute">#[<span class="ident">async_main</span>]</span>
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() {

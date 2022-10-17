@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":[["SORTITION_PARAMETER","the sortition committee size parameter"]],"struct":[["VRFPubKey","type wrapper for VRF’s public key"],["VRFStakeTable","The stake table for VRFs"],["VRFStakeTableConfig","configuration specifying the stake table"],["VRFVoteToken","TODO doc me"],["VrfImpl","the vrf implementation"]]};
