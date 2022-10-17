@@ -6,21 +6,21 @@ build: build_tokio build_async_std
 
 build_tokio:
   echo Building with tokio executor
-  cargo build --verbose --release --workspace --examples --bins --tests --lib --benches --features=tokio-ci
+  cargo build --verbose --profile=release-lto --workspace --examples --bins --tests --lib --benches --features=tokio-ci
 
 build_async_std:
   echo Building with async std executor
-  cargo build --verbose --release --workspace --examples --bins --tests --lib --benches --features=full-ci
+  cargo build --verbose --profile=release-lto --workspace --examples --bins --tests --lib --benches --features=full-ci
 
 test: test_tokio test_async_std
 
 test_tokio:
   echo Testing with tokio executor
-  cargo test --verbose --release --features=tokio-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
+  cargo test --verbose --profile=release-lto --features=tokio-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
 
 test_async_std:
   echo Testing with async std executor
-  cargo test --verbose --release --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
+  cargo test --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
 
 lint: fmt lint_tokio lint_tokio_flume lint_async_std lint_async_std_flume
 

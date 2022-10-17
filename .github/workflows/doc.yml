@@ -52,7 +52,7 @@ jobs:
 
       - name: Build Docs
         run: |
-          cargo doc --no-deps --workspace --release --document-private-items --bins --examples --features=full-ci
+          cargo doc --no-deps --workspace --profile=release-lto --document-private-items --bins --examples --features=full-ci
           cargo test --doc --workspace --features=full-ci
 
       - name: Create documentation

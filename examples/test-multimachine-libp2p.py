@@ -20,7 +20,7 @@ def gen_invocation(
     ) -> tuple[list[str], str]:
     out_file_name : Final[str] = f'out_{node_type}_{bound_addr[-4:]}';
     fmt_cmd = [
-        f'cargo run --features=async-std-executor --example=multi-machine-libp2p --release -- ' \
+        f'cargo run --features=async-std-executor --example=multi-machine-libp2p --profile=release-lto -- '
         f' --num_nodes={num_nodes} ' \
         f' --num_bootstrap={len(to_connect_addrs)} '\
         f' --num_txn_per_round=10 '\

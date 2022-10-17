@@ -24,7 +24,7 @@ def gen_invocation(
     to_connect_list : Final[str] = reduce(aggr_list, to_connect_addrs);
     out_file_name : Final[str] = f'out_{node_type}_{bound_addr[-4:]}';
     fmt_cmd = [
-        f'cargo run --no-default-features --features=async-std-executor --example=counter --release -- ' \
+        f'cargo run --no-default-features --features=async-std-executor --example=counter --profile=release-lto -- ' \
         f' --bound_addr={bound_addr} '\
         f' --node_type={node_type.value} '\
         f' --num_nodes={num_nodes} '\

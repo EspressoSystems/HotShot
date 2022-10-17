@@ -3,7 +3,7 @@
   hosts: all
   vars:
     user: <REPLACE_WITH_YOUR_USER>
-    centralized_server_binary_path: "../../target/release/hotshot-centralized-server-bin"
+    centralized_server_binary_path: "../../target/release-lto/hotshot-centralized-server-bin"
     config_toml_path: "./config.toml"
     server_host: "0.0.0.0"
     server_port: "2345"

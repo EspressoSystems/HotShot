@@ -8,6 +8,6 @@ $PSDefaultParameterValues['*:ErrorAction']='Stop'
 !(cargo clippy --workspace --all-targets --features=full-ci -- -D warnings) -and
 !(cargo audit --deny warnings) -and
 !(cargo check --features=async-std-executor) -and
-!(cargo build --workspace --all-targets --features=full-ci --release) -and
-!(cargo test --release --lib --bins --tests --benches --features=full-ci --workspace --no-fail-fast -- --test-threads=1) -and
-!(cargo test --release --workspace --features=full-ci --no-fail-fast -- test_stress --test-threads=1 --ignored)
+!(cargo build --workspace --all-targets --features=full-ci --profile=release-lto) -and
+!(cargo test --profile=release-lto --lib --bins --tests --benches --features=full-ci --workspace --no-fail-fast -- --test-threads=1) -and
+!(cargo test --profile=release-lto --workspace --features=full-ci --no-fail-fast -- test_stress --test-threads=1 --ignored)

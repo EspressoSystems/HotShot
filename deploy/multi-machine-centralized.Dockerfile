@@ -2,7 +2,7 @@
 FROM ubuntu:jammy
 
 # assuming this is built already
-COPY target/release/examples/multi-machine-centralized /bin/multi-machine-centralized
+COPY target/release-lto/examples/multi-machine-centralized /bin/multi-machine-centralized
 
 # the host to connect to. Must be an IP address
 ENV HOST="0.0.0.0"

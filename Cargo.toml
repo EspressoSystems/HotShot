@@ -180,11 +180,20 @@ opt-level = 1
 # ensure that it will render any images that we may have in inner attribute documentation.
 features = ["doc-images"]
 
-## Enable LTO for release profile
+# The default release profile without LTO.
 [profile.release]
 debug = 1
-lto = "thin"
+# Disable LTO to decrease the linking time.
+lto = "off"
 incremental = true
+
+# The release profile with LTO.
+# CI uses this profile. To run it locally, add `--profile=release-lto` to `cargo build` or `cargo
+# test`.
+[profile.release-lto]
+inherits = "release"
+# Enable "thin" LTO to optimize performance.
+lto = "thin"
 
 ## LTO doesn't work with careful
 ## explicitly specifying features in case releases features change
