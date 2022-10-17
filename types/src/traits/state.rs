@@ -70,6 +70,7 @@ pub trait ConsensusTime:
     + 'static
 {
     fn genesis() -> Self;
+    fn new(val: u64) -> Self;
 }
 
 /// extra functions required on state to be usable by hotshot-testing

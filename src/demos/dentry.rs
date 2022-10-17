@@ -6,9 +6,8 @@
 //! These implementations are useful in examples and integration testing, but are not suitable for
 //! production use.
 
-use crate::{
-    traits::{implementations::MemoryStorage, Block, NetworkingImplementation, NodeImplementation},
-    types::Message,
+use crate::traits::{
+    implementations::MemoryStorage, Block, NetworkingImplementation, NodeImplementation,
 };
 use commit::{Commitment, Committable};
 use hotshot_types::{
@@ -16,6 +15,7 @@ use hotshot_types::{
     data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
     traits::{
         election::Election,
+        node_implementation::{NodeTypes, NodeTypesImpl},
         signature_key::SignatureKey,
         state::{TestableBlock, TestableState},
         State,
@@ -501,8 +501,8 @@ impl<NET, ELE, KEY> Default for DEntryNode<NET, ELE, KEY> {
 
 impl<NET, ELE, KEY> NodeImplementation for DEntryNode<NET, ELE, KEY>
 where
-    NET: NetworkingImplementation<Message<DEntryState, KEY>, KEY> + Clone + Debug + 'static,
-    ELE: Election<KEY, ViewNumber, StateType = DEntryState> + Clone + 'static,
+    NET: NetworkingImplementation<NodeTypesImpl<Self>>,
+    ELE: Election<NodeTypesImpl<Self>>,
     KEY: SignatureKey + Clone + 'static,
 {
     type StateType = DEntryState;
@@ -513,25 +513,25 @@ where
 }
 
 /// Provides a random [`QuorumCertificate`]
-pub fn random_quorum_certificate<STATE: State>() -> QuorumCertificate<STATE> {
+pub fn random_quorum_certificate<TYPES: NodeTypes>() -> QuorumCertificate<TYPES> {
     let mut rng = thread_rng();
     QuorumCertificate {
         block_commitment: random_commitment(),
         leaf_commitment: random_commitment(),
-        view_number: ViewNumber::new(rng.gen()),
+        time: TYPES::Time::new(rng.gen()),
         signatures: BTreeMap::default(),
         genesis: rng.gen(),
     }
 }
 
 /// Provides a random [`Leaf`]
-pub fn random_leaf<STATE: State<Time = ViewNumber>>(deltas: STATE::BlockType) -> Leaf<STATE> {
+pub fn random_leaf<TYPES: NodeTypes>(deltas: TYPES::BlockType) -> Leaf<TYPES> {
     let justify_qc = random_quorum_certificate();
-    let state = STATE::default()
-        .append(&deltas, &ViewNumber::new(42))
+    let state = TYPES::StateType::default()
+        .append(&deltas, &TYPES::Time::new(42))
         .unwrap_or_default();
     Leaf {
-        view_number: justify_qc.view_number,
+        time: justify_qc.view_number,
         justify_qc,
         parent_commitment: random_commitment(),
         deltas,

@@ -46,11 +46,7 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
-use hotshot_consensus::{
-    Consensus, ConsensusApi, SendToTasks, TransactionHashMap, TransactionStorage, View, ViewInner,
-    ViewQueue,
-};
-use hotshot_types::traits::election::VoteToken;
+use hotshot_consensus::{Consensus, ConsensusApi, SendToTasks, View, ViewInner, ViewQueue};
 use hotshot_types::{
     constants::genesis_proposer_id,
     data::{fake_commitment, ViewNumber},
@@ -62,15 +58,22 @@ use hotshot_types::{
             Election, ElectionError,
         },
         network::{NetworkChange, NetworkError},
-        node_implementation::TypeMap,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         storage::{StoredView, ViewEntry},
         State,
     },
     HotShotConfig,
 };
+use hotshot_types::{
+    message::MessageKind,
+    traits::{
+        election::VoteToken,
+        node_implementation::{NodeTypesImpl, TypeMap},
+    },
+};
 use hotshot_utils::{
-    art::async_spawn, bincode::bincode_opts, broadcast::BroadcastSender
+    art::async_spawn, bincode::bincode_opts, broadcast::BroadcastSender,
+    subscribable_rwlock::SubscribableRwLock,
 };
 use hotshot_utils::{
     art::async_spawn_local,
@@ -109,7 +112,7 @@ pub struct HotShotInner<I: NodeImplementation> {
     private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Configuration items for this hotshot instance
-    config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey,ViewNumber>>::ElectionConfigType>,
+    config: HotShotConfig<I::SignatureKey, <I as TypeMap>::ElectionConfigType>,
 
     /// Networking interface for this hotshot instance
     networking: I::Networking,
@@ -135,7 +138,7 @@ pub struct HotShot<I: NodeImplementation + Send + Sync + 'static> {
 
     /// Transactions
     /// (this is shared btwn hotshot and `Consensus`)
-    transactions: TransactionStorage<I>,
+    transactions: Arc<SubscribableRwLock<HashMap<Commitment<I::Transaction>, I::Transaction>>>,
 
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<I>>>,
@@ -160,18 +163,12 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_arguments)]
-    #[instrument(skip(
-        private_key,
-        networking,
-        storage,
-        election,
-        initializer
-    ))]
+    #[instrument(skip(private_key, networking, storage, election, initializer))]
     pub async fn new(
         public_key: I::SignatureKey,
         private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
-        config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>,
+        config: HotShotConfig<I::SignatureKey, <I as TypeMap>::ElectionConfigType>,
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
@@ -326,7 +323,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         public_key: I::SignatureKey,
         private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
-        config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>,
+        config: HotShotConfig<I::SignatureKey, <I as TypeMap>::ElectionConfigType>,
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
@@ -358,7 +355,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Will return any errors that the underlying `broadcast_message` can return.
     pub async fn send_broadcast_message(
         &self,
-        kind: impl Into<<I as TypeMap>::MessageKind>,
+        kind: impl Into<MessageKind<NodeTypesImpl<I>>>,
     ) -> std::result::Result<(), NetworkError> {
         let inner = self.inner.clone();
         let pk = self.inner.public_key.clone();
@@ -385,7 +382,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Will return any errors that the underlying `message_node` can return.
     pub async fn send_direct_message(
         &self,
-        kind: impl Into<<I as TypeMap>::MessageKind>,
+        kind: impl Into<MessageKind<NodeTypesImpl<I>>>,
         recipient: I::SignatureKey,
     ) -> std::result::Result<(), NetworkError> {
         self.inner
@@ -408,7 +405,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     )]
     async fn handle_broadcast_consensus_message(
         &self,
-        msg: <I as TypeMap>::ConsensusMessage,
+        msg: ConsensusMessage<NodeTypesImpl<I>>,
         sender: I::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
@@ -458,7 +455,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     )]
     async fn handle_direct_consensus_message(
         &self,
-        msg: <I as TypeMap>::ConsensusMessage,
+        msg: ConsensusMessage<NodeTypesImpl<I>>,
         _sender: I::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
@@ -501,7 +498,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Handle an incoming [`DataMessage`] that was broadcasted on the network
     async fn handle_broadcast_data_message(
         &self,
-        msg: <I as TypeMap>::DataMessage,
+        msg: DataMessage<NodeTypesImpl<I>>,
         _sender: I::SignatureKey,
     ) {
         // TODO validate incoming broadcast message based on sender signature key
@@ -511,10 +508,11 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
-                let add_transaction = |txns: &mut TransactionHashMap<I>| {
-                    txns.insert(transaction.commit(), transaction);
-                };
-                self.transactions.modify(add_transaction).await;
+                self.transactions
+                    .modify(|txns| {
+                        txns.insert(transaction.commit(), transaction);
+                    })
+                    .await;
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed
@@ -526,7 +524,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Handle an incoming [`DataMessage`] that directed at this node
     async fn handle_direct_data_message(
         &self,
-        msg: <I as TypeMap>::DataMessage,
+        msg: DataMessage<NodeTypesImpl<I>>,
         _sender: I::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
@@ -656,7 +654,9 @@ struct HotShotConsensusApi<I: NodeImplementation> {
 }
 
 #[async_trait]
-impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsensusApi<I> {
+impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<NodeTypesImpl<I>>
+    for HotShotConsensusApi<I>
+{
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes
     }
@@ -673,10 +673,6 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         self.inner.config.propose_max_round_time
     }
 
-    fn storage(&self) -> &I::Storage {
-        &self.inner.storage
-    }
-
     fn max_transactions(&self) -> NonZeroUsize {
         self.inner.config.max_transactions
     }
@@ -690,22 +686,10 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         &self,
         view_number: ViewNumber,
         next_state: Commitment<Leaf<I::StateType>>,
-    ) -> std::result::Result<
-        std::option::Option<
-            <<I as NodeImplementation>::Election as Election<
-                <I as NodeImplementation>::SignatureKey,
-                ViewNumber,
-            >>::VoteTokenType,
-        >,
-        ElectionError,
-    > {
+    ) -> std::result::Result<std::option::Option<I::VoteTokenType>, ElectionError> {
         self.inner
             .election
             .make_vote_token(view_number, &self.inner.private_key, next_state)
-    }
-
-    fn get_election(&self) -> &<I as NodeImplementation>::Election {
-        &self.inner.election
     }
 
     async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey {
@@ -720,7 +704,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     async fn send_direct_message(
         &self,
         recipient: I::SignatureKey,
-        message: <I as TypeMap>::ConsensusMessage,
+        message: ConsensusMessage<NodeTypesImpl<I>>,
     ) -> std::result::Result<(), NetworkError> {
         let inner = self.inner.clone();
         debug!(?message, ?recipient, "send_direct_message");
@@ -741,7 +725,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
 
     async fn send_broadcast_message(
         &self,
-        message: <I as TypeMap>::ConsensusMessage,
+        message: ConsensusMessage<NodeTypesImpl<I>>,
     ) -> std::result::Result<(), NetworkError> {
         debug!(?message, "send_broadcast_message");
         self.inner
@@ -773,19 +757,11 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     }
 
     // TODO ed - refactor this function to only acc stake, and not check validity
-    fn validated_stake(&self,
+    fn validated_stake(
+        &self,
         hash: Commitment<Leaf<I::StateType>>,
         view_number: ViewNumber,
-        signatures: BTreeMap<
-            EncodedPublicKey,
-            (
-                EncodedSignature,
-                <<I as NodeImplementation>::Election as Election<
-                    <I as NodeImplementation>::SignatureKey,
-                    ViewNumber,
-                >>::VoteTokenType,
-            ),
-        >,
+        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, I::VoteTokenType)>,
     ) -> u64 {
         let stake = signatures
             .iter()
@@ -808,16 +784,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
             return true;
         }
         let hash = qc.leaf_commitment;
-        let mut signature_map: BTreeMap<
-            EncodedPublicKey,
-            (
-                EncodedSignature,
-                <<I as NodeImplementation>::Election as Election<
-                    <I as NodeImplementation>::SignatureKey,
-                    ViewNumber,
-                >>::VoteTokenType,
-            ),
-        > = BTreeMap::new();
+        let mut signature_map = BTreeMap::new();
         // TODO ed - refactor once I is impled for Vote
         for signature in qc.signatures.clone() {
             let decoded_vote_token = bincode_opts().deserialize(&signature.1 .1).unwrap();
@@ -837,12 +804,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         encoded_signature: &EncodedSignature,
         hash: Commitment<Leaf<I::StateType>>,
         view_number: ViewNumber,
-        vote_token: Checked<
-            <<I as NodeImplementation>::Election as Election<
-                <I as NodeImplementation>::SignatureKey,
-                ViewNumber,
-            >>::VoteTokenType,
-        >,
+        vote_token: Checked<I::VoteTokenType>,
     ) -> bool {
         let mut is_valid_vote_token = false;
         let mut is_valid_signature = false;
@@ -880,12 +842,12 @@ impl<STATE: State<Time = ViewNumber>> HotShotInitializer<STATE> {
             .map_err(|err| HotShotError::Misc {
                 context: err.to_string(),
             })?;
-        let view_number = ViewNumber::genesis();
+        let time = ViewNumber::genesis();
         let justify_qc = QuorumCertificate::<STATE>::genesis();
 
         Ok(Self {
             inner: Leaf {
-                view_number,
+                time,
                 justify_qc,
                 parent_commitment: fake_commitment(),
                 deltas: genesis_block,

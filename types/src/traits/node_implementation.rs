@@ -5,7 +5,7 @@
 
 use super::{
     block_contents::Transaction,
-    election::VoteToken,
+    election::{ElectionConfig, VoteToken},
     network::TestableNetworkingImplementation,
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, TestableBlock, TestableState},
@@ -28,13 +28,16 @@ use std::{fmt::Debug, marker::PhantomData};
 pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
     /// The time unit that this consensus is using
     type Time: ConsensusTime;
-    /// Block type for this consensus implementation
-    type BlockType: Block;
     /// The signature key type for this implementation
     type SignatureKey: SignatureKey;
     /// The vote token type for this implementation
     type VoteTokenType: VoteToken;
+    /// The transactions
+    type Transaction: Transaction;
+    type ElectionConfigType: ElectionConfig;
 
+    /// Block type for this consensus implementation
+    type BlockType: Block<Transaction = Self::Transaction>;
     /// State type for this consensus implementation
     type StateType: State<Time = Self::Time, BlockType = Self::BlockType>;
 
@@ -45,15 +48,16 @@ pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
     /// Election
     /// Time is generic here to allow multiple implementations of election trait for difference
     /// consensus protocols
-    type Election: Election<NodeTypesImpl<Self>>;
+    type Election: Election<NodeTypesImpl<Self>, ElectionConfigType = Self::ElectionConfigType>;
 }
 
-pub trait NodeTypes: 'static {
+pub trait NodeTypes: Send + Sync + 'static {
     type Time: ConsensusTime;
     type BlockType: Block<Transaction = Self::Transaction>;
     type SignatureKey: SignatureKey;
     type VoteTokenType: VoteToken;
     type Transaction: Transaction;
+    type ElectionConfigType: ElectionConfig;
 
     type StateType: State<BlockType = Self::BlockType, Time = Self::Time>;
 }
@@ -70,6 +74,7 @@ where
     type StateType = I::StateType;
     type VoteTokenType = I::VoteTokenType;
     type Transaction = <I::BlockType as Block>::Transaction;
+    type ElectionConfigType = I::ElectionConfigType;
 }
 
 /// testable node implmeentation trait
@@ -88,11 +93,15 @@ pub trait TestableNodeImplementation: Send + Sync + Debug + Clone + 'static {
     /// Election
     /// Time is generic here to allow multiple implementations of election trait for difference
     /// consensus protocols
-    type Election: Election<NodeTypesTestableImpl<Self>>;
+    type Election: Election<
+        NodeTypesTestableImpl<Self>,
+        ElectionConfigType = Self::ElectionConfigType,
+    >;
     /// block
     type BlockType: TestableBlock;
     /// vote token
     type VoteTokenType: VoteToken;
+    type ElectionConfigType: ElectionConfig;
 
     /// propagate
     type NodeImplementation: NodeImplementation<
@@ -116,6 +125,18 @@ where
     type StateType = I::StateType;
     type VoteTokenType = I::VoteTokenType;
     type Transaction = <I::BlockType as Block>::Transaction;
+    type ElectionConfigType = I::ElectionConfigType;
+}
+
+pub trait TypeMap {
+    type ElectionConfigType: ElectionConfig;
+}
+
+impl<I> TypeMap for I
+where
+    I: NodeImplementation,
+{
+    type ElectionConfigType = <I::Election as Election<NodeTypesImpl<I>>>::ElectionConfigType;
 }
 
 // /// Helper trait to make aliases.

@@ -42,11 +42,8 @@ impl ConsensusTime for ViewNumber {
     fn genesis() -> Self {
         Self(0)
     }
-}
-
-impl ViewNumber {
     /// Create a new `ViewNumber` with the given value.
-    pub const fn new(n: u64) -> Self {
+    fn new(n: u64) -> Self {
         Self(n)
     }
 }
