@@ -103,7 +103,7 @@ pub enum NetworkError {
 
 /// Describes, generically, the behaviors a networking implementation must have
 #[async_trait]
-pub trait NetworkingImplementation<TYPES: NodeTypes>: Send + Sync {
+pub trait NetworkingImplementation<TYPES: NodeTypes>: Clone + Send + Sync + 'static {
     /// Returns true when node is successfully initialized
     /// into the network
     ///

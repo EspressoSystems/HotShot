@@ -3,7 +3,7 @@
 //! This module provides [`HotShotError`], which is an enum representing possible faults that can
 //! occur while interacting with this crate.
 
-use crate::{data::ViewNumber, traits::storage::StorageError};
+use crate::traits::{node_implementation::NodeTypes, storage::StorageError};
 cfg_if::cfg_if! {
     if #[cfg(feature = "async-std-executor")] {
         use async_std::future::TimeoutError;
@@ -16,10 +16,11 @@ cfg_if::cfg_if! {
 use snafu::Snafu;
 
 /// Error type for `HotShot`
-#[derive(Debug, Snafu)]
+#[derive(Snafu, derivative::Derivative)]
+#[derivative(Debug(bound = ""))]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
-pub enum HotShotError {
+pub enum HotShotError<TYPES: NodeTypes> {
     /// Failed to Message the leader in the given stage
     #[snafu(display("Failed to message leader with error: {source}"))]
     FailedToMessageLeader {
@@ -65,7 +66,7 @@ pub enum HotShotError {
     /// HotShot timed out during round
     ViewTimeoutError {
         /// view number
-        view_number: ViewNumber,
+        view_number: TYPES::Time,
         /// The state that the round was in when it timed out
         state: RoundTimedoutState,
     },

@@ -14,6 +14,7 @@ cfg_if::cfg_if! {
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
 use bincode::Options;
+use derivative::Derivative;
 use futures::{future::BoxFuture, FutureExt};
 use hotshot_centralized_server::{
     FromServer, NetworkConfig, Run, RunResults, TcpStreamRecvUtil, TcpStreamSendUtil,
@@ -51,7 +52,8 @@ use std::{
 use tracing::error;
 
 /// The inner state of the `CentralizedServerNetwork`
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug(bound = ""))]
 struct Inner<TYPES: NodeTypes> {
     /// Self-identifying public key
     own_key: TYPES::SignatureKey,
@@ -640,7 +642,8 @@ impl<TYPES: NodeTypes> Inner<TYPES> {
 }
 
 /// Handle for connecting to a centralized server
-#[derive(Clone, Debug)]
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""), Debug(bound = ""))]
 pub struct CentralizedServerNetwork<TYPES: NodeTypes> {
     /// The inner state
     inner: Arc<Inner<TYPES>>,
@@ -652,7 +655,13 @@ impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
     /// Connect with the server running at `addr` and retrieve the config from the server.
     ///
     /// The config is returned along with the current run index and the running `CentralizedServerNetwork`
-    pub async fn connect_with_server_config(addr: SocketAddr) -> (NetworkConfig<TYPES>, Run, Self) {
+    pub async fn connect_with_server_config(
+        addr: SocketAddr,
+    ) -> (
+        NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        Run,
+        Self,
+    ) {
         let (streams, run, config) = loop {
             let (mut recv_stream, mut send_stream) = match TcpStream::connect(addr).await {
                 Ok(stream) => {

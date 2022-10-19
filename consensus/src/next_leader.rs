@@ -44,7 +44,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> NextLeader<A, TYPES> {
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
-            if msg.time() != &self.cur_view {
+            if msg.time() != self.cur_view {
                 continue;
             }
             match msg {

@@ -57,7 +57,7 @@ pub trait ElectionConfig:
 }
 
 /// Describes how `HotShot` chooses committees and leaders
-pub trait Election<TYPES: NodeTypes>: Send + Sync {
+pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
     /// Data structure describing the currently valid states
     type StakeTable: Send + Sync;
 

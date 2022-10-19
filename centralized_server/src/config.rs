@@ -190,8 +190,7 @@ impl<K, E> From<HotShotConfigFile> for HotShotConfig<K, E>
             propose_min_round_time: val.propose_min_round_time,
             propose_max_round_time: val.propose_max_round_time,
             // TODO fix this to be from the config file
-            election_config: None
-            // election_config: nll_todo()
+            election_config: None, // election_config: nll_todo()
         }
     }
 }

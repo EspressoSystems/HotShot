@@ -3,9 +3,7 @@
 use async_lock::Mutex;
 use commit::Commitment;
 use hotshot_types::{
-    data::{Leaf, ViewNumber},
-    error::HotShotError,
-    message::ConsensusMessage,
+    data::Leaf, error::HotShotError, message::ConsensusMessage,
     traits::node_implementation::NodeTypes,
 };
 use hotshot_utils::channel::{unbounded, UnboundedReceiver, UnboundedSender};
@@ -48,7 +46,8 @@ impl<TYPES: NodeTypes> Deref for View<TYPES> {
 }
 
 /// struct containing messages for a view to send to replica
-#[derive(Clone)]
+#[derive(derivative::Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct ViewQueue<TYPES: NodeTypes> {
     /// to send networking events to Replica
     pub sender_chan: UnboundedSender<ConsensusMessage<TYPES>>,
@@ -80,7 +79,7 @@ pub struct SendToTasks<TYPES: NodeTypes> {
 
     /// a map from view number to ViewQueue
     /// one of (replica|next leader)'s' task for view i will be listening on the channel in here
-    pub channel_map: BTreeMap<ViewNumber, ViewQueue<TYPES>>,
+    pub channel_map: BTreeMap<TYPES::Time, ViewQueue<TYPES>>,
 }
 
 impl<TYPES: NodeTypes> SendToTasks<TYPES> {
@@ -101,14 +100,11 @@ pub struct View<TYPES: NodeTypes> {
     pub view_inner: ViewInner<TYPES>,
 }
 
-/// The result used in this crate
-pub type Result<T = ()> = std::result::Result<T, HotShotError>;
-
 /// A struct containing information about a finished round.
 #[derive(Debug, Clone)]
-pub struct RoundFinishedEvent {
+pub struct RoundFinishedEvent<TYPES: NodeTypes> {
     /// The round that finished
-    pub view_number: ViewNumber,
+    pub view_number: TYPES::Time,
 }
 
 // /// Locked wrapper around `TransactionHashMap`

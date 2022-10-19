@@ -50,7 +50,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
-                if msg.time() != &self.cur_view {
+                if msg.time() != self.cur_view {
                     continue;
                 }
                 match msg {
@@ -353,7 +353,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
             // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
             // let storage = self.api.storage();
             // let view_to_insert = StoredView::from(leaf);
-            if let Err(e) = self.api.store_leaf(leaf).await {
+            if let Err(e) = self.api.store_leaf(old_anchor_view, leaf).await {
                 error!("Could not insert new anchor into the storage API: {:?}", e);
             }
             // if let Err(e) = storage.cleanup_storage_up_to_view(old_anchor_view).await {

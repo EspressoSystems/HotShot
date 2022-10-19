@@ -1,6 +1,6 @@
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
-    data::{Leaf, ViewNumber},
+    data::Leaf,
     traits::{
         election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
         node_implementation::NodeTypes,
@@ -8,7 +8,6 @@ use hotshot_types::{
             ed25519::{Ed25519Priv, Ed25519Pub},
             EncodedSignature, SignatureKey,
         },
-        state::ConsensusTime,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -53,7 +52,7 @@ impl Committable for StaticVoteToken {
     fn commit(&self) -> Commitment<Self> {
         RawCommitmentBuilder::new("StaticVoteToken")
             .var_size_field("signature", &self.signature.0)
-            .var_size_field("pub_key", &self.pub_key.0)
+            .var_size_field("pub_key", &self.pub_key.to_bytes().0)
             .finalize()
     }
 }
@@ -90,7 +89,7 @@ where
     /// Simply verify the signature and check the membership list
     // fn get_votes(
     //     &self,
-    //     view_number: ViewNumber,
+    //     view_number: TYPES::Time,
     //     pub_key: Ed25519Pub,
     //     token: Self::VoteToken,
     //     next_state: Commitment<Leaf<Self::StateType>>,
@@ -108,7 +107,7 @@ where
     /// Simply make the partial signature
     fn make_vote_token(
         &self,
-        view_number: ViewNumber,
+        view_number: TYPES::Time,
         private_key: &Ed25519Priv,
         next_state: Commitment<Leaf<TYPES>>,
     ) -> Result<Option<StaticVoteToken>, ElectionError> {
@@ -124,7 +123,7 @@ where
 
     fn validate_vote_token(
         &self,
-        _view_number: ViewNumber,
+        _view_number: TYPES::Time,
         _pub_key: Ed25519Pub,
         token: Checked<TYPES::VoteTokenType>,
         _next_state: commit::Commitment<Leaf<TYPES>>,

@@ -7,17 +7,19 @@
 //! production use.
 
 use crate::traits::{
-    implementations::MemoryStorage, Block, NetworkingImplementation, NodeImplementation,
+    election::static_committee::StaticVoteToken, implementations::MemoryStorage, Block,
+    NetworkingImplementation, NodeImplementation,
 };
 use commit::{Commitment, Committable};
 use hotshot_types::{
     constants::genesis_proposer_id,
     data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
     traits::{
+        block_contents::Transaction,
         election::Election,
         node_implementation::{NodeTypes, NodeTypesImpl},
         signature_key::SignatureKey,
-        state::{TestableBlock, TestableState},
+        state::{ConsensusTime, TestableBlock, TestableState},
         State,
     },
 };
@@ -92,6 +94,8 @@ pub struct DEntryTransaction {
     /// Number of bytes to pad to each transaction
     pub padding: Vec<u8>,
 }
+
+impl Transaction for DEntryTransaction {}
 
 impl DEntryTransaction {
     /// Ensures that this transaction is at least consistent with itself
@@ -464,7 +468,8 @@ impl Block for DEntryBlock {
 }
 
 /// The node implementation for the dentry demo
-#[derive(Clone)]
+#[derive(derivative::Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct DEntryNode<NET, ELE, KEY> {
     /// Network phantom
     _phantom_0: PhantomData<NET>,
@@ -506,10 +511,15 @@ where
     KEY: SignatureKey + Clone + 'static,
 {
     type StateType = DEntryState;
-    type Storage = MemoryStorage<DEntryState>;
+    type Storage = MemoryStorage<NodeTypesImpl<Self>>;
     type Networking = NET;
     type Election = ELE;
     type SignatureKey = KEY;
+    type Time = ViewNumber;
+    type VoteTokenType = StaticVoteToken;
+    type Transaction = DEntryTransaction;
+    type ElectionConfigType = ELE::ElectionConfigType;
+    type BlockType = DEntryBlock;
 }
 
 /// Provides a random [`QuorumCertificate`]
@@ -531,7 +541,7 @@ pub fn random_leaf<TYPES: NodeTypes>(deltas: TYPES::BlockType) -> Leaf<TYPES> {
         .append(&deltas, &TYPES::Time::new(42))
         .unwrap_or_default();
     Leaf {
-        time: justify_qc.view_number,
+        time: justify_qc.time,
         justify_qc,
         parent_commitment: random_commitment(),
         deltas,

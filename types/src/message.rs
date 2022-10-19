@@ -11,11 +11,13 @@ use crate::{
     },
 };
 use commit::Commitment;
+use derivative::Derivative;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 
 /// Incoming message
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Derivative)]
+#[serde(bound = "")]
+#[derivative(Clone(bound = ""), Debug(bound = ""), PartialEq(bound = ""))]
 pub struct Message<TYPES: NodeTypes> {
     /// The sender of this message
     pub sender: TYPES::SignatureKey,
@@ -26,7 +28,9 @@ pub struct Message<TYPES: NodeTypes> {
 }
 
 /// Enum representation of any message type
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Derivative)]
+#[serde(bound = "")]
+#[derivative(Clone(bound = ""), Debug(bound = ""), PartialEq(bound = ""))]
 pub enum MessageKind<TYPES: NodeTypes> {
     /// Messages related to the consensus protocol
     Consensus(
@@ -40,17 +44,17 @@ pub enum MessageKind<TYPES: NodeTypes> {
     ),
 }
 
-// impl<STATE: State> From<ConsensusMessage<STATE>> for MessageKind<STATE> {
-//     fn from(m: ConsensusMessage<STATE>) -> Self {
-//         Self::Consensus(m)
-//     }
-// }
+impl<TYPES: NodeTypes> From<ConsensusMessage<TYPES>> for MessageKind<TYPES> {
+    fn from(m: ConsensusMessage<TYPES>) -> Self {
+        Self::Consensus(m)
+    }
+}
 
-// impl<STATE: State> From<DataMessage<STATE>> for MessageKind<STATE> {
-//     fn from(m: DataMessage<STATE>) -> Self {
-//         Self::Data(m)
-//     }
-// }
+impl<TYPES: NodeTypes> From<DataMessage<TYPES>> for MessageKind<TYPES> {
+    fn from(m: DataMessage<TYPES>) -> Self {
+        Self::Data(m)
+    }
+}
 
 #[derive(Serialize, Deserialize, derivative::Derivative)]
 #[serde(bound = "")]
@@ -82,28 +86,30 @@ pub enum ConsensusMessage<TYPES: NodeTypes> {
 impl<TYPES: NodeTypes> ConsensusMessage<TYPES> {
     /// The view number of the (leader|replica) when the message was sent
     /// or the view of the timeout
-    pub fn time(&self) -> &TYPES::Time {
+    pub fn time(&self) -> TYPES::Time {
         match self {
             ConsensusMessage::Proposal(p) => {
                 // view of leader in the leaf when proposal
                 // this should match replica upon receipt
-                &p.leaf.time
+                p.leaf.time
             }
             ConsensusMessage::TimedOut(t) => {
                 // view number on which the replica timed out waiting for proposal
-                &t.current_time
+                t.current_time
             }
             ConsensusMessage::Vote(v) => {
                 // view number on which the replica votes for a proposal for
                 // the leaf should have this view number
-                &v.time
+                v.time
             }
-            ConsensusMessage::NextViewInterrupt(time) => time,
+            ConsensusMessage::NextViewInterrupt(time) => *time,
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Derivative)]
+#[serde(bound = "")]
+#[derivative(Clone(bound = ""), Debug(bound = ""), PartialEq(bound = ""))]
 /// Messages related to sending data between nodes
 pub enum DataMessage<TYPES: NodeTypes> {
     /// The newest entry that a node knows. This is send from existing nodes to a new node when the new node joins the network

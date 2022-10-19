@@ -61,6 +61,7 @@ pub trait ConsensusTime:
     + Sync
     + Debug
     + Clone
+    + Copy
     + Hash
     + Deref<Target = u64>
     + serde::Serialize

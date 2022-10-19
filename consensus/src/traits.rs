@@ -48,7 +48,11 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     fn propose_max_round_time(&self) -> Duration;
 
     /// Store a leaf in the storage
-    async fn store_leaf(&self, leaf: Leaf<TYPES>) -> Result<(), StorageError>;
+    async fn store_leaf(
+        &self,
+        old_anchor_view: TYPES::Time,
+        leaf: Leaf<TYPES>,
+    ) -> Result<(), StorageError>;
 
     /// Retuns the maximum transactions allowed in a block
     fn max_transactions(&self) -> NonZeroUsize;
@@ -105,7 +109,7 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     }
 
     /// notifies client of an error
-    async fn send_view_error(&self, time: TYPES::Time, error: Arc<HotShotError>) {
+    async fn send_view_error(&self, time: TYPES::Time, error: Arc<HotShotError<TYPES>>) {
         self.send_event(Event {
             time,
             event: EventType::Error { error },

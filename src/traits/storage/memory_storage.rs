@@ -24,7 +24,8 @@ struct MemoryStorageInternal<TYPES: NodeTypes> {
 }
 
 /// In memory, ephemeral, storage for a [`HotShot`](crate::HotShot) instance
-#[derive(Clone)]
+#[derive(derivative::Derivative)]
+#[derivative(Clone(bound = ""))]
 pub struct MemoryStorage<TYPES: NodeTypes> {
     /// The inner state of this [`MemoryStorage`]
     inner: Arc<RwLock<MemoryStorageInternal<TYPES>>>,
@@ -71,7 +72,7 @@ impl<TYPES: NodeTypes> Storage<TYPES> for MemoryStorage<TYPES> {
                     inner.failed.insert(num);
                 }
                 ViewEntry::Success(view) => {
-                    inner.stored.insert(view.view_number, view);
+                    inner.stored.insert(view.time, view);
                 }
             }
         }
@@ -110,6 +111,9 @@ impl<TYPES: NodeTypes> Storage<TYPES> for MemoryStorage<TYPES> {
 
 #[cfg(test)]
 mod test {
+    use crate::traits::election::static_committee::StaticElectionConfig;
+    use crate::traits::election::static_committee::StaticVoteToken;
+
     use super::*;
     use hotshot_types::constants::genesis_proposer_id;
     use hotshot_types::data::fake_commitment;
@@ -120,6 +124,7 @@ mod test {
     use hotshot_types::traits::block_contents::dummy::*;
     use hotshot_types::traits::node_implementation::NodeTypes;
     use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
+    use hotshot_types::traits::state::ConsensusTime;
     use hotshot_types::traits::Block;
     use std::collections::BTreeMap;
     use tracing::instrument;
@@ -130,9 +135,9 @@ mod test {
         type Time = ViewNumber;
         type BlockType = DummyBlock;
         type SignatureKey = Ed25519Pub;
-        type VoteTokenType = ();
+        type VoteTokenType = StaticVoteToken;
         type Transaction = <DummyBlock as Block>::Transaction;
-        type ElectionConfigType = ();
+        type ElectionConfigType = StaticElectionConfig;
         type StateType = DummyState;
     }
 
@@ -140,7 +145,7 @@ mod test {
     fn random_stored_view(time: ViewNumber) -> StoredView<DummyTypes> {
         // TODO is it okay to be using genesis here?
         let dummy_block_commit = fake_commitment::<DummyBlock>();
-        let dummy_leaf_commit = fake_commitment::<Leaf<DummyState>>();
+        let dummy_leaf_commit = fake_commitment::<Leaf<DummyTypes>>();
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
                 block_commitment: dummy_block_commit,
@@ -172,12 +177,12 @@ mod test {
             .expect("Could not append block");
         assert_eq!(storage.get_anchored_view().await.unwrap(), genesis);
         storage
-            .cleanup_storage_up_to_view(genesis.view_number)
+            .cleanup_storage_up_to_view(genesis.time)
             .await
             .unwrap();
         assert_eq!(storage.get_anchored_view().await.unwrap(), genesis);
         storage
-            .cleanup_storage_up_to_view(genesis.view_number + 1)
+            .cleanup_storage_up_to_view(genesis.time + 1)
             .await
             .unwrap();
         assert!(storage.get_anchored_view().await.is_err());

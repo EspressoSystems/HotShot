@@ -11,12 +11,15 @@ cfg_if::cfg_if! {
     }
 }
 use async_lock::RwLock;
+use derivative::Derivative;
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
     constants::LOOK_AHEAD,
-    data::ViewNumber,
     message::MessageKind,
-    traits::{network::NetworkingImplementation, node_implementation::NodeImplementation},
+    traits::{
+        network::NetworkingImplementation,
+        node_implementation::{NodeImplementation, NodeTypes},
+    },
     ExecutionType,
 };
 use hotshot_utils::{
@@ -26,6 +29,7 @@ use hotshot_utils::{
 };
 use std::{
     collections::HashMap,
+    marker::PhantomData,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -35,12 +39,14 @@ use std::{
 use tracing::{error, info, info_span, instrument, trace, Instrument};
 
 /// A handle with senders to send events to the background runners.
-#[derive(Default)]
-pub struct TaskHandle {
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
+pub struct TaskHandle<TYPES: NodeTypes> {
     /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized early on in the [`HotShot`] struct. It should be safe to `unwrap` this.
     inner: RwLock<Option<TaskHandleInner>>,
+    _types: PhantomData<TYPES>,
 }
-impl TaskHandle {
+impl<TYPES: NodeTypes> TaskHandle<TYPES> {
     /// Start the round runner. This will make it run until `pause` is called
     pub async fn start(&self) {
         let handle = self.inner.read().await;
@@ -66,7 +72,7 @@ impl TaskHandle {
     }
 
     /// Wait until all underlying handles are shut down
-    pub async fn wait_shutdown(&self, send_network_lookup: UnboundedSender<Option<ViewNumber>>) {
+    pub async fn wait_shutdown(&self, send_network_lookup: UnboundedSender<Option<TYPES::Time>>) {
         let inner = self.inner.write().await.take().unwrap();
 
         // this shuts down the networking task
@@ -208,7 +214,7 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
     // TODO probably cleaner to separate this into a function
     // e.g. insert the view and remove the last view
     let mut send_to_replica = hotshot.replica_channel_map.write().await;
-    let replica_last_view = send_to_replica.cur_view;
+    let replica_last_view: I::Time = send_to_replica.cur_view;
     // gc previous view's channel map
     send_to_replica.channel_map.remove(&replica_last_view);
     send_to_replica.cur_view += 1;
@@ -276,7 +282,12 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
     let replica_handle = async_spawn(async move { replica.run_view().await });
     task_handles.push(replica_handle);
 
-    error!("MY PUB KEY IS {:?}, \nLEADER PUB KEY IS {:?}, \nI AM leader: {:?}\n", hotshot.inner.public_key, c_api.get_leader(cur_view).await, c_api.is_leader(cur_view).await);
+    error!(
+        "MY PUB KEY IS {:?}, \nLEADER PUB KEY IS {:?}, \nI AM leader: {:?}\n",
+        hotshot.inner.public_key,
+        c_api.get_leader(cur_view).await,
+        c_api.is_leader(cur_view).await
+    );
 
     if c_api.is_leader(cur_view).await {
         let leader = Leader {
@@ -323,7 +334,7 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
     // unwrap is fine since results must have >= 1 item(s)
     cfg_if::cfg_if! {
         if #[cfg(feature = "async-std-executor")] {
-            let high_qc = results.into_iter().max_by_key(|qc| qc.view_number).unwrap();
+            let high_qc = results.into_iter().max_by_key(|qc| qc.time).unwrap();
         } else if #[cfg(feature = "tokio-executor")] {
             let high_qc = results
                 .into_iter()
@@ -368,12 +379,12 @@ pub async fn network_lookup_task<I: NodeImplementation>(
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching network lookup task");
-    let networking = &hotshot.inner.networking;
+    let networking = hotshot.inner.networking.clone();
     let c_api = HotShotConsensusApi {
         inner: hotshot.inner.clone(),
     };
 
-    let mut completion_map: HashMap<ViewNumber, Arc<AtomicBool>> = HashMap::default();
+    let mut completion_map: HashMap<I::Time, Arc<AtomicBool>> = HashMap::default();
 
     while !shut_down.load(Ordering::Relaxed) {
         let lock = hotshot.recv_network_lookup.lock().await;

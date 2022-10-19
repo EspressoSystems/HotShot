@@ -2215,6 +2215,7 @@ dependencies = [
  "cfg-if",
  "commit",
  "custom_debug",
+ "derivative",
  "futures",
  "hotshot-types",
  "hotshot-utils",

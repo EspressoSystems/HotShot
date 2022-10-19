@@ -41,7 +41,7 @@ use std::{
     sync::Arc,
 };
 use tracing::{error, warn};
-use utils::{Result, Terminator};
+use utils::Terminator;
 
 type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 
@@ -92,7 +92,7 @@ impl<TYPES: NodeTypes> Consensus<TYPES> {
         terminator: Terminator<TYPES::Time>,
         ok_when_finished: bool,
         mut f: F,
-    ) -> Result<()>
+    ) -> Result<(), HotShotError<TYPES>>
     where
         F: FnMut(&Leaf<TYPES>) -> bool,
     {
