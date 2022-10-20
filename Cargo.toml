@@ -107,7 +107,7 @@ commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.0" }
 custom_debug = "0.5"
 dashmap = "5.3.4"
 embed-doc-image = "0.1.4"
-futures = "0.3.24"
+futures = "0.3.25"
 hotshot-centralized-server = { version = "0.1.1", path = "centralized_server", default-features = false }
 hotshot-consensus = { path = "./consensus", version = "0.1.0", default-features = false }
 hotshot-types = { path = "./types", version = "0.1.0", default-features = false }
