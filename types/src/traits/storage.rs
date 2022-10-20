@@ -30,7 +30,7 @@ pub type Result<T = ()> = std::result::Result<T, StorageError>;
 ///
 /// This trait has been constructed for object saftey over convenience.
 #[async_trait]
-pub trait Storage<TYPES>: Clone + Send + Sync + Sized
+pub trait Storage<TYPES>: Clone + Send + Sync + Sized + 'static
 where
     TYPES: NodeTypes + 'static,
 {
@@ -154,7 +154,7 @@ where
     ) -> Self {
         Self {
             append: ViewAppend::Block { block },
-            time: qc.time.clone(),
+            time: qc.time,
             parent: parent_commitment,
             justify_qc: qc,
             state,

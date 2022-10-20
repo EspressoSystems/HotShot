@@ -7,8 +7,9 @@
 //! production use.
 
 use crate::traits::{
-    election::static_committee::StaticVoteToken, implementations::MemoryStorage, Block,
-    NetworkingImplementation, NodeImplementation,
+    election::static_committee::{StaticElectionConfig, StaticVoteToken},
+    implementations::MemoryStorage,
+    Block, NetworkingImplementation, NodeImplementation,
 };
 use commit::{Commitment, Committable};
 use hotshot_types::{
@@ -17,8 +18,8 @@ use hotshot_types::{
     traits::{
         block_contents::Transaction,
         election::Election,
-        node_implementation::{NodeTypes, NodeTypesImpl},
-        signature_key::SignatureKey,
+        node_implementation::NodeTypes,
+        signature_key::ed25519::Ed25519Pub,
         state::{ConsensusTime, TestableBlock, TestableState},
         State,
     },
@@ -467,19 +468,42 @@ impl Block for DEntryBlock {
     }
 }
 
+/// Implementation of [`NodeTypes`] for [`DEntryNode`]
+pub struct DEntryTypes;
+
+impl NodeTypes for DEntryTypes {
+    type Time = ViewNumber;
+    type BlockType = DEntryBlock;
+    type SignatureKey = Ed25519Pub;
+    type VoteTokenType = StaticVoteToken;
+    type Transaction = DEntryTransaction;
+    type ElectionConfigType = StaticElectionConfig;
+    type StateType = DEntryState;
+}
+
 /// The node implementation for the dentry demo
 #[derive(derivative::Derivative)]
 #[derivative(Clone(bound = ""))]
-pub struct DEntryNode<NET, ELE, KEY> {
+pub struct DEntryNode<TYPES, NET, ELE>
+where
+    TYPES: NodeTypes,
+    NET: NetworkingImplementation<TYPES>,
+    ELE: Election<TYPES>,
+{
     /// Network phantom
-    _phantom_0: PhantomData<NET>,
+    _phantom_0: PhantomData<TYPES>,
     /// Election phantom
-    _phantom_1: PhantomData<ELE>,
+    _phantom_1: PhantomData<NET>,
     /// Key phantom
-    _phantom_2: PhantomData<KEY>,
+    _phantom_2: PhantomData<ELE>,
 }
 
-impl<NET, ELE, KEY> DEntryNode<NET, ELE, KEY> {
+impl<TYPES, NET, ELE> DEntryNode<TYPES, NET, ELE>
+where
+    TYPES: NodeTypes,
+    NET: NetworkingImplementation<TYPES>,
+    ELE: Election<TYPES>,
+{
     /// Create a new `DEntryNode`
     pub fn new() -> Self {
         DEntryNode {
@@ -490,7 +514,12 @@ impl<NET, ELE, KEY> DEntryNode<NET, ELE, KEY> {
     }
 }
 
-impl<NET, ELE, KEY> Debug for DEntryNode<NET, ELE, KEY> {
+impl<TYPES, NET, ELE> Debug for DEntryNode<TYPES, NET, ELE>
+where
+    TYPES: NodeTypes,
+    NET: NetworkingImplementation<TYPES>,
+    ELE: Election<TYPES>,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DEntryNode")
             .field("_phantom", &"phantom")
@@ -498,28 +527,26 @@ impl<NET, ELE, KEY> Debug for DEntryNode<NET, ELE, KEY> {
     }
 }
 
-impl<NET, ELE, KEY> Default for DEntryNode<NET, ELE, KEY> {
+impl<TYPES, NET, ELE> Default for DEntryNode<TYPES, NET, ELE>
+where
+    TYPES: NodeTypes,
+    NET: NetworkingImplementation<TYPES>,
+    ELE: Election<TYPES>,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<NET, ELE, KEY> NodeImplementation for DEntryNode<NET, ELE, KEY>
+impl<TYPES, NET, ELE> NodeImplementation<TYPES> for DEntryNode<TYPES, NET, ELE>
 where
-    NET: NetworkingImplementation<NodeTypesImpl<Self>>,
-    ELE: Election<NodeTypesImpl<Self>>,
-    KEY: SignatureKey + Clone + 'static,
+    TYPES: NodeTypes,
+    NET: NetworkingImplementation<TYPES>,
+    ELE: Election<TYPES>,
 {
-    type StateType = DEntryState;
-    type Storage = MemoryStorage<NodeTypesImpl<Self>>;
+    type Storage = MemoryStorage<TYPES>;
     type Networking = NET;
     type Election = ELE;
-    type SignatureKey = KEY;
-    type Time = ViewNumber;
-    type VoteTokenType = StaticVoteToken;
-    type Transaction = DEntryTransaction;
-    type ElectionConfigType = ELE::ElectionConfigType;
-    type BlockType = DEntryBlock;
 }
 
 /// Provides a random [`QuorumCertificate`]

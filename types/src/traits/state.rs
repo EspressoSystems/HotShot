@@ -70,7 +70,11 @@ pub trait ConsensusTime:
     + ops::Add<u64, Output = Self>
     + 'static
 {
-    fn genesis() -> Self;
+    /// Create a new instance of this time unit at time number 0
+    fn genesis() -> Self {
+        Self::new(0)
+    }
+    /// Create a new instance of this time unit
     fn new(val: u64) -> Self;
 }
 
@@ -96,7 +100,7 @@ pub mod dummy {
     use super::*;
     use crate::{
         data::ViewNumber,
-        traits::block_contents::dummy::{DummyBlock, DummyError},
+        traits::block_contents::dummy::{DummyBlock, DummyError, DummyTransaction},
     };
     use rand::Rng;
     use serde::Deserialize;
@@ -147,5 +151,11 @@ pub mod dummy {
         }
 
         fn on_commit(&self) {}
+    }
+
+    impl TestableState for DummyState {
+        fn create_random_transaction(&self) -> DummyTransaction {
+            DummyTransaction::Dummy
+        }
     }
 }

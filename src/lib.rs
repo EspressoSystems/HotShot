@@ -45,6 +45,7 @@ use crate::{
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
+use derivative::Derivative;
 use hotshot_consensus::{Consensus, ConsensusApi, SendToTasks, View, ViewInner, ViewQueue};
 use hotshot_types::{
     constants::genesis_proposer_id,
@@ -65,13 +66,7 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use hotshot_types::{
-    message::MessageKind,
-    traits::{
-        election::VoteToken,
-        node_implementation::{NodeTypesImpl, TypeMap},
-    },
-};
+use hotshot_types::{message::MessageKind, traits::election::VoteToken};
 use hotshot_utils::{
     art::async_spawn, broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock,
 };
@@ -102,15 +97,15 @@ pub const H_512: usize = 64;
 pub const H_256: usize = 32;
 
 /// Holds the state needed to participate in `HotShot` consensus
-pub struct HotShotInner<I: NodeImplementation> {
+pub struct HotShotInner<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     /// The public key of this node
-    public_key: I::SignatureKey,
+    public_key: TYPES::SignatureKey,
 
     /// The private key of this node
-    private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
+    private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Configuration items for this hotshot instance
-    config: HotShotConfig<I::SignatureKey, <I as TypeMap>::ElectionConfigType>,
+    config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 
     /// Networking interface for this hotshot instance
     networking: I::Networking,
@@ -122,58 +117,60 @@ pub struct HotShotInner<I: NodeImplementation> {
     election: I::Election,
 
     /// Sender for [`Event`]s
-    event_sender: RwLock<Option<BroadcastSender<Event<NodeTypesImpl<I>>>>>,
+    event_sender: RwLock<Option<BroadcastSender<Event<TYPES>>>>,
 
     /// Senders to the background tasks.
-    background_task_handle: tasks::TaskHandle<NodeTypesImpl<I>>,
+    background_task_handle: tasks::TaskHandle<TYPES>,
 }
 
 /// Thread safe, shared view of a `HotShot`
-#[derive(Clone)]
-pub struct HotShot<I: NodeImplementation + Send + Sync + 'static> {
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
+pub struct HotShot<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     /// Handle to internal hotshot implementation
-    inner: Arc<HotShotInner<I>>,
+    inner: Arc<HotShotInner<TYPES, I>>,
 
     /// Transactions
     /// (this is shared btwn hotshot and `Consensus`)
-    transactions: Arc<SubscribableRwLock<HashMap<Commitment<I::Transaction>, I::Transaction>>>,
+    transactions:
+        Arc<SubscribableRwLock<HashMap<Commitment<TYPES::Transaction>, TYPES::Transaction>>>,
 
     /// The hotstuff implementation
-    hotstuff: Arc<RwLock<Consensus<NodeTypesImpl<I>>>>,
+    hotstuff: Arc<RwLock<Consensus<TYPES>>>,
 
     /// for sending/recv-ing things with the replica task
-    replica_channel_map: Arc<RwLock<SendToTasks<NodeTypesImpl<I>>>>,
+    replica_channel_map: Arc<RwLock<SendToTasks<TYPES>>>,
 
     /// for sending/recv-ing things with the next leader task
-    next_leader_channel_map: Arc<RwLock<SendToTasks<NodeTypesImpl<I>>>>,
+    next_leader_channel_map: Arc<RwLock<SendToTasks<TYPES>>>,
 
     /// for sending messages to network lookup task
-    send_network_lookup: UnboundedSender<Option<I::Time>>,
+    send_network_lookup: UnboundedSender<Option<TYPES::Time>>,
 
     /// for receiving messages in the network lookup task
-    recv_network_lookup: Arc<Mutex<UnboundedReceiver<Option<I::Time>>>>,
+    recv_network_lookup: Arc<Mutex<UnboundedReceiver<Option<TYPES::Time>>>>,
 
     /// uid for instrumentation
     id: u64,
 }
 
-impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
+impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_arguments)]
     #[instrument(skip(private_key, networking, storage, election, initializer))]
     pub async fn new(
-        public_key: I::SignatureKey,
-        private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
+        public_key: TYPES::SignatureKey,
+        private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
-        config: HotShotConfig<I::SignatureKey, <I as TypeMap>::ElectionConfigType>,
+        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
-        initializer: HotShotInitializer<NodeTypesImpl<I>>,
-    ) -> Result<Self, HotShotError<NodeTypesImpl<I>>> {
+        initializer: HotShotInitializer<TYPES>,
+    ) -> Result<Self, HotShotError<TYPES>> {
         info!("Creating a new hotshot");
-        let inner: Arc<HotShotInner<I>> = Arc::new(HotShotInner {
+        let inner: Arc<HotShotInner<TYPES, I>> = Arc::new(HotShotInner {
             public_key,
             private_key,
             config,
@@ -250,11 +247,11 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     )]
     pub async fn timeout_view(
         &self,
-        current_view: I::Time,
-        send_replica: UnboundedSender<ConsensusMessage<NodeTypesImpl<I>>>,
-        send_next_leader: Option<UnboundedSender<ConsensusMessage<NodeTypesImpl<I>>>>,
+        current_view: TYPES::Time,
+        send_replica: UnboundedSender<ConsensusMessage<TYPES>>,
+        send_next_leader: Option<UnboundedSender<ConsensusMessage<TYPES>>>,
     ) {
-        let msg = ConsensusMessage::<NodeTypesImpl<I>>::NextViewInterrupt(current_view);
+        let msg = ConsensusMessage::<TYPES>::NextViewInterrupt(current_view);
         if let Some(chan) = send_next_leader {
             if chan.send(msg.clone()).await.is_err() {
                 warn!("Error timing out next leader task");
@@ -274,8 +271,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     #[instrument(skip(self), err)]
     pub async fn publish_transaction_async(
         &self,
-        transaction: I::Transaction,
-    ) -> Result<(), HotShotError<NodeTypesImpl<I>>> {
+        transaction: TYPES::Transaction,
+    ) -> Result<(), HotShotError<TYPES>> {
         // Add the transaction to our own queue first
         trace!("Adding transaction to our own queue");
         // Wrap up a message
@@ -293,14 +290,14 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// # Panics
     ///
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_state(&self) -> I::StateType {
+    pub async fn get_state(&self) -> TYPES::StateType {
         self.hotstuff.read().await.get_decided_leaf().state
     }
 
     /// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_decided_leaf(&self) -> Leaf<NodeTypesImpl<I>> {
+    pub async fn get_decided_leaf(&self) -> Leaf<TYPES> {
         self.hotstuff.read().await.get_decided_leaf()
     }
 
@@ -318,15 +315,15 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Will return an error when the storage failed to insert the first `QuorumCertificate`
     #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     pub async fn init(
-        public_key: I::SignatureKey,
-        private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
+        public_key: TYPES::SignatureKey,
+        private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
-        config: HotShotConfig<I::SignatureKey, <I as TypeMap>::ElectionConfigType>,
+        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
-        initializer: HotShotInitializer<NodeTypesImpl<I>>,
-    ) -> Result<HotShotHandle<I>, HotShotError<NodeTypesImpl<I>>> {
+        initializer: HotShotInitializer<TYPES>,
+    ) -> Result<HotShotHandle<TYPES, I>, HotShotError<TYPES>> {
         // Save a clone of the storage for the handle
         let hotshot = Self::new(
             public_key,
@@ -353,7 +350,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Will return any errors that the underlying `broadcast_message` can return.
     pub async fn send_broadcast_message(
         &self,
-        kind: impl Into<MessageKind<NodeTypesImpl<I>>>,
+        kind: impl Into<MessageKind<TYPES>>,
     ) -> std::result::Result<(), NetworkError> {
         let inner = self.inner.clone();
         let pk = self.inner.public_key.clone();
@@ -380,8 +377,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Will return any errors that the underlying `message_node` can return.
     pub async fn send_direct_message(
         &self,
-        kind: impl Into<MessageKind<NodeTypesImpl<I>>>,
-        recipient: I::SignatureKey,
+        kind: impl Into<MessageKind<TYPES>>,
+        recipient: TYPES::SignatureKey,
     ) -> std::result::Result<(), NetworkError> {
         self.inner
             .networking
@@ -403,8 +400,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     )]
     async fn handle_broadcast_consensus_message(
         &self,
-        msg: ConsensusMessage<NodeTypesImpl<I>>,
-        sender: I::SignatureKey,
+        msg: ConsensusMessage<TYPES>,
+        sender: TYPES::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
         // <github.com/ExpressoSystems/HotShot/issues/418>
@@ -453,8 +450,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     )]
     async fn handle_direct_consensus_message(
         &self,
-        msg: ConsensusMessage<NodeTypesImpl<I>>,
-        _sender: I::SignatureKey,
+        msg: ConsensusMessage<TYPES>,
+        _sender: TYPES::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
 
@@ -496,8 +493,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Handle an incoming [`DataMessage`] that was broadcasted on the network
     async fn handle_broadcast_data_message(
         &self,
-        msg: DataMessage<NodeTypesImpl<I>>,
-        _sender: I::SignatureKey,
+        msg: DataMessage<TYPES>,
+        _sender: TYPES::SignatureKey,
     ) {
         // TODO validate incoming broadcast message based on sender signature key
         match msg {
@@ -522,8 +519,8 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Handle an incoming [`DataMessage`] that directed at this node
     async fn handle_direct_data_message(
         &self,
-        msg: DataMessage<NodeTypesImpl<I>>,
-        _sender: I::SignatureKey,
+        msg: DataMessage<TYPES>,
+        _sender: TYPES::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
         debug!(?msg, "Incoming direct data message");
@@ -572,7 +569,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     }
 
     /// Handle a change in the network
-    async fn handle_network_change(&self, node: NetworkChange<I::SignatureKey>) {
+    async fn handle_network_change(&self, node: NetworkChange<TYPES::SignatureKey>) {
         match node {
             NetworkChange::NodeConnected(peer) => {
                 info!("Connected to node {:?}", peer);
@@ -612,18 +609,17 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
 
 /// given a view number and a upgradable read lock on a channel map, inserts entry into map if it
 /// doesn't exist, or creates entry. Then returns a clone of the entry
-pub async fn create_or_obtain_chan_from_read<I: NodeImplementation>(
-    view_num: I::Time,
-    channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<NodeTypesImpl<I>>>,
-) -> ViewQueue<NodeTypesImpl<I>> {
+pub async fn create_or_obtain_chan_from_read<TYPES: NodeTypes>(
+    view_num: TYPES::Time,
+    channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<TYPES>>,
+) -> ViewQueue<TYPES> {
     // check if we have the entry
     // if we don't, insert
     if let Some(vq) = channel_map.channel_map.get(&view_num) {
         vq.clone()
     } else {
         let mut channel_map =
-            RwLockUpgradableReadGuard::<'_, SendToTasks<NodeTypesImpl<I>>>::upgrade(channel_map)
-                .await;
+            RwLockUpgradableReadGuard::<'_, SendToTasks<TYPES>>::upgrade(channel_map).await;
         let new_view_queue = ViewQueue::default();
         let vq = new_view_queue.clone();
         // NOTE: the read lock is held until all other read locks are DROPPED and
@@ -638,23 +634,24 @@ pub async fn create_or_obtain_chan_from_read<I: NodeImplementation>(
 
 /// given a view number and a write lock on a channel map, inserts entry into map if it
 /// doesn't exist, or creates entry. Then returns a clone of the entry
-pub async fn create_or_obtain_chan_from_write<I: NodeImplementation>(
-    view_num: I::Time,
-    mut channel_map: RwLockWriteGuard<'_, SendToTasks<NodeTypesImpl<I>>>,
-) -> ViewQueue<NodeTypesImpl<I>> {
+pub async fn create_or_obtain_chan_from_write<TYPES: NodeTypes>(
+    view_num: TYPES::Time,
+    mut channel_map: RwLockWriteGuard<'_, SendToTasks<TYPES>>,
+) -> ViewQueue<TYPES> {
     channel_map.channel_map.entry(view_num).or_default().clone()
 }
 
 /// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]
-#[derive(Clone)]
-struct HotShotConsensusApi<I: NodeImplementation> {
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
+struct HotShotConsensusApi<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     /// Reference to the [`HotShotInner`]
-    inner: Arc<HotShotInner<I>>,
+    inner: Arc<HotShotInner<TYPES, I>>,
 }
 
 #[async_trait]
-impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<NodeTypesImpl<I>>
-    for HotShotConsensusApi<I>
+impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::ConsensusApi<TYPES>
+    for HotShotConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes
@@ -683,27 +680,27 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<NodeTypesImpl<I>>
     /// Generates and encodes a vote token
     fn generate_vote_token(
         &self,
-        time: I::Time,
-        next_state: Commitment<Leaf<NodeTypesImpl<I>>>,
-    ) -> std::result::Result<std::option::Option<I::VoteTokenType>, ElectionError> {
+        time: TYPES::Time,
+        next_state: Commitment<Leaf<TYPES>>,
+    ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError> {
         self.inner
             .election
             .make_vote_token(time, &self.inner.private_key, next_state)
     }
 
-    async fn get_leader(&self, time: I::Time) -> I::SignatureKey {
+    async fn get_leader(&self, time: TYPES::Time) -> TYPES::SignatureKey {
         let election = &self.inner.election;
         election.get_leader(time)
     }
 
-    async fn should_start_round(&self, _: I::Time) -> bool {
+    async fn should_start_round(&self, _: TYPES::Time) -> bool {
         false
     }
 
     async fn send_direct_message(
         &self,
-        recipient: I::SignatureKey,
-        message: ConsensusMessage<NodeTypesImpl<I>>,
+        recipient: TYPES::SignatureKey,
+        message: ConsensusMessage<TYPES>,
     ) -> std::result::Result<(), NetworkError> {
         let inner = self.inner.clone();
         debug!(?message, ?recipient, "send_direct_message");
@@ -724,7 +721,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<NodeTypesImpl<I>>
 
     async fn send_broadcast_message(
         &self,
-        message: ConsensusMessage<NodeTypesImpl<I>>,
+        message: ConsensusMessage<TYPES>,
     ) -> std::result::Result<(), NetworkError> {
         debug!(?message, "send_broadcast_message");
         self.inner
@@ -736,7 +733,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<NodeTypesImpl<I>>
             .await
     }
 
-    async fn send_event(&self, event: Event<NodeTypesImpl<I>>) {
+    async fn send_event(&self, event: Event<TYPES>) {
         debug!(?event, "send_event");
         let mut event_sender = self.inner.event_sender.write().await;
         if let Some(sender) = &*event_sender {
@@ -747,20 +744,20 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<NodeTypesImpl<I>>
         }
     }
 
-    fn public_key(&self) -> &I::SignatureKey {
+    fn public_key(&self) -> &TYPES::SignatureKey {
         &self.inner.public_key
     }
 
-    fn private_key(&self) -> &<I::SignatureKey as SignatureKey>::PrivateKey {
+    fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey {
         &self.inner.private_key
     }
 
     // TODO ed - refactor this function to only acc stake, and not check validity
     fn validated_stake(
         &self,
-        hash: Commitment<Leaf<NodeTypesImpl<I>>>,
-        time: I::Time,
-        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, I::VoteTokenType)>,
+        hash: Commitment<Leaf<TYPES>>,
+        time: TYPES::Time,
+        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
     ) -> u64 {
         let stake = signatures
             .iter()
@@ -778,12 +775,12 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<NodeTypesImpl<I>>
     }
 
     #[instrument(skip(self, qc))]
-    fn validate_qc(&self, qc: &QuorumCertificate<NodeTypesImpl<I>>) -> bool {
-        if qc.genesis && qc.time == I::Time::genesis() {
+    fn validate_qc(&self, qc: &QuorumCertificate<TYPES>) -> bool {
+        if qc.genesis && qc.time == TYPES::Time::genesis() {
             return true;
         }
         let hash = qc.leaf_commitment;
-        let mut signature_map = qc.signatures.clone();
+        let signature_map = qc.signatures.clone();
 
         let stake = self.validated_stake(hash, qc.time, signature_map);
         if stake as usize >= self.threshold().into() {
@@ -796,13 +793,13 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<NodeTypesImpl<I>>
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<Leaf<NodeTypesImpl<I>>>,
-        time: I::Time,
-        vote_token: Checked<I::VoteTokenType>,
+        hash: Commitment<Leaf<TYPES>>,
+        time: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
         let mut is_valid_vote_token = false;
         let mut is_valid_signature = false;
-        if let Some(key) = <I::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
+        if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
             is_valid_signature = key.validate(encoded_signature, hash.as_ref());
             let valid_vote_token = self
                 .inner
@@ -822,11 +819,12 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<NodeTypesImpl<I>>
 
     async fn store_leaf(
         &self,
-        old_anchor_view: I::Time,
-        leaf: Leaf<NodeTypesImpl<I>>,
+        old_anchor_view: TYPES::Time,
+        leaf: Leaf<TYPES>,
     ) -> std::result::Result<(), hotshot_types::traits::storage::StorageError> {
         let view_to_insert = StoredView::from(leaf);
         let storage = &self.inner.storage;
+        storage.append_single_view(view_to_insert).await?;
         storage.cleanup_storage_up_to_view(old_anchor_view).await?;
         storage.commit().await?;
         Ok(())

@@ -25,14 +25,14 @@ use hotshot_types::{
     traits::{
         network::{
             FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
-            NetworkingImplementation,
+            NetworkingImplementation, TestableNetworkingImplementation,
         },
         node_implementation::NodeTypes,
-        signature_key::{ed25519::Ed25519Pub, SignatureKey},
+        signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     },
 };
 use hotshot_utils::{
-    art::{async_sleep, async_spawn, split_stream},
+    art::{async_block_on, async_sleep, async_spawn, split_stream},
     bincode::bincode_opts,
     channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
 };
@@ -41,7 +41,7 @@ use snafu::ResultExt;
 use std::{
     cmp,
     collections::{hash_map::Entry, BTreeSet, HashMap},
-    net::SocketAddr,
+    net::{Ipv4Addr, SocketAddr},
     num::NonZeroUsize,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -1117,47 +1117,47 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
     }
 }
 
-// impl<M, P, E> TestableNetworkingImplementation<M, P> for CentralizedServerNetwork<P, E>
-// where
-//     M: Serialize + DeserializeOwned + Sync + Send + Clone + 'static,
-//     P: TestableSignatureKey + 'static,
-//     E: ElectionConfig + 'static,
-// {
-//     fn generator(
-//         expected_node_count: usize,
-//         _num_bootstrap: usize,
-//     ) -> Box<dyn Fn(u64) -> Self + 'static> {
-//         let (server_shutdown_sender, server_shutdown) = oneshot();
-//         let sender = Arc::new(server_shutdown_sender);
+impl<TYPES: NodeTypes> TestableNetworkingImplementation<TYPES> for CentralizedServerNetwork<TYPES>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+{
+    fn generator(
+        expected_node_count: usize,
+        _num_bootstrap: usize,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let (server_shutdown_sender, server_shutdown) = oneshot();
+        let sender = Arc::new(server_shutdown_sender);
 
-//         let server = async_block_on(hotshot_centralized_server::Server::<P, E>::new(
-//             Ipv4Addr::LOCALHOST.into(),
-//             0,
-//         ))
-//         .with_shutdown_signal(server_shutdown);
-//         let addr = server.addr();
-//         async_spawn(server.run());
+        let server = async_block_on(hotshot_centralized_server::Server::<
+            TYPES::SignatureKey,
+            TYPES::ElectionConfigType,
+        >::new(Ipv4Addr::LOCALHOST.into(), 0))
+        .with_shutdown_signal(server_shutdown);
+        let addr = server.addr();
+        async_spawn(server.run());
 
-//         let known_nodes = (0..expected_node_count as u64)
-//             .map(|id| P::from_private(&P::generate_test_key(id)))
-//             .collect::<Vec<_>>();
+        let known_nodes = (0..expected_node_count as u64)
+            .map(|id| {
+                TYPES::SignatureKey::from_private(&TYPES::SignatureKey::generate_test_key(id))
+            })
+            .collect::<Vec<_>>();
 
-//         Box::new(move |id| {
-//             let sender = Arc::clone(&sender);
-//             let mut network = CentralizedServerNetwork::connect(
-//                 known_nodes.clone(),
-//                 addr,
-//                 known_nodes[id as usize].clone(),
-//             );
-//             network.server_shutdown_signal = Some(sender);
-//             network
-//         })
-//     }
+        Box::new(move |id| {
+            let sender = Arc::clone(&sender);
+            let mut network = CentralizedServerNetwork::connect(
+                known_nodes.clone(),
+                addr,
+                known_nodes[id as usize].clone(),
+            );
+            network.server_shutdown_signal = Some(sender);
+            network
+        })
+    }
 
-//     fn in_flight_message_count(&self) -> Option<usize> {
-//         None
-//     }
-// }
+    fn in_flight_message_count(&self) -> Option<usize> {
+        None
+    }
+}
 
 impl<TYPES: NodeTypes> Drop for CentralizedServerNetwork<TYPES> {
     fn drop(&mut self) {

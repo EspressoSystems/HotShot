@@ -4,13 +4,11 @@ use common::*;
 
 use either::Either::Right;
 
-use hotshot::{
-    demos::dentry::DEntryState,
-    traits::{implementations::{Libp2pNetwork, MemoryStorage}, election::static_committee::StaticCommittee},
-    types::Message,
+use hotshot::traits::{
+    election::static_committee::StaticCommittee,
+    implementations::{Libp2pNetwork, MemoryStorage},
 };
 use hotshot_testing::TestNodeImpl;
-use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
 use tracing::instrument;
 
 /// libp2p network test
@@ -35,15 +33,12 @@ async fn libp2p_network() {
     };
 
     description
-        .build::<
-        TestNodeImpl<
-            DEntryState,
-            MemoryStorage<DEntryState>,
-            Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
-            Ed25519Pub,
-            StaticCommittee<DEntryState>
-        >
-            >()
+        .build::<StaticCommitteeTestTypes, TestNodeImpl<
+            StaticCommitteeTestTypes,
+            Libp2pNetwork<StaticCommitteeTestTypes>,
+            MemoryStorage<StaticCommitteeTestTypes>,
+            StaticCommittee<StaticCommitteeTestTypes>,
+        >>()
         .execute()
         .await
         .unwrap();
@@ -72,14 +67,12 @@ async fn test_stress_libp2p_network() {
     };
 
     description
-        .build::<
-        TestNodeImpl<
-            DEntryState,
-            MemoryStorage<DEntryState>,
-            Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
-            Ed25519Pub,
-            StaticCommittee<DEntryState>
-            >>()
+        .build::<StaticCommitteeTestTypes, TestNodeImpl<
+            StaticCommitteeTestTypes,
+            Libp2pNetwork<StaticCommitteeTestTypes>,
+            MemoryStorage<StaticCommitteeTestTypes>,
+            StaticCommittee<StaticCommitteeTestTypes>,
+        >>()
         .execute()
         .await
         .unwrap();

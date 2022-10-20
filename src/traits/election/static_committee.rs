@@ -65,12 +65,14 @@ impl ElectionConfig for StaticElectionConfig {}
 
 impl<TYPES> Election<TYPES> for StaticCommittee<TYPES>
 where
-    TYPES: NodeTypes<SignatureKey = Ed25519Pub, VoteTokenType = StaticVoteToken>,
+    TYPES: NodeTypes<
+        SignatureKey = Ed25519Pub,
+        VoteTokenType = StaticVoteToken,
+        ElectionConfigType = StaticElectionConfig,
+    >,
 {
     /// Just use the vector of public keys for the stake table
     type StakeTable = Vec<Ed25519Pub>;
-
-    type ElectionConfigType = StaticElectionConfig;
 
     /// Clone the static table
     fn get_stake_table(
@@ -134,11 +136,11 @@ where
         }
     }
 
-    fn default_election_config(_num_nodes: u64) -> Self::ElectionConfigType {
+    fn default_election_config(_num_nodes: u64) -> TYPES::ElectionConfigType {
         StaticElectionConfig {}
     }
 
-    fn create_election(keys: Vec<Ed25519Pub>, _config: Self::ElectionConfigType) -> Self {
+    fn create_election(keys: Vec<Ed25519Pub>, _config: TYPES::ElectionConfigType) -> Self {
         Self {
             nodes: keys,
             _state_phantom: PhantomData,

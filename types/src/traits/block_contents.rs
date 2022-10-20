@@ -53,6 +53,7 @@ pub mod dummy {
     use serde::Deserialize;
 
     pub use crate::traits::state::dummy::DummyState;
+    use crate::traits::state::TestableBlock;
 
     /// The dummy block
     #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -111,6 +112,12 @@ pub mod dummy {
 
         fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>> {
             HashSet::new()
+        }
+    }
+
+    impl TestableBlock for DummyBlock {
+        fn genesis() -> Self {
+            Self { nonce: 0 }
         }
     }
 

@@ -61,15 +61,12 @@ pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
     /// Data structure describing the currently valid states
     type StakeTable: Send + Sync;
 
-    /// configuration for election
-    type ElectionConfigType: ElectionConfig;
-
     /// generate a default election configuration
-    fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType;
+    fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType;
 
     /// create an election
     /// TODO may want to move this to a testableelection trait
-    fn create_election(keys: Vec<TYPES::SignatureKey>, config: Self::ElectionConfigType) -> Self;
+    fn create_election(keys: Vec<TYPES::SignatureKey>, config: TYPES::ElectionConfigType) -> Self;
 
     /// Returns the table from the current committed state
     fn get_stake_table(&self, time: TYPES::Time, state: &TYPES::StateType) -> Self::StakeTable;

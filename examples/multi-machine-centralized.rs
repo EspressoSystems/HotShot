@@ -31,7 +31,7 @@ use std::{
 use tracing::{debug, error};
 
 type Node =
-    DEntryNode<CentralizedServerNetwork<Ed25519Pub, StaticElectionConfig>, StaticCommittee<DEntryState>, Ed25519Pub>;
+    DEntryNode<DEntryTypes, CentralizedServerNetwork<DEntryTypes>, StaticCommittee<DEntryTypes>>;
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -49,11 +49,11 @@ struct NodeOpt {
 /// Creates the initial state and hotshot for simulation.
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
 async fn init_state_and_hotshot(
-    networking: CentralizedServerNetwork<Ed25519Pub, StaticElectionConfig>,
+    networking: CentralizedServerNetwork<DEntryTypes>,
     config: HotShotConfig<Ed25519Pub, StaticElectionConfig>,
     seed: [u8; 32],
     node_id: u64,
-) -> (DEntryState, HotShotHandle<Node>) {
+) -> (DEntryState, HotShotHandle<DEntryTypes, Node>) {
     // Create the initial block
     let accounts: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
@@ -85,7 +85,7 @@ async fn init_state_and_hotshot(
     .expect("Could not init hotshot");
     debug!("hotshot launched");
 
-    let storage: &MemoryStorage<DEntryState> = hotshot.storage();
+    let storage: &MemoryStorage<DEntryTypes> = hotshot.storage();
 
     let state = storage.get_anchored_view().await.unwrap().state;
 
@@ -214,7 +214,7 @@ async fn main() {
     );
     debug!("All rounds completed");
 
-    let networking: &CentralizedServerNetwork<Ed25519Pub, StaticElectionConfig> = hotshot.networking();
+    let networking: &CentralizedServerNetwork<DEntryTypes> = hotshot.networking();
     networking
         .send_results(RunResults {
             run,

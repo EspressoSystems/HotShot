@@ -1,7 +1,7 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 use crate::{
-    traits::{Block, NetworkError::ShutDown, NodeImplementation},
+    traits::{NetworkError::ShutDown, NodeImplementation},
     types::{Event, HotShotError::NetworkFault},
     HotShot,
 };
@@ -10,8 +10,8 @@ use hotshot_types::{
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
-        network::NetworkingImplementation, node_implementation::NodeTypesImpl,
-        state::ConsensusTime, storage::Storage, State,
+        network::NetworkingImplementation, node_implementation::NodeTypes, state::ConsensusTime,
+        storage::Storage,
     },
 };
 use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
@@ -38,23 +38,23 @@ use hotshot_types::{
 /// This type provides the means to message and interact with a background [`HotShot`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
-pub struct HotShotHandle<I: NodeImplementation> {
+pub struct HotShotHandle<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     /// The [sender](BroadcastSender) for the output stream from the background process
     ///
     /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
     /// method is needed to generate new receivers for cloning the handle.
-    pub(crate) sender_handle: Arc<BroadcastSender<Event<NodeTypesImpl<I>>>>,
+    pub(crate) sender_handle: Arc<BroadcastSender<Event<TYPES>>>,
     /// Internal reference to the underlying [`HotShot`]
-    pub(crate) hotshot: HotShot<I>,
+    pub(crate) hotshot: HotShot<TYPES, I>,
     /// The [`BroadcastReceiver`] we get the events from
-    pub(crate) stream_output: BroadcastReceiver<Event<NodeTypesImpl<I>>>,
+    pub(crate) stream_output: BroadcastReceiver<Event<TYPES>>,
     /// Global to signify the `HotShot` should be closed after completing the next round
     pub(crate) shut_down: Arc<AtomicBool>,
     /// Our copy of the `Storage` view for a hotshot
     pub(crate) storage: I::Storage,
 }
 
-impl<I: NodeImplementation + 'static> Clone for HotShotHandle<I> {
+impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> Clone for HotShotHandle<TYPES, I> {
     fn clone(&self) -> Self {
         Self {
             sender_handle: self.sender_handle.clone(),
@@ -66,15 +66,13 @@ impl<I: NodeImplementation + 'static> Clone for HotShotHandle<I> {
     }
 }
 
-impl<I: NodeImplementation + 'static> HotShotHandle<I> {
+impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPES, I> {
     /// Will return the next event in the queue
     ///
     /// # Errors
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] has been closed.
-    pub async fn next_event(
-        &mut self,
-    ) -> Result<Event<NodeTypesImpl<I>>, HotShotError<NodeTypesImpl<I>>> {
+    pub async fn next_event(&mut self) -> Result<Event<TYPES>, HotShotError<TYPES>> {
         let result = self.stream_output.recv_async().await;
         match result {
             Ok(result) => Ok(result),
@@ -86,9 +84,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// # Errors
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down
-    pub fn try_next_event(
-        &mut self,
-    ) -> Result<Option<Event<NodeTypesImpl<I>>>, HotShotError<NodeTypesImpl<I>>> {
+    pub fn try_next_event(&mut self) -> Result<Option<Event<TYPES>>, HotShotError<TYPES>> {
         let result = self.stream_output.try_recv();
         Ok(result)
     }
@@ -99,9 +95,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut
     /// down.
-    pub fn available_events(
-        &mut self,
-    ) -> Result<Vec<Event<NodeTypesImpl<I>>>, HotShotError<NodeTypesImpl<I>>> {
+    pub fn available_events(&mut self) -> Result<Vec<Event<TYPES>>, HotShotError<TYPES>> {
         let mut output = vec![];
         // Loop to pull out all the outputs
         loop {
@@ -120,7 +114,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// # Errors
     ///
     /// Returns an error if the underlying `Storage` returns an error
-    pub async fn get_state(&self) -> I::StateType {
+    pub async fn get_state(&self) -> TYPES::StateType {
         self.hotshot.get_state().await
     }
 
@@ -128,7 +122,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// # Panics
     ///
     /// Panics if internal consensus is in an inconsistent state.
-    pub async fn get_decided_leaf(&self) -> Leaf<NodeTypesImpl<I>> {
+    pub async fn get_decided_leaf(&self) -> Leaf<TYPES> {
         self.hotshot.get_decided_leaf().await
     }
 
@@ -142,8 +136,8 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// [`HotShot`] instance.
     pub async fn submit_transaction(
         &self,
-        tx: <<<I as NodeImplementation>::StateType as State>::BlockType as Block>::Transaction,
-    ) -> Result<(), HotShotError<NodeTypesImpl<I>>> {
+        tx: TYPES::Transaction,
+    ) -> Result<(), HotShotError<TYPES>> {
         self.hotshot.publish_transaction_async(tx).await
     }
 
@@ -155,9 +149,9 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
         // if is genesis
         let _anchor = self.storage();
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
-            if anchor_leaf.time == I::Time::genesis() {
+            if anchor_leaf.time == TYPES::Time::genesis() {
                 let event = Event {
-                    time: I::Time::genesis(),
+                    time: TYPES::Time::genesis(),
                     event: EventType::Decide {
                         leaf_chain: Arc::new(vec![anchor_leaf.into()]),
                     },
@@ -190,7 +184,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     /// Panics if the event stream is shut down while this is running
     pub async fn collect_round_events(
         &mut self,
-    ) -> Result<(Vec<I::StateType>, Vec<I::BlockType>), HotShotError<NodeTypesImpl<I>>> {
+    ) -> Result<(Vec<TYPES::StateType>, Vec<TYPES::BlockType>), HotShotError<TYPES>> {
         // TODO we should probably do a view check
         // but we can do that later. It's non-obvious how to get the view number out
         // to check against
@@ -255,7 +249,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
 
     /// Wrapper for `HotShotConsensusApi`'s `get_leader` function
     #[cfg(feature = "hotshot-testing")]
-    pub async fn get_leader(&self, view_number: I::Time) -> I::SignatureKey {
+    pub async fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -264,13 +258,13 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
 
     /// Wrapper to get this node's public key
     #[cfg(feature = "hotshot-testing")]
-    pub fn get_public_key(&self) -> I::SignatureKey {
+    pub fn get_public_key(&self) -> TYPES::SignatureKey {
         self.hotshot.inner.public_key.clone()
     }
 
     /// Wrapper to get this node's current view
     #[cfg(feature = "hotshot-testing")]
-    pub async fn get_current_view(&self) -> I::Time {
+    pub async fn get_current_view(&self) -> TYPES::Time {
         self.hotshot.hotstuff.read().await.cur_view
     }
 
@@ -278,8 +272,8 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     #[cfg(feature = "hotshot-testing")]
     pub fn sign_proposal(
         &self,
-        leaf_commitment: &Commitment<Leaf<NodeTypesImpl<I>>>,
-        view_number: I::Time,
+        leaf_commitment: &Commitment<Leaf<TYPES>>,
+        view_number: TYPES::Time,
     ) -> EncodedSignature {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
@@ -291,8 +285,8 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     #[cfg(feature = "hotshot-testing")]
     pub fn sign_vote(
         &self,
-        leaf_commitment: &Commitment<Leaf<NodeTypesImpl<I>>>,
-        view_number: I::Time,
+        leaf_commitment: &Commitment<Leaf<TYPES>>,
+        view_number: TYPES::Time,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
@@ -302,7 +296,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
 
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
     #[cfg(feature = "hotshot-testing")]
-    pub async fn send_broadcast_consensus_message(&self, msg: ConsensusMessage<NodeTypesImpl<I>>) {
+    pub async fn send_broadcast_consensus_message(&self, msg: ConsensusMessage<TYPES>) {
         let _result = self.hotshot.send_broadcast_message(msg).await;
     }
 
@@ -310,15 +304,18 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_direct_consensus_message(
         &self,
-        msg: ConsensusMessage<NodeTypesImpl<I>>,
-        recipient: I::SignatureKey,
+        msg: ConsensusMessage<TYPES>,
+        recipient: TYPES::SignatureKey,
     ) {
         let _result = self.hotshot.send_direct_message(msg, recipient).await;
     }
 
     /// Get length of the replica's receiver channel
     #[cfg(feature = "hotshot-testing")]
-    pub async fn get_replica_receiver_channel_len(&self, view_number: I::Time) -> Option<usize> {
+    pub async fn get_replica_receiver_channel_len(
+        &self,
+        view_number: TYPES::Time,
+    ) -> Option<usize> {
         use hotshot_utils::channel::UnboundedReceiver;
 
         let channel_map = self.hotshot.replica_channel_map.read().await;
@@ -331,7 +328,7 @@ impl<I: NodeImplementation + 'static> HotShotHandle<I> {
     #[cfg(feature = "hotshot-testing")]
     pub async fn get_next_leader_receiver_channel_len(
         &self,
-        view_number: I::Time,
+        view_number: TYPES::Time,
     ) -> Option<usize> {
         use hotshot_utils::channel::UnboundedReceiver;
 

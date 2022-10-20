@@ -2235,6 +2235,7 @@ dependencies = [
  "blake3",
  "cfg-if",
  "commit",
+ "derivative",
  "either",
  "futures",
  "hotshot",

@@ -1,11 +1,12 @@
 use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
+use commit::{Commitment, Committable};
 use hotshot_types::{
-    data::ViewNumber,
+    data::Leaf,
     traits::{
         election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
+        node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
-        State,
     },
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -263,9 +264,10 @@ where
 }
 
 /// the vrf implementation
-pub struct VrfImpl<STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+pub struct VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS> + Sync + Send,
+    TYPES: NodeTypes,
 {
     /// the stake table
     stake_table: VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>,
@@ -282,16 +284,17 @@ where
     /// phantom data
     _pd_1: PhantomData<VRFPARAMS>,
     /// phantom data
-    _pd_2: PhantomData<STATE>,
+    _pd_2: PhantomData<TYPES>,
     /// phantom data
     _pd_3: PhantomData<VRF>,
     /// phantom data
     _pd_4: PhantomData<SIGSCHEME>,
 }
-impl<STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS> Clone
-    for VrfImpl<STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+impl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS> Clone
+    for VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS, PublicParameter = ()> + Sync + Send,
+    TYPES: NodeTypes,
 {
     fn clone(&self) -> Self {
         Self {
@@ -309,47 +312,59 @@ where
 }
 
 /// TODO doc me
-#[derive(Serialize, Deserialize, Debug)]
-pub struct VRFVoteToken<VRF: Vrf<VRFHASHER, VRFPARAMS>, VRFHASHER, VRFPARAMS> {
+#[derive(Serialize, Deserialize, Clone)]
+pub struct VRFVoteToken<PUBKEY, PROOF> {
     /// The public key assocaited with this token
-    pub pub_key: VRF::PublicKey,
+    pub pub_key: PUBKEY,
     /// The list of signatures
-    pub proof: VRF::Proof,
+    pub proof: PROOF,
     /// The number of signatures that are valid
     /// TODO (ct) this should be the sorition outbput
     pub count: u64,
 }
 
-impl<VRF: Vrf<VRFHASHER, VRFPARAMS>, VRFHASHER, VRFPARAMS> Clone
-    for VRFVoteToken<VRF, VRFHASHER, VRFPARAMS>
-where
-    VRF::PublicKey: Clone,
-    VRF::Proof: Clone,
-{
-    fn clone(&self) -> Self {
-        Self {
-            pub_key: self.pub_key.clone(),
-            proof: self.proof.clone(),
-            count: self.count,
-        }
+impl<PUBKEY, PROOF> Hash for VRFVoteToken<PUBKEY, PROOF> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        todo!()
+        // self.pub_key.hash(state);
+        // self.proof.hash(state);
+        // self.count.hash(state);
+    }
+}
+impl<PUBKEY, PROOF> Debug for VRFVoteToken<PUBKEY, PROOF> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // f.debug_struct("VRFVoteToken").field("pub_key", &self.pub_key).field("proof", &self.proof).field("count", &self.count).finish()
+        todo!()
+    }
+}
+impl<PUBKEY, PROOF> PartialEq for VRFVoteToken<PUBKEY, PROOF> {
+    fn eq(&self, other: &Self) -> bool {
+        // self.pub_key == other.pub_key && self.proof == other.proof && self.count == other.count
+        todo!()
     }
 }
 
-impl<VRF, VRFHASHER, VRFPARAMS> VoteToken for VRFVoteToken<VRF, VRFHASHER, VRFPARAMS>
+impl<PUBKEY, PROOF> VoteToken for VRFVoteToken<PUBKEY, PROOF>
 where
-    VRF: Vrf<VRFHASHER, VRFPARAMS>,
+    PUBKEY: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static,
+    PROOF: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static,
 {
     fn vote_count(&self) -> u64 {
         self.count
     }
 }
 
+impl<PUBKEY, PROOF> Committable for VRFVoteToken<PUBKEY, PROOF> {
+    fn commit(&self) -> Commitment<Self> {
+        todo!()
+    }
+}
+
 // KEY is VRFPubKey
-impl<VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, STATE>
-    Election<VRFPubKey<SIGSCHEME>, <STATE as State>::Time>
-    for VrfImpl<STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+impl<VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, TYPES> Election<TYPES>
+    for VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
-    SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send,
+    SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send + 'static,
     SIGSCHEME::VerificationKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
     SIGSCHEME::SigningKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
     SIGSCHEME::Signature: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
@@ -362,36 +377,33 @@ where
             PublicKey = SIGSCHEME::VerificationKey,
             SecretKey = SIGSCHEME::SigningKey,
         > + Sync
-        + Send,
+        + Send
+        + 'static,
     VRF::Proof: Clone + Sync + Send + Serialize + for<'a> Deserialize<'a>,
     VRF::PublicParameter: Sync + Send,
-    VRFHASHER: Clone + Sync + Send,
+    VRFHASHER: Clone + Sync + Send + 'static,
     VRFPARAMS: Sync + Send + Bls12Parameters,
-    STATE: State,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
+    TYPES: NodeTypes<
+        VoteTokenType = VRFVoteToken<VRF::PublicKey, VRF::Proof>,
+        ElectionConfigType = VRFStakeTableConfig,
+        SignatureKey = VRFPubKey<SIGSCHEME>,
+    >,
 {
     // pubkey -> unit of stake
     type StakeTable = VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>;
-
-    type StateType = STATE;
-
-    // TODO generics in terms of vrf trait output(s)
-    // represents a vote on a proposal
-    type VoteTokenType = VRFVoteToken<VRF, VRFHASHER, VRFPARAMS>;
-
-    type ElectionConfigType = VRFStakeTableConfig;
 
     // FIXED STAKE
     // just return the state
     fn get_stake_table(
         &self,
-        _view_number: hotshot_types::data::ViewNumber,
-        _state: &Self::StateType,
+        _view_number: TYPES::Time,
+        _state: &TYPES::StateType,
     ) -> Self::StakeTable {
         self.stake_table.clone()
     }
 
-    fn get_leader(&self, view_number: hotshot_types::data::ViewNumber) -> VRFPubKey<SIGSCHEME> {
+    fn get_leader(&self, view_number: TYPES::Time) -> VRFPubKey<SIGSCHEME> {
         // TODO fst2 (ct) this is round robin, we should make this dependent on
         // the VRF + some source of randomness
 
@@ -409,11 +421,11 @@ where
         // TODO see if we can make this take &mut self
         // because we're using a mutable prng
         &self,
-        view_number: hotshot_types::data::ViewNumber,
+        view_number: TYPES::Time,
         private_key: &(SIGSCHEME::SigningKey, SIGSCHEME::VerificationKey),
         // TODO (ct) this should be replaced with something else...
-        next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
-    ) -> Result<Option<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
+        next_state: Commitment<Leaf<TYPES>>,
+    ) -> Result<Option<TYPES::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
         let pub_key = VRFPubKey::<SIGSCHEME>::from_native(private_key.1.clone());
         let replicas_stake = match self.stake_table.get_stake(&pub_key) {
             Some(val) => val,
@@ -460,11 +472,11 @@ where
 
     fn validate_vote_token(
         &self,
-        _view_number: hotshot_types::data::ViewNumber,
+        _view_number: TYPES::Time,
         pub_key: VRFPubKey<SIGSCHEME>,
-        token: Checked<Self::VoteTokenType>,
-        next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
-    ) -> Result<Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
+        token: Checked<TYPES::VoteTokenType>,
+        next_state: commit::Commitment<hotshot_types::data::Leaf<TYPES>>,
+    ) -> Result<Checked<TYPES::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
         match token {
             Checked::Unchecked(token) => {
                 let stake: Option<u64> = self.stake_table.get_stake(&pub_key);
@@ -503,11 +515,11 @@ where
         }
     }
 
-    fn create_election(keys: Vec<VRFPubKey<SIGSCHEME>>, config: Self::ElectionConfigType) -> Self {
+    fn create_election(keys: Vec<VRFPubKey<SIGSCHEME>>, config: TYPES::ElectionConfigType) -> Self {
         VrfImpl::with_initial_stake(keys, &config)
     }
 
-    fn default_election_config(num_nodes: u64) -> Self::ElectionConfigType {
+    fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType {
         let mut stake = Vec::new();
         let units_of_stake_per_node = NonZeroU64::new(100).unwrap();
         for _ in 0..num_nodes {
@@ -541,9 +553,9 @@ fn check_bin_idx(
 /// generates the seed from algorand paper
 /// baseed on `next_state` commitment as of now, but in the future will be other things
 /// this is a stop-gap
-fn generate_view_seed<STATE: State>(
-    _view_number: ViewNumber,
-    next_state: commit::Commitment<hotshot_types::data::Leaf<STATE>>,
+fn generate_view_seed<TYPES: NodeTypes>(
+    _view_number: TYPES::Time,
+    next_state: commit::Commitment<hotshot_types::data::Leaf<TYPES>>,
 ) -> [u8; 32] {
     <[u8; 32]>::from(next_state)
 }
@@ -674,8 +686,8 @@ fn find_bin_idx(
     }
 }
 
-impl<STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
-    VrfImpl<STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+impl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+    VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send,
     SIGSCHEME::VerificationKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
@@ -695,8 +707,8 @@ where
     VRF::PublicParameter: Sync + Send,
     VRFHASHER: Clone + Sync + Send,
     VRFPARAMS: Sync + Send + Bls12Parameters,
-    STATE: State,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
+    TYPES: NodeTypes,
 {
     /// create stake table with this initial stake
     /// # Panics
@@ -757,15 +769,38 @@ mod tests {
     use commit::Commitment;
     use hotshot_types::{
         data::{random_commitment, Leaf, ViewNumber},
-        traits::state::dummy::DummyState,
+        traits::{
+            block_contents::dummy::{DummyBlock, DummyTransaction},
+            state::{dummy::DummyState, ConsensusTime},
+        },
     };
     use hotshot_utils::test_util::setup_logging;
-    use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
+    use jf_primitives::{
+        signatures::{
+            bls::{BLSSignature, BLSVerKey},
+            BLSSignatureScheme,
+        },
+        vrf::blsvrf::BLSVRFScheme,
+    };
 
-    pub fn gen_vrf_impl(
+    struct TestTypes;
+    impl NodeTypes for TestTypes {
+        type Time = ViewNumber;
+        type BlockType = DummyBlock;
+        type SignatureKey = VRFPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>;
+        type VoteTokenType = VRFVoteToken<
+            BLSVerKey<ark_bls12_381::Parameters>,
+            BLSSignature<ark_bls12_381::Parameters>,
+        >;
+        type Transaction = DummyTransaction;
+        type ElectionConfigType = VRFStakeTableConfig;
+        type StateType = DummyState;
+    }
+
+    fn gen_vrf_impl(
         num_nodes: usize,
     ) -> (
-        VrfImpl<DummyState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
+        VrfImpl<TestTypes, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
         Vec<(
             jf_primitives::signatures::bls::BLSSignKey<Param381>,
             jf_primitives::signatures::bls::BLSVerKey<Param381>,
@@ -809,7 +844,7 @@ mod tests {
         let views = 100;
 
         for view in 0..views {
-            let next_state_commitment: Commitment<Leaf<DummyState>> = random_commitment();
+            let next_state_commitment: Commitment<Leaf<TestTypes>> = random_commitment();
             for (node_idx, (sk, pk)) in keys.iter().enumerate() {
                 let token = vrf_impl
                     .make_vote_token(

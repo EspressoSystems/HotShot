@@ -15,15 +15,15 @@ pub mod network_reliability;
 
 pub use self::launcher::TestLauncher;
 
+use derivative::Derivative;
 use futures::future::LocalBoxFuture;
 use hotshot::{
     data::Leaf,
-    traits::{Block, NetworkingImplementation, NodeImplementation, State, Storage},
-    types::{HotShotHandle, Message},
+    traits::{NetworkingImplementation, NodeImplementation, Storage},
+    types::HotShotHandle,
     HotShot, HotShotError, HotShotInitializer, H_256,
 };
 use hotshot_types::{
-    data::ViewNumber,
     traits::{
         election::Election,
         network::TestableNetworkingImplementation,
@@ -45,51 +45,56 @@ pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 pub const N: usize = H_256;
 
 /// Result of running a round of consensus
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug(bound = ""))]
 // TODO do we need static here
 pub struct RoundResult<TYPES: NodeTypes> {
     /// Transactions that were submitted
-    pub txns: Vec<<<STATE as State>::BlockType as Block>::Transaction>,
+    pub txns: Vec<TYPES::Transaction>,
     /// Nodes that committed this round
-    pub results: HashMap<u64, (Vec<STATE>, Vec<<STATE as State>::BlockType>)>,
+    pub results: HashMap<u64, (Vec<TYPES::StateType>, Vec<TYPES::BlockType>)>,
     /// Nodes that failed to commit this round
     pub failures: HashMap<u64, HotShotError<TYPES>>,
 }
 
 /// Type of function used for checking results after running a view of consensus
-pub type RoundPostSafetyCheck<I> = Box<
+pub type RoundPostSafetyCheck<TYPES, I> = Box<
     dyn FnOnce(
-        &TestRunner<I>,
-        RoundResult<<I as TestableNodeImplementation>::StateType>,
+        &TestRunner<TYPES, I>,
+        RoundResult<TYPES>,
     ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
 >;
 
 /// Type of function used for configuring a round of consensus
-pub type RoundSetup<I> = Box<
-    dyn FnOnce(
-        &mut TestRunner<I>,
-    ) -> LocalBoxFuture<Vec<<<<I as TestableNodeImplementation>::StateType as State>::BlockType as Block>::Transaction>>,
->;
+pub type RoundSetup<TYPES, TRANS, I> =
+    Box<dyn FnOnce(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<Vec<TRANS>>>;
 
 /// Type of function used for checking safety before beginnning consensus
-pub type RoundPreSafetyCheck<I> =
-    Box<dyn FnOnce(&TestRunner<I>) -> LocalBoxFuture<Result<(), ConsensusRoundError>>>;
+pub type RoundPreSafetyCheck<TYPES, I> =
+    Box<dyn FnOnce(&TestRunner<TYPES, I>) -> LocalBoxFuture<Result<(), ConsensusRoundError>>>;
 
 /// functions to run a round of consensus
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
-pub struct Round<I: TestableNodeImplementation> {
+pub struct Round<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     /// Safety check before round is set up and run
     /// to ensure consistent state
-    pub safety_check_post: Option<RoundPostSafetyCheck<I>>,
+    pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, I>>,
 
     /// Round set up
-    pub setup_round: Option<RoundSetup<I>>,
+    pub setup_round: Option<RoundSetup<TYPES, TYPES::Transaction, I>>,
 
     /// Safety check after round is complete
-    pub safety_check_pre: Option<RoundPreSafetyCheck<I>>,
+    pub safety_check_pre: Option<RoundPreSafetyCheck<TYPES, I>>,
 }
 
-impl<I: TestableNodeImplementation> Default for Round<I> {
+impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I>
+where
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState,
+    TYPES::SignatureKey: TestableSignatureKey,
+    I::Networking: TestableNetworkingImplementation<TYPES>,
+    I::Storage: TestableStorage<TYPES>,
+{
     fn default() -> Self {
         Self {
             safety_check_post: None,
@@ -101,28 +106,33 @@ impl<I: TestableNodeImplementation> Default for Round<I> {
 
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
-pub struct TestRunner<I: TestableNodeImplementation> {
+pub struct TestRunner<TYPES, I>
+where
+    TYPES: NodeTypes,
+    I: NodeImplementation<TYPES>,
+{
     network_generator: Generator<I::Networking>,
     storage_generator: Generator<I::Storage>,
-    default_node_config: HotShotConfig<
-        I::SignatureKey,
-        <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType,
-    >,
-    nodes: Vec<Node<I>>,
+    default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    nodes: Vec<Node<TYPES, I>>,
     next_node_id: u64,
-    rounds: Vec<Round<I>>,
+    rounds: Vec<Round<TYPES, I>>,
 }
 
-struct Node<I: TestableNodeImplementation> {
+struct Node<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     pub node_id: u64,
-    pub handle: HotShotHandle<
-        I::NodeImplementation, // TestNodeImpl
-                               // <I::Networking, I::Storage, I::StateType, I::Election, I::SignatureKey>
-    >,
+    pub handle: HotShotHandle<TYPES, I>,
 }
 
-impl<I: TestableNodeImplementation> TestRunner<I> {
-    pub(self) fn new(launcher: TestLauncher<I>) -> Self {
+impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
+where
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState,
+    TYPES::SignatureKey: TestableSignatureKey,
+    I::Networking: TestableNetworkingImplementation<TYPES>,
+    I::Storage: TestableStorage<TYPES>,
+{
+    pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
             network_generator: launcher.network,
             storage_generator: launcher.storage,
@@ -134,13 +144,11 @@ impl<I: TestableNodeImplementation> TestRunner<I> {
     }
 
     /// default setup for round
-    pub fn default_before_round(
-        _runner: &mut Self,
-    ) -> Vec<<<I::StateType as State>::BlockType as Block>::Transaction> {
+    pub fn default_before_round(_runner: &mut Self) -> Vec<TYPES::Transaction> {
         Vec::new()
     }
     /// default safety check
-    pub fn default_safety_check(_runner: &Self, _results: RoundResult<I::StateType>) {}
+    pub fn default_safety_check(_runner: &Self, _results: RoundResult<TYPES>) {}
 
     /// Add `count` nodes to the network. These will be spawned with the default node config and state
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64> {
@@ -150,10 +158,8 @@ impl<I: TestableNodeImplementation> TestRunner<I> {
             let network = (self.network_generator)(node_id);
             let storage = (self.storage_generator)(node_id);
             let config = self.default_node_config.clone();
-            let initializer = HotShotInitializer::from_genesis(
-                <<I::StateType as State>::BlockType as TestableBlock>::genesis(),
-            )
-            .unwrap();
+            let initializer =
+                HotShotInitializer::from_genesis(TYPES::BlockType::genesis()).unwrap();
             let node_id = self
                 .add_node_with_config(network, storage, initializer, config)
                 .await;
@@ -165,7 +171,7 @@ impl<I: TestableNodeImplementation> TestRunner<I> {
 
     /// replace round list
     #[allow(clippy::type_complexity)]
-    pub fn with_rounds(&mut self, rounds: Vec<Round<I>>) {
+    pub fn with_rounds(&mut self, rounds: Vec<Round<TYPES, I>>) {
         self.rounds = rounds;
         // we call pop, so reverse the array such that first element is on top
         self.rounds.reverse();
@@ -183,27 +189,18 @@ impl<I: TestableNodeImplementation> TestRunner<I> {
         &mut self,
         network: I::Networking,
         storage: I::Storage,
-        initializer: HotShotInitializer<I::StateType>,
-        config: HotShotConfig<
-            <I as TestableNodeImplementation>::SignatureKey,
-            <<I as TestableNodeImplementation>::Election as Election<
-                <I as TestableNodeImplementation>::SignatureKey,
-                ViewNumber,
-            >>::ElectionConfigType,
-        >,
+        initializer: HotShotInitializer<TYPES>,
+        config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> u64 {
         let node_id = self.next_node_id;
         self.next_node_id += 1;
 
         let known_nodes = config.known_nodes.clone();
-        let private_key = <I::SignatureKey as TestableSignatureKey>::generate_test_key(node_id);
-        let public_key = <I::SignatureKey as SignatureKey>::from_private(&private_key);
-        let election_config =
-            config.election_config.clone().unwrap_or_else(|| {
-                <I::Election as Election<_, _>>::default_election_config(
-                    config.total_nodes.get() as u64
-                )
-            });
+        let private_key = TYPES::SignatureKey::generate_test_key(node_id);
+        let public_key = TYPES::SignatureKey::from_private(&private_key);
+        let election_config = config.election_config.clone().unwrap_or_else(|| {
+            I::Election::default_election_config(config.total_nodes.get() as u64)
+        });
         let handle = HotShot::init(
             public_key,
             private_key,
@@ -211,7 +208,7 @@ impl<I: TestableNodeImplementation> TestRunner<I> {
             config,
             network,
             storage,
-            <I::Election as Election<_, _>>::create_election(known_nodes, election_config),
+            I::Election::create_election(known_nodes, election_config),
             initializer,
         )
         .await
@@ -221,10 +218,7 @@ impl<I: TestableNodeImplementation> TestRunner<I> {
     }
 
     /// Iterate over the [`HotShotHandle`] nodes in this runner.
-    pub fn nodes(
-        &self,
-    ) -> impl Iterator<Item = &HotShotHandle<<I as TestableNodeImplementation>::NodeImplementation>> + '_
-    {
+    pub fn nodes(&self) -> impl Iterator<Item = &HotShotHandle<TYPES, I>> + '_ {
         self.nodes.iter().map(|node| &node.handle)
     }
 
@@ -278,10 +272,7 @@ impl<I: TestableNodeImplementation> TestRunner<I> {
     /// Internal function that unpauses hotshots and waits for round to complete,
     /// returns a `RoundResult` upon successful completion, indicating what (if anything) was
     /// committed
-    async fn run_one_round(
-        &mut self,
-        txns: Vec<<<I::StateType as State>::BlockType as Block>::Transaction>,
-    ) -> RoundResult<I::StateType> {
+    async fn run_one_round(&mut self, txns: Vec<TYPES::Transaction>) -> RoundResult<TYPES> {
         let mut results = HashMap::new();
 
         info!("EXECUTOR: running one round");
@@ -349,7 +340,7 @@ impl<I: TestableNodeImplementation> TestRunner<I> {
 
     /// returns the requested handle specified by `id` if it exists
     /// else returns `None`
-    pub fn get_handle(&self, id: u64) -> Option<HotShotHandle<I::NodeImplementation>> {
+    pub fn get_handle(&self, id: u64) -> Option<HotShotHandle<TYPES, I>> {
         self.nodes.iter().find_map(|node| {
             if node.node_id == id {
                 Some(node.handle.clone())
@@ -365,10 +356,17 @@ impl<I: TestableNodeImplementation> TestRunner<I> {
     }
 }
 
-impl<I: TestableNodeImplementation> TestRunner<I> {
+impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
+where
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState,
+    TYPES::SignatureKey: TestableSignatureKey,
+    I::Networking: TestableNetworkingImplementation<TYPES>,
+    I::Storage: TestableStorage<TYPES>,
+{
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
-        let mut leaves = Vec::<Leaf<I::StateType>>::new();
+        let mut leaves = Vec::<Leaf<TYPES>>::new();
         for node in self.nodes.iter() {
             let decide_leaf = node.handle.get_decided_leaf().await;
             leaves.push(decide_leaf);
@@ -428,12 +426,16 @@ impl<I: TestableNodeImplementation> TestRunner<I> {
 
 // FIXME make these return some sort of generic error.
 // corresponding issue: <https://github.com/EspressoSystems/hotshot/issues/181>
-impl<I: TestableNodeImplementation> TestRunner<I> {
+impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
+where
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState,
+    TYPES::SignatureKey: TestableSignatureKey,
+    I::Networking: TestableNetworkingImplementation<TYPES>,
+    I::Storage: TestableStorage<TYPES>,
+{
     /// Add a random transaction to this runner.
-    pub async fn add_random_transaction(
-        &self,
-        node_id: Option<usize>,
-    ) -> <<I::StateType as State>::BlockType as Block>::Transaction {
+    pub async fn add_random_transaction(&self, node_id: Option<usize>) -> TYPES::Transaction {
         if self.nodes.is_empty() {
             panic!("Tried to add transaction, but no nodes have been added!");
         }
@@ -446,7 +448,7 @@ impl<I: TestableNodeImplementation> TestRunner<I> {
         // it should be caught by an assertion (and the txn will be rejected anyway)
         let state = self.nodes[0].handle.get_state().await;
 
-        let txn = <I::StateType as TestableState>::create_random_transaction(&state);
+        let txn = <TYPES::StateType as TestableState>::create_random_transaction(&state);
 
         let node = if let Some(node_id) = node_id {
             self.nodes.get(node_id).unwrap()
@@ -464,10 +466,7 @@ impl<I: TestableNodeImplementation> TestRunner<I> {
 
     /// add `n` transactions
     /// TODO error handling to make sure entire set of transactions can be processed
-    pub async fn add_random_transactions(
-        &self,
-        n: usize,
-    ) -> Option<Vec<<<I::StateType as State>::BlockType as Block>::Transaction>> {
+    pub async fn add_random_transactions(&self, n: usize) -> Option<Vec<TYPES::Transaction>> {
         let mut result = Vec::new();
         for _ in 0..n {
             result.push(self.add_random_transaction(None).await);
@@ -531,56 +530,59 @@ pub enum ConsensusTestError {
 }
 
 /// An implementation to make the trio `NETWORK`, `STORAGE` and `STATE` implement [`NodeImplementation`]
-#[derive(Clone)]
-pub struct TestNodeImpl<STATE, STORAGE, NETWORKING, KEY, ELECTION> {
-    _pd_0: PhantomData<STATE>,
-    _pd_1: PhantomData<STORAGE>,
-    _pd_2: PhantomData<NETWORKING>,
-    _pd_3: PhantomData<KEY>,
-    _pd_4: PhantomData<ELECTION>,
+pub struct TestNodeImpl<TYPES: NodeTypes, NETWORK, STORAGE, ELECTION> {
+    _pd_0: PhantomData<TYPES>,
+    _pd_1: PhantomData<NETWORK>,
+    _pd_2: PhantomData<STORAGE>,
+    _pd_3: PhantomData<ELECTION>,
 }
 
-impl<STATE, BLOCK, STORAGE, NETWORKING, KEY, ELECTION> TestableNodeImplementation
-    for TestNodeImpl<STATE, STORAGE, NETWORKING, KEY, ELECTION>
-where
-    BLOCK: TestableBlock + 'static,
-    STATE: TestableState<Time = ViewNumber, BlockType = BLOCK> + 'static,
-    STORAGE: TestableStorage<STATE> + 'static,
-    KEY: TestableSignatureKey + 'static,
-    NETWORKING: TestableNetworkingImplementation<Message<STATE, KEY>, KEY> + Clone + 'static,
-    ELECTION: Election<KEY, ViewNumber, StateType = STATE> + Clone + 'static,
+impl<TYPES: NodeTypes, NETWORK, STORAGE, ELECTION> Clone
+    for TestNodeImpl<TYPES, NETWORK, STORAGE, ELECTION>
 {
-    type StateType = <Self as NodeImplementation>::StateType;
-    type Storage = <Self as NodeImplementation>::Storage;
-    type Networking = <Self as NodeImplementation>::Networking;
-    type Election = <Self as NodeImplementation>::Election;
-    type SignatureKey = <Self as NodeImplementation>::SignatureKey;
-    type Block = <<Self as NodeImplementation>::StateType as State>::BlockType;
-    type NodeImplementation = Self;
+    fn clone(&self) -> Self {
+        Self {
+            _pd_0: PhantomData,
+            _pd_1: PhantomData,
+            _pd_2: PhantomData,
+            _pd_3: PhantomData,
+        }
+    }
 }
 
-impl<STATE, STORAGE, NETWORKING, KEY, ELECTION> NodeImplementation
-    for TestNodeImpl<STATE, STORAGE, NETWORKING, KEY, ELECTION>
+impl<TYPES: NodeTypes, NETWORK, STORAGE, ELECTION> NodeImplementation<TYPES>
+    for TestNodeImpl<TYPES, NETWORK, STORAGE, ELECTION>
 where
-    STATE: State<Time = ViewNumber> + 'static,
-    STORAGE: Storage<STATE> + Clone + 'static,
-    KEY: SignatureKey + 'static,
-    NETWORKING: NetworkingImplementation<Message<STATE, KEY>, KEY> + Clone + 'static,
-    ELECTION: Election<KEY, ViewNumber, StateType = STATE> + Clone + 'static,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState,
+    TYPES::SignatureKey: TestableSignatureKey,
+    NETWORK: TestableNetworkingImplementation<TYPES>,
+    ELECTION: Election<TYPES>,
+
+    NETWORK: NetworkingImplementation<TYPES>,
+    STORAGE: Storage<TYPES>,
+    ELECTION: Election<TYPES>,
 {
-    type StateType = STATE;
-
-    type Storage = STORAGE;
-
-    type Networking = NETWORKING;
-
-    type SignatureKey = KEY;
-
+    type Networking = NETWORK;
     type Election = ELECTION;
+    type Storage = STORAGE;
 }
 
-impl<STATE, STORAGE, NETWORKING, KEY, ELECTION> fmt::Debug
-    for TestNodeImpl<STATE, STORAGE, NETWORKING, KEY, ELECTION>
+impl<TYPES, NETWORK, STORAGE, ELECTION> TestableNodeImplementation<TYPES>
+    for TestNodeImpl<TYPES, NETWORK, STORAGE, ELECTION>
+where
+    TYPES: NodeTypes,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState,
+    TYPES::SignatureKey: TestableSignatureKey,
+    NETWORK: TestableNetworkingImplementation<TYPES>,
+    ELECTION: Election<TYPES>,
+    STORAGE: TestableStorage<TYPES>,
+{
+}
+
+impl<TYPES: NodeTypes, NETWORK, STORAGE, ELECTION> fmt::Debug
+    for TestNodeImpl<TYPES, NETWORK, STORAGE, ELECTION>
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("TestNodeImpl")

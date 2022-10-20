@@ -3,8 +3,7 @@
 use async_lock::Mutex;
 use commit::Commitment;
 use hotshot_types::{
-    data::Leaf, error::HotShotError, message::ConsensusMessage,
-    traits::node_implementation::NodeTypes,
+    data::Leaf, message::ConsensusMessage, traits::node_implementation::NodeTypes,
 };
 use hotshot_utils::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use std::{

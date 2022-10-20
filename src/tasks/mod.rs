@@ -138,7 +138,9 @@ struct TaskHandleInner {
 /// Spawn all tasks that operate on the given [`HotShot`].
 ///
 /// For a list of which tasks are being spawned, see this module's documentation.
-pub async fn spawn_all<I: NodeImplementation>(hotshot: &HotShot<I>) -> HotShotHandle<I> {
+pub async fn spawn_all<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
+    hotshot: &HotShot<TYPES, I>,
+) -> HotShotHandle<TYPES, I> {
     let shut_down = Arc::new(AtomicBool::new(false));
     let started = Arc::new(AtomicBool::new(false));
 
@@ -205,7 +207,9 @@ pub async fn spawn_all<I: NodeImplementation>(hotshot: &HotShot<I>) -> HotShotHa
 
 /// Executes one view of consensus
 #[instrument(skip(hotshot), fields(id = hotshot.id), name = "View Runner Task", level = "error")]
-pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), ()> {
+pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
+    hotshot: HotShot<TYPES, I>,
+) -> Result<(), ()> {
     let c_api = HotShotConsensusApi {
         inner: hotshot.inner.clone(),
     };
@@ -214,7 +218,7 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
     // TODO probably cleaner to separate this into a function
     // e.g. insert the view and remove the last view
     let mut send_to_replica = hotshot.replica_channel_map.write().await;
-    let replica_last_view: I::Time = send_to_replica.cur_view;
+    let replica_last_view: TYPES::Time = send_to_replica.cur_view;
     // gc previous view's channel map
     send_to_replica.channel_map.remove(&replica_last_view);
     send_to_replica.cur_view += 1;
@@ -320,7 +324,7 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
     async_spawn({
         let next_view_timeout = hotshot.inner.config.next_view_timeout;
         let next_view_timeout = next_view_timeout;
-        let hotshot: HotShot<I> = hotshot.clone();
+        let hotshot: HotShot<TYPES, I> = hotshot.clone();
         async move {
             async_sleep(Duration::from_millis(next_view_timeout)).await;
             hotshot
@@ -355,8 +359,8 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
 }
 
 /// main thread driving consensus
-pub async fn view_runner<I: NodeImplementation>(
-    hotshot: HotShot<I>,
+pub async fn view_runner<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
+    hotshot: HotShot<TYPES, I>,
     started: Arc<AtomicBool>,
     shut_down: Arc<AtomicBool>,
     run_once: Option<UnboundedReceiver<()>>,
@@ -374,8 +378,8 @@ pub async fn view_runner<I: NodeImplementation>(
 }
 
 /// Task to look up a node in the future as needed
-pub async fn network_lookup_task<I: NodeImplementation>(
-    hotshot: HotShot<I>,
+pub async fn network_lookup_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
+    hotshot: HotShot<TYPES, I>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching network lookup task");
@@ -384,7 +388,7 @@ pub async fn network_lookup_task<I: NodeImplementation>(
         inner: hotshot.inner.clone(),
     };
 
-    let mut completion_map: HashMap<I::Time, Arc<AtomicBool>> = HashMap::default();
+    let mut completion_map: HashMap<TYPES::Time, Arc<AtomicBool>> = HashMap::default();
 
     while !shut_down.load(Ordering::Relaxed) {
         let lock = hotshot.recv_network_lookup.lock().await;
@@ -436,8 +440,8 @@ pub async fn network_lookup_task<I: NodeImplementation>(
 }
 
 /// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_broadcast_*_message`.
-pub async fn network_broadcast_task<I: NodeImplementation>(
-    hotshot: HotShot<I>,
+pub async fn network_broadcast_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
+    hotshot: HotShot<TYPES, I>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching broadcast processing task");
@@ -482,8 +486,8 @@ pub async fn network_broadcast_task<I: NodeImplementation>(
 }
 
 /// Continually processes the incoming direct messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_direct_*_message`.
-pub async fn network_direct_task<I: NodeImplementation>(
-    hotshot: HotShot<I>,
+pub async fn network_direct_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
+    hotshot: HotShot<TYPES, I>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching direct processing task");
@@ -525,8 +529,8 @@ pub async fn network_direct_task<I: NodeImplementation>(
 }
 
 /// Runs a task that will call `hotshot.handle_network_change` whenever a change in the network is detected.
-pub async fn network_change_task<I: NodeImplementation>(
-    hotshot: HotShot<I>,
+pub async fn network_change_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
+    hotshot: HotShot<TYPES, I>,
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching network change handler task");

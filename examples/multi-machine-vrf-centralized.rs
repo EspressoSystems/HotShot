@@ -4,8 +4,8 @@ use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::{
-            vrf::{VRFPubKey, VrfImpl, SORTITION_PARAMETER, VRFStakeTableConfig},
+        election::vrf::{
+            VRFPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl, SORTITION_PARAMETER,
         },
         implementations::{CentralizedServerNetwork, MemoryStorage},
         Storage,
@@ -15,9 +15,8 @@ use hotshot::{
 };
 use hotshot_centralized_server::{NetworkConfig, RunResults};
 use hotshot_types::{
-    traits::{
-        state::TestableState,
-    },
+    data::ViewNumber,
+    traits::{node_implementation::NodeTypes, state::TestableState},
     HotShotConfig,
 };
 use hotshot_utils::{
@@ -26,6 +25,7 @@ use hotshot_utils::{
 };
 use jf_primitives::{
     signatures::{
+        bls::{BLSSignature, BLSVerKey},
         BLSSignatureScheme,
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
@@ -36,14 +36,28 @@ use std::{
     fmt::Debug,
     mem,
     net::{IpAddr, SocketAddr},
-    time::{Duration, Instant}, num::NonZeroU64,
+    num::NonZeroU64,
+    time::{Duration, Instant},
 };
 use tracing::{debug, error};
 
+/// Implementation of [`NodeTypes`] for [`DEntryNode`]
+pub struct VrfTypes;
+
+impl NodeTypes for VrfTypes {
+    type Time = ViewNumber;
+    type BlockType = DEntryBlock;
+    type SignatureKey = VRFPubKey<BLSSignatureScheme<Param381>>;
+    type VoteTokenType =
+        VRFVoteToken<BLSVerKey<ark_bls12_381::Parameters>, BLSSignature<ark_bls12_381::Parameters>>;
+    type Transaction = DEntryTransaction;
+    type ElectionConfigType = VRFStakeTableConfig;
+    type StateType = DEntryState;
+}
 type Node = DEntryNode<
-    CentralizedServerNetwork<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
-    VrfImpl<DEntryState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
-    VRFPubKey<BLSSignatureScheme<Param381>>,
+    VrfTypes,
+    CentralizedServerNetwork<VrfTypes>,
+    VrfImpl<VrfTypes, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
 >;
 
 #[derive(Debug, Parser)]
@@ -62,11 +76,11 @@ struct NodeOpt {
 /// Creates the initial state and hotshot for simulation.
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
 async fn init_state_and_hotshot(
-    networking: CentralizedServerNetwork<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
+    networking: CentralizedServerNetwork<VrfTypes>,
     config: HotShotConfig<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
     _seed: [u8; 32],
     node_id: u64,
-) -> (DEntryState, HotShotHandle<Node>) {
+) -> (DEntryState, HotShotHandle<VrfTypes, Node>) {
     // Create the initial block
     let accounts: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
@@ -95,10 +109,13 @@ async fn init_state_and_hotshot(
     for _ in known_nodes.iter() {
         distribution.push(stake_per_node);
     }
-    let vrf_impl = VrfImpl::with_initial_stake(known_nodes.clone(), &VRFStakeTableConfig {
-        sortition_parameter: SORTITION_PARAMETER,
-        distribution,
-    });
+    let vrf_impl = VrfImpl::with_initial_stake(
+        known_nodes.clone(),
+        &VRFStakeTableConfig {
+            sortition_parameter: SORTITION_PARAMETER,
+            distribution,
+        },
+    );
     let hotshot = HotShot::init(
         VRFPubKey::from_native(pub_key.clone()),
         (priv_key, pub_key),
@@ -113,7 +130,7 @@ async fn init_state_and_hotshot(
     .expect("Could not init hotshot");
     debug!("hotshot launched");
 
-    let storage: &MemoryStorage<DEntryState> = hotshot.storage();
+    let storage: &MemoryStorage<VrfTypes> = hotshot.storage();
 
     let state = storage.get_anchored_view().await.unwrap().state;
 
@@ -242,8 +259,7 @@ async fn main() {
     );
     debug!("All rounds completed");
 
-    let networking: &CentralizedServerNetwork<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig> =
-        hotshot.networking();
+    let networking: &CentralizedServerNetwork<VrfTypes> = hotshot.networking();
     networking
         .send_results(RunResults {
             run,

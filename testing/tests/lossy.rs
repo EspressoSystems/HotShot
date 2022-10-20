@@ -5,22 +5,33 @@ use std::sync::Arc;
 
 use common::{
     AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
-    TestRoundResult,
+    StaticCommitteeTestTypes, StaticNodeImplType,
 };
 use either::Either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
-    ConsensusRoundError,
+    ConsensusRoundError, RoundResult,
+};
+use hotshot_types::traits::{
+    election::Election,
+    node_implementation::NodeTypes,
+    signature_key::TestableSignatureKey,
+    state::{TestableBlock, TestableState},
 };
 use tracing::{error, instrument};
 
 /// checks safety requirement; relatively lax
 /// marked as success if 2f+1 nodes "succeeded" and committed the same thing
-pub fn check_safety(
-    runner: &AppliedTestRunner,
-    results: TestRoundResult,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
+pub fn check_safety<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+    runner: &AppliedTestRunner<TYPES, ELECTION>,
+    results: RoundResult<TYPES>,
+) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+{
     async move {
         let num_nodes = runner.ids().len();
         if results.results.len() <= (2 * num_nodes) / 3 + 1 {
@@ -56,16 +67,17 @@ pub fn check_safety(
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_no_loss_network() {
-    let description = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescriptionBuilder {
-            total_nodes: 10,
-            start_nodes: 10,
-            network_reliability: Some(Arc::new(SynchronousNetwork::default())),
-            ..GeneralTestDescriptionBuilder::default()
-        },
-        rounds: None,
-        gen_runner: None,
-    };
+    let description =
+        DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
+            general_info: GeneralTestDescriptionBuilder {
+                total_nodes: 10,
+                start_nodes: 10,
+                network_reliability: Some(Arc::new(SynchronousNetwork::default())),
+                ..GeneralTestDescriptionBuilder::default()
+            },
+            rounds: None,
+            gen_runner: None,
+        };
     let mut test = description.build();
     test.rounds[0].safety_check_post = Some(Box::new(check_safety));
     test.execute().await.unwrap();
@@ -79,17 +91,18 @@ async fn test_no_loss_network() {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_synchronous_network() {
-    let description = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescriptionBuilder {
-            total_nodes: 5,
-            start_nodes: 5,
-            num_succeeds: 2,
-            txn_ids: Right(1),
-            ..GeneralTestDescriptionBuilder::default()
-        },
-        rounds: None,
-        gen_runner: None,
-    };
+    let description =
+        DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
+            general_info: GeneralTestDescriptionBuilder {
+                total_nodes: 5,
+                start_nodes: 5,
+                num_succeeds: 2,
+                txn_ids: Right(1),
+                ..GeneralTestDescriptionBuilder::default()
+            },
+            rounds: None,
+            gen_runner: None,
+        };
     let mut test = description.build();
     test.rounds[0].safety_check_post = Some(Box::new(check_safety));
     test.rounds[1].safety_check_post = Some(Box::new(check_safety));
@@ -105,19 +118,20 @@ async fn test_synchronous_network() {
 #[instrument]
 #[ignore]
 async fn test_asynchronous_network() {
-    let description = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescriptionBuilder {
-            total_nodes: 5,
-            start_nodes: 5,
-            num_succeeds: 2,
-            txn_ids: Right(1),
-            failure_threshold: 5,
-            network_reliability: Some(Arc::new(AsynchronousNetwork::new(97, 100, 0, 5))),
-            ..GeneralTestDescriptionBuilder::default()
-        },
-        rounds: None,
-        gen_runner: None,
-    };
+    let description =
+        DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
+            general_info: GeneralTestDescriptionBuilder {
+                total_nodes: 5,
+                start_nodes: 5,
+                num_succeeds: 2,
+                txn_ids: Right(1),
+                failure_threshold: 5,
+                network_reliability: Some(Arc::new(AsynchronousNetwork::new(97, 100, 0, 5))),
+                ..GeneralTestDescriptionBuilder::default()
+            },
+            rounds: None,
+            gen_runner: None,
+        };
     let mut test = description.build();
     test.rounds[0].safety_check_post = Some(Box::new(check_safety));
     test.rounds[1].safety_check_post = Some(Box::new(check_safety));
@@ -137,18 +151,19 @@ async fn test_partially_synchronous_network() {
     let sn = SynchronousNetwork::new(10, 0);
     let gst = std::time::Duration::new(10, 0);
 
-    let description = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescriptionBuilder {
-            total_nodes: 5,
-            start_nodes: 5,
-            num_succeeds: 2,
-            txn_ids: Right(1),
-            network_reliability: Some(Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst))),
-            ..GeneralTestDescriptionBuilder::default()
-        },
-        rounds: None,
-        gen_runner: None,
-    };
+    let description =
+        DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
+            general_info: GeneralTestDescriptionBuilder {
+                total_nodes: 5,
+                start_nodes: 5,
+                num_succeeds: 2,
+                txn_ids: Right(1),
+                network_reliability: Some(Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst))),
+                ..GeneralTestDescriptionBuilder::default()
+            },
+            rounds: None,
+            gen_runner: None,
+        };
     let mut test = description.build();
     test.rounds[0].safety_check_post = Some(Box::new(check_safety));
     test.rounds[1].safety_check_post = Some(Box::new(check_safety));

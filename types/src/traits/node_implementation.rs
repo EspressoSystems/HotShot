@@ -16,7 +16,7 @@ use crate::traits::{
     election::Election, network::NetworkingImplementation, signature_key::SignatureKey,
     storage::Storage, Block,
 };
-use std::{fmt::Debug, marker::PhantomData};
+use std::fmt::Debug;
 
 /// Node implementation aggregate trait
 ///
@@ -25,30 +25,15 @@ use std::{fmt::Debug, marker::PhantomData};
 ///
 /// It is recommended you implement this trait on a zero sized type, as `HotShot`does not actually
 /// store or keep a reference to any value implementing this trait.
-pub trait NodeImplementation: Send + Sync + Debug + Clone + 'static {
-    /// The time unit that this consensus is using
-    type Time: ConsensusTime;
-    /// The signature key type for this implementation
-    type SignatureKey: SignatureKey;
-    /// The vote token type for this implementation
-    type VoteTokenType: VoteToken;
-    /// The transactions
-    type Transaction: Transaction;
-    type ElectionConfigType: ElectionConfig;
-
-    /// Block type for this consensus implementation
-    type BlockType: Block<Transaction = Self::Transaction>;
-    /// State type for this consensus implementation
-    type StateType: State<Time = Self::Time, BlockType = Self::BlockType>;
-
+pub trait NodeImplementation<TYPES: NodeTypes>: Send + Sync + Debug + Clone + 'static {
     /// Storage type for this consensus implementation
-    type Storage: Storage<NodeTypesImpl<Self>> + Clone;
+    type Storage: Storage<TYPES> + Clone;
     /// Networking type for this consensus implementation
-    type Networking: NetworkingImplementation<NodeTypesImpl<Self>>;
+    type Networking: NetworkingImplementation<TYPES>;
     /// Election
     /// Time is generic here to allow multiple implementations of election trait for difference
     /// consensus protocols
-    type Election: Election<NodeTypesImpl<Self>, ElectionConfigType = Self::ElectionConfigType>;
+    type Election: Election<TYPES>;
 }
 
 pub trait NodeTypes: Send + Sync + 'static {
@@ -62,116 +47,13 @@ pub trait NodeTypes: Send + Sync + 'static {
     type StateType: State<BlockType = Self::BlockType, Time = Self::Time>;
 }
 
-pub struct NodeTypesImpl<I>(PhantomData<I>);
-
-impl<I> NodeTypes for NodeTypesImpl<I>
-where
-    I: NodeImplementation,
-{
-    type Time = I::Time;
-    type SignatureKey = I::SignatureKey;
-    type BlockType = I::BlockType;
-    type StateType = I::StateType;
-    type VoteTokenType = I::VoteTokenType;
-    type Transaction = <I::BlockType as Block>::Transaction;
-    type ElectionConfigType = I::ElectionConfigType;
-}
-
 /// testable node implmeentation trait
-pub trait TestableNodeImplementation: Send + Sync + Debug + Clone + 'static {
-    ///
-    type Time: ConsensusTime;
-
-    /// State type for this consensus implementation
-    type StateType: TestableState<BlockType = Self::BlockType, Time = Self::Time>;
-    /// Storage type for this consensus implementation
-    type Storage: TestableStorage<NodeTypesTestableImpl<Self>>;
-    /// Networking type for this consensus implementation
-    type Networking: TestableNetworkingImplementation<NodeTypesTestableImpl<Self>>;
-    /// The signature key type for this implementation
-    type SignatureKey: TestableSignatureKey;
-    /// Election
-    /// Time is generic here to allow multiple implementations of election trait for difference
-    /// consensus protocols
-    type Election: Election<
-        NodeTypesTestableImpl<Self>,
-        ElectionConfigType = Self::ElectionConfigType,
-    >;
-    /// block
-    type BlockType: TestableBlock;
-    /// vote token
-    type VoteTokenType: VoteToken;
-    type ElectionConfigType: ElectionConfig;
-
-    /// propagate
-    type NodeImplementation: NodeImplementation<
-        StateType = Self::StateType,
-        Storage = Self::Storage,
-        Networking = Self::Networking,
-        SignatureKey = Self::SignatureKey,
-        Election = Self::Election,
-    >;
-}
-
-pub struct NodeTypesTestableImpl<I>(PhantomData<I>);
-
-impl<I> NodeTypes for NodeTypesTestableImpl<I>
+pub trait TestableNodeImplementation<TYPES: NodeTypes>: NodeImplementation<TYPES>
 where
-    I: TestableNodeImplementation,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
+    TYPES::SignatureKey: TestableSignatureKey,
+    <Self as NodeImplementation<TYPES>>::Networking: TestableNetworkingImplementation<TYPES>,
+    <Self as NodeImplementation<TYPES>>::Storage: TestableStorage<TYPES>,
 {
-    type Time = I::Time;
-    type SignatureKey = I::SignatureKey;
-    type BlockType = I::BlockType;
-    type StateType = I::StateType;
-    type VoteTokenType = I::VoteTokenType;
-    type Transaction = <I::BlockType as Block>::Transaction;
-    type ElectionConfigType = I::ElectionConfigType;
 }
-
-pub trait TypeMap {
-    type ElectionConfigType: ElectionConfig;
-}
-
-impl<I> TypeMap for I
-where
-    I: NodeImplementation,
-{
-    type ElectionConfigType = <I::Election as Election<NodeTypesImpl<I>>>::ElectionConfigType;
-}
-
-// /// Helper trait to make aliases.
-// ///
-// /// This allows you to replace
-// ///
-// /// ```ignore
-// /// Message<
-// ///     I::State,
-// ///     I::SignatureKey
-// /// >
-// /// ```
-// ///
-// /// with
-// ///
-// /// ```ignore
-// /// <I as TypeMap>::Message
-// /// ```
-// pub trait TypeMap {
-//     /// Type alias for the [`Message`] enum.
-//     type Message;
-//     /// Type alias for the [`MessageKind`] enum.
-//     type MessageKind;
-//     /// Type alias for the [`ConsensusMessage`] enum.
-//     type ConsensusMessage;
-//     /// Type alias for the [`DataMessage`] enum.
-//     type DataMessage;
-//     /// Type alias for the [`BlockContents::Transaction`] implementation.
-//     type Transaction;
-// }
-
-// impl<I: NodeImplementation> TypeMap for I {
-//     type Message = Message<I::StateType, I::SignatureKey>;
-//     type MessageKind = MessageKind<I::StateType>;
-//     type ConsensusMessage = ConsensusMessage<I::StateType>;
-//     type DataMessage = DataMessage<I::StateType>;
-//     type Transaction = <<I::StateType as State>::BlockType as Block>::Transaction;
-// }
