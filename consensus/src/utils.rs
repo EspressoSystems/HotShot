@@ -105,13 +105,6 @@ pub struct RoundFinishedEvent<TYPES: NodeTypes> {
     pub view_number: TYPES::Time,
 }
 
-// /// Locked wrapper around `TransactionHashMap`
-// pub type TransactionStorage<TYPES> = Arc<SubscribableRwLock<TransactionHashMap<TYPES>>>;
-
-// /// Map that stores transactions
-// pub type TransactionHashMap<TYPES> =
-//     HashMap<Commitment<TYPES::TransactionType>, TYPES::TransactionType>;
-
 /// Whether or not to stop inclusively or exclusively when walking
 #[derive(Copy, Clone, Debug)]
 pub enum Terminator<T> {

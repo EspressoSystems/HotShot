@@ -111,12 +111,12 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                             continue;
                         }
 
-                        let liveness_check = justify_qc.time > consensus.locked_view.clone() + 2;
+                        let liveness_check = justify_qc.time > consensus.locked_view + 2;
 
                         // check if proposal extends from the locked leaf
                         let outcome = consensus.visit_leaf_ancestors(
                             parent.time,
-                            Terminator::Inclusive(consensus.locked_view.clone()),
+                            Terminator::Inclusive(consensus.locked_view),
                             false,
                             |leaf| {
                                 // if leaf view no == locked view no then we're done, report success by
@@ -139,7 +139,6 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                             continue;
                         }
 
-                        // let election = self.api.get_election();
                         let leaf_commitment = leaf.commit();
                         let vote_token =
                             self.api.generate_vote_token(self.cur_view, leaf_commitment);
@@ -250,19 +249,19 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
             return self.high_qc;
         };
 
-        let mut new_anchor_view = consensus.last_decided_view.clone();
-        let mut new_locked_view = consensus.locked_view.clone();
+        let mut new_anchor_view = consensus.last_decided_view;
+        let mut new_locked_view = consensus.locked_view;
         let mut last_view_number_visited = self.cur_view;
         let mut new_commit_reached: bool = false;
         let mut new_decide_reached = false;
         let mut leaf_views = Vec::new();
         let mut included_txns = HashSet::new();
-        let old_anchor_view = consensus.last_decided_view.clone();
+        let old_anchor_view = consensus.last_decided_view;
         let parent_view = leaf.justify_qc.time;
-        if parent_view.clone() + 1 == self.cur_view {
+        if parent_view + 1 == self.cur_view {
             let mut current_chain_length = 1usize;
             if let Err(e) = consensus.visit_leaf_ancestors(
-                parent_view.clone(),
+                parent_view,
                 Terminator::Exclusive(old_anchor_view),
                 true,
                 |leaf| {
@@ -336,28 +335,18 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
 
             let decide_sent = self
                 .api
-                .send_decide(consensus.last_decided_view.clone(), leaf_views);
-            let old_anchor_view = consensus.last_decided_view.clone();
+                .send_decide(consensus.last_decided_view, leaf_views);
+            let old_anchor_view = consensus.last_decided_view;
             consensus
-                .collect_garbage(old_anchor_view, new_anchor_view.clone())
+                .collect_garbage(old_anchor_view, new_anchor_view)
                 .await;
             consensus.last_decided_view = new_anchor_view;
 
             // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
-            // let storage = self.api.storage();
-            // let view_to_insert = StoredView::from(leaf);
             if let Err(e) = self.api.store_leaf(old_anchor_view, leaf).await {
                 error!("Could not insert new anchor into the storage API: {:?}", e);
             }
-            // if let Err(e) = storage.cleanup_storage_up_to_view(old_anchor_view).await {
-            //     error!(
-            //         "Could not clean up storage to view {:?}: {:?}",
-            //         old_anchor_view, e
-            //     );
-            // }
-            // if let Err(e) = storage.commit().await {
-            //     error!("Could not commit storage: {:?}", e);
-            // }
+
             decide_sent.await;
         }
         high_qc

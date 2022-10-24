@@ -96,14 +96,12 @@ pub struct QuorumCertificate<TYPES: NodeTypes> {
     /// signature. This _must_ be identical to the [`BlockContents`] provided hash of the `item` in
     /// the referenced leaf.
     #[debug(skip)]
-    // #[serde(deserialize_with = "<Commitment<STATE::BlockType> as Deserialize>::deserialize")]
     pub block_commitment: Commitment<TYPES::BlockType>,
 
     /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
     /// This value is covered by the threshold signature.
     #[debug(skip)]
-    // #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
     pub leaf_commitment: Commitment<Leaf<TYPES>>,
 
     /// The view number this quorum certificate was generated during
@@ -139,26 +137,21 @@ pub struct ProposalLeaf<TYPES: NodeTypes> {
     pub time: TYPES::Time,
 
     /// Per spec, justification
-    // #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
     pub justify_qc: QuorumCertificate<TYPES>,
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
     #[debug(skip)]
-    // #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
     pub parent_commitment: Commitment<Leaf<TYPES>>,
 
     /// Block leaf wants to apply
-    // #[serde(deserialize_with = "STATE::BlockType::deserialize")]
     pub deltas: TYPES::BlockType,
 
     /// What the state should be after applying `self.deltas`
-    // #[serde(deserialize_with = "<Commitment<STATE> as Deserialize>::deserialize")]
     #[debug(skip)]
     pub state_commitment: Commitment<TYPES::StateType>,
 
     /// Transactions that were marked for rejection while collecting deltas
-    // #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>> as Deserialize>::deserialize")]
     pub rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
 
     /// the propser id
@@ -177,24 +170,19 @@ pub struct Leaf<TYPES: NodeTypes> {
     pub time: TYPES::Time,
 
     /// Per spec, justification
-    // #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
     pub justify_qc: QuorumCertificate<TYPES>,
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
-    // #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
     pub parent_commitment: Commitment<Leaf<TYPES>>,
 
     /// Block leaf wants to apply
-    // #[serde(deserialize_with = "STATE::BlockType::deserialize")]
     pub deltas: TYPES::BlockType,
 
     /// What the state should be AFTER applying `self.deltas`
-    // #[serde(deserialize_with = "STATE::deserialize")]
     pub state: TYPES::StateType,
 
     /// Transactions that were marked for rejection while collecting deltas
-    // #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>> as Deserialize>::deserialize")]
     pub rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
 
     /// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats

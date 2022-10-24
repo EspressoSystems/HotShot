@@ -19,15 +19,6 @@ use hotshot_types::{
 use std::collections::BTreeMap;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-// /// type synonym for singature map
-// pub(crate) type Signatures<TYPES> = BTreeMap<
-//     EncodedPublicKey,
-//     (
-//         EncodedSignature,
-//         TYPES::VoteTokenType,
-//     ),
-// >;
-
 // FIXME these should be nonzero u64s
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
 ///
@@ -67,9 +58,6 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
         time: TYPES::Time,
         next_state: Commitment<Leaf<TYPES>>,
     ) -> Result<Option<TYPES::VoteTokenType>, ElectionError>;
-
-    // /// return a reference to the election
-    // fn get_election(&self) -> &I::Election;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
     async fn get_leader(&self, time: TYPES::Time) -> TYPES::SignatureKey;

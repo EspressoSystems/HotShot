@@ -22,7 +22,6 @@ pub struct Message<TYPES: NodeTypes> {
     pub sender: TYPES::SignatureKey,
 
     /// The message kind
-    // #[serde(deserialize_with = "<MessageKind<STATE> as Deserialize>::deserialize")]
     pub kind: MessageKind<TYPES>,
 }
 
@@ -31,15 +30,9 @@ pub struct Message<TYPES: NodeTypes> {
 #[serde(bound(deserialize = "TYPES: NodeTypes"))]
 pub enum MessageKind<TYPES: NodeTypes> {
     /// Messages related to the consensus protocol
-    Consensus(
-        // #[serde(deserialize_with = "<ConsensusMessage<STATE> as Deserialize>::deserialize")]
-        ConsensusMessage<TYPES>,
-    ),
+    Consensus(ConsensusMessage<TYPES>),
     /// Messages relating to sharing data between nodes
-    Data(
-        // #[serde(deserialize_with = "<DataMessage<STATE> as Deserialize>::deserialize")]
-        DataMessage<TYPES>,
-    ),
+    Data(DataMessage<TYPES>),
 }
 
 impl<TYPES: NodeTypes> From<ConsensusMessage<TYPES>> for MessageKind<TYPES> {
@@ -135,7 +128,6 @@ pub struct TimedOut<TYPES: NodeTypes> {
     /// The current view
     pub current_time: TYPES::Time,
     /// The justification qc for this view
-    // #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
     pub justify_qc: QuorumCertificate<TYPES>,
 }
 
@@ -146,7 +138,6 @@ pub struct Proposal<TYPES: NodeTypes> {
     // NOTE: optimization could include view number to help look up parent leaf
     // could even do 16 bit numbers if we want
     /// The leaf being proposed (see pseudocode)
-    // #[serde(deserialize_with = "<ProposalLeaf<STATE> as Deserialize>::deserialize")]
     pub leaf: ProposalLeaf<TYPES>,
     /// The proposal must be signed by the view leader
     pub signature: EncodedSignature,
@@ -158,19 +149,16 @@ pub struct Proposal<TYPES: NodeTypes> {
 pub struct Vote<TYPES: NodeTypes> {
     /// hash of the block being proposed
     /// TODO delete this when we delete block hash from the QC
-    // #[serde(deserialize_with = "<Commitment<STATE::BlockType> as Deserialize>::deserialize")]
     pub block_commitment: Commitment<TYPES::BlockType>,
     /// TODO we should remove this
     /// this is correct, but highly inefficient
     /// we should check a cache, and if that fails request the qc
-    // #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
     pub justify_qc: QuorumCertificate<TYPES>,
     /// The signature share associated with this vote
     /// TODO ct/vrf: use VoteToken
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a Vec<u8>
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// Hash of the item being voted on
-    // #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
     pub leaf_commitment: Commitment<Leaf<TYPES>>,
     /// The view this vote was cast for
     pub time: TYPES::Time,

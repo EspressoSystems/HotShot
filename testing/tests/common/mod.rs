@@ -393,8 +393,6 @@ impl Default for GeneralTestDescriptionBuilder {
     }
 }
 
-// pub type TestLibp2pNetwork = Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>;
-
 /// given a description of rounds, generates such rounds
 /// args
 /// * `shut_down_ids`: vector of ids to shut down each round
