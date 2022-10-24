@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["static_committee","TODO(vko) document TODO(vko) document"],["vrf","Hash based psuedo-vrf that simulates the properties of a VRF using an HMAC with a revealed private key. This is for testing purposes only and is designed to be insecure generic over anything that implements `jf-primitives::vrf::Vrf`"]]};
+window.SIDEBAR_ITEMS = {"mod":[["static_committee","static (round robin) comittee election"],["vrf","generic vrf based election over anything that implements `jf-primitives::vrf::Vrf`"]]};

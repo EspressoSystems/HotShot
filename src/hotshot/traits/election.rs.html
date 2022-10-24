@@ -5,24 +5,12 @@
 <span id="5">5</span>
 <span id="6">6</span>
 <span id="7">7</span>
-<span id="8">8</span>
-<span id="9">9</span>
-<span id="10">10</span>
-<span id="11">11</span>
-<span id="12">12</span>
-<span id="13">13</span>
-</pre><pre class="rust"><code><span class="doccomment">//! TODO(vko) document</span>
+</pre><pre class="rust"><code><span class="doccomment">//! elections used for consensus</span>
 
-<span class="doccomment">/// TODO(vko) document</span>
-<span class="comment">// pub mod bls_vrf;</span>
-<span class="doccomment">/// TODO(vko) document</span>
+<span class="doccomment">/// static (round robin) comittee election</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">static_committee</span>;
 
-<span class="doccomment">/// Hash based psuedo-vrf that simulates the properties of a VRF using an HMAC with a revealed</span>
-<span class="doccomment">/// private key. This is for testing purposes only and is designed to be insecure</span>
-<span class="comment">// pub mod stub;</span>
-
-<span class="doccomment">/// generic over anything that implements `jf-primitives::vrf::Vrf`</span>
+<span class="doccomment">/// generic vrf based election over anything that implements `jf-primitives::vrf::Vrf`</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">vrf</span>;
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
