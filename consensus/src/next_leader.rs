@@ -80,7 +80,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> NextLeader<A, TYPES> {
                     // TODO ed - current validated_stake rechecks that all votes are valid, which isn't necessary here
                     let stake = self.api.validated_stake(
                         vote.leaf_commitment,
-                        self.cur_view.clone(),
+                        self.cur_view,
                         valid_signatures,
                     );
                     let stake_casted: usize = stake.try_into().unwrap();
@@ -91,7 +91,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> NextLeader<A, TYPES> {
                         let qc = QuorumCertificate {
                             block_commitment,
                             leaf_commitment: vote.leaf_commitment,
-                            time: self.cur_view.clone(),
+                            time: self.cur_view,
                             signatures: valid_signatures,
                             genesis: false,
                         };
@@ -108,6 +108,6 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> NextLeader<A, TYPES> {
             }
         }
 
-        qcs.into_iter().max_by_key(|qc| qc.time.clone()).unwrap()
+        qcs.into_iter().max_by_key(|qc| qc.time).unwrap()
     }
 }

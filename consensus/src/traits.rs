@@ -120,7 +120,7 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     /// notifies client of a replica timeout
     async fn send_replica_timeout(&self, time: TYPES::Time) {
         self.send_event(Event {
-            time: time.clone(),
+            time,
             event: EventType::ReplicaViewTimeout { time },
         })
         .await;
@@ -129,7 +129,7 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     /// notifies client of a next leader timeout
     async fn send_next_leader_timeout(&self, time: TYPES::Time) {
         self.send_event(Event {
-            time: time.clone(),
+            time,
             event: EventType::NextLeaderViewTimeout { time },
         })
         .await;
@@ -149,7 +149,7 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     /// Sends a `ViewFinished` event
     async fn send_view_finished(&self, time: TYPES::Time) {
         self.send_event(Event {
-            time: time.clone(),
+            time,
             event: EventType::ViewFinished { time },
         })
         .await;

@@ -80,7 +80,7 @@ impl<TYPES: NodeTypes> Consensus<TYPES> {
     /// NOTE may need to do gc here
     pub fn increment_view(&mut self) -> TYPES::Time {
         self.cur_view += 1;
-        self.cur_view.clone()
+        self.cur_view
     }
 
     /// gather information from the parent chain of leafs
@@ -112,7 +112,7 @@ impl<TYPES: NodeTypes> Consensus<TYPES> {
         };
 
         while let Some(leaf) = self.saved_leaves.get(&next_leaf) {
-            if let Terminator::Exclusive(stop_before) = terminator.clone() {
+            if let Terminator::Exclusive(stop_before) = terminator {
                 if stop_before == leaf.time {
                     if ok_when_finished {
                         return Ok(());
@@ -124,7 +124,7 @@ impl<TYPES: NodeTypes> Consensus<TYPES> {
             if !f(leaf) {
                 return Ok(());
             }
-            if let Terminator::Inclusive(stop_after) = terminator.clone() {
+            if let Terminator::Inclusive(stop_after) = terminator {
                 if stop_after == leaf.time {
                     if ok_when_finished {
                         return Ok(());
@@ -157,7 +157,7 @@ impl<TYPES: NodeTypes> Consensus<TYPES> {
         }
         // perform gc
         self.state_map
-            .range(old_anchor_view..new_anchor_view.clone())
+            .range(old_anchor_view..new_anchor_view)
             .filter_map(|(_view_number, view)| view.get_leaf_commitment())
             .for_each(|leaf| {
                 let _removed = self.saved_leaves.remove(leaf);
@@ -177,7 +177,7 @@ impl<TYPES: NodeTypes> Consensus<TYPES> {
     /// this should never happen.
     #[must_use]
     pub fn get_decided_leaf(&self) -> Leaf<TYPES> {
-        let decided_view_num = self.last_decided_view.clone();
+        let decided_view_num = self.last_decided_view;
         let view = self.state_map.get(&decided_view_num).unwrap();
         let leaf = view
             .get_leaf_commitment()

@@ -96,7 +96,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                                 p.leaf.deltas,
                                 p.leaf.parent_commitment,
                                 justify_qc.clone(),
-                                self.cur_view.clone(),
+                                self.cur_view,
                                 Vec::new(),
                                 time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                                 p.leaf.proposer_id,
@@ -115,7 +115,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
 
                         // check if proposal extends from the locked leaf
                         let outcome = consensus.visit_leaf_ancestors(
-                            parent.time.clone(),
+                            parent.time,
                             Terminator::Inclusive(consensus.locked_view.clone()),
                             false,
                             |leaf| {
@@ -128,9 +128,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                         let safety_check = outcome.is_ok();
 
                         if let Err(e) = outcome {
-                            self.api
-                                .send_view_error(self.cur_view.clone(), Arc::new(e))
-                                .await;
+                            self.api.send_view_error(self.cur_view, Arc::new(e)).await;
                         }
 
                         // NOTE safenode check is here
@@ -143,9 +141,8 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
 
                         // let election = self.api.get_election();
                         let leaf_commitment = leaf.commit();
-                        let vote_token = self
-                            .api
-                            .generate_vote_token(self.cur_view.clone(), leaf_commitment);
+                        let vote_token =
+                            self.api.generate_vote_token(self.cur_view, leaf_commitment);
 
                         match vote_token {
                             Err(e) => {
@@ -161,8 +158,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                             }
                             Ok(Some(vote_token)) => {
                                 error!("We were chosen for committee on {:?}", self.cur_view);
-                                let signature =
-                                    self.api.sign_vote(&leaf_commitment, self.cur_view.clone());
+                                let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
                                 // Generate and send vote
                                 let vote = ConsensusMessage::<TYPES>::Vote(Vote {
@@ -170,12 +166,11 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                                     justify_qc: leaf.justify_qc.clone(),
                                     signature,
                                     leaf_commitment,
-                                    time: self.cur_view.clone(),
+                                    time: self.cur_view,
                                     vote_token,
                                 });
 
-                                let next_leader =
-                                    self.api.get_leader(self.cur_view.clone() + 1).await;
+                                let next_leader = self.api.get_leader(self.cur_view + 1).await;
 
                                 info!("Sending vote to next leader {:?}", vote);
 
@@ -193,10 +188,10 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                         }
                     }
                     ConsensusMessage::NextViewInterrupt(_view_number) => {
-                        let next_leader = self.api.get_leader(self.cur_view.clone() + 1).await;
+                        let next_leader = self.api.get_leader(self.cur_view + 1).await;
 
                         let timed_out_msg = ConsensusMessage::TimedOut(TimedOut {
-                            current_time: self.cur_view.clone(),
+                            current_time: self.cur_view,
                             justify_qc: self.high_qc.clone(),
                         });
                         warn!(
@@ -218,7 +213,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                         }
 
                         // exits from entire function
-                        self.api.send_replica_timeout(self.cur_view.clone()).await;
+                        self.api.send_replica_timeout(self.cur_view).await;
 
                         return (consensus, None);
                     }
@@ -231,7 +226,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
             }
             // fall through logic if we did not receive successfully from channel
             warn!("Replica did not receive successfully from channel. Terminating Replica.");
-            self.api.send_replica_timeout(self.cur_view.clone()).await;
+            self.api.send_replica_timeout(self.cur_view).await;
             return (consensus, None);
         };
         (consensus, Some(leaf))
@@ -243,7 +238,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
     pub async fn run_view(self) -> QuorumCertificate<TYPES> {
         info!("Replica task started!");
         let consensus = self.consensus.upgradable_read().await;
-        let view_leader_key = self.api.get_leader(self.cur_view.clone()).await;
+        let view_leader_key = self.api.get_leader(self.cur_view).await;
 
         let (consensus, maybe_leaf) = self.find_valid_msg(view_leader_key, consensus).await;
 
@@ -257,14 +252,14 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
 
         let mut new_anchor_view = consensus.last_decided_view.clone();
         let mut new_locked_view = consensus.locked_view.clone();
-        let mut last_view_number_visited = self.cur_view.clone();
+        let mut last_view_number_visited = self.cur_view;
         let mut new_commit_reached: bool = false;
         let mut new_decide_reached = false;
         let mut leaf_views = Vec::new();
         let mut included_txns = HashSet::new();
         let old_anchor_view = consensus.last_decided_view.clone();
-        let parent_view = leaf.justify_qc.time.clone();
-        if parent_view.clone() + 1 == self.cur_view.clone() {
+        let parent_view = leaf.justify_qc.time;
+        if parent_view.clone() + 1 == self.cur_view {
             let mut current_chain_length = 1usize;
             if let Err(e) = consensus.visit_leaf_ancestors(
                 parent_view.clone(),
@@ -272,14 +267,14 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                 true,
                 |leaf| {
                     if !new_decide_reached {
-                        if last_view_number_visited == leaf.time.clone() + 1 {
-                            last_view_number_visited = leaf.time.clone();
+                        if last_view_number_visited == leaf.time + 1 {
+                            last_view_number_visited = leaf.time;
                             current_chain_length += 1;
                             if current_chain_length == 2 {
-                                new_locked_view = leaf.time.clone();
+                                new_locked_view = leaf.time;
                                 new_commit_reached = true;
                             } else if current_chain_length == 3 {
-                                new_anchor_view = leaf.time.clone();
+                                new_anchor_view = leaf.time;
                                 new_decide_reached = true;
                             }
                         } else {
@@ -298,9 +293,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                     true
                 },
             ) {
-                self.api
-                    .send_view_error(self.cur_view.clone(), Arc::new(e))
-                    .await;
+                self.api.send_view_error(self.cur_view, Arc::new(e)).await;
             }
         }
         let high_qc = leaf.justify_qc.clone();
@@ -314,7 +307,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
         // promote lock here
         let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
         consensus.state_map.insert(
-            self.cur_view.clone(),
+            self.cur_view,
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: leaf.commit(),
