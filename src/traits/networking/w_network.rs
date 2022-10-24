@@ -32,7 +32,6 @@ use async_tungstenite::{
 };
 use bincode::Options;
 use dashmap::DashMap;
-use derivative::Derivative;
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use hotshot_types::{
     message::Message as HotShotMessage,
@@ -61,14 +60,8 @@ use std::{
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 use tracing_unwrap::ResultExt as RXT;
 
-#[derive(Serialize, Deserialize, Derivative)]
-#[serde(bound = "")]
-#[derivative(
-    Clone(bound = ""),
-    PartialEq(bound = ""),
-    Eq(bound = ""),
-    Debug(bound = "")
-)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+#[serde(bound(deserialize = "TYPES: NodeTypes"))]
 /// Inter-node protocol level message types
 pub enum Command<TYPES: NodeTypes> {
     /// A message that was broadcast to all nodes
@@ -126,8 +119,7 @@ impl<TYPES: NodeTypes> Command<TYPES> {
 }
 
 /// The handle used for interacting with a [`WNetwork`] connection
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Clone)]
 struct Handle<TYPES: NodeTypes> {
     /// Messages to be sent by this node
     outbound: Sender<Command<TYPES>>,
@@ -205,8 +197,7 @@ enum Combo<TYPES: NodeTypes> {
     Error(WsError),
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Clone)]
 /// Handle to the underlying networking implementation
 pub struct WNetwork<TYPES: NodeTypes> {
     /// Pointer to the internal state of this [`WNetwork`]
@@ -1096,7 +1087,19 @@ mod tests {
     use hotshot_utils::{art::async_sleep, test_util::setup_logging};
     use rand::Rng;
 
-    #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(
+        Copy,
+        Clone,
+        Debug,
+        Default,
+        Hash,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        serde::Serialize,
+        serde::Deserialize,
+    )]
     struct Test {
         message: u64,
     }

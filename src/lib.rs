@@ -45,7 +45,6 @@ use crate::{
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
-use derivative::Derivative;
 use hotshot_consensus::{Consensus, ConsensusApi, SendToTasks, View, ViewInner, ViewQueue};
 use hotshot_types::{
     constants::genesis_proposer_id,
@@ -124,8 +123,7 @@ pub struct HotShotInner<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
 }
 
 /// Thread safe, shared view of a `HotShot`
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Clone)]
 pub struct HotShot<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     /// Handle to internal hotshot implementation
     inner: Arc<HotShotInner<TYPES, I>>,
@@ -642,8 +640,7 @@ pub async fn create_or_obtain_chan_from_write<TYPES: NodeTypes>(
 }
 
 /// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Clone)]
 struct HotShotConsensusApi<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     /// Reference to the [`HotShotInner`]
     inner: Arc<HotShotInner<TYPES, I>>,

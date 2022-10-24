@@ -7,7 +7,6 @@ use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
 use dashmap::DashSet;
-use derivative::Derivative;
 use hotshot_types::{
     message::Message,
     traits::{
@@ -100,8 +99,7 @@ struct Libp2pNetworkInner<TYPES: NodeTypes> {
 
 /// Networking implementation that uses libp2p
 /// generic over `M` which is the message type
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Clone)]
 pub struct Libp2pNetwork<TYPES: NodeTypes> {
     /// holds the state of the libp2p network
     inner: Arc<Libp2pNetworkInner<TYPES>>,

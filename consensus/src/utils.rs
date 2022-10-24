@@ -45,8 +45,7 @@ impl<TYPES: NodeTypes> Deref for View<TYPES> {
 }
 
 /// struct containing messages for a view to send to replica
-#[derive(derivative::Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Clone)]
 pub struct ViewQueue<TYPES: NodeTypes> {
     /// to send networking events to Replica
     pub sender_chan: UnboundedSender<ConsensusMessage<TYPES>>,

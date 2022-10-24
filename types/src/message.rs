@@ -15,9 +15,8 @@ use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 
 /// Incoming message
-#[derive(Serialize, Deserialize, Derivative)]
-#[serde(bound = "")]
-#[derivative(Clone(bound = ""), Debug(bound = ""), PartialEq(bound = ""))]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "TYPES: NodeTypes"))]
 pub struct Message<TYPES: NodeTypes> {
     /// The sender of this message
     pub sender: TYPES::SignatureKey,
@@ -28,9 +27,8 @@ pub struct Message<TYPES: NodeTypes> {
 }
 
 /// Enum representation of any message type
-#[derive(Serialize, Deserialize, Derivative)]
-#[serde(bound = "")]
-#[derivative(Clone(bound = ""), Debug(bound = ""), PartialEq(bound = ""))]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "TYPES: NodeTypes"))]
 pub enum MessageKind<TYPES: NodeTypes> {
     /// Messages related to the consensus protocol
     Consensus(
@@ -56,26 +54,16 @@ impl<TYPES: NodeTypes> From<DataMessage<TYPES>> for MessageKind<TYPES> {
     }
 }
 
-#[derive(Serialize, Deserialize, derivative::Derivative)]
-#[serde(bound = "")]
-#[derivative(Clone(bound = ""), Debug(bound = ""), PartialEq(bound = ""))]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "TYPES: NodeTypes"))]
 /// Messages related to the consensus protocol
 pub enum ConsensusMessage<TYPES: NodeTypes> {
     /// Leader's proposal
-    Proposal(
-        // #[serde(deserialize_with = "<Proposal<STATE> as Deserialize>::deserialize")]
-        Proposal<TYPES>,
-    ),
+    Proposal(Proposal<TYPES>),
     /// Replica timed out
-    TimedOut(
-        // #[serde(deserialize_with = "<TimedOut<STATE> as Deserialize>::deserialize")]
-        TimedOut<TYPES>,
-    ),
+    TimedOut(TimedOut<TYPES>),
     /// Replica votes
-    Vote(
-        // #[serde(deserialize_with = "<Vote<STATE> as Deserialize>::deserialize")]
-        Vote<TYPES>,
-    ),
+    Vote(Vote<TYPES>),
     /// Internal ONLY message indicating a NextView interrupt
     /// View number this nextview interrupt was generated for
     /// used so we ignore stale nextview interrupts within a task
@@ -107,35 +95,29 @@ impl<TYPES: NodeTypes> ConsensusMessage<TYPES> {
     }
 }
 
-#[derive(Serialize, Deserialize, Derivative)]
-#[serde(bound = "")]
-#[derivative(Clone(bound = ""), Debug(bound = ""), PartialEq(bound = ""))]
+#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "TYPES: NodeTypes"))]
 /// Messages related to sending data between nodes
 pub enum DataMessage<TYPES: NodeTypes> {
     /// The newest entry that a node knows. This is send from existing nodes to a new node when the new node joins the network
     NewestQuorumCertificate {
         /// The newest [`QuorumCertificate`]
-        // #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
         quorum_certificate: QuorumCertificate<TYPES>,
 
         /// The relevant [`BlockContents`]
         ///
         /// [`BlockContents`]: ../traits/block_contents/trait.BlockContents.html
-        // #[serde(deserialize_with = "<STATE::BlockType as Deserialize>::deserialize")]
         block: TYPES::BlockType,
 
         /// The relevant [`State`]
         ///
         /// [`State`]: ../traits/state/trait.State.html
-        // #[serde(deserialize_with = "<STATE as Deserialize>::deserialize")]
         state: TYPES::StateType,
 
         /// The parent leaf's commitment
-        // #[serde(deserialize_with = "<Commitment<Leaf<STATE>>as Deserialize>::deserialize")]
         parent_commitment: Commitment<Leaf<TYPES>>,
 
         /// Transactions rejected in this view
-        // #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>>as Deserialize>::deserialize")]
         rejected: Vec<TYPES::Transaction>,
 
         /// the proposer id for this leaf
@@ -146,9 +128,8 @@ pub enum DataMessage<TYPES: NodeTypes> {
     SubmitTransaction(TYPES::Transaction),
 }
 
-#[derive(Serialize, Deserialize, derivative::Derivative)]
-#[serde(bound = "")]
-#[derivative(Clone(bound = ""), Debug(bound = ""), PartialEq(bound = ""))]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "TYPES: NodeTypes"))]
 /// Signals the start of a new view
 pub struct TimedOut<TYPES: NodeTypes> {
     /// The current view
@@ -158,9 +139,8 @@ pub struct TimedOut<TYPES: NodeTypes> {
     pub justify_qc: QuorumCertificate<TYPES>,
 }
 
-#[derive(Serialize, Deserialize, derivative::Derivative)]
-#[serde(bound = "")]
-#[derivative(Clone(bound = ""), Debug(bound = ""), PartialEq(bound = ""))]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "TYPES: NodeTypes"))]
 /// Prepare qc from the leader
 pub struct Proposal<TYPES: NodeTypes> {
     // NOTE: optimization could include view number to help look up parent leaf
@@ -173,14 +153,8 @@ pub struct Proposal<TYPES: NodeTypes> {
 }
 
 /// A nodes vote on the prepare field.
-#[derive(Serialize, Deserialize, derivative::Derivative)]
-#[serde(bound = "")]
-#[derivative(
-    Clone(bound = ""),
-    Debug(bound = ""),
-    PartialEq(bound = ""),
-    Debug(bound = "")
-)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "TYPES: NodeTypes"))]
 pub struct Vote<TYPES: NodeTypes> {
     /// hash of the block being proposed
     /// TODO delete this when we delete block hash from the QC

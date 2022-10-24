@@ -15,7 +15,6 @@ pub mod network_reliability;
 
 pub use self::launcher::TestLauncher;
 
-use derivative::Derivative;
 use futures::future::LocalBoxFuture;
 use hotshot::{
     data::Leaf,
@@ -45,8 +44,7 @@ pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 pub const N: usize = H_256;
 
 /// Result of running a round of consensus
-#[derive(Derivative)]
-#[derivative(Debug(bound = ""))]
+#[derive(Debug)]
 // TODO do we need static here
 pub struct RoundResult<TYPES: NodeTypes> {
     /// Transactions that were submitted

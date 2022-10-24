@@ -4,7 +4,7 @@ use commit::{Commitment, Committable};
 use hotshot_types::{
     data::Leaf,
     traits::{
-        election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
+        election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
     },
@@ -324,7 +324,8 @@ pub struct VRFVoteToken<PUBKEY, PROOF> {
 }
 
 impl<PUBKEY, PROOF> Hash for VRFVoteToken<PUBKEY, PROOF> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {
+        // TODO(vko)
         todo!()
         // self.pub_key.hash(state);
         // self.proof.hash(state);
@@ -333,12 +334,16 @@ impl<PUBKEY, PROOF> Hash for VRFVoteToken<PUBKEY, PROOF> {
 }
 impl<PUBKEY, PROOF> Debug for VRFVoteToken<PUBKEY, PROOF> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // f.debug_struct("VRFVoteToken").field("pub_key", &self.pub_key).field("proof", &self.proof).field("count", &self.count).finish()
-        todo!()
+        f.debug_struct("VRFVoteToken")
+            .field("pub_key", &std::any::type_name::<PUBKEY>())
+            .field("proof", &std::any::type_name::<PROOF>())
+            .field("count", &self.count)
+            .finish()
     }
 }
 impl<PUBKEY, PROOF> PartialEq for VRFVoteToken<PUBKEY, PROOF> {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, _other: &Self) -> bool {
+        // TODO(vko)
         // self.pub_key == other.pub_key && self.proof == other.proof && self.count == other.count
         todo!()
     }
@@ -749,6 +754,41 @@ where
     }
 }
 
+impl<VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, TYPES> TestableElection<TYPES>
+    for VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+where
+    SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send + 'static,
+    SIGSCHEME::VerificationKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
+    SIGSCHEME::SigningKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
+    SIGSCHEME::Signature: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
+    VRF: Vrf<
+            VRFHASHER,
+            VRFPARAMS,
+            PublicParameter = (),
+            Input = [u8; 32],
+            Output = [u8; 32],
+            PublicKey = SIGSCHEME::VerificationKey,
+            SecretKey = SIGSCHEME::SigningKey,
+        > + Sync
+        + Send
+        + 'static,
+    VRF::Proof: Clone + Sync + Send + Serialize + for<'a> Deserialize<'a>,
+    VRF::PublicParameter: Sync + Send,
+    VRFHASHER: Clone + Sync + Send + 'static,
+    VRFPARAMS: Sync + Send + Bls12Parameters,
+    <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
+    TYPES: NodeTypes<
+        VoteTokenType = VRFVoteToken<VRF::PublicKey, VRF::Proof>,
+        ElectionConfigType = VRFStakeTableConfig,
+        SignatureKey = VRFPubKey<SIGSCHEME>,
+    >,
+{
+    fn generate_test_vote_token() -> TYPES::VoteTokenType {
+        // TODO(vko)
+        todo!()
+    }
+}
+
 /// configuration specifying the stake table
 #[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
 pub struct VRFStakeTableConfig {
@@ -783,6 +823,19 @@ mod tests {
         vrf::blsvrf::BLSVRFScheme,
     };
 
+    #[derive(
+        Copy,
+        Clone,
+        Debug,
+        Default,
+        Hash,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        serde::Serialize,
+        serde::Deserialize,
+    )]
     struct TestTypes;
     impl NodeTypes for TestTypes {
         type Time = ViewNumber;

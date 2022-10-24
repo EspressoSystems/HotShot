@@ -11,7 +11,6 @@ cfg_if::cfg_if! {
     }
 }
 use async_lock::RwLock;
-use derivative::Derivative;
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
     constants::LOOK_AHEAD,
@@ -39,8 +38,7 @@ use std::{
 use tracing::{error, info, info_span, instrument, trace, Instrument};
 
 /// A handle with senders to send events to the background runners.
-#[derive(Derivative)]
-#[derivative(Default(bound = ""))]
+#[derive(Default)]
 pub struct TaskHandle<TYPES: NodeTypes> {
     /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized early on in the [`HotShot`] struct. It should be safe to `unwrap` this.
     inner: RwLock<Option<TaskHandleInner>>,

@@ -77,7 +77,7 @@ where
 /// An internal representation of the data stored in a [`Storage`].
 ///
 /// This should only be used for testing, never in production code.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct StorageState<TYPES: NodeTypes> {
     /// The views that have been successful
     pub stored: BTreeMap<TYPES::Time, StoredView<TYPES>>,
@@ -86,7 +86,7 @@ pub struct StorageState<TYPES: NodeTypes> {
 }
 
 /// An entry to `Storage::append`. This makes it possible to commit both succeeded and failed views at the same time
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub enum ViewEntry<TYPES>
 where
     TYPES: NodeTypes,
@@ -109,13 +109,8 @@ where
 }
 
 /// A view stored in the [`Storage`]
-#[derive(Derivative)]
-#[derivative(
-    PartialEq(bound = ""),
-    Eq(bound = ""),
-    Clone(bound = ""),
-    Debug(bound = "")
-)]
+#[derive(Clone, Debug, Derivative)]
+#[derivative(PartialEq)]
 pub struct StoredView<TYPES: NodeTypes> {
     /// The view number of this view
     pub time: TYPES::Time,

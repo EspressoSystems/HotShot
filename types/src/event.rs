@@ -7,8 +7,7 @@ use std::sync::Arc;
 ///
 /// This includes some metadata, such as the stage and view number that the event was generated in,
 /// as well as an inner [`EventType`] describing the event proper.
-#[derive(derivative::Derivative)]
-#[derivative(Clone(bound = ""), Debug(bound = ""))]
+#[derive(Clone, Debug)]
 pub struct Event<TYPES: NodeTypes> {
     /// The view number that this event originates from
     pub time: TYPES::Time,
@@ -21,8 +20,7 @@ pub struct Event<TYPES: NodeTypes> {
 /// This enum does not include metadata shared among all variants, such as the stage and view
 /// number, and is thus always returned wrapped in an [`Event`].
 #[non_exhaustive]
-#[derive(derivative::Derivative)]
-#[derivative(Clone(bound = ""), Debug(bound = ""))]
+#[derive(Clone, Debug)]
 pub enum EventType<TYPES: NodeTypes> {
     /// A view encountered an error and was interrupted
     Error {

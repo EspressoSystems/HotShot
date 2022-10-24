@@ -297,6 +297,19 @@ pub type TestSetup<TYPES, TRANS, I> =
 
 use ark_bls12_381::Parameters as Param381;
 
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub struct VrfTestTypes;
 impl NodeTypes for VrfTestTypes {
     type Time = ViewNumber;
@@ -307,6 +320,20 @@ impl NodeTypes for VrfTestTypes {
     type ElectionConfigType = VRFStakeTableConfig;
     type StateType = DummyState;
 }
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub struct StaticCommitteeTestTypes;
 impl NodeTypes for StaticCommitteeTestTypes {
     type Time = ViewNumber;

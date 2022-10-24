@@ -99,3 +99,7 @@ pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
         next_state: commit::Commitment<Leaf<TYPES>>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError>;
 }
+
+pub trait TestableElection<TYPES: NodeTypes>: Election<TYPES> {
+    fn generate_test_vote_token() -> TYPES::VoteTokenType;
+}

@@ -12,6 +12,7 @@ use crate::traits::{
     Block, NetworkingImplementation, NodeImplementation,
 };
 use commit::{Commitment, Committable};
+use derivative::Derivative;
 use hotshot_types::{
     constants::genesis_proposer_id,
     data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
@@ -469,6 +470,19 @@ impl Block for DEntryBlock {
 }
 
 /// Implementation of [`NodeTypes`] for [`DEntryNode`]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub struct DEntryTypes;
 
 impl NodeTypes for DEntryTypes {
@@ -482,7 +496,7 @@ impl NodeTypes for DEntryTypes {
 }
 
 /// The node implementation for the dentry demo
-#[derive(derivative::Derivative)]
+#[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct DEntryNode<TYPES, NET, ELE>
 where

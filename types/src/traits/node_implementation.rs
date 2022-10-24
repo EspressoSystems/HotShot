@@ -17,6 +17,7 @@ use crate::traits::{
     storage::Storage, Block,
 };
 use std::fmt::Debug;
+use std::hash::Hash;
 
 /// Node implementation aggregate trait
 ///
@@ -36,7 +37,22 @@ pub trait NodeImplementation<TYPES: NodeTypes>: Send + Sync + Debug + Clone + 's
     type Election: Election<TYPES>;
 }
 
-pub trait NodeTypes: Send + Sync + 'static {
+pub trait NodeTypes:
+    Clone
+    + Copy
+    + Debug
+    + Hash
+    + PartialEq
+    + Eq
+    + PartialOrd
+    + Ord
+    + Default
+    + serde::Serialize
+    + for<'de> serde::Deserialize<'de>
+    + Send
+    + Sync
+    + 'static
+{
     type Time: ConsensusTime;
     type BlockType: Block<Transaction = Self::Transaction>;
     type SignatureKey: SignatureKey;

@@ -42,6 +42,19 @@ use std::{
 use tracing::{debug, error};
 
 /// Implementation of [`NodeTypes`] for [`DEntryNode`]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub struct VrfTypes;
 
 impl NodeTypes for VrfTypes {

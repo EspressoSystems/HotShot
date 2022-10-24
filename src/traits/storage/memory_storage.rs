@@ -24,8 +24,7 @@ struct MemoryStorageInternal<TYPES: NodeTypes> {
 }
 
 /// In memory, ephemeral, storage for a [`HotShot`](crate::HotShot) instance
-#[derive(derivative::Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Clone)]
 pub struct MemoryStorage<TYPES: NodeTypes> {
     /// The inner state of this [`MemoryStorage`]
     inner: Arc<RwLock<MemoryStorageInternal<TYPES>>>,
@@ -129,6 +128,19 @@ mod test {
     use std::collections::BTreeMap;
     use tracing::instrument;
 
+    #[derive(
+        Copy,
+        Clone,
+        Debug,
+        Default,
+        Hash,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        serde::Serialize,
+        serde::Deserialize,
+    )]
     struct DummyTypes;
 
     impl NodeTypes for DummyTypes {

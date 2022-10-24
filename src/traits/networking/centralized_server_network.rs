@@ -14,7 +14,6 @@ cfg_if::cfg_if! {
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
 use bincode::Options;
-use derivative::Derivative;
 use futures::{future::BoxFuture, FutureExt};
 use hotshot_centralized_server::{
     FromServer, NetworkConfig, Run, RunResults, TcpStreamRecvUtil, TcpStreamSendUtil,
@@ -52,8 +51,7 @@ use std::{
 use tracing::error;
 
 /// The inner state of the `CentralizedServerNetwork`
-#[derive(Derivative)]
-#[derivative(Debug(bound = ""))]
+#[derive(Debug)]
 struct Inner<TYPES: NodeTypes> {
     /// Self-identifying public key
     own_key: TYPES::SignatureKey,
@@ -642,8 +640,7 @@ impl<TYPES: NodeTypes> Inner<TYPES> {
 }
 
 /// Handle for connecting to a centralized server
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""), Debug(bound = ""))]
+#[derive(Clone, Debug)]
 pub struct CentralizedServerNetwork<TYPES: NodeTypes> {
     /// The inner state
     inner: Arc<Inner<TYPES>>,

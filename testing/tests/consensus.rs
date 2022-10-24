@@ -12,13 +12,12 @@ use hotshot_testing::{ConsensusRoundError, RoundResult};
 use hotshot_types::{
     message::{ConsensusMessage, Proposal},
     traits::{
-        election::Election,
+        election::{Election, TestableElection},
         node_implementation::NodeTypes,
         signature_key::TestableSignatureKey,
         state::{ConsensusTime, TestableBlock, TestableState},
     },
 };
-use hotshot_utils::hack::nll_todo;
 use std::time::Duration;
 use std::time::Instant;
 use tracing::{instrument, warn};
@@ -73,7 +72,7 @@ async fn submit_proposal<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
 }
 
 /// Builds and submits a random vote for the specified view number from the specified node
-async fn submit_vote<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+async fn submit_vote<TYPES: NodeTypes, ELECTION: TestableElection<TYPES>>(
     runner: &AppliedTestRunner<TYPES, ELECTION>,
     sender_node_id: u64,
     view_number: TYPES::Time,
@@ -96,7 +95,7 @@ async fn submit_vote<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
         block_commitment: leaf.deltas.commit(),
         leaf_commitment: leaf.commit(),
         // TODO placeholder below
-        vote_token: nll_todo(),
+        vote_token: ELECTION::generate_test_vote_token(),
     });
 
     let recipient = runner
@@ -165,7 +164,7 @@ where
 }
 
 /// For 1..NUM_VIEWS submit votes to each node in the network
-fn test_vote_queueing_round_setup<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+fn test_vote_queueing_round_setup<TYPES: NodeTypes, ELECTION: TestableElection<TYPES>>(
     runner: &mut AppliedTestRunner<TYPES, ELECTION>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where
@@ -336,7 +335,7 @@ where
 }
 
 /// Submits votes to non-leaders and submits too many votes from a singular node
-fn test_bad_vote_round_setup<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+fn test_bad_vote_round_setup<TYPES: NodeTypes, ELECTION: TestableElection<TYPES>>(
     runner: &mut AppliedTestRunner<TYPES, ELECTION>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where

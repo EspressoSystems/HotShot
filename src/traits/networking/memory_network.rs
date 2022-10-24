@@ -8,7 +8,6 @@ use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
-use derivative::Derivative;
 use futures::StreamExt;
 use hotshot_types::{
     message::Message,
@@ -110,8 +109,7 @@ struct MemoryNetworkInner<TYPES: NodeTypes> {
 ///
 /// Under the hood, this simply maintains mpmc channels to every other `MemoryNetwork` insane of the
 /// same group.
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Clone)]
 pub struct MemoryNetwork<TYPES: NodeTypes> {
     /// The actual internal state
     inner: Arc<MemoryNetworkInner<TYPES>>,
@@ -515,9 +513,20 @@ mod tests {
         traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
     };
     use hotshot_utils::test_util::setup_logging;
-    use serde::Deserialize;
 
-    #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(
+        Copy,
+        Clone,
+        Debug,
+        Default,
+        Hash,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        serde::Serialize,
+        serde::Deserialize,
+    )]
     struct Test {
         message: u64,
     }

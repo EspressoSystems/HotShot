@@ -16,8 +16,7 @@ cfg_if::cfg_if! {
 use snafu::Snafu;
 
 /// Error type for `HotShot`
-#[derive(Snafu, derivative::Derivative)]
-#[derivative(Debug(bound = ""))]
+#[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum HotShotError<TYPES: NodeTypes> {
