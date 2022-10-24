@@ -343,7 +343,7 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
             let high_qc = results
                 .into_iter()
                 .filter_map(std::result::Result::ok)
-                .max_by_key(|qc| qc.view_number)
+                .max_by_key(|qc| qc.time)
                 .unwrap();
         } else {
             std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
