@@ -557,12 +557,11 @@ impl BinomialQuery {
 #[instrument]
 fn calculate_threshold_from_cache(previous_calculation: Option<(BinomialQuery, Ratio<BigUint>)>, query: BinomialQuery) -> Option<Ratio<BigUint>>{
     if let Some((previous_query, previous_result)) = previous_calculation {
-        if previous_query.sortition_parameter == query.sortition_parameter
-           && previous_query.replicas_stake == query.replicas_stake
-           && previous_query.total_stake == query.total_stake
-           && previous_query.stake_attempt == query.stake_attempt - 1
-           {
-
+        let expected_previous_query = BinomialQuery {
+            stake_attempt: query.stake_attempt - 1,
+            ..query
+        };
+        if previous_query == expected_previous_query {
                let permutation = Ratio::new(BigUint::from(query.replicas_stake - u64::from(query.stake_attempt) + 1),  BigUint::from(query.stake_attempt));
                let p = query.get_p();
                assert!(p.numer() < p.denom());
