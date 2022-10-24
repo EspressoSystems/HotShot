@@ -36,7 +36,7 @@ use libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed, upgrade},
     gossipsub::TopicHash,
-    identify::IdentifyEvent,
+    identify::Event as IdentifyEvent,
     identity::Keypair,
     noise,
     request_response::ResponseChannel,
@@ -120,7 +120,7 @@ pub enum ClientRequest {
         /// msg contents
         contents: Vec<u8>,
         /// number of retries
-        retry_count: u8
+        retry_count: u8,
     },
     /// client request to send a direct reply to a message
     DirectResponse(ResponseChannel<DirectMessageResponse>, Vec<u8>),
@@ -148,7 +148,7 @@ pub enum ClientRequest {
         /// Channel to notify caller of value (or failure to find value)
         notify: Sender<Vec<u8>>,
         /// number of retries to make
-        retry_count: u8
+        retry_count: u8,
     },
     /// Request the number of connected peers
     GetConnectedPeerNum(Sender<usize>),

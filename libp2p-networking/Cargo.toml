@@ -32,17 +32,13 @@ async-std-executor = [
     "dep:async-std",
     "hotshot-types/async-std-executor",
     "hotshot-utils/async-std-executor",
-    "libp2p/dns-async-std",
-    "libp2p/mdns-async-io",
-    "libp2p/tcp-async-io",
+    "libp2p/async-std",
 ]
 tokio-executor = [
     "dep:tokio",
     "hotshot-types/tokio-executor",
     "hotshot-utils/tokio-executor",
-    "libp2p/dns-tokio",
-    "libp2p/mdns-tokio",
-    "libp2p/tcp-tokio",
+    "libp2p/tokio",
 ]
 profiling = ["hotshot-utils/profiling"]
 channel-flume = ["hotshot-types/channel-flume", "hotshot-utils/channel-flume"]
@@ -55,7 +51,7 @@ channel-async-std = [
 [dependencies]
 async-lock = "2.5"
 async-std = { version = "1.12.0", optional = true }
-async-trait = "0.1.57"
+async-trait = "0.1.58"
 bincode = "1.3.3"
 blake3 = "1.3.1"
 cfg-if = "1"
@@ -63,18 +59,20 @@ color-eyre = "0.6.2"
 custom_debug = "0.5"
 derive_builder = "0.11.1"
 either = { version = "1.8.0" }
-futures = "0.3.24"
+futures = "0.3.25"
 hotshot-types = { path = "../types", version = "0.1.0", default-features = false }
 hotshot-utils = { path = "../utils", version = "0.1.0", default-features = false, features = [
     "logging-utils",
 ] }
-libp2p = { version = "0.48", default-features = false, features = [
+libp2p = { version = "0.49", default-features = false, features = [
     "autonat",
     "deflate",
+    "dns",
     "floodsub",
+    "gossipsub",
     "identify",
     "kad",
-    "gossipsub",
+    "mdns",
     "mplex",
     "noise",
     "ping",
@@ -85,6 +83,7 @@ libp2p = { version = "0.48", default-features = false, features = [
     "rendezvous",
     "secp256k1",
     "serde",
+    "tcp",
     "uds",
     "wasm-ext",
     "websocket",
@@ -92,9 +91,9 @@ libp2p = { version = "0.48", default-features = false, features = [
 ] }
 parking_lot = "0.12.0"
 rand = "0.8.5"
-serde = { version = "1.0.145", features = ["derive"] }
-serde_json = "1.0.86"
-snafu = "0.7.2"
+serde = { version = "1.0.147", features = ["derive"] }
+serde_json = "1.0.87"
+snafu = "0.7.3"
 tokio = { version = "1", optional = true, features = [
     "fs",
     "io-util",
