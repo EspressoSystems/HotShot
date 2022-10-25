@@ -69,9 +69,7 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use hotshot_utils::{
-    art::async_spawn, bincode::bincode_opts, broadcast::BroadcastSender
-};
+use hotshot_utils::{art::async_spawn, bincode::bincode_opts, broadcast::BroadcastSender};
 use hotshot_utils::{
     art::async_spawn_local,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -79,7 +77,7 @@ use hotshot_utils::{
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},
-    num::NonZeroUsize,
+    num::{NonZeroUsize, NonZeroU64},
     sync::{atomic::Ordering, Arc},
     time::Duration,
 };
@@ -109,7 +107,10 @@ pub struct HotShotInner<I: NodeImplementation> {
     private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
 
     /// Configuration items for this hotshot instance
-    config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey,ViewNumber>>::ElectionConfigType>,
+    config: HotShotConfig<
+        I::SignatureKey,
+        <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType,
+    >,
 
     /// Networking interface for this hotshot instance
     networking: I::Networking,
@@ -160,18 +161,15 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_arguments)]
-    #[instrument(skip(
-        private_key,
-        networking,
-        storage,
-        election,
-        initializer
-    ))]
+    #[instrument(skip(private_key, networking, storage, election, initializer))]
     pub async fn new(
         public_key: I::SignatureKey,
         private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
         nonce: u64,
-        config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>,
+        config: HotShotConfig<
+            I::SignatureKey,
+            <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType,
+        >,
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
@@ -326,7 +324,10 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
         public_key: I::SignatureKey,
         private_key: <I::SignatureKey as SignatureKey>::PrivateKey,
         node_id: u64,
-        config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>,
+        config: HotShotConfig<
+            I::SignatureKey,
+            <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType,
+        >,
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
@@ -661,8 +662,8 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         self.inner.config.total_nodes
     }
 
-    fn threshold(&self) -> NonZeroUsize {
-        self.inner.config.threshold
+    fn threshold(&self) -> NonZeroU64 {
+        self.inner.election.get_threshold()
     }
 
     fn propose_min_round_time(&self) -> Duration {
@@ -773,7 +774,8 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     }
 
     // TODO ed - refactor this function to only acc stake, and not check validity
-    fn validated_stake(&self,
+    fn validated_stake(
+        &self,
         hash: Commitment<Leaf<I::StateType>>,
         view_number: ViewNumber,
         signatures: BTreeMap<
@@ -825,7 +827,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         }
 
         let stake = self.validated_stake(hash, qc.view_number, signature_map);
-        if stake as usize >= self.threshold().into() {
+        if stake >= u64::from(self.threshold()) {
             return true;
         }
         false

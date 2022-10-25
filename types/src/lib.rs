@@ -9,7 +9,10 @@
 )]
 #![allow(clippy::must_use_candidate, clippy::module_name_repetitions)]
 
-use std::{num::NonZeroUsize, time::Duration};
+use std::{
+    num::{NonZeroUsize},
+    time::Duration,
+};
 
 pub mod constants;
 pub mod data;
@@ -38,8 +41,6 @@ pub struct HotShotConfig<K, ELECTION> {
     pub execution_type: ExecutionType,
     /// Total number of nodes in the network
     pub total_nodes: NonZeroUsize,
-    /// Nodes required to reach a decision
-    pub threshold: NonZeroUsize,
     /// Minimum transactions per block
     pub min_transactions: usize,
     /// Maximum transactions per block

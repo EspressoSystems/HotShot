@@ -104,13 +104,12 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     }
 
                     // TODO ed - current validated_stake rechecks that all votes are valid, which isn't necessary here
-                    let stake = self.api.validated_stake(
+                    let stake_casted = self.api.validated_stake(
                         vote.leaf_commitment,
                         self.cur_view,
                         signature_map,
                     );
-                    let stake_casted : usize = stake.try_into().unwrap();
-                    if stake_casted >= threshold.into() {
+                    if stake_casted >= u64::from(threshold) {
                         let (block_commitment, valid_signatures) =
                             vote_outcomes.remove(&vote.leaf_commitment).unwrap();
                         // construct QC

@@ -507,6 +507,10 @@ where
             distribution: stake,
         }
     }
+
+    fn get_threshold(&self) -> NonZeroU64 {
+        NonZeroU64::new(((self.sortition_parameter * 2) / 3) + 1).unwrap()
+    }
 }
 
 /// checks that the expected aomunt of stake matches the VRF output

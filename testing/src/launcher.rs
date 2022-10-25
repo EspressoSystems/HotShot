@@ -1,18 +1,15 @@
 use std::{num::NonZeroUsize, time::Duration};
 
 use super::{Generator, TestRunner};
-use hotshot::{
-    traits::{State},
-    types::{SignatureKey},
-};
+use hotshot::{traits::State, types::SignatureKey};
 use hotshot_types::{
+    data::ViewNumber,
     traits::{
-        network::TestableNetworkingImplementation,
-        signature_key::TestableSignatureKey,
-        state::{TestableBlock},
-        storage::TestableStorage, node_implementation::TestableNodeImplementation, election::{Election},
+        election::Election, network::TestableNetworkingImplementation,
+        node_implementation::TestableNodeImplementation, signature_key::TestableSignatureKey,
+        state::TestableBlock, storage::TestableStorage,
     },
-    ExecutionType, HotShotConfig, data::ViewNumber,
+    ExecutionType, HotShotConfig,
 };
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
@@ -20,16 +17,21 @@ pub struct TestLauncher<I: TestableNodeImplementation> {
     pub(super) network: Generator<I::Networking>,
     pub(super) storage: Generator<I::Storage>,
     pub(super) block: Generator<<I::StateType as State>::BlockType>,
-    pub(super) config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>,
+    pub(super) config: HotShotConfig<
+        I::SignatureKey,
+        <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType,
+    >,
 }
 
-impl<I: TestableNodeImplementation> TestLauncher<I>
-{
+impl<I: TestableNodeImplementation> TestLauncher<I> {
     /// Create a new launcher.
-    /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
-    pub fn new(expected_node_count: usize, num_bootstrap_nodes: usize, min_transactions: usize, election_config: <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType) -> Self {
-        let threshold = ((expected_node_count * 2) / 3) + 1;
-
+    /// Note that `expected_node_count` should be set to an accurate value
+    pub fn new(
+        expected_node_count: usize,
+        num_bootstrap_nodes: usize,
+        min_transactions: usize,
+        election_config: <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType,
+    ) -> Self {
         let known_nodes = (0..expected_node_count)
             .map(|id| {
                 let priv_key = I::SignatureKey::generate_test_key(id as u64);
@@ -40,7 +42,6 @@ impl<I: TestableNodeImplementation> TestLauncher<I>
             execution_type: ExecutionType::Incremental,
             total_nodes: NonZeroUsize::new(expected_node_count).unwrap(),
             num_bootstrap: num_bootstrap_nodes,
-            threshold: NonZeroUsize::new(threshold).unwrap(),
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes,
@@ -50,7 +51,7 @@ impl<I: TestableNodeImplementation> TestLauncher<I>
             start_delay: 1,
             propose_min_round_time: Duration::from_millis(0),
             propose_max_round_time: Duration::from_millis(1000),
-            election_config: Some(election_config)
+            election_config: Some(election_config),
         };
 
         Self {
@@ -58,7 +59,9 @@ impl<I: TestableNodeImplementation> TestLauncher<I>
             storage: Box::new(|_| {
                 <I::Storage as TestableStorage<I::StateType>>::construct_tmp_storage().unwrap()
             }),
-            block: Box::new(|_| <<I as TestableNodeImplementation>::StateType as State>::BlockType::genesis()),
+            block: Box::new(|_| {
+                <<I as TestableNodeImplementation>::StateType as State>::BlockType::genesis()
+            }),
             config,
         }
     }
@@ -90,10 +93,7 @@ impl<I: TestableNodeImplementation> TestLauncher<I> {
     }
 
     /// Set a custom storage generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_storage(
-        self,
-        storage: impl Fn(u64) -> I::Storage + 'static,
-    ) -> TestLauncher<I> {
+    pub fn with_storage(self, storage: impl Fn(u64) -> I::Storage + 'static) -> TestLauncher<I> {
         TestLauncher {
             network: self.network,
             storage: Box::new(storage),
@@ -103,10 +103,7 @@ impl<I: TestableNodeImplementation> TestLauncher<I> {
     }
 
     /// Set a custom block generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_block(
-        self,
-        block: impl Fn(u64) -> I::Block + 'static,
-    ) -> TestLauncher<I> {
+    pub fn with_block(self, block: impl Fn(u64) -> I::Block + 'static) -> TestLauncher<I> {
         TestLauncher {
             network: self.network,
             storage: self.storage,
@@ -116,7 +113,13 @@ impl<I: TestableNodeImplementation> TestLauncher<I> {
     }
 
     /// Set the default config of each node. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_default_config(mut self, config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>) -> Self {
+    pub fn with_default_config(
+        mut self,
+        config: HotShotConfig<
+            I::SignatureKey,
+            <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType,
+        >,
+    ) -> Self {
         self.config = config;
         self
     }
@@ -124,15 +127,19 @@ impl<I: TestableNodeImplementation> TestLauncher<I> {
     /// Modifies the config used when generating nodes with `f`
     pub fn modify_default_config(
         mut self,
-        mut f: impl FnMut(&mut HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>),
+        mut f: impl FnMut(
+            &mut HotShotConfig<
+                I::SignatureKey,
+                <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType,
+            >,
+        ),
     ) -> Self {
         f(&mut self.config);
         self
     }
 }
 
-impl<I: TestableNodeImplementation> TestLauncher<I>
-{
+impl<I: TestableNodeImplementation> TestLauncher<I> {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///
     /// - `NETWORK` implements [`NetworkingImplementation`] and [`TestableNetworkingImplementation`]
