@@ -15,19 +15,19 @@ use hotshot_types::{
     },
 };
 use std::collections::BTreeMap;
+use std::num::NonZeroU64;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 /// type synonym for singature map
-pub(crate) type Signatures<I> =
-                        BTreeMap<
-                        EncodedPublicKey,
-                        (
-                            EncodedSignature,
-                            <<I as NodeImplementation>::Election as Election<
-                                <I as NodeImplementation>::SignatureKey,
-                                ViewNumber,
-                            >>::VoteTokenType,
-                        ),
-                    > ;
+pub(crate) type Signatures<I> = BTreeMap<
+    EncodedPublicKey,
+    (
+        EncodedSignature,
+        <<I as NodeImplementation>::Election as Election<
+            <I as NodeImplementation>::SignatureKey,
+            ViewNumber,
+        >>::VoteTokenType,
+    ),
+>;
 
 // FIXME these should be nonzero u64s
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
@@ -38,8 +38,8 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// Total number of nodes in the network. Also known as `n`.
     fn total_nodes(&self) -> NonZeroUsize;
 
-    /// The amount of nodes that are required to reach a decision. Also known as `n - f`.
-    fn threshold(&self) -> NonZeroUsize;
+    /// The amount of stake required to reach a decision. See implementation of `Election` for more details.
+    fn threshold(&self) -> NonZeroU64;
 
     /// The minimum amount of time a leader has to wait before sending a propose
     fn propose_min_round_time(&self) -> Duration;

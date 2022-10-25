@@ -148,8 +148,6 @@ impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
 pub struct HotShotConfigFile {
     /// Total number of nodes in the network
     pub total_nodes: NonZeroUsize,
-    /// Nodes required to reach a decision
-    pub threshold: NonZeroUsize,
     /// Maximum transactions per block
     pub max_transactions: NonZeroUsize,
     /// Minimum transactions per block
@@ -178,7 +176,6 @@ impl<K, E> From<HotShotConfigFile> for HotShotConfig<K, E>
         HotShotConfig {
             execution_type: ExecutionType::Continuous,
             total_nodes: val.total_nodes,
-            threshold: val.threshold,
             max_transactions: val.max_transactions,
             min_transactions: val.min_transactions,
             known_nodes: Vec::new(),
@@ -190,8 +187,7 @@ impl<K, E> From<HotShotConfigFile> for HotShotConfig<K, E>
             propose_min_round_time: val.propose_min_round_time,
             propose_max_round_time: val.propose_max_round_time,
             // TODO fix this to be from the config file
-            election_config: None
-            // election_config: nll_todo()
+            election_config: None, // election_config: nll_todo()
         }
     }
 }
@@ -210,7 +206,6 @@ fn default_padding() -> usize {
 fn default_config() -> HotShotConfigFile {
     HotShotConfigFile {
         total_nodes: NonZeroUsize::new(10).unwrap(),
-        threshold: NonZeroUsize::new(7).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
         min_transactions: 0,
         next_view_timeout: 10000,

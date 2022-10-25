@@ -96,7 +96,7 @@ async fn init_state_and_hotshot(
         distribution.push(stake_per_node);
     }
     let vrf_impl = VrfImpl::with_initial_stake(known_nodes.clone(), &VRFStakeTableConfig {
-        sortition_parameter: SORTITION_PARAMETER,
+        sortition_parameter: NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
         distribution,
     });
     let hotshot = HotShot::init(

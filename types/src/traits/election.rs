@@ -1,10 +1,8 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
+use std::num::NonZeroU64;
 
-use super::{
-    state::ConsensusTime,
-    State,
-};
+use super::{state::ConsensusTime, State};
 use crate::{
     data::{Leaf, ViewNumber},
     traits::signature_key::SignatureKey,
@@ -42,11 +40,14 @@ pub enum Checked<T> {
 /// Proof of this entity's right to vote, and of the weight of those votes
 pub trait VoteToken {
     /// the count, which validation will confirm
-    fn vote_count(&self) -> u64;
+    fn vote_count(&self) -> NonZeroU64;
 }
 
 /// election config
-pub trait ElectionConfig: Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug {}
+pub trait ElectionConfig:
+    Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug
+{
+}
 
 /// Describes how `HotShot` chooses committees and leaders
 pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
@@ -98,4 +99,7 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         token: Checked<Self::VoteTokenType>,
         next_state: commit::Commitment<Leaf<Self::StateType>>,
     ) -> Result<Checked<Self::VoteTokenType>, ElectionError>;
+
+    /// Returns the threshold for a specific `Election` implementation
+    fn get_threshold(&self) -> NonZeroU64;
 }

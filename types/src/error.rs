@@ -14,6 +14,7 @@ cfg_if::cfg_if! {
     }
 }
 use snafu::Snafu;
+use std::num::NonZeroU64;
 
 /// Error type for `HotShot`
 #[derive(Debug, Snafu)]
@@ -75,7 +76,7 @@ pub enum HotShotError {
         /// Number of valid signatures
         num_valid_signatures: usize,
         /// Threshold of signatures needed for a quorum
-        threshold: usize,
+        threshold: NonZeroU64,
     },
     /// Miscelaneous error
     /// TODO fix this with

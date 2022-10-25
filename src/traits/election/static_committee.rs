@@ -2,7 +2,7 @@ use commit::Commitment;
 use hotshot_types::{
     data::{Leaf, ViewNumber},
     traits::{
-        election::{Checked, Election, ElectionError, VoteToken, ElectionConfig},
+        election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
         signature_key::{
             ed25519::{Ed25519Priv, Ed25519Pub},
             EncodedSignature, SignatureKey,
@@ -13,6 +13,7 @@ use hotshot_types::{
 };
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
+use std::num::NonZeroU64;
 
 /// Dummy implementation of [`Election`]
 
@@ -44,18 +45,16 @@ pub struct StaticVoteToken {
 }
 
 impl VoteToken for StaticVoteToken {
-    fn vote_count(&self) -> u64 {
-        1
+    fn vote_count(&self) -> NonZeroU64 {
+        NonZeroU64::new(1).unwrap()
     }
 }
 
 /// configuration for static committee. stub for now
 #[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
-pub struct StaticElectionConfig {
-}
+pub struct StaticElectionConfig {}
 
-impl ElectionConfig for StaticElectionConfig {
-}
+impl ElectionConfig for StaticElectionConfig {}
 
 impl<S, T> Election<Ed25519Pub, T> for StaticCommittee<S>
 where
@@ -82,24 +81,6 @@ where
         let index = (*view_number % self.nodes.len() as u64) as usize;
         self.nodes[index]
     }
-
-    /// Simply verify the signature and check the membership list
-    // fn get_votes(
-    //     &self,
-    //     view_number: ViewNumber,
-    //     pub_key: Ed25519Pub,
-    //     token: Self::VoteToken,
-    //     next_state: Commitment<Leaf<Self::StateType>>,
-    // ) -> Option<Self::ValidatedVoteToken> {
-    //     let mut message: Vec<u8> = vec![];
-    //     message.extend(&view_number.to_le_bytes());
-    //     message.extend(next_state.as_ref());
-    //     if pub_key.validate(&token, &message) && self.nodes.contains(&pub_key) {
-    //         Some((token, pub_key))
-    //     } else {
-    //         None
-    //     }
-    // }
 
     /// Simply make the partial signature
     fn make_vote_token(
@@ -129,8 +110,8 @@ where
         hotshot_types::traits::election::ElectionError,
     > {
         match token {
-            Checked::Valid(t)| Checked::Unchecked(t) => Ok(Checked::Valid(t)),
-            Checked::Inval(t) => Ok(Checked::Inval(t))
+            Checked::Valid(t) | Checked::Unchecked(t) => Ok(Checked::Valid(t)),
+            Checked::Inval(t) => Ok(Checked::Inval(t)),
         }
     }
 
@@ -141,8 +122,11 @@ where
     fn create_election(keys: Vec<Ed25519Pub>, _config: Self::ElectionConfigType) -> Self {
         Self {
             nodes: keys,
-            _state_phantom: PhantomData
+            _state_phantom: PhantomData,
         }
     }
 
+    fn get_threshold(&self) -> NonZeroU64 {
+        NonZeroU64::new(((self.nodes.len() as u64 * 2) / 3) + 1).unwrap()
+    }
 }

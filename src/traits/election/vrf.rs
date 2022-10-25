@@ -1,23 +1,21 @@
 use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
-use hotshot_types::{traits::{
-    election::{Checked, Election, ElectionError, VoteToken, ElectionConfig},
-    signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
-    State,
-}, data::ViewNumber};
-use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::{
-    hash_to_group::SWHashToGroup,
-    signatures::SignatureScheme,
-    vrf::Vrf,
+use hotshot_types::{
+    data::ViewNumber,
+    traits::{
+        election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
+        State,
+    },
 };
+use hotshot_utils::bincode::bincode_opts;
+use jf_primitives::{hash_to_group::SWHashToGroup, signatures::SignatureScheme, vrf::Vrf};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use serde::{
     de::{self},
     Deserialize, Serialize,
 };
-use tracing::{instrument, error, info};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
@@ -26,6 +24,7 @@ use std::{
     num::NonZeroU64,
     sync::{Arc, Mutex, MutexGuard},
 };
+use tracing::{error, info, instrument};
 
 use num::{rational::Ratio, BigUint, ToPrimitive};
 
@@ -41,7 +40,7 @@ pub struct VRFStakeTable<VRF, VRFHASHER, VRFPARAMS> {
     /// the mapping of id -> stake
     mapping: BTreeMap<EncodedPublicKey, NonZeroU64>,
     /// total stake present
-    total_stake: u64,
+    total_stake: NonZeroU64,
     /// PhantomData for VRF
     _pd_0: PhantomData<VRF>,
     /// PhantomData for VRFHASEHR
@@ -142,7 +141,6 @@ where
     fn eq(&self, other: &Self) -> bool {
         self.to_bytes() == other.to_bytes()
     }
-
 }
 impl<SIGSCHEME> Eq for VRFPubKey<SIGSCHEME>
 where
@@ -235,7 +233,7 @@ where
 
 impl<VRF, VRFHASHER, VRFPARAMS> VRFStakeTable<VRF, VRFHASHER, VRFPARAMS> {
     /// get total stake
-    pub fn get_all_stake(&self) -> u64 {
+    pub fn get_all_stake(&self) -> NonZeroU64 {
         self.total_stake
     }
 }
@@ -248,7 +246,9 @@ where
     VRF::PublicKey: Clone,
 {
     /// get total stake
-    pub fn get_stake<SIGSCHEME>(&self, pk: &VRFPubKey<SIGSCHEME>) -> Option<u64>
+    /// # Panics
+    /// If converting non-zero stake into `NonZeroU64` fails
+    pub fn get_stake<SIGSCHEME>(&self, pk: &VRFPubKey<SIGSCHEME>) -> Option<NonZeroU64>
     where
         SIGSCHEME: SignatureScheme<
             VerificationKey = VRF::PublicKey,
@@ -260,7 +260,11 @@ where
         SIGSCHEME::Signature: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
     {
         let encoded = pk.to_bytes();
-        self.mapping.get(&encoded).map(|val| val.get())
+        let stake = self.mapping.get(&encoded).map(|val| val.get());
+        match stake {
+            Some(0) => None,
+            _ => stake.and_then(NonZeroU64::new),
+        }
     }
 }
 
@@ -276,10 +280,9 @@ where
     /// the rng
     prng: std::sync::Arc<std::sync::Mutex<rand_chacha::ChaChaRng>>,
     /// the committee parameter
-    sortition_parameter: u64,
-
+    sortition_parameter: NonZeroU64,
     /// pdf cache
-    sortition_cache: std::sync::Arc<std::sync::Mutex<HashMap::<BinomialQuery, Ratio<BigUint>>>>,
+    sortition_cache: std::sync::Arc<std::sync::Mutex<HashMap<BinomialQuery, Ratio<BigUint>>>>,
 
     // TODO (fst2) accessor to stake table
     // stake_table:
@@ -317,25 +320,27 @@ where
 
 /// TODO doc me
 #[derive(Serialize, Deserialize, Debug)]
-pub struct VRFVoteToken<VRF: Vrf<VRFHASHER, VRFPARAMS>, VRFHASHER, VRFPARAMS>
-{
+pub struct VRFVoteToken<VRF: Vrf<VRFHASHER, VRFPARAMS>, VRFHASHER, VRFPARAMS> {
     /// The public key assocaited with this token
     pub pub_key: VRF::PublicKey,
     /// The list of signatures
     pub proof: VRF::Proof,
     /// The number of signatures that are valid
     /// TODO (ct) this should be the sorition outbput
-    pub count: u64,
+    pub count: NonZeroU64,
 }
 
-impl<VRF: Vrf<VRFHASHER, VRFPARAMS>, VRFHASHER, VRFPARAMS> Clone for VRFVoteToken<VRF, VRFHASHER, VRFPARAMS>
-where VRF::PublicKey: Clone, VRF::Proof: Clone
+impl<VRF: Vrf<VRFHASHER, VRFPARAMS>, VRFHASHER, VRFPARAMS> Clone
+    for VRFVoteToken<VRF, VRFHASHER, VRFPARAMS>
+where
+    VRF::PublicKey: Clone,
+    VRF::Proof: Clone,
 {
     fn clone(&self) -> Self {
         Self {
             pub_key: self.pub_key.clone(),
             proof: self.proof.clone(),
-            count: self.count
+            count: self.count,
         }
     }
 }
@@ -344,13 +349,14 @@ impl<VRF, VRFHASHER, VRFPARAMS> VoteToken for VRFVoteToken<VRF, VRFHASHER, VRFPA
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS>,
 {
-    fn vote_count(&self) -> u64 {
+    fn vote_count(&self) -> NonZeroU64 {
         self.count
     }
 }
 
 // KEY is VRFPubKey
-impl<VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, STATE> Election<VRFPubKey<SIGSCHEME>, <STATE as State>::Time>
+impl<VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, STATE>
+    Election<VRFPubKey<SIGSCHEME>, <STATE as State>::Time>
     for VrfImpl<STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send,
@@ -429,8 +435,9 @@ where
             &self.proof_parameters,
             &private_key.0.clone(),
             &view_seed,
-            &mut *self.prng.lock().unwrap()
-        ).unwrap();
+            &mut *self.prng.lock().unwrap(),
+        )
+        .unwrap();
 
         // TODO (ct) this can fail, return result::err
         let hash = VRF::evaluate(&self.proof_parameters, &proof).unwrap();
@@ -440,7 +447,13 @@ where
 
         // TODO (jr) this error handling is NOTGOOD
         let cache = self.sortition_cache.lock().unwrap();
-        let selected_stake = find_bin_idx(replicas_stake, total_stake, SORTITION_PARAMETER, &hash, cache);
+        let selected_stake = find_bin_idx(
+            u64::from(replicas_stake),
+            u64::from(total_stake),
+            SORTITION_PARAMETER,
+            &hash,
+            cache,
+        );
         match selected_stake {
             Some(count) => {
                 // TODO (ct) this can fail, return Result::Err
@@ -471,18 +484,29 @@ where
     ) -> Result<Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
         match token {
             Checked::Unchecked(token) => {
-                let stake : Option<u64> = self.stake_table.get_stake(&pub_key);
+                let stake: Option<NonZeroU64> = self.stake_table.get_stake(&pub_key);
                 if let Some(stake) = stake {
-                    if let Ok(true) = VRF::verify(&self.proof_parameters, &token.proof, &pub_key.pk, &<[u8; 32]>::from(next_state)) {
+                    if let Ok(true) = VRF::verify(
+                        &self.proof_parameters,
+                        &token.proof,
+                        &pub_key.pk,
+                        &<[u8; 32]>::from(next_state),
+                    ) {
                         if let Ok(seed) = VRF::evaluate(&self.proof_parameters, &token.proof) {
                             let total_stake = self.stake_table.total_stake;
-                            if let Some(true) = check_bin_idx(token.count, stake, total_stake, SORTITION_PARAMETER, &seed, self.sortition_cache.lock().unwrap()) {
+                            if let Some(true) = check_bin_idx(
+                                u64::from(token.count),
+                                u64::from(stake),
+                                u64::from(total_stake),
+                                SORTITION_PARAMETER,
+                                &seed,
+                                self.sortition_cache.lock().unwrap(),
+                            ) {
                                 Ok(Checked::Valid(token))
                             } else {
                                 Ok(Checked::Inval(token))
                             }
-                        }
-                        else {
+                        } else {
                             Ok(Checked::Inval(token))
                         }
                     } else {
@@ -506,26 +530,45 @@ where
         let units_of_stake_per_node = NonZeroU64::new(100).unwrap();
         for _ in 0..num_nodes {
             stake.push(units_of_stake_per_node);
-
         }
         VRFStakeTableConfig {
-            sortition_parameter: SORTITION_PARAMETER,
+            sortition_parameter: NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
             distribution: stake,
         }
+    }
+
+    fn get_threshold(&self) -> NonZeroU64 {
+        NonZeroU64::new(((u64::from(self.sortition_parameter) * 2) / 3) + 1).unwrap()
     }
 }
 
 /// checks that the expected aomunt of stake matches the VRF output
 /// TODO this can be optimized most likely
-fn check_bin_idx(expected_amount_of_stake: u64, replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32], cache: MutexGuard<'_, HashMap::<BinomialQuery, Ratio<BigUint>>>) -> Option<bool> {
-    let bin_idx = find_bin_idx(replicas_stake, total_stake, sortition_parameter, unnormalized_seed, cache);
-    bin_idx.map(|idx| idx == expected_amount_of_stake)
+fn check_bin_idx(
+    expected_amount_of_stake: u64,
+    replicas_stake: u64,
+    total_stake: u64,
+    sortition_parameter: u64,
+    unnormalized_seed: &[u8; 32],
+    cache: MutexGuard<'_, HashMap<BinomialQuery, Ratio<BigUint>>>,
+) -> Option<bool> {
+    let bin_idx = find_bin_idx(
+        replicas_stake,
+        total_stake,
+        sortition_parameter,
+        unnormalized_seed,
+        cache,
+    );
+    bin_idx.map(|idx| idx == NonZeroU64::new(expected_amount_of_stake).unwrap())
 }
 
 /// generates the seed from algorand paper
 /// baseed on `next_state` commitment as of now, but in the future will be other things
 /// this is a stop-gap
-fn generate_view_seed<STATE: State>(_view_number: ViewNumber, next_state: commit::Commitment<hotshot_types::data::Leaf<STATE>>) -> [u8; 32] {
+fn generate_view_seed<STATE: State>(
+    _view_number: ViewNumber,
+    next_state: commit::Commitment<hotshot_types::data::Leaf<STATE>>,
+) -> [u8; 32] {
     <[u8; 32]>::from(next_state)
 }
 
@@ -534,43 +577,48 @@ fn generate_view_seed<STATE: State>(_view_number: ViewNumber, next_state: commit
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
 pub struct BinomialQuery {
     /// the number of heads
-    stake_attempt: u32,
+    stake_attempt: u64,
     /// the total number of coin flips
     replicas_stake: u64,
     /// the total amount of stake
     total_stake: u64,
     /// the sortition parameter
-    sortition_parameter: u64
+    sortition_parameter: u64,
 }
 
 impl BinomialQuery {
     /// get the committee parameter
     /// for this query
-    pub fn get_p(&self) -> Ratio<BigUint>{
-        let sortition_parameter_big : BigUint = BigUint::from(self.sortition_parameter);
-        let total_stake_big : BigUint = BigUint::from(self.total_stake);
-         Ratio::new(sortition_parameter_big, total_stake_big)
+    pub fn get_p(&self) -> Ratio<BigUint> {
+        let sortition_parameter_big: BigUint = BigUint::from(self.sortition_parameter);
+        let total_stake_big: BigUint = BigUint::from(self.total_stake);
+        Ratio::new(sortition_parameter_big, total_stake_big)
     }
-
 }
 
 #[instrument]
-fn calculate_threshold_from_cache(previous_calculation: Option<(BinomialQuery, Ratio<BigUint>)>, query: BinomialQuery) -> Option<Ratio<BigUint>>{
+fn calculate_threshold_from_cache(
+    previous_calculation: Option<(BinomialQuery, Ratio<BigUint>)>,
+    query: BinomialQuery,
+) -> Option<Ratio<BigUint>> {
     if let Some((previous_query, previous_result)) = previous_calculation {
         let expected_previous_query = BinomialQuery {
             stake_attempt: query.stake_attempt - 1,
             ..query
         };
         if previous_query == expected_previous_query {
-               let permutation = Ratio::new(BigUint::from(query.replicas_stake - u64::from(query.stake_attempt) + 1),  BigUint::from(query.stake_attempt));
-               let p = query.get_p();
-               assert!(p.numer() < p.denom());
-               let reciprocal = Ratio::recip(&(Ratio::from_integer(BigUint::from(1_u32)) - p.clone()));
-               let result = previous_result * p * reciprocal * permutation;
-               assert!(result.numer() < result.denom());
+            let permutation = Ratio::new(
+                BigUint::from(query.replicas_stake - query.stake_attempt + 1),
+                BigUint::from(query.stake_attempt),
+            );
+            let p = query.get_p();
+            assert!(p.numer() < p.denom());
+            let reciprocal = Ratio::recip(&(Ratio::from_integer(BigUint::from(1_u32)) - p.clone()));
+            let result = previous_result * p * reciprocal * permutation;
+            assert!(result.numer() < result.denom());
 
-               return Some(result);
-           }
+            return Some(result);
+        }
     }
     calculate_threshold(query)
 }
@@ -595,7 +643,7 @@ fn calculate_threshold_from_cache(previous_calculation: Option<(BinomialQuery, R
 #[instrument]
 // fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64, sortition_parameter: u64) -> Option<Ratio<BigUint>> {
 fn calculate_threshold(query: BinomialQuery) -> Option<Ratio<BigUint>> {
-    let stake_attempt = u64::from(query.stake_attempt);
+    let stake_attempt = query.stake_attempt;
     tracing::info!("Running calculate threshold");
     // TODO (ct) better error handling
     if stake_attempt as u64 > query.replicas_stake {
@@ -603,9 +651,8 @@ fn calculate_threshold(query: BinomialQuery) -> Option<Ratio<BigUint>> {
         return None;
     }
 
-
-    let sortition_parameter_big : BigUint = BigUint::from(query.sortition_parameter);
-    let total_stake_big : BigUint = BigUint::from(query.total_stake);
+    let sortition_parameter_big: BigUint = BigUint::from(query.sortition_parameter);
+    let total_stake_big: BigUint = BigUint::from(query.total_stake);
     let one_big = BigUint::from(1_u32);
 
     // this is the p parameter for the bernoulli distribution
@@ -620,14 +667,19 @@ fn calculate_threshold(query: BinomialQuery) -> Option<Ratio<BigUint>> {
 
     // TODO cancel things out (avoid calculating factorial)
     // TODO can just do division
-    let num_permutations = Ratio::new(factorial(query.replicas_stake), factorial(stake_attempt) * factorial(failed_num));
+    let num_permutations = Ratio::new(
+        factorial(query.replicas_stake),
+        factorial(stake_attempt) * factorial(failed_num),
+    );
 
     info!("num permutations is {num_permutations:?}, failed_num is {failed_num:?}");
 
     let one = Ratio::from_integer(one_big);
 
     // TODO can keep results from last try
-    let result = num_permutations * (p.pow(i32::try_from(stake_attempt).ok()?) * (one - p).pow(i32::try_from(failed_num).ok()?));
+    let result = num_permutations
+        * (p.pow(i32::try_from(stake_attempt).ok()?)
+            * (one - p).pow(i32::try_from(failed_num).ok()?));
 
     assert!(result.numer() < result.denom());
 
@@ -638,7 +690,9 @@ fn calculate_threshold(query: BinomialQuery) -> Option<Ratio<BigUint>> {
 
 /// compute i! as a biguint
 fn factorial(mut i: u64) -> BigUint {
-    if i == 0 { return BigUint::from(1u32) }
+    if i == 0 {
+        return BigUint::from(1u32);
+    }
 
     let mut result = BigUint::from(1u32);
     while i > 0 {
@@ -650,12 +704,19 @@ fn factorial(mut i: u64) -> BigUint {
 
 /// find the amount of stake we rolled.
 /// NOTE: in the future this requires a view numb
+/// Returns None if zero stake was rolled
 #[instrument]
-fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32], mut cache: MutexGuard<'_, HashMap::<BinomialQuery, Ratio<BigUint>>>) -> Option<u64> {
+fn find_bin_idx(
+    replicas_stake: u64,
+    total_stake: u64,
+    sortition_parameter: u64,
+    unnormalized_seed: &[u8; 32],
+    mut cache: MutexGuard<'_, HashMap<BinomialQuery, Ratio<BigUint>>>,
+) -> Option<NonZeroU64> {
     let unnormalized_seed = BigUint::from_bytes_le(unnormalized_seed);
     let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from(2_u32).pow(256));
     assert!(normalized_seed.numer() < normalized_seed.denom());
-    let mut j = 0;
+    let mut j: u64 = 0;
 
     // [j, j+1)
     // [cdf(j),cdf(j+1))
@@ -689,13 +750,14 @@ fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64,
 
                 let mut maybe_old_query = query.clone();
                 maybe_old_query.stake_attempt -= 1;
-                let old_result = cache.get(&maybe_old_query).map(|x| (maybe_old_query, x.clone()));
+                let old_result = cache
+                    .get(&maybe_old_query)
+                    .map(|x| (maybe_old_query, x.clone()));
                 let result = calculate_threshold_from_cache(old_result, query.clone())?;
                 cache.insert(query, result.clone());
                 result
             }
         };
-
 
         // corresponds to right range from apper
         let right_threshold = left_threshold + bin_val.clone();
@@ -710,7 +772,10 @@ fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64,
 
         // from i in 0 to j + 1: B(i; replicas_stake; p)
         if normalized_seed < right_threshold {
-            return Some(u64::from(j));
+            match j {
+                0 => return None,
+                _ => return Some(NonZeroU64::new(j).unwrap()),
+            }
         }
         left_threshold = right_threshold;
         j += 1;
@@ -744,15 +809,23 @@ where
     /// create stake table with this initial stake
     /// # Panics
     /// TODO
-    pub fn with_initial_stake(known_nodes: Vec<VRFPubKey<SIGSCHEME>>, config: &VRFStakeTableConfig) -> Self {
+    pub fn with_initial_stake(
+        known_nodes: Vec<VRFPubKey<SIGSCHEME>>,
+        config: &VRFStakeTableConfig,
+    ) -> Self {
         assert_eq!(known_nodes.iter().len(), config.distribution.len());
-        let key_with_stake = known_nodes.into_iter().map(|x| x.to_bytes()).zip(config.distribution.clone()).collect();
+        let key_with_stake = known_nodes
+            .into_iter()
+            .map(|x| x.to_bytes())
+            .zip(config.distribution.clone())
+            .collect();
         error!("stake table: {:?}", key_with_stake);
         VrfImpl {
             stake_table: {
-                let st=VRFStakeTable {
+                let st = VRFStakeTable {
                     mapping: key_with_stake,
-                    total_stake: config.distribution.iter().map(|x| x.get()).sum(),
+                    total_stake: NonZeroU64::new(config.distribution.iter().map(|x| x.get()).sum())
+                        .unwrap(),
                     _pd_0: PhantomData,
                     _pd_1: PhantomData,
                     _pd_2: PhantomData,
@@ -769,35 +842,54 @@ where
             _pd_3: PhantomData,
             _pd_4: PhantomData,
             sortition_parameter: config.sortition_parameter,
-            sortition_cache: Arc::default()
+            sortition_cache: Arc::default(),
         }
     }
 }
 
 /// configuration specifying the stake table
-#[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
+#[derive(Clone, Serialize, Deserialize, core::fmt::Debug)]
 pub struct VRFStakeTableConfig {
     /// the committee size parameter
-    pub sortition_parameter: u64,
+    pub sortition_parameter: NonZeroU64,
     /// the ordered distribution of stake across nodes
-    pub distribution: Vec<NonZeroU64>
+    pub distribution: Vec<NonZeroU64>,
 }
 
-impl ElectionConfig for VRFStakeTableConfig {
+impl Default for VRFStakeTableConfig {
+    fn default() -> Self {
+        VRFStakeTableConfig {
+            sortition_parameter: NonZeroU64::new(100).unwrap(),
+            distribution: Vec::new(),
+        }
+    }
 }
+
+impl ElectionConfig for VRFStakeTableConfig {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ark_bls12_381::Parameters as Param381;
+    use ark_std::test_rng;
     use blake3::Hasher;
     use commit::Commitment;
-    use hotshot_types::{traits::state::dummy::DummyState, data::{ViewNumber, Leaf, random_commitment}};
+    use hotshot_types::{
+        data::{random_commitment, Leaf, ViewNumber},
+        traits::state::dummy::DummyState,
+    };
     use hotshot_utils::test_util::setup_logging;
-    use jf_primitives::{vrf::blsvrf::BLSVRFScheme, signatures::BLSSignatureScheme};
-    use ark_std::test_rng;
-    use ark_bls12_381::Parameters as Param381;
+    use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 
-    pub fn gen_vrf_impl(num_nodes: usize) -> (VrfImpl<DummyState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>, Vec<(jf_primitives::signatures::bls::BLSSignKey<Param381>, jf_primitives::signatures::bls::BLSVerKey<Param381>)>) {
+    pub fn gen_vrf_impl(
+        num_nodes: usize,
+    ) -> (
+        VrfImpl<DummyState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
+        Vec<(
+            jf_primitives::signatures::bls::BLSSignKey<Param381>,
+            jf_primitives::signatures::bls::BLSVerKey<Param381>,
+        )>,
+    ) {
         let mut known_nodes = Vec::new();
         let mut keys = Vec::new();
         let rng = &mut test_rng();
@@ -812,10 +904,13 @@ mod tests {
             known_nodes.push(VRFPubKey::from_native(pk.clone()));
             stake_distribution.push(stake_per_node);
         }
-        let stake_table = VrfImpl::with_initial_stake(known_nodes, &VRFStakeTableConfig {
-            sortition_parameter: SORTITION_PARAMETER,
-            distribution: stake_distribution
-        });
+        let stake_table = VrfImpl::with_initial_stake(
+            known_nodes,
+            &VRFStakeTableConfig {
+                sortition_parameter: std::num::NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
+                distribution: stake_distribution,
+            },
+        );
         (stake_table, keys)
     }
 
@@ -824,30 +919,47 @@ mod tests {
             Checked::Valid(_) => true,
             Checked::Inval(_) | Checked::Unchecked(_) => false,
         }
-
     }
 
     #[test]
-    pub fn test_sortition(){
+    pub fn test_sortition() {
         setup_logging();
         let (vrf_impl, keys) = gen_vrf_impl(10);
         let views = 100;
 
         for view in 0..views {
-            let next_state_commitment : Commitment<Leaf<DummyState>> = random_commitment();
+            let next_state_commitment: Commitment<Leaf<DummyState>> = random_commitment();
             for (node_idx, (sk, pk)) in keys.iter().enumerate() {
-                let token = vrf_impl.make_vote_token(ViewNumber::new(view), &(sk.clone(), pk.clone()), next_state_commitment).unwrap().unwrap();
-                let count = token.count;
-                let result = vrf_impl.validate_vote_token(ViewNumber::new(view), VRFPubKey::from_native(pk.clone()), Checked::Unchecked(token), next_state_commitment).unwrap();
-                let result_is_valid = check_if_valid(&result);
-                error!("view {view:?}, node_idx {node_idx:?}, stake {count:?} ");
-                assert!(result_is_valid);
+                let token_result = vrf_impl
+                    .make_vote_token(
+                        ViewNumber::new(view),
+                        &(sk.clone(), pk.clone()),
+                        next_state_commitment,
+                    )
+                    .unwrap();
+                match token_result {
+                    Some(token) => {
+                        let count = token.count;
+                        let result = vrf_impl
+                            .validate_vote_token(
+                                ViewNumber::new(view),
+                                VRFPubKey::from_native(pk.clone()),
+                                Checked::Unchecked(token),
+                                next_state_commitment,
+                            )
+                            .unwrap();
+                        let result_is_valid = check_if_valid(&result);
+                        error!("view {view:?}, node_idx {node_idx:?}, stake {count:?} ");
+                        assert!(result_is_valid);
+                    }
+                    _ => continue,
+                }
             }
         }
     }
 
     #[test]
-    pub fn test_factorial(){
+    pub fn test_factorial() {
         assert_eq!(factorial(0), BigUint::from(1u32));
         assert_eq!(factorial(1), BigUint::from(1u32));
         assert_eq!(factorial(2), BigUint::from(2u32));
