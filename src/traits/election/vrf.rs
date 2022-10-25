@@ -248,6 +248,8 @@ where
     VRF::PublicKey: Clone,
 {
     /// get total stake
+    /// # Panics
+    /// If converting non-zero stake into `NonZeroU64` fails
     pub fn get_stake<SIGSCHEME>(&self, pk: &VRFPubKey<SIGSCHEME>) -> Option<NonZeroU64>
     where
         SIGSCHEME: SignatureScheme<
@@ -263,6 +265,7 @@ where
         let stake = self.mapping.get(&encoded).map(|val| val.get()); 
         match stake {
             Some(0) | None => None,
+            // This shouldn't panic since we check it is non-zero
             Some(n) => Some(NonZeroU64::new(n).unwrap()),
         }
     }
@@ -621,7 +624,7 @@ fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64,
     let mut left_threshold = Ratio::from_integer(BigUint::from(0u32));
     loop {
         assert!(left_threshold.numer() < left_threshold.denom());
-        let bin_val = calculate_threshold(j + 1, replicas_stake, total_stake, u64::from(sortition_parameter))?;
+        let bin_val = calculate_threshold(j + 1, replicas_stake, total_stake, sortition_parameter)?;
         // corresponds to right range from apper
         let right_threshold = left_threshold + bin_val.clone();
 
