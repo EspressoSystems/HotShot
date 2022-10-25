@@ -17,12 +17,12 @@ use serde::{
     Deserialize, Serialize,
 };
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     fmt::Debug,
     hash::Hash,
     marker::PhantomData,
     num::NonZeroU64,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 use tracing::{error, info, instrument};
 
@@ -278,6 +278,9 @@ where
     prng: std::sync::Arc<std::sync::Mutex<rand_chacha::ChaChaRng>>,
     /// the committee parameter
     sortition_parameter: NonZeroU64,
+    /// pdf cache
+    sortition_cache: std::sync::Arc<std::sync::Mutex<HashMap::<BinomialQuery, Ratio<BigUint>>>>,
+
     // TODO (fst2) accessor to stake table
     // stake_table:
     /// phantom data
@@ -302,6 +305,7 @@ where
             proof_parameters: (),
             prng: self.prng.clone(),
             sortition_parameter: self.sortition_parameter,
+            sortition_cache: Arc::default(),
             _pd_0: PhantomData,
             _pd_1: PhantomData,
             _pd_2: PhantomData,
@@ -439,11 +443,12 @@ where
         let total_stake = self.stake_table.total_stake;
 
         // TODO (jr) this error handling is NOTGOOD
+        let cache = self.sortition_cache.lock().unwrap();
         let selected_stake = find_bin_idx(
             u64::from(replicas_stake),
             u64::from(total_stake),
             SORTITION_PARAMETER,
-            &hash,
+            &hash, cache
         );
         match selected_stake {
             Some(count) => {
@@ -490,7 +495,7 @@ where
                                 u64::from(stake),
                                 u64::from(total_stake),
                                 SORTITION_PARAMETER,
-                                &seed,
+                                &seed, self.sortition_cache.lock().unwrap()
                             ) {
                                 Ok(Checked::Valid(token))
                             } else {
@@ -545,9 +550,12 @@ fn check_bin_idx(
         replicas_stake,
         total_stake,
         sortition_parameter,
-        unnormalized_seed,
+        unnormalized_seed, cache
     );
     bin_idx.map(|idx| idx == NonZeroU64::new(expected_amount_of_stake).unwrap())
+fn check_bin_idx(expected_amount_of_stake: u64, replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32], cache: MutexGuard<'_, HashMap::<BinomialQuery, Ratio<BigUint>>>) -> Option<bool> {
+    let bin_idx = find_bin_idx(replicas_stake, total_stake, sortition_parameter, unnormalized_seed, cache);
+    bin_idx.map(|idx| idx == expected_amount_of_stake)
 }
 
 /// generates the seed from algorand paper
@@ -558,6 +566,52 @@ fn generate_view_seed<STATE: State>(
     next_state: commit::Commitment<hotshot_types::data::Leaf<STATE>>,
 ) -> [u8; 32] {
     <[u8; 32]>::from(next_state)
+}
+
+/// represents a binomial query made by sortition
+/// `B(stake_attempt; replicas_stake; sortition_parameter / total_stake)`
+#[derive(Hash, Eq, PartialEq, Clone, Debug)]
+pub struct BinomialQuery {
+    /// the number of heads
+    stake_attempt: u32,
+    /// the total number of coin flips
+    replicas_stake: u64,
+    /// the total amount of stake
+    total_stake: u64,
+    /// the sortition parameter
+    sortition_parameter: u64
+}
+
+impl BinomialQuery {
+    /// get the committee parameter
+    /// for this query
+    pub fn get_p(&self) -> Ratio<BigUint>{
+        let sortition_parameter_big : BigUint = BigUint::from(self.sortition_parameter);
+        let total_stake_big : BigUint = BigUint::from(self.total_stake);
+         Ratio::new(sortition_parameter_big, total_stake_big)
+    }
+
+}
+
+#[instrument]
+fn calculate_threshold_from_cache(previous_calculation: Option<(BinomialQuery, Ratio<BigUint>)>, query: BinomialQuery) -> Option<Ratio<BigUint>>{
+    if let Some((previous_query, previous_result)) = previous_calculation {
+        let expected_previous_query = BinomialQuery {
+            stake_attempt: query.stake_attempt - 1,
+            ..query
+        };
+        if previous_query == expected_previous_query {
+               let permutation = Ratio::new(BigUint::from(query.replicas_stake - u64::from(query.stake_attempt) + 1),  BigUint::from(query.stake_attempt));
+               let p = query.get_p();
+               assert!(p.numer() < p.denom());
+               let reciprocal = Ratio::recip(&(Ratio::from_integer(BigUint::from(1_u32)) - p.clone()));
+               let result = previous_result * p * reciprocal * permutation;
+               assert!(result.numer() < result.denom());
+
+               return Some(result);
+           }
+    }
+    calculate_threshold(query)
 }
 
 // Calculates B(j; w; p) where B means bernoulli distribution.
@@ -578,21 +632,18 @@ fn generate_view_seed<STATE: State>(
 // TODO keep data around from last iteration so less calculation is needed
 // TODO test this "correct/simple" implementation against any optimized version
 #[instrument]
-fn calculate_threshold(
-    stake_attempt: u64,
-    replicas_stake: u64,
-    total_stake: u64,
-    sortition_parameter: u64,
-) -> Option<Ratio<BigUint>> {
+// fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64, sortition_parameter: u64) -> Option<Ratio<BigUint>> {
+fn calculate_threshold(query: BinomialQuery) -> Option<Ratio<BigUint>> {
+    let stake_attempt = u64::from(query.stake_attempt);
     tracing::info!("Running calculate threshold");
     // TODO (ct) better error handling
-    if stake_attempt > replicas_stake {
+    if stake_attempt as u64 > query.replicas_stake {
         error!("j is larger than amount of stake we are allowed");
         return None;
     }
 
-    let sortition_parameter_big: BigUint = BigUint::from(sortition_parameter);
-    let total_stake_big: BigUint = BigUint::from(total_stake);
+    let sortition_parameter_big : BigUint = BigUint::from(query.sortition_parameter);
+    let total_stake_big : BigUint = BigUint::from(query.total_stake);
     let one_big = BigUint::from(1_u32);
 
     // this is the p parameter for the bernoulli distribution
@@ -603,14 +654,11 @@ fn calculate_threshold(
     info!("p is {p:?}");
 
     // number of tails in bernoulli
-    let failed_num = replicas_stake - stake_attempt;
+    let failed_num = query.replicas_stake - stake_attempt;
 
     // TODO cancel things out (avoid calculating factorial)
     // TODO can just do division
-    let num_permutations = Ratio::new(
-        factorial(replicas_stake),
-        factorial(stake_attempt) * factorial(failed_num),
-    );
+    let num_permutations = Ratio::new(factorial(query.replicas_stake), factorial(stake_attempt) * factorial(failed_num));
 
     info!("num permutations is {num_permutations:?}, failed_num is {failed_num:?}");
 
@@ -644,13 +692,14 @@ fn factorial(mut i: u64) -> BigUint {
 
 /// find the amount of stake we rolled.
 /// NOTE: in the future this requires a view numb
-/// Returns None if 0 stake was rolled
+/// Returns None if zero stake was rolled
 #[instrument]
 fn find_bin_idx(
     replicas_stake: u64,
     total_stake: u64,
     sortition_parameter: u64,
     unnormalized_seed: &[u8; 32],
+    mut cache: MutexGuard<'_, HashMap::<BinomialQuery, Ratio<BigUint>>>
 ) -> Option<NonZeroU64> {
     let unnormalized_seed = BigUint::from_bytes_le(unnormalized_seed);
     let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from(2_u32).pow(256));
@@ -664,12 +713,43 @@ fn find_bin_idx(
     // from i in 0 to j: B(i; replicas_stake; p). Where p is calculated later and corresponds to
     // algorands paper
     let mut left_threshold = Ratio::from_integer(BigUint::from(0u32));
+
     loop {
+        // check cache
+
+        // if cache miss, feed in with previous val from cache
+        // that *probably* exists
+
         assert!(left_threshold.numer() < left_threshold.denom());
-        let bin_val = calculate_threshold(j + 1, replicas_stake, total_stake, sortition_parameter)?;
+        let query = BinomialQuery {
+            stake_attempt: j + 1,
+            replicas_stake,
+            total_stake,
+            sortition_parameter,
+        };
+
+        let bin_val = {
+            // we already computed this value
+            if let Some(result) = cache.get(&query) {
+                result.clone()
+            } else {
+                // we haven't computed this value, but maybe
+                // we already computed the previous value
+
+                let mut maybe_old_query = query.clone();
+                maybe_old_query.stake_attempt -= 1;
+                let old_result = cache.get(&maybe_old_query).map(|x| (maybe_old_query, x.clone()));
+                let result = calculate_threshold_from_cache(old_result, query.clone())?;
+                cache.insert(query, result.clone());
+                result
+            }
+        };
+
+
         // corresponds to right range from apper
         let right_threshold = left_threshold + bin_val.clone();
 
+        // debugging info. Unnecessary
         {
             let right_threshold_float = ToPrimitive::to_f64(&right_threshold.clone());
             let bin_val_float = ToPrimitive::to_f64(&bin_val.clone());
@@ -749,6 +829,7 @@ where
             _pd_3: PhantomData,
             _pd_4: PhantomData,
             sortition_parameter: config.sortition_parameter,
+            sortition_cache: Arc::default()
         }
     }
 }
