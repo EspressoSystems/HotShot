@@ -450,7 +450,7 @@ where
         let selected_stake = find_bin_idx(
             u64::from(replicas_stake),
             u64::from(total_stake),
-            SORTITION_PARAMETER,
+            self.sortition_parameter.get(),
             &hash,
             cache,
         );
@@ -498,7 +498,7 @@ where
                                 u64::from(token.count),
                                 u64::from(stake),
                                 u64::from(total_stake),
-                                SORTITION_PARAMETER,
+                                self.sortition_parameter.get(),
                                 &seed,
                                 self.sortition_cache.lock().unwrap(),
                             ) {
@@ -859,7 +859,7 @@ pub struct VRFStakeTableConfig {
 impl Default for VRFStakeTableConfig {
     fn default() -> Self {
         VRFStakeTableConfig {
-            sortition_parameter: NonZeroU64::new(100).unwrap(),
+            sortition_parameter: NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
             distribution: Vec::new(),
         }
     }
