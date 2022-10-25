@@ -40,7 +40,7 @@ pub enum Checked<T> {
 /// Proof of this entity's right to vote, and of the weight of those votes
 pub trait VoteToken {
     /// the count, which validation will confirm
-    fn vote_count(&self) -> u64;
+    fn vote_count(&self) -> NonZeroU64;
 }
 
 /// election config

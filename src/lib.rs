@@ -800,7 +800,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
                     Unchecked(signature.1 .1.clone()),
                 )
             })
-            .fold(0, |acc, x| (acc + x.1 .1.vote_count()));
+            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
         stake
     }
 

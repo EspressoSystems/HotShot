@@ -45,8 +45,8 @@ pub struct StaticVoteToken {
 }
 
 impl VoteToken for StaticVoteToken {
-    fn vote_count(&self) -> u64 {
-        1
+    fn vote_count(&self) -> NonZeroU64 {
+        NonZeroU64::new(1).unwrap()
     }
 }
 
@@ -81,24 +81,6 @@ where
         let index = (*view_number % self.nodes.len() as u64) as usize;
         self.nodes[index]
     }
-
-    /// Simply verify the signature and check the membership list
-    // fn get_votes(
-    //     &self,
-    //     view_number: ViewNumber,
-    //     pub_key: Ed25519Pub,
-    //     token: Self::VoteToken,
-    //     next_state: Commitment<Leaf<Self::StateType>>,
-    // ) -> Option<Self::ValidatedVoteToken> {
-    //     let mut message: Vec<u8> = vec![];
-    //     message.extend(&view_number.to_le_bytes());
-    //     message.extend(next_state.as_ref());
-    //     if pub_key.validate(&token, &message) && self.nodes.contains(&pub_key) {
-    //         Some((token, pub_key))
-    //     } else {
-    //         None
-    //     }
-    // }
 
     /// Simply make the partial signature
     fn make_vote_token(

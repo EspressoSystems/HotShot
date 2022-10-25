@@ -41,7 +41,7 @@ pub struct VRFStakeTable<VRF, VRFHASHER, VRFPARAMS> {
     /// the mapping of id -> stake
     mapping: BTreeMap<EncodedPublicKey, NonZeroU64>,
     /// total stake present
-    total_stake: u64,
+    total_stake: NonZeroU64,
     /// PhantomData for VRF
     _pd_0: PhantomData<VRF>,
     /// PhantomData for VRFHASEHR
@@ -235,7 +235,7 @@ where
 
 impl<VRF, VRFHASHER, VRFPARAMS> VRFStakeTable<VRF, VRFHASHER, VRFPARAMS> {
     /// get total stake
-    pub fn get_all_stake(&self) -> u64 {
+    pub fn get_all_stake(&self) -> NonZeroU64 {
         self.total_stake
     }
 }
@@ -248,7 +248,7 @@ where
     VRF::PublicKey: Clone,
 {
     /// get total stake
-    pub fn get_stake<SIGSCHEME>(&self, pk: &VRFPubKey<SIGSCHEME>) -> Option<u64>
+    pub fn get_stake<SIGSCHEME>(&self, pk: &VRFPubKey<SIGSCHEME>) -> Option<NonZeroU64>
     where
         SIGSCHEME: SignatureScheme<
             VerificationKey = VRF::PublicKey,
@@ -260,7 +260,11 @@ where
         SIGSCHEME::Signature: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
     {
         let encoded = pk.to_bytes();
-        self.mapping.get(&encoded).map(|val| val.get())
+        let stake = self.mapping.get(&encoded).map(|val| val.get()); 
+        match stake {
+            Some(0) | None => None,
+            Some(n) => Some(NonZeroU64::new(n).unwrap()),
+        }
     }
 }
 
@@ -276,7 +280,7 @@ where
     /// the rng
     prng: std::sync::Arc<std::sync::Mutex<rand_chacha::ChaChaRng>>,
     /// the committee parameter
-    sortition_parameter: u64,
+    sortition_parameter: NonZeroU64,
     // TODO (fst2) accessor to stake table
     // stake_table:
     /// phantom data
@@ -320,7 +324,7 @@ pub struct VRFVoteToken<VRF: Vrf<VRFHASHER, VRFPARAMS>, VRFHASHER, VRFPARAMS>
     pub proof: VRF::Proof,
     /// The number of signatures that are valid
     /// TODO (ct) this should be the sorition outbput
-    pub count: u64,
+    pub count: NonZeroU64,
 }
 
 impl<VRF: Vrf<VRFHASHER, VRFPARAMS>, VRFHASHER, VRFPARAMS> Clone for VRFVoteToken<VRF, VRFHASHER, VRFPARAMS>
@@ -339,7 +343,7 @@ impl<VRF, VRFHASHER, VRFPARAMS> VoteToken for VRFVoteToken<VRF, VRFHASHER, VRFPA
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS>,
 {
-    fn vote_count(&self) -> u64 {
+    fn vote_count(&self) -> NonZeroU64 {
         self.count
     }
 }
@@ -434,7 +438,7 @@ where
         let total_stake = self.stake_table.total_stake;
 
         // TODO (jr) this error handling is NOTGOOD
-        let selected_stake = find_bin_idx(replicas_stake, total_stake, SORTITION_PARAMETER, &hash);
+        let selected_stake = find_bin_idx(u64::from(replicas_stake), u64::from(total_stake), SORTITION_PARAMETER, &hash);
         match selected_stake {
             Some(count) => {
                 // TODO (ct) this can fail, return Result::Err
@@ -465,12 +469,12 @@ where
     ) -> Result<Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
         match token {
             Checked::Unchecked(token) => {
-                let stake : Option<u64> = self.stake_table.get_stake(&pub_key);
+                let stake : Option<NonZeroU64> = self.stake_table.get_stake(&pub_key);
                 if let Some(stake) = stake {
                     if let Ok(true) = VRF::verify(&self.proof_parameters, &token.proof, &pub_key.pk, &<[u8; 32]>::from(next_state)) {
                         if let Ok(seed) = VRF::evaluate(&self.proof_parameters, &token.proof) {
                             let total_stake = self.stake_table.total_stake;
-                            if let Some(true) = check_bin_idx(token.count, stake, total_stake, SORTITION_PARAMETER, &seed) {
+                            if let Some(true) = check_bin_idx(u64::from(token.count), u64::from(stake), u64::from(total_stake), SORTITION_PARAMETER, &seed) {
                                 Ok(Checked::Valid(token))
                             } else {
                                 Ok(Checked::Inval(token))
@@ -503,13 +507,13 @@ where
 
         }
         VRFStakeTableConfig {
-            sortition_parameter: SORTITION_PARAMETER,
+            sortition_parameter: NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
             distribution: stake,
         }
     }
 
     fn get_threshold(&self) -> NonZeroU64 {
-        NonZeroU64::new(((self.sortition_parameter * 2) / 3) + 1).unwrap()
+        NonZeroU64::new(((u64::from(self.sortition_parameter) * 2) / 3) + 1).unwrap()
     }
 }
 
@@ -517,7 +521,7 @@ where
 /// TODO this can be optimized most likely
 fn check_bin_idx(expected_amount_of_stake: u64, replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<bool> {
     let bin_idx = find_bin_idx(replicas_stake, total_stake, sortition_parameter, unnormalized_seed);
-    bin_idx.map(|idx| idx == expected_amount_of_stake)
+    bin_idx.map(|idx| idx == NonZeroU64::new(expected_amount_of_stake).unwrap())
 }
 
 /// generates the seed from algorand paper
@@ -545,11 +549,10 @@ fn generate_view_seed<STATE: State>(_view_number: ViewNumber, next_state: commit
 // TODO keep data around from last iteration so less calculation is needed
 // TODO test this "correct/simple" implementation against any optimized version
 #[instrument]
-fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64, sortition_parameter: u64) -> Option<Ratio<BigUint>> {
-    let stake_attempt = u64::from(stake_attempt);
+fn calculate_threshold(stake_attempt: u64, replicas_stake: u64, total_stake: u64, sortition_parameter: u64) -> Option<Ratio<BigUint>> {
     tracing::info!("Running calculate threshold");
     // TODO (ct) better error handling
-    if stake_attempt as u64 > replicas_stake {
+    if stake_attempt > replicas_stake {
         error!("j is larger than amount of stake we are allowed");
         return None;
     }
@@ -601,8 +604,9 @@ fn factorial(mut i: u64) -> BigUint {
 
 /// find the amount of stake we rolled.
 /// NOTE: in the future this requires a view numb
+/// Returns None if 0 stake was rolled 
 #[instrument]
-fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<u64> {
+fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64, unnormalized_seed: &[u8; 32]) -> Option<NonZeroU64> {
     let unnormalized_seed = BigUint::from_bytes_le(unnormalized_seed);
     let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from(2_u32).pow(256));
     assert!(normalized_seed.numer() < normalized_seed.denom());
@@ -617,7 +621,7 @@ fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64,
     let mut left_threshold = Ratio::from_integer(BigUint::from(0u32));
     loop {
         assert!(left_threshold.numer() < left_threshold.denom());
-        let bin_val = calculate_threshold(j + 1, replicas_stake, total_stake, sortition_parameter)?;
+        let bin_val = calculate_threshold(j + 1, replicas_stake, total_stake, u64::from(sortition_parameter))?;
         // corresponds to right range from apper
         let right_threshold = left_threshold + bin_val.clone();
 
@@ -630,7 +634,11 @@ fn find_bin_idx(replicas_stake: u64, total_stake: u64, sortition_parameter: u64,
 
         // from i in 0 to j + 1: B(i; replicas_stake; p)
         if normalized_seed < right_threshold {
-            return Some(u64::from(j));
+            match j {
+                0 => return None, 
+                _ => return Some(NonZeroU64::new(j).unwrap()),
+
+            }
         }
         left_threshold = right_threshold;
         j += 1;
@@ -672,7 +680,7 @@ where
             stake_table: {
                 let st=VRFStakeTable {
                     mapping: key_with_stake,
-                    total_stake: config.distribution.iter().map(|x| x.get()).sum(),
+                    total_stake: NonZeroU64::new(config.distribution.iter().map(|x| x.get()).sum()).unwrap(),
                     _pd_0: PhantomData,
                     _pd_1: PhantomData,
                     _pd_2: PhantomData,
@@ -694,12 +702,21 @@ where
 }
 
 /// configuration specifying the stake table
-#[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
+#[derive(Clone, Serialize, Deserialize, core::fmt::Debug)]
 pub struct VRFStakeTableConfig {
     /// the committee size parameter
-    pub sortition_parameter: u64,
+    pub sortition_parameter: NonZeroU64,
     /// the ordered distribution of stake across nodes
     pub distribution: Vec<NonZeroU64>
+}
+
+impl Default for VRFStakeTableConfig {
+    fn default() -> Self {
+        VRFStakeTableConfig {
+            sortition_parameter: NonZeroU64::new(100).unwrap(), 
+            distribution: Vec::new(), 
+        }
+    }
 }
 
 impl ElectionConfig for VRFStakeTableConfig {
