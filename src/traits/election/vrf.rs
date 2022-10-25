@@ -605,7 +605,7 @@ fn calculate_threshold_from_cache(
         };
         if previous_query == expected_previous_query {
             let permutation = Ratio::new(
-                BigUint::from(query.replicas_stake - u64::from(query.stake_attempt) + 1),
+                BigUint::from(query.replicas_stake - query.stake_attempt + 1),
                 BigUint::from(query.stake_attempt),
             );
             let p = query.get_p();
@@ -640,7 +640,7 @@ fn calculate_threshold_from_cache(
 #[instrument]
 // fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64, sortition_parameter: u64) -> Option<Ratio<BigUint>> {
 fn calculate_threshold(query: BinomialQuery) -> Option<Ratio<BigUint>> {
-    let stake_attempt = u64::from(query.stake_attempt);
+    let stake_attempt = query.stake_attempt;
     tracing::info!("Running calculate threshold");
     // TODO (ct) better error handling
     if stake_attempt as u64 > query.replicas_stake {
