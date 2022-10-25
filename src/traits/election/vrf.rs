@@ -749,7 +749,7 @@ mod tests {
             stake_distribution.push(stake_per_node);
         }
         let stake_table = VrfImpl::with_initial_stake(known_nodes, &VRFStakeTableConfig {
-            sortition_parameter: SORTITION_PARAMETER,
+            sortition_parameter: std::num::NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
             distribution: stake_distribution
         });
         (stake_table, keys)
