@@ -357,7 +357,7 @@
         <span class="ident">distribution</span>.<span class="ident">push</span>(<span class="ident">stake_per_node</span>);
     }
     <span class="kw">let</span> <span class="ident">vrf_impl</span> <span class="op">=</span> <span class="ident">VrfImpl::with_initial_stake</span>(<span class="ident">known_nodes</span>.<span class="ident">clone</span>(), <span class="kw-2">&amp;</span><span class="ident">VRFStakeTableConfig</span> {
-        <span class="ident">sortition_parameter</span>: <span class="ident">SORTITION_PARAMETER</span>,
+        <span class="ident">sortition_parameter</span>: <span class="ident">NonZeroU64::new</span>(<span class="ident">SORTITION_PARAMETER</span>).<span class="ident">unwrap</span>(),
         <span class="ident">distribution</span>,
     });
     <span class="kw">let</span> <span class="ident">hotshot</span> <span class="op">=</span> <span class="ident">HotShot::init</span>(

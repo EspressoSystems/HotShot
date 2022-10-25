@@ -27,7 +27,7 @@ pub enum HotShotError {
     },
     InsufficientValidSignatures {
         num_valid_signatures: <a class="primitive" href="https://doc.rust-lang.org/1.64.0/std/primitive.usize.html">usize</a>,
-        threshold: <a class="primitive" href="https://doc.rust-lang.org/1.64.0/std/primitive.usize.html">usize</a>,
+        threshold: <a class="struct" href="https://doc.rust-lang.org/1.64.0/core/num/nonzero/struct.NonZeroU64.html" title="struct core::num::nonzero::NonZeroU64">NonZeroU64</a>,
     },
     Misc {
         context: <a class="struct" href="https://doc.rust-lang.org/1.64.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>,
@@ -54,7 +54,7 @@ Error type for <code>HotShot</code></p>
 </div></div><div class="sub-variant-field"><span id="variant.ViewTimeoutError.field.state" class="variant small-section-header"><a href="#variant.ViewTimeoutError.field.state" class="anchor field"></a><code>state:&nbsp;RoundTimedoutState</code></span><div class="docblock"><p>The state that the round was in when it timed out</p>
 </div></div></div><div class="docblock"><p>HotShot timed out during round</p>
 </div><h3 id="variant.InsufficientValidSignatures" class="variant small-section-header"><a href="#variant.InsufficientValidSignatures" class="anchor field"></a><code>InsufficientValidSignatures</code></h3><div class="sub-variant" id="variant.InsufficientValidSignatures.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.InsufficientValidSignatures.field.num_valid_signatures" class="variant small-section-header"><a href="#variant.InsufficientValidSignatures.field.num_valid_signatures" class="anchor field"></a><code>num_valid_signatures:&nbsp;<a class="primitive" href="https://doc.rust-lang.org/1.64.0/std/primitive.usize.html">usize</a></code></span><div class="docblock"><p>Number of valid signatures</p>
-</div></div><div class="sub-variant-field"><span id="variant.InsufficientValidSignatures.field.threshold" class="variant small-section-header"><a href="#variant.InsufficientValidSignatures.field.threshold" class="anchor field"></a><code>threshold:&nbsp;<a class="primitive" href="https://doc.rust-lang.org/1.64.0/std/primitive.usize.html">usize</a></code></span><div class="docblock"><p>Threshold of signatures needed for a quorum</p>
+</div></div><div class="sub-variant-field"><span id="variant.InsufficientValidSignatures.field.threshold" class="variant small-section-header"><a href="#variant.InsufficientValidSignatures.field.threshold" class="anchor field"></a><code>threshold:&nbsp;<a class="struct" href="https://doc.rust-lang.org/1.64.0/core/num/nonzero/struct.NonZeroU64.html" title="struct core::num::nonzero::NonZeroU64">NonZeroU64</a></code></span><div class="docblock"><p>Threshold of signatures needed for a quorum</p>
 </div></div></div><div class="docblock"><p>Not enough valid signatures for a quorum</p>
 </div><h3 id="variant.Misc" class="variant small-section-header"><a href="#variant.Misc" class="anchor field"></a><code>Misc</code></h3><div class="sub-variant" id="variant.Misc.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.Misc.field.context" class="variant small-section-header"><a href="#variant.Misc.field.context" class="anchor field"></a><code>context:&nbsp;<a class="struct" href="https://doc.rust-lang.org/1.64.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></code></span><div class="docblock"><p>source of error</p>
 </div></div></div><div class="docblock"><p>Miscelaneous error

@@ -130,27 +130,11 @@
 <span id="130">130</span>
 <span id="131">131</span>
 <span id="132">132</span>
-<span id="133">133</span>
-<span id="134">134</span>
-<span id="135">135</span>
-<span id="136">136</span>
-<span id="137">137</span>
-<span id="138">138</span>
-<span id="139">139</span>
-<span id="140">140</span>
-<span id="141">141</span>
-<span id="142">142</span>
-<span id="143">143</span>
-<span id="144">144</span>
-<span id="145">145</span>
-<span id="146">146</span>
-<span id="147">147</span>
-<span id="148">148</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">commit::Commitment</span>;
 <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
     <span class="ident">data</span>::{<span class="ident">Leaf</span>, <span class="ident">ViewNumber</span>},
     <span class="ident">traits</span>::{
-        <span class="ident">election</span>::{<span class="ident">Checked</span>, <span class="ident">Election</span>, <span class="ident">ElectionError</span>, <span class="ident">VoteToken</span>, <span class="ident">ElectionConfig</span>},
+        <span class="ident">election</span>::{<span class="ident">Checked</span>, <span class="ident">Election</span>, <span class="ident">ElectionConfig</span>, <span class="ident">ElectionError</span>, <span class="ident">VoteToken</span>},
         <span class="ident">signature_key</span>::{
             <span class="ident">ed25519</span>::{<span class="ident">Ed25519Priv</span>, <span class="ident">Ed25519Pub</span>},
             <span class="ident">EncodedSignature</span>, <span class="ident">SignatureKey</span>,
@@ -161,6 +145,7 @@
 };
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">std::marker::PhantomData</span>;
+<span class="kw">use</span> <span class="ident">std::num::NonZeroU64</span>;
 
 <span class="doccomment">/// Dummy implementation of [`Election`]</span>
 
@@ -192,18 +177,16 @@
 }
 
 <span class="kw">impl</span> <span class="ident">VoteToken</span> <span class="kw">for</span> <span class="ident">StaticVoteToken</span> {
-    <span class="kw">fn</span> <span class="ident">vote_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
-        <span class="number">1</span>
+    <span class="kw">fn</span> <span class="ident">vote_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonZeroU64</span> {
+        <span class="ident">NonZeroU64::new</span>(<span class="number">1</span>).<span class="ident">unwrap</span>()
     }
 }
 
 <span class="doccomment">/// configuration for static committee. stub for now</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>, <span class="ident">Clone</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">core::fmt::Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StaticElectionConfig</span> {
-}
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StaticElectionConfig</span> {}
 
-<span class="kw">impl</span> <span class="ident">ElectionConfig</span> <span class="kw">for</span> <span class="ident">StaticElectionConfig</span> {
-}
+<span class="kw">impl</span> <span class="ident">ElectionConfig</span> <span class="kw">for</span> <span class="ident">StaticElectionConfig</span> {}
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span>, <span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">StaticCommittee</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>
 <span class="kw">where</span>
@@ -230,24 +213,6 @@
         <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">view_number</span> <span class="op">%</span> <span class="self">self</span>.<span class="ident">nodes</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>) <span class="kw">as</span> <span class="ident">usize</span>;
         <span class="self">self</span>.<span class="ident">nodes</span>[<span class="ident">index</span>]
     }
-
-    <span class="doccomment">/// Simply verify the signature and check the membership list</span>
-    <span class="comment">// fn get_votes(</span>
-    <span class="comment">//     &amp;self,</span>
-    <span class="comment">//     view_number: ViewNumber,</span>
-    <span class="comment">//     pub_key: Ed25519Pub,</span>
-    <span class="comment">//     token: Self::VoteToken,</span>
-    <span class="comment">//     next_state: Commitment&lt;Leaf&lt;Self::StateType&gt;&gt;,</span>
-    <span class="comment">// ) -&gt; Option&lt;Self::ValidatedVoteToken&gt; {</span>
-    <span class="comment">//     let mut message: Vec&lt;u8&gt; = vec![];</span>
-    <span class="comment">//     message.extend(&amp;view_number.to_le_bytes());</span>
-    <span class="comment">//     message.extend(next_state.as_ref());</span>
-    <span class="comment">//     if pub_key.validate(&amp;token, &amp;message) &amp;&amp; self.nodes.contains(&amp;pub_key) {</span>
-    <span class="comment">//         Some((token, pub_key))</span>
-    <span class="comment">//     } else {</span>
-    <span class="comment">//         None</span>
-    <span class="comment">//     }</span>
-    <span class="comment">// }</span>
 
     <span class="doccomment">/// Simply make the partial signature</span>
     <span class="kw">fn</span> <span class="ident">make_vote_token</span>(
@@ -277,8 +242,8 @@
         <span class="ident">hotshot_types::traits::election::ElectionError</span>,
     <span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">token</span> {
-            <span class="ident">Checked::Valid</span>(<span class="ident">t</span>)<span class="op">|</span> <span class="ident">Checked::Unchecked</span>(<span class="ident">t</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Checked::Valid</span>(<span class="ident">t</span>)),
-            <span class="ident">Checked::Inval</span>(<span class="ident">t</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Checked::Inval</span>(<span class="ident">t</span>))
+            <span class="ident">Checked::Valid</span>(<span class="ident">t</span>) <span class="op">|</span> <span class="ident">Checked::Unchecked</span>(<span class="ident">t</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Checked::Valid</span>(<span class="ident">t</span>)),
+            <span class="ident">Checked::Inval</span>(<span class="ident">t</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Checked::Inval</span>(<span class="ident">t</span>)),
         }
     }
 
@@ -289,10 +254,13 @@
     <span class="kw">fn</span> <span class="ident">create_election</span>(<span class="ident">keys</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span>, <span class="ident">_config</span>: <span class="ident"><span class="self">Self</span>::ElectionConfigType</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">nodes</span>: <span class="ident">keys</span>,
-            <span class="ident">_state_phantom</span>: <span class="ident">PhantomData</span>
+            <span class="ident">_state_phantom</span>: <span class="ident">PhantomData</span>,
         }
     }
 
+    <span class="kw">fn</span> <span class="ident">get_threshold</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonZeroU64</span> {
+        <span class="ident">NonZeroU64::new</span>(((<span class="self">self</span>.<span class="ident">nodes</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span> <span class="op">*</span> <span class="number">2</span>) <span class="op">/</span> <span class="number">3</span>) <span class="op">+</span> <span class="number">1</span>).<span class="ident">unwrap</span>()
+    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

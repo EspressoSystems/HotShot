@@ -902,6 +902,8 @@
 <span id="902">902</span>
 <span id="903">903</span>
 <span id="904">904</span>
+<span id="905">905</span>
+<span id="906">906</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
     <span class="ident">clippy::all</span>,
     <span class="ident">clippy::pedantic</span>,
@@ -973,9 +975,7 @@
     },
     <span class="ident">HotShotConfig</span>,
 };
-<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
-    <span class="ident">art::async_spawn</span>, <span class="ident">bincode::bincode_opts</span>, <span class="ident">broadcast::BroadcastSender</span>
-};
+<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{<span class="ident">art::async_spawn</span>, <span class="ident">bincode::bincode_opts</span>, <span class="ident">broadcast::BroadcastSender</span>};
 <span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
     <span class="ident">art::async_spawn_local</span>,
     <span class="ident">channel</span>::{<span class="ident">unbounded</span>, <span class="ident">UnboundedReceiver</span>, <span class="ident">UnboundedSender</span>},
@@ -983,7 +983,7 @@
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">HashMap</span>},
-    <span class="ident">num::NonZeroUsize</span>,
+    <span class="ident">num</span>::{<span class="ident">NonZeroUsize</span>, <span class="ident">NonZeroU64</span>},
     <span class="ident">sync</span>::{<span class="ident">atomic::Ordering</span>, <span class="ident">Arc</span>},
     <span class="ident">time::Duration</span>,
 };
@@ -1013,7 +1013,10 @@
     <span class="ident">private_key</span>: <span class="op">&lt;</span><span class="ident">I::SignatureKey</span> <span class="kw">as</span> <span class="ident">SignatureKey</span><span class="op">&gt;</span><span class="ident">::PrivateKey</span>,
 
     <span class="doccomment">/// Configuration items for this hotshot instance</span>
-    <span class="ident">config</span>: <span class="ident">HotShotConfig</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="op">&lt;</span><span class="ident">I::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>,<span class="ident">ViewNumber</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ElectionConfigType</span><span class="op">&gt;</span>,
+    <span class="ident">config</span>: <span class="ident">HotShotConfig</span><span class="op">&lt;</span>
+        <span class="ident">I::SignatureKey</span>,
+        <span class="op">&lt;</span><span class="ident">I::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="ident">ViewNumber</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ElectionConfigType</span>,
+    <span class="op">&gt;</span>,
 
     <span class="doccomment">/// Networking interface for this hotshot instance</span>
     <span class="ident">networking</span>: <span class="ident">I::Networking</span>,
@@ -1064,18 +1067,15 @@
     <span class="doccomment">/// Creates a new hotshot with the given configuration options and sets it up with the given</span>
     <span class="doccomment">/// genesis block</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(
-        <span class="ident">private_key</span>,
-        <span class="ident">networking</span>,
-        <span class="ident">storage</span>,
-        <span class="ident">election</span>,
-        <span class="ident">initializer</span>
-    ))]</span>
+    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="ident">private_key</span>, <span class="ident">networking</span>, <span class="ident">storage</span>, <span class="ident">election</span>, <span class="ident">initializer</span>))]</span>
     <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(
         <span class="ident">public_key</span>: <span class="ident">I::SignatureKey</span>,
         <span class="ident">private_key</span>: <span class="op">&lt;</span><span class="ident">I::SignatureKey</span> <span class="kw">as</span> <span class="ident">SignatureKey</span><span class="op">&gt;</span><span class="ident">::PrivateKey</span>,
         <span class="ident">nonce</span>: <span class="ident">u64</span>,
-        <span class="ident">config</span>: <span class="ident">HotShotConfig</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="op">&lt;</span><span class="ident">I::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="ident">ViewNumber</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ElectionConfigType</span><span class="op">&gt;</span>,
+        <span class="ident">config</span>: <span class="ident">HotShotConfig</span><span class="op">&lt;</span>
+            <span class="ident">I::SignatureKey</span>,
+            <span class="op">&lt;</span><span class="ident">I::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="ident">ViewNumber</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ElectionConfigType</span>,
+        <span class="op">&gt;</span>,
         <span class="ident">networking</span>: <span class="ident">I::Networking</span>,
         <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
         <span class="ident">election</span>: <span class="ident">I::Election</span>,
@@ -1230,7 +1230,10 @@
         <span class="ident">public_key</span>: <span class="ident">I::SignatureKey</span>,
         <span class="ident">private_key</span>: <span class="op">&lt;</span><span class="ident">I::SignatureKey</span> <span class="kw">as</span> <span class="ident">SignatureKey</span><span class="op">&gt;</span><span class="ident">::PrivateKey</span>,
         <span class="ident">node_id</span>: <span class="ident">u64</span>,
-        <span class="ident">config</span>: <span class="ident">HotShotConfig</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="op">&lt;</span><span class="ident">I::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="ident">ViewNumber</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ElectionConfigType</span><span class="op">&gt;</span>,
+        <span class="ident">config</span>: <span class="ident">HotShotConfig</span><span class="op">&lt;</span>
+            <span class="ident">I::SignatureKey</span>,
+            <span class="op">&lt;</span><span class="ident">I::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="ident">ViewNumber</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ElectionConfigType</span>,
+        <span class="op">&gt;</span>,
         <span class="ident">networking</span>: <span class="ident">I::Networking</span>,
         <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
         <span class="ident">election</span>: <span class="ident">I::Election</span>,
@@ -1565,8 +1568,8 @@
         <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">total_nodes</span>
     }
 
-    <span class="kw">fn</span> <span class="ident">threshold</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonZeroUsize</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">threshold</span>
+    <span class="kw">fn</span> <span class="ident">threshold</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonZeroU64</span> {
+        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">election</span>.<span class="ident">get_threshold</span>()
     }
 
     <span class="kw">fn</span> <span class="ident">propose_min_round_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Duration</span> {
@@ -1677,7 +1680,8 @@
     }
 
     <span class="comment">// TODO ed - refactor this function to only acc stake, and not check validity</span>
-    <span class="kw">fn</span> <span class="ident">validated_stake</span>(<span class="kw-2">&amp;</span><span class="self">self</span>,
+    <span class="kw">fn</span> <span class="ident">validated_stake</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">hash</span>: <span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
         <span class="ident">signatures</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span>
@@ -1702,7 +1706,7 @@
                     <span class="ident">Unchecked</span>(<span class="ident">signature</span>.<span class="number">1</span> .<span class="number">1</span>.<span class="ident">clone</span>()),
                 )
             })
-            .<span class="ident">fold</span>(<span class="number">0</span>, <span class="op">|</span><span class="ident">acc</span>, <span class="ident">x</span><span class="op">|</span> (<span class="ident">acc</span> <span class="op">+</span> <span class="ident">x</span>.<span class="number">1</span> .<span class="number">1</span>.<span class="ident">vote_count</span>()));
+            .<span class="ident">fold</span>(<span class="number">0</span>, <span class="op">|</span><span class="ident">acc</span>, <span class="ident">x</span><span class="op">|</span> (<span class="ident">acc</span> <span class="op">+</span> <span class="ident">u64::from</span>(<span class="ident">x</span>.<span class="number">1</span> .<span class="number">1</span>.<span class="ident">vote_count</span>())));
         <span class="ident">stake</span>
     }
 
@@ -1729,7 +1733,7 @@
         }
 
         <span class="kw">let</span> <span class="ident">stake</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">validated_stake</span>(<span class="ident">hash</span>, <span class="ident">qc</span>.<span class="ident">view_number</span>, <span class="ident">signature_map</span>);
-        <span class="kw">if</span> <span class="ident">stake</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">threshold</span>().<span class="ident">into</span>() {
+        <span class="kw">if</span> <span class="ident">stake</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">u64::from</span>(<span class="self">self</span>.<span class="ident">threshold</span>()) {
             <span class="kw">return</span> <span class="bool-val">true</span>;
         }
         <span class="bool-val">false</span>

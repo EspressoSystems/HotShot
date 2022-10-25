@@ -858,26 +858,136 @@
 <span id="858">858</span>
 <span id="859">859</span>
 <span id="860">860</span>
+<span id="861">861</span>
+<span id="862">862</span>
+<span id="863">863</span>
+<span id="864">864</span>
+<span id="865">865</span>
+<span id="866">866</span>
+<span id="867">867</span>
+<span id="868">868</span>
+<span id="869">869</span>
+<span id="870">870</span>
+<span id="871">871</span>
+<span id="872">872</span>
+<span id="873">873</span>
+<span id="874">874</span>
+<span id="875">875</span>
+<span id="876">876</span>
+<span id="877">877</span>
+<span id="878">878</span>
+<span id="879">879</span>
+<span id="880">880</span>
+<span id="881">881</span>
+<span id="882">882</span>
+<span id="883">883</span>
+<span id="884">884</span>
+<span id="885">885</span>
+<span id="886">886</span>
+<span id="887">887</span>
+<span id="888">888</span>
+<span id="889">889</span>
+<span id="890">890</span>
+<span id="891">891</span>
+<span id="892">892</span>
+<span id="893">893</span>
+<span id="894">894</span>
+<span id="895">895</span>
+<span id="896">896</span>
+<span id="897">897</span>
+<span id="898">898</span>
+<span id="899">899</span>
+<span id="900">900</span>
+<span id="901">901</span>
+<span id="902">902</span>
+<span id="903">903</span>
+<span id="904">904</span>
+<span id="905">905</span>
+<span id="906">906</span>
+<span id="907">907</span>
+<span id="908">908</span>
+<span id="909">909</span>
+<span id="910">910</span>
+<span id="911">911</span>
+<span id="912">912</span>
+<span id="913">913</span>
+<span id="914">914</span>
+<span id="915">915</span>
+<span id="916">916</span>
+<span id="917">917</span>
+<span id="918">918</span>
+<span id="919">919</span>
+<span id="920">920</span>
+<span id="921">921</span>
+<span id="922">922</span>
+<span id="923">923</span>
+<span id="924">924</span>
+<span id="925">925</span>
+<span id="926">926</span>
+<span id="927">927</span>
+<span id="928">928</span>
+<span id="929">929</span>
+<span id="930">930</span>
+<span id="931">931</span>
+<span id="932">932</span>
+<span id="933">933</span>
+<span id="934">934</span>
+<span id="935">935</span>
+<span id="936">936</span>
+<span id="937">937</span>
+<span id="938">938</span>
+<span id="939">939</span>
+<span id="940">940</span>
+<span id="941">941</span>
+<span id="942">942</span>
+<span id="943">943</span>
+<span id="944">944</span>
+<span id="945">945</span>
+<span id="946">946</span>
+<span id="947">947</span>
+<span id="948">948</span>
+<span id="949">949</span>
+<span id="950">950</span>
+<span id="951">951</span>
+<span id="952">952</span>
+<span id="953">953</span>
+<span id="954">954</span>
+<span id="955">955</span>
+<span id="956">956</span>
+<span id="957">957</span>
+<span id="958">958</span>
+<span id="959">959</span>
+<span id="960">960</span>
+<span id="961">961</span>
+<span id="962">962</span>
+<span id="963">963</span>
+<span id="964">964</span>
+<span id="965">965</span>
+<span id="966">966</span>
+<span id="967">967</span>
+<span id="968">968</span>
+<span id="969">969</span>
+<span id="970">970</span>
+<span id="971">971</span>
+<span id="972">972</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">ark_ec::bls12::Bls12Parameters</span>;
 <span class="kw">use</span> <span class="ident">bincode::Options</span>;
-<span class="kw">use</span> <span class="ident">hotshot_types</span>::{<span class="ident">traits</span>::{
-    <span class="ident">election</span>::{<span class="ident">Checked</span>, <span class="ident">Election</span>, <span class="ident">ElectionError</span>, <span class="ident">VoteToken</span>, <span class="ident">ElectionConfig</span>},
-    <span class="ident">signature_key</span>::{<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>, <span class="ident">SignatureKey</span>, <span class="ident">TestableSignatureKey</span>},
-    <span class="ident">State</span>,
-}, <span class="ident">data::ViewNumber</span>};
-<span class="kw">use</span> <span class="ident">hotshot_utils::bincode::bincode_opts</span>;
-<span class="kw">use</span> <span class="ident">jf_primitives</span>::{
-    <span class="ident">hash_to_group::SWHashToGroup</span>,
-    <span class="ident">signatures::SignatureScheme</span>,
-    <span class="ident">vrf::Vrf</span>,
+<span class="kw">use</span> <span class="ident">hotshot_types</span>::{
+    <span class="ident">data::ViewNumber</span>,
+    <span class="ident">traits</span>::{
+        <span class="ident">election</span>::{<span class="ident">Checked</span>, <span class="ident">Election</span>, <span class="ident">ElectionConfig</span>, <span class="ident">ElectionError</span>, <span class="ident">VoteToken</span>},
+        <span class="ident">signature_key</span>::{<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>, <span class="ident">SignatureKey</span>, <span class="ident">TestableSignatureKey</span>},
+        <span class="ident">State</span>,
+    },
 };
+<span class="kw">use</span> <span class="ident">hotshot_utils::bincode::bincode_opts</span>;
+<span class="kw">use</span> <span class="ident">jf_primitives</span>::{<span class="ident">hash_to_group::SWHashToGroup</span>, <span class="ident">signatures::SignatureScheme</span>, <span class="ident">vrf::Vrf</span>};
 <span class="kw">use</span> <span class="ident">rand::SeedableRng</span>;
 <span class="kw">use</span> <span class="ident">rand_chacha::ChaChaRng</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{
     <span class="ident">de</span>::{<span class="self">self</span>},
     <span class="ident">Deserialize</span>, <span class="ident">Serialize</span>,
 };
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">instrument</span>, <span class="ident">error</span>, <span class="ident">info</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">HashMap</span>},
     <span class="ident">fmt::Debug</span>,
@@ -886,6 +996,7 @@
     <span class="ident">num::NonZeroU64</span>,
     <span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>, <span class="ident">MutexGuard</span>},
 };
+<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">instrument</span>};
 
 <span class="kw">use</span> <span class="ident">num</span>::{<span class="ident">rational::Ratio</span>, <span class="ident">BigUint</span>, <span class="ident">ToPrimitive</span>};
 
@@ -901,7 +1012,7 @@
     <span class="doccomment">/// the mapping of id -&gt; stake</span>
     <span class="ident">mapping</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">EncodedPublicKey</span>, <span class="ident">NonZeroU64</span><span class="op">&gt;</span>,
     <span class="doccomment">/// total stake present</span>
-    <span class="ident">total_stake</span>: <span class="ident">u64</span>,
+    <span class="ident">total_stake</span>: <span class="ident">NonZeroU64</span>,
     <span class="doccomment">/// PhantomData for VRF</span>
     <span class="ident">_pd_0</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">VRF</span><span class="op">&gt;</span>,
     <span class="doccomment">/// PhantomData for VRFHASEHR</span>
@@ -1002,7 +1113,6 @@
     <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">to_bytes</span>() <span class="op">==</span> <span class="ident">other</span>.<span class="ident">to_bytes</span>()
     }
-
 }
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">SIGSCHEME</span><span class="op">&gt;</span> <span class="ident">Eq</span> <span class="kw">for</span> <span class="ident">VRFPubKey</span><span class="op">&lt;</span><span class="ident">SIGSCHEME</span><span class="op">&gt;</span>
 <span class="kw">where</span>
@@ -1095,7 +1205,7 @@
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">VRF</span>, <span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span><span class="op">&gt;</span> <span class="ident">VRFStakeTable</span><span class="op">&lt;</span><span class="ident">VRF</span>, <span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span><span class="op">&gt;</span> {
     <span class="doccomment">/// get total stake</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_all_stake</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_all_stake</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonZeroU64</span> {
         <span class="self">self</span>.<span class="ident">total_stake</span>
     }
 }
@@ -1108,7 +1218,9 @@
     <span class="ident">VRF::PublicKey</span>: <span class="ident">Clone</span>,
 {
     <span class="doccomment">/// get total stake</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_stake</span><span class="op">&lt;</span><span class="ident">SIGSCHEME</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pk</span>: <span class="kw-2">&amp;</span><span class="ident">VRFPubKey</span><span class="op">&lt;</span><span class="ident">SIGSCHEME</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>
+    <span class="doccomment">/// # Panics</span>
+    <span class="doccomment">/// If converting non-zero stake into `NonZeroU64` fails</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_stake</span><span class="op">&lt;</span><span class="ident">SIGSCHEME</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pk</span>: <span class="kw-2">&amp;</span><span class="ident">VRFPubKey</span><span class="op">&lt;</span><span class="ident">SIGSCHEME</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonZeroU64</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">SIGSCHEME</span>: <span class="ident">SignatureScheme</span><span class="op">&lt;</span>
             <span class="ident">VerificationKey</span> <span class="op">=</span> <span class="ident">VRF::PublicKey</span>,
@@ -1120,7 +1232,11 @@
         <span class="ident">SIGSCHEME::Signature</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="kw">for</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Deserialize</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span>,
     {
         <span class="kw">let</span> <span class="ident">encoded</span> <span class="op">=</span> <span class="ident">pk</span>.<span class="ident">to_bytes</span>();
-        <span class="self">self</span>.<span class="ident">mapping</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">encoded</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">val</span><span class="op">|</span> <span class="ident">val</span>.<span class="ident">get</span>())
+        <span class="kw">let</span> <span class="ident">stake</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">mapping</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">encoded</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">val</span><span class="op">|</span> <span class="ident">val</span>.<span class="ident">get</span>());
+        <span class="kw">match</span> <span class="ident">stake</span> {
+            <span class="prelude-val">Some</span>(<span class="number">0</span>) =&gt; <span class="prelude-val">None</span>,
+            <span class="kw">_</span> =&gt; <span class="ident">stake</span>.<span class="ident">and_then</span>(<span class="ident">NonZeroU64::new</span>),
+        }
     }
 }
 
@@ -1136,10 +1252,9 @@
     <span class="doccomment">/// the rng</span>
     <span class="ident">prng</span>: <span class="ident">std::sync::Arc</span><span class="op">&lt;</span><span class="ident">std::sync::Mutex</span><span class="op">&lt;</span><span class="ident">rand_chacha::ChaChaRng</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="doccomment">/// the committee parameter</span>
-    <span class="ident">sortition_parameter</span>: <span class="ident">u64</span>,
-
+    <span class="ident">sortition_parameter</span>: <span class="ident">NonZeroU64</span>,
     <span class="doccomment">/// pdf cache</span>
-    <span class="ident">sortition_cache</span>: <span class="ident">std::sync::Arc</span><span class="op">&lt;</span><span class="ident">std::sync::Mutex</span><span class="op">&lt;</span><span class="ident">HashMap</span>::<span class="op">&lt;</span><span class="ident">BinomialQuery</span>, <span class="ident">Ratio</span><span class="op">&lt;</span><span class="ident">BigUint</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">sortition_cache</span>: <span class="ident">std::sync::Arc</span><span class="op">&lt;</span><span class="ident">std::sync::Mutex</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">BinomialQuery</span>, <span class="ident">Ratio</span><span class="op">&lt;</span><span class="ident">BigUint</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="comment">// TODO (fst2) accessor to stake table</span>
     <span class="comment">// stake_table:</span>
@@ -1177,25 +1292,27 @@
 
 <span class="doccomment">/// TODO doc me</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VRFVoteToken</span><span class="op">&lt;</span><span class="ident">VRF</span>: <span class="ident">Vrf</span><span class="op">&lt;</span><span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span><span class="op">&gt;</span>, <span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span><span class="op">&gt;</span>
-{
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VRFVoteToken</span><span class="op">&lt;</span><span class="ident">VRF</span>: <span class="ident">Vrf</span><span class="op">&lt;</span><span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span><span class="op">&gt;</span>, <span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span><span class="op">&gt;</span> {
     <span class="doccomment">/// The public key assocaited with this token</span>
     <span class="kw">pub</span> <span class="ident">pub_key</span>: <span class="ident">VRF::PublicKey</span>,
     <span class="doccomment">/// The list of signatures</span>
     <span class="kw">pub</span> <span class="ident">proof</span>: <span class="ident">VRF::Proof</span>,
     <span class="doccomment">/// The number of signatures that are valid</span>
     <span class="doccomment">/// TODO (ct) this should be the sorition outbput</span>
-    <span class="kw">pub</span> <span class="ident">count</span>: <span class="ident">u64</span>,
+    <span class="kw">pub</span> <span class="ident">count</span>: <span class="ident">NonZeroU64</span>,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">VRF</span>: <span class="ident">Vrf</span><span class="op">&lt;</span><span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span><span class="op">&gt;</span>, <span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">VRFVoteToken</span><span class="op">&lt;</span><span class="ident">VRF</span>, <span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span><span class="op">&gt;</span>
-<span class="kw">where</span> <span class="ident">VRF::PublicKey</span>: <span class="ident">Clone</span>, <span class="ident">VRF::Proof</span>: <span class="ident">Clone</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">VRF</span>: <span class="ident">Vrf</span><span class="op">&lt;</span><span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span><span class="op">&gt;</span>, <span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span><span class="op">&gt;</span> <span class="ident">Clone</span>
+    <span class="kw">for</span> <span class="ident">VRFVoteToken</span><span class="op">&lt;</span><span class="ident">VRF</span>, <span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span><span class="op">&gt;</span>
+<span class="kw">where</span>
+    <span class="ident">VRF::PublicKey</span>: <span class="ident">Clone</span>,
+    <span class="ident">VRF::Proof</span>: <span class="ident">Clone</span>,
 {
     <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">pub_key</span>: <span class="self">self</span>.<span class="ident">pub_key</span>.<span class="ident">clone</span>(),
             <span class="ident">proof</span>: <span class="self">self</span>.<span class="ident">proof</span>.<span class="ident">clone</span>(),
-            <span class="ident">count</span>: <span class="self">self</span>.<span class="ident">count</span>
+            <span class="ident">count</span>: <span class="self">self</span>.<span class="ident">count</span>,
         }
     }
 }
@@ -1204,13 +1321,14 @@
 <span class="kw">where</span>
     <span class="ident">VRF</span>: <span class="ident">Vrf</span><span class="op">&lt;</span><span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span><span class="op">&gt;</span>,
 {
-    <span class="kw">fn</span> <span class="ident">vote_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
+    <span class="kw">fn</span> <span class="ident">vote_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonZeroU64</span> {
         <span class="self">self</span>.<span class="ident">count</span>
     }
 }
 
 <span class="comment">// KEY is VRFPubKey</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span>, <span class="ident">VRF</span>, <span class="ident">SIGSCHEME</span>, <span class="ident">STATE</span><span class="op">&gt;</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">VRFPubKey</span><span class="op">&lt;</span><span class="ident">SIGSCHEME</span><span class="op">&gt;</span>, <span class="op">&lt;</span><span class="ident">STATE</span> <span class="kw">as</span> <span class="ident">State</span><span class="op">&gt;</span><span class="ident">::Time</span><span class="op">&gt;</span>
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span>, <span class="ident">VRF</span>, <span class="ident">SIGSCHEME</span>, <span class="ident">STATE</span><span class="op">&gt;</span>
+    <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">VRFPubKey</span><span class="op">&lt;</span><span class="ident">SIGSCHEME</span><span class="op">&gt;</span>, <span class="op">&lt;</span><span class="ident">STATE</span> <span class="kw">as</span> <span class="ident">State</span><span class="op">&gt;</span><span class="ident">::Time</span><span class="op">&gt;</span>
     <span class="kw">for</span> <span class="ident">VrfImpl</span><span class="op">&lt;</span><span class="ident">STATE</span>, <span class="ident">SIGSCHEME</span>, <span class="ident">VRF</span>, <span class="ident">VRFHASHER</span>, <span class="ident">VRFPARAMS</span><span class="op">&gt;</span>
 <span class="kw">where</span>
     <span class="ident">SIGSCHEME</span>: <span class="ident">SignatureScheme</span><span class="op">&lt;</span><span class="ident">PublicParameter</span> <span class="op">=</span> (), <span class="ident">MessageUnit</span> <span class="op">=</span> <span class="ident">u8</span><span class="op">&gt;</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span>,
@@ -1289,8 +1407,9 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">proof_parameters</span>,
             <span class="kw-2">&amp;</span><span class="ident">private_key</span>.<span class="number">0</span>.<span class="ident">clone</span>(),
             <span class="kw-2">&amp;</span><span class="ident">view_seed</span>,
-            <span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">prng</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>()
-        ).<span class="ident">unwrap</span>();
+            <span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">prng</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>(),
+        )
+        .<span class="ident">unwrap</span>();
 
         <span class="comment">// TODO (ct) this can fail, return result::err</span>
         <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">VRF::evaluate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">proof_parameters</span>, <span class="kw-2">&amp;</span><span class="ident">proof</span>).<span class="ident">unwrap</span>();
@@ -1300,7 +1419,13 @@
 
         <span class="comment">// TODO (jr) this error handling is NOTGOOD</span>
         <span class="kw">let</span> <span class="ident">cache</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">sortition_cache</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">selected_stake</span> <span class="op">=</span> <span class="ident">find_bin_idx</span>(<span class="ident">replicas_stake</span>, <span class="ident">total_stake</span>, <span class="ident">SORTITION_PARAMETER</span>, <span class="kw-2">&amp;</span><span class="ident">hash</span>, <span class="ident">cache</span>);
+        <span class="kw">let</span> <span class="ident">selected_stake</span> <span class="op">=</span> <span class="ident">find_bin_idx</span>(
+            <span class="ident">u64::from</span>(<span class="ident">replicas_stake</span>),
+            <span class="ident">u64::from</span>(<span class="ident">total_stake</span>),
+            <span class="ident">SORTITION_PARAMETER</span>,
+            <span class="kw-2">&amp;</span><span class="ident">hash</span>,
+            <span class="ident">cache</span>,
+        );
         <span class="kw">match</span> <span class="ident">selected_stake</span> {
             <span class="prelude-val">Some</span>(<span class="ident">count</span>) =&gt; {
                 <span class="comment">// TODO (ct) this can fail, return Result::Err</span>
@@ -1331,18 +1456,29 @@
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Checked</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::VoteTokenType</span><span class="op">&gt;</span>, <span class="ident">hotshot_types::traits::election::ElectionError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">token</span> {
             <span class="ident">Checked::Unchecked</span>(<span class="ident">token</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">stake</span> : <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stake_table</span>.<span class="ident">get_stake</span>(<span class="kw-2">&amp;</span><span class="ident">pub_key</span>);
+                <span class="kw">let</span> <span class="ident">stake</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonZeroU64</span><span class="op">&gt;</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stake_table</span>.<span class="ident">get_stake</span>(<span class="kw-2">&amp;</span><span class="ident">pub_key</span>);
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stake</span>) <span class="op">=</span> <span class="ident">stake</span> {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) <span class="op">=</span> <span class="ident">VRF::verify</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">proof_parameters</span>, <span class="kw-2">&amp;</span><span class="ident">token</span>.<span class="ident">proof</span>, <span class="kw-2">&amp;</span><span class="ident">pub_key</span>.<span class="ident">pk</span>, <span class="kw-2">&amp;</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="number">32</span>]<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">next_state</span>)) {
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) <span class="op">=</span> <span class="ident">VRF::verify</span>(
+                        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">proof_parameters</span>,
+                        <span class="kw-2">&amp;</span><span class="ident">token</span>.<span class="ident">proof</span>,
+                        <span class="kw-2">&amp;</span><span class="ident">pub_key</span>.<span class="ident">pk</span>,
+                        <span class="kw-2">&amp;</span><span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="number">32</span>]<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">next_state</span>),
+                    ) {
                         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">seed</span>) <span class="op">=</span> <span class="ident">VRF::evaluate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">proof_parameters</span>, <span class="kw-2">&amp;</span><span class="ident">token</span>.<span class="ident">proof</span>) {
                             <span class="kw">let</span> <span class="ident">total_stake</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stake_table</span>.<span class="ident">total_stake</span>;
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) <span class="op">=</span> <span class="ident">check_bin_idx</span>(<span class="ident">token</span>.<span class="ident">count</span>, <span class="ident">stake</span>, <span class="ident">total_stake</span>, <span class="ident">SORTITION_PARAMETER</span>, <span class="kw-2">&amp;</span><span class="ident">seed</span>, <span class="self">self</span>.<span class="ident">sortition_cache</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>()) {
+                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) <span class="op">=</span> <span class="ident">check_bin_idx</span>(
+                                <span class="ident">u64::from</span>(<span class="ident">token</span>.<span class="ident">count</span>),
+                                <span class="ident">u64::from</span>(<span class="ident">stake</span>),
+                                <span class="ident">u64::from</span>(<span class="ident">total_stake</span>),
+                                <span class="ident">SORTITION_PARAMETER</span>,
+                                <span class="kw-2">&amp;</span><span class="ident">seed</span>,
+                                <span class="self">self</span>.<span class="ident">sortition_cache</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>(),
+                            ) {
                                 <span class="prelude-val">Ok</span>(<span class="ident">Checked::Valid</span>(<span class="ident">token</span>))
                             } <span class="kw">else</span> {
                                 <span class="prelude-val">Ok</span>(<span class="ident">Checked::Inval</span>(<span class="ident">token</span>))
                             }
-                        }
-                        <span class="kw">else</span> {
+                        } <span class="kw">else</span> {
                             <span class="prelude-val">Ok</span>(<span class="ident">Checked::Inval</span>(<span class="ident">token</span>))
                         }
                     } <span class="kw">else</span> {
@@ -1366,26 +1502,45 @@
         <span class="kw">let</span> <span class="ident">units_of_stake_per_node</span> <span class="op">=</span> <span class="ident">NonZeroU64::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>();
         <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">num_nodes</span> {
             <span class="ident">stake</span>.<span class="ident">push</span>(<span class="ident">units_of_stake_per_node</span>);
-
         }
         <span class="ident">VRFStakeTableConfig</span> {
-            <span class="ident">sortition_parameter</span>: <span class="ident">SORTITION_PARAMETER</span>,
+            <span class="ident">sortition_parameter</span>: <span class="ident">NonZeroU64::new</span>(<span class="ident">SORTITION_PARAMETER</span>).<span class="ident">unwrap</span>(),
             <span class="ident">distribution</span>: <span class="ident">stake</span>,
         }
+    }
+
+    <span class="kw">fn</span> <span class="ident">get_threshold</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonZeroU64</span> {
+        <span class="ident">NonZeroU64::new</span>(((<span class="ident">u64::from</span>(<span class="self">self</span>.<span class="ident">sortition_parameter</span>) <span class="op">*</span> <span class="number">2</span>) <span class="op">/</span> <span class="number">3</span>) <span class="op">+</span> <span class="number">1</span>).<span class="ident">unwrap</span>()
     }
 }
 
 <span class="doccomment">/// checks that the expected aomunt of stake matches the VRF output</span>
 <span class="doccomment">/// TODO this can be optimized most likely</span>
-<span class="kw">fn</span> <span class="ident">check_bin_idx</span>(<span class="ident">expected_amount_of_stake</span>: <span class="ident">u64</span>, <span class="ident">replicas_stake</span>: <span class="ident">u64</span>, <span class="ident">total_stake</span>: <span class="ident">u64</span>, <span class="ident">sortition_parameter</span>: <span class="ident">u64</span>, <span class="ident">unnormalized_seed</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>; <span class="number">32</span>], <span class="ident">cache</span>: <span class="ident">MutexGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">HashMap</span>::<span class="op">&lt;</span><span class="ident">BinomialQuery</span>, <span class="ident">Ratio</span><span class="op">&lt;</span><span class="ident">BigUint</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">bin_idx</span> <span class="op">=</span> <span class="ident">find_bin_idx</span>(<span class="ident">replicas_stake</span>, <span class="ident">total_stake</span>, <span class="ident">sortition_parameter</span>, <span class="ident">unnormalized_seed</span>, <span class="ident">cache</span>);
-    <span class="ident">bin_idx</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">idx</span><span class="op">|</span> <span class="ident">idx</span> <span class="op">==</span> <span class="ident">expected_amount_of_stake</span>)
+<span class="kw">fn</span> <span class="ident">check_bin_idx</span>(
+    <span class="ident">expected_amount_of_stake</span>: <span class="ident">u64</span>,
+    <span class="ident">replicas_stake</span>: <span class="ident">u64</span>,
+    <span class="ident">total_stake</span>: <span class="ident">u64</span>,
+    <span class="ident">sortition_parameter</span>: <span class="ident">u64</span>,
+    <span class="ident">unnormalized_seed</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>; <span class="number">32</span>],
+    <span class="ident">cache</span>: <span class="ident">MutexGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">BinomialQuery</span>, <span class="ident">Ratio</span><span class="op">&lt;</span><span class="ident">BigUint</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">bin_idx</span> <span class="op">=</span> <span class="ident">find_bin_idx</span>(
+        <span class="ident">replicas_stake</span>,
+        <span class="ident">total_stake</span>,
+        <span class="ident">sortition_parameter</span>,
+        <span class="ident">unnormalized_seed</span>,
+        <span class="ident">cache</span>,
+    );
+    <span class="ident">bin_idx</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">idx</span><span class="op">|</span> <span class="ident">idx</span> <span class="op">==</span> <span class="ident">NonZeroU64::new</span>(<span class="ident">expected_amount_of_stake</span>).<span class="ident">unwrap</span>())
 }
 
 <span class="doccomment">/// generates the seed from algorand paper</span>
 <span class="doccomment">/// baseed on `next_state` commitment as of now, but in the future will be other things</span>
 <span class="doccomment">/// this is a stop-gap</span>
-<span class="kw">fn</span> <span class="ident">generate_view_seed</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">State</span><span class="op">&gt;</span>(<span class="ident">_view_number</span>: <span class="ident">ViewNumber</span>, <span class="ident">next_state</span>: <span class="ident">commit::Commitment</span><span class="op">&lt;</span><span class="ident">hotshot_types::data::Leaf</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span><span class="op">&gt;</span>) -&gt; [<span class="ident">u8</span>; <span class="number">32</span>] {
+<span class="kw">fn</span> <span class="ident">generate_view_seed</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">State</span><span class="op">&gt;</span>(
+    <span class="ident">_view_number</span>: <span class="ident">ViewNumber</span>,
+    <span class="ident">next_state</span>: <span class="ident">commit::Commitment</span><span class="op">&lt;</span><span class="ident">hotshot_types::data::Leaf</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+) -&gt; [<span class="ident">u8</span>; <span class="number">32</span>] {
     <span class="op">&lt;</span>[<span class="ident">u8</span>; <span class="number">32</span>]<span class="op">&gt;</span><span class="ident">::from</span>(<span class="ident">next_state</span>)
 }
 
@@ -1394,43 +1549,48 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Hash</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">BinomialQuery</span> {
     <span class="doccomment">/// the number of heads</span>
-    <span class="ident">stake_attempt</span>: <span class="ident">u32</span>,
+    <span class="ident">stake_attempt</span>: <span class="ident">u64</span>,
     <span class="doccomment">/// the total number of coin flips</span>
     <span class="ident">replicas_stake</span>: <span class="ident">u64</span>,
     <span class="doccomment">/// the total amount of stake</span>
     <span class="ident">total_stake</span>: <span class="ident">u64</span>,
     <span class="doccomment">/// the sortition parameter</span>
-    <span class="ident">sortition_parameter</span>: <span class="ident">u64</span>
+    <span class="ident">sortition_parameter</span>: <span class="ident">u64</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">BinomialQuery</span> {
     <span class="doccomment">/// get the committee parameter</span>
     <span class="doccomment">/// for this query</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_p</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Ratio</span><span class="op">&lt;</span><span class="ident">BigUint</span><span class="op">&gt;</span>{
-        <span class="kw">let</span> <span class="ident">sortition_parameter_big</span> : <span class="ident">BigUint</span> <span class="op">=</span> <span class="ident">BigUint::from</span>(<span class="self">self</span>.<span class="ident">sortition_parameter</span>);
-        <span class="kw">let</span> <span class="ident">total_stake_big</span> : <span class="ident">BigUint</span> <span class="op">=</span> <span class="ident">BigUint::from</span>(<span class="self">self</span>.<span class="ident">total_stake</span>);
-         <span class="ident">Ratio::new</span>(<span class="ident">sortition_parameter_big</span>, <span class="ident">total_stake_big</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_p</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Ratio</span><span class="op">&lt;</span><span class="ident">BigUint</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">sortition_parameter_big</span>: <span class="ident">BigUint</span> <span class="op">=</span> <span class="ident">BigUint::from</span>(<span class="self">self</span>.<span class="ident">sortition_parameter</span>);
+        <span class="kw">let</span> <span class="ident">total_stake_big</span>: <span class="ident">BigUint</span> <span class="op">=</span> <span class="ident">BigUint::from</span>(<span class="self">self</span>.<span class="ident">total_stake</span>);
+        <span class="ident">Ratio::new</span>(<span class="ident">sortition_parameter_big</span>, <span class="ident">total_stake_big</span>)
     }
-
 }
 
 <span class="attribute">#[<span class="ident">instrument</span>]</span>
-<span class="kw">fn</span> <span class="ident">calculate_threshold_from_cache</span>(<span class="ident">previous_calculation</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">BinomialQuery</span>, <span class="ident">Ratio</span><span class="op">&lt;</span><span class="ident">BigUint</span><span class="op">&gt;</span>)<span class="op">&gt;</span>, <span class="ident">query</span>: <span class="ident">BinomialQuery</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ratio</span><span class="op">&lt;</span><span class="ident">BigUint</span><span class="op">&gt;</span><span class="op">&gt;</span>{
+<span class="kw">fn</span> <span class="ident">calculate_threshold_from_cache</span>(
+    <span class="ident">previous_calculation</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">BinomialQuery</span>, <span class="ident">Ratio</span><span class="op">&lt;</span><span class="ident">BigUint</span><span class="op">&gt;</span>)<span class="op">&gt;</span>,
+    <span class="ident">query</span>: <span class="ident">BinomialQuery</span>,
+) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ratio</span><span class="op">&lt;</span><span class="ident">BigUint</span><span class="op">&gt;</span><span class="op">&gt;</span> {
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">previous_query</span>, <span class="ident">previous_result</span>)) <span class="op">=</span> <span class="ident">previous_calculation</span> {
         <span class="kw">let</span> <span class="ident">expected_previous_query</span> <span class="op">=</span> <span class="ident">BinomialQuery</span> {
             <span class="ident">stake_attempt</span>: <span class="ident">query</span>.<span class="ident">stake_attempt</span> <span class="op">-</span> <span class="number">1</span>,
             ..<span class="ident">query</span>
         };
         <span class="kw">if</span> <span class="ident">previous_query</span> <span class="op">==</span> <span class="ident">expected_previous_query</span> {
-               <span class="kw">let</span> <span class="ident">permutation</span> <span class="op">=</span> <span class="ident">Ratio::new</span>(<span class="ident">BigUint::from</span>(<span class="ident">query</span>.<span class="ident">replicas_stake</span> <span class="op">-</span> <span class="ident">u64::from</span>(<span class="ident">query</span>.<span class="ident">stake_attempt</span>) <span class="op">+</span> <span class="number">1</span>),  <span class="ident">BigUint::from</span>(<span class="ident">query</span>.<span class="ident">stake_attempt</span>));
-               <span class="kw">let</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">query</span>.<span class="ident">get_p</span>();
-               <span class="macro">assert!</span>(<span class="ident">p</span>.<span class="ident">numer</span>() <span class="op">&lt;</span> <span class="ident">p</span>.<span class="ident">denom</span>());
-               <span class="kw">let</span> <span class="ident">reciprocal</span> <span class="op">=</span> <span class="ident">Ratio::recip</span>(<span class="kw-2">&amp;</span>(<span class="ident">Ratio::from_integer</span>(<span class="ident">BigUint::from</span>(<span class="number">1_u32</span>)) <span class="op">-</span> <span class="ident">p</span>.<span class="ident">clone</span>()));
-               <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">previous_result</span> <span class="op">*</span> <span class="ident">p</span> <span class="op">*</span> <span class="ident">reciprocal</span> <span class="op">*</span> <span class="ident">permutation</span>;
-               <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">numer</span>() <span class="op">&lt;</span> <span class="ident">result</span>.<span class="ident">denom</span>());
+            <span class="kw">let</span> <span class="ident">permutation</span> <span class="op">=</span> <span class="ident">Ratio::new</span>(
+                <span class="ident">BigUint::from</span>(<span class="ident">query</span>.<span class="ident">replicas_stake</span> <span class="op">-</span> <span class="ident">query</span>.<span class="ident">stake_attempt</span> <span class="op">+</span> <span class="number">1</span>),
+                <span class="ident">BigUint::from</span>(<span class="ident">query</span>.<span class="ident">stake_attempt</span>),
+            );
+            <span class="kw">let</span> <span class="ident">p</span> <span class="op">=</span> <span class="ident">query</span>.<span class="ident">get_p</span>();
+            <span class="macro">assert!</span>(<span class="ident">p</span>.<span class="ident">numer</span>() <span class="op">&lt;</span> <span class="ident">p</span>.<span class="ident">denom</span>());
+            <span class="kw">let</span> <span class="ident">reciprocal</span> <span class="op">=</span> <span class="ident">Ratio::recip</span>(<span class="kw-2">&amp;</span>(<span class="ident">Ratio::from_integer</span>(<span class="ident">BigUint::from</span>(<span class="number">1_u32</span>)) <span class="op">-</span> <span class="ident">p</span>.<span class="ident">clone</span>()));
+            <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">previous_result</span> <span class="op">*</span> <span class="ident">p</span> <span class="op">*</span> <span class="ident">reciprocal</span> <span class="op">*</span> <span class="ident">permutation</span>;
+            <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">numer</span>() <span class="op">&lt;</span> <span class="ident">result</span>.<span class="ident">denom</span>());
 
-               <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">result</span>);
-           }
+            <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">result</span>);
+        }
     }
     <span class="ident">calculate_threshold</span>(<span class="ident">query</span>)
 }
@@ -1455,7 +1615,7 @@
 <span class="attribute">#[<span class="ident">instrument</span>]</span>
 <span class="comment">// fn calculate_threshold(stake_attempt: u32, replicas_stake: u64, total_stake: u64, sortition_parameter: u64) -&gt; Option&lt;Ratio&lt;BigUint&gt;&gt; {</span>
 <span class="kw">fn</span> <span class="ident">calculate_threshold</span>(<span class="ident">query</span>: <span class="ident">BinomialQuery</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ratio</span><span class="op">&lt;</span><span class="ident">BigUint</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">stake_attempt</span> <span class="op">=</span> <span class="ident">u64::from</span>(<span class="ident">query</span>.<span class="ident">stake_attempt</span>);
+    <span class="kw">let</span> <span class="ident">stake_attempt</span> <span class="op">=</span> <span class="ident">query</span>.<span class="ident">stake_attempt</span>;
     <span class="macro">tracing::info!</span>(<span class="string">&quot;Running calculate threshold&quot;</span>);
     <span class="comment">// TODO (ct) better error handling</span>
     <span class="kw">if</span> <span class="ident">stake_attempt</span> <span class="kw">as</span> <span class="ident">u64</span> <span class="op">&gt;</span> <span class="ident">query</span>.<span class="ident">replicas_stake</span> {
@@ -1463,9 +1623,8 @@
         <span class="kw">return</span> <span class="prelude-val">None</span>;
     }
 
-
-    <span class="kw">let</span> <span class="ident">sortition_parameter_big</span> : <span class="ident">BigUint</span> <span class="op">=</span> <span class="ident">BigUint::from</span>(<span class="ident">query</span>.<span class="ident">sortition_parameter</span>);
-    <span class="kw">let</span> <span class="ident">total_stake_big</span> : <span class="ident">BigUint</span> <span class="op">=</span> <span class="ident">BigUint::from</span>(<span class="ident">query</span>.<span class="ident">total_stake</span>);
+    <span class="kw">let</span> <span class="ident">sortition_parameter_big</span>: <span class="ident">BigUint</span> <span class="op">=</span> <span class="ident">BigUint::from</span>(<span class="ident">query</span>.<span class="ident">sortition_parameter</span>);
+    <span class="kw">let</span> <span class="ident">total_stake_big</span>: <span class="ident">BigUint</span> <span class="op">=</span> <span class="ident">BigUint::from</span>(<span class="ident">query</span>.<span class="ident">total_stake</span>);
     <span class="kw">let</span> <span class="ident">one_big</span> <span class="op">=</span> <span class="ident">BigUint::from</span>(<span class="number">1_u32</span>);
 
     <span class="comment">// this is the p parameter for the bernoulli distribution</span>
@@ -1480,14 +1639,19 @@
 
     <span class="comment">// TODO cancel things out (avoid calculating factorial)</span>
     <span class="comment">// TODO can just do division</span>
-    <span class="kw">let</span> <span class="ident">num_permutations</span> <span class="op">=</span> <span class="ident">Ratio::new</span>(<span class="ident">factorial</span>(<span class="ident">query</span>.<span class="ident">replicas_stake</span>), <span class="ident">factorial</span>(<span class="ident">stake_attempt</span>) <span class="op">*</span> <span class="ident">factorial</span>(<span class="ident">failed_num</span>));
+    <span class="kw">let</span> <span class="ident">num_permutations</span> <span class="op">=</span> <span class="ident">Ratio::new</span>(
+        <span class="ident">factorial</span>(<span class="ident">query</span>.<span class="ident">replicas_stake</span>),
+        <span class="ident">factorial</span>(<span class="ident">stake_attempt</span>) <span class="op">*</span> <span class="ident">factorial</span>(<span class="ident">failed_num</span>),
+    );
 
     <span class="macro">info!</span>(<span class="string">&quot;num permutations is {num_permutations:?}, failed_num is {failed_num:?}&quot;</span>);
 
     <span class="kw">let</span> <span class="ident">one</span> <span class="op">=</span> <span class="ident">Ratio::from_integer</span>(<span class="ident">one_big</span>);
 
     <span class="comment">// TODO can keep results from last try</span>
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">num_permutations</span> <span class="op">*</span> (<span class="ident">p</span>.<span class="ident">pow</span>(<span class="ident">i32::try_from</span>(<span class="ident">stake_attempt</span>).<span class="ident">ok</span>()<span class="question-mark">?</span>) <span class="op">*</span> (<span class="ident">one</span> <span class="op">-</span> <span class="ident">p</span>).<span class="ident">pow</span>(<span class="ident">i32::try_from</span>(<span class="ident">failed_num</span>).<span class="ident">ok</span>()<span class="question-mark">?</span>));
+    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">num_permutations</span>
+        <span class="op">*</span> (<span class="ident">p</span>.<span class="ident">pow</span>(<span class="ident">i32::try_from</span>(<span class="ident">stake_attempt</span>).<span class="ident">ok</span>()<span class="question-mark">?</span>)
+            <span class="op">*</span> (<span class="ident">one</span> <span class="op">-</span> <span class="ident">p</span>).<span class="ident">pow</span>(<span class="ident">i32::try_from</span>(<span class="ident">failed_num</span>).<span class="ident">ok</span>()<span class="question-mark">?</span>));
 
     <span class="macro">assert!</span>(<span class="ident">result</span>.<span class="ident">numer</span>() <span class="op">&lt;</span> <span class="ident">result</span>.<span class="ident">denom</span>());
 
@@ -1498,7 +1662,9 @@
 
 <span class="doccomment">/// compute i! as a biguint</span>
 <span class="kw">fn</span> <span class="ident">factorial</span>(<span class="kw-2">mut</span> <span class="ident">i</span>: <span class="ident">u64</span>) -&gt; <span class="ident">BigUint</span> {
-    <span class="kw">if</span> <span class="ident">i</span> <span class="op">==</span> <span class="number">0</span> { <span class="kw">return</span> <span class="ident">BigUint::from</span>(<span class="number">1u32</span>) }
+    <span class="kw">if</span> <span class="ident">i</span> <span class="op">==</span> <span class="number">0</span> {
+        <span class="kw">return</span> <span class="ident">BigUint::from</span>(<span class="number">1u32</span>);
+    }
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">BigUint::from</span>(<span class="number">1u32</span>);
     <span class="kw">while</span> <span class="ident">i</span> <span class="op">&gt;</span> <span class="number">0</span> {
@@ -1510,12 +1676,19 @@
 
 <span class="doccomment">/// find the amount of stake we rolled.</span>
 <span class="doccomment">/// NOTE: in the future this requires a view numb</span>
+<span class="doccomment">/// Returns None if zero stake was rolled</span>
 <span class="attribute">#[<span class="ident">instrument</span>]</span>
-<span class="kw">fn</span> <span class="ident">find_bin_idx</span>(<span class="ident">replicas_stake</span>: <span class="ident">u64</span>, <span class="ident">total_stake</span>: <span class="ident">u64</span>, <span class="ident">sortition_parameter</span>: <span class="ident">u64</span>, <span class="ident">unnormalized_seed</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>; <span class="number">32</span>], <span class="kw-2">mut</span> <span class="ident">cache</span>: <span class="ident">MutexGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">HashMap</span>::<span class="op">&lt;</span><span class="ident">BinomialQuery</span>, <span class="ident">Ratio</span><span class="op">&lt;</span><span class="ident">BigUint</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+<span class="kw">fn</span> <span class="ident">find_bin_idx</span>(
+    <span class="ident">replicas_stake</span>: <span class="ident">u64</span>,
+    <span class="ident">total_stake</span>: <span class="ident">u64</span>,
+    <span class="ident">sortition_parameter</span>: <span class="ident">u64</span>,
+    <span class="ident">unnormalized_seed</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>; <span class="number">32</span>],
+    <span class="kw-2">mut</span> <span class="ident">cache</span>: <span class="ident">MutexGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">BinomialQuery</span>, <span class="ident">Ratio</span><span class="op">&lt;</span><span class="ident">BigUint</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">NonZeroU64</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">unnormalized_seed</span> <span class="op">=</span> <span class="ident">BigUint::from_bytes_le</span>(<span class="ident">unnormalized_seed</span>);
     <span class="kw">let</span> <span class="ident">normalized_seed</span> <span class="op">=</span> <span class="ident">Ratio::new</span>(<span class="ident">unnormalized_seed</span>, <span class="ident">BigUint::from</span>(<span class="number">2_u32</span>).<span class="ident">pow</span>(<span class="number">256</span>));
     <span class="macro">assert!</span>(<span class="ident">normalized_seed</span>.<span class="ident">numer</span>() <span class="op">&lt;</span> <span class="ident">normalized_seed</span>.<span class="ident">denom</span>());
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">j</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">j</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">0</span>;
 
     <span class="comment">// [j, j+1)</span>
     <span class="comment">// [cdf(j),cdf(j+1))</span>
@@ -1549,13 +1722,14 @@
 
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">maybe_old_query</span> <span class="op">=</span> <span class="ident">query</span>.<span class="ident">clone</span>();
                 <span class="ident">maybe_old_query</span>.<span class="ident">stake_attempt</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
-                <span class="kw">let</span> <span class="ident">old_result</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">maybe_old_query</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> (<span class="ident">maybe_old_query</span>, <span class="ident">x</span>.<span class="ident">clone</span>()));
+                <span class="kw">let</span> <span class="ident">old_result</span> <span class="op">=</span> <span class="ident">cache</span>
+                    .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">maybe_old_query</span>)
+                    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> (<span class="ident">maybe_old_query</span>, <span class="ident">x</span>.<span class="ident">clone</span>()));
                 <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">calculate_threshold_from_cache</span>(<span class="ident">old_result</span>, <span class="ident">query</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
                 <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">query</span>, <span class="ident">result</span>.<span class="ident">clone</span>());
                 <span class="ident">result</span>
             }
         };
-
 
         <span class="comment">// corresponds to right range from apper</span>
         <span class="kw">let</span> <span class="ident">right_threshold</span> <span class="op">=</span> <span class="ident">left_threshold</span> <span class="op">+</span> <span class="ident">bin_val</span>.<span class="ident">clone</span>();
@@ -1570,7 +1744,10 @@
 
         <span class="comment">// from i in 0 to j + 1: B(i; replicas_stake; p)</span>
         <span class="kw">if</span> <span class="ident">normalized_seed</span> <span class="op">&lt;</span> <span class="ident">right_threshold</span> {
-            <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">u64::from</span>(<span class="ident">j</span>));
+            <span class="kw">match</span> <span class="ident">j</span> {
+                <span class="number">0</span> =&gt; <span class="kw">return</span> <span class="prelude-val">None</span>,
+                <span class="kw">_</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">NonZeroU64::new</span>(<span class="ident">j</span>).<span class="ident">unwrap</span>()),
+            }
         }
         <span class="ident">left_threshold</span> <span class="op">=</span> <span class="ident">right_threshold</span>;
         <span class="ident">j</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
@@ -1604,15 +1781,23 @@
     <span class="doccomment">/// create stake table with this initial stake</span>
     <span class="doccomment">/// # Panics</span>
     <span class="doccomment">/// TODO</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_initial_stake</span>(<span class="ident">known_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VRFPubKey</span><span class="op">&lt;</span><span class="ident">SIGSCHEME</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">config</span>: <span class="kw-2">&amp;</span><span class="ident">VRFStakeTableConfig</span>) -&gt; <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_initial_stake</span>(
+        <span class="ident">known_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VRFPubKey</span><span class="op">&lt;</span><span class="ident">SIGSCHEME</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">config</span>: <span class="kw-2">&amp;</span><span class="ident">VRFStakeTableConfig</span>,
+    ) -&gt; <span class="self">Self</span> {
         <span class="macro">assert_eq!</span>(<span class="ident">known_nodes</span>.<span class="ident">iter</span>().<span class="ident">len</span>(), <span class="ident">config</span>.<span class="ident">distribution</span>.<span class="ident">len</span>());
-        <span class="kw">let</span> <span class="ident">key_with_stake</span> <span class="op">=</span> <span class="ident">known_nodes</span>.<span class="ident">into_iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">to_bytes</span>()).<span class="ident">zip</span>(<span class="ident">config</span>.<span class="ident">distribution</span>.<span class="ident">clone</span>()).<span class="ident">collect</span>();
+        <span class="kw">let</span> <span class="ident">key_with_stake</span> <span class="op">=</span> <span class="ident">known_nodes</span>
+            .<span class="ident">into_iter</span>()
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">to_bytes</span>())
+            .<span class="ident">zip</span>(<span class="ident">config</span>.<span class="ident">distribution</span>.<span class="ident">clone</span>())
+            .<span class="ident">collect</span>();
         <span class="macro">error!</span>(<span class="string">&quot;stake table: {:?}&quot;</span>, <span class="ident">key_with_stake</span>);
         <span class="ident">VrfImpl</span> {
             <span class="ident">stake_table</span>: {
-                <span class="kw">let</span> <span class="ident">st</span><span class="op">=</span><span class="ident">VRFStakeTable</span> {
+                <span class="kw">let</span> <span class="ident">st</span> <span class="op">=</span> <span class="ident">VRFStakeTable</span> {
                     <span class="ident">mapping</span>: <span class="ident">key_with_stake</span>,
-                    <span class="ident">total_stake</span>: <span class="ident">config</span>.<span class="ident">distribution</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">get</span>()).<span class="ident">sum</span>(),
+                    <span class="ident">total_stake</span>: <span class="ident">NonZeroU64::new</span>(<span class="ident">config</span>.<span class="ident">distribution</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="ident">x</span>.<span class="ident">get</span>()).<span class="ident">sum</span>())
+                        .<span class="ident">unwrap</span>(),
                     <span class="ident">_pd_0</span>: <span class="ident">PhantomData</span>,
                     <span class="ident">_pd_1</span>: <span class="ident">PhantomData</span>,
                     <span class="ident">_pd_2</span>: <span class="ident">PhantomData</span>,
@@ -1629,35 +1814,54 @@
             <span class="ident">_pd_3</span>: <span class="ident">PhantomData</span>,
             <span class="ident">_pd_4</span>: <span class="ident">PhantomData</span>,
             <span class="ident">sortition_parameter</span>: <span class="ident">config</span>.<span class="ident">sortition_parameter</span>,
-            <span class="ident">sortition_cache</span>: <span class="ident">Arc::default</span>()
+            <span class="ident">sortition_cache</span>: <span class="ident">Arc::default</span>(),
         }
     }
 }
 
 <span class="doccomment">/// configuration specifying the stake table</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>, <span class="ident">Clone</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">core::fmt::Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">core::fmt::Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VRFStakeTableConfig</span> {
     <span class="doccomment">/// the committee size parameter</span>
-    <span class="kw">pub</span> <span class="ident">sortition_parameter</span>: <span class="ident">u64</span>,
+    <span class="kw">pub</span> <span class="ident">sortition_parameter</span>: <span class="ident">NonZeroU64</span>,
     <span class="doccomment">/// the ordered distribution of stake across nodes</span>
-    <span class="kw">pub</span> <span class="ident">distribution</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">NonZeroU64</span><span class="op">&gt;</span>
+    <span class="kw">pub</span> <span class="ident">distribution</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">NonZeroU64</span><span class="op">&gt;</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">ElectionConfig</span> <span class="kw">for</span> <span class="ident">VRFStakeTableConfig</span> {
+<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">VRFStakeTableConfig</span> {
+    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
+        <span class="ident">VRFStakeTableConfig</span> {
+            <span class="ident">sortition_parameter</span>: <span class="ident">NonZeroU64::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>(),
+            <span class="ident">distribution</span>: <span class="ident">Vec::new</span>(),
+        }
+    }
 }
+
+<span class="kw">impl</span> <span class="ident">ElectionConfig</span> <span class="kw">for</span> <span class="ident">VRFStakeTableConfig</span> {}
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="ident">ark_bls12_381::Parameters</span> <span class="kw">as</span> <span class="ident">Param381</span>;
+    <span class="kw">use</span> <span class="ident">ark_std::test_rng</span>;
     <span class="kw">use</span> <span class="ident">blake3::Hasher</span>;
     <span class="kw">use</span> <span class="ident">commit::Commitment</span>;
-    <span class="kw">use</span> <span class="ident">hotshot_types</span>::{<span class="ident">traits::state::dummy::DummyState</span>, <span class="ident">data</span>::{<span class="ident">ViewNumber</span>, <span class="ident">Leaf</span>, <span class="ident">random_commitment</span>}};
+    <span class="kw">use</span> <span class="ident">hotshot_types</span>::{
+        <span class="ident">data</span>::{<span class="ident">random_commitment</span>, <span class="ident">Leaf</span>, <span class="ident">ViewNumber</span>},
+        <span class="ident">traits::state::dummy::DummyState</span>,
+    };
     <span class="kw">use</span> <span class="ident">hotshot_utils::test_util::setup_logging</span>;
-    <span class="kw">use</span> <span class="ident">jf_primitives</span>::{<span class="ident">vrf::blsvrf::BLSVRFScheme</span>, <span class="ident">signatures::BLSSignatureScheme</span>};
-    <span class="kw">use</span> <span class="ident">ark_std::test_rng</span>;
-    <span class="kw">use</span> <span class="ident">ark_bls12_381::Parameters</span> <span class="kw">as</span> <span class="ident">Param381</span>;
+    <span class="kw">use</span> <span class="ident">jf_primitives</span>::{<span class="ident">signatures::BLSSignatureScheme</span>, <span class="ident">vrf::blsvrf::BLSVRFScheme</span>};
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_vrf_impl</span>(<span class="ident">num_nodes</span>: <span class="ident">usize</span>) -&gt; (<span class="ident">VrfImpl</span><span class="op">&lt;</span><span class="ident">DummyState</span>, <span class="ident">BLSSignatureScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span>, <span class="ident">BLSVRFScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span>, <span class="ident">Hasher</span>, <span class="ident">Param381</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">jf_primitives::signatures::bls::BLSSignKey</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span>, <span class="ident">jf_primitives::signatures::bls::BLSVerKey</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span>)<span class="op">&gt;</span>) {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_vrf_impl</span>(
+        <span class="ident">num_nodes</span>: <span class="ident">usize</span>,
+    ) -&gt; (
+        <span class="ident">VrfImpl</span><span class="op">&lt;</span><span class="ident">DummyState</span>, <span class="ident">BLSSignatureScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span>, <span class="ident">BLSVRFScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span>, <span class="ident">Hasher</span>, <span class="ident">Param381</span><span class="op">&gt;</span>,
+        <span class="ident">Vec</span><span class="op">&lt;</span>(
+            <span class="ident">jf_primitives::signatures::bls::BLSSignKey</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span>,
+            <span class="ident">jf_primitives::signatures::bls::BLSVerKey</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span>,
+        )<span class="op">&gt;</span>,
+    ) {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">known_nodes</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">keys</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
         <span class="kw">let</span> <span class="ident">rng</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="ident">test_rng</span>();
@@ -1672,10 +1876,13 @@
             <span class="ident">known_nodes</span>.<span class="ident">push</span>(<span class="ident">VRFPubKey::from_native</span>(<span class="ident">pk</span>.<span class="ident">clone</span>()));
             <span class="ident">stake_distribution</span>.<span class="ident">push</span>(<span class="ident">stake_per_node</span>);
         }
-        <span class="kw">let</span> <span class="ident">stake_table</span> <span class="op">=</span> <span class="ident">VrfImpl::with_initial_stake</span>(<span class="ident">known_nodes</span>, <span class="kw-2">&amp;</span><span class="ident">VRFStakeTableConfig</span> {
-            <span class="ident">sortition_parameter</span>: <span class="ident">SORTITION_PARAMETER</span>,
-            <span class="ident">distribution</span>: <span class="ident">stake_distribution</span>
-        });
+        <span class="kw">let</span> <span class="ident">stake_table</span> <span class="op">=</span> <span class="ident">VrfImpl::with_initial_stake</span>(
+            <span class="ident">known_nodes</span>,
+            <span class="kw-2">&amp;</span><span class="ident">VRFStakeTableConfig</span> {
+                <span class="ident">sortition_parameter</span>: <span class="ident">std::num::NonZeroU64::new</span>(<span class="ident">SORTITION_PARAMETER</span>).<span class="ident">unwrap</span>(),
+                <span class="ident">distribution</span>: <span class="ident">stake_distribution</span>,
+            },
+        );
         (<span class="ident">stake_table</span>, <span class="ident">keys</span>)
     }
 
@@ -1684,30 +1891,47 @@
             <span class="ident">Checked::Valid</span>(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
             <span class="ident">Checked::Inval</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Checked::Unchecked</span>(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
         }
-
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">test_sortition</span>(){
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">test_sortition</span>() {
         <span class="ident">setup_logging</span>();
         <span class="kw">let</span> (<span class="ident">vrf_impl</span>, <span class="ident">keys</span>) <span class="op">=</span> <span class="ident">gen_vrf_impl</span>(<span class="number">10</span>);
         <span class="kw">let</span> <span class="ident">views</span> <span class="op">=</span> <span class="number">100</span>;
 
         <span class="kw">for</span> <span class="ident">view</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">views</span> {
-            <span class="kw">let</span> <span class="ident">next_state_commitment</span> : <span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">DummyState</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">random_commitment</span>();
+            <span class="kw">let</span> <span class="ident">next_state_commitment</span>: <span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">DummyState</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">random_commitment</span>();
             <span class="kw">for</span> (<span class="ident">node_idx</span>, (<span class="ident">sk</span>, <span class="ident">pk</span>)) <span class="kw">in</span> <span class="ident">keys</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
-                <span class="kw">let</span> <span class="ident">token</span> <span class="op">=</span> <span class="ident">vrf_impl</span>.<span class="ident">make_vote_token</span>(<span class="ident">ViewNumber::new</span>(<span class="ident">view</span>), <span class="kw-2">&amp;</span>(<span class="ident">sk</span>.<span class="ident">clone</span>(), <span class="ident">pk</span>.<span class="ident">clone</span>()), <span class="ident">next_state_commitment</span>).<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
-                <span class="kw">let</span> <span class="ident">count</span> <span class="op">=</span> <span class="ident">token</span>.<span class="ident">count</span>;
-                <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">vrf_impl</span>.<span class="ident">validate_vote_token</span>(<span class="ident">ViewNumber::new</span>(<span class="ident">view</span>), <span class="ident">VRFPubKey::from_native</span>(<span class="ident">pk</span>.<span class="ident">clone</span>()), <span class="ident">Checked::Unchecked</span>(<span class="ident">token</span>), <span class="ident">next_state_commitment</span>).<span class="ident">unwrap</span>();
-                <span class="kw">let</span> <span class="ident">result_is_valid</span> <span class="op">=</span> <span class="ident">check_if_valid</span>(<span class="kw-2">&amp;</span><span class="ident">result</span>);
-                <span class="macro">error!</span>(<span class="string">&quot;view {view:?}, node_idx {node_idx:?}, stake {count:?} &quot;</span>);
-                <span class="macro">assert!</span>(<span class="ident">result_is_valid</span>);
+                <span class="kw">let</span> <span class="ident">token_result</span> <span class="op">=</span> <span class="ident">vrf_impl</span>
+                    .<span class="ident">make_vote_token</span>(
+                        <span class="ident">ViewNumber::new</span>(<span class="ident">view</span>),
+                        <span class="kw-2">&amp;</span>(<span class="ident">sk</span>.<span class="ident">clone</span>(), <span class="ident">pk</span>.<span class="ident">clone</span>()),
+                        <span class="ident">next_state_commitment</span>,
+                    )
+                    .<span class="ident">unwrap</span>();
+                <span class="kw">match</span> <span class="ident">token_result</span> {
+                    <span class="prelude-val">Some</span>(<span class="ident">token</span>) =&gt; {
+                        <span class="kw">let</span> <span class="ident">count</span> <span class="op">=</span> <span class="ident">token</span>.<span class="ident">count</span>;
+                        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">vrf_impl</span>
+                            .<span class="ident">validate_vote_token</span>(
+                                <span class="ident">ViewNumber::new</span>(<span class="ident">view</span>),
+                                <span class="ident">VRFPubKey::from_native</span>(<span class="ident">pk</span>.<span class="ident">clone</span>()),
+                                <span class="ident">Checked::Unchecked</span>(<span class="ident">token</span>),
+                                <span class="ident">next_state_commitment</span>,
+                            )
+                            .<span class="ident">unwrap</span>();
+                        <span class="kw">let</span> <span class="ident">result_is_valid</span> <span class="op">=</span> <span class="ident">check_if_valid</span>(<span class="kw-2">&amp;</span><span class="ident">result</span>);
+                        <span class="macro">error!</span>(<span class="string">&quot;view {view:?}, node_idx {node_idx:?}, stake {count:?} &quot;</span>);
+                        <span class="macro">assert!</span>(<span class="ident">result_is_valid</span>);
+                    }
+                    <span class="kw">_</span> =&gt; <span class="kw">continue</span>,
+                }
             }
         }
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">test_factorial</span>(){
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">test_factorial</span>() {
         <span class="macro">assert_eq!</span>(<span class="ident">factorial</span>(<span class="number">0</span>), <span class="ident">BigUint::from</span>(<span class="number">1u32</span>));
         <span class="macro">assert_eq!</span>(<span class="ident">factorial</span>(<span class="number">1</span>), <span class="ident">BigUint::from</span>(<span class="number">1u32</span>));
         <span class="macro">assert_eq!</span>(<span class="ident">factorial</span>(<span class="number">2</span>), <span class="ident">BigUint::from</span>(<span class="number">2u32</span>));
