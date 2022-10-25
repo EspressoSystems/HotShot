@@ -96,7 +96,7 @@ ark-std = { version = "0.3.0" }
 async-lock = "2.5"
 async-std = { version = "1.12", optional = true }
 async-trait = "0.1.58"
-async-tungstenite = "0.17.2"
+async-tungstenite = "0.18.0"
 atomic_store = { git = "https://github.com/EspressoSystems/atomicstore", tag = "0.1.3" }
 bimap = "0.6.2"
 bincode = "1.3.3"
