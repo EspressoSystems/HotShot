@@ -27,7 +27,7 @@ use bincode::Options;
 use clients::Clients;
 use config::ClientConfig;
 use futures::FutureExt as _;
-use hotshot_types::traits::{signature_key::SignatureKey, election::ElectionConfig};
+use hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
 use hotshot_utils::{
     art::{async_spawn, async_timeout},
     bincode::bincode_opts,
@@ -51,7 +51,7 @@ pub(crate) const MAX_CHUNK_SIZE: usize = 256 * 1024;
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub enum ToServer<K> {
     GetConfig,
-    Identify { key: K},
+    Identify { key: K },
     Broadcast { message_len: u64 },
     Direct { target: K, message_len: u64 },
     RequestClientCount,
@@ -84,6 +84,23 @@ pub struct RunResults {
     pub rounds_succeeded: u64,
     pub rounds_timed_out: u64,
     pub total_time_in_seconds: f64,
+}
+
+#[test]
+fn run_results_can_be_serialized() {
+    // validate that `RunResults` can be serialized
+    let results = RunResults {
+        run: Run(5),
+        node_index: 6,
+        transactions_submitted: 7,
+        transactions_rejected: 8,
+        transaction_size_bytes: 9,
+        rounds_succeeded: 10,
+        rounds_timed_out: 11,
+        total_time_in_seconds: 12.13,
+    };
+    serde_json::to_string_pretty(&results).unwrap();
+    toml::to_string_pretty(&results).unwrap();
 }
 
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone, Copy, Default)]
@@ -164,7 +181,11 @@ impl<K, E> FromBackground<K, E> {
             payload: None,
         }
     }
-    pub fn broadcast(source: K, message_len: u64, payload: Option<Vec<u8>>) -> FromBackground<K, E> {
+    pub fn broadcast(
+        source: K,
+        message_len: u64,
+        payload: Option<Vec<u8>>,
+    ) -> FromBackground<K, E> {
         FromBackground {
             header: FromServer::Broadcast {
                 source,

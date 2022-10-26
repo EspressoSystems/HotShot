@@ -869,6 +869,8 @@ impl ElectionConfig for VRFStakeTableConfig {}
 
 #[cfg(test)]
 mod tests {
+    use std::{num::NonZeroUsize, time::Duration};
+
     use super::*;
     use ark_bls12_381::Parameters as Param381;
     use ark_std::test_rng;
@@ -969,4 +971,42 @@ mod tests {
     }
 
     // TODO add failure case
+
+    #[test]
+    fn network_config_is_serializable() {
+        // validate that `RunResults` can be serialized
+        // Note that there is currently an issue with `VRFPubKey` where it can't be serialized with toml
+        // so instead we only test with serde_json
+        let key =
+            <VRFPubKey<BLSSignatureScheme<Param381>> as TestableSignatureKey>::generate_test_key(1);
+        let pub_key = VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&key);
+        let mut config = hotshot_centralized_server::NetworkConfig {
+            config: hotshot_types::HotShotConfig {
+                election_config: Some(super::VRFStakeTableConfig {
+                    distribution: vec![NonZeroU64::new(1).unwrap()],
+                    sortition_parameter: NonZeroU64::new(1).unwrap(),
+                }),
+                known_nodes: vec![pub_key],
+                execution_type: hotshot_types::ExecutionType::Incremental,
+                total_nodes: NonZeroUsize::new(1).unwrap(),
+                min_transactions: 1,
+                max_transactions: NonZeroUsize::new(1).unwrap(),
+                next_view_timeout: 1,
+                timeout_ratio: (1, 1),
+                round_start_delay: 1,
+                start_delay: 1,
+                num_bootstrap: 1,
+                propose_min_round_time: Duration::from_secs(1),
+                propose_max_round_time: Duration::from_secs(1),
+            },
+            ..Default::default()
+        };
+        serde_json::to_string(&config).unwrap();
+        assert!(toml::to_string(&config).is_err());
+
+        // validate that this is indeed a `pub_key` issue
+        config.config.known_nodes.clear();
+        serde_json::to_string(&config).unwrap();
+        toml::to_string(&config).unwrap();
+    }
 }

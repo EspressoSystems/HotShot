@@ -44,18 +44,21 @@ impl<K, E> RoundConfig<K, E> {
     ///
     /// Will panic if serialization to TOML fails
     pub async fn add_result(&mut self, result: RunResults) -> std::io::Result<()>
-        where K: serde::Serialize, E: serde::Serialize
+    where
+        K: serde::Serialize,
+        E: serde::Serialize,
     {
         let run = result.run.0;
         let folder = run.to_string();
         let folder = Path::new(&folder);
         if !folder.exists() {
-            // folder does not exist, create it and copy over the network config to `config.toml`
+            // folder does not exist, create it and copy over the network config to `config.json`
+            // we'd use toml here but VRFPubKey cannot be serialized with toml
             let config = &self.configs[run];
             fs::create_dir_all(folder)?;
             fs::write(
-                format!("{}/config.toml", run),
-                toml::to_string_pretty(config).expect("Could not serialize"),
+                format!("{}/config.json", run),
+                serde_json::to_string_pretty(config).expect("Could not serialize"),
             )?;
         }
         fs::write(
@@ -71,10 +74,9 @@ impl<K, E> RoundConfig<K, E> {
         addr: IpAddr,
         sender: OneShotSender<ClientConfig<K, E>>,
         start_round_sender: Sender<ToBackground<K, E>>,
-    )
-        where
-         K: Debug + Clone + Send + 'static,
-         E: Debug + Clone + Send + 'static,
+    ) where
+        K: Debug + Clone + Send + 'static,
+        E: Debug + Clone + Send + 'static,
     {
         let total_runs = self.configs.len();
         let mut config: &mut NetworkConfig<K, E> = match self.configs.get_mut(self.current_run) {
@@ -198,8 +200,7 @@ fn set_config<K, E>(
     public_ip: IpAddr,
     run: Run,
     node_index: u64,
-) -> NetworkConfig<K, E>
-{
+) -> NetworkConfig<K, E> {
     config.node_index = node_index;
     if let Some(libp2p) = &mut config.libp2p_config {
         libp2p.run = run;
