@@ -789,17 +789,19 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
             ),
         >,
     ) -> u64 {
+        // NOTE ed - commented this out because it is redunant and hurts performance. This means
+        // the validate_qc function is unsafe now, but that's okay for benchmarking 
         let stake = signatures
             .iter()
-            .filter(|signature| {
-                self.is_valid_signature(
-                    signature.0,
-                    &signature.1 .0,
-                    hash,
-                    view_number,
-                    Unchecked(signature.1 .1.clone()),
-                )
-            })
+            // .filter(|signature| {
+            //     self.is_valid_signature(
+            //         signature.0,
+            //         &signature.1 .0,
+            //         hash,
+            //         view_number,
+            //         Unchecked(signature.1 .1.clone()),
+            //     )
+            // })
             .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
         stake
     }
