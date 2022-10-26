@@ -69,9 +69,9 @@ pub struct NetworkConfig<KEY, ELECTION> {
     pub node_index: u64,
     pub seed: [u8; 32],
     pub padding: usize,
+    pub start_delay_seconds: u64,
     pub libp2p_config: Option<Libp2pConfig>,
     pub config: HotShotConfig<KEY, ELECTION>,
-    pub start_delay_seconds: u64,
 }
 
 impl<K, E> Default for NetworkConfig<K, E> {
