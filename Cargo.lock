@@ -2295,7 +2295,7 @@ dependencies = [
  "console-subscriber",
  "flume 0.10.14",
  "futures",
- "opentelemetry 0.18.0",
+ "opentelemetry",
  "opentelemetry-aws",
  "opentelemetry-jaeger",
  "tokio",
@@ -4010,25 +4010,6 @@ dependencies = [
 
 [[package]]
 name = "opentelemetry"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6105e89802af13fdf48c49d7646d3b533a70e536d818aae7e78ba0433d01acb8"
-dependencies = [
- "async-trait",
- "crossbeam-channel",
- "futures-channel",
- "futures-executor",
- "futures-util",
- "js-sys",
- "lazy_static",
- "percent-encoding",
- "pin-project",
- "rand 0.8.5",
- "thiserror",
-]
-
-[[package]]
-name = "opentelemetry"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69d6c3d7288a106c0a363e4b0e8d308058d56902adefb16f4936f417ffef086e"
@@ -4039,12 +4020,12 @@ dependencies = [
 
 [[package]]
 name = "opentelemetry-aws"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72f80ed72cb487ccee5de9e6342e7240ce233a506071e0d07fd535981688342e"
+checksum = "75549d9352f35acef1a926e0f344dd978c1ef4b4ef8d34c66cdca6035ad1c981"
 dependencies = [
- "lazy_static",
- "opentelemetry 0.17.0",
+ "once_cell",
+ "opentelemetry",
 ]
 
 [[package]]
@@ -4083,7 +4064,7 @@ dependencies = [
  "isahc 1.7.2",
  "js-sys",
  "once_cell",
- "opentelemetry 0.18.0",
+ "opentelemetry",
  "opentelemetry-http",
  "opentelemetry-semantic-conventions",
  "pin-project-lite 0.2.9",
@@ -4106,7 +4087,7 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b02e0230abb0ab6636d18e2ba8fa02903ea63772281340ccac18e0af3ec9eeb"
 dependencies = [
- "opentelemetry 0.18.0",
+ "opentelemetry",
 ]
 
 [[package]]
@@ -6089,7 +6070,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21ebb87a95ea13271332df069020513ab70bdb5637ca42d6e492dc3bbbad48de"
 dependencies = [
  "once_cell",
- "opentelemetry 0.18.0",
+ "opentelemetry",
  "tracing",
  "tracing-core",
  "tracing-log",
