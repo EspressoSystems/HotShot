@@ -992,7 +992,7 @@ mod tests {
                 min_transactions: 1,
                 max_transactions: NonZeroUsize::new(1).unwrap(),
                 next_view_timeout: 1,
-                timeout_ratio: (1, 1).into(),
+                timeout_ratio: (1, 1),
                 round_start_delay: 1,
                 start_delay: 1,
                 num_bootstrap: 1,
