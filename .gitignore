@@ -4,3 +4,4 @@
 .idea
 /*.pdf
 /target_dirs
+/.vscode/settings.json
