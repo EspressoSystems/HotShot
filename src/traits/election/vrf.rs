@@ -261,10 +261,7 @@ where
     {
         let encoded = pk.to_bytes();
         let stake = self.mapping.get(&encoded).map(|val| val.get());
-        match stake {
-            Some(0) => None,
-            _ => stake.and_then(NonZeroU64::new),
-        }
+        stake.and_then(NonZeroU64::new)
     }
 }
 
