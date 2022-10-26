@@ -93,7 +93,7 @@ ark-ec = { version = "0.3.0" }
 ark-bls12-381 = { version = "0.3.0" }
 ark-serialize = { version = "0.3.0", features = ["derive"] }
 ark-std = { version = "0.3.0" }
-async-lock = "2.5"
+async-lock = "2.6"
 async-std = { version = "1.12", optional = true }
 async-trait = "0.1.58"
 async-tungstenite = "0.18.0"

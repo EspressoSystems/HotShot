@@ -28,7 +28,7 @@ channel-async-std = ["dep:async-channel"]
 logging-utils = ["tracing-subscriber"]
 
 [dependencies]
-async-lock = "2.5"
+async-lock = "2.6"
 async-std = { version = "1.12", features = [
     "attributes",
     "unstable",
