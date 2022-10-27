@@ -62,6 +62,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
                 if msg.view_number() != self.cur_view {
+                    error!("Wrong view number for replica");
                     continue;
                 }
                 match msg {
@@ -147,6 +148,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         // if !(safety_check || liveness_check)
                         // if !safety_check && !liveness_check
                         if !safety_check && !liveness_check {
+                            error!("Failed safety check and liveness check");
                             continue;
                         }
 
@@ -191,8 +193,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 });
 
                                 let next_leader = self.api.get_leader(self.cur_view + 1).await;
+                                error!("Next leader for view {:?} is {:?}", self.cur_view, next_leader);
 
-                                info!("Sending vote to next leader {:?}", vote);
+                                error!("Sending vote to next leader {:?}", vote);
 
                                 if self
                                     .api
