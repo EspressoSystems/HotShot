@@ -92,7 +92,7 @@ async fn init_state_and_hotshot(
     let pub_key = VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
     let known_nodes = config.known_nodes.clone();
     error!("Node id: {:?}, public key is {:?}", node_id, pub_key);
-    error!("Known nodes are: {:?}", known_nodes);
+    // error!("Known nodes are: {:?}", known_nodes);
     // let vrf_impl = VrfImpl::with_initial_stake(known_nodes.clone(), SORTITION_PARAMETER);
     let mut distribution = Vec::new();
     let stake_per_node = NonZeroU64::new(100).unwrap();

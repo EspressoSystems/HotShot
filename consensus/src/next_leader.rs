@@ -125,6 +125,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         };
                         return qc;
                     }
+                    else {
+                        error!("Casted stake of {} does not meet threshold of {}", stake_casted, threshold);
+                    }
                 }
                 ConsensusMessage::NextViewInterrupt(_view_number) => {
                     self.api.send_next_leader_timeout(self.cur_view).await;
