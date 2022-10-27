@@ -45,7 +45,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
     /// unless there is a bug in std
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<I::StateType> {
-        info!("Next Leader task started!");
+        error!("Next Leader task started!");
         let mut qcs = HashSet::<QuorumCertificate<I::StateType>>::new();
         qcs.insert(self.generic_qc.clone());
 
@@ -63,6 +63,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
             if msg.view_number() != self.cur_view {
+                error!("Throwing out message for view number {:?}, current view nuumber is {:?}", msg.view_number(), self.cur_view);
                 continue;
             }
             match msg {
