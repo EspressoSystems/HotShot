@@ -90,6 +90,7 @@ async fn init_state_and_hotshot(
             node_id.try_into().unwrap(),
         );
     let pub_key = VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
+    // let (priv_key, pub_key) = VRFPubKey::generated_from_seed_indexed(_seed, node_id);
     let known_nodes = config.known_nodes.clone();
     error!("Node id: {:?}, public key is {:?}", node_id, pub_key);
     // error!("Known nodes are: {:?}", known_nodes);
