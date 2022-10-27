@@ -1,7 +1,7 @@
 //! Contains the [`NextLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
 
-use crate::ConsensusApi;
 use crate::traits::Signatures;
+use crate::ConsensusApi;
 use async_lock::Mutex;
 use bincode::Options;
 use commit::Commitment;
@@ -20,8 +20,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
-use tracing::{info, instrument, warn, error};
-
+use tracing::{error, info, instrument, warn};
 
 /// The next view's leader
 #[derive(Debug, Clone)]
@@ -61,81 +60,93 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
         let threshold = self.api.threshold();
 
         let lock = self.vote_collection_chan.lock().await;
-        while let Ok(msg) = lock.recv().await {
-            if msg.view_number() != self.cur_view {
-                error!("Throwing out message for view number {:?}, current view nuumber is {:?}", msg.view_number(), self.cur_view);
-                continue;
-            }
-            match msg {
-                ConsensusMessage::TimedOut(t) => {
-                    qcs.insert(t.justify_qc);
-                }
-                ConsensusMessage::Vote(vote) => {
-                    // if the signature on the vote is invalid,
-                    // assume it's sent by byzantine node
-                    // and ignore
-                    // TODO ed - ignoring serialization errors since we are changing this type in the future
-                    let vote_token = bincode_opts().deserialize(&vote.vote_token).unwrap();
-
-                    if !self.api.is_valid_signature(
-                        &vote.signature.0,
-                        &vote.signature.1,
-                        vote.leaf_commitment,
-                        vote.current_view,
-                        // Ignoring deserialization errors below since we are getting rid of it soon
-                        Unchecked(vote_token),
-                    ) {
-                        error!("Invalid vote token signature");
+        while let (message) = lock.recv().await {
+            match message {
+                Ok(msg) => {
+                    if msg.view_number() != self.cur_view {
+                        error!("Throwing out message for view number {:?}, current view nuumber is {:?}", msg.view_number(), self.cur_view);
                         continue;
                     }
+                    match msg {
+                        ConsensusMessage::TimedOut(t) => {
+                            qcs.insert(t.justify_qc);
+                        }
+                        ConsensusMessage::Vote(vote) => {
+                            // if the signature on the vote is invalid,
+                            // assume it's sent by byzantine node
+                            // and ignore
+                            // TODO ed - ignoring serialization errors since we are changing this type in the future
+                            let vote_token = bincode_opts().deserialize(&vote.vote_token).unwrap();
 
-                    qcs.insert(vote.justify_qc);
+                            if !self.api.is_valid_signature(
+                                &vote.signature.0,
+                                &vote.signature.1,
+                                vote.leaf_commitment,
+                                vote.current_view,
+                                // Ignoring deserialization errors below since we are getting rid of it soon
+                                Unchecked(vote_token),
+                            ) {
+                                error!("Invalid vote token signature");
+                                continue;
+                            }
 
-                    let (_bh, map)= vote_outcomes.entry(vote.leaf_commitment).or_insert_with(|| (vote.block_commitment, BTreeMap::new()));
-                    map.insert(vote.signature.0.clone(), (vote.signature.1.clone(), vote.vote_token));
-                    let valid_signatures = map;
+                            qcs.insert(vote.justify_qc);
 
-                    // TODO ed - this is repeated code from validate_qc, but should clean itself up once we implement I for Vote
-                    let mut signature_map: Signatures<I>
-                        = BTreeMap::new();
-                    // TODO ed - there is a better way to do this, but it should be gone once I is impled for Vote
-                    for signature in valid_signatures.clone() {
-                        let decoded_vote_token =
-                            bincode_opts().deserialize(&signature.1 .1).unwrap();
-                        signature_map.insert(signature.0, (signature.1 .0, decoded_vote_token));
-                    }
+                            let (_bh, map) = vote_outcomes
+                                .entry(vote.leaf_commitment)
+                                .or_insert_with(|| (vote.block_commitment, BTreeMap::new()));
+                            map.insert(
+                                vote.signature.0.clone(),
+                                (vote.signature.1.clone(), vote.vote_token),
+                            );
+                            let valid_signatures = map;
 
-                    // TODO ed - current validated_stake rechecks that all votes are valid, which isn't necessary here
-                    let stake_casted = self.api.validated_stake(
-                        vote.leaf_commitment,
-                        self.cur_view,
-                        signature_map,
-                    );
-                    if stake_casted >= u64::from(threshold) {
-                        error!("Stake casted: {}", stake_casted);
+                            // TODO ed - this is repeated code from validate_qc, but should clean itself up once we implement I for Vote
+                            let mut signature_map: Signatures<I> = BTreeMap::new();
+                            // TODO ed - there is a better way to do this, but it should be gone once I is impled for Vote
+                            for signature in valid_signatures.clone() {
+                                let decoded_vote_token =
+                                    bincode_opts().deserialize(&signature.1 .1).unwrap();
+                                signature_map
+                                    .insert(signature.0, (signature.1 .0, decoded_vote_token));
+                            }
 
-                        let (block_commitment, valid_signatures) =
-                            vote_outcomes.remove(&vote.leaf_commitment).unwrap();
-                        // construct QC
-                        let qc = QuorumCertificate {
-                            block_commitment,
-                            leaf_commitment: vote.leaf_commitment,
-                            view_number: self.cur_view,
-                            signatures: valid_signatures,
-                            genesis: false,
-                        };
-                        return qc;
-                    }
-                    else {
-                        error!("Casted stake of {} does not meet threshold of {} across {} signatures", stake_casted, threshold, valid_signatures.len());
+                            // TODO ed - current validated_stake rechecks that all votes are valid, which isn't necessary here
+                            let stake_casted = self.api.validated_stake(
+                                vote.leaf_commitment,
+                                self.cur_view,
+                                signature_map,
+                            );
+                            if stake_casted >= u64::from(threshold) {
+                                error!("Stake casted: {}", stake_casted);
+
+                                let (block_commitment, valid_signatures) =
+                                    vote_outcomes.remove(&vote.leaf_commitment).unwrap();
+                                // construct QC
+                                let qc = QuorumCertificate {
+                                    block_commitment,
+                                    leaf_commitment: vote.leaf_commitment,
+                                    view_number: self.cur_view,
+                                    signatures: valid_signatures,
+                                    genesis: false,
+                                };
+                                return qc;
+                            } else {
+                                error!("Casted stake of {} does not meet threshold of {} across {} signatures", stake_casted, threshold, valid_signatures.len());
+                            }
+                        }
+                        ConsensusMessage::NextViewInterrupt(_view_number) => {
+                            self.api.send_next_leader_timeout(self.cur_view).await;
+                            break;
+                        }
+                        ConsensusMessage::Proposal(_p) => {
+                            warn!("The next leader has received an unexpected proposal!");
+                        }
                     }
                 }
-                ConsensusMessage::NextViewInterrupt(_view_number) => {
-                    self.api.send_next_leader_timeout(self.cur_view).await;
-                    break;
-                }
-                ConsensusMessage::Proposal(_p) => {
-                    warn!("The next leader has received an unexpected proposal!");
+
+                Err(e) => {
+                    error!("Error in next leader task message {:?}", e);
                 }
             }
         }
