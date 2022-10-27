@@ -63,6 +63,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
         while let (message) = lock.recv().await {
             match message {
                 Ok(msg) => {
+                    error!("Message is {:?}", msg);
                     if msg.view_number() != self.cur_view {
                         error!("Throwing out message for view number {:?}, current view nuumber is {:?}", msg.view_number(), self.cur_view);
                         continue;
