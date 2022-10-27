@@ -139,7 +139,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                 }
             }
         }
-
+        error!("Ending next leader task for view {:?}", self.cur_view);
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
     }
 }
