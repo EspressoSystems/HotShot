@@ -58,7 +58,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
             let msg = lock.recv().await;
-            // error!("recv-ed message {:?}", msg.clone());
+            error!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
                 if msg.view_number() != self.cur_view {

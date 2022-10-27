@@ -26,8 +26,8 @@ async fn centralized_server_network_vrf() {
         round_start_delay: 25,
         num_bootstrap_nodes: 5,
         timeout_ratio: (11, 10),
-        total_nodes: 10,
-        start_nodes: 10,
+        total_nodes: 100,
+        start_nodes: 100,
         num_succeeds: 20,
         txn_ids: Right(1),
         next_view_timeout: 10000,
@@ -56,6 +56,7 @@ async fn centralized_server_network_vrf() {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
+#[ignore]
 async fn centralized_server_network() {
     let description = GeneralTestDescriptionBuilder {
         round_start_delay: 25,

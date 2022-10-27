@@ -294,7 +294,8 @@ where
     /// the committee parameter
     sortition_parameter: NonZeroU64,
     /// pdf cache
-    sortition_cache: std::sync::Arc<std::sync::Mutex<HashMap<BinomialQuery, Ratio<BigUint>>>>,
+    /// Why not async mutex? 
+    // sortition_cache: std::sync::Arc<std::sync::Mutex<HashMap<BinomialQuery, Ratio<BigUint>>>>,
 
     // TODO (fst2) accessor to stake table
     // stake_table:
@@ -320,7 +321,7 @@ where
             proof_parameters: (),
             prng: self.prng.clone(),
             sortition_parameter: self.sortition_parameter,
-            sortition_cache: Arc::default(),
+            // sortition_cache: Arc::default(),
             _pd_0: PhantomData,
             _pd_1: PhantomData,
             _pd_2: PhantomData,
@@ -458,13 +459,13 @@ where
         let total_stake = self.stake_table.total_stake;
 
         // TODO (jr) this error handling is NOTGOOD
-        let cache = self.sortition_cache.lock().unwrap();
+        // let cache = self.sortition_cache.lock().unwrap();
         let selected_stake = find_bin_idx(
             u64::from(replicas_stake),
             u64::from(total_stake),
             self.sortition_parameter.get(),
             &hash,
-            cache,
+            // cache,
         );
         match selected_stake {
             Some(count) => {
@@ -512,7 +513,7 @@ where
                                 u64::from(total_stake),
                                 self.sortition_parameter.get(),
                                 &seed,
-                                self.sortition_cache.lock().unwrap(),
+                                // self.sortition_cache.lock().unwrap(),
                             ) {
                                 Ok(Checked::Valid(token))
                             } else {
@@ -562,14 +563,14 @@ fn check_bin_idx(
     total_stake: u64,
     sortition_parameter: u64,
     unnormalized_seed: &[u8; 32],
-    cache: MutexGuard<'_, HashMap<BinomialQuery, Ratio<BigUint>>>,
+    // cache: MutexGuard<'_, HashMap<BinomialQuery, Ratio<BigUint>>>,
 ) -> Option<bool> {
     let bin_idx = find_bin_idx(
         replicas_stake,
         total_stake,
         sortition_parameter,
         unnormalized_seed,
-        cache,
+        // cache,
     );
     bin_idx.map(|idx| idx == NonZeroU64::new(expected_amount_of_stake).unwrap())
 }
@@ -723,7 +724,7 @@ fn find_bin_idx(
     total_stake: u64,
     sortition_parameter: u64,
     unnormalized_seed: &[u8; 32],
-    mut cache: MutexGuard<'_, HashMap<BinomialQuery, Ratio<BigUint>>>,
+    // mut cache: MutexGuard<'_, HashMap<BinomialQuery, Ratio<BigUint>>>,
 ) -> Option<NonZeroU64> {
     let unnormalized_seed = BigUint::from_bytes_le(unnormalized_seed);
     let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from(2_u32).pow(256));
@@ -752,25 +753,26 @@ fn find_bin_idx(
             sortition_parameter,
         };
 
-        let bin_val = {
-            // we already computed this value
-            if let Some(result) = cache.get(&query) {
-                result.clone()
-            } else {
-                // we haven't computed this value, but maybe
-                // we already computed the previous value
+        // let bin_val = {
+        //     // we already computed this value
+        //     if let Some(result) = cache.get(&query) {
+        //         result.clone()
+        //     } else {
+        //         // we haven't computed this value, but maybe
+        //         // we already computed the previous value
 
-                let mut maybe_old_query = query.clone();
-                maybe_old_query.stake_attempt -= 1;
-                let old_result = cache
-                    .get(&maybe_old_query)
-                    .map(|x| (maybe_old_query, x.clone()));
-                let result = calculate_threshold_from_cache(old_result, query.clone())?;
-                cache.insert(query, result.clone());
-                result
-            }
-        };
+        //         let mut maybe_old_query = query.clone();
+        //         maybe_old_query.stake_attempt -= 1;
+        //         let old_result = cache
+        //             .get(&maybe_old_query)
+        //             .map(|x| (maybe_old_query, x.clone()));
+        //         // let result = calculate_threshold_from_cache(old_result, query.clone())?;
+        //         // cache.insert(query, result.clone());
+        //         result
+        //     }
+        // };
 
+        let bin_val = calculate_threshold(query)?;
         // corresponds to right range from apper
         let right_threshold = left_threshold + bin_val.clone();
 
@@ -854,7 +856,7 @@ where
             _pd_3: PhantomData,
             _pd_4: PhantomData,
             sortition_parameter: config.sortition_parameter,
-            sortition_cache: Arc::default(),
+            // sortition_cache: Arc::default(),
         }
     }
 }
