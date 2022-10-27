@@ -20,7 +20,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
-use tracing::{info, instrument, warn};
+use tracing::{info, instrument, warn, error};
 
 
 /// The next view's leader
@@ -84,6 +84,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         // Ignoring deserialization errors below since we are getting rid of it soon
                         Unchecked(vote_token),
                     ) {
+                        error!("Invalid vote token signature");
                         continue;
                     }
 
@@ -110,6 +111,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         signature_map,
                     );
                     if stake_casted >= u64::from(threshold) {
+                        error!("Stake casted: {}", stake_casted);
+
                         let (block_commitment, valid_signatures) =
                             vote_outcomes.remove(&vote.leaf_commitment).unwrap();
                         // construct QC
