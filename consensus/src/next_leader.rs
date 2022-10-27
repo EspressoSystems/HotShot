@@ -126,7 +126,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         return qc;
                     }
                     else {
-                        error!("Casted stake of {} does not meet threshold of {}", stake_casted, threshold);
+                        error!("Casted stake of {} does not meet threshold of {} across {} signatures", stake_casted, threshold, valid_signatures.len());
                     }
                 }
                 ConsensusMessage::NextViewInterrupt(_view_number) => {
