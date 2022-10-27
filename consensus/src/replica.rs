@@ -179,6 +179,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
                                 // Generate and send vote
+                                error!("Generating vote token!");
                                 let vote = ConsensusMessage::<I::StateType>::Vote(Vote {
                                     block_commitment:
                                         <<I::StateType as State>::BlockType as Committable>::commit(
