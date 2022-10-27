@@ -200,6 +200,7 @@ pub async fn spawn_all<I: NodeImplementation>(hotshot: &HotShot<I>) -> HotShotHa
 /// Executes one view of consensus
 #[instrument(skip(hotshot), fields(id = hotshot.id), name = "View Runner Task", level = "error")]
 pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), ()> {
+    error!("Starting view");
     let c_api = HotShotConsensusApi {
         inner: hotshot.inner.clone(),
     };
@@ -339,7 +340,7 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
     consensus.high_qc = high_qc;
     c_api.send_view_finished(consensus.cur_view).await;
 
-    info!("Returning from view {:?}!", cur_view);
+    error!("Returning from view {:?}!", cur_view);
     Ok(())
 }
 
