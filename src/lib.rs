@@ -421,6 +421,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             inner: self.inner.clone(),
         };
         if sender != api.get_leader(msg_view_number).await {
+            error!("Message sent from wrong leader");
             return;
         }
 
