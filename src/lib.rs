@@ -467,7 +467,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
 
         // We can only recv from a replicas
         // replicas should only send votes or if they timed out, timeouts
-        error!("Message in lib is {:?}", msg);
+        // error!("Message in lib is {:?}", msg);
         match msg {
             ConsensusMessage::Proposal(_) | ConsensusMessage::NextViewInterrupt(_) => {
                 warn!("Received a direct message for a proposal. This shouldn't be possible.");

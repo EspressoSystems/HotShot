@@ -194,9 +194,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 });
 
                                 let next_leader = self.api.get_leader(self.cur_view + 1).await;
-                                error!("Next leader for view {:?} is {:?}", self.cur_view, next_leader);
+                                // error!("Next leader for view {:?} is {:?}", self.cur_view, next_leader);
 
-                                error!("Sending vote to next leader {:?}", vote);
+                                // error!("Sending vote to next leader {:?}", vote);
 
                                 if self
                                     .api

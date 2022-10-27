@@ -497,7 +497,7 @@ pub async fn network_direct_task<I: NodeImplementation>(
         // Make sure to reset the backoff time
         incremental_backoff_ms = 10;
         for item in queue {
-            error!(?item, "Processing item");
+            trace!(?item, "Processing item");
             match item.kind {
                 MessageKind::Consensus(msg) => {
                     hotshot
