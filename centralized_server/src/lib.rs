@@ -209,6 +209,7 @@ impl<K, E> FromBackground<K, E> {
         }
     }
     pub fn direct(source: K, message_len: u64, payload: Option<Vec<u8>>) -> FromBackground<K, E> {
+        error!("In direct message! {:?}", payload);
         FromBackground {
             header: FromServer::Direct {
                 source,
