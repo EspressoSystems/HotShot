@@ -69,9 +69,11 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     }
                     match msg {
                         ConsensusMessage::TimedOut(t) => {
+                            error!("Received timed out message in next leader for view {:?}", self.cur_view);
                             qcs.insert(t.justify_qc);
                         }
                         ConsensusMessage::Vote(vote) => {
+                            error!("Matched a Vote message!");
                             // if the signature on the vote is invalid,
                             // assume it's sent by byzantine node
                             // and ignore
@@ -137,6 +139,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         }
                         ConsensusMessage::NextViewInterrupt(_view_number) => {
                             self.api.send_next_leader_timeout(self.cur_view).await;
+                            error!("Received next view interrupt in next leader task");
                             break;
                         }
                         ConsensusMessage::Proposal(_p) => {
