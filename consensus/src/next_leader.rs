@@ -58,6 +58,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
         > = HashMap::new();
         // TODO will need to refactor this during VRF integration
         let threshold = self.api.threshold();
+        let mut stake: i64 = -1; 
 
         let lock = self.vote_collection_chan.lock().await;
         while let (message) = lock.recv().await {
@@ -120,8 +121,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                                 self.cur_view,
                                 signature_map,
                             );
+                            stake = stake_casted as i64;
                             if stake_casted >= u64::from(threshold) {
-                                error!("Stake casted: {}", stake_casted);
+                                error!("We met the threshold! Stake casted: {}", stake_casted);
 
                                 let (block_commitment, valid_signatures) =
                                     vote_outcomes.remove(&vote.leaf_commitment).unwrap();
@@ -154,7 +156,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                 }
             }
         }
-        error!("Ending next leader task for view {:?}", self.cur_view);
+        error!("Ending next leader task for view {:?} with stake {}", self.cur_view, stake);
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
     }
 }

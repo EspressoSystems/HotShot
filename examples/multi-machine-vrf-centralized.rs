@@ -85,11 +85,17 @@ async fn init_state_and_hotshot(
     //     <BLSVRFScheme<Param381> as Vrf<Hasher, Param381>>::param_gen(Some(prng)).unwrap();
     // let (priv_key, pub_key) =
     // <BLSVRFScheme<Param381> as Vrf<Hasher, Param381>>::key_gen(&parameters, prng).unwrap();
-    let priv_key =
-        <VRFPubKey<BLSSignatureScheme<Param381>> as TestableSignatureKey>::generate_test_key(
-            node_id.try_into().unwrap(),
-        );
-    let pub_key = VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
+    // let priv_key =
+    //     <VRFPubKey<BLSSignatureScheme<Param381>> as TestableSignatureKey>::generate_test_key(
+    //         node_id.try_into().unwrap(),
+    //     );
+    // let pub_key = VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
+
+    let vrfkey = VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(_seed, node_id);
+    let priv_key = vrfkey.1;
+    let pub_key =  VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
+
+
     // let (priv_key, pub_key) = VRFPubKey::generated_from_seed_indexed(_seed, node_id);
     let known_nodes = config.known_nodes.clone();
     // error!("Node id: {:?}, public key is {:?}", node_id, pub_key);
