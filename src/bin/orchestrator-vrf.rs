@@ -62,10 +62,14 @@ fn load_configs(
 
                 run.config.known_nodes = (0..run.config.total_nodes.get())
                     .map(|node_id| {
-                        let key =
-                        <VRFPubKey<BLSSignatureScheme<Param381>> as TestableSignatureKey>::generate_test_key(node_id.try_into().unwrap());
-                    let pub_key = VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&key);
-                    pub_key
+                        let vrf_key =
+                            VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(
+                                _seed, node_id,
+                            );
+                        let priv_key = vrf_key.1;
+                        let pub_key =
+                            VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
+                        pub_key
                     })
                     .collect();
 

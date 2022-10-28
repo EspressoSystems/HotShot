@@ -62,7 +62,6 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
                 if msg.view_number() != self.cur_view {
-                    error!("Wrong view number for replica");
                     continue;
                 }
                 match msg {
@@ -148,20 +147,18 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         // if !(safety_check || liveness_check)
                         // if !safety_check && !liveness_check
                         if !safety_check && !liveness_check {
-                            error!("Failed safety check and liveness check");
+                            warn!("Failed safety check and liveness check");
                             continue;
                         }
 
                         let election = self.api.get_election();
                         let leaf_commitment = leaf.commit();
-                        
-                        let vote_token = election.
-                        make_vote_token(
+
+                        let vote_token = election.make_vote_token(
                             self.cur_view,
                             self.api.private_key(),
                             leaf_commitment,
                         );
-                       
 
                         match vote_token {
                             Err(e) => {
@@ -171,16 +168,14 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 );
                             }
                             Ok(None) => {
-                                error!("We were not chosen for committee on {:?}", self.cur_view);
+                                info!("We were not chosen for committee on {:?}", self.cur_view);
                             }
                             Ok(Some(vote_token)) => {
-                                error!("We were chosen for committee on {:?}", self.cur_view);
-                                error!("Our casted stake is: {:?}", vote_token.vote_count());
+                                info!("We were chosen for committee on {:?}", self.cur_view);
 
                                 let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
                                 // Generate and send vote
-                                error!("Generating vote token!");
                                 let vote = ConsensusMessage::<I::StateType>::Vote(Vote {
                                     block_commitment:
                                         <<I::StateType as State>::BlockType as Committable>::commit(
@@ -195,9 +190,6 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 });
 
                                 let next_leader = self.api.get_leader(self.cur_view + 1).await;
-                                // error!("Next leader for view {:?} is {:?}", self.cur_view, next_leader);
-
-                                // error!("Sending vote to next leader {:?}", vote);
 
                                 if self
                                     .api
@@ -207,10 +199,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 {
                                     warn!("Failed to send vote to next leader");
                                 }
-
                             }
                         }
-                        break leaf
+                        break leaf;
                     }
                     ConsensusMessage::NextViewInterrupt(_view_number) => {
                         let next_leader = self.api.get_leader(self.cur_view + 1).await;

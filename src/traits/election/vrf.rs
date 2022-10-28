@@ -715,7 +715,7 @@ fn find_bin_idx(
     total_stake: u64,
     sortition_parameter: u64,
     unnormalized_seed: &[u8; 32],
-    mut cache: MutexGuard<'_, HashMap<BinomialQuery, Ratio<BigUint>>>,
+    cache: MutexGuard<'_, HashMap<BinomialQuery, Ratio<BigUint>>>,
 ) -> Option<NonZeroU64> {
     let unnormalized_seed = BigUint::from_bytes_le(unnormalized_seed);
     let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from(2_u32).pow(256));

@@ -421,7 +421,6 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
             inner: self.inner.clone(),
         };
         if sender != api.get_leader(msg_view_number).await {
-            error!("Message sent from wrong leader");
             return;
         }
 
@@ -779,8 +778,8 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     // TODO ed - refactor this function to only acc stake, and not check validity
     fn validated_stake(
         &self,
-        hash: Commitment<Leaf<I::StateType>>,
-        view_number: ViewNumber,
+        _hash: Commitment<Leaf<I::StateType>>,
+        _view_number: ViewNumber,
         signatures: BTreeMap<
             EncodedPublicKey,
             (

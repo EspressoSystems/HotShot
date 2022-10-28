@@ -26,13 +26,13 @@ async fn centralized_server_network_vrf() {
         round_start_delay: 25,
         num_bootstrap_nodes: 5,
         timeout_ratio: (11, 10),
-        total_nodes: 100,
-        start_nodes: 100,
+        total_nodes: 10,
+        start_nodes: 10,
         num_succeeds: 20,
         txn_ids: Right(1),
-        next_view_timeout: 60000,
+        next_view_timeout: 10000,
         start_delay: 120000,
-        failure_threshold: 5,
+        failure_threshold: 0,
         ..GeneralTestDescriptionBuilder::default()
     };
 
