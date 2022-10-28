@@ -675,7 +675,7 @@ fn calculate_threshold(query: BinomialQuery) -> Option<Ratio<BigUint>> {
     // this is the p parameter for the bernoulli distribution
     let p = Ratio::new(sortition_parameter_big, total_stake_big);
 
-    assert!(p.numer() < p.denom());
+    assert!(p.numer() <= p.denom());
 
     info!("p is {p:?}");
 
