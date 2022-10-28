@@ -32,6 +32,7 @@ async fn centralized_server_network_vrf() {
         txn_ids: Right(1),
         next_view_timeout: 60000,
         start_delay: 120000,
+        failure_threshold: 5,
         ..GeneralTestDescriptionBuilder::default()
     };
 

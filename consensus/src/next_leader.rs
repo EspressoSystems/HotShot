@@ -115,7 +115,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                                 signature_map
                                     .insert(signature.0, (signature.1 .0, decoded_vote_token));
                             }
-                            let sigs = valid_signatures.len(); 
+                            let sigs = signature_map.len(); 
 
                             // TODO ed - current validated_stake rechecks that all votes are valid, which isn't necessary here
                             let stake_casted = self.api.validated_stake(
