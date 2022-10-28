@@ -220,6 +220,11 @@ impl CliOrchestrated {
             FromServer::Config { config, run } => (config, run),
             x => panic!("Expected Libp2pConfig, got {x:?}"),
         };
+        assert_eq!(config.key_type_name, std::any::type_name::<Ed25519Pub>());
+        assert_eq!(
+            config.election_config_type_name,
+            std::any::type_name::<StaticElectionConfig>()
+        );
         error!("Received server config: {config:?}");
         let privkey = Ed25519Priv::generated_from_seed_indexed(config.seed, config.node_index);
         let pubkey = Ed25519Pub::from_private(&privkey);
@@ -419,7 +424,7 @@ impl Config {
             propose_min_round_time: Duration::from_secs(self.propose_min_round_time),
             propose_max_round_time: Duration::from_secs(self.propose_max_round_time),
             num_bootstrap: 7,
-            election_config: Some(StaticElectionConfig {})
+            election_config: Some(StaticElectionConfig {}),
         };
         debug!(?config);
         let hotshot = HotShot::init(
