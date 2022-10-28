@@ -6,7 +6,6 @@ use hotshot_types::{
         election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
         State,
-
     },
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -17,6 +16,7 @@ use serde::{
     de::{self},
     Deserialize, Serialize,
 };
+use std::time::Instant;
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
@@ -31,7 +31,7 @@ use num::{rational::Ratio, BigUint, ToPrimitive};
 
 // TODO wrong palce for this
 /// the sortition committee size parameter
-pub const SORTITION_PARAMETER: u64 = 10000;
+pub const SORTITION_PARAMETER: u64 = 334;
 
 // TODO abstraction this function's impl into a trait
 // TODO do we necessariy want the units of stake to be a u64? or generics
@@ -450,7 +450,7 @@ where
 
         // TODO (jr) this error handling is NOTGOOD
         let cache = self.sortition_cache.lock().unwrap();
-        error!("Cache size is {:?}", cache.len());
+        // error!("Cache size is {:?}", cache.len());
         let selected_stake = find_bin_idx(
             u64::from(replicas_stake),
             u64::from(total_stake),
@@ -946,6 +946,7 @@ mod tests {
                 match token_result {
                     Some(token) => {
                         let count = token.count;
+                        let start = Instant::now();
                         let result = vrf_impl
                             .validate_vote_token(
                                 ViewNumber::new(view),
@@ -954,8 +955,10 @@ mod tests {
                                 next_state_commitment,
                             )
                             .unwrap();
+                        let duration = Instant::now() - start;
+                        println!("Duration for verifying vote token is {:?}", duration);
                         let result_is_valid = check_if_valid(&result);
-                        error!("view {view:?}, node_idx {node_idx:?}, stake {count:?} ");
+                        // error!("view {view:?}, node_idx {node_idx:?}, stake {count:?} ");
                         assert!(result_is_valid);
                     }
                     _ => continue,
@@ -972,6 +975,22 @@ mod tests {
         assert_eq!(factorial(3), BigUint::from(6u32));
         assert_eq!(factorial(4), BigUint::from(24u32));
         assert_eq!(factorial(5), BigUint::from(120u32));
+    }
+
+    #[test]
+    pub fn test_signature_performance() {
+        let _seed = [0u8; 32];
+        let node_id = 0; 
+        let vrf_key =
+            VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(_seed, node_id);
+        let priv_key = vrf_key.1;
+        let pub_key = VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
+
+        let data = [3u8; 32];
+        let start = Instant::now();
+        let signature = VRFPubKey::<BLSSignatureScheme<Param381>>::sign(&priv_key, &data);
+        let duration = Instant::now() - start;
+        println!("Duration for verifying vote token is {:?}", duration);
     }
 
     // TODO add failure case
