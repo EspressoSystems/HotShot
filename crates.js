@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["benchmark_client","counter","dentry_simulator","hotshot","hotshot_orchestrator","libp2p_networking","multi_machine","multi_machine_centralized","multi_machine_libp2p","multi_machine_vrf_centralized"];
+window.ALL_CRATES = ["benchmark_client","counter","dentry_simulator","hotshot","hotshot_orchestrator","libp2p_networking","multi_machine","multi_machine_centralized","multi_machine_libp2p","multi_machine_vrf_centralized","multi_machine_vrf_libp2p"];

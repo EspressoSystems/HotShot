@@ -8,6 +8,7 @@ var sourcesIndex = JSON.parse('{\
 "multi_machine":["",[],["multi-machine.rs"]],\
 "multi_machine_centralized":["",[],["multi-machine-centralized.rs"]],\
 "multi_machine_libp2p":["",[],["multi-machine-libp2p.rs"]],\
-"multi_machine_vrf_centralized":["",[],["multi-machine-vrf-centralized.rs"]]\
+"multi_machine_vrf_centralized":["",[],["multi-machine-vrf-centralized.rs"]],\
+"multi_machine_vrf_libp2p":["",[],["multi-machine-vrf-libp2p.rs"]]\
 }');
 createSourceSidebar();

@@ -1,4 +1,5 @@
 (function() {var implementors = {};
 implementors["hotshot_orchestrator"] = [{"text":"impl Subcommand for <a class=\"enum\" href=\"hotshot_orchestrator/enum.Args.html\" title=\"enum hotshot_orchestrator::Args\">Args</a>","synthetic":false,"types":["hotshot_orchestrator::Args"]}];
 implementors["multi_machine_libp2p"] = [{"text":"impl Subcommand for <a class=\"enum\" href=\"multi_machine_libp2p/enum.CliOpt.html\" title=\"enum multi_machine_libp2p::CliOpt\">CliOpt</a>","synthetic":false,"types":["multi_machine_libp2p::CliOpt"]}];
+implementors["multi_machine_vrf_libp2p"] = [{"text":"impl Subcommand for <a class=\"enum\" href=\"multi_machine_vrf_libp2p/enum.CliOpt.html\" title=\"enum multi_machine_vrf_libp2p::CliOpt\">CliOpt</a>","synthetic":false,"types":["multi_machine_vrf_libp2p::CliOpt"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
