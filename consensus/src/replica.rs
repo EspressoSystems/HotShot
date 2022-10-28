@@ -154,11 +154,14 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
 
                         let election = self.api.get_election();
                         let leaf_commitment = leaf.commit();
-                        let vote_token = election.make_vote_token(
+                        
+                        let vote_token = election.
+                        make_vote_token(
                             self.cur_view,
                             self.api.private_key(),
                             leaf_commitment,
                         );
+                       
 
                         match vote_token {
                             Err(e) => {
@@ -166,9 +169,11 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                     "Failed to generate vote token for {:?} {:?}",
                                     self.cur_view, e
                                 );
+                                continue
                             }
                             Ok(None) => {
                                 error!("We were not chosen for committee on {:?}", self.cur_view);
+                                continue
                             }
                             Ok(Some(vote_token)) => {
                                 error!("We were chosen for committee on {:?}", self.cur_view);
