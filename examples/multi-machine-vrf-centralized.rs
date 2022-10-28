@@ -13,16 +13,12 @@ use hotshot::{
     HotShot,
 };
 use hotshot_centralized_server::{NetworkConfig, RunResults};
-use hotshot_types::traits::signature_key::TestableSignatureKey;
 use hotshot_types::{traits::state::TestableState, HotShotConfig};
 use hotshot_utils::{
     art::{async_main, async_sleep},
     test_util::{setup_backtrace, setup_logging},
 };
-use jf_primitives::{
-    signatures::BLSSignatureScheme,
-    vrf::{blsvrf::BLSVRFScheme, Vrf},
-};
+use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use std::{
     cmp,
     collections::{BTreeMap, VecDeque},
@@ -90,11 +86,10 @@ async fn init_state_and_hotshot(
     //         node_id.try_into().unwrap(),
     //     );
     // let pub_key = VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
-
-    let vrfkey = VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(_seed, node_id);
+    let vrfkey =
+        VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(_seed, node_id);
     let priv_key = vrfkey.1;
-    let pub_key =  VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
-
+    let pub_key = VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
 
     // let (priv_key, pub_key) = VRFPubKey::generated_from_seed_indexed(_seed, node_id);
     let known_nodes = config.known_nodes.clone();
@@ -169,7 +164,18 @@ async fn main() {
         padding,
         libp2p_config: _,
         start_delay_seconds: _,
+        key_type_name,
+        election_config_type_name,
     } = config;
+
+    assert_eq!(
+        key_type_name,
+        std::any::type_name::<VRFPubKey<BLSSignatureScheme<Param381>>>()
+    );
+    assert_eq!(
+        election_config_type_name,
+        std::any::type_name::<VRFStakeTableConfig>()
+    );
 
     // Initialize the state and hotshot
     let (_own_state, mut hotshot) = init_state_and_hotshot(network, config, seed, node_index).await;
