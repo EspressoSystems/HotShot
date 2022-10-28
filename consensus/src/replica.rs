@@ -169,11 +169,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                     "Failed to generate vote token for {:?} {:?}",
                                     self.cur_view, e
                                 );
-                                continue
                             }
                             Ok(None) => {
                                 error!("We were not chosen for committee on {:?}", self.cur_view);
-                                continue
                             }
                             Ok(Some(vote_token)) => {
                                 error!("We were chosen for committee on {:?}", self.cur_view);
