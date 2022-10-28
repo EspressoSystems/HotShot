@@ -31,7 +31,7 @@ use num::{rational::Ratio, BigUint, ToPrimitive};
 
 // TODO wrong palce for this
 /// the sortition committee size parameter
-pub const SORTITION_PARAMETER: u64 = 100;
+pub const SORTITION_PARAMETER: u64 = 1000;
 
 // TODO abstraction this function's impl into a trait
 // TODO do we necessariy want the units of stake to be a u64? or generics
