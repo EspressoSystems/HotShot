@@ -218,19 +218,6 @@ where
     }
     // TODO this is wrong.
     fn generated_from_seed_indexed(_seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
-        // let mut prng = rand::thread_rng();
-
-        // // TODO we should make this more general/use different parameters
-        // #[allow(clippy::let_unit_value)]
-        // let param = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
-        // let (sk, pk) = SIGSCHEME::key_gen(&param, &mut prng).unwrap();
-        // (
-        //     Self {
-        //         pk: pk.clone(),
-        //         _pd_0: PhantomData,
-        //     },
-        //     (sk, pk),
-        // )
         let mut hasher = blake3::Hasher::new();
         hasher.update(&index.to_le_bytes());
         let new_seed = *hasher.finalize().as_bytes();

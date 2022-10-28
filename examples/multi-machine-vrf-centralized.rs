@@ -76,7 +76,7 @@ async fn init_state_and_hotshot(
 
     let vrf_key =
         VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(_seed, node_id);
-    let priv_key = vrf+key.1;
+    let priv_key = vrf_key.1;
     let pub_key = VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
 
     let known_nodes = config.known_nodes.clone();
