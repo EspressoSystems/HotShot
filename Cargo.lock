@@ -2151,6 +2151,7 @@ dependencies = [
  "async-trait",
  "async-tungstenite",
  "atomic_store",
+ "base64",
  "bimap",
  "bincode",
  "blake3",

@@ -128,7 +128,9 @@ where
     SIGSCHEME::Signature: Clone + for<'a> Deserialize<'a> + Serialize,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("VRFPubKey").field(&self.to_bytes()).finish()
+        f.debug_tuple("VRFPubKey")
+            .field(&base64::encode(&self.to_bytes().0))
+            .finish()
     }
 }
 impl<SIGSCHEME> PartialEq for VRFPubKey<SIGSCHEME>
