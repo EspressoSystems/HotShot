@@ -59,6 +59,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
         // TODO will need to refactor this during VRF integration
         let threshold = self.api.threshold();
         let mut stake: i64 = -1; 
+        let mut sigs = 0; 
 
         let lock = self.vote_collection_chan.lock().await;
         while let (message) = lock.recv().await {
@@ -114,6 +115,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                                 signature_map
                                     .insert(signature.0, (signature.1 .0, decoded_vote_token));
                             }
+                            let sigs = valid_signatures.len(); 
 
                             // TODO ed - current validated_stake rechecks that all votes are valid, which isn't necessary here
                             let stake_casted = self.api.validated_stake(
@@ -157,7 +159,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                 }
             }
         }
-        error!("Ending next leader task for view {:?} with stake {}", self.cur_view, stake);
+        error!("Ending next leader task for view {:?} with stake {} and number of sigs {}", self.cur_view, stake, sigs);
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
     }
 }
