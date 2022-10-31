@@ -30,8 +30,11 @@ use std::{
 };
 use tracing::{debug, error};
 
-type Node =
-    DEntryNode<CentralizedServerNetwork<Ed25519Pub, StaticElectionConfig>, StaticCommittee<DEntryState>, Ed25519Pub>;
+type Node = DEntryNode<
+    CentralizedServerNetwork<Ed25519Pub, StaticElectionConfig>,
+    StaticCommittee<DEntryState>,
+    Ed25519Pub,
+>;
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -127,7 +130,14 @@ async fn main() {
         padding,
         libp2p_config: _,
         start_delay_seconds: _,
+        key_type_name,
+        election_config_type_name,
     } = config;
+    assert_eq!(key_type_name, std::any::type_name::<Ed25519Pub>());
+    assert_eq!(
+        election_config_type_name,
+        std::any::type_name::<StaticElectionConfig>()
+    );
 
     // Initialize the state and hotshot
     let (_own_state, mut hotshot) = init_state_and_hotshot(network, config, seed, node_index).await;
@@ -214,7 +224,8 @@ async fn main() {
     );
     debug!("All rounds completed");
 
-    let networking: &CentralizedServerNetwork<Ed25519Pub, StaticElectionConfig> = hotshot.networking();
+    let networking: &CentralizedServerNetwork<Ed25519Pub, StaticElectionConfig> =
+        hotshot.networking();
     networking
         .send_results(RunResults {
             run,
