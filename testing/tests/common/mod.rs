@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use ark_bls12_381::Parameters as Param381;
 use blake3::Hasher;
 use either::Either;
 use futures::{future::LocalBoxFuture, FutureExt};
@@ -294,8 +295,6 @@ pub type GenRunner<TYPES, I> =
 /// type alias for doing setup for a consensus round
 pub type TestSetup<TYPES, TRANS, I> =
     Vec<Box<dyn FnOnce(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<Vec<TRANS>>>>;
-
-use ark_bls12_381::Parameters as Param381;
 
 #[derive(
     Copy,

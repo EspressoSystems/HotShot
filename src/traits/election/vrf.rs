@@ -1,5 +1,7 @@
+use ark_bls12_381::Parameters as Param381;
 use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
+use blake3::Hasher;
 use commit::{Commitment, Committable};
 use hotshot_types::{
     data::Leaf,
@@ -10,7 +12,14 @@ use hotshot_types::{
     },
 };
 use hotshot_utils::bincode::bincode_opts;
-use jf_primitives::{hash_to_group::SWHashToGroup, signatures::SignatureScheme, vrf::Vrf};
+use jf_primitives::{
+    hash_to_group::SWHashToGroup,
+    signatures::{
+        bls::{BLSSignature, BLSVerKey},
+        BLSSignatureScheme, SignatureScheme,
+    },
+    vrf::{blsvrf::BLSVRFScheme, Vrf},
+};
 use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
@@ -329,15 +338,18 @@ pub struct VRFVoteToken<PUBKEY, PROOF> {
     pub count: NonZeroU64,
 }
 
-impl<PUBKEY, PROOF> Hash for VRFVoteToken<PUBKEY, PROOF> {
-    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {
-        // TODO(vko)
-        todo!()
-        // self.pub_key.hash(state);
-        // self.proof.hash(state);
-        // self.count.hash(state);
+impl<PUBKEY, PROOF> Hash for VRFVoteToken<PUBKEY, PROOF>
+where
+    PUBKEY: serde::Serialize,
+    PROOF: serde::Serialize,
+{
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        bincode_opts().serialize(&self.pub_key).unwrap().hash(state);
+        bincode_opts().serialize(&self.proof).unwrap().hash(state);
+        self.count.hash(state);
     }
 }
+
 impl<PUBKEY, PROOF> Debug for VRFVoteToken<PUBKEY, PROOF> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("VRFVoteToken")
@@ -347,11 +359,18 @@ impl<PUBKEY, PROOF> Debug for VRFVoteToken<PUBKEY, PROOF> {
             .finish()
     }
 }
-impl<PUBKEY, PROOF> PartialEq for VRFVoteToken<PUBKEY, PROOF> {
-    fn eq(&self, _other: &Self) -> bool {
-        // TODO(vko)
-        // self.pub_key == other.pub_key && self.proof == other.proof && self.count == other.count
-        todo!()
+
+impl<PUBKEY, PROOF> PartialEq for VRFVoteToken<PUBKEY, PROOF>
+where
+    PUBKEY: serde::Serialize,
+    PROOF: serde::Serialize,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.count == other.count
+            && bincode_opts().serialize(&self.pub_key).unwrap()
+                == bincode_opts().serialize(&other.pub_key).unwrap()
+            && bincode_opts().serialize(&self.proof).unwrap()
+                == bincode_opts().serialize(&other.proof).unwrap()
     }
 }
 
@@ -860,38 +879,24 @@ where
     }
 }
 
-impl<VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, TYPES> TestableElection<TYPES>
-    for VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+impl<TYPES> TestableElection<TYPES>
+    for VrfImpl<TYPES, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>
 where
-    SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send + 'static,
-    SIGSCHEME::VerificationKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
-    SIGSCHEME::SigningKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
-    SIGSCHEME::Signature: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
-    VRF: Vrf<
-            VRFHASHER,
-            VRFPARAMS,
-            PublicParameter = (),
-            Input = [u8; 32],
-            Output = [u8; 32],
-            PublicKey = SIGSCHEME::VerificationKey,
-            SecretKey = SIGSCHEME::SigningKey,
-        > + Sync
-        + Send
-        + 'static,
-    VRF::Proof: Clone + Sync + Send + Serialize + for<'a> Deserialize<'a>,
-    VRF::PublicParameter: Sync + Send,
-    VRFHASHER: Clone + Sync + Send + 'static,
-    VRFPARAMS: Sync + Send + Bls12Parameters,
-    <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
     TYPES: NodeTypes<
-        VoteTokenType = VRFVoteToken<VRF::PublicKey, VRF::Proof>,
+        VoteTokenType = VRFVoteToken<
+            BLSVerKey<ark_bls12_381::Parameters>,
+            BLSSignature<ark_bls12_381::Parameters>,
+        >,
         ElectionConfigType = VRFStakeTableConfig,
-        SignatureKey = VRFPubKey<SIGSCHEME>,
+        SignatureKey = VRFPubKey<BLSSignatureScheme<Param381>>,
     >,
 {
     fn generate_test_vote_token() -> TYPES::VoteTokenType {
-        // TODO(vko)
-        todo!()
+        VRFVoteToken {
+            count: NonZeroU64::new(1234).unwrap(),
+            proof: BLSSignature::default(),
+            pub_key: BLSVerKey::default(),
+        }
     }
 }
 

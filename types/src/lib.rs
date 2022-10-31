@@ -3,18 +3,13 @@
     clippy::all,
     clippy::pedantic,
     rust_2018_idioms,
-    // missing_docs,
+    missing_docs,
     clippy::missing_docs_in_private_items,
     clippy::panic
 )]
 #![allow(clippy::must_use_candidate, clippy::module_name_repetitions)]
-// TODO(vko): write docs
-#![allow(missing_docs)]
 
-use std::{
-    num::{NonZeroUsize},
-    time::Duration,
-};
+use std::{num::NonZeroUsize, time::Duration};
 
 pub mod constants;
 pub mod data;
