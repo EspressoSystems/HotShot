@@ -59,12 +59,12 @@ fn load_configs(
                     VRFPubKey<BLSSignatureScheme<Param381>>,
                     VRFStakeTableConfig,
                 > = run.into();
-
+                let seed =  [0u8; 32];
                 run.config.known_nodes = (0..run.config.total_nodes.get())
                     .map(|node_id| {
                         let vrf_key =
                             VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(
-                                _seed, node_id,
+                                seed, node_id.try_into().unwrap(),
                             );
                         let priv_key = vrf_key.1;
                         let pub_key =
