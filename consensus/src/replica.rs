@@ -58,7 +58,6 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
         let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
             let msg = lock.recv().await;
-            // error!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
                 if msg.view_number() != self.cur_view {
@@ -66,6 +65,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                 }
                 match msg {
                     ConsensusMessage::Proposal(p) => {
+                        error!("Received proposal! ");
                         let parent = if let Some(parent) =
                             consensus.saved_leaves.get(&p.leaf.parent_commitment)
                         {
@@ -147,12 +147,13 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         // if !(safety_check || liveness_check)
                         // if !safety_check && !liveness_check
                         if !safety_check && !liveness_check {
-                            warn!("Failed safety check and liveness check");
+                            error!("Failed safety check and liveness check");
                             continue;
                         }
 
                         let election = self.api.get_election();
                         let leaf_commitment = leaf.commit();
+                        error!("Making vote token! ");
 
                         let vote_token = election.make_vote_token(
                             self.cur_view,
@@ -168,10 +169,10 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 );
                             }
                             Ok(None) => {
-                                info!("We were not chosen for committee on {:?}", self.cur_view);
+                                error!("We were not chosen for committee on {:?}", self.cur_view);
                             }
                             Ok(Some(vote_token)) => {
-                                info!("We were chosen for committee on {:?}", self.cur_view);
+                                error!("We were chosen for committee on {:?}", self.cur_view);
 
                                 let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
@@ -188,6 +189,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                     // Going to ignore serialization errors belwo since we are getting rid of this soon
                                     vote_token: bincode_opts().serialize(&vote_token).unwrap(),
                                 });
+                                error!("Sending vote token to next leader");
+
 
                                 let next_leader = self.api.get_leader(self.cur_view + 1).await;
 

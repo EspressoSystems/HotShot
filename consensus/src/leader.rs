@@ -9,10 +9,7 @@ use commit::Committable;
 use hotshot_types::{
     data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber},
     message::{ConsensusMessage, Proposal},
-    traits::{
-        node_implementation::NodeImplementation, signature_key::SignatureKey, Block,
-        State,
-    },
+    traits::{node_implementation::NodeImplementation, signature_key::SignatureKey, Block, State},
 };
 use hotshot_utils::{
     art::{async_sleep, async_timeout},
@@ -160,7 +157,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let leaf: ProposalLeaf<I::StateType> = leaf.into();
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
-            info!("Sending out proposal {:?}", message);
+            error!("Sending out proposal {:?}", message);
 
             if let Err(e) = self.api.send_broadcast_message(message.clone()).await {
                 warn!(?message, ?e, "Could not broadcast leader proposal");

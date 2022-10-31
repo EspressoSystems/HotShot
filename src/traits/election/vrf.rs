@@ -31,7 +31,7 @@ use num::{rational::Ratio, BigUint, ToPrimitive};
 
 // TODO wrong palce for this
 /// the sortition committee size parameter
-pub const SORTITION_PARAMETER: u64 = 334;
+pub const SORTITION_PARAMETER: u64 = 1000;
 
 // TODO abstraction this function's impl into a trait
 // TODO do we necessariy want the units of stake to be a u64? or generics
@@ -412,7 +412,8 @@ where
         // participant has
         let mapping = &self.stake_table.mapping;
         let index = ((*view_number) as usize) % mapping.len();
-        let encoded = mapping.keys().nth(index).unwrap();
+        // TODO change back to index
+        let encoded = mapping.keys().nth(0).unwrap();
         SignatureKey::from_bytes(encoded).unwrap()
     }
 
@@ -450,7 +451,7 @@ where
 
         // TODO (jr) this error handling is NOTGOOD
         let cache = self.sortition_cache.lock().unwrap();
-        // error!("Cache size is {:?}", cache.len());
+        // error!("Cache is {:?}", std::mem::size_of::<Ratio<BigUint>>());
         let selected_stake = find_bin_idx(
             u64::from(replicas_stake),
             u64::from(total_stake),
@@ -486,6 +487,7 @@ where
         token: Checked<Self::VoteTokenType>,
         next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
     ) -> Result<Checked<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
+        let start = Instant::now();
         match token {
             Checked::Unchecked(token) => {
                 let stake: Option<NonZeroU64> = self.stake_table.get_stake(&pub_key);
@@ -496,6 +498,7 @@ where
                         &pub_key.pk,
                         &<[u8; 32]>::from(next_state),
                     ) {
+                        // error!("Validating vote token");
                         if let Ok(seed) = VRF::evaluate(&self.proof_parameters, &token.proof) {
                             let total_stake = self.stake_table.total_stake;
                             if let Some(true) = check_bin_idx(
@@ -506,6 +509,7 @@ where
                                 &seed,
                                 self.sortition_cache.lock().unwrap(),
                             ) {
+                                error!("Duration is {:?}", Instant::now() - start);
                                 Ok(Checked::Valid(token))
                             } else {
                                 Ok(Checked::Inval(token))
@@ -605,25 +609,26 @@ fn calculate_threshold_from_cache(
     previous_calculation: Option<(BinomialQuery, Ratio<BigUint>)>,
     query: BinomialQuery,
 ) -> Option<Ratio<BigUint>> {
-    // if let Some((previous_query, previous_result)) = previous_calculation {
-    //     let expected_previous_query = BinomialQuery {
-    //         stake_attempt: query.stake_attempt - 1,
-    //         ..query
-    //     };
-    //     if previous_query == expected_previous_query {
-    //         let permutation = Ratio::new(
-    //             BigUint::from(query.replicas_stake - query.stake_attempt + 1),
-    //             BigUint::from(query.stake_attempt),
-    //         );
-    //         let p = query.get_p();
-    //         assert!(p.numer() < p.denom());
-    //         let reciprocal = Ratio::recip(&(Ratio::from_integer(BigUint::from(1_u32)) - p.clone()));
-    //         let result = previous_result * p * reciprocal * permutation;
-    //         assert!(result.numer() < result.denom());
+    if let Some((previous_query, previous_result)) = previous_calculation {
+        let expected_previous_query = BinomialQuery {
+            stake_attempt: query.stake_attempt - 1,
+            ..query
+        };
+        if previous_query == expected_previous_query {
+            // error!("replica stake = {}, stake attempt = {}", query.replicas_stake, query.stake_attempt);
+            let permutation = Ratio::new(
+                BigUint::from(query.replicas_stake - query.stake_attempt + 1),
+                BigUint::from(query.stake_attempt),
+            );
+            let p = query.get_p();
+            assert!(p.numer() < p.denom());
+            let reciprocal = Ratio::recip(&(Ratio::from_integer(BigUint::from(1_u32)) - p.clone()));
+            let result = previous_result * p * reciprocal * permutation;
+            assert!(result.numer() < result.denom());
 
-    //         return Some(result);
-    //     }
-    // }
+            return Some(result);
+        }
+    }
     calculate_threshold(query)
 }
 
@@ -715,7 +720,7 @@ fn find_bin_idx(
     total_stake: u64,
     sortition_parameter: u64,
     unnormalized_seed: &[u8; 32],
-    cache: MutexGuard<'_, HashMap<BinomialQuery, Ratio<BigUint>>>,
+    mut cache: MutexGuard<'_, HashMap<BinomialQuery, Ratio<BigUint>>>,
 ) -> Option<NonZeroU64> {
     let unnormalized_seed = BigUint::from_bytes_le(unnormalized_seed);
     let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from(2_u32).pow(256));
@@ -729,6 +734,9 @@ fn find_bin_idx(
     // from i in 0 to j: B(i; replicas_stake; p). Where p is calculated later and corresponds to
     // algorands paper
     let mut left_threshold = Ratio::from_integer(BigUint::from(0u32));
+
+    // // let cache = HashMap<BinomialQuery, Ratio<BigUint>>::new(); 
+    // let mut cache: HashMap<BinomialQuery, Ratio<BigUint>> = HashMap::new(); 
 
     loop {
         // check cache
@@ -758,7 +766,7 @@ fn find_bin_idx(
                     .get(&maybe_old_query)
                     .map(|x| (maybe_old_query, x.clone()));
                 let result = calculate_threshold_from_cache(old_result, query.clone())?;
-                // cache.insert(query, result.clone());
+                cache.insert(query, result.clone());
                 result
             }
         };
@@ -980,7 +988,7 @@ mod tests {
     #[test]
     pub fn test_signature_performance() {
         let _seed = [0u8; 32];
-        let node_id = 0; 
+        let node_id = 0;
         let vrf_key =
             VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(_seed, node_id);
         let priv_key = vrf_key.1;

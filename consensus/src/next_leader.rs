@@ -44,7 +44,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
     /// unless there is a bug in std
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<I::StateType> {
-        info!("Next Leader task started!");
+        error!("Next Leader task started!");
         let mut qcs = HashSet::<QuorumCertificate<I::StateType>>::new();
         qcs.insert(self.generic_qc.clone());
 
@@ -65,13 +65,10 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
             }
             match msg {
                 ConsensusMessage::TimedOut(t) => {
-                    info!(
-                        "Received timed out message in next leader for view {:?}",
-                        self.cur_view
-                    );
                     qcs.insert(t.justify_qc);
                 }
                 ConsensusMessage::Vote(vote) => {
+                    error!("Matched vote token!");
                     // if the signature on the vote is invalid,
                     // assume it's sent by byzantine node
                     // and ignore
@@ -115,6 +112,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         self.cur_view,
                         signature_map,
                     );
+                    error!("Stake casted is: {}", stake_casted);
                     if stake_casted >= u64::from(threshold) {
                         let (block_commitment, valid_signatures) =
                             vote_outcomes.remove(&vote.leaf_commitment).unwrap();
@@ -126,6 +124,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                             signatures: valid_signatures,
                             genesis: false,
                         };
+                        error!("Stake matches threshold!");
                         return qc;
                     }
                 }
@@ -138,6 +137,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                 }
             }
         }
+        error!("Ending next leader round without enough stake");
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
     }
 }
