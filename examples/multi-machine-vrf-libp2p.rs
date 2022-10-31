@@ -15,10 +15,7 @@ use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::{
-            static_committee::StaticElectionConfig,
-            vrf::{VRFPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
-        },
+        election::vrf::{VRFPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
         implementations::{Libp2pNetwork, MemoryStorage},
         NetworkError, Storage,
     },
@@ -65,7 +62,7 @@ use std::{
 use tracing::{debug, error, info};
 
 type Key = VRFPubKey<BLSSignatureScheme<Param381>>;
-type FromServer = hotshot_centralized_server::FromServer<Key, StaticElectionConfig>;
+type FromServer = hotshot_centralized_server::FromServer<Key, VRFStakeTableConfig>;
 type ToServer = hotshot_centralized_server::ToServer<Key>;
 
 /// convert node string into multi addr
@@ -235,6 +232,11 @@ impl CliOrchestrated {
             FromServer::Config { config, run } => (config, run),
             x => panic!("Expected Libp2pConfig, got {x:?}"),
         };
+        assert_eq!(config.key_type_name, std::any::type_name::<Key>());
+        assert_eq!(
+            config.election_config_type_name,
+            std::any::type_name::<VRFStakeTableConfig>()
+        );
         error!("Received server config: {config:?}");
         let (pubkey, privkey) =
             <Key as SignatureKey>::generated_from_seed_indexed(config.seed, config.node_index);

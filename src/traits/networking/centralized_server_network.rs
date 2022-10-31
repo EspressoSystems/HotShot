@@ -652,6 +652,10 @@ impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
     /// Connect with the server running at `addr` and retrieve the config from the server.
     ///
     /// The config is returned along with the current run index and the running `CentralizedServerNetwork`
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the server has a different signature key (`K`) or election config (`E`)
     pub async fn connect_with_server_config(
         addr: SocketAddr,
     ) -> (
@@ -683,7 +687,15 @@ impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
             }
             match recv_stream.recv().await {
                 Ok(FromServer::Config { config, run }) => {
-                    break ((recv_stream, send_stream), run, config)
+                    assert_eq!(
+                        config.key_type_name,
+                        std::any::type_name::<TYPES::SignatureKey>()
+                    );
+                    assert_eq!(
+                        config.election_config_type_name,
+                        std::any::type_name::<TYPES::ElectionConfigType>()
+                    );
+                    break ((recv_stream, send_stream), run, config);
                 }
                 x => {
                     error!("Expected config from server, got {:?}", x);

@@ -70,6 +70,8 @@ pub struct NetworkConfig<KEY, ELECTION> {
     pub seed: [u8; 32],
     pub padding: usize,
     pub start_delay_seconds: u64,
+    pub key_type_name: String,
+    pub election_config_type_name: String,
     pub libp2p_config: Option<Libp2pConfig>,
     pub config: HotShotConfig<KEY, ELECTION>,
 }
@@ -85,6 +87,8 @@ impl<K, E> Default for NetworkConfig<K, E> {
             libp2p_config: None,
             config: default_config().into(),
             start_delay_seconds: 60,
+            key_type_name: std::any::type_name::<K>().to_string(),
+            election_config_type_name: std::any::type_name::<E>().to_string(),
         }
     }
 }
@@ -138,6 +142,8 @@ impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
                 num_txn_per_round: libp2p_config.num_txn_per_round,
             }),
             config: val.config.into(),
+            key_type_name: std::any::type_name::<K>().to_string(),
+            election_config_type_name: std::any::type_name::<E>().to_string(),
             start_delay_seconds: val.start_delay_seconds,
         }
     }
