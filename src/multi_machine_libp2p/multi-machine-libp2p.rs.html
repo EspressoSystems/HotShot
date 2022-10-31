@@ -622,6 +622,11 @@
 <span id="622">622</span>
 <span id="623">623</span>
 <span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
+<span id="628">628</span>
+<span id="629">629</span>
 </pre><pre class="rust"><code><span class="comment">// TODO this should really be moved into the utils crate.</span>
 <span class="macro">cfg_if::cfg_if!</span> {
     <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
@@ -844,6 +849,11 @@
             <span class="ident">FromServer::Config</span> { <span class="ident">config</span>, <span class="ident">run</span> } =&gt; (<span class="ident">config</span>, <span class="ident">run</span>),
             <span class="ident">x</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Expected Libp2pConfig, got {x:?}&quot;</span>),
         };
+        <span class="macro">assert_eq!</span>(<span class="ident">config</span>.<span class="ident">key_type_name</span>, <span class="ident">std::any::type_name</span>::<span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span>());
+        <span class="macro">assert_eq!</span>(
+            <span class="ident">config</span>.<span class="ident">election_config_type_name</span>,
+            <span class="ident">std::any::type_name</span>::<span class="op">&lt;</span><span class="ident">StaticElectionConfig</span><span class="op">&gt;</span>()
+        );
         <span class="macro">error!</span>(<span class="string">&quot;Received server config: {config:?}&quot;</span>);
         <span class="kw">let</span> <span class="ident">privkey</span> <span class="op">=</span> <span class="ident">Ed25519Priv::generated_from_seed_indexed</span>(<span class="ident">config</span>.<span class="ident">seed</span>, <span class="ident">config</span>.<span class="ident">node_index</span>);
         <span class="kw">let</span> <span class="ident">pubkey</span> <span class="op">=</span> <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">privkey</span>);
@@ -1043,7 +1053,7 @@
             <span class="ident">propose_min_round_time</span>: <span class="ident">Duration::from_secs</span>(<span class="self">self</span>.<span class="ident">propose_min_round_time</span>),
             <span class="ident">propose_max_round_time</span>: <span class="ident">Duration::from_secs</span>(<span class="self">self</span>.<span class="ident">propose_max_round_time</span>),
             <span class="ident">num_bootstrap</span>: <span class="number">7</span>,
-            <span class="ident">election_config</span>: <span class="prelude-val">Some</span>(<span class="ident">StaticElectionConfig</span> {})
+            <span class="ident">election_config</span>: <span class="prelude-val">Some</span>(<span class="ident">StaticElectionConfig</span> {}),
         };
         <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">config</span>);
         <span class="kw">let</span> <span class="ident">hotshot</span> <span class="op">=</span> <span class="ident">HotShot::init</span>(

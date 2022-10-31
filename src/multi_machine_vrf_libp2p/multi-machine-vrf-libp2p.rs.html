@@ -638,6 +638,8 @@
 <span id="638">638</span>
 <span id="639">639</span>
 <span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
 </pre><pre class="rust"><code><span class="comment">// TODO this should really be moved into the utils crate.</span>
 <span class="macro">cfg_if::cfg_if!</span> {
     <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
@@ -655,10 +657,7 @@
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
     <span class="ident">traits</span>::{
-        <span class="ident">election</span>::{
-            <span class="ident">static_committee::StaticElectionConfig</span>,
-            <span class="ident">vrf</span>::{<span class="ident">VRFPubKey</span>, <span class="ident">VRFStakeTableConfig</span>, <span class="ident">VrfImpl</span>},
-        },
+        <span class="ident">election::vrf</span>::{<span class="ident">VRFPubKey</span>, <span class="ident">VRFStakeTableConfig</span>, <span class="ident">VrfImpl</span>},
         <span class="ident">implementations</span>::{<span class="ident">Libp2pNetwork</span>, <span class="ident">MemoryStorage</span>},
         <span class="ident">NetworkError</span>, <span class="ident">Storage</span>,
     },
@@ -697,7 +696,7 @@
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>};
 
 <span class="kw">type</span> <span class="ident">Key</span> <span class="op">=</span> <span class="ident">VRFPubKey</span><span class="op">&lt;</span><span class="ident">BLSSignatureScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span><span class="op">&gt;</span>;
-<span class="kw">type</span> <span class="ident">FromServer</span> <span class="op">=</span> <span class="ident">hotshot_centralized_server::FromServer</span><span class="op">&lt;</span><span class="ident">Key</span>, <span class="ident">StaticElectionConfig</span><span class="op">&gt;</span>;
+<span class="kw">type</span> <span class="ident">FromServer</span> <span class="op">=</span> <span class="ident">hotshot_centralized_server::FromServer</span><span class="op">&lt;</span><span class="ident">Key</span>, <span class="ident">VRFStakeTableConfig</span><span class="op">&gt;</span>;
 <span class="kw">type</span> <span class="ident">ToServer</span> <span class="op">=</span> <span class="ident">hotshot_centralized_server::ToServer</span><span class="op">&lt;</span><span class="ident">Key</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// convert node string into multi addr</span>
@@ -867,6 +866,11 @@
             <span class="ident">FromServer::Config</span> { <span class="ident">config</span>, <span class="ident">run</span> } =&gt; (<span class="ident">config</span>, <span class="ident">run</span>),
             <span class="ident">x</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Expected Libp2pConfig, got {x:?}&quot;</span>),
         };
+        <span class="macro">assert_eq!</span>(<span class="ident">config</span>.<span class="ident">key_type_name</span>, <span class="ident">std::any::type_name</span>::<span class="op">&lt;</span><span class="ident">Key</span><span class="op">&gt;</span>());
+        <span class="macro">assert_eq!</span>(
+            <span class="ident">config</span>.<span class="ident">election_config_type_name</span>,
+            <span class="ident">std::any::type_name</span>::<span class="op">&lt;</span><span class="ident">VRFStakeTableConfig</span><span class="op">&gt;</span>()
+        );
         <span class="macro">error!</span>(<span class="string">&quot;Received server config: {config:?}&quot;</span>);
         <span class="kw">let</span> (<span class="ident">pubkey</span>, <span class="ident">privkey</span>) <span class="op">=</span>
             <span class="op">&lt;</span><span class="ident">Key</span> <span class="kw">as</span> <span class="ident">SignatureKey</span><span class="op">&gt;</span><span class="ident">::generated_from_seed_indexed</span>(<span class="ident">config</span>.<span class="ident">seed</span>, <span class="ident">config</span>.<span class="ident">node_index</span>);
