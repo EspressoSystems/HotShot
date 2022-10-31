@@ -177,11 +177,15 @@ where
     type PrivateKey = (SIGSCHEME::SigningKey, SIGSCHEME::VerificationKey);
 
     fn validate(&self, signature: &EncodedSignature, data: &[u8]) -> bool {
+        let start = Instant::now();
         let x: Result<SIGSCHEME::Signature, _> = bincode_opts().deserialize(&signature.0);
         match x {
             Ok(s) => {
                 // First hash the data into a constant sized digest
-                SIGSCHEME::verify(&(), &self.pk, data, &s).is_ok()
+                let result = SIGSCHEME::verify(&(), &self.pk, data, &s).is_ok();
+                println!("Duration for verifying signature is {:?}", Instant::now() - start);
+
+                result
             }
             Err(_) => false,
         }

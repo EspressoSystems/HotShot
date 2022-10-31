@@ -850,21 +850,21 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
             >>::VoteTokenType,
         >,
     ) -> bool {
-        let mut is_valid_vote_token = true;
+        let mut is_valid_vote_token = false;
         let mut is_valid_signature = false;
         if let Some(key) = <I::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
             is_valid_signature = key.validate(encoded_signature, hash.as_ref());
-            // let valid_vote_token =
-            //     self.get_election()
-            //         .validate_vote_token(view_number, key, vote_token, hash);
-            // is_valid_vote_token = match valid_vote_token {
-            //     Err(_) => {
-            //         error!("Vote token was invalid");
-            //         false
-            //     }
-            //     Ok(Valid(_)) => true,
-            //     Ok(Inval(_) | Unchecked(_)) => false,
-            // };
+            let valid_vote_token =
+                self.get_election()
+                    .validate_vote_token(view_number, key, vote_token, hash);
+            is_valid_vote_token = match valid_vote_token {
+                Err(_) => {
+                    error!("Vote token was invalid");
+                    false
+                }
+                Ok(Valid(_)) => true,
+                Ok(Inval(_) | Unchecked(_)) => false,
+            };
         }
         is_valid_signature && is_valid_vote_token
     }
