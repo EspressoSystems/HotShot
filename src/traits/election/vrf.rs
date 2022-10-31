@@ -42,6 +42,8 @@ pub struct VRFStakeTable<VRF, VRFHASHER, VRFPARAMS> {
     mapping: BTreeMap<EncodedPublicKey, NonZeroU64>,
     /// total stake present
     total_stake: NonZeroU64,
+    // NODES TODO REMOVE
+    nodes: Vec<EncodedPublicKey>,
     /// PhantomData for VRF
     _pd_0: PhantomData<VRF>,
     /// PhantomData for VRFHASEHR
@@ -55,6 +57,7 @@ impl<VRF, VRFHASHER, VRFPARAMS> Clone for VRFStakeTable<VRF, VRFHASHER, VRFPARAM
         Self {
             mapping: self.mapping.clone(),
             total_stake: self.total_stake,
+            nodes: self.nodes.clone(),
             _pd_0: PhantomData,
             _pd_1: PhantomData,
             _pd_2: PhantomData,
@@ -283,6 +286,9 @@ where
     prng: std::sync::Arc<std::sync::Mutex<rand_chacha::ChaChaRng>>,
     /// the committee parameter
     sortition_parameter: NonZeroU64,
+    /// Nodes
+    // nodes: Vec<VRFPubKey<SIGSCHEME>>,
+
     /// pdf cache
     /// Why not async
     sortition_cache: std::sync::Arc<std::sync::Mutex<HashMap<BinomialQuery, Ratio<BigUint>>>>,
@@ -413,7 +419,11 @@ where
         let mapping = &self.stake_table.mapping;
         let index = ((*view_number) as usize) % mapping.len();
         // TODO change back to index
-        let encoded = mapping.keys().nth(0).unwrap();
+        // let encoded = mapping.keys().nth(index).unwrap();
+        // SignatureKey::from_bytes(encoded).unwrap();
+
+        // let index = (*view_number % self.nodes.len() as u64) as usize;
+        let encoded = &self.stake_table.nodes[0]; 
         SignatureKey::from_bytes(encoded).unwrap()
     }
 
@@ -825,17 +835,22 @@ where
         known_nodes: Vec<VRFPubKey<SIGSCHEME>>,
         config: &VRFStakeTableConfig,
     ) -> Self {
-        assert_eq!(known_nodes.iter().len(), config.distribution.len());
-        let key_with_stake = known_nodes
+        assert_eq!(known_nodes.clone().iter().len(), config.distribution.len());
+        let key_with_stake = known_nodes.clone()
             .into_iter()
             .map(|x| x.to_bytes())
             .zip(config.distribution.clone())
             .collect();
         // error!("stake table: {:?}", key_with_stake);
+        let mut new_known_nodes = Vec::new(); 
+        for key in known_nodes.clone() {
+            new_known_nodes.push(key.clone().to_bytes());
+        }
         VrfImpl {
             stake_table: {
                 let st = VRFStakeTable {
                     mapping: key_with_stake,
+                    nodes: new_known_nodes,
                     total_stake: NonZeroU64::new(config.distribution.iter().map(|x| x.get()).sum())
                         .unwrap(),
                     _pd_0: PhantomData,
