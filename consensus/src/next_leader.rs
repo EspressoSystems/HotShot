@@ -60,6 +60,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
         let threshold = self.api.threshold();
         let mut stake_casted = 0;
         let mut signature_map: Signatures<I> = BTreeMap::new();
+        let mut num_votes = 0; 
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
@@ -72,6 +73,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                 }
                 ConsensusMessage::Vote(vote) => {
                     error!("Matched vote token!");
+                    num_votes += 1; 
                     // if the signature on the vote is invalid,
                     // assume it's sent by byzantine node
                     // and ignore
@@ -160,7 +162,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                 }
             }
         }
-        error!("Ending next leader round without enough stake");
+        error!("Ending next leader round without enough stake, with number of votes: {}", num_votes);
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
     }
 }
