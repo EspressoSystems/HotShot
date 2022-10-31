@@ -629,6 +629,10 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
     /// Connect with the server running at `addr` and retrieve the config from the server.
     ///
     /// The config is returned along with the current run index and the running `CentralizedServerNetwork`
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the server has a different signature key (`K`) or election config (`E`)
     pub async fn connect_with_server_config(addr: SocketAddr) -> (NetworkConfig<K, E>, Run, Self) {
         let (streams, run, config) = loop {
             let (mut recv_stream, mut send_stream) = match TcpStream::connect(addr).await {
