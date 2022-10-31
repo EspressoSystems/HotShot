@@ -40,7 +40,6 @@ padding = 100
 [config]
 execution_type = 'Continuous'
 total_nodes = 7
-threshold = 5
 max_transactions = 100
 known_nodes = []
 next_view_timeout = 10000

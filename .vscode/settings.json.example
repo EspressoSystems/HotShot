@@ -1,0 +1,6 @@
+// Sets features for Rust Analyzer, since some features are required to be set for compilation
+{
+    "rust-analyzer.cargo.features": [
+        "full-ci"
+    ],
+}

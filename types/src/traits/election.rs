@@ -7,6 +7,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::num::NonZeroU64;
 
 /// Error for election problems
 #[derive(Snafu, Debug)]
@@ -47,7 +48,7 @@ pub trait VoteToken:
     + Committable
 {
     /// the count, which validation will confirm
-    fn vote_count(&self) -> u64;
+    fn vote_count(&self) -> NonZeroU64;
 }
 
 /// election config
@@ -98,6 +99,9 @@ pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
         token: Checked<TYPES::VoteTokenType>,
         next_state: commit::Commitment<Leaf<TYPES>>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError>;
+
+    /// Returns the threshold for a specific `Election` implementation
+    fn get_threshold(&self) -> NonZeroU64;
 }
 
 pub trait TestableElection<TYPES: NodeTypes>: Election<TYPES> {

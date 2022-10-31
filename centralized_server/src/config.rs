@@ -69,9 +69,9 @@ pub struct NetworkConfig<KEY, ELECTION> {
     pub node_index: u64,
     pub seed: [u8; 32],
     pub padding: usize,
+    pub start_delay_seconds: u64,
     pub libp2p_config: Option<Libp2pConfig>,
     pub config: HotShotConfig<KEY, ELECTION>,
-    pub start_delay_seconds: u64,
 }
 
 impl<K, E> Default for NetworkConfig<K, E> {
@@ -148,8 +148,6 @@ impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
 pub struct HotShotConfigFile {
     /// Total number of nodes in the network
     pub total_nodes: NonZeroUsize,
-    /// Nodes required to reach a decision
-    pub threshold: NonZeroUsize,
     /// Maximum transactions per block
     pub max_transactions: NonZeroUsize,
     /// Minimum transactions per block
@@ -178,7 +176,6 @@ impl<K, E> From<HotShotConfigFile> for HotShotConfig<K, E>
         HotShotConfig {
             execution_type: ExecutionType::Continuous,
             total_nodes: val.total_nodes,
-            threshold: val.threshold,
             max_transactions: val.max_transactions,
             min_transactions: val.min_transactions,
             known_nodes: Vec::new(),
@@ -209,7 +206,6 @@ fn default_padding() -> usize {
 fn default_config() -> HotShotConfigFile {
     HotShotConfigFile {
         total_nodes: NonZeroUsize::new(10).unwrap(),
-        threshold: NonZeroUsize::new(7).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
         min_transactions: 0,
         next_view_timeout: 10000,

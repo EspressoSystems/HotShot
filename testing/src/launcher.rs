@@ -43,8 +43,6 @@ where
         min_transactions: usize,
         election_config: TYPES::ElectionConfigType,
     ) -> Self {
-        let threshold = ((expected_node_count * 2) / 3) + 1;
-
         let known_nodes = (0..expected_node_count)
             .map(|id| {
                 let priv_key = TYPES::SignatureKey::generate_test_key(id as u64);
@@ -55,7 +53,6 @@ where
             execution_type: ExecutionType::Incremental,
             total_nodes: NonZeroUsize::new(expected_node_count).unwrap(),
             num_bootstrap: num_bootstrap_nodes,
-            threshold: NonZeroUsize::new(threshold).unwrap(),
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
             known_nodes,

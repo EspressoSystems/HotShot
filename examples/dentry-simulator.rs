@@ -121,7 +121,7 @@ async fn main() {
     let mut hotshots: Vec<HotShotHandle<DEntryTypes, Node>> = join_all(
         networkings
             .into_iter()
-            .map(|(network, _, _pk, node_id)| get_hotshot(nodes, threshold, node_id, network)),
+            .map(|(network, _, _pk, node_id)| get_hotshot(nodes, node_id, network)),
     )
     .await;
 
@@ -324,7 +324,6 @@ async fn get_networking<R: hotshot::rand::Rng>(
 // #[instrument(skip(networking))]
 async fn get_hotshot(
     nodes: usize,
-    threshold: usize,
     node_id: u64,
     networking: WNetwork<DEntryTypes>,
 ) -> HotShotHandle<DEntryTypes, Node> {
@@ -338,7 +337,6 @@ async fn get_hotshot(
     let config = HotShotConfig {
         execution_type: ExecutionType::Continuous,
         total_nodes: NonZeroUsize::new(nodes).unwrap(),
-        threshold: NonZeroUsize::new(threshold).unwrap(),
         max_transactions: NonZeroUsize::new(100).unwrap(),
         min_transactions: 0,
         known_nodes: known_nodes.clone(),

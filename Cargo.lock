@@ -477,11 +477,12 @@ dependencies = [
 
 [[package]]
 name = "async-lock"
-version = "2.5.0"
+version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e97a171d191782fba31bb902b14ad94e24a68145032b7eedf871ab0bc0d077b6"
+checksum = "c8101efe8695a6c17e02911402145357e718ac92d3ff88ae8419e84b1707b685"
 dependencies = [
  "event-listener",
+ "futures-lite",
 ]
 
 [[package]]
@@ -599,9 +600,9 @@ dependencies = [
 
 [[package]]
 name = "async-tungstenite"
-version = "0.17.2"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1b71b31561643aa8e7df3effe284fa83ab1a840e52294c5f4bd7bfd8b2becbb"
+checksum = "4b750efd83b7e716a015eed5ebb583cda83c52d9b24a8f0125e5c48c3313c9f8"
 dependencies = [
  "async-std",
  "futures-io",
@@ -2174,10 +2175,11 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rand_xoshiro",
  "serde",
+ "serde_json",
  "sha2 0.10.6",
  "snafu",
  "tempfile",
- "time 0.3.15",
+ "time 0.3.16",
  "tokio",
  "toml",
  "tracing",
@@ -2198,6 +2200,7 @@ dependencies = [
  "hotshot-utils",
  "libp2p-core",
  "serde",
+ "serde_json",
  "snafu",
  "tokio",
  "toml",
@@ -2219,7 +2222,7 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "snafu",
- "time 0.3.15",
+ "time 0.3.16",
  "tokio",
  "tracing",
 ]
@@ -2277,7 +2280,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "tagged-base64 0.2.2",
- "time 0.3.15",
+ "time 0.3.16",
  "tokio",
  "tracing",
 ]
@@ -2296,7 +2299,7 @@ dependencies = [
  "console-subscriber",
  "flume 0.10.14",
  "futures",
- "opentelemetry 0.18.0",
+ "opentelemetry",
  "opentelemetry-aws",
  "opentelemetry-jaeger",
  "tokio",
@@ -4011,25 +4014,6 @@ dependencies = [
 
 [[package]]
 name = "opentelemetry"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6105e89802af13fdf48c49d7646d3b533a70e536d818aae7e78ba0433d01acb8"
-dependencies = [
- "async-trait",
- "crossbeam-channel",
- "futures-channel",
- "futures-executor",
- "futures-util",
- "js-sys",
- "lazy_static",
- "percent-encoding",
- "pin-project",
- "rand 0.8.5",
- "thiserror",
-]
-
-[[package]]
-name = "opentelemetry"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69d6c3d7288a106c0a363e4b0e8d308058d56902adefb16f4936f417ffef086e"
@@ -4040,12 +4024,12 @@ dependencies = [
 
 [[package]]
 name = "opentelemetry-aws"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72f80ed72cb487ccee5de9e6342e7240ce233a506071e0d07fd535981688342e"
+checksum = "75549d9352f35acef1a926e0f344dd978c1ef4b4ef8d34c66cdca6035ad1c981"
 dependencies = [
- "lazy_static",
- "opentelemetry 0.17.0",
+ "once_cell",
+ "opentelemetry",
 ]
 
 [[package]]
@@ -4084,7 +4068,7 @@ dependencies = [
  "isahc 1.7.2",
  "js-sys",
  "once_cell",
- "opentelemetry 0.18.0",
+ "opentelemetry",
  "opentelemetry-http",
  "opentelemetry-semantic-conventions",
  "pin-project-lite 0.2.9",
@@ -4107,7 +4091,7 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b02e0230abb0ab6636d18e2ba8fa02903ea63772281340ccac18e0af3ec9eeb"
 dependencies = [
- "opentelemetry 0.18.0",
+ "opentelemetry",
 ]
 
 [[package]]
@@ -5739,13 +5723,21 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.15"
+version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d634a985c4d4238ec39cacaed2e7ae552fbd3c476b552c1deac3021b7d7eaf0c"
+checksum = "0fab5c8b9980850e06d92ddbe3ab839c062c801f3927c0fb8abd6fc8e918fbca"
 dependencies = [
  "libc",
  "num_threads",
+ "serde",
+ "time-core",
 ]
+
+[[package]]
+name = "time-core"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e153e1f1acaef8acc537e68b44906d2db6436e2b35ac2c6b42640fff91f00fd"
 
 [[package]]
 name = "time-macros"
@@ -6082,7 +6074,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21ebb87a95ea13271332df069020513ab70bdb5637ca42d6e492dc3bbbad48de"
 dependencies = [
  "once_cell",
- "opentelemetry 0.18.0",
+ "opentelemetry",
  "tracing",
  "tracing-core",
  "tracing-log",

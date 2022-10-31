@@ -76,7 +76,7 @@ use hotshot_utils::{
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},
-    num::NonZeroUsize,
+    num::{NonZeroU64, NonZeroUsize},
     sync::{atomic::Ordering, Arc},
     time::Duration,
 };
@@ -654,8 +654,8 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
         self.inner.config.total_nodes
     }
 
-    fn threshold(&self) -> NonZeroUsize {
-        self.inner.config.threshold
+    fn threshold(&self) -> NonZeroU64 {
+        self.inner.election.get_threshold()
     }
 
     fn propose_min_round_time(&self) -> Duration {
@@ -767,7 +767,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
                     Unchecked(signature.1 .1.clone()),
                 )
             })
-            .fold(0, |acc, x| (acc + x.1 .1.vote_count()));
+            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
         stake
     }
 
@@ -780,7 +780,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
         let signature_map = qc.signatures.clone();
 
         let stake = self.validated_stake(hash, qc.time, signature_map);
-        if stake as usize >= self.threshold().into() {
+        if stake >= u64::from(self.threshold()) {
             return true;
         }
         false
