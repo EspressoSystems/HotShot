@@ -5,6 +5,7 @@ use crate::ConsensusApi;
 use async_lock::Mutex;
 use bincode::Options;
 use commit::Commitment;
+use hotshot_types::traits::election::{Election, VoteToken};
 use hotshot_types::traits::election::Checked::Unchecked;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
@@ -57,6 +58,8 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
             ),
         > = HashMap::new();
         let threshold = self.api.threshold();
+        let mut stake_casted = 0;
+        let mut signature_map: Signatures<I> = BTreeMap::new();
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
@@ -73,7 +76,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     // assume it's sent by byzantine node
                     // and ignore
                     // TODO ed - ignoring serialization errors since we are changing this type in the future
-                    let vote_token = bincode_opts().deserialize(&vote.vote_token).unwrap();
+                    let vote_token: <<I as NodeImplementation>::Election as Election<<I as NodeImplementation>::SignatureKey, ViewNumber>>::VoteTokenType = bincode_opts().deserialize(&vote.vote_token).unwrap();
 
                     if !self.api.is_valid_signature(
                         &vote.signature.0,
@@ -81,7 +84,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         vote.leaf_commitment,
                         vote.current_view,
                         // Ignoring deserialization errors below since we are getting rid of it soon
-                        Unchecked(vote_token),
+                        Unchecked(vote_token.clone()),
                     ) {
                         info!("Invalid vote token signature");
                         continue;
@@ -92,28 +95,47 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     let (_bh, map) = vote_outcomes
                         .entry(vote.leaf_commitment)
                         .or_insert_with(|| (vote.block_commitment, BTreeMap::new()));
-                    map.insert(
+                    let value = map.insert(
                         vote.signature.0.clone(),
                         (vote.signature.1.clone(), vote.vote_token),
                     );
-                    let valid_signatures = map;
+                    // let valid_signatures = map;
 
                     // TODO ed - this is repeated code from validate_qc, but should clean itself up once we implement I for Vote
-                    let mut signature_map: Signatures<I> = BTreeMap::new();
+                    // let mut signature_map: Signatures<I> = BTreeMap::new();
                     // TODO ed - there is a better way to do this, but it should be gone once I is impled for Vote
-                    for signature in valid_signatures.clone() {
-                        let decoded_vote_token =
-                            bincode_opts().deserialize(&signature.1 .1).unwrap();
-                        signature_map.insert(signature.0, (signature.1 .0, decoded_vote_token));
-                    }
+
+
+                    
+
+                    // for signature in valid_signatures.clone() {
+                    // let decoded_vote_token:VoteTokenType = bincode_opts().deserialize(&vote.vote_token).unwrap();
+                    signature_map.insert(vote.signature.0.clone(), (vote.signature.1.clone(), vote_token.clone()));
+                    stake_casted += u64::from(vote_token.vote_count());
+                    // }
+
                     // TODO ed - current validated_stake rechecks that all votes are valid, which isn't necessary here
-                    let stake_casted = self.api.validated_stake(
-                        vote.leaf_commitment,
-                        self.cur_view,
-                        signature_map,
-                    );
+                    // let stake_casted = self.api.validated_stake(
+                    //     vote.leaf_commitment,
+                    //     self.cur_view,
+                    //     signature_map,
+                    // );
+
+                    // let decoded_vote_token =
+                    //     bincode_opts().deserialize(&value.unwrap().1).unwrap();
+
+                    // stake_casted += decoded_vote_token.count();
+
                     error!("Stake casted is: {}", stake_casted);
                     if stake_casted >= u64::from(threshold) {
+                        let stake_casted_validated = self.api.validated_stake(
+                            vote.leaf_commitment,
+                            self.cur_view,
+                            signature_map,
+                        );
+                        if (stake_casted != stake_casted_validated) {
+                            error!("Validated stake and unvalidated stake do NOT MATCH");
+                        }
                         let (block_commitment, valid_signatures) =
                             vote_outcomes.remove(&vote.leaf_commitment).unwrap();
                         // construct QC
@@ -130,6 +152,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                 }
                 ConsensusMessage::NextViewInterrupt(_view_number) => {
                     self.api.send_next_leader_timeout(self.cur_view).await;
+                    error!("Leader has received a next view interrupt");
                     break;
                 }
                 ConsensusMessage::Proposal(_p) => {
