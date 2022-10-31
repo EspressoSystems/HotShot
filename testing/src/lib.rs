@@ -43,6 +43,9 @@ pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 /// For now we only support a size of [`H_256`]. This can be changed in the future.
 pub const N: usize = H_256;
 
+/// Alias for `(Vec<S>, Vec<B>)`. Used in [`RoundResult`].
+pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
+
 /// Result of running a round of consensus
 #[derive(Debug)]
 // TODO do we need static here
@@ -50,7 +53,7 @@ pub struct RoundResult<TYPES: NodeTypes> {
     /// Transactions that were submitted
     pub txns: Vec<TYPES::Transaction>,
     /// Nodes that committed this round
-    pub results: HashMap<u64, (Vec<TYPES::StateType>, Vec<TYPES::BlockType>)>,
+    pub results: HashMap<u64, StateAndBlock<TYPES::StateType, TYPES::BlockType>>,
     /// Nodes that failed to commit this round
     pub failures: HashMap<u64, HotShotError<TYPES>>,
 }

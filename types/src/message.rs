@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = "TYPES: NodeTypes"))]
+#[serde(bound(deserialize = ""))]
 pub struct Message<TYPES: NodeTypes> {
     /// The sender of this message
     pub sender: TYPES::SignatureKey,
@@ -27,7 +27,7 @@ pub struct Message<TYPES: NodeTypes> {
 
 /// Enum representation of any message type
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = "TYPES: NodeTypes"))]
+#[serde(bound(deserialize = ""))]
 pub enum MessageKind<TYPES: NodeTypes> {
     /// Messages related to the consensus protocol
     Consensus(ConsensusMessage<TYPES>),
@@ -48,7 +48,7 @@ impl<TYPES: NodeTypes> From<DataMessage<TYPES>> for MessageKind<TYPES> {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = "TYPES: NodeTypes"))]
+#[serde(bound(deserialize = ""))]
 /// Messages related to the consensus protocol
 pub enum ConsensusMessage<TYPES: NodeTypes> {
     /// Leader's proposal
@@ -88,8 +88,8 @@ impl<TYPES: NodeTypes> ConsensusMessage<TYPES> {
     }
 }
 
-#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = "TYPES: NodeTypes"))]
+#[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq)]
+#[serde(bound(deserialize = ""))]
 /// Messages related to sending data between nodes
 pub enum DataMessage<TYPES: NodeTypes> {
     /// The newest entry that a node knows. This is send from existing nodes to a new node when the new node joins the network
@@ -121,8 +121,8 @@ pub enum DataMessage<TYPES: NodeTypes> {
     SubmitTransaction(TYPES::Transaction),
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = "TYPES: NodeTypes"))]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(bound(deserialize = ""))]
 /// Signals the start of a new view
 pub struct TimedOut<TYPES: NodeTypes> {
     /// The current view
@@ -132,7 +132,7 @@ pub struct TimedOut<TYPES: NodeTypes> {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = "TYPES: NodeTypes"))]
+#[serde(bound(deserialize = ""))]
 /// Prepare qc from the leader
 pub struct Proposal<TYPES: NodeTypes> {
     // NOTE: optimization could include view number to help look up parent leaf
@@ -145,7 +145,7 @@ pub struct Proposal<TYPES: NodeTypes> {
 
 /// A nodes vote on the prepare field.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = "TYPES: NodeTypes"))]
+#[serde(bound(deserialize = ""))]
 pub struct Vote<TYPES: NodeTypes> {
     /// hash of the block being proposed
     /// TODO delete this when we delete block hash from the QC

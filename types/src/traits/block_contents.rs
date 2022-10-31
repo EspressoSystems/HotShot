@@ -40,6 +40,7 @@ pub trait Block:
     fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>>;
 }
 
+/// Abstraction over any type of transaction. Used by [`Block`].
 pub trait Transaction:
     Clone + Serialize + DeserializeOwned + Debug + PartialEq + Eq + Sync + Send + Committable + Hash
 {

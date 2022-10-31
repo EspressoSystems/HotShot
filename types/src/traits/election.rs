@@ -104,6 +104,8 @@ pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
     fn get_threshold(&self) -> NonZeroU64;
 }
 
+/// Testable implementation of an [`Election`]. Will expose a method to generate a vote token used for testing.
 pub trait TestableElection<TYPES: NodeTypes>: Election<TYPES> {
+    /// Generate a vote token used for testing.
     fn generate_test_vote_token() -> TYPES::VoteTokenType;
 }

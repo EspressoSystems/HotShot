@@ -42,6 +42,7 @@ use tracing::{error, info, info_span, instrument, trace, Instrument};
 pub struct TaskHandle<TYPES: NodeTypes> {
     /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized early on in the [`HotShot`] struct. It should be safe to `unwrap` this.
     inner: RwLock<Option<TaskHandleInner>>,
+    /// Reference to the [`NodeTypes`] used in this configuration
     _types: PhantomData<TYPES>,
 }
 impl<TYPES: NodeTypes> TaskHandle<TYPES> {

@@ -37,6 +37,7 @@ pub trait NodeImplementation<TYPES: NodeTypes>: Send + Sync + Debug + Clone + 's
     type Election: Election<TYPES>;
 }
 
+/// Trait with all the type definitions that are used in the current hotshot setup.
 pub trait NodeTypes:
     Clone
     + Copy
@@ -53,13 +54,26 @@ pub trait NodeTypes:
     + Sync
     + 'static
 {
+    /// The time type that this hotshot setup is using.
+    ///
+    /// This should be the same `Time` that `StateType::Time` is using.
     type Time: ConsensusTime;
+    /// The block type that this hotshot setup is using.
+    ///
+    /// This should be the same block that `StateType::BlockType` is using.
     type BlockType: Block<Transaction = Self::Transaction>;
+    /// The signature key that this hotshot setup is using.
     type SignatureKey: SignatureKey;
+    /// The vote token that this hotshot setup is using.
     type VoteTokenType: VoteToken;
+    /// The transaction type that this hotshot setup is using.
+    ///
+    /// This should be equal to `Block::Transaction`
     type Transaction: Transaction;
+    /// The election config type that this hotshot setup is using.
     type ElectionConfigType: ElectionConfig;
 
+    /// The state type that this hotshot setup is using.
     type StateType: State<BlockType = Self::BlockType, Time = Self::Time>;
 }
 

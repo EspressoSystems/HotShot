@@ -43,6 +43,7 @@ use std::{
 use tracing::{error, warn};
 use utils::Terminator;
 
+/// A type alias for `HashMap<Commitment<T>, T>`
 type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 
 /// A reference to the consensus algorithm

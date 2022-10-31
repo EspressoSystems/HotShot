@@ -34,7 +34,7 @@ impl<S> StaticCommittee<S> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 /// TODO ed - docs
 pub struct StaticVoteToken {
     /// signature

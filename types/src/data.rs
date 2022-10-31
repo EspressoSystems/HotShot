@@ -88,7 +88,7 @@ impl<TYPES: NodeTypes> QuorumCertificate<TYPES> {
 /// A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
 /// metadata, such as the [`Stage`] of consensus the quorum certificate was generated during.
 #[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
-#[serde(bound(deserialize = "TYPES: NodeTypes"))]
+#[serde(bound(deserialize = ""))]
 pub struct QuorumCertificate<TYPES: NodeTypes> {
     /// Hash of the block refereed to by this Quorum Certificate.
     ///
@@ -130,7 +130,7 @@ impl<TYPES: NodeTypes> Eq for QuorumCertificate<TYPES> {}
 
 /// subset of state that we stick into a leaf.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Derivative)]
-#[serde(bound(deserialize = "TYPES: NodeTypes"))]
+#[serde(bound(deserialize = ""))]
 #[derivative(PartialEq, Hash)]
 pub struct ProposalLeaf<TYPES: NodeTypes> {
     /// CurView from leader when proposing leaf
@@ -164,7 +164,7 @@ pub struct ProposalLeaf<TYPES: NodeTypes> {
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative)]
 #[derivative(PartialEq)]
-#[serde(bound(deserialize = "TYPES: NodeTypes"))]
+#[serde(bound(deserialize = ""))]
 pub struct Leaf<TYPES: NodeTypes> {
     /// CurView from leader when proposing leaf
     pub time: TYPES::Time,

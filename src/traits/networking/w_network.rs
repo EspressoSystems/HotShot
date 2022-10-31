@@ -61,7 +61,7 @@ use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument
 use tracing_unwrap::ResultExt as RXT;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
-#[serde(bound(deserialize = "TYPES: NodeTypes"))]
+#[serde(bound(deserialize = ""))]
 /// Inter-node protocol level message types
 pub enum Command<TYPES: NodeTypes> {
     /// A message that was broadcast to all nodes
