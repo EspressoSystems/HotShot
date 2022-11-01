@@ -7,6 +7,7 @@ use bincode::Options;
 use commit::Commitment;
 use hotshot_types::traits::election::{Election, VoteToken};
 use hotshot_types::traits::election::Checked::Unchecked;
+use std::time::Instant;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     message::ConsensusMessage,
@@ -73,6 +74,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                 }
                 ConsensusMessage::Vote(vote) => {
                     error!("Matched vote token!");
+                    let start = Instant::now(); 
                     num_votes += 1; 
                     // if the signature on the vote is invalid,
                     // assume it's sent by byzantine node
@@ -129,6 +131,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     // stake_casted += decoded_vote_token.count();
 
                     error!("Stake casted is: {}", stake_casted);
+                    print!("Next leader vote count duration is {:?}", Instant::now() - start);
                     if stake_casted >= u64::from(threshold) {
                         let stake_casted_validated = self.api.validated_stake(
                             vote.leaf_commitment,
