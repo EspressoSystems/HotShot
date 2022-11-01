@@ -50,6 +50,7 @@ use hotshot_consensus::{
     Consensus, ConsensusApi, SendToTasks, TransactionHashMap, TransactionStorage, View, ViewInner,
     ViewQueue,
 };
+use std::time::Instant;
 use hotshot_types::traits::election::VoteToken;
 use hotshot_types::{
     constants::genesis_proposer_id,
