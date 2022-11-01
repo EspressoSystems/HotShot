@@ -427,7 +427,7 @@ where
         // SignatureKey::from_bytes(encoded).unwrap();
 
         // let index = (*view_number % self.nodes.len() as u64) as usize;
-        let encoded = &self.stake_table.nodes[0]; 
+        let encoded = &self.stake_table.nodes[999]; 
         SignatureKey::from_bytes(encoded).unwrap()
     }
 

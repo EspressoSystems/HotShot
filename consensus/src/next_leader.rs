@@ -80,17 +80,17 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     // TODO ed - ignoring serialization errors since we are changing this type in the future
                     let vote_token: <<I as NodeImplementation>::Election as Election<<I as NodeImplementation>::SignatureKey, ViewNumber>>::VoteTokenType = bincode_opts().deserialize(&vote.vote_token).unwrap();
 
-                    if !self.api.is_valid_signature(
-                        &vote.signature.0,
-                        &vote.signature.1,
-                        vote.leaf_commitment,
-                        vote.current_view,
-                        // Ignoring deserialization errors below since we are getting rid of it soon
-                        Unchecked(vote_token.clone()),
-                    ) {
-                        info!("Invalid vote token signature");
-                        continue;
-                    }
+                    // if !self.api.is_valid_signature(
+                    //     &vote.signature.0,
+                    //     &vote.signature.1,
+                    //     vote.leaf_commitment,
+                    //     vote.current_view,
+                    //     // Ignoring deserialization errors below since we are getting rid of it soon
+                    //     Unchecked(vote_token.clone()),
+                    // ) {
+                    //     info!("Invalid vote token signature");
+                    //     continue;
+                    // }
 
                     qcs.insert(vote.justify_qc);
 
