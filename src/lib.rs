@@ -479,7 +479,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
 
                 let start = Instant::now(); 
                 let channel_map = self.next_leader_channel_map.upgradable_read().await;
-                print!("Duration to get channel map {:?}", Instant::now() - start);
+                // print!("Duration to get channel map {:?}", Instant::now() - start);
 
                 // check if
                 // - is in fact, actually is the next leader
@@ -500,7 +500,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 if chan.sender_chan.send(c).await.is_err() {
                     error!("Failed to send to next leader!");
                 }
-                print!("Duration to process vote message {:?}", Instant::now() - start);
+                error!("Duration to process vote message {:?}", Instant::now() - start);
 
             }
         }

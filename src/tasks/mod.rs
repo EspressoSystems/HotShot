@@ -490,7 +490,7 @@ pub async fn network_direct_task<I: NodeImplementation>(
             }
         };
         if queue.is_empty() {
-            trace!("No message, sleeping for {} ms", incremental_backoff_ms);
+            error!("No message, sleeping for {} ms", incremental_backoff_ms);
             async_sleep(Duration::from_millis(incremental_backoff_ms)).await;
             incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
             continue;
@@ -501,11 +501,13 @@ pub async fn network_direct_task<I: NodeImplementation>(
             trace!(?item, "Processing item");
             match item.kind {
                 MessageKind::Consensus(msg) => {
+                    error!("Recieved direct conesensus message");
                     hotshot
                         .handle_direct_consensus_message(msg, item.sender)
                         .await;
                 }
                 MessageKind::Data(msg) => {
+                    error!("Recieved data message");
                     hotshot.handle_direct_data_message(msg, item.sender).await;
                 }
             }
