@@ -94,7 +94,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         continue;
                     }
 
-                    qcs.insert(vote.justify_qc);
+                    // qcs.insert(vote.justify_qc);
 
                     let (_bh, map) = vote_outcomes
                         .entry(vote.leaf_commitment)

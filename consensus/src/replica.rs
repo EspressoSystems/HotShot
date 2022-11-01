@@ -182,7 +182,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                         <<I::StateType as State>::BlockType as Committable>::commit(
                                             &leaf.deltas,
                                         ),
-                                    justify_qc: leaf.justify_qc.clone(),
+                                    // justify_qc: leaf.justify_qc.clone(),
                                     signature,
                                     leaf_commitment,
                                     current_view: self.cur_view,
