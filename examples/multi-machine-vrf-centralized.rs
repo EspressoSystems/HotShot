@@ -82,7 +82,7 @@ async fn init_state_and_hotshot(
     let known_nodes = config.known_nodes.clone();
     let mut distribution = Vec::new();
     let stake_per_node = NonZeroU64::new(100).unwrap();
-    for i in known_nodes.iter() {
+    for i in 0..known_nodes.len() {
         if i < known_nodes.len() / 10 {
             distribution.push(NonZeroU64::new(90).unwrap());
         }
