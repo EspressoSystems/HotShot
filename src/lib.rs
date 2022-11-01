@@ -492,6 +492,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 )
                 .await;
                 if !is_leader || msg_view_number < channel_map.cur_view {
+                    error!("Throwing away message for view number: {:?}", msg_view_number);
                     return;
                 }
 

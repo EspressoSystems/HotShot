@@ -24,6 +24,7 @@ use hotshot_utils::{
     broadcast::channel,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
+use std::time::Instant;
 use std::{
     collections::HashMap,
     sync::{
@@ -490,7 +491,7 @@ pub async fn network_direct_task<I: NodeImplementation>(
             }
         };
         if queue.is_empty() {
-            error!("No message, sleeping for {} ms", incremental_backoff_ms);
+            info!("No message, sleeping for {} ms", incremental_backoff_ms);
             async_sleep(Duration::from_millis(incremental_backoff_ms)).await;
             incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
             continue;
@@ -501,13 +502,13 @@ pub async fn network_direct_task<I: NodeImplementation>(
             trace!(?item, "Processing item");
             match item.kind {
                 MessageKind::Consensus(msg) => {
-                    error!("Recieved direct conesensus message");
+                    error!("Recieved direct conesensus message at time {:?}", Instant::now());
                     hotshot
                         .handle_direct_consensus_message(msg, item.sender)
                         .await;
                 }
                 MessageKind::Data(msg) => {
-                    error!("Recieved data message");
+                    error!("Recieved data messageat time {:?} \n{:?}", Instant::now(), msg);
                     hotshot.handle_direct_data_message(msg, item.sender).await;
                 }
             }
