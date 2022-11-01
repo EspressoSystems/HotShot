@@ -278,7 +278,12 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
     let replica_handle = async_spawn(async move { replica.run_view().await });
     task_handles.push(replica_handle);
 
-    error!("MY PUB KEY IS {:?}, \nLEADER PUB KEY IS {:?}, \nI AM leader: {:?}\n", hotshot.inner.public_key, c_api.get_leader(cur_view).await, c_api.is_leader(cur_view).await);
+    error!(
+        "MY PUB KEY IS {:?}, \nLEADER PUB KEY IS {:?}, \nI AM leader: {:?}\n",
+        hotshot.inner.public_key,
+        c_api.get_leader(cur_view).await,
+        c_api.is_leader(cur_view).await
+    );
 
     if c_api.is_leader(cur_view).await {
         let leader = Leader {
@@ -502,13 +507,12 @@ pub async fn network_direct_task<I: NodeImplementation>(
             trace!(?item, "Processing item");
             match item.kind {
                 MessageKind::Consensus(msg) => {
-                    error!("Recieved direct conesensus message at time {:?}", Instant::now());
+                    error!("Recieved direct conesensus message at time");
                     hotshot
                         .handle_direct_consensus_message(msg, item.sender)
                         .await;
                 }
                 MessageKind::Data(msg) => {
-                    error!("Recieved data messageat time {:?} \n{:?}", Instant::now(), msg);
                     hotshot.handle_direct_data_message(msg, item.sender).await;
                 }
             }
