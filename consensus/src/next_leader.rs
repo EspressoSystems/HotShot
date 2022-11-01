@@ -151,7 +151,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                             signatures: valid_signatures,
                             genesis: false,
                         };
-                        error!("Stake matches threshold!");
+                        error!("Stake matches threshold with votes: {}", num_votes);
                         return qc;
                     }
                 }

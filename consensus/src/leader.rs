@@ -157,7 +157,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let leaf: ProposalLeaf<I::StateType> = leaf.into();
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
-            error!("Sending out proposal {:?}", message);
+            error!("Sending out proposal");
 
             if let Err(e) = self.api.send_broadcast_message(message.clone()).await {
                 warn!(?message, ?e, "Could not broadcast leader proposal");

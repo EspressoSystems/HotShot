@@ -31,7 +31,7 @@ use num::{rational::Ratio, BigUint, ToPrimitive};
 
 // TODO wrong palce for this
 /// the sortition committee size parameter
-pub const SORTITION_PARAMETER: u64 = 10000;
+pub const SORTITION_PARAMETER: u64 = 1000;
 
 // TODO abstraction this function's impl into a trait
 // TODO do we necessariy want the units of stake to be a u64? or generics
@@ -629,6 +629,10 @@ fn calculate_threshold_from_cache(
             ..query
         };
         if previous_query == expected_previous_query {
+            if query.stake_attempt as u64 > query.replicas_stake {
+                error!("j is larger than amount of stake we are allowed");
+                return None;
+            }
             // error!("replica stake = {}, stake attempt = {}", query.replicas_stake, query.stake_attempt);
             let permutation = Ratio::new(
                 BigUint::from(query.replicas_stake - query.stake_attempt + 1),
@@ -927,15 +931,22 @@ mod tests {
         let mut keys = Vec::new();
         let rng = &mut test_rng();
         let mut stake_distribution = Vec::new();
+
         let stake_per_node = NonZeroU64::new(100).unwrap();
-        for _i in 0..num_nodes {
+        for  i in 0..num_nodes {
             // TODO we should make this more general/use different parameters
             #[allow(clippy::let_unit_value)]
             let parameters = BLSSignatureScheme::<Param381>::param_gen(Some(rng)).unwrap();
             let (sk, pk) = BLSSignatureScheme::<Param381>::key_gen(&parameters, rng).unwrap();
             keys.push((sk.clone(), pk.clone()));
             known_nodes.push(VRFPubKey::from_native(pk.clone()));
-            stake_distribution.push(stake_per_node);
+            if i < num_nodes / 10 {
+                stake_distribution.push(NonZeroU64::new(90).unwrap());
+            }
+            else {
+                stake_distribution.push(NonZeroU64::new(1).unwrap());
+            }
+            
         }
         let stake_table = VrfImpl::with_initial_stake(
             known_nodes,
@@ -957,7 +968,7 @@ mod tests {
     #[test]
     pub fn test_sortition() {
         setup_logging();
-        let (vrf_impl, keys) = gen_vrf_impl(100);
+        let (vrf_impl, keys) = gen_vrf_impl(1000);
         let views = 100;
 
         for view in 0..views {
