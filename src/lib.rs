@@ -604,12 +604,13 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                     rejected: anchor.rejected,
                     proposer_id: anchor.proposer_id,
                 };
-                if let Err(e) = self.send_direct_message(msg, peer.clone()).await {
-                    error!(
-                        ?e,
-                        "Could not send newest quorumcertificate to node {:?}", peer
-                    );
-                }
+                // Not sending this becuase it causes issues in large networks
+                // if let Err(e) = self.send_direct_message(msg, peer.clone()).await {
+                //     error!(
+                //         ?e,
+                //         "Could not send newest quorumcertificate to node {:?}", peer
+                //     );
+                // }
             }
             NetworkChange::NodeDisconnected(peer) => {
                 info!("Lost connection to node {:?}", peer);

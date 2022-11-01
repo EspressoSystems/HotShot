@@ -131,7 +131,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     // stake_casted += decoded_vote_token.count();
 
                     error!("Stake casted is: {}", stake_casted);
-                    print!("Next leader vote count duration is {:?}", Instant::now() - start);
+                    error!("Next leader vote count duration is {:?}", Instant::now() - start);
                     if stake_casted >= u64::from(threshold) {
                         let stake_casted_validated = self.api.validated_stake(
                             vote.leaf_commitment,
