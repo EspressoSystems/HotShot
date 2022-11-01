@@ -108,7 +108,9 @@ pub mod dummy {
             &self,
             _tx: &Self::Transaction,
         ) -> std::result::Result<Self, Self::Error> {
-            Err(DummyError)
+            Ok(Self {
+                nonce: self.nonce + 1,
+            })
         }
 
         fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>> {

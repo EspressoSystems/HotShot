@@ -301,7 +301,7 @@ impl<TYPES: NodeTypes> Libp2pNetwork<TYPES> {
                     if bs_addrs.len() >= num_bootstrap {
                         break bs_addrs;
                     }
-                    error!(
+                    info!(
                         "NODE {:?} bs addr len {:?}, number of bootstrap expected {:?}",
                         id,
                         bs_addrs.len(),

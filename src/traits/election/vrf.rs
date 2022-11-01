@@ -2,7 +2,7 @@ use ark_bls12_381::Parameters as Param381;
 use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
 use blake3::Hasher;
-use commit::{Commitment, Committable};
+use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::{
     data::Leaf,
     traits::{
@@ -384,9 +384,17 @@ where
     }
 }
 
-impl<PUBKEY, PROOF> Committable for VRFVoteToken<PUBKEY, PROOF> {
+impl<PUBKEY, PROOF> Committable for VRFVoteToken<PUBKEY, PROOF>
+where
+    PUBKEY: serde::Serialize,
+    PROOF: serde::Serialize,
+{
     fn commit(&self) -> Commitment<Self> {
-        todo!()
+        RawCommitmentBuilder::new(std::any::type_name::<Self>())
+            .u64(self.count.get())
+            .var_size_bytes(bincode_opts().serialize(&self.pub_key).unwrap().as_slice())
+            .var_size_bytes(bincode_opts().serialize(&self.proof).unwrap().as_slice())
+            .finalize()
     }
 }
 

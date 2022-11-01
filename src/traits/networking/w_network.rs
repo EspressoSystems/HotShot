@@ -1009,7 +1009,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     async fn shut_down(&self) {
         // TODO (vko):  I think shutting down the `TcpListener` will shut down this network, but I'm not sure
         // I'll need some proper test cases
-        unimplemented!();
+        unimplemented!("WNetwork: shut_down not supported");
     }
 
     async fn put_record(
@@ -1017,14 +1017,14 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
         _key: impl Serialize + Send + Sync + 'static,
         _value: impl Serialize + Send + Sync + 'static,
     ) -> Result<(), NetworkError> {
-        unimplemented!()
+        unimplemented!("WNetwork: put_record not supported");
     }
 
     async fn get_record<V: for<'a> Deserialize<'a>>(
         &self,
         _key: impl Serialize + Send + Sync + 'static,
     ) -> Result<V, NetworkError> {
-        unimplemented!()
+        unimplemented!("WNetwork: get_record not supported");
     }
 
     async fn notify_of_subsequent_leader(

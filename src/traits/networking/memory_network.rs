@@ -481,14 +481,14 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
         _key: impl Serialize + Send + Sync + 'static,
         _value: impl Serialize + Send + Sync + 'static,
     ) -> Result<(), NetworkError> {
-        unimplemented!()
+        unimplemented!("MemoryNetwork: Put record not supported")
     }
 
     async fn get_record<V: for<'a> Deserialize<'a>>(
         &self,
         _key: impl Serialize + Send + Sync + 'static,
     ) -> Result<V, NetworkError> {
-        unimplemented!()
+        unimplemented!("MemoryNetwork: Get record not supported")
     }
 
     async fn notify_of_subsequent_leader(

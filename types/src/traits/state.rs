@@ -147,7 +147,9 @@ pub mod dummy {
             _block: &Self::BlockType,
             _time: &Self::Time,
         ) -> Result<Self, Self::Error> {
-            Err(DummyError)
+            Ok(Self {
+                nonce: self.nonce + 1,
+            })
         }
 
         fn on_commit(&self) {}
