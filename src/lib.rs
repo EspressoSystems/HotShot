@@ -431,7 +431,10 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
 
                 // skip if the proposal is stale
                 if msg_view_number < channel_map.cur_view {
-                    warn!("Throwing away proposal for view number: {:?}", msg_view_number);
+                    warn!(
+                        "Throwing away proposal for view number: {:?}",
+                        msg_view_number
+                    );
                     return;
                 }
 
@@ -488,7 +491,10 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 )
                 .await;
                 if !is_leader || msg_view_number < channel_map.cur_view {
-                    warn!("Throwing away Vote or TimedOut message for view number: {:?}", msg_view_number);
+                    warn!(
+                        "Throwing away Vote or TimedOut message for view number: {:?}",
+                        msg_view_number
+                    );
                     return;
                 }
 
@@ -755,37 +761,6 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
         &self.inner.private_key
     }
 
-    // TODO ed - refactor this function to only acc stake, and not check validity
-    fn validated_stake(
-        &self,
-        hash: Commitment<Leaf<I::StateType>>,
-        view_number: ViewNumber,
-        signatures: BTreeMap<
-            EncodedPublicKey,
-            (
-                EncodedSignature,
-                <<I as NodeImplementation>::Election as Election<
-                    <I as NodeImplementation>::SignatureKey,
-                    ViewNumber,
-                >>::VoteTokenType,
-            ),
-        >,
-    ) -> u64 {
-        let stake = signatures
-            .iter()
-            .filter(|signature| {
-                self.is_valid_signature(
-                    signature.0,
-                    &signature.1 .0,
-                    hash,
-                    view_number,
-                    Unchecked(signature.1 .1.clone()),
-                )
-            })
-            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
-        stake
-    }
-
     #[instrument(skip(self, qc))]
     fn validate_qc(&self, qc: &QuorumCertificate<I::StateType>) -> bool {
         if qc.genesis && qc.view_number == ViewNumber::genesis() {
@@ -802,13 +777,25 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
                 >>::VoteTokenType,
             ),
         > = BTreeMap::new();
-        // TODO ed - refactor once I is impled for Vote
+
         for signature in qc.signatures.clone() {
             let decoded_vote_token = bincode_opts().deserialize(&signature.1 .1).unwrap();
             signature_map.insert(signature.0, (signature.1 .0, decoded_vote_token));
         }
 
-        let stake = self.validated_stake(hash, qc.view_number, signature_map);
+        let stake = signature_map
+            .iter()
+            .filter(|signature| {
+                self.is_valid_signature(
+                    signature.0,
+                    &signature.1 .0,
+                    hash,
+                    qc.view_number,
+                    Unchecked(signature.1 .1.clone()),
+                )
+            })
+            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
+
         if stake >= u64::from(self.threshold()) {
             return true;
         }

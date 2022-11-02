@@ -214,9 +214,8 @@ where
             _pd_0: PhantomData,
         })
     }
-    // TODO this is wrong.
-    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
 
+    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
         let mut hasher = blake3::Hasher::new();
         hasher.update(&seed);
         hasher.update(&index.to_le_bytes());

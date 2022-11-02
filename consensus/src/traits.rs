@@ -175,24 +175,6 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
         signature
     }
 
-    /// Returns the accumulated amount of validated stake based on signatures and vote tokens
-    fn validated_stake(
-        &self,
-        hash: Commitment<Leaf<I::StateType>>,
-        view_number: ViewNumber,
-        signatures: Signatures<I>,
-        // BTreeMap<
-        //     EncodedPublicKey,
-        //     (
-        //         EncodedSignature,
-        //         <<I as NodeImplementation>::Election as Election<
-        //             <I as NodeImplementation>::SignatureKey,
-        //             ViewNumber,
-        //         >>::VoteTokenType,
-        //     ),
-        // >,
-    ) -> u64;
-
     /// Validate a quorum certificate by checking
     /// signatures
     fn validate_qc(&self, quorum_certificate: &QuorumCertificate<I::StateType>) -> bool;
