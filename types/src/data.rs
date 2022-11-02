@@ -7,19 +7,33 @@ use crate::{
     constants::genesis_proposer_id,
     traits::{
         signature_key::{EncodedPublicKey, EncodedSignature},
+        state::ConsensusTime,
         storage::StoredView,
-        Block, State, state::ConsensusTime
+        Block, State,
     },
 };
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use commit::{Commitment, Committable};
 use derivative::Derivative;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt::Debug};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Serialize,
+    Deserialize,
+    CanonicalSerialize,
+    CanonicalDeserialize,
+)]
 pub struct ViewNumber(u64);
 
 impl ConsensusTime for ViewNumber {}
@@ -115,6 +129,31 @@ pub struct QuorumCertificate<STATE: State> {
     pub genesis: bool,
 }
 
+impl<STATE: State> Committable for QuorumCertificate<STATE> {
+    fn commit(&self) -> Commitment<Self> {
+        let mut builder = commit::RawCommitmentBuilder::new("Quorum Certificate Commitment");
+
+        builder = builder
+            .field("Block commitment", self.block_commitment)
+            .field("Leaf commitment", self.leaf_commitment)
+            .u64_field("View number", *self.view_number.deref());
+
+        let mut signatures_bytes = vec![];
+        for (k, v) in &self.signatures {
+            // TODO there is probably a way to avoid cloning.
+            signatures_bytes.append(&mut k.0.clone());
+            signatures_bytes.append(&mut v.0 .0.clone());
+            signatures_bytes.append(&mut v.1.clone());
+        }
+
+
+        builder
+            .var_size_bytes(&signatures_bytes)
+            .u64_field("Genesis", self.genesis.into())
+            .finalize()
+    }
+}
+
 /// The `Transaction` type associated with a `State`, as a syntactic shortcut
 pub type Transaction<STATE> = <<STATE as State>::BlockType as Block>::Transaction;
 /// `Commitment` to the `Transaction` type associated with a `State`, as a syntactic shortcut
@@ -152,7 +191,7 @@ pub struct ProposalLeaf<STATE: State> {
 
     /// the propser id
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
-    pub proposer_id: EncodedPublicKey
+    pub proposer_id: EncodedPublicKey,
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -192,7 +231,7 @@ pub struct Leaf<STATE: State> {
 
     /// the proposer id of the leaf
     #[derivative(PartialEq = "ignore")]
-    pub proposer_id: EncodedPublicKey
+    pub proposer_id: EncodedPublicKey,
 }
 
 /// Kake the thing a genesis block points to. Needed to avoid infinite recursion
@@ -216,7 +255,7 @@ impl<STATE: State> Committable for Leaf<STATE> {
         for (k, v) in &self.justify_qc.signatures {
             // TODO there is probably a way to avoid cloning.
             signatures_bytes.append(&mut k.0.clone());
-            signatures_bytes.append(&mut v.0.0.clone());
+            signatures_bytes.append(&mut v.0 .0.clone());
             signatures_bytes.append(&mut v.1.clone());
         }
         commit::RawCommitmentBuilder::new("Leaf Comm")
@@ -250,7 +289,7 @@ impl<STATE: State> From<Leaf<STATE>> for ProposalLeaf<STATE> {
             deltas: leaf.deltas,
             state_commitment: leaf.state.commit(),
             rejected: leaf.rejected,
-            proposer_id: leaf.proposer_id
+            proposer_id: leaf.proposer_id,
         }
     }
 }
@@ -270,7 +309,7 @@ impl<STATE: State<Time = ViewNumber>> Leaf<STATE> {
         view_number: ViewNumber,
         rejected: Vec<TxnCommitment<STATE>>,
         timestamp: i128,
-        proposer_id: EncodedPublicKey
+        proposer_id: EncodedPublicKey,
     ) -> Self {
         Leaf {
             view_number,
@@ -280,7 +319,7 @@ impl<STATE: State<Time = ViewNumber>> Leaf<STATE> {
             state,
             rejected,
             timestamp,
-            proposer_id
+            proposer_id,
         }
     }
 
@@ -295,7 +334,9 @@ impl<STATE: State<Time = ViewNumber>> Leaf<STATE> {
     /// or if state cannot extend deltas from default()
     pub fn genesis(deltas: STATE::BlockType) -> Self {
         // if this fails, we're not able to initialize consensus.
-        let state = STATE::default().append(&deltas, &ViewNumber::genesis()).unwrap();
+        let state = STATE::default()
+            .append(&deltas, &ViewNumber::genesis())
+            .unwrap();
         Self {
             view_number: ViewNumber::genesis(),
             justify_qc: QuorumCertificate::genesis(),
@@ -304,11 +345,10 @@ impl<STATE: State<Time = ViewNumber>> Leaf<STATE> {
             state,
             rejected: Vec::new(),
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-            proposer_id: genesis_proposer_id()
+            proposer_id: genesis_proposer_id(),
         }
     }
 }
-
 
 impl<STATE: State<Time = ViewNumber>> From<StoredView<STATE>> for Leaf<STATE> {
     fn from(append: StoredView<STATE>) -> Self {
@@ -335,7 +375,7 @@ impl<STATE: State> From<Leaf<STATE>> for StoredView<STATE> {
             append: val.deltas.into(),
             rejected: val.rejected,
             timestamp: val.timestamp,
-            proposer_id: val.proposer_id
+            proposer_id: val.proposer_id,
         }
     }
 }

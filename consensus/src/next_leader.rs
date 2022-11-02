@@ -99,7 +99,6 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         (vote.signature.1.clone(), vote.vote_token),
                     );
 
-                    num_votes += 1;
                     stake_casted += u64::from(vote_token.vote_count());
 
                     if stake_casted >= u64::from(threshold) {
