@@ -5,7 +5,7 @@ edition = "2021"
 name = "hotshot"
 readme = "README.md"
 version = "0.3.1"
-rust-version = "1.64.0"
+rust-version = "1.63.0"
 
 [features]
 default = ["demo", "docs", "doc-images"]
