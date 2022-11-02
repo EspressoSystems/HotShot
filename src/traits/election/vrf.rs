@@ -222,6 +222,7 @@ where
         let new_seed = *hasher.finalize().as_bytes();
         let mut prng = rand::rngs::StdRng::from_seed(new_seed);
 
+        #[allow(clippy::let_unit_value)]
         let parameters = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
         let (sk, pk) = SIGSCHEME::key_gen(&parameters, &mut prng).unwrap();
         (
