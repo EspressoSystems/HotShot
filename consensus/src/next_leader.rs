@@ -1,6 +1,5 @@
 //! Contains the [`NextLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
 
-use crate::traits::Signatures;
 use crate::ConsensusApi;
 use async_lock::Mutex;
 use bincode::Options;
@@ -89,7 +88,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         continue;
                     }
 
-                    qcs.insert(vote.justify_qc);
+                    // TODO ed ensure we have the QC that the QC commitment references
 
                     let (_bh, map) = vote_outcomes
                         .entry(vote.leaf_commitment)

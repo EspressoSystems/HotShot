@@ -1,6 +1,7 @@
 use ark_bls12_381::Parameters as Param381;
 use blake3::Hasher;
 use clap::Parser;
+use commit::Committable;
 use hotshot::types::SignatureKey;
 use hotshot::{
     demos::dentry::*,

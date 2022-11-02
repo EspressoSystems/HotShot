@@ -68,7 +68,6 @@ async fn centralized_server_network_vrf() {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
-#[ignore]
 async fn centralized_server_network() {
     let description = GeneralTestDescriptionBuilder {
         round_start_delay: 25,

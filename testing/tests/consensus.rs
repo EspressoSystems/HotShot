@@ -94,7 +94,7 @@ async fn submit_vote(
     let signature = handle.sign_vote(&leaf.commit(), leaf.view_number);
     let msg = ConsensusMessage::Vote(Vote {
         signature,
-        justify_qc: leaf.clone().justify_qc,
+        justify_qc_commitment: leaf.clone().justify_qc.commit(),
         current_view: leaf.view_number,
         block_commitment: leaf.deltas.commit(),
         leaf_commitment: leaf.commit(),

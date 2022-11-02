@@ -14,20 +14,8 @@ use hotshot_types::{
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
-use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
-/// type synonym for singature map
-pub(crate) type Signatures<I> = BTreeMap<
-    EncodedPublicKey,
-    (
-        EncodedSignature,
-        <<I as NodeImplementation>::Election as Election<
-            <I as NodeImplementation>::SignatureKey,
-            ViewNumber,
-        >>::VoteTokenType,
-    ),
->;
 
 // FIXME these should be nonzero u64s
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
