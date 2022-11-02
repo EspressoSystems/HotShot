@@ -8,16 +8,18 @@ cfg_if::cfg_if! {
         std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
 }
+use ark_bls12_381::Parameters as Param381;
 use async_lock::RwLock;
+use blake3::Hasher;
 use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::static_committee::{StaticCommittee, StaticElectionConfig},
+        election::vrf::{VRFPubKey, VRFStakeTableConfig, VrfImpl},
         implementations::{Libp2pNetwork, MemoryStorage},
         NetworkError, Storage,
     },
-    types::{ed25519::Ed25519Priv, HotShotHandle, Message},
+    types::{HotShotHandle, Message},
     HotShot,
 };
 use hotshot_centralized_server::{
@@ -26,7 +28,7 @@ use hotshot_centralized_server::{
 use hotshot_types::{
     traits::{
         network::NetworkingImplementation,
-        signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
+        signature_key::{SignatureKey, TestableSignatureKey},
         state::TestableState,
     },
     ExecutionType, HotShotConfig,
@@ -35,6 +37,7 @@ use hotshot_utils::{
     art::async_main,
     test_util::{setup_backtrace, setup_logging},
 };
+use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use libp2p::{
     identity::Keypair,
     multiaddr::{self, Protocol},
@@ -43,15 +46,16 @@ use libp2p::{
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 use std::{
     collections::HashSet,
-    num::NonZeroUsize,
+    num::{NonZeroU64, NonZeroUsize},
     str::FromStr,
     sync::Arc,
     time::{Duration, Instant},
 };
 use tracing::{debug, error, info};
 
-type FromServer = hotshot_centralized_server::FromServer<Ed25519Pub, StaticElectionConfig>;
-type ToServer = hotshot_centralized_server::ToServer<Ed25519Pub>;
+type Key = VRFPubKey<BLSSignatureScheme<Param381>>;
+type FromServer = hotshot_centralized_server::FromServer<Key, VRFStakeTableConfig>;
+type ToServer = hotshot_centralized_server::ToServer<Key>;
 
 /// convert node string into multi addr
 /// node string of the form: "$IP:$PORT"
@@ -220,17 +224,19 @@ impl CliOrchestrated {
             FromServer::Config { config, run } => (config, run),
             x => panic!("Expected Libp2pConfig, got {x:?}"),
         };
-        assert_eq!(config.key_type_name, std::any::type_name::<Ed25519Pub>());
+        assert_eq!(config.key_type_name, std::any::type_name::<Key>());
         assert_eq!(
             config.election_config_type_name,
-            std::any::type_name::<StaticElectionConfig>()
+            std::any::type_name::<VRFStakeTableConfig>()
         );
         error!("Received server config: {config:?}");
-        let privkey = Ed25519Priv::generated_from_seed_indexed(config.seed, config.node_index);
-        let pubkey = Ed25519Pub::from_private(&privkey);
+        let (pubkey, privkey) =
+            <Key as SignatureKey>::generated_from_seed_indexed(config.seed, config.node_index);
 
         stream
-            .send(ToServer::Identify { key: pubkey })
+            .send(ToServer::Identify {
+                key: pubkey.clone(),
+            })
             .await
             .expect("Could not identify with server");
 
@@ -308,8 +314,7 @@ impl CliStandalone {
     fn init(&self) -> Config {
         let mut seed = [0u8; 32];
         seed[0..16].copy_from_slice(&self.seed.to_le_bytes());
-        let privkey = Ed25519Priv::generated_from_seed_indexed(seed, self.node_idx);
-        let pubkey = Ed25519Pub::from_private(&privkey);
+        let (pubkey, privkey) = Key::generated_from_seed_indexed(seed, self.node_idx);
 
         let bootstrap_priv: Vec<_> = BOOTSTRAPS
             .iter()
@@ -364,14 +369,14 @@ impl CliStandalone {
 }
 
 type Node = DEntryNode<
-    Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
-    StaticCommittee<DEntryState>,
-    Ed25519Pub,
+    Libp2pNetwork<Message<DEntryState, Key>, Key>,
+    VrfImpl<DEntryState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
+    VRFPubKey<BLSSignatureScheme<Param381>>,
 >;
 struct Config {
     run: Run,
-    privkey: Ed25519Priv,
-    pubkey: Ed25519Pub,
+    privkey: <Key as SignatureKey>::PrivateKey,
+    pubkey: Key,
     bs: Vec<(PeerId, Multiaddr)>,
     node_id: u64,
     node_type: NetworkNodeType,
@@ -398,7 +403,7 @@ impl Config {
     async fn init_state_and_hotshot(
         &self,
 
-        networking: Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
+        networking: Libp2pNetwork<Message<DEntryState, Key>, Key>,
     ) -> (DEntryState, HotShotHandle<Node>) {
         let genesis_block = DEntryBlock::genesis();
         let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
@@ -406,11 +411,19 @@ impl Config {
         // Create the initial hotshot
         let known_nodes: Vec<_> = (0..self.num_nodes as u64)
             .map(|x| {
-                let priv_key = Ed25519Pub::generate_test_key(x);
-                Ed25519Pub::from_private(&priv_key)
+                let priv_key = Key::generate_test_key(x);
+                Key::from_private(&priv_key)
             })
             .collect();
 
+        let election_config = VRFStakeTableConfig {
+            sortition_parameter: NonZeroU64::new(known_nodes.len() as u64).unwrap(),
+            distribution: known_nodes
+                .iter()
+                .map(|_| NonZeroU64::new(1).unwrap())
+                .collect(),
+        };
+        let election = VrfImpl::with_initial_stake(known_nodes.clone(), &election_config);
         let config = HotShotConfig {
             execution_type: ExecutionType::Continuous,
             total_nodes: NonZeroUsize::new(self.num_nodes as usize).unwrap(),
@@ -424,17 +437,17 @@ impl Config {
             propose_min_round_time: Duration::from_secs(self.propose_min_round_time),
             propose_max_round_time: Duration::from_secs(self.propose_max_round_time),
             num_bootstrap: 7,
-            election_config: Some(StaticElectionConfig {}),
+            election_config: Some(election_config),
         };
         debug!(?config);
         let hotshot = HotShot::init(
-            self.pubkey,
+            self.pubkey.clone(),
             self.privkey.clone(),
             self.node_id as u64,
             config,
             networking,
             MemoryStorage::new(),
-            StaticCommittee::new(known_nodes),
+            election,
             initializer,
         )
         .await
@@ -450,7 +463,7 @@ impl Config {
 
     async fn new_libp2p_network(
         &self,
-    ) -> Result<Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>, NetworkError> {
+    ) -> Result<Libp2pNetwork<Message<DEntryState, Key>, Key>, NetworkError> {
         assert!(self.node_id < self.num_nodes);
         let mut config_builder = NetworkNodeConfigBuilder::default();
         // NOTE we may need to change this as we scale
@@ -489,7 +502,7 @@ impl Config {
 
         Libp2pNetwork::new(
             node_config,
-            self.pubkey,
+            self.pubkey.clone(),
             Arc::new(RwLock::new(
                 self.bs
                     .iter()

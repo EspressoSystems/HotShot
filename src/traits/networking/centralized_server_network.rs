@@ -20,14 +20,12 @@ use hotshot_centralized_server::{
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToServer,
 };
 use hotshot_types::traits::{
+    election::ElectionConfig,
     network::{
         FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
         NetworkingImplementation, TestableNetworkingImplementation,
     },
-    signature_key::{
-        ed25519::Ed25519Pub,
-        SignatureKey, TestableSignatureKey,
-    }, election::ElectionConfig,
+    signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
 };
 use hotshot_utils::{
     art::{async_block_on, async_sleep, async_spawn, split_stream},
@@ -631,6 +629,10 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
     /// Connect with the server running at `addr` and retrieve the config from the server.
     ///
     /// The config is returned along with the current run index and the running `CentralizedServerNetwork`
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the server has a different signature key (`K`) or election config (`E`)
     pub async fn connect_with_server_config(addr: SocketAddr) -> (NetworkConfig<K, E>, Run, Self) {
         let (streams, run, config) = loop {
             let (mut recv_stream, mut send_stream) = match TcpStream::connect(addr).await {
@@ -656,7 +658,9 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
             }
             match recv_stream.recv().await {
                 Ok(FromServer::Config { config, run }) => {
-                    break ((recv_stream, send_stream), run, config)
+                    assert_eq!(config.key_type_name, std::any::type_name::<K>());
+                    assert_eq!(config.election_config_type_name, std::any::type_name::<E>());
+                    break ((recv_stream, send_stream), run, config);
                 }
                 x => {
                     error!("Expected config from server, got {:?}", x);
@@ -972,7 +976,7 @@ impl<M, P, E> NetworkingImplementation<M, P> for CentralizedServerNetwork<P, E>
 where
     M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static,
     P: SignatureKey + 'static,
-    E: ElectionConfig + 'static
+    E: ElectionConfig + 'static,
 {
     async fn ready(&self) -> bool {
         while !self.inner.connected.load(Ordering::Relaxed) {
@@ -1066,7 +1070,7 @@ impl<M, P, E> TestableNetworkingImplementation<M, P> for CentralizedServerNetwor
 where
     M: Serialize + DeserializeOwned + Sync + Send + Clone + 'static,
     P: TestableSignatureKey + 'static,
-    E: ElectionConfig + 'static
+    E: ElectionConfig + 'static,
 {
     fn generator(
         expected_node_count: usize,
