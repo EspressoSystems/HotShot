@@ -270,9 +270,13 @@
 <span id="270">270</span>
 <span id="271">271</span>
 <span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">ark_bls12_381::Parameters</span> <span class="kw">as</span> <span class="ident">Param381</span>;
 <span class="kw">use</span> <span class="ident">blake3::Hasher</span>;
 <span class="kw">use</span> <span class="ident">clap::Parser</span>;
+<span class="kw">use</span> <span class="ident">commit::Committable</span>;
 <span class="kw">use</span> <span class="ident">hotshot</span>::{
     <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
     <span class="ident">traits</span>::{
@@ -346,6 +350,7 @@
     .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">x</span>, <span class="ident">y</span>)<span class="op">|</span> (<span class="ident">x</span>.<span class="ident">to_string</span>(), <span class="ident">y</span>))
     .<span class="ident">collect</span>();
     <span class="kw">let</span> <span class="ident">genesis_block</span> <span class="op">=</span> <span class="ident">DEntryBlock::genesis_from</span>(<span class="ident">accounts</span>);
+    <span class="kw">let</span> <span class="ident">genesis_seed</span> <span class="op">=</span> <span class="ident">genesis_block</span>.<span class="ident">commit</span>();
     <span class="kw">let</span> <span class="ident">initializer</span> <span class="op">=</span> <span class="ident">hotshot::HotShotInitializer::from_genesis</span>(<span class="ident">genesis_block</span>).<span class="ident">unwrap</span>();
 
     <span class="kw">let</span> <span class="ident">prng</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="ident">rand::thread_rng</span>();
@@ -368,6 +373,7 @@
             <span class="ident">sortition_parameter</span>: <span class="ident">NonZeroU64::new</span>(<span class="ident">SORTITION_PARAMETER</span>).<span class="ident">unwrap</span>(),
             <span class="ident">distribution</span>,
         },
+        <span class="ident">genesis_seed</span>.<span class="ident">into</span>(),
     );
     <span class="kw">let</span> <span class="ident">hotshot</span> <span class="op">=</span> <span class="ident">HotShot::init</span>(
         <span class="ident">VRFPubKey::from_native</span>(<span class="ident">pub_key</span>.<span class="ident">clone</span>()),

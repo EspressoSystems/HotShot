@@ -983,7 +983,7 @@
 <span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">HashMap</span>},
-    <span class="ident">num</span>::{<span class="ident">NonZeroUsize</span>, <span class="ident">NonZeroU64</span>},
+    <span class="ident">num</span>::{<span class="ident">NonZeroU64</span>, <span class="ident">NonZeroUsize</span>},
     <span class="ident">sync</span>::{<span class="ident">atomic::Ordering</span>, <span class="ident">Arc</span>},
     <span class="ident">time::Duration</span>,
 };
@@ -1596,7 +1596,7 @@
     <span class="kw">fn</span> <span class="ident">generate_vote_token</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
-        <span class="ident">next_state</span>: <span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">_next_state</span>: <span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span>
         <span class="ident">std::option::Option</span><span class="op">&lt;</span>
             <span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span>
@@ -1608,7 +1608,7 @@
     <span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">inner</span>
             .<span class="ident">election</span>
-            .<span class="ident">make_vote_token</span>(<span class="ident">view_number</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">private_key</span>, <span class="ident">next_state</span>)
+            .<span class="ident">make_vote_token</span>(<span class="ident">view_number</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">private_key</span>)
     }
 
     <span class="kw">fn</span> <span class="ident">get_election</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::Election</span> {
@@ -1758,7 +1758,7 @@
             <span class="ident">is_valid_signature</span> <span class="op">=</span> <span class="ident">key</span>.<span class="ident">validate</span>(<span class="ident">encoded_signature</span>, <span class="ident">hash</span>.<span class="ident">as_ref</span>());
             <span class="kw">let</span> <span class="ident">valid_vote_token</span> <span class="op">=</span>
                 <span class="self">self</span>.<span class="ident">get_election</span>()
-                    .<span class="ident">validate_vote_token</span>(<span class="ident">view_number</span>, <span class="ident">key</span>, <span class="ident">vote_token</span>, <span class="ident">hash</span>);
+                    .<span class="ident">validate_vote_token</span>(<span class="ident">view_number</span>, <span class="ident">key</span>, <span class="ident">vote_token</span>);
             <span class="ident">is_valid_vote_token</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">valid_vote_token</span> {
                 <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                     <span class="macro">error!</span>(<span class="string">&quot;Vote token was invalid&quot;</span>);
