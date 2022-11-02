@@ -888,25 +888,22 @@ where
         vrf_in_seed: &VRF::Input,
     ) -> Result<Checked<()>, hotshot_types::traits::election::ElectionError> {
         if let Ok(true) = VRF::verify(proof_param, proof, public_key, vrf_in_seed) {
-            if let Ok(seed) = VRF::evaluate(proof_param, proof) {
-                if let Some(res) = check_bin_idx(
-                    u64::from(sortition_claim),
-                    u64::from(voter_stake),
-                    u64::from(total_stake),
-                    u64::from(sortition_parameter),
-                    &seed,
-                    &mut HashMap::new(),
-                ) {
-                    if res {
-                        Ok(Checked::Valid(()))
-                    } else {
-                        Ok(Checked::Inval(()))
-                    }
+            let seed = VRF::evaluate(proof_param, proof).map_err(|_| ElectionError::StubError)?;
+            if let Some(res) = check_bin_idx(
+                u64::from(sortition_claim),
+                u64::from(voter_stake),
+                u64::from(total_stake),
+                u64::from(sortition_parameter),
+                &seed,
+                &mut HashMap::new(),
+            ) {
+                if res {
+                    Ok(Checked::Valid(()))
                 } else {
-                    Ok(Checked::Unchecked(()))
+                    Ok(Checked::Inval(()))
                 }
             } else {
-                Err(ElectionError::StubError)
+                Ok(Checked::Unchecked(()))
             }
         } else {
             Ok(Checked::Inval(()))
