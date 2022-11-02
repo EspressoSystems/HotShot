@@ -3,7 +3,7 @@
 //! This module provides the [`State`] trait, which serves as an abstraction over the current
 //! network state, which is modified by the transactions contained within blocks.
 
-use crate::{traits::Block, data::ViewNumber};
+use crate::{data::ViewNumber, traits::Block};
 use commit::Committable;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash};
@@ -63,7 +63,10 @@ where
 {
     /// Creates random transaction if possible
     /// otherwise panics
-    fn create_random_transaction(&self) -> <Self::BlockType as Block>::Transaction;
+    fn create_random_transaction(
+        &self,
+        rng: &mut dyn rand::RngCore,
+    ) -> <Self::BlockType as Block>::Transaction;
 }
 
 /// extra functions required on block to be usable by hotshot-testing
@@ -76,7 +79,10 @@ pub trait TestableBlock: Block {
 pub mod dummy {
     #[allow(clippy::wildcard_imports)]
     use super::*;
-    use crate::{traits::block_contents::dummy::{DummyBlock, DummyError}, data::ViewNumber};
+    use crate::{
+        data::ViewNumber,
+        traits::block_contents::dummy::{DummyBlock, DummyError},
+    };
     use rand::Rng;
     use serde::Deserialize;
 
@@ -97,9 +103,10 @@ pub mod dummy {
 
     impl DummyState {
         /// Generate a random `DummyState`
-        pub fn random() -> Self {
-            let x = rand::thread_rng().gen_range(1..1_000_000);
-            Self { nonce: x }
+        pub fn random(r: &mut dyn rand::RngCore) -> Self {
+            Self {
+                nonce: r.gen_range(1..1_000_000),
+            }
         }
     }
 
@@ -110,14 +117,18 @@ pub mod dummy {
         type Time = ViewNumber;
 
         fn next_block(&self) -> Self::BlockType {
-            DummyBlock::random()
+            DummyBlock { nonce: self.nonce }
         }
 
         fn validate_block(&self, _block: &Self::BlockType, _time: &Self::Time) -> bool {
             false
         }
 
-        fn append(&self, _block: &Self::BlockType, _time: &Self::Time) -> Result<Self, Self::Error> {
+        fn append(
+            &self,
+            _block: &Self::BlockType,
+            _time: &Self::Time,
+        ) -> Result<Self, Self::Error> {
             Err(DummyError)
         }
 

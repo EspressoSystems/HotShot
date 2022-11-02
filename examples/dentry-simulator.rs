@@ -214,7 +214,7 @@ async fn main() {
     debug!("Running random transactions");
     for round in prebaked_count..opt.transactions as u64 {
         debug!(?round);
-        let tx = &state.as_ref().unwrap()[0].create_random_transaction();
+        let tx = &state.as_ref().unwrap()[0].create_random_transaction(&mut rng);
         println!("Round {}:", round);
         println!("  - Proposing: {:?}", tx);
         debug!("Proposing: {:?}", tx);
@@ -361,7 +361,7 @@ async fn get_hotshot(
         propose_min_round_time: Duration::from_millis(0),
         propose_max_round_time: Duration::from_millis(1000),
         num_bootstrap: 5,
-        election_config: Some(StaticElectionConfig {})
+        election_config: Some(StaticElectionConfig {}),
     };
     debug!(?config);
     let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);

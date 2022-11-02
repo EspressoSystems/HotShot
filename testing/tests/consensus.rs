@@ -1,4 +1,5 @@
 mod common;
+use ark_bls12_381::Parameters as Param381;
 use blake3::Hasher;
 use commit::Committable;
 use common::{
@@ -9,8 +10,14 @@ use either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
     demos::dentry::{random_leaf, DEntryBlock, DEntryState},
-    traits::{implementations::{MemoryStorage, MemoryNetwork}, election::{vrf::{VRFPubKey, VrfImpl}, static_committee::StaticCommittee}},
-    types::{Vote, Message, ed25519::Ed25519Pub},
+    traits::{
+        election::{
+            static_committee::StaticCommittee,
+            vrf::{VRFPubKey, VrfImpl},
+        },
+        implementations::{MemoryNetwork, MemoryStorage},
+    },
+    types::{ed25519::Ed25519Pub, Message, Vote},
 };
 use hotshot_testing::{ConsensusRoundError, TestNodeImpl};
 use hotshot_types::{
@@ -21,27 +28,29 @@ use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use std::time::Duration;
 use std::time::Instant;
 use tracing::{instrument, warn};
-use ark_bls12_381::Parameters as Param381;
 
 /// type synonym for vrf committee election
 /// with in-memory network
 pub type StandardNodeImplType = TestNodeImpl<
-            DEntryState,
-            MemoryStorage<DEntryState>,
-            MemoryNetwork<Message<DEntryState, VRFPubKey<BLSSignatureScheme<Param381>>>, VRFPubKey<BLSSignatureScheme<Param381>>>,
-            VRFPubKey<BLSSignatureScheme<Param381>>,
-            VrfImpl<DEntryState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
-            >;
+    DEntryState,
+    MemoryStorage<DEntryState>,
+    MemoryNetwork<
+        Message<DEntryState, VRFPubKey<BLSSignatureScheme<Param381>>>,
+        VRFPubKey<BLSSignatureScheme<Param381>>,
+    >,
+    VRFPubKey<BLSSignatureScheme<Param381>>,
+    VrfImpl<DEntryState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
+>;
 
 /// type synonym for static committee
 /// with in-memory network
 pub type StaticNodeImplType = TestNodeImpl<
-            DEntryState,
-            MemoryStorage<DEntryState>,
-            MemoryNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
-            Ed25519Pub,
-            StaticCommittee<DEntryState>
-            >;
+    DEntryState,
+    MemoryStorage<DEntryState>,
+    MemoryNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
+    Ed25519Pub,
+    StaticCommittee<DEntryState>,
+>;
 
 const NUM_VIEWS: u64 = 100;
 const DEFAULT_NODE_ID: u64 = 0;
@@ -63,11 +72,16 @@ async fn is_upcoming_leader(
 }
 
 /// Builds and submits a random proposal for the specified view number
-async fn submit_proposal(runner: &AppliedTestRunner, sender_node_id: u64, view_number: ViewNumber) {
+async fn submit_proposal(
+    runner: &AppliedTestRunner,
+    sender_node_id: u64,
+    view_number: ViewNumber,
+    rng: &mut dyn rand::RngCore,
+) {
     let handle = runner.get_handle(sender_node_id).unwrap();
 
     // Build proposal
-    let mut leaf = random_leaf(DEntryBlock::genesis());
+    let mut leaf = random_leaf(DEntryBlock::genesis(), rng);
     leaf.view_number = view_number;
     let signature = handle.sign_proposal(&leaf.commit(), leaf.view_number);
     let msg = ConsensusMessage::Proposal(Proposal {
@@ -85,11 +99,12 @@ async fn submit_vote(
     sender_node_id: u64,
     view_number: ViewNumber,
     recipient_node_id: u64,
+    rng: &mut dyn rand::RngCore,
 ) {
     let handle = runner.get_handle(sender_node_id).unwrap();
 
     // Build vote
-    let mut leaf = random_leaf(DEntryBlock::genesis());
+    let mut leaf = random_leaf(DEntryBlock::genesis(), rng);
     leaf.view_number = view_number;
     let signature = handle.sign_vote(&leaf.commit(), leaf.view_number);
     let msg = ConsensusMessage::Vote(Vote {
@@ -167,11 +182,12 @@ fn test_vote_queueing_round_setup(
     runner: &mut AppliedTestRunner,
 ) -> LocalBoxFuture<Vec<TestTransaction>> {
     async move {
+        let mut rng = rand::thread_rng();
         let node_id = DEFAULT_NODE_ID;
         for j in runner.ids() {
             for i in 1..NUM_VIEWS {
                 if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                    submit_vote(runner, j, ViewNumber::new(i - 1), node_id).await;
+                    submit_vote(runner, j, ViewNumber::new(i - 1), node_id, &mut rng).await;
                 }
             }
         }
@@ -227,11 +243,12 @@ fn test_proposal_queueing_round_setup(
     runner: &mut AppliedTestRunner,
 ) -> LocalBoxFuture<Vec<TestTransaction>> {
     async move {
+        let mut rng = rand::thread_rng();
         let node_id = DEFAULT_NODE_ID;
 
         for i in 0..NUM_VIEWS {
             if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
+                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
             }
         }
 
@@ -245,14 +262,15 @@ fn test_bad_proposal_round_setup(
     runner: &mut AppliedTestRunner,
 ) -> LocalBoxFuture<Vec<TestTransaction>> {
     async move {
+        let mut rng = rand::thread_rng();
         let node_id = DEFAULT_NODE_ID;
         for i in 0..NUM_VIEWS {
             if !is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
+                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
             } else {
-                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
-                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
-                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
+                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
+                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
+                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
             }
         }
         Vec::new()
@@ -313,10 +331,11 @@ fn test_bad_vote_round_setup(
     runner: &mut AppliedTestRunner,
 ) -> LocalBoxFuture<Vec<TestTransaction>> {
     async move {
+        let mut rng = rand::thread_rng();
         let node_id = DEFAULT_NODE_ID;
         for j in runner.ids() {
             for i in 1..NUM_VIEWS {
-                submit_vote(runner, j, ViewNumber::new(i - 1), node_id).await;
+                submit_vote(runner, j, ViewNumber::new(i - 1), node_id, &mut rng).await;
             }
         }
         Vec::new()
@@ -379,19 +398,18 @@ fn test_bad_vote_post_safety_check(
 #[ignore]
 async fn test_proposal_queueing() {
     let num_rounds = 10;
-    let description: DetailedTestDescriptionBuilder<
-        StandardNodeImplType
-    > = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescriptionBuilder {
-            total_nodes: 4,
-            start_nodes: 4,
-            num_succeeds: num_rounds,
-            failure_threshold: 0,
-            ..GeneralTestDescriptionBuilder::default()
-        },
-        rounds: None,
-        gen_runner: None,
-    };
+    let description: DetailedTestDescriptionBuilder<StandardNodeImplType> =
+        DetailedTestDescriptionBuilder {
+            general_info: GeneralTestDescriptionBuilder {
+                total_nodes: 4,
+                start_nodes: 4,
+                num_succeeds: num_rounds,
+                failure_threshold: 0,
+                ..GeneralTestDescriptionBuilder::default()
+            },
+            rounds: None,
+            gen_runner: None,
+        };
     let mut test = description.build();
 
     for i in 0..num_rounds {
@@ -412,20 +430,19 @@ async fn test_proposal_queueing() {
 #[ignore]
 async fn test_vote_queueing() {
     let num_rounds = 10;
-    let description: DetailedTestDescriptionBuilder<
-        StandardNodeImplType
-    > = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescriptionBuilder {
-            total_nodes: 4,
-            start_nodes: 4,
-            num_succeeds: num_rounds,
-            failure_threshold: 0,
-            txn_ids: Right(1),
-            ..GeneralTestDescriptionBuilder::default()
-        },
-        rounds: None,
-        gen_runner: None,
-    };
+    let description: DetailedTestDescriptionBuilder<StandardNodeImplType> =
+        DetailedTestDescriptionBuilder {
+            general_info: GeneralTestDescriptionBuilder {
+                total_nodes: 4,
+                start_nodes: 4,
+                num_succeeds: num_rounds,
+                failure_threshold: 0,
+                txn_ids: Right(1),
+                ..GeneralTestDescriptionBuilder::default()
+            },
+            rounds: None,
+            gen_runner: None,
+        };
     let mut test = description.build();
 
     for i in 0..num_rounds {
@@ -446,19 +463,18 @@ async fn test_vote_queueing() {
 #[ignore]
 async fn test_bad_proposal() {
     let num_rounds = 10;
-    let description: DetailedTestDescriptionBuilder<
-        StandardNodeImplType
-    > = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescriptionBuilder {
-            total_nodes: 4,
-            start_nodes: 4,
-            num_succeeds: num_rounds,
-            failure_threshold: 0,
-            ..GeneralTestDescriptionBuilder::default()
-        },
-        rounds: None,
-        gen_runner: None,
-    };
+    let description: DetailedTestDescriptionBuilder<StandardNodeImplType> =
+        DetailedTestDescriptionBuilder {
+            general_info: GeneralTestDescriptionBuilder {
+                total_nodes: 4,
+                start_nodes: 4,
+                num_succeeds: num_rounds,
+                failure_threshold: 0,
+                ..GeneralTestDescriptionBuilder::default()
+            },
+            rounds: None,
+            gen_runner: None,
+        };
     let mut test = description.build();
 
     for i in 0..num_rounds {
@@ -479,19 +495,18 @@ async fn test_bad_proposal() {
 #[ignore]
 async fn test_bad_vote() {
     let num_rounds = 10;
-    let description: DetailedTestDescriptionBuilder<
-        StandardNodeImplType
-    > = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescriptionBuilder {
-            total_nodes: 4,
-            start_nodes: 4,
-            num_succeeds: num_rounds,
-            failure_threshold: num_rounds,
-            ..GeneralTestDescriptionBuilder::default()
-        },
-        rounds: None,
-        gen_runner: None,
-    };
+    let description: DetailedTestDescriptionBuilder<StandardNodeImplType> =
+        DetailedTestDescriptionBuilder {
+            general_info: GeneralTestDescriptionBuilder {
+                total_nodes: 4,
+                start_nodes: 4,
+                num_succeeds: num_rounds,
+                failure_threshold: num_rounds,
+                ..GeneralTestDescriptionBuilder::default()
+            },
+            rounds: None,
+            gen_runner: None,
+        };
     let mut test = description.build();
 
     for i in 0..num_rounds {
@@ -511,20 +526,19 @@ async fn test_bad_vote() {
 #[instrument]
 async fn test_single_node_network() {
     let num_rounds = 100;
-    let description: DetailedTestDescriptionBuilder<
-        StaticNodeImplType
-    > = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescriptionBuilder {
-            total_nodes: 1,
-            start_nodes: 1,
-            num_succeeds: num_rounds,
-            failure_threshold: 0,
-            txn_ids: Right(1),
-            ..GeneralTestDescriptionBuilder::default()
-        },
-        rounds: None,
-        gen_runner: None,
-    };
+    let description: DetailedTestDescriptionBuilder<StaticNodeImplType> =
+        DetailedTestDescriptionBuilder {
+            general_info: GeneralTestDescriptionBuilder {
+                total_nodes: 1,
+                start_nodes: 1,
+                num_succeeds: num_rounds,
+                failure_threshold: 0,
+                txn_ids: Right(1),
+                ..GeneralTestDescriptionBuilder::default()
+            },
+            rounds: None,
+            gen_runner: None,
+        };
     description.build().execute().await.unwrap();
 }
 
@@ -540,23 +554,22 @@ async fn test_min_propose() {
     let num_rounds = 5;
     let propose_min_round_time = Duration::new(1, 0);
     let propose_max_round_time = Duration::new(5, 0);
-    let description: DetailedTestDescriptionBuilder<
-        StandardNodeImplType
-    > = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescriptionBuilder {
-            total_nodes: 5,
-            start_nodes: 5,
-            num_succeeds: num_rounds,
-            failure_threshold: 0,
-            propose_min_round_time,
-            propose_max_round_time,
-            next_view_timeout: 10000,
-            txn_ids: Right(10),
-            ..GeneralTestDescriptionBuilder::default()
-        },
-        rounds: None,
-        gen_runner: None,
-    };
+    let description: DetailedTestDescriptionBuilder<StandardNodeImplType> =
+        DetailedTestDescriptionBuilder {
+            general_info: GeneralTestDescriptionBuilder {
+                total_nodes: 5,
+                start_nodes: 5,
+                num_succeeds: num_rounds,
+                failure_threshold: 0,
+                propose_min_round_time,
+                propose_max_round_time,
+                next_view_timeout: 10000,
+                txn_ids: Right(10),
+                ..GeneralTestDescriptionBuilder::default()
+            },
+            rounds: None,
+            gen_runner: None,
+        };
     let start_time = Instant::now();
     description.build().execute().await.unwrap();
     let duration = Instant::now() - start_time;
@@ -581,24 +594,23 @@ async fn test_max_propose() {
     let propose_min_round_time = Duration::new(0, 0);
     let propose_max_round_time = Duration::new(1, 0);
     let min_transactions: usize = 10;
-    let description: DetailedTestDescriptionBuilder<
-        StandardNodeImplType
-    > = DetailedTestDescriptionBuilder {
-        general_info: GeneralTestDescriptionBuilder {
-            total_nodes: 5,
-            start_nodes: 5,
-            num_succeeds: num_rounds,
-            failure_threshold: 0,
-            propose_min_round_time,
-            propose_max_round_time,
-            next_view_timeout: 10000,
-            min_transactions,
-            txn_ids: Right(1),
-            ..GeneralTestDescriptionBuilder::default()
-        },
-        rounds: None,
-        gen_runner: None,
-    };
+    let description: DetailedTestDescriptionBuilder<StandardNodeImplType> =
+        DetailedTestDescriptionBuilder {
+            general_info: GeneralTestDescriptionBuilder {
+                total_nodes: 5,
+                start_nodes: 5,
+                num_succeeds: num_rounds,
+                failure_threshold: 0,
+                propose_min_round_time,
+                propose_max_round_time,
+                next_view_timeout: 10000,
+                min_transactions,
+                txn_ids: Right(1),
+                ..GeneralTestDescriptionBuilder::default()
+            },
+            rounds: None,
+            gen_runner: None,
+        };
     let start_time = Instant::now();
     description.build().execute().await.unwrap();
     let duration = Instant::now() - start_time;

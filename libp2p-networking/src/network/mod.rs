@@ -44,7 +44,7 @@ use libp2p::{
     yamux::{WindowUpdateMode, YamuxConfig},
     InboundUpgradeExt, Multiaddr, OutboundUpgradeExt, PeerId, Transport,
 };
-use rand::{seq::IteratorRandom, thread_rng};
+use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fmt::Debug, io, str::FromStr, sync::Arc, time::Duration};
 use tracing::{info, instrument};
@@ -267,6 +267,9 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
 /// chooses one
 /// # Panics
 /// panics if handles is of length 0
-pub fn get_random_handle<S>(handles: &[Arc<NetworkNodeHandle<S>>]) -> Arc<NetworkNodeHandle<S>> {
-    handles.iter().choose(&mut thread_rng()).unwrap().clone()
+pub fn get_random_handle<S>(
+    handles: &[Arc<NetworkNodeHandle<S>>],
+    rng: &mut dyn rand::RngCore,
+) -> Arc<NetworkNodeHandle<S>> {
+    handles.iter().choose(rng).unwrap().clone()
 }

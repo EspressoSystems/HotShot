@@ -923,11 +923,12 @@ mod tests {
     #[test]
     pub fn test_sortition() {
         setup_logging();
+        let mut rng = rand::thread_rng();
         let (vrf_impl, keys) = gen_vrf_impl(10);
         let views = 100;
 
         for view in 0..views {
-            let next_state_commitment: Commitment<Leaf<DummyState>> = random_commitment();
+            let next_state_commitment: Commitment<Leaf<DummyState>> = random_commitment(&mut rng);
             for (node_idx, (sk, pk)) in keys.iter().enumerate() {
                 let token_result = vrf_impl
                     .make_vote_token(

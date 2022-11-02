@@ -19,16 +19,7 @@ use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
 ///     ([`add_transaction_raw`](BlockContents::add_transaction_raw))
 ///   * Must be hashable ([`hash`](BlockContents::hash))
 pub trait Block:
-    Serialize
-    + Clone
-    + Debug
-    + Hash
-    + PartialEq
-    + Eq
-    + Send
-    + Sync
-    + Committable
-    + DeserializeOwned
+    Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Committable + DeserializeOwned
 {
     /// The error type for this type of block
     type Error: Error + Debug + Send + Sync;
@@ -70,14 +61,13 @@ pub mod dummy {
     #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
     pub struct DummyBlock {
         /// Some dummy data
-        nonce: u64,
+        pub nonce: u64,
     }
 
     impl DummyBlock {
         /// Generate a random `DummyBlock`
-        pub fn random() -> Self {
-            let x = rand::thread_rng().gen();
-            Self { nonce: x }
+        pub fn random(rng: &mut dyn rand::RngCore) -> Self {
+            Self { nonce: rng.gen() }
         }
     }
 

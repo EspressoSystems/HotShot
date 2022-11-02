@@ -8,8 +8,7 @@ use async_trait::async_trait;
 use hotshot_types::{
     data::ViewNumber,
     traits::storage::{
-        Result, Storage, StorageError, StorageState, StoredView, TestableStorage,
-        ViewEntry,
+        Result, Storage, StorageError, StorageState, StoredView, TestableStorage, ViewEntry,
     },
 };
 use std::{
@@ -123,17 +122,20 @@ where
 mod test {
     use super::*;
     use hotshot_types::constants::genesis_proposer_id;
-    use hotshot_types::data::ViewNumber;
     use hotshot_types::data::fake_commitment;
     use hotshot_types::data::Leaf;
     use hotshot_types::data::QuorumCertificate;
+    use hotshot_types::data::ViewNumber;
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
     use std::collections::BTreeMap;
     use tracing::instrument;
 
-    #[instrument]
-    fn random_stored_view(number: ViewNumber) -> StoredView<DummyState> {
+    #[instrument(skip(rng))]
+    fn random_stored_view(
+        rng: &mut dyn rand::RngCore,
+        number: ViewNumber,
+    ) -> StoredView<DummyState> {
         // TODO is it okay to be using genesis here?
         let dummy_block_commit = fake_commitment::<DummyBlock>();
         let dummy_leaf_commit = fake_commitment::<Leaf<DummyState>>();
@@ -145,11 +147,11 @@ mod test {
                 signatures: BTreeMap::new(),
                 view_number: number,
             },
-            DummyBlock::random(),
-            DummyState::random(),
+            DummyBlock::random(rng),
+            DummyState::random(rng),
             dummy_leaf_commit,
             Vec::new(),
-            genesis_proposer_id()
+            genesis_proposer_id(),
         )
     }
 
@@ -160,10 +162,9 @@ mod test {
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     #[instrument]
     async fn memory_storage() {
-        let storage =
-            MemoryStorage::construct_tmp_storage()
-                .unwrap();
-        let genesis = random_stored_view(ViewNumber::genesis());
+        let mut rng = rand::thread_rng();
+        let storage = MemoryStorage::construct_tmp_storage().unwrap();
+        let genesis = random_stored_view(&mut rng, ViewNumber::genesis());
         storage
             .append_single_view(genesis.clone())
             .await

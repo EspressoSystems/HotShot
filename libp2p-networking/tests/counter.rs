@@ -180,7 +180,8 @@ async fn run_gossip_round(
     new_state: CounterState,
     timeout_duration: Duration,
 ) -> Result<(), TestError<CounterState>> {
-    let msg_handle = get_random_handle(handles);
+    let mut rng = rand::thread_rng();
+    let msg_handle = get_random_handle(handles, &mut rng);
     msg_handle.modify_state(|s| *s = new_state).await;
 
     let mut futs = Vec::new();
@@ -314,9 +315,10 @@ async fn run_dht_rounds(
     starting_val: usize,
     num_rounds: usize,
 ) {
+    let mut rng = rand::thread_rng();
     for i in 0..num_rounds {
         error!("round: {:?}", i);
-        let msg_handle = get_random_handle(handles);
+        let msg_handle = get_random_handle(handles, &mut rng);
         let mut key = vec![0; DHT_KV_PADDING];
         key.push((starting_val + i) as u8);
         let mut value = vec![0; DHT_KV_PADDING];
@@ -372,7 +374,8 @@ async fn run_request_response_increment_all(
     handles: &[Arc<NetworkNodeHandle<CounterState>>],
     timeout: Duration,
 ) {
-    let requestee_handle = get_random_handle(handles);
+    let mut rng = rand::thread_rng();
+    let requestee_handle = get_random_handle(handles, &mut rng);
     requestee_handle.modify_state(|s| *s += 1).await;
     info!("RR REQUESTEE IS {:?}", requestee_handle.peer_id());
     let mut futs = Vec::new();
