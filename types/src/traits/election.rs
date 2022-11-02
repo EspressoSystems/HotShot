@@ -3,11 +3,7 @@
 use std::num::NonZeroU64;
 
 use super::{state::ConsensusTime, State};
-use crate::{
-    data::{Leaf, ViewNumber},
-    traits::signature_key::SignatureKey,
-};
-use commit::Commitment;
+use crate::{data::ViewNumber, traits::signature_key::SignatureKey};
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 
@@ -84,8 +80,6 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         &self,
         view_number: ViewNumber,
         priv_key: &<P as SignatureKey>::PrivateKey,
-        // TODO (ct) this should be replaced with something else...
-        next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Result<Option<Self::VoteTokenType>, ElectionError>;
 
     /// Checks the claims of a received vote token
@@ -97,7 +91,6 @@ pub trait Election<P: SignatureKey, T: ConsensusTime>: Send + Sync {
         view_number: ViewNumber,
         pub_key: P,
         token: Checked<Self::VoteTokenType>,
-        next_state: commit::Commitment<Leaf<Self::StateType>>,
     ) -> Result<Checked<Self::VoteTokenType>, ElectionError>;
 
     /// Returns the threshold for a specific `Election` implementation

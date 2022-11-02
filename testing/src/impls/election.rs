@@ -1,15 +1,14 @@
-
 use commit::Commitment;
 use hotshot::{data::Leaf, traits::dummy::DummyState};
 use hotshot_types::{
     data::ViewNumber,
     traits::{
-        signature_key::{ed25519::Ed25519Pub},
-        election::{Checked, Election, VoteToken, ElectionConfig},
+        election::{Checked, Election, ElectionConfig, VoteToken},
+        signature_key::ed25519::Ed25519Pub,
     },
 };
 use hotshot_utils::hack::nll_todo;
-use tracing::{info};
+use tracing::info;
 
 /// A testable interface for the election trait.
 #[derive(Debug)]
@@ -58,8 +57,6 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
         &self,
         view_number: ViewNumber,
         private_key: &<Ed25519Pub as hotshot::types::SignatureKey>::PrivateKey,
-        // TODO (ct) this should be replaced with something else...
-        next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Result<Option<Self::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
         nll_todo()
     }
@@ -69,7 +66,6 @@ impl Election<Ed25519Pub, ViewNumber> for TestElection {
         view_number: ViewNumber,
         pub_key: Ed25519Pub,
         token: Checked<Self::VoteTokenType>,
-        next_state: Commitment<Leaf<Self::StateType>>,
     ) -> Result<
         hotshot_types::traits::election::Checked<Self::VoteTokenType>,
         hotshot_types::traits::election::ElectionError,

@@ -1,6 +1,7 @@
 use ark_bls12_381::Parameters as Param381;
 use blake3::Hasher;
 use clap::Parser;
+use commit::Committable;
 use hotshot::{
     demos::dentry::*,
     traits::{
@@ -74,6 +75,7 @@ async fn init_state_and_hotshot(
     .map(|(x, y)| (x.to_string(), y))
     .collect();
     let genesis_block = DEntryBlock::genesis_from(accounts);
+    let genesis_seed = genesis_block.commit();
     let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
     let prng = &mut rand::thread_rng();
@@ -96,6 +98,7 @@ async fn init_state_and_hotshot(
             sortition_parameter: NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
             distribution,
         },
+        genesis_seed.into(),
     );
     let hotshot = HotShot::init(
         VRFPubKey::from_native(pub_key.clone()),

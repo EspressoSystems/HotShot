@@ -77,7 +77,7 @@ use hotshot_utils::{
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},
-    num::{NonZeroUsize, NonZeroU64},
+    num::{NonZeroU64, NonZeroUsize},
     sync::{atomic::Ordering, Arc},
     time::Duration,
 };
@@ -690,7 +690,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     fn generate_vote_token(
         &self,
         view_number: ViewNumber,
-        next_state: Commitment<Leaf<I::StateType>>,
+        _next_state: Commitment<Leaf<I::StateType>>,
     ) -> std::result::Result<
         std::option::Option<
             <<I as NodeImplementation>::Election as Election<
@@ -702,7 +702,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
     > {
         self.inner
             .election
-            .make_vote_token(view_number, &self.inner.private_key, next_state)
+            .make_vote_token(view_number, &self.inner.private_key)
     }
 
     fn get_election(&self) -> &<I as NodeImplementation>::Election {
@@ -852,7 +852,7 @@ impl<I: NodeImplementation> hotshot_consensus::ConsensusApi<I> for HotShotConsen
             is_valid_signature = key.validate(encoded_signature, hash.as_ref());
             let valid_vote_token =
                 self.get_election()
-                    .validate_vote_token(view_number, key, vote_token, hash);
+                    .validate_vote_token(view_number, key, vote_token);
             is_valid_vote_token = match valid_vote_token {
                 Err(_) => {
                     error!("Vote token was invalid");
