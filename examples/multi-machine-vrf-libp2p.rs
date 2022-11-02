@@ -12,6 +12,7 @@ use ark_bls12_381::Parameters as Param381;
 use async_lock::RwLock;
 use blake3::Hasher;
 use clap::Parser;
+use commit::Committable;
 use hotshot::{
     demos::dentry::*,
     traits::{
@@ -406,6 +407,7 @@ impl Config {
         networking: Libp2pNetwork<Message<DEntryState, Key>, Key>,
     ) -> (DEntryState, HotShotHandle<Node>) {
         let genesis_block = DEntryBlock::genesis();
+        let genesis_seed = genesis_block.commit();
         let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
         // Create the initial hotshot
@@ -423,7 +425,8 @@ impl Config {
                 .map(|_| NonZeroU64::new(1).unwrap())
                 .collect(),
         };
-        let election = VrfImpl::with_initial_stake(known_nodes.clone(), &election_config);
+        let election =
+            VrfImpl::with_initial_stake(known_nodes.clone(), &election_config, genesis_seed.into());
         let config = HotShotConfig {
             execution_type: ExecutionType::Continuous,
             total_nodes: NonZeroUsize::new(self.num_nodes as usize).unwrap(),

@@ -2159,6 +2159,7 @@ dependencies = [
  "commit",
  "custom_debug",
  "dashmap",
+ "digest 0.10.5",
  "embed-doc-image",
  "futures",
  "hotshot-centralized-server",

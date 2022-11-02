@@ -72,6 +72,7 @@ async fn init_state_and_hotshot(
     .map(|(x, y)| (x.to_string(), y))
     .collect();
     let genesis_block = DEntryBlock::genesis_from(accounts);
+    let genesis_seed = genesis_block.commit();
     let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
     // TODO we should make this more general/use different parameters
@@ -94,6 +95,7 @@ async fn init_state_and_hotshot(
             sortition_parameter: NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
             distribution,
         },
+        genesis_seed.into(),
     );
     let hotshot = HotShot::init(
         pub_key,
