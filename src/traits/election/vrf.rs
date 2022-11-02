@@ -214,13 +214,16 @@ where
         })
     }
     // TODO this is wrong.
-    fn generated_from_seed_indexed(_seed: [u8; 32], _index: u64) -> (Self, Self::PrivateKey) {
-        let mut prng = rand::thread_rng();
+    fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
 
-        // TODO we should make this more general/use different parameters
-        #[allow(clippy::let_unit_value)]
-        let param = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
-        let (sk, pk) = SIGSCHEME::key_gen(&param, &mut prng).unwrap();
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&seed);
+        hasher.update(&index.to_le_bytes());
+        let new_seed = *hasher.finalize().as_bytes();
+        let mut prng = rand::rngs::StdRng::from_seed(new_seed);
+
+        let parameters = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
+        let (sk, pk) = SIGSCHEME::key_gen(&parameters, &mut prng).unwrap();
         (
             Self {
                 pk: pk.clone(),
@@ -655,7 +658,7 @@ fn calculate_threshold(query: BinomialQuery) -> Option<Ratio<BigUint>> {
     // this is the p parameter for the bernoulli distribution
     let p = Ratio::new(sortition_parameter_big, total_stake_big);
 
-    assert!(p.numer() < p.denom());
+    assert!(p.numer() <= p.denom());
 
     info!("p is {p:?}");
 

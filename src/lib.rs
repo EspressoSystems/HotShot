@@ -431,6 +431,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
 
                 // skip if the proposal is stale
                 if msg_view_number < channel_map.cur_view {
+                    warn!("Throwing away proposal for view number: {:?}", msg_view_number);
                     return;
                 }
 
@@ -487,6 +488,7 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
                 )
                 .await;
                 if !is_leader || msg_view_number < channel_map.cur_view {
+                    warn!("Throwing away Vote or TimedOut message for view number: {:?}", msg_view_number);
                     return;
                 }
 
@@ -577,31 +579,11 @@ impl<I: NodeImplementation + Sync + Send + 'static> HotShot<I> {
     }
 
     /// Handle a change in the network
+    /// In the future, catchup semantics can be handled here
     async fn handle_network_change(&self, node: NetworkChange<I::SignatureKey>) {
         match node {
             NetworkChange::NodeConnected(peer) => {
                 info!("Connected to node {:?}", peer);
-                let anchor = match self.inner.storage.get_anchored_view().await {
-                    Ok(anchor) => anchor,
-                    Err(e) => {
-                        error!(?e, "Could not retrieve newest QC");
-                        return;
-                    }
-                };
-                let msg = DataMessage::NewestQuorumCertificate {
-                    quorum_certificate: anchor.justify_qc,
-                    block: anchor.append.into_deltas(),
-                    state: anchor.state,
-                    parent_commitment: anchor.parent,
-                    rejected: anchor.rejected,
-                    proposer_id: anchor.proposer_id,
-                };
-                if let Err(e) = self.send_direct_message(msg, peer.clone()).await {
-                    error!(
-                        ?e,
-                        "Could not send newest quorumcertificate to node {:?}", peer
-                    );
-                }
             }
             NetworkChange::NodeDisconnected(peer) => {
                 info!("Lost connection to node {:?}", peer);
