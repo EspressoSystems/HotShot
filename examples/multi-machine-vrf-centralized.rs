@@ -6,7 +6,7 @@ use hotshot::types::SignatureKey;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::vrf::{VRFPubKey, VRFStakeTableConfig, VrfImpl, SORTITION_PARAMETER},
+        election::vrf::{VRFPubKey, VRFStakeTableConfig, VrfImpl},
         implementations::{CentralizedServerNetwork, MemoryStorage},
         Storage,
     },
