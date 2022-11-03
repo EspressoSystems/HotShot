@@ -271,16 +271,15 @@
 <span id="271">271</span>
 <span id="272">272</span>
 <span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
 </pre><pre class="rust"><code><span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>blake3::Hasher;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>commit::Committable;
+<span class="kw">use </span>hotshot::types::SignatureKey;
 <span class="kw">use </span>hotshot::{
     demos::dentry::<span class="kw-2">*</span>,
     traits::{
-        election::vrf::{VRFPubKey, VRFStakeTableConfig, VrfImpl, SORTITION_PARAMETER},
+        election::vrf::{VRFPubKey, VRFStakeTableConfig, VrfImpl},
         implementations::{CentralizedServerNetwork, MemoryStorage},
         Storage,
     },
@@ -293,10 +292,7 @@
     art::{async_main, async_sleep},
     test_util::{setup_backtrace, setup_logging},
 };
-<span class="kw">use </span>jf_primitives::{
-    signatures::BLSSignatureScheme,
-    vrf::{blsvrf::BLSVRFScheme, Vrf},
-};
+<span class="kw">use </span>jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 <span class="kw">use </span>std::{
     cmp,
     collections::{BTreeMap, VecDeque},
@@ -335,7 +331,7 @@
         VRFStakeTableConfig,
     &gt;,
     config: HotShotConfig&lt;VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;, VRFStakeTableConfig&gt;,
-    _seed: [u8; <span class="number">32</span>],
+    seed: [u8; <span class="number">32</span>],
     node_id: u64,
 ) -&gt; (DEntryState, HotShotHandle&lt;Node&gt;) {
     <span class="comment">// Create the initial block
@@ -353,16 +349,15 @@
     <span class="kw">let </span>genesis_seed = genesis_block.commit();
     <span class="kw">let </span>initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
-    <span class="kw">let </span>prng = <span class="kw-2">&amp;mut </span>rand::thread_rng();
     <span class="comment">// TODO we should make this more general/use different parameters
     </span><span class="attribute">#[allow(clippy::let_unit_value)]
-    </span><span class="kw">let </span>parameters =
-        &lt;BLSVRFScheme&lt;Param381&gt; <span class="kw">as </span>Vrf&lt;Hasher, Param381&gt;&gt;::param_gen(<span class="prelude-val">Some</span>(prng)).unwrap();
-    <span class="kw">let </span>(priv_key, pub_key) =
-        &lt;BLSVRFScheme&lt;Param381&gt; <span class="kw">as </span>Vrf&lt;Hasher, Param381&gt;&gt;::key_gen(<span class="kw-2">&amp;</span>parameters, prng).unwrap();
+    </span><span class="kw">let </span>vrf_key =
+        VRFPubKey::&lt;BLSSignatureScheme&lt;Param381&gt;&gt;::generated_from_seed_indexed(seed, node_id);
+    <span class="kw">let </span>priv_key = vrf_key.<span class="number">1</span>;
+    <span class="kw">let </span>pub_key = vrf_key.<span class="number">0</span>; 
+
     <span class="kw">let </span>known_nodes = config.known_nodes.clone();
-    <span class="comment">// let vrf_impl = VrfImpl::with_initial_stake(known_nodes.clone(), SORTITION_PARAMETER);
-    </span><span class="kw">let </span><span class="kw-2">mut </span>distribution = Vec::new();
+    <span class="kw">let </span><span class="kw-2">mut </span>distribution = Vec::new();
     <span class="kw">let </span>stake_per_node = NonZeroU64::new(<span class="number">100</span>).unwrap();
     <span class="kw">for _ in </span>known_nodes.iter() {
         distribution.push(stake_per_node);
@@ -370,14 +365,15 @@
     <span class="kw">let </span>vrf_impl = VrfImpl::with_initial_stake(
         known_nodes.clone(),
         <span class="kw-2">&amp;</span>VRFStakeTableConfig {
-            sortition_parameter: NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
+            <span class="comment">// TODO ed - make this a var in the dockerfile
+            </span>sortition_parameter: NonZeroU64::new(<span class="number">10000</span>).unwrap(),
             distribution,
         },
         genesis_seed.into(),
     );
     <span class="kw">let </span>hotshot = HotShot::init(
-        VRFPubKey::from_native(pub_key.clone()),
-        (priv_key, pub_key),
+        pub_key,
+        priv_key,
         node_id,
         config,
         networking,

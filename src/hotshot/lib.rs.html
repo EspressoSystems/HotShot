@@ -873,37 +873,6 @@
 <span id="873">873</span>
 <span id="874">874</span>
 <span id="875">875</span>
-<span id="876">876</span>
-<span id="877">877</span>
-<span id="878">878</span>
-<span id="879">879</span>
-<span id="880">880</span>
-<span id="881">881</span>
-<span id="882">882</span>
-<span id="883">883</span>
-<span id="884">884</span>
-<span id="885">885</span>
-<span id="886">886</span>
-<span id="887">887</span>
-<span id="888">888</span>
-<span id="889">889</span>
-<span id="890">890</span>
-<span id="891">891</span>
-<span id="892">892</span>
-<span id="893">893</span>
-<span id="894">894</span>
-<span id="895">895</span>
-<span id="896">896</span>
-<span id="897">897</span>
-<span id="898">898</span>
-<span id="899">899</span>
-<span id="900">900</span>
-<span id="901">901</span>
-<span id="902">902</span>
-<span id="903">903</span>
-<span id="904">904</span>
-<span id="905">905</span>
-<span id="906">906</span>
 </pre><pre class="rust"><code><span class="attribute">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1337,6 +1306,10 @@
 
                 <span class="comment">// skip if the proposal is stale
                 </span><span class="kw">if </span>msg_view_number &lt; channel_map.cur_view {
+                    <span class="macro">warn!</span>(
+                        <span class="string">&quot;Throwing away proposal for view number: {:?}&quot;</span>,
+                        msg_view_number
+                    );
                     <span class="kw">return</span>;
                 }
 
@@ -1393,6 +1366,10 @@
                 )
                 .<span class="kw">await</span>;
                 <span class="kw">if </span>!is_leader || msg_view_number &lt; channel_map.cur_view {
+                    <span class="macro">warn!</span>(
+                        <span class="string">&quot;Throwing away Vote or TimedOut message for view number: {:?}&quot;</span>,
+                        msg_view_number
+                    );
                     <span class="kw">return</span>;
                 }
 
@@ -1483,31 +1460,11 @@
     }
 
     <span class="doccomment">/// Handle a change in the network
+    /// In the future, catchup semantics can be handled here
     </span><span class="kw">async fn </span>handle_network_change(<span class="kw-2">&amp;</span><span class="self">self</span>, node: NetworkChange&lt;I::SignatureKey&gt;) {
         <span class="kw">match </span>node {
             NetworkChange::NodeConnected(peer) =&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;Connected to node {:?}&quot;</span>, peer);
-                <span class="kw">let </span>anchor = <span class="kw">match </span><span class="self">self</span>.inner.storage.get_anchored_view().<span class="kw">await </span>{
-                    <span class="prelude-val">Ok</span>(anchor) =&gt; anchor,
-                    <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="macro">error!</span>(<span class="question-mark">?</span>e, <span class="string">&quot;Could not retrieve newest QC&quot;</span>);
-                        <span class="kw">return</span>;
-                    }
-                };
-                <span class="kw">let </span>msg = DataMessage::NewestQuorumCertificate {
-                    quorum_certificate: anchor.justify_qc,
-                    block: anchor.append.into_deltas(),
-                    state: anchor.state,
-                    parent_commitment: anchor.parent,
-                    rejected: anchor.rejected,
-                    proposer_id: anchor.proposer_id,
-                };
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.send_direct_message(msg, peer.clone()).<span class="kw">await </span>{
-                    <span class="macro">error!</span>(
-                        <span class="question-mark">?</span>e,
-                        <span class="string">&quot;Could not send newest quorumcertificate to node {:?}&quot;</span>, peer
-                    );
-                }
             }
             NetworkChange::NodeDisconnected(peer) =&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;Lost connection to node {:?}&quot;</span>, peer);
@@ -1679,37 +1636,6 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.inner.private_key
     }
 
-    <span class="comment">// TODO ed - refactor this function to only acc stake, and not check validity
-    </span><span class="kw">fn </span>validated_stake(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        hash: Commitment&lt;Leaf&lt;I::StateType&gt;&gt;,
-        view_number: ViewNumber,
-        signatures: BTreeMap&lt;
-            EncodedPublicKey,
-            (
-                EncodedSignature,
-                &lt;&lt;I <span class="kw">as </span>NodeImplementation&gt;::Election <span class="kw">as </span>Election&lt;
-                    &lt;I <span class="kw">as </span>NodeImplementation&gt;::SignatureKey,
-                    ViewNumber,
-                &gt;&gt;::VoteTokenType,
-            ),
-        &gt;,
-    ) -&gt; u64 {
-        <span class="kw">let </span>stake = signatures
-            .iter()
-            .filter(|signature| {
-                <span class="self">self</span>.is_valid_signature(
-                    signature.<span class="number">0</span>,
-                    <span class="kw-2">&amp;</span>signature.<span class="number">1 </span>.<span class="number">0</span>,
-                    hash,
-                    view_number,
-                    Unchecked(signature.<span class="number">1 </span>.<span class="number">1</span>.clone()),
-                )
-            })
-            .fold(<span class="number">0</span>, |acc, x| (acc + u64::from(x.<span class="number">1 </span>.<span class="number">1</span>.vote_count())));
-        stake
-    }
-
     <span class="attribute">#[instrument(skip(<span class="self">self</span>, qc))]
     </span><span class="kw">fn </span>validate_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: <span class="kw-2">&amp;</span>QuorumCertificate&lt;I::StateType&gt;) -&gt; bool {
         <span class="kw">if </span>qc.genesis &amp;&amp; qc.view_number == ViewNumber::genesis() {
@@ -1726,13 +1652,25 @@
                 &gt;&gt;::VoteTokenType,
             ),
         &gt; = BTreeMap::new();
-        <span class="comment">// TODO ed - refactor once I is impled for Vote
-        </span><span class="kw">for </span>signature <span class="kw">in </span>qc.signatures.clone() {
+
+        <span class="kw">for </span>signature <span class="kw">in </span>qc.signatures.clone() {
             <span class="kw">let </span>decoded_vote_token = bincode_opts().deserialize(<span class="kw-2">&amp;</span>signature.<span class="number">1 </span>.<span class="number">1</span>).unwrap();
             signature_map.insert(signature.<span class="number">0</span>, (signature.<span class="number">1 </span>.<span class="number">0</span>, decoded_vote_token));
         }
 
-        <span class="kw">let </span>stake = <span class="self">self</span>.validated_stake(hash, qc.view_number, signature_map);
+        <span class="kw">let </span>stake = signature_map
+            .iter()
+            .filter(|signature| {
+                <span class="self">self</span>.is_valid_signature(
+                    signature.<span class="number">0</span>,
+                    <span class="kw-2">&amp;</span>signature.<span class="number">1 </span>.<span class="number">0</span>,
+                    hash,
+                    qc.view_number,
+                    Unchecked(signature.<span class="number">1 </span>.<span class="number">1</span>.clone()),
+                )
+            })
+            .fold(<span class="number">0</span>, |acc, x| (acc + u64::from(x.<span class="number">1 </span>.<span class="number">1</span>.vote_count())));
+
         <span class="kw">if </span>stake &gt;= u64::from(<span class="self">self</span>.threshold()) {
             <span class="kw">return </span><span class="bool-val">true</span>;
         }

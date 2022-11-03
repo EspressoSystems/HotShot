@@ -1117,10 +1117,6 @@
 <span id="1117">1117</span>
 <span id="1118">1118</span>
 <span id="1119">1119</span>
-<span id="1120">1120</span>
-<span id="1121">1121</span>
-<span id="1122">1122</span>
-<span id="1123">1123</span>
 </pre><pre class="rust"><code><span class="kw">use </span>ark_ec::bls12::Bls12Parameters;
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>hotshot_types::{
@@ -1206,15 +1202,10 @@
     SIGSCHEME::Signature: Clone + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Sync + Send,
 {
     <span class="kw">fn </span>generate_test_key(id: u64) -&gt; <span class="self">Self</span>::PrivateKey {
-        <span class="kw">let </span><span class="kw-2">mut </span>hasher = blake3::Hasher::new();
-        hasher.update(<span class="kw-2">&amp;</span>id.to_le_bytes());
-        <span class="kw">let </span>new_seed = <span class="kw-2">*</span>hasher.finalize().as_bytes();
-        <span class="kw">let </span><span class="kw-2">mut </span>prng = rand::rngs::StdRng::from_seed(new_seed);
-        <span class="comment">// TODO we should make this more general/use different parameters
-        </span><span class="attribute">#[allow(clippy::let_unit_value)]
-        </span><span class="kw">let </span>parameters = SIGSCHEME::param_gen(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span>prng)).unwrap();
-        SIGSCHEME::key_gen(<span class="kw-2">&amp;</span>parameters, <span class="kw-2">&amp;mut </span>prng).unwrap()
-    }
+        <span class="kw">let </span>seed = [<span class="number">0_u8</span>; <span class="number">32</span>];
+        <span class="kw">let </span>vrf_key = <span class="self">Self</span>::generated_from_seed_indexed(seed, id);
+        vrf_key.<span class="number">1
+    </span>}
 }
 
 <span class="kw">impl</span>&lt;SIGSCHEME&gt; VRFPubKey&lt;SIGSCHEME&gt;
@@ -1337,14 +1328,16 @@
             _pd_0: PhantomData,
         })
     }
-    <span class="comment">// TODO this is wrong.
-    </span><span class="kw">fn </span>generated_from_seed_indexed(_seed: [u8; <span class="number">32</span>], _index: u64) -&gt; (<span class="self">Self</span>, <span class="self">Self</span>::PrivateKey) {
-        <span class="kw">let </span><span class="kw-2">mut </span>prng = rand::thread_rng();
 
-        <span class="comment">// TODO we should make this more general/use different parameters
-        </span><span class="attribute">#[allow(clippy::let_unit_value)]
-        </span><span class="kw">let </span>param = SIGSCHEME::param_gen(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span>prng)).unwrap();
-        <span class="kw">let </span>(sk, pk) = SIGSCHEME::key_gen(<span class="kw-2">&amp;</span>param, <span class="kw-2">&amp;mut </span>prng).unwrap();
+    <span class="kw">fn </span>generated_from_seed_indexed(_seed: [u8; <span class="number">32</span>], index: u64) -&gt; (<span class="self">Self</span>, <span class="self">Self</span>::PrivateKey) {
+        <span class="kw">let </span><span class="kw-2">mut </span>hasher = blake3::Hasher::new();
+        hasher.update(<span class="kw-2">&amp;</span>index.to_le_bytes());
+        <span class="kw">let </span>new_seed = <span class="kw-2">*</span>hasher.finalize().as_bytes();
+        <span class="kw">let </span><span class="kw-2">mut </span>prng = rand::rngs::StdRng::from_seed(new_seed);
+
+        <span class="attribute">#[allow(clippy::let_unit_value)]
+        </span><span class="kw">let </span>parameters = SIGSCHEME::param_gen(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span>prng)).unwrap();
+        <span class="kw">let </span>(sk, pk) = SIGSCHEME::key_gen(<span class="kw-2">&amp;</span>parameters, <span class="kw-2">&amp;mut </span>prng).unwrap();
         (
             <span class="self">Self </span>{
                 pk: pk.clone(),
@@ -1771,7 +1764,7 @@
     <span class="comment">// this is the p parameter for the bernoulli distribution
     </span><span class="kw">let </span>p = Ratio::new(sortition_parameter_big, total_stake_big);
 
-    <span class="macro">assert!</span>(p.numer() &lt; p.denom());
+    <span class="macro">assert!</span>(p.numer() &lt;= p.denom());
 
     <span class="macro">info!</span>(<span class="string">&quot;p is {p:?}&quot;</span>);
 
@@ -1933,7 +1926,6 @@
             .map(|x| x.to_bytes())
             .zip(config.distribution.clone())
             .collect();
-        <span class="macro">error!</span>(<span class="string">&quot;stake table: {:?}&quot;</span>, key_with_stake);
         VrfImpl {
             stake_table: {
                 <span class="kw">let </span>st = VRFStakeTable {
