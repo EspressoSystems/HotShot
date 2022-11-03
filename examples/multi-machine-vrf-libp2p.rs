@@ -522,6 +522,7 @@ async fn main() {
     setup_logging();
     setup_backtrace();
 
+    let mut rng = rand::thread_rng();
     let args = CliOpt::parse();
     let mut server_conn = None;
     let config = match args {
@@ -584,7 +585,8 @@ async fn main() {
             let state = hotshot.get_state().await;
 
             for _ in 0..config.num_txn_per_round {
-                let txn = <DEntryState as TestableState>::create_random_transaction(&state);
+                let txn =
+                    <DEntryState as TestableState>::create_random_transaction(&state, &mut rng);
                 info!("Submitting txn on view {}", view);
                 hotshot.submit_transaction(txn).await.unwrap();
             }

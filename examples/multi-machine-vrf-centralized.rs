@@ -81,7 +81,7 @@ async fn init_state_and_hotshot(
     let vrf_key =
         VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(seed, node_id);
     let priv_key = vrf_key.1;
-    let pub_key = vrf_key.0; 
+    let pub_key = vrf_key.0;
 
     let known_nodes = config.known_nodes.clone();
     let mut distribution = Vec::new();
@@ -124,6 +124,8 @@ async fn main() {
     // Setup tracing listener
     setup_logging();
     setup_backtrace();
+
+    let mut rng = rand::thread_rng();
 
     let opts: NodeOpt = NodeOpt::parse();
     let addr: SocketAddr = (opts.host, opts.port).into();
@@ -180,7 +182,7 @@ async fn main() {
     let tx_to_gen = transactions_per_round * (cmp::max(rounds / node_count, 1) + 5);
     error!("Generated {} transactions", tx_to_gen);
     for _ in 0..tx_to_gen {
-        let mut txn = <DEntryState as TestableState>::create_random_transaction(&state);
+        let mut txn = <DEntryState as TestableState>::create_random_transaction(&state, &mut rng);
         txn.padding = vec![0; adjusted_padding];
         txs.push_back(txn);
     }

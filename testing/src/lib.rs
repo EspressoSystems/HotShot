@@ -433,26 +433,26 @@ impl<I: TestableNodeImplementation> TestRunner<I> {
     pub async fn add_random_transaction(
         &self,
         node_id: Option<usize>,
+        rng: &mut dyn rand::RngCore,
     ) -> <<I::StateType as State>::BlockType as Block>::Transaction {
         if self.nodes.is_empty() {
             panic!("Tried to add transaction, but no nodes have been added!");
         }
 
-        use rand::{seq::IteratorRandom, thread_rng};
-        let mut rng = thread_rng();
+        use rand::seq::IteratorRandom;
 
         // we're assuming all nodes have the same state.
         // If they don't match, this is probably fine since
         // it should be caught by an assertion (and the txn will be rejected anyway)
         let state = self.nodes[0].handle.get_state().await;
 
-        let txn = <I::StateType as TestableState>::create_random_transaction(&state);
+        let txn = <I::StateType as TestableState>::create_random_transaction(&state, rng);
 
         let node = if let Some(node_id) = node_id {
             self.nodes.get(node_id).unwrap()
         } else {
             // find a random handle to send this transaction from
-            self.nodes.iter().choose(&mut rng).unwrap()
+            self.nodes.iter().choose(rng).unwrap()
         };
 
         node.handle
@@ -467,10 +467,11 @@ impl<I: TestableNodeImplementation> TestRunner<I> {
     pub async fn add_random_transactions(
         &self,
         n: usize,
+        rng: &mut dyn rand::RngCore,
     ) -> Option<Vec<<<I::StateType as State>::BlockType as Block>::Transaction>> {
         let mut result = Vec::new();
         for _ in 0..n {
-            result.push(self.add_random_transaction(None).await);
+            result.push(self.add_random_transaction(None, rng).await);
         }
         Some(result)
     }
