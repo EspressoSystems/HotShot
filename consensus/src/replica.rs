@@ -136,6 +136,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                         // if !(safety_check || liveness_check)
                         // if !safety_check && !liveness_check
                         if !safety_check && !liveness_check {
+                            warn!("Failed safety check and liveness check");
                             continue;
                         }
 
@@ -149,20 +150,18 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                                     "Failed to generate vote token for {:?} {:?}",
                                     self.cur_view, e
                                 );
-                                continue;
                             }
                             Ok(None) => {
-                                error!("We were not chosen for committee on {:?}", self.cur_view);
-                                continue;
+                                info!("We were not chosen for committee on {:?}", self.cur_view);
                             }
                             Ok(Some(vote_token)) => {
-                                error!("We were chosen for committee on {:?}", self.cur_view);
+                                info!("We were chosen for committee on {:?}", self.cur_view);
                                 let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
                                 // Generate and send vote
                                 let vote = ConsensusMessage::<TYPES>::Vote(Vote {
                                     block_commitment: leaf.deltas.commit(),
-                                    justify_qc: leaf.justify_qc.clone(),
+                                    justify_qc_commitment: leaf.justify_qc.commit(),
                                     signature,
                                     leaf_commitment,
                                     time: self.cur_view,
@@ -181,10 +180,9 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                                 {
                                     warn!("Failed to send vote to next leader");
                                 }
-
-                                break leaf;
                             }
                         }
+                        break leaf;
                     }
                     ConsensusMessage::NextViewInterrupt(_view_number) => {
                         let next_leader = self.api.get_leader(self.cur_view + 1).await;

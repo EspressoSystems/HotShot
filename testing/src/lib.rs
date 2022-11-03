@@ -19,7 +19,7 @@ use futures::future::LocalBoxFuture;
 use hotshot::{
     data::Leaf,
     traits::{NetworkingImplementation, NodeImplementation, Storage},
-    types::HotShotHandle,
+    types::{HotShotHandle, SignatureKey},
     HotShot, HotShotError, HotShotInitializer, H_256,
 };
 use hotshot_types::{
@@ -27,7 +27,7 @@ use hotshot_types::{
         election::Election,
         network::TestableNetworkingImplementation,
         node_implementation::{NodeTypes, TestableNodeImplementation},
-        signature_key::{SignatureKey, TestableSignatureKey},
+        signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState},
         storage::TestableStorage,
     },
@@ -436,26 +436,29 @@ where
     I::Storage: TestableStorage<TYPES>,
 {
     /// Add a random transaction to this runner.
-    pub async fn add_random_transaction(&self, node_id: Option<usize>) -> TYPES::Transaction {
+    pub async fn add_random_transaction(
+        &self,
+        node_id: Option<usize>,
+        rng: &mut dyn rand::RngCore,
+    ) -> TYPES::Transaction {
         if self.nodes.is_empty() {
             panic!("Tried to add transaction, but no nodes have been added!");
         }
 
-        use rand::{seq::IteratorRandom, thread_rng};
-        let mut rng = thread_rng();
+        use rand::seq::IteratorRandom;
 
         // we're assuming all nodes have the same state.
         // If they don't match, this is probably fine since
         // it should be caught by an assertion (and the txn will be rejected anyway)
         let state = self.nodes[0].handle.get_state().await;
 
-        let txn = <TYPES::StateType as TestableState>::create_random_transaction(&state);
+        let txn = <TYPES::StateType as TestableState>::create_random_transaction(&state, rng);
 
         let node = if let Some(node_id) = node_id {
             self.nodes.get(node_id).unwrap()
         } else {
             // find a random handle to send this transaction from
-            self.nodes.iter().choose(&mut rng).unwrap()
+            self.nodes.iter().choose(rng).unwrap()
         };
 
         node.handle
@@ -467,10 +470,14 @@ where
 
     /// add `n` transactions
     /// TODO error handling to make sure entire set of transactions can be processed
-    pub async fn add_random_transactions(&self, n: usize) -> Option<Vec<TYPES::Transaction>> {
+    pub async fn add_random_transactions(
+        &self,
+        n: usize,
+        rng: &mut dyn rand::RngCore,
+    ) -> Option<Vec<TYPES::Transaction>> {
         let mut result = Vec::new();
         for _ in 0..n {
-            result.push(self.add_random_transaction(None).await);
+            result.push(self.add_random_transaction(None, rng).await);
         }
         Some(result)
     }

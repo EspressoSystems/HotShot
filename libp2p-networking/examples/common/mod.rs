@@ -4,15 +4,12 @@ pub mod web;
 #[cfg(all(feature = "lossy_network", target_os = "linux"))]
 pub mod lossy_network;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use async_std::prelude::StreamExt;
-    } else if #[cfg(feature = "tokio-executor")] {
-        use tokio_stream::StreamExt;
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
+#[cfg(feature = "async-std-executor")]
+use async_std::prelude::StreamExt;
+#[cfg(feature = "tokio-executor")]
+use tokio_stream::StreamExt;
+#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 use clap::{Args, Parser};
 use hotshot_utils::art::{async_sleep, async_spawn};
@@ -446,37 +443,32 @@ pub fn parse_node(s: &str) -> Result<Multiaddr, multiaddr::Error> {
     Multiaddr::from_str(&format!("/ip4/{}/tcp/{}", ip, port))
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "webui")] {
-        /// This will be flattened into CliOpt
-        #[derive(Args, Debug)]
-        pub struct WebUi {
-            /// Doc comment
-            #[arg(long = "webui")]
-            pub webui_addr: Option<SocketAddr>,
-        }
-    } else {
-        /// This will be flattened into CliOpt
-        #[derive(Args, Debug)]
-        pub struct WebUi {}
-    }
+#[cfg(feature = "webui")]
+/// This will be flattened into CliOpt
+#[derive(Args, Debug)]
+pub struct WebUi {
+    /// Doc comment
+    #[arg(long = "webui")]
+    pub webui_addr: Option<SocketAddr>,
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(all(feature = "lossy_network", target_os = "linux"))] {
-        /// This will be flattened into CliOpt
-        #[derive(Args, Debug)]
-        pub struct EnvType {
-            /// Doc comment
-            #[arg(long = "env")]
-            pub env_type: ExecutionEnvironment,
-        }
-    } else {
-        /// This will be flattened into CliOpt
-        #[derive(Args, Debug)]
-        pub struct EnvType {}
-    }
+#[cfg(not(feature = "webui"))]
+/// This will be flattened into CliOpt
+#[derive(Args, Debug)]
+pub struct WebUi {}
+
+#[cfg(all(feature = "lossy_network", target_os = "linux"))]
+/// This will be flattened into CliOpt
+#[derive(Args, Debug)]
+pub struct EnvType {
+    /// Doc comment
+    #[arg(long = "env")]
+    pub env_type: ExecutionEnvironment,
 }
+#[cfg(not(all(feature = "lossy_network", target_os = "linux")))]
+/// This will be flattened into CliOpt
+#[derive(Args, Debug)]
+pub struct EnvType {}
 
 #[derive(Parser, Debug)]
 pub struct CliOpt {

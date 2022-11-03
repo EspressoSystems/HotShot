@@ -1,15 +1,6 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
 use crate::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use async_std::task::{yield_now, JoinHandle};
-    } else if #[cfg(feature = "tokio-executor")] {
-        use tokio::task::{yield_now, JoinHandle};
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
 use async_lock::RwLock;
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
@@ -36,6 +27,13 @@ use std::{
     time::Duration,
 };
 use tracing::{error, info, info_span, instrument, trace, Instrument};
+
+#[cfg(feature = "async-std-executor")]
+use async_std::task::{yield_now, JoinHandle};
+#[cfg(feature = "tokio-executor")]
+use tokio::task::{yield_now, JoinHandle};
+#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 /// A handle with senders to send events to the background runners.
 #[derive(Default)]
@@ -285,13 +283,6 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
     let replica_handle = async_spawn(async move { replica.run_view().await });
     task_handles.push(replica_handle);
 
-    error!(
-        "MY PUB KEY IS {:?}, \nLEADER PUB KEY IS {:?}, \nI AM leader: {:?}\n",
-        hotshot.inner.public_key,
-        c_api.get_leader(cur_view).await,
-        c_api.is_leader(cur_view).await
-    );
-
     if c_api.is_leader(cur_view).await {
         let leader = Leader {
             id: hotshot.id,
@@ -335,19 +326,17 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
     let results = children_finished.await;
 
     // unwrap is fine since results must have >= 1 item(s)
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "async-std-executor")] {
-            let high_qc = results.into_iter().max_by_key(|qc| qc.time).unwrap();
-        } else if #[cfg(feature = "tokio-executor")] {
-            let high_qc = results
-                .into_iter()
-                .filter_map(std::result::Result::ok)
-                .max_by_key(|qc| qc.time)
-                .unwrap();
-        } else {
-            std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-        }
-    }
+    #[cfg(feature = "async-std-executor")]
+    let high_qc = results.into_iter().max_by_key(|qc| qc.time).unwrap();
+    #[cfg(feature = "tokio-executor")]
+    let high_qc = results
+        .into_iter()
+        .filter_map(std::result::Result::ok)
+        .max_by_key(|qc| qc.time)
+        .unwrap();
+
+    #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+    compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
     let mut consensus = hotshot.hotstuff.write().await;
     consensus.high_qc = high_qc;

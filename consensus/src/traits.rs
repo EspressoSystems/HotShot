@@ -16,7 +16,6 @@ use hotshot_types::{
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
-use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
@@ -163,14 +162,6 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
         let signature = TYPES::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
         signature
     }
-
-    /// Returns the accumulated amount of validated stake based on signatures and vote tokens
-    fn validated_stake(
-        &self,
-        hash: Commitment<Leaf<TYPES>>,
-        view_number: TYPES::Time,
-        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
-    ) -> u64;
 
     /// Validate a quorum certificate by checking
     /// signatures

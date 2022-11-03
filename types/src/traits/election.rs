@@ -1,8 +1,8 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 use super::node_implementation::NodeTypes;
-use crate::{data::Leaf, traits::signature_key::SignatureKey};
-use commit::{Commitment, Committable};
+use crate::traits::signature_key::SignatureKey;
+use commit::Committable;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 use std::fmt::Debug;
@@ -84,8 +84,6 @@ pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
         &self,
         time: TYPES::Time,
         pub_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
-        // TODO (ct) this should be replaced with something else...
-        next_state: Commitment<Leaf<TYPES>>,
     ) -> Result<Option<TYPES::VoteTokenType>, ElectionError>;
 
     /// Checks the claims of a received vote token
@@ -97,7 +95,6 @@ pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
         time: TYPES::Time,
         pub_key: TYPES::SignatureKey,
         token: Checked<TYPES::VoteTokenType>,
-        next_state: commit::Commitment<Leaf<TYPES>>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError>;
 
     /// Returns the threshold for a specific `Election` implementation

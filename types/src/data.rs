@@ -18,7 +18,7 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -128,6 +128,31 @@ pub struct QuorumCertificate<TYPES: NodeTypes> {
 
 impl<TYPES: NodeTypes> Eq for QuorumCertificate<TYPES> {}
 
+impl<TYPES: NodeTypes> Committable for QuorumCertificate<TYPES> {
+    fn commit(&self) -> Commitment<Self> {
+        let mut builder = commit::RawCommitmentBuilder::new("Quorum Certificate Commitment");
+
+        builder = builder
+            .field("Block commitment", self.block_commitment)
+            .field("Leaf commitment", self.leaf_commitment)
+            .u64_field("View number", *self.time.deref());
+
+        for (idx, (k, v)) in self.signatures.iter().enumerate() {
+            builder = builder
+                .var_size_field(&format!("Signature {idx} public key"), &k.0)
+                .var_size_field(&format!("Signature {idx} signature"), &v.0 .0)
+                .field(&format!("Signature {idx} signature"), v.1.commit());
+        }
+
+        builder.u64_field("Genesis", self.genesis.into()).finalize()
+    }
+}
+
+/// The `Transaction` type associated with a `State`, as a syntactic shortcut
+pub type Transaction<STATE> = <<STATE as State>::BlockType as Block>::Transaction;
+/// `Commitment` to the `Transaction` type associated with a `State`, as a syntactic shortcut
+pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
+
 /// subset of state that we stick into a leaf.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Derivative)]
 #[serde(bound(deserialize = ""))]
@@ -200,8 +225,7 @@ pub fn fake_commitment<S: Committable>() -> Commitment<S> {
 }
 
 /// create a random commitment
-pub fn random_commitment<S: Committable>() -> Commitment<S> {
-    let mut rng = rand::thread_rng();
+pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitment<S> {
     let random_array: Vec<u8> = (0u8..100u8).map(|_| rng.gen_range(0..255)).collect();
     commit::RawCommitmentBuilder::new("Random Commitment")
         .constant_str("Random Field")
@@ -213,7 +237,6 @@ impl<TYPES: NodeTypes> Committable for Leaf<TYPES> {
     fn commit(&self) -> commit::Commitment<Self> {
         let mut signatures_bytes = vec![];
         for (k, v) in &self.justify_qc.signatures {
-            // TODO there is probably a way to avoid cloning.
             signatures_bytes.extend(&k.0);
             signatures_bytes.extend(&v.0 .0);
             signatures_bytes.extend(v.1.commit().as_ref());

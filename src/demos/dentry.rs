@@ -25,7 +25,7 @@ use hotshot_types::{
         State,
     },
 };
-use rand::{thread_rng, Rng};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
 use std::{
@@ -388,9 +388,11 @@ impl State for DEntryState {
 }
 
 impl TestableState for DEntryState {
-    fn create_random_transaction(&self) -> <Self::BlockType as Block>::Transaction {
+    fn create_random_transaction(
+        &self,
+        rng: &mut dyn rand::RngCore,
+    ) -> <Self::BlockType as Block>::Transaction {
         use rand::seq::IteratorRandom;
-        let mut rng = thread_rng();
 
         let non_zero_balances = self
             .balances
@@ -403,8 +405,8 @@ impl TestableState for DEntryState {
             "No nonzero balances were available! Unable to generate transaction."
         );
 
-        let input_account = non_zero_balances.iter().choose(&mut rng).unwrap().0;
-        let output_account = self.balances.keys().choose(&mut rng).unwrap();
+        let input_account = non_zero_balances.iter().choose(rng).unwrap().0;
+        let output_account = self.balances.keys().choose(rng).unwrap();
         let amount = rng.gen_range(0..100);
 
         DEntryTransaction {
@@ -564,11 +566,12 @@ where
 }
 
 /// Provides a random [`QuorumCertificate`]
-pub fn random_quorum_certificate<TYPES: NodeTypes>() -> QuorumCertificate<TYPES> {
-    let mut rng = thread_rng();
+pub fn random_quorum_certificate<TYPES: NodeTypes>(
+    rng: &mut dyn rand::RngCore,
+) -> QuorumCertificate<TYPES> {
     QuorumCertificate {
-        block_commitment: random_commitment(),
-        leaf_commitment: random_commitment(),
+        block_commitment: random_commitment(rng),
+        leaf_commitment: random_commitment(rng),
         time: TYPES::Time::new(rng.gen()),
         signatures: BTreeMap::default(),
         genesis: rng.gen(),
@@ -576,15 +579,18 @@ pub fn random_quorum_certificate<TYPES: NodeTypes>() -> QuorumCertificate<TYPES>
 }
 
 /// Provides a random [`Leaf`]
-pub fn random_leaf<TYPES: NodeTypes>(deltas: TYPES::BlockType) -> Leaf<TYPES> {
-    let justify_qc = random_quorum_certificate();
+pub fn random_leaf<TYPES: NodeTypes>(
+    deltas: TYPES::BlockType,
+    rng: &mut dyn rand::RngCore,
+) -> Leaf<TYPES> {
+    let justify_qc = random_quorum_certificate(rng);
     let state = TYPES::StateType::default()
         .append(&deltas, &TYPES::Time::new(42))
         .unwrap_or_default();
     Leaf {
         time: justify_qc.time,
         justify_qc,
-        parent_commitment: random_commitment(),
+        parent_commitment: random_commitment(rng),
         deltas,
         state,
         rejected: Vec::new(),

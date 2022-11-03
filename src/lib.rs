@@ -420,6 +420,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
 
                 // skip if the proposal is stale
                 if msg_time < channel_map.cur_view {
+                    warn!("Throwing away proposal for view number: {:?}", msg_time);
                     return;
                 }
 
@@ -476,6 +477,10 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
                 )
                 .await;
                 if !is_leader || msg_time < channel_map.cur_view {
+                    warn!(
+                        "Throwing away Vote or TimedOut message for view number: {:?}",
+                        msg_time
+                    );
                     return;
                 }
 
@@ -571,27 +576,6 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         match node {
             NetworkChange::NodeConnected(peer) => {
                 info!("Connected to node {:?}", peer);
-                let anchor = match self.inner.storage.get_anchored_view().await {
-                    Ok(anchor) => anchor,
-                    Err(e) => {
-                        error!(?e, "Could not retrieve newest QC");
-                        return;
-                    }
-                };
-                let msg = DataMessage::NewestQuorumCertificate {
-                    quorum_certificate: anchor.justify_qc,
-                    block: anchor.append.into_deltas(),
-                    state: anchor.state,
-                    parent_commitment: anchor.parent,
-                    rejected: anchor.rejected,
-                    proposer_id: anchor.proposer_id,
-                };
-                if let Err(e) = self.send_direct_message(msg, peer.clone()).await {
-                    error!(
-                        ?e,
-                        "Could not send newest quorumcertificate to node {:?}", peer
-                    );
-                }
             }
             NetworkChange::NodeDisconnected(peer) => {
                 info!("Lost connection to node {:?}", peer);
@@ -678,11 +662,11 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
     fn generate_vote_token(
         &self,
         time: TYPES::Time,
-        next_state: Commitment<Leaf<TYPES>>,
+        _next_state: Commitment<Leaf<TYPES>>,
     ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError> {
         self.inner
             .election
-            .make_vote_token(time, &self.inner.private_key, next_state)
+            .make_vote_token(time, &self.inner.private_key)
     }
 
     async fn get_leader(&self, time: TYPES::Time) -> TYPES::SignatureKey {
@@ -749,37 +733,27 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
         &self.inner.private_key
     }
 
-    // TODO ed - refactor this function to only acc stake, and not check validity
-    fn validated_stake(
-        &self,
-        hash: Commitment<Leaf<TYPES>>,
-        time: TYPES::Time,
-        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
-    ) -> u64 {
-        let stake = signatures
-            .iter()
-            .filter(|signature| {
-                self.is_valid_signature(
-                    signature.0,
-                    &signature.1 .0,
-                    hash,
-                    time,
-                    Unchecked(signature.1 .1.clone()),
-                )
-            })
-            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
-        stake
-    }
-
     #[instrument(skip(self, qc))]
     fn validate_qc(&self, qc: &QuorumCertificate<TYPES>) -> bool {
         if qc.genesis && qc.time == TYPES::Time::genesis() {
             return true;
         }
         let hash = qc.leaf_commitment;
-        let signature_map = qc.signatures.clone();
 
-        let stake = self.validated_stake(hash, qc.time, signature_map);
+        let stake = qc
+            .signatures
+            .iter()
+            .filter(|signature| {
+                self.is_valid_signature(
+                    signature.0,
+                    &signature.1 .0,
+                    hash,
+                    qc.time,
+                    Unchecked(signature.1 .1.clone()),
+                )
+            })
+            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
+
         if stake >= u64::from(self.threshold()) {
             return true;
         }
@@ -801,7 +775,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
             let valid_vote_token = self
                 .inner
                 .election
-                .validate_vote_token(time, key, vote_token, hash);
+                .validate_vote_token(time, key, vote_token);
             is_valid_vote_token = match valid_vote_token {
                 Err(_) => {
                     error!("Vote token was invalid");

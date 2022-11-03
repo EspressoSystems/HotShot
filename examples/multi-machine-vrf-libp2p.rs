@@ -1,17 +1,9 @@
 // TODO this should really be moved into the utils crate.
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use async_std::net::TcpStream;
-    } else if #[cfg(feature = "tokio-executor")] {
-        use tokio::net::TcpStream;
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
 use ark_bls12_381::Parameters as Param381;
 use async_lock::RwLock;
 use blake3::Hasher;
 use clap::Parser;
+use commit::Committable;
 use hotshot::{
     demos::dentry::*,
     traits::{
@@ -60,6 +52,13 @@ use std::{
     time::{Duration, Instant},
 };
 use tracing::{debug, error, info};
+
+#[cfg(feature = "async-std-executor")]
+use async_std::net::TcpStream;
+#[cfg(feature = "tokio-executor")]
+use tokio::net::TcpStream;
+#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 type Key = VRFPubKey<BLSSignatureScheme<Param381>>;
 type FromServer = hotshot_centralized_server::FromServer<Key, VRFStakeTableConfig>;
@@ -439,6 +438,7 @@ impl Config {
         networking: Libp2pNetwork<VrfTypes>,
     ) -> (DEntryState, HotShotHandle<VrfTypes, Node>) {
         let genesis_block = DEntryBlock::genesis();
+        let genesis_seed = genesis_block.commit();
         let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
         // Create the initial hotshot
@@ -456,7 +456,8 @@ impl Config {
                 .map(|_| NonZeroU64::new(1).unwrap())
                 .collect(),
         };
-        let election = VrfImpl::with_initial_stake(known_nodes.clone(), &election_config);
+        let election =
+            VrfImpl::with_initial_stake(known_nodes.clone(), &election_config, genesis_seed.into());
         let config = HotShotConfig {
             execution_type: ExecutionType::Continuous,
             total_nodes: NonZeroUsize::new(self.num_nodes as usize).unwrap(),
@@ -552,6 +553,7 @@ async fn main() {
     setup_logging();
     setup_backtrace();
 
+    let mut rng = rand::thread_rng();
     let args = CliOpt::parse();
     let mut server_conn = None;
     let config = match args {
@@ -614,7 +616,8 @@ async fn main() {
             let state = hotshot.get_state().await;
 
             for _ in 0..config.num_txn_per_round {
-                let txn = <DEntryState as TestableState>::create_random_transaction(&state);
+                let txn =
+                    <DEntryState as TestableState>::create_random_transaction(&state, &mut rng);
                 info!("Submitting txn on view {}", view);
                 hotshot.submit_transaction(txn).await.unwrap();
             }

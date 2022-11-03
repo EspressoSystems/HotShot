@@ -153,9 +153,8 @@ pub struct Vote<TYPES: NodeTypes> {
     /// TODO we should remove this
     /// this is correct, but highly inefficient
     /// we should check a cache, and if that fails request the qc
-    pub justify_qc: QuorumCertificate<TYPES>,
+    pub justify_qc_commitment: Commitment<QuorumCertificate<TYPES>>,
     /// The signature share associated with this vote
-    /// TODO ct/vrf: use VoteToken
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a Vec<u8>
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// Hash of the item being voted on

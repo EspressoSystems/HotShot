@@ -3,13 +3,10 @@ use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
 use blake3::Hasher;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
-use hotshot_types::{
-    data::Leaf,
-    traits::{
-        election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
-        node_implementation::NodeTypes,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
-    },
+use hotshot_types::traits::{
+    election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
+    node_implementation::NodeTypes,
+    signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
 };
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
@@ -33,7 +30,8 @@ use std::{
     hash::Hash,
     marker::PhantomData,
     num::NonZeroU64,
-    sync::{Arc, Mutex, MutexGuard},
+    ops::Deref,
+    sync::{Arc, Mutex},
 };
 use tracing::{error, info, instrument};
 
@@ -91,14 +89,9 @@ where
     SIGSCHEME::Signature: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
 {
     fn generate_test_key(id: u64) -> Self::PrivateKey {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(&id.to_le_bytes());
-        let new_seed = *hasher.finalize().as_bytes();
-        let mut prng = rand::rngs::StdRng::from_seed(new_seed);
-        // TODO we should make this more general/use different parameters
-        #[allow(clippy::let_unit_value)]
-        let parameters = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
-        SIGSCHEME::key_gen(&parameters, &mut prng).unwrap()
+        let seed = [0_u8; 32];
+        let vrf_key = Self::generated_from_seed_indexed(seed, id);
+        vrf_key.1
     }
 }
 
@@ -222,14 +215,16 @@ where
             _pd_0: PhantomData,
         })
     }
-    // TODO this is wrong.
-    fn generated_from_seed_indexed(_seed: [u8; 32], _index: u64) -> (Self, Self::PrivateKey) {
-        let mut prng = rand::thread_rng();
 
-        // TODO we should make this more general/use different parameters
+    fn generated_from_seed_indexed(_seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&index.to_le_bytes());
+        let new_seed = *hasher.finalize().as_bytes();
+        let mut prng = rand::rngs::StdRng::from_seed(new_seed);
+
         #[allow(clippy::let_unit_value)]
-        let param = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
-        let (sk, pk) = SIGSCHEME::key_gen(&param, &mut prng).unwrap();
+        let parameters = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
+        let (sk, pk) = SIGSCHEME::key_gen(&parameters, &mut prng).unwrap();
         (
             Self {
                 pk: pk.clone(),
@@ -288,8 +283,10 @@ where
     prng: std::sync::Arc<std::sync::Mutex<rand_chacha::ChaChaRng>>,
     /// the committee parameter
     sortition_parameter: NonZeroU64,
+    /// the chain commitment seed
+    chain_seed: [u8; 32],
     /// pdf cache
-    sortition_cache: std::sync::Arc<std::sync::Mutex<HashMap<BinomialQuery, Ratio<BigUint>>>>,
+    _sortition_cache: std::sync::Arc<std::sync::Mutex<HashMap<BinomialQuery, Ratio<BigUint>>>>,
 
     // TODO (fst2) accessor to stake table
     // stake_table:
@@ -316,7 +313,8 @@ where
             proof_parameters: (),
             prng: self.prng.clone(),
             sortition_parameter: self.sortition_parameter,
-            sortition_cache: Arc::default(),
+            chain_seed: self.chain_seed,
+            _sortition_cache: Arc::default(),
             _pd_0: PhantomData,
             _pd_1: PhantomData,
             _pd_2: PhantomData,
@@ -419,7 +417,7 @@ where
         + 'static,
     VRF::Proof: Clone + Sync + Send + Serialize + for<'a> Deserialize<'a>,
     VRF::PublicParameter: Sync + Send,
-    VRFHASHER: Clone + Sync + Send + 'static,
+    VRFHASHER: digest::Digest + Clone + Sync + Send + 'static,
     VRFPARAMS: Sync + Send + Bls12Parameters,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
     TYPES: NodeTypes<
@@ -461,46 +459,37 @@ where
         &self,
         view_number: TYPES::Time,
         private_key: &(SIGSCHEME::SigningKey, SIGSCHEME::VerificationKey),
-        // TODO (ct) this should be replaced with something else...
-        next_state: Commitment<Leaf<TYPES>>,
-    ) -> Result<Option<TYPES::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
+    ) -> Result<Option<TYPES::VoteTokenType>, ElectionError> {
         let pub_key = VRFPubKey::<SIGSCHEME>::from_native(private_key.1.clone());
         let replicas_stake = match self.stake_table.get_stake(&pub_key) {
             Some(val) => val,
             None => return Ok(None),
         };
-        let view_seed = generate_view_seed(view_number, next_state);
-        // TODO (ct) this can fail, return Result::Err
-        let proof = VRF::prove(
+
+        let view_seed = generate_view_seed::<TYPES, VRFHASHER>(view_number, &self.chain_seed);
+
+        let proof = Self::internal_get_vrf_proof(
+            &private_key.0,
             &self.proof_parameters,
-            &private_key.0.clone(),
+            &mut self.prng.lock().unwrap(),
             &view_seed,
-            &mut *self.prng.lock().unwrap(),
-        )
-        .unwrap();
+        )?;
 
-        // TODO (ct) this can fail, return result::err
-        let hash = VRF::evaluate(&self.proof_parameters, &proof).unwrap();
-
-        // TODO (ct) this should invoke the get_stake_table function
-        let total_stake = self.stake_table.total_stake;
-
-        // TODO (jr) this error handling is NOTGOOD
-        let cache = self.sortition_cache.lock().unwrap();
-        let selected_stake = find_bin_idx(
-            u64::from(replicas_stake),
-            u64::from(total_stake),
-            self.sortition_parameter.get(),
-            &hash,
-            cache,
+        let selected_stake = Self::internal_get_sortition_for_proof(
+            &self.proof_parameters,
+            &proof,
+            self.stake_table.get_all_stake(),
+            replicas_stake,
+            self.sortition_parameter,
         );
+
         match selected_stake {
             Some(count) => {
                 // TODO (ct) this can fail, return Result::Err
                 let proof = VRF::prove(
                     &self.proof_parameters,
                     &private_key.0,
-                    &<[u8; 32]>::from(next_state),
+                    &view_seed,
                     &mut *self.prng.lock().unwrap(),
                 )
                 .unwrap();
@@ -517,41 +506,31 @@ where
 
     fn validate_vote_token(
         &self,
-        _view_number: TYPES::Time,
+        view_number: TYPES::Time,
         pub_key: VRFPubKey<SIGSCHEME>,
         token: Checked<TYPES::VoteTokenType>,
-        next_state: commit::Commitment<hotshot_types::data::Leaf<TYPES>>,
-    ) -> Result<Checked<TYPES::VoteTokenType>, hotshot_types::traits::election::ElectionError> {
+    ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError> {
         match token {
             Checked::Unchecked(token) => {
                 let stake: Option<NonZeroU64> = self.stake_table.get_stake(&pub_key);
+                let view_seed =
+                    generate_view_seed::<TYPES, VRFHASHER>(view_number, &self.chain_seed);
                 if let Some(stake) = stake {
-                    if let Ok(true) = VRF::verify(
+                    Self::internal_check_sortition(
+                        &pub_key.pk,
                         &self.proof_parameters,
                         &token.proof,
-                        &pub_key.pk,
-                        &<[u8; 32]>::from(next_state),
-                    ) {
-                        if let Ok(seed) = VRF::evaluate(&self.proof_parameters, &token.proof) {
-                            let total_stake = self.stake_table.total_stake;
-                            if let Some(true) = check_bin_idx(
-                                u64::from(token.count),
-                                u64::from(stake),
-                                u64::from(total_stake),
-                                self.sortition_parameter.get(),
-                                &seed,
-                                self.sortition_cache.lock().unwrap(),
-                            ) {
-                                Ok(Checked::Valid(token))
-                            } else {
-                                Ok(Checked::Inval(token))
-                            }
-                        } else {
-                            Ok(Checked::Inval(token))
-                        }
-                    } else {
-                        Ok(Checked::Inval(token))
-                    }
+                        self.stake_table.get_all_stake(),
+                        stake,
+                        self.sortition_parameter,
+                        token.count,
+                        &view_seed,
+                    )
+                    .map(|c| match c {
+                        Checked::Inval(_) => Checked::Inval(token),
+                        Checked::Valid(_) => Checked::Valid(token),
+                        Checked::Unchecked(_) => Checked::Unchecked(token),
+                    })
                 } else {
                     // TODO better error
                     Err(ElectionError::StubError)
@@ -562,7 +541,10 @@ where
     }
 
     fn create_election(keys: Vec<VRFPubKey<SIGSCHEME>>, config: TYPES::ElectionConfigType) -> Self {
-        VrfImpl::with_initial_stake(keys, &config)
+        // This all needs to be refactored. For one thing, having the stake table - even an initial
+        // stake table - hardcoded like this is flat-out broken. This is, obviously, an artifact
+        let genesis_seed = [0u8; 32];
+        VrfImpl::with_initial_stake(keys, &config, genesis_seed)
     }
 
     fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType {
@@ -590,7 +572,7 @@ fn check_bin_idx(
     total_stake: u64,
     sortition_parameter: u64,
     unnormalized_seed: &[u8; 32],
-    cache: MutexGuard<'_, HashMap<BinomialQuery, Ratio<BigUint>>>,
+    cache: &mut HashMap<BinomialQuery, Ratio<BigUint>>,
 ) -> Option<bool> {
     let bin_idx = find_bin_idx(
         replicas_stake,
@@ -603,13 +585,18 @@ fn check_bin_idx(
 }
 
 /// generates the seed from algorand paper
-/// baseed on `next_state` commitment as of now, but in the future will be other things
+/// baseed on `view_number` and a constant as of now, but in the future will be other things
 /// this is a stop-gap
-fn generate_view_seed<TYPES: NodeTypes>(
-    _view_number: TYPES::Time,
-    next_state: commit::Commitment<hotshot_types::data::Leaf<TYPES>>,
+fn generate_view_seed<TYPES: NodeTypes, HASHER: digest::Digest>(
+    view_number: TYPES::Time,
+    vrf_seed: &[u8; 32],
 ) -> [u8; 32] {
-    <[u8; 32]>::from(next_state)
+    let mut hasher = HASHER::new();
+    hasher.update(vrf_seed);
+    hasher.update(view_number.deref().to_le_bytes());
+    let mut output = [0u8; 32];
+    output.copy_from_slice(hasher.finalize().as_ref());
+    output
 }
 
 /// represents a binomial query made by sortition
@@ -698,7 +685,7 @@ fn calculate_threshold(query: BinomialQuery) -> Option<Ratio<BigUint>> {
     // this is the p parameter for the bernoulli distribution
     let p = Ratio::new(sortition_parameter_big, total_stake_big);
 
-    assert!(p.numer() < p.denom());
+    assert!(p.numer() <= p.denom());
 
     info!("p is {p:?}");
 
@@ -751,7 +738,7 @@ fn find_bin_idx(
     total_stake: u64,
     sortition_parameter: u64,
     unnormalized_seed: &[u8; 32],
-    mut cache: MutexGuard<'_, HashMap<BinomialQuery, Ratio<BigUint>>>,
+    cache: &mut HashMap<BinomialQuery, Ratio<BigUint>>,
 ) -> Option<NonZeroU64> {
     let unnormalized_seed = BigUint::from_bytes_le(unnormalized_seed);
     let normalized_seed = Ratio::new(unnormalized_seed, BigUint::from(2_u32).pow(256));
@@ -841,7 +828,7 @@ where
         + Send,
     VRF::Proof: Clone + Sync + Send + Serialize + for<'a> Deserialize<'a>,
     VRF::PublicParameter: Sync + Send,
-    VRFHASHER: Clone + Sync + Send,
+    VRFHASHER: digest::Digest + Clone + Sync + Send,
     VRFPARAMS: Sync + Send + Bls12Parameters,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
     TYPES: NodeTypes,
@@ -852,6 +839,7 @@ where
     pub fn with_initial_stake(
         known_nodes: Vec<VRFPubKey<SIGSCHEME>>,
         config: &VRFStakeTableConfig,
+        genesis_seed: [u8; 32],
     ) -> Self {
         assert_eq!(known_nodes.iter().len(), config.distribution.len());
         let key_with_stake = known_nodes
@@ -859,7 +847,6 @@ where
             .map(|x| x.to_bytes())
             .zip(config.distribution.clone())
             .collect();
-        error!("stake table: {:?}", key_with_stake);
         VrfImpl {
             stake_table: {
                 let st = VRFStakeTable {
@@ -873,6 +860,7 @@ where
                 st
             },
             proof_parameters: (),
+            chain_seed: genesis_seed,
             prng: Arc::new(Mutex::new(ChaChaRng::from_seed(Default::default()))),
             // TODO (fst2) accessor to stake table
             // stake_table:
@@ -882,8 +870,135 @@ where
             _pd_3: PhantomData,
             _pd_4: PhantomData,
             sortition_parameter: config.sortition_parameter,
-            sortition_cache: Arc::default(),
+            _sortition_cache: Arc::default(),
         }
+    }
+
+    /// stateless delegate for VRF proof generation
+    /// # Errors
+    ///
+
+    fn internal_get_vrf_proof(
+        private_key: &SIGSCHEME::SigningKey,
+        proof_param: &VRF::PublicParameter,
+        to_refactor: &mut rand_chacha::ChaChaRng,
+        vrf_in_seed: &VRF::Input,
+    ) -> Result<VRF::Proof, hotshot_types::traits::election::ElectionError> {
+        VRF::prove(proof_param, private_key, vrf_in_seed, to_refactor)
+            .map_err(|_| ElectionError::StubError)
+    }
+
+    /// stateless delegate for VRF sortition generation
+    fn internal_get_sortition_for_proof(
+        proof_param: &VRF::PublicParameter,
+        proof: &VRF::Proof,
+        total_stake: NonZeroU64,
+        voter_stake: NonZeroU64,
+        sortition_parameter: NonZeroU64,
+    ) -> Option<NonZeroU64> {
+        // TODO (ct) this can fail, return result::err
+        let hash = VRF::evaluate(proof_param, proof).unwrap();
+        let mut cache: HashMap<BinomialQuery, Ratio<BigUint>> = HashMap::new();
+
+        find_bin_idx(
+            u64::from(voter_stake),
+            u64::from(total_stake),
+            sortition_parameter.into(),
+            &hash,
+            &mut cache,
+        )
+    }
+
+    /// stateless delegate for VRF sortition confirmation
+    /// # Errors
+    /// if the proof is malformed
+    #[allow(clippy::too_many_arguments)]
+    fn internal_check_sortition(
+        public_key: &SIGSCHEME::VerificationKey,
+        proof_param: &VRF::PublicParameter,
+        proof: &VRF::Proof,
+        total_stake: NonZeroU64,
+        voter_stake: NonZeroU64,
+        sortition_parameter: NonZeroU64,
+        sortition_claim: NonZeroU64,
+        vrf_in_seed: &VRF::Input,
+    ) -> Result<Checked<()>, hotshot_types::traits::election::ElectionError> {
+        if let Ok(true) = VRF::verify(proof_param, proof, public_key, vrf_in_seed) {
+            let seed = VRF::evaluate(proof_param, proof).map_err(|_| ElectionError::StubError)?;
+            if let Some(res) = check_bin_idx(
+                u64::from(sortition_claim),
+                u64::from(voter_stake),
+                u64::from(total_stake),
+                u64::from(sortition_parameter),
+                &seed,
+                &mut HashMap::new(),
+            ) {
+                if res {
+                    Ok(Checked::Valid(()))
+                } else {
+                    Ok(Checked::Inval(()))
+                }
+            } else {
+                Ok(Checked::Unchecked(()))
+            }
+        } else {
+            Ok(Checked::Inval(()))
+        }
+    }
+
+    /// Stateless method to produce VRF proof and sortition for a given view number
+    /// # Errors
+    ///
+    pub fn get_sortition_proof(
+        private_key: &SIGSCHEME::SigningKey,
+        proof_param: &VRF::PublicParameter,
+        chain_seed: &VRF::Input,
+        time: TYPES::Time,
+        total_stake: NonZeroU64,
+        voter_stake: NonZeroU64,
+        sortition_parameter: NonZeroU64,
+    ) -> Result<(VRF::Proof, Option<NonZeroU64>), hotshot_types::traits::election::ElectionError>
+    {
+        let mut rng = ChaChaRng::from_seed(Default::default()); // maybe use something else that isn't deterministic?
+        let view_seed = generate_view_seed::<TYPES, VRFHASHER>(time, chain_seed);
+        let proof = Self::internal_get_vrf_proof(private_key, proof_param, &mut rng, &view_seed)?;
+        let sortition = Self::internal_get_sortition_for_proof(
+            proof_param,
+            &proof,
+            total_stake,
+            voter_stake,
+            sortition_parameter,
+        );
+        Ok((proof, sortition))
+    }
+
+    /// Stateless method to verify VRF proof and sortition for a given view number
+    /// # Errors
+    ///
+    #[allow(clippy::too_many_arguments)]
+    pub fn check_sortition_proof(
+        public_key: &SIGSCHEME::VerificationKey,
+        proof_param: &VRF::PublicParameter,
+        proof: &VRF::Proof,
+        total_stake: NonZeroU64,
+        voter_stake: NonZeroU64,
+        sortition_parameter: NonZeroU64,
+        sortition_claim: NonZeroU64,
+        chain_seed: &VRF::Input,
+        time: TYPES::Time,
+    ) -> Result<bool, hotshot_types::traits::election::ElectionError> {
+        let view_seed = generate_view_seed::<TYPES, VRFHASHER>(time, chain_seed);
+        Self::internal_check_sortition(
+            public_key,
+            proof_param,
+            proof,
+            total_stake,
+            voter_stake,
+            sortition_parameter,
+            sortition_claim,
+            &view_seed,
+        )
+        .map(|c| matches!(c, Checked::Valid(_)))
     }
 }
 
@@ -930,15 +1045,12 @@ impl ElectionConfig for VRFStakeTableConfig {}
 
 #[cfg(test)]
 mod tests {
-    use std::{num::NonZeroUsize, time::Duration};
-
     use super::*;
     use ark_bls12_381::Parameters as Param381;
     use ark_std::test_rng;
     use blake3::Hasher;
-    use commit::Commitment;
     use hotshot_types::{
-        data::{random_commitment, Leaf, ViewNumber},
+        data::ViewNumber,
         traits::{
             block_contents::dummy::{DummyBlock, DummyTransaction},
             state::{dummy::DummyState, ConsensusTime},
@@ -952,6 +1064,7 @@ mod tests {
         },
         vrf::blsvrf::BLSVRFScheme,
     };
+    use std::{num::NonZeroUsize, time::Duration};
 
     #[derive(
         Copy,
@@ -994,6 +1107,7 @@ mod tests {
         let rng = &mut test_rng();
         let mut stake_distribution = Vec::new();
         let stake_per_node = NonZeroU64::new(100).unwrap();
+        let genesis_seed = [0u8; 32];
         for _i in 0..num_nodes {
             // TODO we should make this more general/use different parameters
             #[allow(clippy::let_unit_value)]
@@ -1009,6 +1123,7 @@ mod tests {
                 sortition_parameter: std::num::NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
                 distribution: stake_distribution,
             },
+            genesis_seed,
         );
         (stake_table, keys)
     }
@@ -1027,14 +1142,9 @@ mod tests {
         let views = 100;
 
         for view in 0..views {
-            let next_state_commitment: Commitment<Leaf<TestTypes>> = random_commitment();
             for (node_idx, (sk, pk)) in keys.iter().enumerate() {
                 let token_result = vrf_impl
-                    .make_vote_token(
-                        ViewNumber::new(view),
-                        &(sk.clone(), pk.clone()),
-                        next_state_commitment,
-                    )
+                    .make_vote_token(ViewNumber::new(view), &(sk.clone(), pk.clone()))
                     .unwrap();
                 match token_result {
                     Some(token) => {
@@ -1044,7 +1154,6 @@ mod tests {
                                 ViewNumber::new(view),
                                 VRFPubKey::from_native(pk.clone()),
                                 Checked::Unchecked(token),
-                                next_state_commitment,
                             )
                             .unwrap();
                         let result_is_valid = check_if_valid(&result);

@@ -208,11 +208,11 @@ impl DHTBehaviour {
         chan: Sender<Vec<u8>>,
         factor: NonZeroUsize,
         backoff: ExponentialBackoff,
-        retry_count: u8
+        retry_count: u8,
     ) {
         // noop
         if retry_count == 0 {
-            return
+            return;
         }
 
         let qid = self.kadem.get_record(key.clone().into(), Quorum::N(factor));
@@ -222,7 +222,7 @@ impl DHTBehaviour {
             notify: chan,
             num_replicas: factor,
             key,
-            retry_count: retry_count - 1
+            retry_count: retry_count - 1,
         };
         self.in_progress_get_record_queries.insert(qid, query);
     }
@@ -235,7 +235,7 @@ impl DHTBehaviour {
             notify,
             num_replicas,
             key,
-            retry_count
+            retry_count,
         }) = self.in_progress_get_record_queries.remove(&id)
         {
             // if channel has been dropped, cancel request
@@ -299,7 +299,7 @@ impl DHTBehaviour {
                         notify,
                         num_replicas,
                         key,
-                        retry_count
+                        retry_count,
                     };
                     new_query.backoff.start_next(false);
                     self.queued_get_record_queries.push_back(new_query);
@@ -474,7 +474,7 @@ pub(crate) struct KadGetQuery {
     /// the key to look up
     pub(crate) key: Vec<u8>,
     /// the number of remaining retries before giving up
-    pub(crate) retry_count: u8
+    pub(crate) retry_count: u8,
 }
 
 /// Metadata holder for get query
@@ -561,7 +561,13 @@ impl NetworkBehaviour for DHTBehaviour {
         // retry put/gets if they are ready
         while let Some(req) = self.queued_get_record_queries.pop_front() {
             if req.backoff.is_expired() {
-                self.get_record(req.key, req.notify, req.num_replicas, req.backoff, req.retry_count);
+                self.get_record(
+                    req.key,
+                    req.notify,
+                    req.num_replicas,
+                    req.backoff,
+                    req.retry_count,
+                );
             } else {
                 self.queued_get_record_queries.push_back(req);
             }

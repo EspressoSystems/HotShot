@@ -1,15 +1,6 @@
 mod common;
 
 use crate::common::print_connections;
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use async_std::prelude::StreamExt;
-    } else if #[cfg(feature = "tokio-executor")] {
-        use tokio_stream::StreamExt;
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
 use async_lock::RwLock;
 use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
@@ -24,6 +15,13 @@ use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::{fmt::Debug, sync::Arc, time::Duration};
 use tracing::{error, info, instrument, warn};
+
+#[cfg(feature = "async-std-executor")]
+use async_std::prelude::StreamExt;
+#[cfg(feature = "tokio-executor")]
+use tokio_stream::StreamExt;
+#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 pub type CounterState = u32;
 
@@ -134,19 +132,17 @@ async fn run_request_response_increment<'a>(
         let new_state = requestee_handle.state().await;
 
         // set up state change listener
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "async-std-executor")] {
-                let mut stream = requester_handle
-                    .state_wait_timeout_until_with_trigger(timeout, move |state| *state == new_state);
-            } else if #[cfg(feature = "tokio-executor")] {
-                let mut stream = Box::pin(
-                    requester_handle.state_wait_timeout_until_with_trigger(
-                        timeout,
-                        move |state| *state == new_state
-                    )
-                );
-            }
-        }
+        #[cfg(feature = "async-std-executor")]
+        let mut stream = requester_handle
+            .state_wait_timeout_until_with_trigger(timeout, move |state| *state == new_state);
+        #[cfg(feature = "tokio-executor")]
+        let mut stream = Box::pin(
+            requester_handle
+                .state_wait_timeout_until_with_trigger(timeout, move |state| *state == new_state),
+        );
+        #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+        compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+
         let requestee_pid = requestee_handle.peer_id();
 
         stream.next().await.unwrap().unwrap();
@@ -180,7 +176,8 @@ async fn run_gossip_round(
     new_state: CounterState,
     timeout_duration: Duration,
 ) -> Result<(), TestError<CounterState>> {
-    let msg_handle = get_random_handle(handles);
+    let mut rng = rand::thread_rng();
+    let msg_handle = get_random_handle(handles, &mut rng);
     msg_handle.modify_state(|s| *s = new_state).await;
 
     let mut futs = Vec::new();
@@ -196,15 +193,12 @@ async fn run_gossip_round(
         }
     }
 
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "async-std-executor")] {
-            let mut merged_streams = futures::stream::select_all(futs);
-        } else if #[cfg(feature = "tokio-executor")] {
-            let mut merged_streams = Box::pin(
-                futures::stream::select_all(futs)
-            );
-        }
-    }
+    #[cfg(feature = "async-std-executor")]
+    let mut merged_streams = futures::stream::select_all(futs);
+    #[cfg(feature = "tokio-executor")]
+    let mut merged_streams = Box::pin(futures::stream::select_all(futs));
+    #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+    compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
     // make sure all are ready/listening
     for i in 0..len - 1 {
@@ -314,9 +308,10 @@ async fn run_dht_rounds(
     starting_val: usize,
     num_rounds: usize,
 ) {
+    let mut rng = rand::thread_rng();
     for i in 0..num_rounds {
         error!("round: {:?}", i);
-        let msg_handle = get_random_handle(handles);
+        let msg_handle = get_random_handle(handles, &mut rng);
         let mut key = vec![0; DHT_KV_PADDING];
         key.push((starting_val + i) as u8);
         let mut value = vec![0; DHT_KV_PADDING];
@@ -372,7 +367,8 @@ async fn run_request_response_increment_all(
     handles: &[Arc<NetworkNodeHandle<CounterState>>],
     timeout: Duration,
 ) {
-    let requestee_handle = get_random_handle(handles);
+    let mut rng = rand::thread_rng();
+    let requestee_handle = get_random_handle(handles, &mut rng);
     requestee_handle.modify_state(|s| *s += 1).await;
     info!("RR REQUESTEE IS {:?}", requestee_handle.peer_id());
     let mut futs = Vec::new();

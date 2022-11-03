@@ -1,13 +1,10 @@
 use commit::{Commitment, Committable, RawCommitmentBuilder};
-use hotshot_types::{
-    data::Leaf,
-    traits::{
-        election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
-        node_implementation::NodeTypes,
-        signature_key::{
-            ed25519::{Ed25519Priv, Ed25519Pub},
-            EncodedSignature, SignatureKey,
-        },
+use hotshot_types::traits::{
+    election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
+    node_implementation::NodeTypes,
+    signature_key::{
+        ed25519::{Ed25519Priv, Ed25519Pub},
+        EncodedSignature, SignatureKey,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -94,11 +91,9 @@ where
         &self,
         view_number: TYPES::Time,
         private_key: &Ed25519Priv,
-        next_state: Commitment<Leaf<TYPES>>,
-    ) -> Result<Option<StaticVoteToken>, ElectionError> {
+    ) -> std::result::Result<Option<StaticVoteToken>, ElectionError> {
         let mut message: Vec<u8> = vec![];
-        message.extend(&view_number.to_le_bytes());
-        message.extend(next_state.as_ref());
+        message.extend(view_number.to_le_bytes());
         let signature = Ed25519Pub::sign(private_key, &message);
         Ok(Some(StaticVoteToken {
             signature,
@@ -111,7 +106,6 @@ where
         _view_number: TYPES::Time,
         _pub_key: Ed25519Pub,
         token: Checked<TYPES::VoteTokenType>,
-        _next_state: commit::Commitment<Leaf<TYPES>>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError> {
         match token {
             Checked::Valid(t) | Checked::Unchecked(t) => Ok(Checked::Valid(t)),

@@ -1,13 +1,4 @@
 // TODO this should really be moved into the utils crate.
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use async_std::net::TcpStream;
-    } else if #[cfg(feature = "tokio-executor")] {
-        use tokio::net::TcpStream;
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
 use async_lock::RwLock;
 use clap::Parser;
 use hotshot::{
@@ -49,6 +40,13 @@ use std::{
     time::{Duration, Instant},
 };
 use tracing::{debug, error, info};
+
+#[cfg(feature = "async-std-executor")]
+use async_std::net::TcpStream;
+#[cfg(feature = "tokio-executor")]
+use tokio::net::TcpStream;
+#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 type FromServer = hotshot_centralized_server::FromServer<Ed25519Pub, StaticElectionConfig>;
 type ToServer = hotshot_centralized_server::ToServer<Ed25519Pub>;
@@ -503,6 +501,8 @@ async fn main() {
     setup_logging();
     setup_backtrace();
 
+    let mut rng = rand::thread_rng();
+
     let args = CliOpt::parse();
     let mut server_conn = None;
     let config = match args {
@@ -565,7 +565,8 @@ async fn main() {
             let state = hotshot.get_state().await;
 
             for _ in 0..config.num_txn_per_round {
-                let txn = <DEntryState as TestableState>::create_random_transaction(&state);
+                let txn =
+                    <DEntryState as TestableState>::create_random_transaction(&state, &mut rng);
                 info!("Submitting txn on view {}", view);
                 hotshot.submit_transaction(txn).await.unwrap();
             }

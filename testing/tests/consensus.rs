@@ -56,10 +56,11 @@ async fn submit_proposal<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
 {
+    let mut rng = rand::thread_rng();
     let handle = runner.get_handle(sender_node_id).unwrap();
 
     // Build proposal
-    let mut leaf = random_leaf(TYPES::BlockType::genesis());
+    let mut leaf = random_leaf(TYPES::BlockType::genesis(), &mut rng);
     leaf.time = view_number;
     let signature = handle.sign_proposal(&leaf.commit(), leaf.time);
     let msg = ConsensusMessage::Proposal(Proposal {
@@ -82,15 +83,16 @@ async fn submit_vote<TYPES: NodeTypes, ELECTION: TestableElection<TYPES>>(
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
 {
+    let mut rng = rand::thread_rng();
     let handle = runner.get_handle(sender_node_id).unwrap();
 
     // Build vote
-    let mut leaf = random_leaf(TYPES::BlockType::genesis());
+    let mut leaf = random_leaf(TYPES::BlockType::genesis(), &mut rng);
     leaf.time = view_number;
     let signature = handle.sign_vote(&leaf.commit(), leaf.time);
     let msg = ConsensusMessage::Vote(Vote {
         signature,
-        justify_qc: leaf.clone().justify_qc,
+        justify_qc_commitment: leaf.justify_qc.commit(),
         time: leaf.time,
         block_commitment: leaf.deltas.commit(),
         leaf_commitment: leaf.commit(),

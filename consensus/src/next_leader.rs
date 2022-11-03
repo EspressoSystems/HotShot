@@ -3,6 +3,7 @@
 use crate::ConsensusApi;
 use async_lock::Mutex;
 use hotshot_types::traits::election::Checked::Unchecked;
+use hotshot_types::traits::election::VoteToken;
 use hotshot_types::traits::node_implementation::NodeTypes;
 use hotshot_types::{data::QuorumCertificate, message::ConsensusMessage};
 use hotshot_utils::channel::UnboundedReceiver;
@@ -10,7 +11,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
-use tracing::{info, instrument, warn};
+use tracing::{error, instrument, warn};
 
 /// The next view's leader
 #[derive(Debug, Clone)]
@@ -34,13 +35,14 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> NextLeader<A, TYPES> {
     /// unless there is a bug in std
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES> {
-        info!("Next Leader task started!");
+        error!("Next Leader task started!");
         let mut qcs = HashSet::<QuorumCertificate<TYPES>>::new();
         qcs.insert(self.generic_qc.clone());
 
         let mut vote_outcomes = HashMap::new();
-        // TODO will need to refactor this during VRF integration
+
         let threshold = self.api.threshold();
+        let mut stake_casted = 0;
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
@@ -55,6 +57,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> NextLeader<A, TYPES> {
                     // if the signature on the vote is invalid,
                     // assume it's sent by byzantine node
                     // and ignore
+
                     if !self.api.is_valid_signature(
                         &vote.signature.0,
                         &vote.signature.1,
@@ -66,26 +69,22 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> NextLeader<A, TYPES> {
                         continue;
                     }
 
-                    qcs.insert(vote.justify_qc);
+                    // TODO ed ensure we have the QC that the QC commitment references
 
                     let (_bh, map) = vote_outcomes
                         .entry(vote.leaf_commitment)
                         .or_insert_with(|| (vote.block_commitment, BTreeMap::new()));
                     map.insert(
                         vote.signature.0.clone(),
-                        (vote.signature.1.clone(), vote.vote_token),
+                        (vote.signature.1.clone(), vote.vote_token.clone()),
                     );
-                    let valid_signatures = map.clone();
 
-                    // TODO ed - current validated_stake rechecks that all votes are valid, which isn't necessary here
-                    let stake_casted = self.api.validated_stake(
-                        vote.leaf_commitment,
-                        self.cur_view,
-                        valid_signatures,
-                    );
+                    stake_casted += u64::from(vote.vote_token.vote_count());
+
                     if stake_casted >= u64::from(threshold) {
                         let (block_commitment, valid_signatures) =
                             vote_outcomes.remove(&vote.leaf_commitment).unwrap();
+
                         // construct QC
                         let qc = QuorumCertificate {
                             block_commitment,
