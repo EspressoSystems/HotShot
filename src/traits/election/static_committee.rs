@@ -1,6 +1,5 @@
-use commit::Commitment;
 use hotshot_types::{
-    data::{Leaf, ViewNumber},
+    data::ViewNumber,
     traits::{
         election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
         signature_key::{
@@ -87,11 +86,9 @@ where
         &self,
         view_number: ViewNumber,
         private_key: &Ed25519Priv,
-        next_state: Commitment<Leaf<Self::StateType>>,
     ) -> std::result::Result<std::option::Option<StaticVoteToken>, ElectionError> {
         let mut message: Vec<u8> = vec![];
         message.extend(&view_number.to_le_bytes());
-        message.extend(next_state.as_ref());
         let signature = Ed25519Pub::sign(private_key, &message);
         Ok(Some(StaticVoteToken {
             signature,
@@ -104,7 +101,6 @@ where
         _view_number: ViewNumber,
         _pub_key: Ed25519Pub,
         token: Checked<Self::VoteTokenType>,
-        _next_state: commit::Commitment<hotshot_types::data::Leaf<Self::StateType>>,
     ) -> Result<
         hotshot_types::traits::election::Checked<Self::VoteTokenType>,
         hotshot_types::traits::election::ElectionError,

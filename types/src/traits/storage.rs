@@ -126,10 +126,10 @@ pub struct StoredView<STATE: State> {
     /// transactions rejected in this view
     pub rejected: Vec<TxnCommitment<STATE>>,
     /// the timestamp this view was recv-ed in nanonseconds
-    #[derivative(PartialEq="ignore")]
+    #[derivative(PartialEq = "ignore")]
     pub timestamp: i128,
     /// the proposer id
-    #[derivative(PartialEq="ignore")]
+    #[derivative(PartialEq = "ignore")]
     pub proposer_id: EncodedPublicKey,
 }
 
@@ -146,7 +146,7 @@ where
         state: STATE,
         parent_commitment: Commitment<Leaf<STATE>>,
         rejected: Vec<TxnCommitment<STATE>>,
-        proposer_id: EncodedPublicKey
+        proposer_id: EncodedPublicKey,
     ) -> Self {
         Self {
             append: ViewAppend::Block { block },
@@ -156,7 +156,7 @@ where
             state,
             rejected,
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-            proposer_id
+            proposer_id,
         }
     }
 }

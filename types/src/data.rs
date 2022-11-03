@@ -17,7 +17,7 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -127,6 +127,30 @@ pub struct QuorumCertificate<STATE: State> {
     /// not have a signature. This value is not covered by the signature, and it is invalid for this
     /// to be set outside of bootstrap
     pub genesis: bool,
+}
+
+impl<STATE: State> Committable for QuorumCertificate<STATE> {
+    fn commit(&self) -> Commitment<Self> {
+        let mut builder = commit::RawCommitmentBuilder::new("Quorum Certificate Commitment");
+
+        builder = builder
+            .field("Block commitment", self.block_commitment)
+            .field("Leaf commitment", self.leaf_commitment)
+            .u64_field("View number", *self.view_number.deref());
+
+        let mut signatures_bytes = vec![];
+        for (k, v) in &self.signatures {
+            // TODO there is probably a way to avoid cloning.
+            signatures_bytes.extend_from_slice(&k.0);
+            signatures_bytes.extend_from_slice(&v.0 .0);
+            signatures_bytes.extend_from_slice(&v.1);
+        }
+
+        builder
+            .var_size_bytes(&signatures_bytes)
+            .u64_field("Genesis", self.genesis.into())
+            .finalize()
+    }
 }
 
 /// The `Transaction` type associated with a `State`, as a syntactic shortcut

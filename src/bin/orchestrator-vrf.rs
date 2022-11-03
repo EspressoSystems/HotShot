@@ -1,17 +1,15 @@
+use ark_bls12_381::Parameters as Param381;
 use clap::Parser;
-use hotshot::{
-    traits::election::static_committee::StaticElectionConfig,
-    types::{
-        ed25519::{Ed25519Priv, Ed25519Pub},
-        SignatureKey,
-    },
-};
+use hotshot::traits::election::vrf::VRFStakeTableConfig;
+use hotshot::{traits::election::vrf::VRFPubKey, types::SignatureKey};
 use hotshot_centralized_server::{
     config::{HotShotConfigFile, Libp2pConfigFile, NetworkConfigFile, RoundConfig},
     NetworkConfig, Server,
 };
+use hotshot_types::traits::signature_key::TestableSignatureKey;
 use hotshot_utils::art::async_main;
 use hotshot_utils::test_util::setup_logging;
+use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use std::{fs, num::NonZeroUsize, time::Duration};
 
 #[derive(clap::Parser)]
@@ -31,7 +29,7 @@ async fn main() {
     };
     let configs = load_configs(is_libp2p).expect("Could not load configs");
 
-    Server::<Ed25519Pub, StaticElectionConfig>::new(
+    Server::<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>::new(
         host.parse().expect("Invalid host address"),
         port,
     )
@@ -43,7 +41,8 @@ async fn main() {
 
 fn load_configs(
     is_libp2p: bool,
-) -> std::io::Result<Vec<NetworkConfig<Ed25519Pub, StaticElectionConfig>>> {
+) -> std::io::Result<Vec<NetworkConfig<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>>>
+{
     let mut result = Vec::new();
     for file in fs::read_dir(".")? {
         let file = file?;
@@ -56,13 +55,22 @@ fn load_configs(
                 );
                 let str = fs::read_to_string(file.path())?;
                 let run = toml::from_str::<NetworkConfigFile>(&str).expect("Invalid TOML");
-                let mut run: NetworkConfig<Ed25519Pub, StaticElectionConfig> = run.into();
-
+                let mut run: NetworkConfig<
+                    VRFPubKey<BLSSignatureScheme<Param381>>,
+                    VRFStakeTableConfig,
+                > = run.into();
+                let seed = [0u8; 32];
                 run.config.known_nodes = (0..run.config.total_nodes.get())
                     .map(|node_id| {
-                        let private_key =
-                            Ed25519Priv::generated_from_seed_indexed(run.seed, node_id as u64);
-                        Ed25519Pub::from_private(&private_key)
+                        let vrf_key =
+                            VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(
+                                seed,
+                                node_id.try_into().unwrap(),
+                            );
+                        let priv_key = vrf_key.1;
+                        let pub_key =
+                            VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
+                        pub_key
                     })
                     .collect();
 
@@ -127,7 +135,7 @@ fn load_configs(
 mod tests {
     use commit::{Commitment, Committable};
     use hotshot::{
-        traits::{election::static_committee::StaticElectionConfig, Block, State},
+        traits::{election::vrf::VRFStakeTableConfig, Block, State},
         types::SignatureKey,
     };
     use hotshot_centralized_server::{TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend};
@@ -142,10 +150,9 @@ mod tests {
     use std::{collections::HashSet, fmt, net::Ipv4Addr, time::Duration};
     use tracing::instrument;
 
-    type Server = hotshot_centralized_server::Server<TestSignatureKey, StaticElectionConfig>;
+    type Server = hotshot_centralized_server::Server<TestSignatureKey, VRFStakeTableConfig>;
     type ToServer = hotshot_centralized_server::ToServer<TestSignatureKey>;
-    type FromServer =
-        hotshot_centralized_server::FromServer<TestSignatureKey, StaticElectionConfig>;
+    type FromServer = hotshot_centralized_server::FromServer<TestSignatureKey, VRFStakeTableConfig>;
 
     #[cfg_attr(
         feature = "tokio-executor",
@@ -346,9 +353,6 @@ mod tests {
 
         #[cfg(feature = "tokio-executor")]
         f.unwrap().unwrap();
-
-        #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
-        compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
 
     #[derive(Debug)]
