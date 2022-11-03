@@ -308,7 +308,7 @@ impl<S> NetworkNodeHandle<S> {
     pub async fn get_record<V: for<'a> Deserialize<'a>>(
         &self,
         key: &impl Serialize,
-        retry_count: u8
+        retry_count: u8,
     ) -> Result<V, NetworkNodeHandleError> {
         use crate::network::error::CancelledRequestSnafu;
 
@@ -316,7 +316,7 @@ impl<S> NetworkNodeHandle<S> {
         let req = ClientRequest::GetDHT {
             key: bincode_opts().serialize(key).context(SerializationSnafu)?,
             notify: s,
-            retry_count
+            retry_count,
         };
         self.send_request(req).await?;
 
@@ -424,10 +424,11 @@ impl<S> NetworkNodeHandle<S> {
         msg: &impl Serialize,
     ) -> Result<(), NetworkNodeHandleError> {
         let serialized_msg = bincode_opts().serialize(msg).context(SerializationSnafu)?;
-        let req = ClientRequest::DirectRequest{
+        let req = ClientRequest::DirectRequest {
             pid,
             contents: serialized_msg,
-            retry_count: 1};
+            retry_count: 1,
+        };
         self.send_request(req).await
     }
 

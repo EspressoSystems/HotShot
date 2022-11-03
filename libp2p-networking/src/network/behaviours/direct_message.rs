@@ -27,7 +27,7 @@ pub struct DMRequest {
     /// backoff since last attempted request
     pub backoff: ExponentialBackoff,
     /// the number of remaining retries before giving up
-    pub(crate) retry_count: u8
+    pub(crate) retry_count: u8,
 }
 
 /// Wrapper metadata around libp2p's request response
@@ -321,7 +321,7 @@ impl DMBehaviour {
     /// Add a direct request for a given peer
     pub fn add_direct_request(&mut self, mut req: DMRequest) {
         if req.retry_count == 0 {
-            return
+            return;
         }
 
         req.retry_count -= 1;

@@ -1,12 +1,17 @@
 use crate::{FromBackground, Run};
 use futures::FutureExt;
-use hotshot_types::traits::{signature_key::{EncodedPublicKey, SignatureKey}, election::ElectionConfig};
+use hotshot_types::traits::{
+    election::ElectionConfig,
+    signature_key::{EncodedPublicKey, SignatureKey},
+};
 use hotshot_utils::channel::Sender;
 use std::collections::{BTreeMap, BTreeSet};
 use tracing::debug;
 
 #[allow(clippy::type_complexity)]
-pub struct Clients<K: SignatureKey, E: ElectionConfig>(Vec<BTreeMap<OrdKey<K>, Sender<FromBackground<K, E>>>>);
+pub struct Clients<K: SignatureKey, E: ElectionConfig>(
+    Vec<BTreeMap<OrdKey<K>, Sender<FromBackground<K, E>>>>,
+);
 
 impl<K: SignatureKey + PartialEq, E: ElectionConfig> Clients<K, E> {
     pub fn new() -> Self {

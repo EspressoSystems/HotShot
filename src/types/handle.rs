@@ -8,7 +8,8 @@ use crate::{
 use hotshot_types::{
     data::{Leaf, ViewNumber},
     error::{HotShotError, RoundTimedoutState},
-    traits::{network::NetworkingImplementation, storage::Storage, State}, event::EventType,
+    event::EventType,
+    traits::{network::NetworkingImplementation, storage::Storage, State},
 };
 use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 use std::sync::{

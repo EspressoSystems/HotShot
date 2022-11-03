@@ -6,22 +6,6 @@ mod runs;
 
 pub use config::NetworkConfig;
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use async_std::{
-            io::{ReadExt, WriteExt},
-            net::{TcpListener, TcpStream},
-        };
-        use std::net::Shutdown;
-    } else if #[cfg(feature = "tokio-executor")] {
-        use tokio::{
-            io::{AsyncReadExt, AsyncWriteExt},
-            net::{tcp::OwnedReadHalf, tcp::OwnedWriteHalf, TcpListener, TcpStream},
-        };
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
 use async_trait::async_trait;
 use bincode::Options;
 use clients::Clients;
@@ -43,6 +27,37 @@ use std::{
     time::Duration,
 };
 use tracing::{debug, error};
+
+#[cfg(feature = "async-std-executor")]
+mod types {
+    pub use async_std::{
+        io::{ReadExt, WriteExt},
+        net::{TcpListener, TcpStream},
+    };
+    pub use std::net::Shutdown;
+    pub use TcpStream as WriteTcpStream;
+    pub use TcpStream as ReadTcpStream;
+    pub trait AsyncReadStream: ReadExt + Unpin + Send {}
+    pub trait AsyncWriteStream: WriteExt + Unpin + Send {}
+    impl<T> AsyncReadStream for T where T: ReadExt + Unpin + Send {}
+    impl<T> AsyncWriteStream for T where T: WriteExt + Unpin + Send {}
+}
+
+#[cfg(feature = "tokio-executor")]
+mod types {
+    pub use OwnedReadHalf as ReadTcpStream;
+    pub use OwnedWriteHalf as WriteTcpStream;
+    pub trait AsyncReadStream: AsyncReadExt + Unpin + Send {}
+    pub trait AsyncWriteStream: AsyncWriteExt + Unpin + Send {}
+    impl<T> AsyncReadStream for T where T: AsyncReadExt + Unpin + Send {}
+    impl<T> AsyncWriteStream for T where T: AsyncWriteExt + Send + Unpin {}
+
+    pub use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::{tcp::OwnedReadHalf, tcp::OwnedWriteHalf, TcpListener, TcpStream},
+    };
+}
+use types::*;
 
 /// 256KB, assumed to be the kernel receive buffer
 /// https://stackoverflow.com/a/2862176
@@ -338,17 +353,16 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> Server<K, E> {
             .await
             .expect("Could not notify background thread that we're shutting down");
         let timeout = async_timeout(Duration::from_secs(5), background_task_handle).await;
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "async-std-executor")] {
-                timeout
-                    .expect("Could not join on the background thread");
-            } else if #[cfg(feature = "tokio-executor")] {
-                timeout
-                    .expect("background task timed_out")
-                    .expect("Could not join on the background thread");
-            } else {
-                std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-            }
+
+        #[cfg(feature = "async-std-executor")]
+        {
+            timeout.expect("Could not join on the background thread");
+        }
+        #[cfg(feature = "tokio-executor")]
+        {
+            timeout
+                .expect("background task timed_out")
+                .expect("Could not join on the background thread");
         }
     }
 }
@@ -552,34 +566,6 @@ pub enum Error {
     },
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use TcpStream as WriteTcpStream;
-        use TcpStream as ReadTcpStream;
-    } else if #[cfg(feature = "tokio-executor")] {
-        use OwnedWriteHalf as WriteTcpStream;
-        use OwnedReadHalf as ReadTcpStream;
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        pub trait AsyncReadStream: ReadExt + Unpin + Send {}
-        pub trait AsyncWriteStream: WriteExt + Unpin + Send {}
-        impl<T> AsyncReadStream for T where T: ReadExt + Unpin + Send {}
-        impl<T> AsyncWriteStream for T where T: WriteExt + Unpin + Send {}
-    } else if #[cfg(feature = "tokio-executor")] {
-        pub trait AsyncReadStream: AsyncReadExt + Unpin + Send {}
-        pub trait AsyncWriteStream: AsyncWriteExt + Unpin + Send {}
-        impl<T> AsyncReadStream for T where T: AsyncReadExt + Unpin + Send {}
-        impl<T> AsyncWriteStream for T where T: AsyncWriteExt + Send + Unpin {}
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."};
-    }
-}
-
 #[async_trait]
 pub trait TcpStreamUtilWithRecv {
     type ReadStream: AsyncReadStream;
@@ -727,14 +713,13 @@ impl TcpStreamSendUtil {
 impl Drop for TcpStreamSendUtil {
     fn drop(&mut self) {
         if !std::thread::panicking() {
-            cfg_if::cfg_if! {
-                if #[cfg(feature = "async-std-executor")] {
-                    let _ = self.stream.shutdown(Shutdown::Write);
-                } else if #[cfg(feature = "tokio-executor")] {
-                    let _ = hotshot_utils::art::async_block_on(self.stream.shutdown());
-                } else {
-                    std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-                }
+            #[cfg(feature = "async-std-executor")]
+            {
+                let _ = self.stream.shutdown(Shutdown::Write);
+            }
+            #[cfg(feature = "tokio-executor")]
+            {
+                let _ = hotshot_utils::art::async_block_on(self.stream.shutdown());
             }
         }
     }
@@ -749,10 +734,9 @@ impl TcpStreamRecvUtil {
 impl Drop for TcpStreamRecvUtil {
     fn drop(&mut self) {
         if !std::thread::panicking() {
-            cfg_if::cfg_if! {
-                if #[cfg(feature = "async-std-executor")] {
-                    let _ = self.stream.shutdown(Shutdown::Read);
-                }
+            #[cfg(feature = "async-std-executor")]
+            {
+                let _ = self.stream.shutdown(Shutdown::Read);
             }
         }
     }
@@ -771,14 +755,13 @@ impl TcpStreamUtil {
 impl Drop for TcpStreamUtil {
     fn drop(&mut self) {
         if !std::thread::panicking() {
-            cfg_if::cfg_if! {
-                if #[cfg(feature = "async-std-executor")] {
-                    let _ = self.stream.shutdown(Shutdown::Both);
-                } else if #[cfg(feature = "tokio-executor")] {
-                    let _ = hotshot_utils::art::async_block_on(self.stream.shutdown());
-                } else {
-                    std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-                }
+            #[cfg(feature = "async-std-executor")]
+            {
+                let _ = self.stream.shutdown(Shutdown::Both);
+            }
+            #[cfg(feature = "tokio-executor")]
+            {
+                let _ = hotshot_utils::art::async_block_on(self.stream.shutdown());
             }
         }
     }

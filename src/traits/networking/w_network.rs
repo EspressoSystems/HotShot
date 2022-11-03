@@ -5,6 +5,7 @@
 //!
 //! This implementation is useful for testing, due to its simplicity, but is not production grade.
 
+use super::NetworkingImplementation;
 use crate::traits::{
     networking::{
         ChannelDisconnectedSnafu, CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu,
@@ -12,16 +13,6 @@ use crate::traits::{
     },
     NetworkError,
 };
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use async_std::net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
-    } else if #[cfg(feature = "tokio-executor")] {
-        use std::net::SocketAddr;
-        use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use async_tungstenite::{
@@ -44,9 +35,6 @@ use hotshot_utils::{
 use rand::prelude::ThreadRng;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
-use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
-use tracing_unwrap::ResultExt as RXT;
-
 use std::{
     fmt::Debug,
     sync::{
@@ -55,8 +43,17 @@ use std::{
     },
     time::{Duration, Instant},
 };
+use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+use tracing_unwrap::ResultExt as RXT;
 
-use super::NetworkingImplementation;
+#[cfg(feature = "async-std-executor")]
+use async_std::net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs};
+#[cfg(feature = "tokio-executor")]
+use std::net::SocketAddr;
+#[cfg(feature = "tokio-executor")]
+use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
+#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 /// Inter-node protocol level message types

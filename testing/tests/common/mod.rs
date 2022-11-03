@@ -6,24 +6,26 @@ use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
     demos::dentry::{DEntryBlock, DEntryState},
     traits::{
+        election::vrf::{VRFPubKey, VrfImpl},
         implementations::{Libp2pNetwork, MemoryNetwork, MemoryStorage},
-        Block, NetworkReliability, NetworkingImplementation, State, election::{vrf::{VRFPubKey, VrfImpl}},
+        Block, NetworkReliability, NetworkingImplementation, State,
     },
     types::Message,
     HotShotError,
 };
 use hotshot_testing::{
     ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
-    TestRunner, TestNodeImpl,
+    TestNodeImpl, TestRunner,
 };
 use hotshot_types::{
+    data::ViewNumber,
     traits::{
-        signature_key::ed25519::Ed25519Pub,
         election::Election, node_implementation::TestableNodeImplementation,
+        signature_key::ed25519::Ed25519Pub,
     },
-    HotShotConfig, data::ViewNumber,
+    HotShotConfig,
 };
-use hotshot_utils::{test_util::{setup_backtrace, setup_logging}};
+use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use snafu::Snafu;
 use std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
@@ -92,8 +94,7 @@ pub struct GeneralTestDescriptionBuilder {
     pub propose_max_round_time: Duration,
 }
 
-pub struct DetailedTestDescriptionBuilder<I: TestableNodeImplementation> where
-{
+pub struct DetailedTestDescriptionBuilder<I: TestableNodeImplementation> {
     pub general_info: GeneralTestDescriptionBuilder,
 
     /// list of rounds
@@ -103,13 +104,22 @@ pub struct DetailedTestDescriptionBuilder<I: TestableNodeImplementation> where
     pub gen_runner: GenRunner<I>,
 }
 
-impl<I: TestableNodeImplementation> TestDescription<I>
-{
+impl<I: TestableNodeImplementation> TestDescription<I> {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<I> {
-        let launcher = TestLauncher::new(self.total_nodes, self.num_bootstrap_nodes, self.min_transactions, <I::Election as Election<I::SignatureKey, ViewNumber>>::default_election_config(self.total_nodes as u64));
+        let launcher = TestLauncher::new(
+            self.total_nodes,
+            self.num_bootstrap_nodes,
+            self.min_transactions,
+            <I::Election as Election<I::SignatureKey, ViewNumber>>::default_election_config(
+                self.total_nodes as u64,
+            ),
+        );
         // modify runner to recognize timing params
-        let set_timing_params = |a: &mut HotShotConfig<I::SignatureKey, <I::Election as Election<_, _>>::ElectionConfigType>| {
+        let set_timing_params = |a: &mut HotShotConfig<
+            I::SignatureKey,
+            <I::Election as Election<_, _>>::ElectionConfigType,
+        >| {
             a.next_view_timeout = self.timing_config.next_view_timeout;
             a.timeout_ratio = self.timing_config.timeout_ratio;
             a.round_start_delay = self.timing_config.round_start_delay;
@@ -158,12 +168,7 @@ impl<I: TestableNodeImplementation> TestDescription<I>
 }
 
 impl GeneralTestDescriptionBuilder {
-    pub fn build<
-        I: TestableNodeImplementation
-    >(
-        self,
-    ) -> TestDescription<I>
-    {
+    pub fn build<I: TestableNodeImplementation>(self) -> TestDescription<I> {
         DetailedTestDescriptionBuilder {
             general_info: self,
             rounds: None,
@@ -173,10 +178,7 @@ impl GeneralTestDescriptionBuilder {
     }
 }
 
-impl<
-I: TestableNodeImplementation
-    > DetailedTestDescriptionBuilder<I>
-{
+impl<I: TestableNodeImplementation> DetailedTestDescriptionBuilder<I> {
     pub fn build(self) -> TestDescription<I> {
         let timing_config = TimingData {
             next_view_timeout: self.general_info.next_view_timeout,
@@ -209,8 +211,7 @@ I: TestableNodeImplementation
 }
 
 /// Description of a test. Contains all metadata necessary to execute test
-pub struct TestDescription<I: TestableNodeImplementation>
-{
+pub struct TestDescription<I: TestableNodeImplementation> {
     /// TODO unneeded (should be sufficient to have gen runner)
     /// the ronds to run for the test
     pub rounds: Vec<Round<I>>,
@@ -239,9 +240,7 @@ pub struct TestDescription<I: TestableNodeImplementation>
 }
 
 /// type alias for generating a [`TestRunner`]
-pub type GenRunner<I> = Option<
-    Arc<dyn Fn(&TestDescription<I>) -> TestRunner<I>>,
->;
+pub type GenRunner<I> = Option<Arc<dyn Fn(&TestDescription<I>) -> TestRunner<I>>>;
 
 /// type alias for doing setup for a consensus round
 pub type TestSetup<I> = Vec<
@@ -257,7 +256,10 @@ pub type TestSetup<I> = Vec<
 use ark_bls12_381::Parameters as Param381;
 
 /// type alias for the typical network we use
-pub type TestNetwork = MemoryNetwork<Message<DEntryState, VRFPubKey<BLSSignatureScheme<Param381>>>, VRFPubKey<BLSSignatureScheme<Param381>>>;
+pub type TestNetwork = MemoryNetwork<
+    Message<DEntryState, VRFPubKey<BLSSignatureScheme<Param381>>>,
+    VRFPubKey<BLSSignatureScheme<Param381>>,
+>;
 /// type alias for in memory storage we use
 pub type TestStorage = MemoryStorage<DEntryState>;
 /// type alias for the test transaction type
@@ -266,7 +268,13 @@ pub type TestTransaction = <DEntryBlock as Block>::Transaction;
 pub type AppliedTestRunner = TestRunner<AppliedTestNodeImpl>;
 /// type alias for the result of a test round
 pub type TestRoundResult = RoundResult<DEntryState>;
-pub type AppliedTestNodeImpl = TestNodeImpl<DEntryState, TestStorage, TestNetwork, VRFPubKey<BLSSignatureScheme<Param381>>, VrfImpl<DEntryState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>>;
+pub type AppliedTestNodeImpl = TestNodeImpl<
+    DEntryState,
+    TestStorage,
+    TestNetwork,
+    VRFPubKey<BLSSignatureScheme<Param381>>,
+    VrfImpl<DEntryState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
+>;
 
 // FIXME THIS is why we need to split up metadat and anonymous functions
 impl Default for GeneralTestDescriptionBuilder {
@@ -301,16 +309,14 @@ pub type TestLibp2pNetwork = Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed2
 /// * `submitter_ids`: vector of ids to submit txns to each round
 /// * `num_rounds`: total number of rounds to generate
 pub fn default_submitter_id_to_round<
-    I: TestableNodeImplementation
-    // NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
-    // STORAGE: Storage<STATE> + 'static,
-    // STATE: TestableState + 'static,
+    I: TestableNodeImplementation, // NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+                                   // STORAGE: Storage<STATE> + 'static,
+                                   // STATE: TestableState + 'static,
 >(
     mut shut_down_ids: Vec<HashSet<u64>>,
     submitter_ids: Vec<Vec<u64>>,
     num_rounds: u64,
-) -> TestSetup<I>
-{
+) -> TestSetup<I> {
     // make sure the lengths match so zip doesn't spit out none
     if shut_down_ids.len() < submitter_ids.len() {
         shut_down_ids.append(&mut vec![
@@ -358,16 +364,14 @@ pub fn default_submitter_id_to_round<
 /// * `txns_per_round`: number of transactions to submit each round
 /// * `num_rounds`: number of rounds
 pub fn default_randomized_ids_to_round<
-I: TestableNodeImplementation
-    // NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
-    // STORAGE: Storage<STATE> + 'static,
-    // STATE: TestableState + 'static,
+    I: TestableNodeImplementation, // NETWORK: NetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+                                   // STORAGE: Storage<STATE> + 'static,
+                                   // STATE: TestableState + 'static,
 >(
     shut_down_ids: Vec<HashSet<u64>>,
     num_rounds: u64,
     txns_per_round: u64,
-) -> TestSetup<I>
-{
+) -> TestSetup<I> {
     let mut rounds: TestSetup<I> = Vec::new();
 
     for round_idx in 0..num_rounds {
@@ -399,10 +403,9 @@ I: TestableNodeImplementation
 }
 
 impl<
-I: TestableNodeImplementation
-        // NETWORK: TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
-        // STORAGE: Storage<STATE> + 'static,
-        // STATE: TestableState + 'static,
+        I: TestableNodeImplementation, // NETWORK: TestableNetworkingImplementation<Message<STATE, Ed25519Pub>, Ed25519Pub> + Clone + 'static,
+                                       // STORAGE: Storage<STATE> + 'static,
+                                       // STATE: TestableState + 'static,
     > DetailedTestDescriptionBuilder<I>
 // where
 //     <STATE as State>::BlockType: TestableBlock,
@@ -498,7 +501,7 @@ macro_rules! gen_inner_fn_proptest {
         hotshot_utils::art::async_block_on_with_runtime(async move {
             hotshot_utils::test_util::setup_logging();
             hotshot_utils::test_util::setup_backtrace();
-            let description  = $e;
+            let description = $e;
             let built: $TEST_TYPE = description.build();
             built.execute().await.unwrap()
         });

@@ -35,136 +35,18 @@ pub mod hack {
     }
 }
 
-cfg_if::cfg_if! {
-    if #[cfg(all(feature = "async-std-executor", feature = "tokio-executor"))] {
-        std::compile_error!{"Both feature \"async-std-executor\" and feature \"tokio-executor\" must not be concurrently enabled for this crate."}
-    } else if #[cfg(feature = "async-std-executor")] {
-        /// async runtime/executor symmetric wrappers, `async-std` edition
-        pub mod art {
-            use std::future::Future;
-            use std::time::Duration;
-            use async_std::prelude::FutureExt;
-            pub use async_std::{
-                main as async_main,
-                task::{block_on as async_block_on, sleep as async_sleep, spawn as async_spawn, spawn_local as async_spawn_local, block_on as async_block_on_with_runtime},
-                test as async_test,
-                net::TcpStream,
-                io::{WriteExt as AsyncWriteExt, ReadExt as AsyncReadExt},
-            };
-            /// executor stream abstractions
-            pub mod stream {
-                /// executor strean timeout abstractions
-                pub mod to {
-                    pub use async_std::stream::Timeout;
-                }
-            }
-            /// executor future abstractions
-            pub mod future {
-                /// executor future timeout abstractions
-                pub mod to {
-                    pub use async_std::future::TimeoutError;
-                    /// Result from await of timeout on future
-                    pub type Result<T> = std::result::Result<T, async_std::future::TimeoutError>;
-                }
-            }
+#[cfg(all(feature = "async-std-executor", feature = "tokio-executor"))]
+std::compile_error!("Both feature \"async-std-executor\" and feature \"tokio-executor\" must not be concurrently enabled for this crate.");
 
-            /// Provides timeout with `async_std` that matches `tokio::time::timeout`
-            pub fn async_timeout<T>(
-                duration: Duration,
-                future: T,
-            ) -> impl Future<Output = Result<T::Output, async_std::future::TimeoutError>>
-            where
-                T: Future,
-            {
-                future.timeout(duration)
-            }
+/// abstraction over both `tokio` and `async-std`, making it possible to use either based on a feature flag
+#[cfg(feature = "async-std-executor")]
+#[path = "art/async-std.rs"]
+pub mod art;
 
-            /// Splits a `TcpStream` into reader and writer
-            #[must_use]
-            pub fn split_stream(stream: TcpStream) -> (TcpStream, TcpStream) {
-                (stream.clone(), stream)
-            }
-        }
-    } else if #[cfg(feature = "tokio-executor")] {
-        /// async runtime/executor symmetric wrappers, `tokio` edition
-        pub mod art {
-            use tokio::net::{tcp::OwnedReadHalf, tcp::OwnedWriteHalf};
-            pub use tokio::{
-                main as async_main,
-                task::spawn as async_spawn_local,
-                test as async_test,
-                time::{sleep as async_sleep, timeout as async_timeout},
-                net::TcpStream,
-                io::{AsyncWriteExt, AsyncReadExt},
-            };
-
-
-            cfg_if::cfg_if! {
-                if #[cfg(feature = "profiling")] {
-                    /// spawn and log task id
-                    pub fn async_spawn<T>(future: T) -> tokio::task::JoinHandle<T::Output>
-                        where
-                        T: futures::Future + Send + 'static,
-                        T::Output: Send + 'static, {
-                            let async_span = tracing::error_span!("Task Root", tsk_id = tracing::field::Empty);
-                            let join_handle = tokio::task::spawn(tracing::Instrument::instrument(async{future.await}, async_span.clone()));
-                            async_span.record("tsk_id", tracing::field::display(join_handle.id()));
-                            join_handle
-                        }
-                } else {
-                    pub use tokio::spawn as async_spawn;
-                }
-            }
-
-            /// Generates tokio runtime then provides `block_on` with `tokio` that matches `async_std::task::block_on`
-            /// # Panics
-            /// If we're already in a runtime
-            pub fn async_block_on_with_runtime<F, T>(future: F) -> T
-            where
-                F: std::future::Future<Output = T>,
-            {
-                tokio::runtime::Runtime::new().unwrap().block_on(future)
-            }
-
-
-            /// executor stream abstractions
-            pub mod stream {
-                /// executor strean timeout abstractions
-                pub mod to {
-                    pub use tokio_stream::Timeout;
-                }
-            }
-            /// executor future abstractions
-            pub mod future {
-                /// executor future timeout abstractions
-                pub mod to {
-                    pub use tokio::time::error::Elapsed as TimeoutError;
-                    pub use tokio::time::Timeout;
-                    /// Result from await of timeout on future
-                    pub type Result<T> = std::result::Result<T, tokio::time::error::Elapsed>;
-                }
-            }
-
-            use tokio::runtime::Handle;
-
-            /// Provides `block_on` with `tokio` that matches `async_std::task::block_on`
-            pub fn async_block_on<F, T>(future: F) -> T
-            where
-                F: std::future::Future<Output = T>,
-            {
-                tokio::task::block_in_place(move || Handle::current().block_on(future))
-            }
-
-            /// Splits a `TcpStream` into reader and writer
-            #[must_use]
-            pub fn split_stream(stream: TcpStream) -> (OwnedReadHalf, OwnedWriteHalf) {
-                stream.into_split()
-            }
-        }
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
+/// abstraction over both `tokio` and `async-std`, making it possible to use either based on a feature flag
+#[cfg(feature = "tokio-executor")]
+#[path = "art/tokio.rs"]
+pub mod art;
 
 pub mod channel;
 

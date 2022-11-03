@@ -1,96 +1,103 @@
-use cfg_if::cfg_if;
 use futures::Stream;
 
-cfg_if! {
-    if #[cfg(feature = "channel-tokio")] {
-        pub use tokio::sync::mpsc::error::{SendError, TryRecvError};
+/// inner module, used to group feature-specific imports
+#[cfg(feature = "channel-tokio")]
+mod inner {
+    pub use tokio::sync::mpsc::error::{SendError, TryRecvError};
 
-        use tokio::sync::mpsc::{
-            Sender as InnerSender,
-            Receiver as InnerReceiver,
-        };
+    use tokio::sync::mpsc::{Receiver as InnerReceiver, Sender as InnerSender};
 
-        /// A receiver error returned from [`Receiver`]'s `recv`
-        #[derive(Debug, PartialEq, Eq)]
-        pub struct RecvError;
+    /// A receiver error returned from [`Receiver`]'s `recv`
+    #[derive(Debug, PartialEq, Eq)]
+    pub struct RecvError;
 
-        impl std::fmt::Display for RecvError {
-            fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(fmt, stringify!(RecvError))
-            }
+    impl std::fmt::Display for RecvError {
+        fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(fmt, stringify!(RecvError))
         }
+    }
 
-        impl std::error::Error for RecvError {}
+    impl std::error::Error for RecvError {}
 
-        /// A bounded sender, created with [`bounded`]
-        pub struct Sender<T>(InnerSender<T>);
-        /// A bounded receiver, created with [`bounded`]
-        pub struct Receiver<T>(InnerReceiver<T>);
+    /// A bounded sender, created with [`bounded`]
+    pub struct Sender<T>(pub(super) InnerSender<T>);
+    /// A bounded receiver, created with [`bounded`]
+    pub struct Receiver<T>(pub(super) InnerReceiver<T>);
 
-        /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
-        fn try_recv_error_to_recv_error(e: TryRecvError) -> Option<RecvError> {
-            match e {
-                TryRecvError::Empty => None,
-                TryRecvError::Disconnected => Some(RecvError),
-            }
+    /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
+    pub(super) fn try_recv_error_to_recv_error(e: TryRecvError) -> Option<RecvError> {
+        match e {
+            TryRecvError::Empty => None,
+            TryRecvError::Disconnected => Some(RecvError),
         }
-    } else if #[cfg(feature = "channel-flume")] {
-        pub use flume::{SendError, TryRecvError, RecvError};
+    }
 
-        use flume::{
-            Sender as InnerSender,
-            Receiver as InnerReceiver,
-        };
-
-        /// A bounded sender, created with [`bounded`]
-        pub struct Sender<T>(InnerSender<T>);
-        /// A bounded receiver, created with [`bounded`]
-        pub struct Receiver<T>(InnerReceiver<T>);
-
-        /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
-        fn try_recv_error_to_recv_error(e: TryRecvError) -> Option<RecvError> {
-            match e {
-                TryRecvError::Empty => None,
-                TryRecvError::Disconnected => Some(RecvError::Disconnected),
-            }
-        }
-    } else if #[cfg(feature = "channel-async-std")] {
-        pub use async_channel::{SendError, TryRecvError, RecvError};
-
-        use async_channel::{
-            Sender as InnerSender,
-            Receiver as InnerReceiver,
-        };
-
-        /// A bounded sender, created with [`channel`]
-        pub struct Sender<T>(InnerSender<T>);
-        /// A bounded receiver, created with [`channel`]
-        pub struct Receiver<T>(InnerReceiver<T>);
-
-        /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
-        fn try_recv_error_to_recv_error(e: TryRecvError) -> Option<RecvError> {
-            match e {
-                TryRecvError::Empty => None,
-                TryRecvError::Closed => Some(RecvError),
-            }
-        }
+    /// Create a bounded sender/receiver pair, limited to `len` messages at a time.
+    #[must_use]
+    pub fn bounded<T>(len: usize) -> (Sender<T>, Receiver<T>) {
+        let (sender, receiver) = tokio::sync::mpsc::channel(len);
+        (Sender(sender), Receiver(receiver))
     }
 }
 
-/// Create a bounded sender/receiver pair, limited to `len` messages at a time.
-#[must_use]
-pub fn bounded<T>(len: usize) -> (Sender<T>, Receiver<T>) {
-    cfg_if! {
-        if #[cfg(feature = "channel-tokio")] {
-            let (sender, receiver) = tokio::sync::mpsc::channel(len);
-        } else if #[cfg(feature = "channel-flume")] {
-            let (sender, receiver) = flume::bounded(len);
-        } else if #[cfg(feature = "channel-async-std")] {
-            let (sender, receiver) = async_channel::bounded(len);
+/// inner module, used to group feature-specific imports
+#[cfg(feature = "channel-flume")]
+mod inner {
+    pub use flume::{RecvError, SendError, TryRecvError};
+
+    use flume::{Receiver as InnerReceiver, Sender as InnerSender};
+
+    /// A bounded sender, created with [`bounded`]
+    pub struct Sender<T>(pub(super) InnerSender<T>);
+    /// A bounded receiver, created with [`bounded`]
+    pub struct Receiver<T>(pub(super) InnerReceiver<T>);
+
+    /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
+    pub(super) fn try_recv_error_to_recv_error(e: TryRecvError) -> Option<RecvError> {
+        match e {
+            TryRecvError::Empty => None,
+            TryRecvError::Disconnected => Some(RecvError::Disconnected),
         }
     }
-    (Sender(sender), Receiver(receiver))
+
+    /// Create a bounded sender/receiver pair, limited to `len` messages at a time.
+    #[must_use]
+    pub fn bounded<T>(len: usize) -> (Sender<T>, Receiver<T>) {
+        let (sender, receiver) = flume::bounded(len);
+        (Sender(sender), Receiver(receiver))
+    }
 }
+
+/// inner module, used to group feature-specific imports
+#[cfg(feature = "channel-async-std")]
+mod inner {
+    pub use async_channel::{RecvError, SendError, TryRecvError};
+
+    use async_channel::{Receiver as InnerReceiver, Sender as InnerSender};
+
+    /// A bounded sender, created with [`channel`]
+    pub struct Sender<T>(pub(super) InnerSender<T>);
+    /// A bounded receiver, created with [`channel`]
+    pub struct Receiver<T>(pub(super) InnerReceiver<T>);
+
+    /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
+    pub(super) fn try_recv_error_to_recv_error(e: TryRecvError) -> Option<RecvError> {
+        match e {
+            TryRecvError::Empty => None,
+            TryRecvError::Closed => Some(RecvError),
+        }
+    }
+
+    /// Create a bounded sender/receiver pair, limited to `len` messages at a time.
+    #[must_use]
+    pub fn bounded<T>(len: usize) -> (Sender<T>, Receiver<T>) {
+        let (sender, receiver) = async_channel::bounded(len);
+
+        (Sender(sender), Receiver(receiver))
+    }
+}
+
+pub use inner::*;
 
 impl<T> Sender<T> {
     /// Send a value to the channel. May return a [`SendError`] if the receiver is dropped
@@ -99,13 +106,12 @@ impl<T> Sender<T> {
     ///
     /// Will return an error if the receiver is dropped
     pub async fn send(&self, msg: T) -> Result<(), SendError<T>> {
-        cfg_if! {
-            if #[cfg(feature = "channel-flume")] {
-                self.0.send_async(msg).await
-            } else {
-                self.0.send(msg).await
-            }
-        }
+        #[cfg(feature = "channel-flume")]
+        let result = self.0.send_async(msg).await;
+        #[cfg(not(feature = "channel-flume"))]
+        let result = self.0.send(msg).await;
+
+        result
     }
 }
 
@@ -116,30 +122,28 @@ impl<T> Receiver<T> {
     ///
     /// Will return an error if the sender is dropped
     pub async fn recv(&mut self) -> Result<T, RecvError> {
-        cfg_if! {
-            if #[cfg(feature = "channel-flume")] {
-                self.0.recv_async().await
-            } else if #[cfg(feature = "channel-tokio")] {
-                self.0.recv().await.ok_or(RecvError)
-            } else {
-                self.0.recv().await
-            }
-        }
+        #[cfg(feature = "channel-flume")]
+        let result = self.0.recv_async().await;
+        #[cfg(feature = "channel-tokio")]
+        let result = self.0.recv().await.ok_or(RecvError);
+        #[cfg(feature = "channel-async-std")]
+        let result = self.0.recv().await;
+
+        result
     }
     /// Turn this recever into a stream. This may fail on some implementations if multiple references of a receiver exist
     pub fn into_stream(self) -> impl Stream<Item = T>
     where
         T: 'static,
     {
-        cfg_if! {
-            if #[cfg(feature = "channel-async-std")] {
-                self.0
-            } else if #[cfg(feature = "channel-tokio")] {
-                tokio_stream::wrappers::ReceiverStream::new(self.0)
-            } else if #[cfg(feature = "channel-flume")] {
-                self.0.into_stream()
-            }
-        }
+        #[cfg(feature = "channel-async-std")]
+        let result = self.0;
+        #[cfg(feature = "channel-tokio")]
+        let result = tokio_stream::wrappers::ReceiverStream::new(self.0);
+        #[cfg(feature = "channel-flume")]
+        let result = self.0.into_stream();
+
+        result
     }
     /// Try to receive a channel from the receiver. Will return immediately if there is no value available.
     ///

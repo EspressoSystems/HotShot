@@ -6,7 +6,10 @@ use either::Either::Right;
 
 use hotshot::{
     demos::dentry::DEntryState,
-    traits::{implementations::{Libp2pNetwork, MemoryStorage}, election::static_committee::StaticCommittee},
+    traits::{
+        election::static_committee::StaticCommittee,
+        implementations::{Libp2pNetwork, MemoryStorage},
+    },
     types::Message,
 };
 use hotshot_testing::TestNodeImpl;
@@ -35,15 +38,13 @@ async fn libp2p_network() {
     };
 
     description
-        .build::<
-        TestNodeImpl<
+        .build::<TestNodeImpl<
             DEntryState,
             MemoryStorage<DEntryState>,
             Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
             Ed25519Pub,
-            StaticCommittee<DEntryState>
-        >
-            >()
+            StaticCommittee<DEntryState>,
+        >>()
         .execute()
         .await
         .unwrap();
@@ -72,14 +73,13 @@ async fn test_stress_libp2p_network() {
     };
 
     description
-        .build::<
-        TestNodeImpl<
+        .build::<TestNodeImpl<
             DEntryState,
             MemoryStorage<DEntryState>,
             Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
             Ed25519Pub,
-            StaticCommittee<DEntryState>
-            >>()
+            StaticCommittee<DEntryState>,
+        >>()
         .execute()
         .await
         .unwrap();

@@ -5,8 +5,8 @@ use crate::{
     Consensus, ConsensusApi,
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
-use commit::Committable;
 use bincode::Options;
+use commit::Committable;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate, ViewNumber},
     message::{ConsensusMessage, TimedOut, Vote},
@@ -184,7 +184,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                     leaf_commitment,
                                     current_view: self.cur_view,
                                     // Going to ignore serialization errors belwo since we are getting rid of this soon
-                                    vote_token: bincode_opts().serialize(&vote_token).unwrap()
+                                    vote_token: bincode_opts().serialize(&vote_token).unwrap(),
                                 });
 
                                 let next_leader = self.api.get_leader(self.cur_view + 1).await;

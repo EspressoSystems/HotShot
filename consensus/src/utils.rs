@@ -120,9 +120,7 @@ pub type TransactionStorage<I> = Arc<SubscribableRwLock<TransactionHashMap<I>>>;
 
 /// Map that stores transactions
 pub type TransactionHashMap<I> = HashMap<
-    Commitment<
-        <<<I as NodeImplementation>::StateType as State>::BlockType as Block>::Transaction,
-    >,
+    Commitment<<<<I as NodeImplementation>::StateType as State>::BlockType as Block>::Transaction>,
     <I as TypeMap>::Transaction,
 >;
 

@@ -19,16 +19,7 @@ use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
 ///     ([`add_transaction_raw`](BlockContents::add_transaction_raw))
 ///   * Must be hashable ([`hash`](BlockContents::hash))
 pub trait Block:
-    Serialize
-    + Clone
-    + Debug
-    + Hash
-    + PartialEq
-    + Eq
-    + Send
-    + Sync
-    + Committable
-    + DeserializeOwned
+    Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Committable + DeserializeOwned
 {
     /// The error type for this type of block
     type Error: Error + Debug + Send + Sync;

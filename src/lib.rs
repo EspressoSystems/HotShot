@@ -77,7 +77,7 @@ use hotshot_utils::{
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},
-    num::{NonZeroUsize, NonZeroU64},
+    num::{NonZeroU64, NonZeroUsize},
     sync::{atomic::Ordering, Arc},
     time::Duration,
 };

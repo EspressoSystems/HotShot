@@ -9,10 +9,7 @@ use commit::Committable;
 use hotshot_types::{
     data::{Leaf, ProposalLeaf, QuorumCertificate, TxnCommitment, ViewNumber},
     message::{ConsensusMessage, Proposal},
-    traits::{
-        node_implementation::NodeImplementation, signature_key::SignatureKey, Block,
-        State,
-    },
+    traits::{node_implementation::NodeImplementation, signature_key::SignatureKey, Block, State},
 };
 use hotshot_utils::{
     art::{async_sleep, async_timeout},

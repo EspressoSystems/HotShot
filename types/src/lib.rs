@@ -9,10 +9,7 @@
 )]
 #![allow(clippy::must_use_candidate, clippy::module_name_repetitions)]
 
-use std::{
-    num::{NonZeroUsize},
-    time::Duration,
-};
+use std::{num::NonZeroUsize, time::Duration};
 
 pub mod constants;
 pub mod data;
