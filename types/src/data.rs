@@ -141,11 +141,10 @@ impl<STATE: State> Committable for QuorumCertificate<STATE> {
         let mut signatures_bytes = vec![];
         for (k, v) in &self.signatures {
             // TODO there is probably a way to avoid cloning.
-            signatures_bytes.append(&mut k.0.clone());
-            signatures_bytes.append(&mut v.0 .0.clone());
-            signatures_bytes.append(&mut v.1.clone());
+            signatures_bytes.extend_from_slice(&k.0);
+            signatures_bytes.extend_from_slice(&v.0 .0);
+            signatures_bytes.extend_from_slice(&v.1);
         }
-
 
         builder
             .var_size_bytes(&signatures_bytes)
