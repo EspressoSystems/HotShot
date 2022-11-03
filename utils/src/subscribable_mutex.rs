@@ -1,18 +1,16 @@
 use crate::art::{async_timeout, future::to, stream};
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use async_std::prelude::StreamExt;
-    } else if #[cfg(feature = "tokio-executor")] {
-        use tokio_stream::StreamExt;
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
 use crate::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use async_lock::{Mutex, MutexGuard};
 use futures::{stream::FuturesOrdered, Future, FutureExt};
 use std::{fmt, time::Duration};
 use tracing::warn;
+
+#[cfg(feature = "async-std-executor")]
+use async_std::prelude::StreamExt;
+#[cfg(feature = "tokio-executor")]
+use tokio_stream::StreamExt;
+#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 /// A mutex that can register subscribers to be notified. This works in the same way as [`Mutex`], but has some additional functions:
 ///

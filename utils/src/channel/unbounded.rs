@@ -1,94 +1,124 @@
 #![allow(clippy::module_name_repetitions)]
 
-use cfg_if::cfg_if;
 use futures::Stream;
 
-cfg_if! {
-    if #[cfg(feature = "channel-tokio")] {
-        pub use tokio::sync::mpsc::error::{SendError as UnboundedSendError, TryRecvError as UnboundedTryRecvError};
-        use tokio::sync::mpsc::{
-            UnboundedSender as InnerSender,
-            UnboundedReceiver as InnerReceiver
-        };
+/// inner module, used to group feature-specific imports
+#[cfg(feature = "channel-tokio")]
+mod inner {
+    pub use tokio::sync::mpsc::error::{
+        SendError as UnboundedSendError, TryRecvError as UnboundedTryRecvError,
+    };
+    use tokio::sync::mpsc::{UnboundedReceiver as InnerReceiver, UnboundedSender as InnerSender};
 
-        /// A receiver error returned from [`UnboundedReceiver`]'s `recv`
-        #[derive(Debug, PartialEq, Eq, Clone)]
-        pub struct UnboundedRecvError;
+    /// A receiver error returned from [`UnboundedReceiver`]'s `recv`
+    #[derive(Debug, PartialEq, Eq, Clone)]
+    pub struct UnboundedRecvError;
 
-        impl std::fmt::Display for UnboundedRecvError {
-            fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(fmt, stringify!(UnboundedRecvError))
-            }
+    impl std::fmt::Display for UnboundedRecvError {
+        fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(fmt, stringify!(UnboundedRecvError))
         }
+    }
 
-        impl std::error::Error for UnboundedRecvError {}
+    impl std::error::Error for UnboundedRecvError {}
 
-        use tokio::sync::Mutex;
+    use tokio::sync::Mutex;
 
-        /// An unbounded sender, created with [`unbounded`]
-        pub struct UnboundedSender<T>(InnerSender<T>);
-        /// An unbounded receiver, created with [`unbounded`]
-        pub struct UnboundedReceiver<T>(Mutex<InnerReceiver<T>>);
+    /// An unbounded sender, created with [`unbounded`]
+    pub struct UnboundedSender<T>(pub(super) InnerSender<T>);
+    /// An unbounded receiver, created with [`unbounded`]
+    pub struct UnboundedReceiver<T>(pub(super) Mutex<InnerReceiver<T>>);
 
-        /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
-        fn try_recv_error_to_recv_error(e: UnboundedTryRecvError) -> Option<UnboundedRecvError> {
-            match e {
-                UnboundedTryRecvError::Empty => None,
-                UnboundedTryRecvError::Disconnected => Some(UnboundedRecvError),
-            }
+    /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
+    pub(super) fn try_recv_error_to_recv_error(
+        e: UnboundedTryRecvError,
+    ) -> Option<UnboundedRecvError> {
+        match e {
+            UnboundedTryRecvError::Empty => None,
+            UnboundedTryRecvError::Disconnected => Some(UnboundedRecvError),
         }
-    } else if #[cfg(feature = "channel-flume")] {
-        pub use flume::{SendError as UnboundedSendError, TryRecvError as UnboundedTryRecvError, RecvError as UnboundedRecvError };
-        use flume::{Sender, Receiver};
+    }
 
-        /// An unbounded sender, created with [`unbounded`]
-        pub struct UnboundedSender<T>(Sender<T>);
-        /// An unbounded receiver, created with [`unbounded`]
-        pub struct UnboundedReceiver<T>(Receiver<T>);
-
-        /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
-        fn try_recv_error_to_recv_error(e: UnboundedTryRecvError) -> Option<UnboundedRecvError> {
-            match e {
-                UnboundedTryRecvError::Empty => None,
-                UnboundedTryRecvError::Disconnected => Some(UnboundedRecvError::Disconnected),
-            }
-        }
-    } else if #[cfg(feature = "channel-async-std")] {
-        pub use async_std::channel::{SendError as UnboundedSendError, TryRecvError as UnboundedTryRecvError, RecvError as UnboundedRecvError };
-        use async_std::channel::{Sender, Receiver};
-
-        /// An unbounded sender, created with [`unbounded`]
-        pub struct UnboundedSender<T>(Sender<T>);
-        /// An unbounded receiver, created with [`unbounded`]
-        pub struct UnboundedReceiver<T>(Receiver<T>);
-
-        /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
-        fn try_recv_error_to_recv_error(e: UnboundedTryRecvError) -> Option<UnboundedRecvError> {
-            match e {
-                UnboundedTryRecvError::Empty => None,
-                UnboundedTryRecvError::Closed => Some(UnboundedRecvError),
-            }
-        }
+    /// Create an unbounded channel. This will dynamically allocate whenever the internal buffer is full and a new message is added.
+    ///
+    /// The names of the [`UnboundedSender`] and [`UnboundedReceiver`] are specifically chosen to be less ergonomic than the [`bounded`] channels. Please consider using a bounded channel instead for performance reasons.
+    #[must_use]
+    pub fn unbounded<T>() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
+        let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
+        let receiver = Mutex::new(receiver);
+        (UnboundedSender(sender), UnboundedReceiver(receiver))
     }
 }
 
-/// Create an unbounded channel. This will dynamically allocate whenever the internal buffer is full and a new message is added.
-///
-/// The names of the [`UnboundedSender`] and [`UnboundedReceiver`] are specifically chosen to be less ergonomic than the [`bounded`] channels. Please consider using a bounded channel instead for performance reasons.
-#[must_use]
-pub fn unbounded<T>() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
-    cfg_if! {
-        if #[cfg(feature = "channel-tokio")] {
-            let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-            let receiver = Mutex::new(receiver);
-        } else if #[cfg(feature = "channel-flume")] {
-            let (sender, receiver) = flume::unbounded();
-        } else if #[cfg(feature = "channel-async-std")] {
-            let (sender, receiver) = async_std::channel::unbounded();
+/// inner module, used to group feature-specific imports
+#[cfg(feature = "channel-flume")]
+mod inner {
+    use flume::{Receiver, Sender};
+    pub use flume::{
+        RecvError as UnboundedRecvError, SendError as UnboundedSendError,
+        TryRecvError as UnboundedTryRecvError,
+    };
+
+    /// An unbounded sender, created with [`unbounded`]
+    pub struct UnboundedSender<T>(pub(super) Sender<T>);
+    /// An unbounded receiver, created with [`unbounded`]
+    pub struct UnboundedReceiver<T>(pub(super) Receiver<T>);
+
+    /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
+    pub(super) fn try_recv_error_to_recv_error(
+        e: UnboundedTryRecvError,
+    ) -> Option<UnboundedRecvError> {
+        match e {
+            UnboundedTryRecvError::Empty => None,
+            UnboundedTryRecvError::Disconnected => Some(UnboundedRecvError::Disconnected),
         }
     }
-    (UnboundedSender(sender), UnboundedReceiver(receiver))
+
+    /// Create an unbounded channel. This will dynamically allocate whenever the internal buffer is full and a new message is added.
+    ///
+    /// The names of the [`UnboundedSender`] and [`UnboundedReceiver`] are specifically chosen to be less ergonomic than the [`bounded`] channels. Please consider using a bounded channel instead for performance reasons.
+    #[must_use]
+    pub fn unbounded<T>() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
+        let (sender, receiver) = flume::unbounded();
+        (UnboundedSender(sender), UnboundedReceiver(receiver))
+    }
 }
+
+/// inner module, used to group feature-specific imports
+#[cfg(feature = "channel-async-std")]
+mod inner {
+    use async_std::channel::{Receiver, Sender};
+    pub use async_std::channel::{
+        RecvError as UnboundedRecvError, SendError as UnboundedSendError,
+        TryRecvError as UnboundedTryRecvError,
+    };
+
+    /// An unbounded sender, created with [`unbounded`]
+    pub struct UnboundedSender<T>(pub(super) Sender<T>);
+    /// An unbounded receiver, created with [`unbounded`]
+    pub struct UnboundedReceiver<T>(pub(super) Receiver<T>);
+
+    /// Turn a `TryRecvError` into a `RecvError` if it's not `Empty`
+    pub(super) fn try_recv_error_to_recv_error(
+        e: UnboundedTryRecvError,
+    ) -> Option<UnboundedRecvError> {
+        match e {
+            UnboundedTryRecvError::Empty => None,
+            UnboundedTryRecvError::Closed => Some(UnboundedRecvError),
+        }
+    }
+
+    /// Create an unbounded channel. This will dynamically allocate whenever the internal buffer is full and a new message is added.
+    ///
+    /// The names of the [`UnboundedSender`] and [`UnboundedReceiver`] are specifically chosen to be less ergonomic than the [`bounded`] channels. Please consider using a bounded channel instead for performance reasons.
+    #[must_use]
+    pub fn unbounded<T>() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
+        let (sender, receiver) = async_std::channel::unbounded();
+        (UnboundedSender(sender), UnboundedReceiver(receiver))
+    }
+}
+
+pub use inner::*;
 
 impl<T> UnboundedSender<T> {
     /// Send a value to the sender half of this channel.
@@ -98,15 +128,13 @@ impl<T> UnboundedSender<T> {
     /// This may fail if the receiver is dropped.
     #[allow(clippy::unused_async)] // under tokio this function is actually sync
     pub async fn send(&self, msg: T) -> Result<(), UnboundedSendError<T>> {
-        cfg_if! {
-            if #[cfg(feature = "channel-flume")] {
-                self.0.send_async(msg).await
-            } else if #[cfg(feature = "channel-tokio")] {
-                self.0.send(msg)
-            } else {
-                self.0.send(msg).await
-            }
-        }
+        #[cfg(feature = "channel-flume")]
+        let result = self.0.send_async(msg).await;
+        #[cfg(feature = "channel-tokio")]
+        let result = self.0.send(msg);
+        #[cfg(feature = "channel-async-std")]
+        let result = self.0.send(msg).await;
+        result
     }
 }
 
@@ -119,30 +147,27 @@ impl<T> UnboundedReceiver<T> {
     ///
     /// Will produce an error if all senders are dropped
     pub async fn recv(&self) -> Result<T, UnboundedRecvError> {
-        cfg_if! {
-            if #[cfg(feature = "channel-flume")] {
-                self.0.recv_async().await
-            } else if #[cfg(feature = "channel-tokio")] {
-                self.0.lock().await.recv().await.ok_or(UnboundedRecvError)
-            } else {
-                self.0.recv().await
-            }
-        }
+        #[cfg(feature = "channel-flume")]
+        let result = self.0.recv_async().await;
+        #[cfg(feature = "channel-tokio")]
+        let result = self.0.lock().await.recv().await.ok_or(UnboundedRecvError);
+        #[cfg(feature = "channel-async-std")]
+        let result = self.0.recv().await;
+        result
     }
     /// Turn this receiver into a stream.
     pub fn into_stream(self) -> impl Stream<Item = T>
     where
         T: 'static,
     {
-        cfg_if! {
-            if #[cfg(feature = "channel-async-std")] {
-                self.0
-            } else if #[cfg(feature = "channel-tokio")] {
-                tokio_stream::wrappers::UnboundedReceiverStream::new(self.0.into_inner())
-            } else if #[cfg(feature = "channel-flume")] {
-                self.0.into_stream()
-            }
-        }
+        #[cfg(feature = "channel-async-std")]
+        let result = self.0;
+        #[cfg(feature = "channel-tokio")]
+        let result = tokio_stream::wrappers::UnboundedReceiverStream::new(self.0.into_inner());
+        #[cfg(feature = "channel-flume")]
+        let result = self.0.into_stream();
+
+        result
     }
     /// Try to receive a value from the receiver.
     ///
@@ -150,14 +175,14 @@ impl<T> UnboundedReceiver<T> {
     ///
     /// Will return an error if no value is currently queued. This function will not block.
     pub fn try_recv(&self) -> Result<T, UnboundedTryRecvError> {
-        cfg_if! {
-            if #[cfg(feature = "channel-tokio")] {
-                // TODO: Check if this actually doesn't block
-                crate::art::async_block_on(self.0.lock()).try_recv()
-            } else {
-                self.0.try_recv()
-            }
-        }
+        #[cfg(feature = "channel-tokio")]
+        // TODO: Check if this actually doesn't block
+        let result = crate::art::async_block_on(self.0.lock()).try_recv();
+
+        #[cfg(not(feature = "channel-tokio"))]
+        let result = self.0.try_recv();
+
+        result
     }
     /// Asynchronously wait for at least 1 value to show up, then will greedily try to receive values until this receiver would block. The resulting values are returned.
     ///
@@ -214,13 +239,11 @@ impl<T> UnboundedReceiver<T> {
     #[allow(clippy::len_without_is_empty, clippy::unused_self)]
     #[must_use]
     pub fn len(&self) -> Option<usize> {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "channel-tokio")] {
-                None
-            } else {
-                Some(self.0.len())
-            }
-        }
+        #[cfg(feature = "channel-tokio")]
+        let result = None;
+        #[cfg(not(feature = "channel-tokio"))]
+        let result = Some(self.0.len());
+        result
     }
 }
 

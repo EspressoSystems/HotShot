@@ -100,6 +100,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
 
                     stake_casted += u64::from(vote_token.vote_count());
 
+
                     if stake_casted >= u64::from(threshold) {
                         let (block_commitment, valid_signatures) =
                             vote_outcomes.remove(&vote.leaf_commitment).unwrap();

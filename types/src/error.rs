@@ -4,17 +4,15 @@
 //! occur while interacting with this crate.
 
 use crate::{data::ViewNumber, traits::storage::StorageError};
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use async_std::future::TimeoutError;
-    } else if #[cfg(feature = "tokio-executor")] {
-        use tokio::time::error::Elapsed as TimeoutError;
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
 use snafu::Snafu;
 use std::num::NonZeroU64;
+
+#[cfg(feature = "async-std-executor")]
+use async_std::future::TimeoutError;
+#[cfg(feature = "tokio-executor")]
+use tokio::time::error::Elapsed as TimeoutError;
+#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 /// Error type for `HotShot`
 #[derive(Debug, Snafu)]

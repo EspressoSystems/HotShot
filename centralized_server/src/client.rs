@@ -2,7 +2,7 @@ use crate::{
     config::ClientConfig, Error, FromBackground, Run, TcpStreamRecvUtil, TcpStreamSendUtil,
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToBackground, ToServer,
 };
-use hotshot_types::traits::{signature_key::SignatureKey, election::ElectionConfig};
+use hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
 use hotshot_utils::{
     art::{async_spawn, split_stream},
     channel::{bounded, oneshot, Sender},
@@ -10,15 +10,12 @@ use hotshot_utils::{
 use std::{net::SocketAddr, num::NonZeroUsize};
 use tracing::{debug, warn};
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use async_std::net::TcpStream;
-    } else if #[cfg(feature = "tokio-executor")] {
-        use tokio::net::TcpStream;
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
+#[cfg(feature = "async-std-executor")]
+use async_std::net::TcpStream;
+#[cfg(feature = "tokio-executor")]
+use tokio::net::TcpStream;
+#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 pub(crate) async fn spawn<K: SignatureKey + 'static, E: ElectionConfig + 'static>(
     addr: SocketAddr,
@@ -49,8 +46,7 @@ async fn run_client<K: SignatureKey + 'static, E: ElectionConfig + 'static>(
     parent_key: &mut Option<K>,
     parent_run: &mut Option<Run>,
     to_background: Sender<ToBackground<K, E>>,
-) -> Result<(), Error>
-{
+) -> Result<(), Error> {
     let (read_stream, write_stream) = split_stream(stream);
 
     let (sender, mut receiver) = bounded::<FromBackground<K, E>>(10);

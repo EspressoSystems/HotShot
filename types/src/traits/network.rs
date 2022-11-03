@@ -2,15 +2,13 @@
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use async_std::future::TimeoutError;
-    } else if #[cfg(feature = "tokio-executor")] {
-        use tokio::time::error::Elapsed as TimeoutError;
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
+#[cfg(feature = "async-std-executor")]
+use async_std::future::TimeoutError;
+#[cfg(feature = "tokio-executor")]
+use tokio::time::error::Elapsed as TimeoutError;
+#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+
 use async_trait::async_trait;
 use async_tungstenite::tungstenite::error as werror;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
