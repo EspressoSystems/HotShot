@@ -641,6 +641,8 @@
 <span id="641">641</span>
 <span id="642">642</span>
 <span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
 </pre><pre class="rust"><code><span class="comment">// TODO this should really be moved into the utils crate.
 </span><span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>async_lock::RwLock;
@@ -1165,6 +1167,7 @@
     setup_logging();
     setup_backtrace();
 
+    <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
     <span class="kw">let </span>args = CliOpt::parse();
     <span class="kw">let </span><span class="kw-2">mut </span>server_conn = <span class="prelude-val">None</span>;
     <span class="kw">let </span>config = <span class="kw">match </span>args {
@@ -1227,7 +1230,8 @@
             <span class="kw">let </span>state = hotshot.get_state().<span class="kw">await</span>;
 
             <span class="kw">for _ in </span><span class="number">0</span>..config.num_txn_per_round {
-                <span class="kw">let </span>txn = &lt;DEntryState <span class="kw">as </span>TestableState&gt;::create_random_transaction(<span class="kw-2">&amp;</span>state);
+                <span class="kw">let </span>txn =
+                    &lt;DEntryState <span class="kw">as </span>TestableState&gt;::create_random_transaction(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;mut </span>rng);
                 <span class="macro">info!</span>(<span class="string">&quot;Submitting txn on view {}&quot;</span>, view);
                 hotshot.submit_transaction(txn).<span class="kw">await</span>.unwrap();
             }

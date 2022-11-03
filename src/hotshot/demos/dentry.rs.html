@@ -541,6 +541,12 @@
 <span id="541">541</span>
 <span id="542">542</span>
 <span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
+<span id="548">548</span>
+<span id="549">549</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Double entry accounting demo
 //!
 //! This module provides an implementation of the `HotShot` suite of traits that implements a
@@ -564,7 +570,7 @@
         State,
     },
 };
-<span class="kw">use </span>rand::{thread_rng, Rng};
+<span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::{ensure, Snafu};
 <span class="kw">use </span>std::{
@@ -925,9 +931,11 @@
 }
 
 <span class="kw">impl </span>TestableState <span class="kw">for </span>DEntryState {
-    <span class="kw">fn </span>create_random_transaction(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::BlockType <span class="kw">as </span>Block&gt;::Transaction {
+    <span class="kw">fn </span>create_random_transaction(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
+    ) -&gt; &lt;<span class="self">Self</span>::BlockType <span class="kw">as </span>Block&gt;::Transaction {
         <span class="kw">use </span>rand::seq::IteratorRandom;
-        <span class="kw">let </span><span class="kw-2">mut </span>rng = thread_rng();
 
         <span class="kw">let </span>non_zero_balances = <span class="self">self
             </span>.balances
@@ -940,8 +948,8 @@
             <span class="string">&quot;No nonzero balances were available! Unable to generate transaction.&quot;
         </span>);
 
-        <span class="kw">let </span>input_account = non_zero_balances.iter().choose(<span class="kw-2">&amp;mut </span>rng).unwrap().<span class="number">0</span>;
-        <span class="kw">let </span>output_account = <span class="self">self</span>.balances.keys().choose(<span class="kw-2">&amp;mut </span>rng).unwrap();
+        <span class="kw">let </span>input_account = non_zero_balances.iter().choose(rng).unwrap().<span class="number">0</span>;
+        <span class="kw">let </span>output_account = <span class="self">self</span>.balances.keys().choose(rng).unwrap();
         <span class="kw">let </span>amount = rng.gen_range(<span class="number">0</span>..<span class="number">100</span>);
 
         DEntryTransaction {
@@ -1056,11 +1064,12 @@
 }
 
 <span class="doccomment">/// Provides a random [`QuorumCertificate`]
-</span><span class="kw">pub fn </span>random_quorum_certificate&lt;STATE: State&gt;() -&gt; QuorumCertificate&lt;STATE&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>rng = thread_rng();
+</span><span class="kw">pub fn </span>random_quorum_certificate&lt;STATE: State&gt;(
+    rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
+) -&gt; QuorumCertificate&lt;STATE&gt; {
     QuorumCertificate {
-        block_commitment: random_commitment(),
-        leaf_commitment: random_commitment(),
+        block_commitment: random_commitment(rng),
+        leaf_commitment: random_commitment(rng),
         view_number: ViewNumber::new(rng.gen()),
         signatures: BTreeMap::default(),
         genesis: rng.gen(),
@@ -1068,15 +1077,18 @@
 }
 
 <span class="doccomment">/// Provides a random [`Leaf`]
-</span><span class="kw">pub fn </span>random_leaf&lt;STATE: State&lt;Time = ViewNumber&gt;&gt;(deltas: STATE::BlockType) -&gt; Leaf&lt;STATE&gt; {
-    <span class="kw">let </span>justify_qc = random_quorum_certificate();
+</span><span class="kw">pub fn </span>random_leaf&lt;STATE: State&lt;Time = ViewNumber&gt;&gt;(
+    deltas: STATE::BlockType,
+    rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
+) -&gt; Leaf&lt;STATE&gt; {
+    <span class="kw">let </span>justify_qc = random_quorum_certificate(rng);
     <span class="kw">let </span>state = STATE::default()
         .append(<span class="kw-2">&amp;</span>deltas, <span class="kw-2">&amp;</span>ViewNumber::new(<span class="number">42</span>))
         .unwrap_or_default();
     Leaf {
         view_number: justify_qc.view_number,
         justify_qc,
-        parent_commitment: random_commitment(),
+        parent_commitment: random_commitment(rng),
         deltas,
         state,
         rejected: Vec::new(),

@@ -271,6 +271,8 @@
 <span id="271">271</span>
 <span id="272">272</span>
 <span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
 </pre><pre class="rust"><code><span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>blake3::Hasher;
 <span class="kw">use </span>clap::Parser;
@@ -354,7 +356,7 @@
     </span><span class="kw">let </span>vrf_key =
         VRFPubKey::&lt;BLSSignatureScheme&lt;Param381&gt;&gt;::generated_from_seed_indexed(seed, node_id);
     <span class="kw">let </span>priv_key = vrf_key.<span class="number">1</span>;
-    <span class="kw">let </span>pub_key = vrf_key.<span class="number">0</span>; 
+    <span class="kw">let </span>pub_key = vrf_key.<span class="number">0</span>;
 
     <span class="kw">let </span>known_nodes = config.known_nodes.clone();
     <span class="kw">let </span><span class="kw-2">mut </span>distribution = Vec::new();
@@ -397,6 +399,8 @@
     <span class="comment">// Setup tracing listener
     </span>setup_logging();
     setup_backtrace();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
 
     <span class="kw">let </span>opts: NodeOpt = NodeOpt::parse();
     <span class="kw">let </span>addr: SocketAddr = (opts.host, opts.port).into();
@@ -453,7 +457,7 @@
     </span><span class="kw">let </span>tx_to_gen = transactions_per_round * (cmp::max(rounds / node_count, <span class="number">1</span>) + <span class="number">5</span>);
     <span class="macro">error!</span>(<span class="string">&quot;Generated {} transactions&quot;</span>, tx_to_gen);
     <span class="kw">for _ in </span><span class="number">0</span>..tx_to_gen {
-        <span class="kw">let </span><span class="kw-2">mut </span>txn = &lt;DEntryState <span class="kw">as </span>TestableState&gt;::create_random_transaction(<span class="kw-2">&amp;</span>state);
+        <span class="kw">let </span><span class="kw-2">mut </span>txn = &lt;DEntryState <span class="kw">as </span>TestableState&gt;::create_random_transaction(<span class="kw-2">&amp;</span>state, <span class="kw-2">&amp;mut </span>rng);
         txn.padding = <span class="macro">vec!</span>[<span class="number">0</span>; adjusted_padding];
         txs.push_back(txn);
     }

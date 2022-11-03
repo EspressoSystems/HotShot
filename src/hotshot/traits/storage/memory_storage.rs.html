@@ -178,6 +178,10 @@
 <span id="178">178</span>
 <span id="179">179</span>
 <span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
 </pre><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
@@ -311,8 +315,11 @@
     <span class="kw">use </span>std::collections::BTreeMap;
     <span class="kw">use </span>tracing::instrument;
 
-    <span class="attribute">#[instrument]
-    </span><span class="kw">fn </span>random_stored_view(number: ViewNumber) -&gt; StoredView&lt;DummyState&gt; {
+    <span class="attribute">#[instrument(skip(rng))]
+    </span><span class="kw">fn </span>random_stored_view(
+        rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
+        number: ViewNumber,
+    ) -&gt; StoredView&lt;DummyState&gt; {
         <span class="comment">// TODO is it okay to be using genesis here?
         </span><span class="kw">let </span>dummy_block_commit = fake_commitment::&lt;DummyBlock&gt;();
         <span class="kw">let </span>dummy_leaf_commit = fake_commitment::&lt;Leaf&lt;DummyState&gt;&gt;();
@@ -324,8 +331,8 @@
                 signatures: BTreeMap::new(),
                 view_number: number,
             },
-            DummyBlock::random(),
-            DummyState::random(),
+            DummyBlock::random(rng),
+            DummyState::random(rng),
             dummy_leaf_commit,
             Vec::new(),
             genesis_proposer_id(),
@@ -339,8 +346,9 @@
     #[cfg_attr(feature = <span class="string">&quot;async-std-executor&quot;</span>, async_std::test)]
     #[instrument]
     </span><span class="kw">async fn </span>memory_storage() {
+        <span class="kw">let </span><span class="kw-2">mut </span>rng = rand::thread_rng();
         <span class="kw">let </span>storage = MemoryStorage::construct_tmp_storage().unwrap();
-        <span class="kw">let </span>genesis = random_stored_view(ViewNumber::genesis());
+        <span class="kw">let </span>genesis = random_stored_view(<span class="kw-2">&amp;mut </span>rng, ViewNumber::genesis());
         storage
             .append_single_view(genesis.clone())
             .<span class="kw">await
