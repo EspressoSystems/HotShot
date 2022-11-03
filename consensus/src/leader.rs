@@ -103,14 +103,14 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Leader<A, I> {
         let mut block = starting_state.next_block();
 
         // Wait until we have min_transactions for the block or we hit propose_max_round_time
-        while (Instant::now() - task_start_time) < self.api.propose_max_round_time() {
+        while task_start_time.elapsed() < self.api.propose_max_round_time() {
             let txns = self.transactions.cloned().await;
             let unclaimed_txns: Vec<_> = txns
                 .iter()
                 .filter(|(txn_hash, _txn)| !previous_used_txns.contains(txn_hash))
                 .collect();
 
-            let time_past = Instant::now() - task_start_time;
+            let time_past = task_start_time.elapsed();
             if unclaimed_txns.len() < self.api.min_transactions()
                 && (time_past < self.api.propose_max_round_time())
             {

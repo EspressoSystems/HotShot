@@ -81,7 +81,7 @@ async fn init_state_and_hotshot(
     let vrf_key =
         VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(seed, node_id);
     let priv_key = vrf_key.1;
-    let pub_key = vrf_key.0; 
+    let pub_key = vrf_key.0;
 
     let known_nodes = config.known_nodes.clone();
     let mut distribution = Vec::new();

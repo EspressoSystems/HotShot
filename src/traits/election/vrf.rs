@@ -432,7 +432,7 @@ where
         let proof = Self::internal_get_vrf_proof(
             &private_key.0,
             &self.proof_parameters,
-            &mut *self.prng.lock().unwrap(),
+            &mut self.prng.lock().unwrap(),
             &view_seed,
         )?;
 
