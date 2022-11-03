@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/traits/storage/memory_storage.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>memory_storage.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../hotshot/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/traits/storage/memory_storage.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>memory_storage.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../hotshot/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -178,191 +178,185 @@
 <span id="178">178</span>
 <span id="179">179</span>
 <span id="180">180</span>
-<span id="181">181</span>
-<span id="182">182</span>
-<span id="183">183</span>
-</pre><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! This module provides a non-persisting, dummy adapter for the [`Storage`] trait</span>
+</pre><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
+//!
+//! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::traits::State</span>;
-<span class="kw">use</span> <span class="ident">async_lock::RwLock</span>;
-<span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
-<span class="kw">use</span> <span class="ident">hotshot_types</span>::{
-    <span class="ident">data::ViewNumber</span>,
-    <span class="ident">traits::storage</span>::{
-        <span class="prelude-ty">Result</span>, <span class="ident">Storage</span>, <span class="ident">StorageError</span>, <span class="ident">StorageState</span>, <span class="ident">StoredView</span>, <span class="ident">TestableStorage</span>,
-        <span class="ident">ViewEntry</span>,
+</span><span class="kw">use </span><span class="kw">crate</span>::traits::State;
+<span class="kw">use </span>async_lock::RwLock;
+<span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>hotshot_types::{
+    data::ViewNumber,
+    traits::storage::{
+        <span class="prelude-ty">Result</span>, Storage, StorageError, StorageState, StoredView, TestableStorage, ViewEntry,
     },
 };
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">BTreeSet</span>},
-    <span class="ident">sync::Arc</span>,
+<span class="kw">use </span>std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
 };
 
-<span class="doccomment">/// Internal state for a [`MemoryStorage`]</span>
-<span class="kw">struct</span> <span class="ident">MemoryStorageInternal</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">State</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// The views that have been stored</span>
-    <span class="ident">stored</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">ViewNumber</span>, <span class="ident">StoredView</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// The views that have failed</span>
-    <span class="ident">failed</span>: <span class="ident">BTreeSet</span><span class="op">&lt;</span><span class="ident">ViewNumber</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Internal state for a [`MemoryStorage`]
+</span><span class="kw">struct </span>MemoryStorageInternal&lt;STATE: State&gt; {
+    <span class="doccomment">/// The views that have been stored
+    </span>stored: BTreeMap&lt;ViewNumber, StoredView&lt;STATE&gt;&gt;,
+    <span class="doccomment">/// The views that have failed
+    </span>failed: BTreeSet&lt;ViewNumber&gt;,
 }
 
-<span class="doccomment">/// In memory, ephemeral, storage for a [`HotShot`](crate::HotShot) instance</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">STATE</span>: <span class="ident">State</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+<span class="doccomment">/// In memory, ephemeral, storage for a [`HotShot`](crate::HotShot) instance
+</span><span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>MemoryStorage&lt;STATE&gt;
+<span class="kw">where
+    </span>STATE: State + <span class="lifetime">&#39;static</span>,
 {
-    <span class="doccomment">/// The inner state of this [`MemoryStorage`]</span>
-    <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">MemoryStorageInternal</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// The inner state of this [`MemoryStorage`]
+    </span>inner: Arc&lt;RwLock&lt;MemoryStorageInternal&lt;STATE&gt;&gt;&gt;,
 }
 
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::new_without_default</span>)]</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">State</span><span class="op">&gt;</span> <span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Create a new instance of the memory storage with the given block and state</span>
-    <span class="doccomment">/// NOTE: left as `new` because this API is not stable</span>
-    <span class="doccomment">/// we may add arguments to new in the future</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">MemoryStorageInternal</span> {
-            <span class="ident">stored</span>: <span class="ident">BTreeMap::new</span>(),
-            <span class="ident">failed</span>: <span class="ident">BTreeSet::new</span>(),
+<span class="attribute">#[allow(clippy::new_without_default)]
+</span><span class="kw">impl</span>&lt;STATE: State&gt; MemoryStorage&lt;STATE&gt; {
+    <span class="doccomment">/// Create a new instance of the memory storage with the given block and state
+    /// NOTE: left as `new` because this API is not stable
+    /// we may add arguments to new in the future
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>inner = MemoryStorageInternal {
+            stored: BTreeMap::new(),
+            failed: BTreeSet::new(),
         };
-        <span class="self">Self</span> {
-            <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="ident">inner</span>)),
+        <span class="self">Self </span>{
+            inner: Arc::new(RwLock::new(inner)),
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">async_trait</span>]</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> <span class="ident">TestableStorage</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">STATE</span>: <span class="ident">State</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+<span class="attribute">#[async_trait]
+</span><span class="kw">impl</span>&lt;STATE&gt; TestableStorage&lt;STATE&gt; <span class="kw">for </span>MemoryStorage&lt;STATE&gt;
+<span class="kw">where
+    </span>STATE: State + <span class="lifetime">&#39;static</span>,
 {
-    <span class="kw">fn</span> <span class="ident">construct_tmp_storage</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::new</span>())
+    <span class="kw">fn </span>construct_tmp_storage() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::new())
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_full_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">StorageState</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>().<span class="kw">await</span>;
-        <span class="ident">StorageState</span> {
-            <span class="ident">stored</span>: <span class="ident">inner</span>.<span class="ident">stored</span>.<span class="ident">clone</span>(),
-            <span class="ident">failed</span>: <span class="ident">inner</span>.<span class="ident">failed</span>.<span class="ident">clone</span>(),
+    <span class="kw">async fn </span>get_full_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StorageState&lt;STATE&gt; {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().<span class="kw">await</span>;
+        StorageState {
+            stored: inner.stored.clone(),
+            failed: inner.failed.clone(),
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">async_trait</span>]</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> <span class="ident">Storage</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">STATE</span>: <span class="ident">State</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
+<span class="attribute">#[async_trait]
+</span><span class="kw">impl</span>&lt;STATE&gt; Storage&lt;STATE&gt; <span class="kw">for </span>MemoryStorage&lt;STATE&gt;
+<span class="kw">where
+    </span>STATE: State + <span class="lifetime">&#39;static</span>,
 {
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">views</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">ViewEntry</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write</span>().<span class="kw">await</span>;
-        <span class="kw">for</span> <span class="ident">view</span> <span class="kw">in</span> <span class="ident">views</span> {
-            <span class="kw">match</span> <span class="ident">view</span> {
-                <span class="ident">ViewEntry::Failed</span>(<span class="ident">num</span>) =&gt; {
-                    <span class="ident">inner</span>.<span class="ident">failed</span>.<span class="ident">insert</span>(<span class="ident">num</span>);
+    <span class="kw">async fn </span>append(<span class="kw-2">&amp;</span><span class="self">self</span>, views: Vec&lt;ViewEntry&lt;STATE&gt;&gt;) -&gt; <span class="prelude-ty">Result </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write().<span class="kw">await</span>;
+        <span class="kw">for </span>view <span class="kw">in </span>views {
+            <span class="kw">match </span>view {
+                ViewEntry::Failed(num) =&gt; {
+                    inner.failed.insert(num);
                 }
-                <span class="ident">ViewEntry::Success</span>(<span class="ident">view</span>) =&gt; {
-                    <span class="ident">inner</span>.<span class="ident">stored</span>.<span class="ident">insert</span>(<span class="ident">view</span>.<span class="ident">view_number</span>, <span class="ident">view</span>);
+                ViewEntry::Success(view) =&gt; {
+                    inner.stored.insert(view.view_number, view);
                 }
             }
         }
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">cleanup_storage_up_to_view</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write</span>().<span class="kw">await</span>;
+    <span class="kw">async fn </span>cleanup_storage_up_to_view(<span class="kw-2">&amp;</span><span class="self">self</span>, view: ViewNumber) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write().<span class="kw">await</span>;
 
-        <span class="comment">// .split_off will return everything after the given key, including the key.</span>
-        <span class="kw">let</span> <span class="ident">stored_after</span> <span class="op">=</span> <span class="ident">inner</span>.<span class="ident">stored</span>.<span class="ident">split_off</span>(<span class="kw-2">&amp;</span><span class="ident">view</span>);
-        <span class="comment">// .split_off will return the map we want to keep stored, so we need to swap them</span>
-        <span class="kw">let</span> <span class="ident">old_stored</span> <span class="op">=</span> <span class="ident">std::mem::replace</span>(<span class="kw-2">&amp;mut</span> <span class="ident">inner</span>.<span class="ident">stored</span>, <span class="ident">stored_after</span>);
+        <span class="comment">// .split_off will return everything after the given key, including the key.
+        </span><span class="kw">let </span>stored_after = inner.stored.split_off(<span class="kw-2">&amp;</span>view);
+        <span class="comment">// .split_off will return the map we want to keep stored, so we need to swap them
+        </span><span class="kw">let </span>old_stored = std::mem::replace(<span class="kw-2">&amp;mut </span>inner.stored, stored_after);
 
-        <span class="comment">// same for the BTreeSet</span>
-        <span class="kw">let</span> <span class="ident">failed_after</span> <span class="op">=</span> <span class="ident">inner</span>.<span class="ident">failed</span>.<span class="ident">split_off</span>(<span class="kw-2">&amp;</span><span class="ident">view</span>);
-        <span class="kw">let</span> <span class="ident">old_failed</span> <span class="op">=</span> <span class="ident">std::mem::replace</span>(<span class="kw-2">&amp;mut</span> <span class="ident">inner</span>.<span class="ident">failed</span>, <span class="ident">failed_after</span>);
+        <span class="comment">// same for the BTreeSet
+        </span><span class="kw">let </span>failed_after = inner.failed.split_off(<span class="kw-2">&amp;</span>view);
+        <span class="kw">let </span>old_failed = std::mem::replace(<span class="kw-2">&amp;mut </span>inner.failed, failed_after);
 
-        <span class="prelude-val">Ok</span>(<span class="ident">old_stored</span>.<span class="ident">len</span>() <span class="op">+</span> <span class="ident">old_failed</span>.<span class="ident">len</span>())
+        <span class="prelude-val">Ok</span>(old_stored.len() + old_failed.len())
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_anchored_view</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">StoredView</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">read</span>().<span class="kw">await</span>;
-        <span class="kw">let</span> <span class="ident">last</span> <span class="op">=</span> <span class="ident">inner</span>
-            .<span class="ident">stored</span>
-            .<span class="ident">values</span>()
-            .<span class="ident">next_back</span>()
-            .<span class="ident">ok_or</span>(<span class="ident">StorageError::NoGenesisView</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">last</span>.<span class="ident">clone</span>())
+    <span class="kw">async fn </span>get_anchored_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;StoredView&lt;STATE&gt;&gt; {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().<span class="kw">await</span>;
+        <span class="kw">let </span>last = inner
+            .stored
+            .values()
+            .next_back()
+            .ok_or(StorageError::NoGenesisView)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(last.clone())
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">commit</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span> {
-        <span class="prelude-val">Ok</span>(()) <span class="comment">// do nothing</span>
-    }
+    <span class="kw">async fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result </span>{
+        <span class="prelude-val">Ok</span>(()) <span class="comment">// do nothing
+    </span>}
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">mod</span> <span class="ident">test</span> {
-    <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident">hotshot_types::constants::genesis_proposer_id</span>;
-    <span class="kw">use</span> <span class="ident">hotshot_types::data::ViewNumber</span>;
-    <span class="kw">use</span> <span class="ident">hotshot_types::data::fake_commitment</span>;
-    <span class="kw">use</span> <span class="ident">hotshot_types::data::Leaf</span>;
-    <span class="kw">use</span> <span class="ident">hotshot_types::data::QuorumCertificate</span>;
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::wildcard_imports</span>)]</span>
-    <span class="kw">use</span> <span class="ident">hotshot_types::traits::block_contents::dummy</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
-    <span class="kw">use</span> <span class="ident">tracing::instrument</span>;
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>test {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span>hotshot_types::constants::genesis_proposer_id;
+    <span class="kw">use </span>hotshot_types::data::fake_commitment;
+    <span class="kw">use </span>hotshot_types::data::Leaf;
+    <span class="kw">use </span>hotshot_types::data::QuorumCertificate;
+    <span class="kw">use </span>hotshot_types::data::ViewNumber;
+    <span class="attribute">#[allow(clippy::wildcard_imports)]
+    </span><span class="kw">use </span>hotshot_types::traits::block_contents::dummy::<span class="kw-2">*</span>;
+    <span class="kw">use </span>std::collections::BTreeMap;
+    <span class="kw">use </span>tracing::instrument;
 
-    <span class="attribute">#[<span class="ident">instrument</span>]</span>
-    <span class="kw">fn</span> <span class="ident">random_stored_view</span>(<span class="ident">number</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="ident">StoredView</span><span class="op">&lt;</span><span class="ident">DummyState</span><span class="op">&gt;</span> {
-        <span class="comment">// TODO is it okay to be using genesis here?</span>
-        <span class="kw">let</span> <span class="ident">dummy_block_commit</span> <span class="op">=</span> <span class="ident">fake_commitment</span>::<span class="op">&lt;</span><span class="ident">DummyBlock</span><span class="op">&gt;</span>();
-        <span class="kw">let</span> <span class="ident">dummy_leaf_commit</span> <span class="op">=</span> <span class="ident">fake_commitment</span>::<span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">DummyState</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="ident">StoredView::from_qc_block_and_state</span>(
-            <span class="ident">QuorumCertificate</span> {
-                <span class="ident">block_commitment</span>: <span class="ident">dummy_block_commit</span>,
-                <span class="ident">genesis</span>: <span class="ident">number</span> <span class="op">==</span> <span class="ident">ViewNumber::genesis</span>(),
-                <span class="ident">leaf_commitment</span>: <span class="ident">dummy_leaf_commit</span>,
-                <span class="ident">signatures</span>: <span class="ident">BTreeMap::new</span>(),
-                <span class="ident">view_number</span>: <span class="ident">number</span>,
+    <span class="attribute">#[instrument]
+    </span><span class="kw">fn </span>random_stored_view(number: ViewNumber) -&gt; StoredView&lt;DummyState&gt; {
+        <span class="comment">// TODO is it okay to be using genesis here?
+        </span><span class="kw">let </span>dummy_block_commit = fake_commitment::&lt;DummyBlock&gt;();
+        <span class="kw">let </span>dummy_leaf_commit = fake_commitment::&lt;Leaf&lt;DummyState&gt;&gt;();
+        StoredView::from_qc_block_and_state(
+            QuorumCertificate {
+                block_commitment: dummy_block_commit,
+                genesis: number == ViewNumber::genesis(),
+                leaf_commitment: dummy_leaf_commit,
+                signatures: BTreeMap::new(),
+                view_number: number,
             },
-            <span class="ident">DummyBlock::random</span>(),
-            <span class="ident">DummyState::random</span>(),
-            <span class="ident">dummy_leaf_commit</span>,
-            <span class="ident">Vec::new</span>(),
-            <span class="ident">genesis_proposer_id</span>()
+            DummyBlock::random(),
+            DummyState::random(),
+            dummy_leaf_commit,
+            Vec::new(),
+            genesis_proposer_id(),
         )
     }
 
-    <span class="attribute">#[<span class="ident">cfg_attr</span>(
-        <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>,
-        <span class="ident">tokio::test</span>(<span class="ident">flavor</span> <span class="op">=</span> <span class="string">&quot;multi_thread&quot;</span>, <span class="ident">worker_threads</span> <span class="op">=</span> <span class="number">2</span>)
-    )]</span>
-    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>, <span class="ident">async_std::test</span>)]</span>
-    <span class="attribute">#[<span class="ident">instrument</span>]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">memory_storage</span>() {
-        <span class="kw">let</span> <span class="ident">storage</span> <span class="op">=</span>
-            <span class="ident">MemoryStorage::construct_tmp_storage</span>()
-                .<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">genesis</span> <span class="op">=</span> <span class="ident">random_stored_view</span>(<span class="ident">ViewNumber::genesis</span>());
-        <span class="ident">storage</span>
-            .<span class="ident">append_single_view</span>(<span class="ident">genesis</span>.<span class="ident">clone</span>())
-            .<span class="kw">await</span>
-            .<span class="ident">expect</span>(<span class="string">&quot;Could not append block&quot;</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">storage</span>.<span class="ident">get_anchored_view</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>(), <span class="ident">genesis</span>);
-        <span class="ident">storage</span>
-            .<span class="ident">cleanup_storage_up_to_view</span>(<span class="ident">genesis</span>.<span class="ident">view_number</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">unwrap</span>();
-        <span class="macro">assert_eq!</span>(<span class="ident">storage</span>.<span class="ident">get_anchored_view</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>(), <span class="ident">genesis</span>);
-        <span class="ident">storage</span>
-            .<span class="ident">cleanup_storage_up_to_view</span>(<span class="ident">genesis</span>.<span class="ident">view_number</span> <span class="op">+</span> <span class="number">1</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">unwrap</span>();
-        <span class="macro">assert!</span>(<span class="ident">storage</span>.<span class="ident">get_anchored_view</span>().<span class="kw">await</span>.<span class="ident">is_err</span>());
+    <span class="attribute">#[cfg_attr(
+        feature = <span class="string">&quot;tokio-executor&quot;</span>,
+        tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>, worker_threads = <span class="number">2</span>)
+    )]
+    #[cfg_attr(feature = <span class="string">&quot;async-std-executor&quot;</span>, async_std::test)]
+    #[instrument]
+    </span><span class="kw">async fn </span>memory_storage() {
+        <span class="kw">let </span>storage = MemoryStorage::construct_tmp_storage().unwrap();
+        <span class="kw">let </span>genesis = random_stored_view(ViewNumber::genesis());
+        storage
+            .append_single_view(genesis.clone())
+            .<span class="kw">await
+            </span>.expect(<span class="string">&quot;Could not append block&quot;</span>);
+        <span class="macro">assert_eq!</span>(storage.get_anchored_view().<span class="kw">await</span>.unwrap(), genesis);
+        storage
+            .cleanup_storage_up_to_view(genesis.view_number)
+            .<span class="kw">await
+            </span>.unwrap();
+        <span class="macro">assert_eq!</span>(storage.get_anchored_view().<span class="kw">await</span>.unwrap(), genesis);
+        storage
+            .cleanup_storage_up_to_view(genesis.view_number + <span class="number">1</span>)
+            .<span class="kw">await
+            </span>.unwrap();
+        <span class="macro">assert!</span>(storage.get_anchored_view().<span class="kw">await</span>.is_err());
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

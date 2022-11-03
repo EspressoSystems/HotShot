@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/src/network/behaviours/direct_message.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>direct_message.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../libp2p_networking/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/src/network/behaviours/direct_message.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>direct_message.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../libp2p_networking/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -348,355 +348,355 @@
 <span id="348">348</span>
 <span id="349">349</span>
 <span id="350">350</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections</span>::{<span class="ident">HashMap</span>, <span class="ident">VecDeque</span>},
-    <span class="ident">task::Poll</span>,
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::{HashMap, VecDeque},
+    task::Poll,
 };
 
-<span class="kw">use</span> <span class="ident">libp2p</span>::{
-    <span class="ident">core::transport::ListenerId</span>,
-    <span class="ident">request_response</span>::{
-        <span class="ident">RequestId</span>, <span class="ident">RequestResponse</span>, <span class="ident">RequestResponseEvent</span>, <span class="ident">RequestResponseMessage</span>, <span class="ident">ResponseChannel</span>,
+<span class="kw">use </span>libp2p::{
+    core::transport::ListenerId,
+    request_response::{
+        RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
     },
-    <span class="ident">swarm</span>::{<span class="ident">NetworkBehaviour</span>, <span class="ident">NetworkBehaviourAction</span>},
-    <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>,
+    swarm::{NetworkBehaviour, NetworkBehaviourAction},
+    Multiaddr, PeerId,
 };
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">info</span>};
+<span class="kw">use </span>tracing::{error, info};
 
-<span class="kw">use</span> <span class="kw">super</span>::{
-    <span class="ident">direct_message_codec</span>::{<span class="ident">DirectMessageCodec</span>, <span class="ident">DirectMessageRequest</span>, <span class="ident">DirectMessageResponse</span>},
-    <span class="ident">exponential_backoff::ExponentialBackoff</span>,
+<span class="kw">use super</span>::{
+    direct_message_codec::{DirectMessageCodec, DirectMessageRequest, DirectMessageResponse},
+    exponential_backoff::ExponentialBackoff,
 };
 
-<span class="doccomment">/// Request to direct message a peert</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DMRequest</span> {
-    <span class="doccomment">/// the recv-ers peer id</span>
-    <span class="kw">pub</span> <span class="ident">peer_id</span>: <span class="ident">PeerId</span>,
-    <span class="doccomment">/// the data</span>
-    <span class="kw">pub</span> <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// backoff since last attempted request</span>
-    <span class="kw">pub</span> <span class="ident">backoff</span>: <span class="ident">ExponentialBackoff</span>,
-    <span class="doccomment">/// the number of remaining retries before giving up</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">retry_count</span>: <span class="ident">u8</span>
+<span class="doccomment">/// Request to direct message a peert
+</span><span class="kw">pub struct </span>DMRequest {
+    <span class="doccomment">/// the recv-ers peer id
+    </span><span class="kw">pub </span>peer_id: PeerId,
+    <span class="doccomment">/// the data
+    </span><span class="kw">pub </span>data: Vec&lt;u8&gt;,
+    <span class="doccomment">/// backoff since last attempted request
+    </span><span class="kw">pub </span>backoff: ExponentialBackoff,
+    <span class="doccomment">/// the number of remaining retries before giving up
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) retry_count: u8,
 }
 
-<span class="doccomment">/// Wrapper metadata around libp2p&#39;s request response</span>
-<span class="doccomment">/// usage: direct message peer</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DMBehaviour</span> {
-    <span class="doccomment">/// The wrapped behaviour</span>
-    <span class="ident">request_response</span>: <span class="ident">RequestResponse</span><span class="op">&lt;</span><span class="ident">DirectMessageCodec</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// In progress queries</span>
-    <span class="ident">in_progress_rr</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">RequestId</span>, <span class="ident">DMRequest</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Failed queries to be retried</span>
-    <span class="ident">failed_rr</span>: <span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">DMRequest</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// lsit of out events for parent behaviour</span>
-    <span class="ident">out_event_queue</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">DMEvent</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Wrapper metadata around libp2p&#39;s request response
+/// usage: direct message peer
+</span><span class="kw">pub struct </span>DMBehaviour {
+    <span class="doccomment">/// The wrapped behaviour
+    </span>request_response: RequestResponse&lt;DirectMessageCodec&gt;,
+    <span class="doccomment">/// In progress queries
+    </span>in_progress_rr: HashMap&lt;RequestId, DMRequest&gt;,
+    <span class="doccomment">/// Failed queries to be retried
+    </span>failed_rr: VecDeque&lt;DMRequest&gt;,
+    <span class="doccomment">/// lsit of out events for parent behaviour
+    </span>out_event_queue: Vec&lt;DMEvent&gt;,
 }
 
-<span class="doccomment">/// Lilst of direct message output events</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">DMEvent</span> {
-    <span class="doccomment">/// We received as Direct Request</span>
-    <span class="ident">DirectRequest</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">PeerId</span>, <span class="ident">ResponseChannel</span><span class="op">&lt;</span><span class="ident">DirectMessageResponse</span><span class="op">&gt;</span>),
-    <span class="doccomment">/// We received a Direct Response</span>
-    <span class="ident">DirectResponse</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">PeerId</span>),
+<span class="doccomment">/// Lilst of direct message output events
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub enum </span>DMEvent {
+    <span class="doccomment">/// We received as Direct Request
+    </span>DirectRequest(Vec&lt;u8&gt;, PeerId, ResponseChannel&lt;DirectMessageResponse&gt;),
+    <span class="doccomment">/// We received a Direct Response
+    </span>DirectResponse(Vec&lt;u8&gt;, PeerId),
 }
 
-<span class="kw">impl</span> <span class="ident">DMBehaviour</span> {
-    <span class="kw">fn</span> <span class="ident">handle_dm_event</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">event</span>: <span class="ident">RequestResponseEvent</span><span class="op">&lt;</span><span class="ident">DirectMessageRequest</span>, <span class="ident">DirectMessageResponse</span><span class="op">&gt;</span>,
+<span class="kw">impl </span>DMBehaviour {
+    <span class="kw">fn </span>handle_dm_event(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event: RequestResponseEvent&lt;DirectMessageRequest, DirectMessageResponse&gt;,
     ) {
-        <span class="kw">match</span> <span class="ident">event</span> {
-            <span class="ident">RequestResponseEvent::InboundFailure</span> {
-                <span class="ident">peer</span>,
-                <span class="ident">request_id</span>,
-                <span class="ident">error</span>,
+        <span class="kw">match </span>event {
+            RequestResponseEvent::InboundFailure {
+                peer,
+                request_id,
+                error,
             } =&gt; {
                 <span class="macro">error!</span>(
                     <span class="string">&quot;inbound failure to send message to {:?} with error {:?}&quot;</span>,
-                    <span class="ident">peer</span>, <span class="ident">error</span>
+                    peer, error
                 );
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">mut</span> <span class="ident">req</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_progress_rr</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">request_id</span>) {
-                    <span class="ident">req</span>.<span class="ident">backoff</span>.<span class="ident">start_next</span>(<span class="bool-val">false</span>);
-                    <span class="self">self</span>.<span class="ident">failed_rr</span>.<span class="ident">push_back</span>(<span class="ident">req</span>);
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>req) = <span class="self">self</span>.in_progress_rr.remove(<span class="kw-2">&amp;</span>request_id) {
+                    req.backoff.start_next(<span class="bool-val">false</span>);
+                    <span class="self">self</span>.failed_rr.push_back(req);
                 }
             }
-            <span class="ident">RequestResponseEvent::OutboundFailure</span> {
-                <span class="ident">peer</span>,
-                <span class="ident">request_id</span>,
-                <span class="ident">error</span>,
+            RequestResponseEvent::OutboundFailure {
+                peer,
+                request_id,
+                error,
             } =&gt; {
                 <span class="macro">error!</span>(
                     <span class="string">&quot;outbound failure to send message to {:?} with error {:?}&quot;</span>,
-                    <span class="ident">peer</span>, <span class="ident">error</span>
+                    peer, error
                 );
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">mut</span> <span class="ident">req</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_progress_rr</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">request_id</span>) {
-                    <span class="ident">req</span>.<span class="ident">backoff</span>.<span class="ident">start_next</span>(<span class="bool-val">false</span>);
-                    <span class="self">self</span>.<span class="ident">failed_rr</span>.<span class="ident">push_back</span>(<span class="ident">req</span>);
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>req) = <span class="self">self</span>.in_progress_rr.remove(<span class="kw-2">&amp;</span>request_id) {
+                    req.backoff.start_next(<span class="bool-val">false</span>);
+                    <span class="self">self</span>.failed_rr.push_back(req);
                 }
             }
-            <span class="ident">RequestResponseEvent::Message</span> { <span class="ident">message</span>, <span class="ident">peer</span>, .. } =&gt; <span class="kw">match</span> <span class="ident">message</span> {
-                <span class="ident">RequestResponseMessage::Request</span> {
-                    <span class="ident">request</span>: <span class="ident">DirectMessageRequest</span>(<span class="ident">msg</span>),
-                    <span class="ident">channel</span>,
+            RequestResponseEvent::Message { message, peer, .. } =&gt; <span class="kw">match </span>message {
+                RequestResponseMessage::Request {
+                    request: DirectMessageRequest(msg),
+                    channel,
                     ..
                 } =&gt; {
-                    <span class="macro">info!</span>(<span class="string">&quot;recv-ed DIRECT REQUEST {:?}&quot;</span>, <span class="ident">msg</span>);
-                    <span class="comment">// receiver, not initiator.</span>
-                    <span class="comment">// don&#39;t track. If we are disconnected, sender will reinitiate</span>
-                    <span class="self">self</span>.<span class="ident">out_event_queue</span>
-                        .<span class="ident">push</span>(<span class="ident">DMEvent::DirectRequest</span>(<span class="ident">msg</span>, <span class="ident">peer</span>, <span class="ident">channel</span>));
+                    <span class="macro">info!</span>(<span class="string">&quot;recv-ed DIRECT REQUEST {:?}&quot;</span>, msg);
+                    <span class="comment">// receiver, not initiator.
+                    // don&#39;t track. If we are disconnected, sender will reinitiate
+                    </span><span class="self">self</span>.out_event_queue
+                        .push(DMEvent::DirectRequest(msg, peer, channel));
                 }
-                <span class="ident">RequestResponseMessage::Response</span> {
-                    <span class="ident">request_id</span>,
-                    <span class="ident">response</span>: <span class="ident">DirectMessageResponse</span>(<span class="ident">msg</span>),
+                RequestResponseMessage::Response {
+                    request_id,
+                    response: DirectMessageResponse(msg),
                 } =&gt; {
-                    <span class="comment">// success, finished.</span>
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">req</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_progress_rr</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">request_id</span>) {
-                        <span class="macro">info!</span>(<span class="string">&quot;recv-ed DIRECT RESPONSE {:?}&quot;</span>, <span class="ident">msg</span>);
-                        <span class="self">self</span>.<span class="ident">out_event_queue</span>
-                            .<span class="ident">push</span>(<span class="ident">DMEvent::DirectResponse</span>(<span class="ident">msg</span>, <span class="ident">req</span>.<span class="ident">peer_id</span>));
-                    } <span class="kw">else</span> {
+                    <span class="comment">// success, finished.
+                    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.in_progress_rr.remove(<span class="kw-2">&amp;</span>request_id) {
+                        <span class="macro">info!</span>(<span class="string">&quot;recv-ed DIRECT RESPONSE {:?}&quot;</span>, msg);
+                        <span class="self">self</span>.out_event_queue
+                            .push(DMEvent::DirectResponse(msg, req.peer_id));
+                    } <span class="kw">else </span>{
                         <span class="macro">error!</span>(<span class="string">&quot;recv-ed a direct response, but is no longer tracking message!&quot;</span>);
                     }
                 }
             },
-            <span class="ident">e</span> @ <span class="ident">RequestResponseEvent::ResponseSent</span> { .. } =&gt; {
-                <span class="macro">info!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot; sending response&quot;</span>);
+            e @ RequestResponseEvent::ResponseSent { .. } =&gt; {
+                <span class="macro">info!</span>(<span class="question-mark">?</span>e, <span class="string">&quot; sending response&quot;</span>);
             }
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">NetworkBehaviour</span> <span class="kw">for</span> <span class="ident">DMBehaviour</span> {
-    <span class="kw">type</span> <span class="ident">ConnectionHandler</span> <span class="op">=</span>
-        <span class="op">&lt;</span><span class="ident">RequestResponse</span><span class="op">&lt;</span><span class="ident">DirectMessageCodec</span><span class="op">&gt;</span> <span class="kw">as</span> <span class="ident">NetworkBehaviour</span><span class="op">&gt;</span><span class="ident">::ConnectionHandler</span>;
+<span class="kw">impl </span>NetworkBehaviour <span class="kw">for </span>DMBehaviour {
+    <span class="kw">type </span>ConnectionHandler =
+        &lt;RequestResponse&lt;DirectMessageCodec&gt; <span class="kw">as </span>NetworkBehaviour&gt;::ConnectionHandler;
 
-    <span class="kw">type</span> <span class="ident">OutEvent</span> <span class="op">=</span> <span class="ident">DMEvent</span>;
+    <span class="kw">type </span>OutEvent = DMEvent;
 
-    <span class="kw">fn</span> <span class="ident">new_handler</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::ConnectionHandler</span> {
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">new_handler</span>()
+    <span class="kw">fn </span>new_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::ConnectionHandler {
+        <span class="self">self</span>.request_response.new_handler()
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_event</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">peer_id</span>: <span class="ident">libp2p::PeerId</span>,
-        <span class="ident">connection</span>: <span class="ident">libp2p::core::connection::ConnectionId</span>,
-        <span class="ident">event</span>: <span class="op">&lt;</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::ConnectionHandler</span> <span class="kw">as</span> <span class="ident">libp2p::swarm::IntoConnectionHandler</span><span class="op">&gt;</span><span class="ident">::Handler</span> <span class="kw">as</span> <span class="ident">libp2p::swarm::ConnectionHandler</span><span class="op">&gt;</span><span class="ident">::OutEvent</span>,
+    <span class="kw">fn </span>inject_event(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        peer_id: libp2p::PeerId,
+        connection: libp2p::core::connection::ConnectionId,
+        event: &lt;&lt;<span class="self">Self</span>::ConnectionHandler <span class="kw">as </span>libp2p::swarm::IntoConnectionHandler&gt;::Handler <span class="kw">as </span>libp2p::swarm::ConnectionHandler&gt;::OutEvent,
     ) {
-        <span class="ident">NetworkBehaviour::inject_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">request_response</span>, <span class="ident">peer_id</span>, <span class="ident">connection</span>, <span class="ident">event</span>);
+        NetworkBehaviour::inject_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>.request_response, peer_id, connection, event);
     }
 
-    <span class="kw">fn</span> <span class="ident">poll</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">params</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">libp2p::swarm::PollParameters</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span>
-        <span class="ident">libp2p::swarm::NetworkBehaviourAction</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::OutEvent</span>, <span class="ident"><span class="self">Self</span>::ConnectionHandler</span><span class="op">&gt;</span>,
-    <span class="op">&gt;</span> {
-        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">req</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">failed_rr</span>.<span class="ident">pop_front</span>() {
-            <span class="kw">if</span> <span class="ident">req</span>.<span class="ident">backoff</span>.<span class="ident">is_expired</span>() {
-                <span class="self">self</span>.<span class="ident">add_direct_request</span>(<span class="ident">req</span>);
-            } <span class="kw">else</span> {
-                <span class="self">self</span>.<span class="ident">failed_rr</span>.<span class="ident">push_back</span>(<span class="ident">req</span>);
+    <span class="kw">fn </span>poll(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        params: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>libp2p::swarm::PollParameters,
+    ) -&gt; std::task::Poll&lt;
+        libp2p::swarm::NetworkBehaviourAction&lt;<span class="self">Self</span>::OutEvent, <span class="self">Self</span>::ConnectionHandler&gt;,
+    &gt; {
+        <span class="kw">while let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.failed_rr.pop_front() {
+            <span class="kw">if </span>req.backoff.is_expired() {
+                <span class="self">self</span>.add_direct_request(req);
+            } <span class="kw">else </span>{
+                <span class="self">self</span>.failed_rr.push_back(req);
             }
         }
-        <span class="kw">while</span> <span class="kw">let</span> <span class="ident">Poll::Ready</span>(<span class="ident">ready</span>) <span class="op">=</span>
-            <span class="ident">NetworkBehaviour::poll</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">request_response</span>, <span class="ident">cx</span>, <span class="ident">params</span>)
+        <span class="kw">while let </span>Poll::Ready(ready) =
+            NetworkBehaviour::poll(<span class="kw-2">&amp;mut </span><span class="self">self</span>.request_response, cx, params)
         {
-            <span class="kw">match</span> <span class="ident">ready</span> {
-                <span class="comment">// NOTE: this generates request</span>
-                <span class="ident">NetworkBehaviourAction::GenerateEvent</span>(<span class="ident">e</span>) =&gt; {
-                    <span class="self">self</span>.<span class="ident">handle_dm_event</span>(<span class="ident">e</span>);
+            <span class="kw">match </span>ready {
+                <span class="comment">// NOTE: this generates request
+                </span>NetworkBehaviourAction::GenerateEvent(e) =&gt; {
+                    <span class="self">self</span>.handle_dm_event(e);
                 }
-                <span class="ident">NetworkBehaviourAction::Dial</span> { <span class="ident">opts</span>, <span class="ident">handler</span> } =&gt; {
-                    <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::Dial</span> { <span class="ident">opts</span>, <span class="ident">handler</span> });
+                NetworkBehaviourAction::Dial { opts, handler } =&gt; {
+                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::Dial { opts, handler });
                 }
-                <span class="ident">NetworkBehaviourAction::NotifyHandler</span> {
-                    <span class="ident">peer_id</span>,
-                    <span class="ident">handler</span>,
-                    <span class="ident">event</span>,
+                NetworkBehaviourAction::NotifyHandler {
+                    peer_id,
+                    handler,
+                    event,
                 } =&gt; {
-                    <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::NotifyHandler</span> {
-                        <span class="ident">peer_id</span>,
-                        <span class="ident">handler</span>,
-                        <span class="ident">event</span>,
+                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::NotifyHandler {
+                        peer_id,
+                        handler,
+                        event,
                     });
                 }
-                <span class="ident">NetworkBehaviourAction::ReportObservedAddr</span> { <span class="ident">address</span>, <span class="ident">score</span> } =&gt; {
-                    <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::ReportObservedAddr</span> {
-                        <span class="ident">address</span>,
-                        <span class="ident">score</span>,
+                NetworkBehaviourAction::ReportObservedAddr { address, score } =&gt; {
+                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
+                        address,
+                        score,
                     });
                 }
-                <span class="ident">NetworkBehaviourAction::CloseConnection</span> {
-                    <span class="ident">peer_id</span>,
-                    <span class="ident">connection</span>,
+                NetworkBehaviourAction::CloseConnection {
+                    peer_id,
+                    connection,
                 } =&gt; {
-                    <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::CloseConnection</span> {
-                        <span class="ident">peer_id</span>,
-                        <span class="ident">connection</span>,
+                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                        peer_id,
+                        connection,
                     });
                 }
             }
         }
-        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">out_event_queue</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::GenerateEvent</span>(
-                <span class="self">self</span>.<span class="ident">out_event_queue</span>.<span class="ident">remove</span>(<span class="number">0</span>),
+        <span class="kw">if </span>!<span class="self">self</span>.out_event_queue.is_empty() {
+            <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::GenerateEvent(
+                <span class="self">self</span>.out_event_queue.remove(<span class="number">0</span>),
             ));
         }
-        <span class="ident">Poll::Pending</span>
+        Poll::Pending
     }
 
-    <span class="kw">fn</span> <span class="ident">addresses_of_peer</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">pid</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">libp2p::Multiaddr</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">addresses_of_peer</span>(<span class="ident">pid</span>)
+    <span class="kw">fn </span>addresses_of_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pid: <span class="kw-2">&amp;</span>PeerId) -&gt; Vec&lt;libp2p::Multiaddr&gt; {
+        <span class="self">self</span>.request_response.addresses_of_peer(pid)
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_connection_established</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">peer_id</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>,
-        <span class="ident">connection_id</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::connection::ConnectionId</span>,
-        <span class="ident">endpoint</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::ConnectedPoint</span>,
-        <span class="ident">failed_addresses</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">libp2p::Multiaddr</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">other_established</span>: <span class="ident">usize</span>,
+    <span class="kw">fn </span>inject_connection_established(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        peer_id: <span class="kw-2">&amp;</span>PeerId,
+        connection_id: <span class="kw-2">&amp;</span>libp2p::core::connection::ConnectionId,
+        endpoint: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
+        failed_addresses: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;libp2p::Multiaddr&gt;&gt;,
+        other_established: usize,
     ) {
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">inject_connection_established</span>(
-            <span class="ident">peer_id</span>,
-            <span class="ident">connection_id</span>,
-            <span class="ident">endpoint</span>,
-            <span class="ident">failed_addresses</span>,
-            <span class="ident">other_established</span>,
+        <span class="self">self</span>.request_response.inject_connection_established(
+            peer_id,
+            connection_id,
+            endpoint,
+            failed_addresses,
+            other_established,
         );
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_connection_closed</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">pid</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>,
-        <span class="ident">cid</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::connection::ConnectionId</span>,
-        <span class="ident">cp</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::ConnectedPoint</span>,
-        <span class="ident">handler</span>: <span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::ConnectionHandler</span> <span class="kw">as</span> <span class="ident">libp2p::swarm::IntoConnectionHandler</span><span class="op">&gt;</span><span class="ident">::Handler</span>,
-        <span class="ident">remaining_established</span>: <span class="ident">usize</span>,
+    <span class="kw">fn </span>inject_connection_closed(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        pid: <span class="kw-2">&amp;</span>PeerId,
+        cid: <span class="kw-2">&amp;</span>libp2p::core::connection::ConnectionId,
+        cp: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
+        handler: &lt;<span class="self">Self</span>::ConnectionHandler <span class="kw">as </span>libp2p::swarm::IntoConnectionHandler&gt;::Handler,
+        remaining_established: usize,
     ) {
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">inject_connection_closed</span>(
-            <span class="ident">pid</span>,
-            <span class="ident">cid</span>,
-            <span class="ident">cp</span>,
-            <span class="ident">handler</span>,
-            <span class="ident">remaining_established</span>,
+        <span class="self">self</span>.request_response.inject_connection_closed(
+            pid,
+            cid,
+            cp,
+            handler,
+            remaining_established,
         );
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_address_change</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">pid</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>,
-        <span class="ident">cid</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::connection::ConnectionId</span>,
-        <span class="ident">old</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::ConnectedPoint</span>,
-        <span class="ident">new</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::ConnectedPoint</span>,
+    <span class="kw">fn </span>inject_address_change(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        pid: <span class="kw-2">&amp;</span>PeerId,
+        cid: <span class="kw-2">&amp;</span>libp2p::core::connection::ConnectionId,
+        old: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
+        new: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
     ) {
-        <span class="self">self</span>.<span class="ident">request_response</span>
-            .<span class="ident">inject_address_change</span>(<span class="ident">pid</span>, <span class="ident">cid</span>, <span class="ident">old</span>, <span class="ident">new</span>);
+        <span class="self">self</span>.request_response
+            .inject_address_change(pid, cid, old, new);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_dial_failure</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">peer_id</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>,
-        <span class="ident">handler</span>: <span class="ident"><span class="self">Self</span>::ConnectionHandler</span>,
-        <span class="ident">error</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::swarm::DialError</span>,
+    <span class="kw">fn </span>inject_dial_failure(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        peer_id: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
+        handler: <span class="self">Self</span>::ConnectionHandler,
+        error: <span class="kw-2">&amp;</span>libp2p::swarm::DialError,
     ) {
-        <span class="self">self</span>.<span class="ident">request_response</span>
-            .<span class="ident">inject_dial_failure</span>(<span class="ident">peer_id</span>, <span class="ident">handler</span>, <span class="ident">error</span>);
+        <span class="self">self</span>.request_response
+            .inject_dial_failure(peer_id, handler, error);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_listen_failure</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">local_addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>,
-        <span class="ident">send_back_addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>,
-        <span class="ident">handler</span>: <span class="ident"><span class="self">Self</span>::ConnectionHandler</span>,
+    <span class="kw">fn </span>inject_listen_failure(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        local_addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr,
+        send_back_addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr,
+        handler: <span class="self">Self</span>::ConnectionHandler,
     ) {
-        <span class="self">self</span>.<span class="ident">request_response</span>
-            .<span class="ident">inject_listen_failure</span>(<span class="ident">local_addr</span>, <span class="ident">send_back_addr</span>, <span class="ident">handler</span>);
+        <span class="self">self</span>.request_response
+            .inject_listen_failure(local_addr, send_back_addr, handler);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_new_listener</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>) {
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">inject_new_listener</span>(<span class="ident">id</span>);
+    <span class="kw">fn </span>inject_new_listener(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId) {
+        <span class="self">self</span>.request_response.inject_new_listener(id);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_new_listen_addr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>, <span class="ident">addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>) {
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">inject_new_listen_addr</span>(<span class="ident">id</span>, <span class="ident">addr</span>);
+    <span class="kw">fn </span>inject_new_listen_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
+        <span class="self">self</span>.request_response.inject_new_listen_addr(id, addr);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_expired_listen_addr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>, <span class="ident">addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>) {
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">inject_expired_listen_addr</span>(<span class="ident">id</span>, <span class="ident">addr</span>);
+    <span class="kw">fn </span>inject_expired_listen_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
+        <span class="self">self</span>.request_response.inject_expired_listen_addr(id, addr);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_listener_error</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>, <span class="ident">err</span>: <span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">std::error::Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>)) {
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">inject_listener_error</span>(<span class="ident">id</span>, <span class="ident">err</span>);
+    <span class="kw">fn </span>inject_listener_error(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, err: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">&#39;static</span>)) {
+        <span class="self">self</span>.request_response.inject_listener_error(id, err);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_listener_closed</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>, <span class="ident">reason</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="kw-2">&amp;</span><span class="ident">std::io::Error</span><span class="op">&gt;</span>) {
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">inject_listener_closed</span>(<span class="ident">id</span>, <span class="ident">reason</span>);
+    <span class="kw">fn </span>inject_listener_closed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, reason: <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span>std::io::Error&gt;) {
+        <span class="self">self</span>.request_response.inject_listener_closed(id, reason);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_new_external_addr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>) {
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">inject_new_external_addr</span>(<span class="ident">addr</span>);
+    <span class="kw">fn </span>inject_new_external_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
+        <span class="self">self</span>.request_response.inject_new_external_addr(addr);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_expired_external_addr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>) {
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">inject_expired_external_addr</span>(<span class="ident">addr</span>);
+    <span class="kw">fn </span>inject_expired_external_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
+        <span class="self">self</span>.request_response.inject_expired_external_addr(addr);
     }
 }
 
-<span class="kw">impl</span> <span class="ident">DMBehaviour</span> {
-    <span class="doccomment">/// Create new behaviour based on request response</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">request_response</span>: <span class="ident">RequestResponse</span><span class="op">&lt;</span><span class="ident">DirectMessageCodec</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">request_response</span>,
-            <span class="ident">in_progress_rr</span>: <span class="ident">HashMap::default</span>(),
-            <span class="ident">failed_rr</span>: <span class="ident">VecDeque::default</span>(),
-            <span class="ident">out_event_queue</span>: <span class="ident">Vec::default</span>(),
+<span class="kw">impl </span>DMBehaviour {
+    <span class="doccomment">/// Create new behaviour based on request response
+    </span><span class="kw">pub fn </span>new(request_response: RequestResponse&lt;DirectMessageCodec&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            request_response,
+            in_progress_rr: HashMap::default(),
+            failed_rr: VecDeque::default(),
+            out_event_queue: Vec::default(),
         }
     }
 
-    <span class="doccomment">/// Add address to request response behaviour</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_address</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">peer_id</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>, <span class="ident">address</span>: <span class="ident">Multiaddr</span>) {
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">add_address</span>(<span class="ident">peer_id</span>, <span class="ident">address</span>);
+    <span class="doccomment">/// Add address to request response behaviour
+    </span><span class="kw">pub fn </span>add_address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId, address: Multiaddr) {
+        <span class="self">self</span>.request_response.add_address(peer_id, address);
     }
 
-    <span class="doccomment">/// Remove address from request response behaviour</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">remove_address</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">peer_id</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>, <span class="ident">address</span>: <span class="kw-2">&amp;</span><span class="ident">Multiaddr</span>) {
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">remove_address</span>(<span class="ident">peer_id</span>, <span class="ident">address</span>);
+    <span class="doccomment">/// Remove address from request response behaviour
+    </span><span class="kw">pub fn </span>remove_address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId, address: <span class="kw-2">&amp;</span>Multiaddr) {
+        <span class="self">self</span>.request_response.remove_address(peer_id, address);
     }
 
-    <span class="doccomment">/// Add a direct request for a given peer</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_direct_request</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">req</span>: <span class="ident">DMRequest</span>) {
-        <span class="kw">if</span> <span class="ident">req</span>.<span class="ident">retry_count</span> <span class="op">==</span> <span class="number">0</span> {
-            <span class="kw">return</span>
+    <span class="doccomment">/// Add a direct request for a given peer
+    </span><span class="kw">pub fn </span>add_direct_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw-2">mut </span>req: DMRequest) {
+        <span class="kw">if </span>req.retry_count == <span class="number">0 </span>{
+            <span class="kw">return</span>;
         }
 
-        <span class="ident">req</span>.<span class="ident">retry_count</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
+        req.retry_count -= <span class="number">1</span>;
 
-        <span class="kw">let</span> <span class="ident">request_id</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">request_response</span>
-            .<span class="ident">send_request</span>(<span class="kw-2">&amp;</span><span class="ident">req</span>.<span class="ident">peer_id</span>, <span class="ident">DirectMessageRequest</span>(<span class="ident">req</span>.<span class="ident">data</span>.<span class="ident">clone</span>()));
-        <span class="macro">info!</span>(<span class="string">&quot;direct message request with id {:?}&quot;</span>, <span class="ident">request_id</span>);
+        <span class="kw">let </span>request_id = <span class="self">self
+            </span>.request_response
+            .send_request(<span class="kw-2">&amp;</span>req.peer_id, DirectMessageRequest(req.data.clone()));
+        <span class="macro">info!</span>(<span class="string">&quot;direct message request with id {:?}&quot;</span>, request_id);
 
-        <span class="self">self</span>.<span class="ident">in_progress_rr</span>.<span class="ident">insert</span>(<span class="ident">request_id</span>, <span class="ident">req</span>);
+        <span class="self">self</span>.in_progress_rr.insert(request_id, req);
     }
 
-    <span class="doccomment">/// Add a direct response for a channel</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_direct_response</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">chan</span>: <span class="ident">ResponseChannel</span><span class="op">&lt;</span><span class="ident">DirectMessageResponse</span><span class="op">&gt;</span>,
-        <span class="ident">msg</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Add a direct response for a channel
+    </span><span class="kw">pub fn </span>add_direct_response(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        chan: ResponseChannel&lt;DirectMessageResponse&gt;,
+        msg: Vec&lt;u8&gt;,
     ) {
-        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">request_response</span>
-            .<span class="ident">send_response</span>(<span class="ident">chan</span>, <span class="ident">DirectMessageResponse</span>(<span class="ident">msg</span>));
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">res</span> {
-            <span class="macro">error!</span>(<span class="string">&quot;Error replying to direct message. {:?}&quot;</span>, <span class="ident">e</span>);
+        <span class="kw">let </span>res = <span class="self">self
+            </span>.request_response
+            .send_response(chan, DirectMessageResponse(msg));
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = res {
+            <span class="macro">error!</span>(<span class="string">&quot;Error replying to direct message. {:?}&quot;</span>, e);
         }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

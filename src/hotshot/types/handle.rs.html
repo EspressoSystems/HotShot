@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/types/handle.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>handle.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../hotshot/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/types/handle.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>handle.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../hotshot/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -328,335 +328,337 @@
 <span id="328">328</span>
 <span id="329">329</span>
 <span id="330">330</span>
-</pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background</span>
+<span id="331">331</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background
 
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">traits</span>::{<span class="ident">Block</span>, <span class="ident">NetworkError::ShutDown</span>, <span class="ident">NodeImplementation</span>},
-    <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">HotShotError::NetworkFault</span>},
-    <span class="ident">HotShot</span>, <span class="prelude-ty">Result</span>,
+</span><span class="kw">use crate</span>::{
+    traits::{Block, NetworkError::ShutDown, NodeImplementation},
+    types::{Event, HotShotError::NetworkFault},
+    HotShot, <span class="prelude-ty">Result</span>,
 };
-<span class="kw">use</span> <span class="ident">hotshot_types</span>::{
-    <span class="ident">data</span>::{<span class="ident">Leaf</span>, <span class="ident">ViewNumber</span>},
-    <span class="ident">error</span>::{<span class="ident">HotShotError</span>, <span class="ident">RoundTimedoutState</span>},
-    <span class="ident">traits</span>::{<span class="ident">network::NetworkingImplementation</span>, <span class="ident">storage::Storage</span>, <span class="ident">State</span>}, <span class="ident">event::EventType</span>,
+<span class="kw">use </span>hotshot_types::{
+    data::{Leaf, ViewNumber},
+    error::{HotShotError, RoundTimedoutState},
+    event::EventType,
+    traits::{network::NetworkingImplementation, storage::Storage, State},
 };
-<span class="kw">use</span> <span class="ident">hotshot_utils::broadcast</span>::{<span class="ident">BroadcastReceiver</span>, <span class="ident">BroadcastSender</span>};
-<span class="kw">use</span> <span class="ident">std::sync</span>::{
-    <span class="ident">atomic</span>::{<span class="ident">AtomicBool</span>, <span class="ident">Ordering</span>},
-    <span class="ident">Arc</span>,
+<span class="kw">use </span>hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
+<span class="kw">use </span>std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
 };
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>};
+<span class="kw">use </span>tracing::{debug, error};
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::HotShotConsensusApi</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">commit::Commitment</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">hotshot_consensus::ConsensusApi</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">hotshot_types</span>::{
-    <span class="ident">message::ConsensusMessage</span>,
-    <span class="ident">traits::signature_key</span>::{<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>},
+<span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::HotShotConsensusApi;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+</span><span class="kw">use </span>commit::Commitment;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+</span><span class="kw">use </span>hotshot_consensus::ConsensusApi;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+</span><span class="kw">use </span>hotshot_types::{
+    message::ConsensusMessage,
+    traits::signature_key::{EncodedPublicKey, EncodedSignature},
 };
 
-<span class="doccomment">/// Event streaming handle for a [`HotShot`] instance running in the background</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// This type provides the means to message and interact with a background [`HotShot`] instance,</span>
-<span class="doccomment">/// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with</span>
-<span class="doccomment">/// the underlying storage.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HotShotHandle</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// The [sender](BroadcastSender) for the output stream from the background process</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]</span>
-    <span class="doccomment">/// method is needed to generate new receivers for cloning the handle.</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">sender_handle</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">BroadcastSender</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Internal reference to the underlying [`HotShot`]</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">hotshot</span>: <span class="ident">HotShot</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// The [`BroadcastReceiver`] we get the events from</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">stream_output</span>: <span class="ident">BroadcastReceiver</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Global to signify the `HotShot` should be closed after completing the next round</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">shut_down</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">AtomicBool</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Our copy of the `Storage` view for a hotshot</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
+<span class="doccomment">/// Event streaming handle for a [`HotShot`] instance running in the background
+///
+/// This type provides the means to message and interact with a background [`HotShot`] instance,
+/// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
+/// the underlying storage.
+</span><span class="kw">pub struct </span>HotShotHandle&lt;I: NodeImplementation + Send + Sync + <span class="lifetime">&#39;static</span>&gt; {
+    <span class="doccomment">/// The [sender](BroadcastSender) for the output stream from the background process
+    ///
+    /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
+    /// method is needed to generate new receivers for cloning the handle.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) sender_handle: Arc&lt;BroadcastSender&lt;Event&lt;I::StateType&gt;&gt;&gt;,
+    <span class="doccomment">/// Internal reference to the underlying [`HotShot`]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) hotshot: HotShot&lt;I&gt;,
+    <span class="doccomment">/// The [`BroadcastReceiver`] we get the events from
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) stream_output: BroadcastReceiver&lt;Event&lt;I::StateType&gt;&gt;,
+    <span class="doccomment">/// Global to signify the `HotShot` should be closed after completing the next round
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) shut_down: Arc&lt;AtomicBool&gt;,
+    <span class="doccomment">/// Our copy of the `Storage` view for a hotshot
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) storage: I::Storage,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">HotShotHandle</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">sender_handle</span>: <span class="self">self</span>.<span class="ident">sender_handle</span>.<span class="ident">clone</span>(),
-            <span class="ident">stream_output</span>: <span class="self">self</span>.<span class="ident">sender_handle</span>.<span class="ident">handle_sync</span>(),
-            <span class="ident">hotshot</span>: <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">clone</span>(),
-            <span class="ident">shut_down</span>: <span class="self">self</span>.<span class="ident">shut_down</span>.<span class="ident">clone</span>(),
-            <span class="ident">storage</span>: <span class="self">self</span>.<span class="ident">storage</span>.<span class="ident">clone</span>(),
+<span class="kw">impl</span>&lt;I: NodeImplementation + <span class="lifetime">&#39;static</span>&gt; Clone <span class="kw">for </span>HotShotHandle&lt;I&gt; {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            sender_handle: <span class="self">self</span>.sender_handle.clone(),
+            stream_output: <span class="self">self</span>.sender_handle.handle_sync(),
+            hotshot: <span class="self">self</span>.hotshot.clone(),
+            shut_down: <span class="self">self</span>.shut_down.clone(),
+            storage: <span class="self">self</span>.storage.clone(),
         }
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> <span class="ident">HotShotHandle</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Will return the next event in the queue</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] has been closed.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">next_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stream_output</span>.<span class="ident">recv_async</span>().<span class="kw">await</span>;
-        <span class="kw">match</span> <span class="ident">result</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">result</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">result</span>),
-            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(<span class="ident">NetworkFault</span> { <span class="ident">source</span>: <span class="ident">ShutDown</span> }),
+<span class="kw">impl</span>&lt;I: NodeImplementation + <span class="lifetime">&#39;static</span>&gt; HotShotHandle&lt;I&gt; {
+    <span class="doccomment">/// Will return the next event in the queue
+    ///
+    /// # Errors
+    ///
+    /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] has been closed.
+    </span><span class="kw">pub async fn </span>next_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Event&lt;I::StateType&gt;&gt; {
+        <span class="kw">let </span>result = <span class="self">self</span>.stream_output.recv_async().<span class="kw">await</span>;
+        <span class="kw">match </span>result {
+            <span class="prelude-val">Ok</span>(result) =&gt; <span class="prelude-val">Ok</span>(result),
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(NetworkFault { source: ShutDown }),
         }
     }
-    <span class="doccomment">/// Will attempt to immediately pull an event out of the queue</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_next_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stream_output</span>.<span class="ident">try_recv</span>();
-        <span class="prelude-val">Ok</span>(<span class="ident">result</span>)
+    <span class="doccomment">/// Will attempt to immediately pull an event out of the queue
+    ///
+    /// # Errors
+    ///
+    /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down
+    </span><span class="kw">pub fn </span>try_next_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Event&lt;I::StateType&gt;&gt;&gt; {
+        <span class="kw">let </span>result = <span class="self">self</span>.stream_output.try_recv();
+        <span class="prelude-val">Ok</span>(result)
     }
 
-    <span class="doccomment">/// Will pull all the currently available events out of the event queue.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut</span>
-    <span class="doccomment">/// down.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">available_events</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">output</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-        <span class="comment">// Loop to pull out all the outputs</span>
-        <span class="kw">loop</span> {
-            <span class="kw">match</span> <span class="self">self</span>.<span class="ident">try_next_event</span>() {
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">x</span>)) =&gt; <span class="ident">output</span>.<span class="ident">push</span>(<span class="ident">x</span>),
+    <span class="doccomment">/// Will pull all the currently available events out of the event queue.
+    ///
+    /// # Errors
+    ///
+    /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut
+    /// down.
+    </span><span class="kw">pub fn </span>available_events(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Event&lt;I::StateType&gt;&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>output = <span class="macro">vec!</span>[];
+        <span class="comment">// Loop to pull out all the outputs
+        </span><span class="kw">loop </span>{
+            <span class="kw">match </span><span class="self">self</span>.try_next_event() {
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(x)) =&gt; output.push(x),
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="kw">break</span>,
-                <span class="comment">// // try_next event can only return HotShotError { source: NetworkError::ShutDown }</span>
-                <span class="prelude-val">Err</span>(<span class="ident">x</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">x</span>),
+                <span class="comment">// // try_next event can only return HotShotError { source: NetworkError::ShutDown }
+                </span><span class="prelude-val">Err</span>(x) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(x),
             }
         }
-        <span class="prelude-val">Ok</span>(<span class="ident">output</span>)
+        <span class="prelude-val">Ok</span>(output)
     }
 
-    <span class="doccomment">/// Gets the current committed state of the [`HotShot`] instance</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Returns an error if the underlying `Storage` returns an error</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">I::StateType</span> {
-        <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">get_state</span>().<span class="kw">await</span>
-    }
+    <span class="doccomment">/// Gets the current committed state of the [`HotShot`] instance
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the underlying `Storage` returns an error
+    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; I::StateType {
+        <span class="self">self</span>.hotshot.get_state().<span class="kw">await
+    </span>}
 
-    <span class="doccomment">/// Gets most recent decided leaf</span>
-    <span class="doccomment">/// # Panics</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Panics if internal consensus is in an inconsistent state.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_decided_leaf</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">get_decided_leaf</span>().<span class="kw">await</span>
-    }
+    <span class="doccomment">/// Gets most recent decided leaf
+    /// # Panics
+    ///
+    /// Panics if internal consensus is in an inconsistent state.
+    </span><span class="kw">pub async fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;I::StateType&gt; {
+        <span class="self">self</span>.hotshot.get_decided_leaf().<span class="kw">await
+    </span>}
 
-    <span class="doccomment">/// Submits a transaction to the backing [`HotShot`] instance.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// The current node broadcasts the transaction to all nodes on the network.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Will return a [`HotShotError`] if some error occurs in the underlying</span>
-    <span class="doccomment">/// [`HotShot`] instance.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">submit_transaction</span>(
+    <span class="doccomment">/// Submits a transaction to the backing [`HotShot`] instance.
+    ///
+    /// The current node broadcasts the transaction to all nodes on the network.
+    ///
+    /// # Errors
+    ///
+    /// Will return a [`HotShotError`] if some error occurs in the underlying
+    /// [`HotShot`] instance.
+    </span><span class="kw">pub async fn </span>submit_transaction(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">tx</span>: <span class="op">&lt;</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::StateType</span> <span class="kw">as</span> <span class="ident">State</span><span class="op">&gt;</span><span class="ident">::BlockType</span> <span class="kw">as</span> <span class="ident">Block</span><span class="op">&gt;</span><span class="ident">::Transaction</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">publish_transaction_async</span>(<span class="ident">tx</span>).<span class="kw">await</span>
-    }
+        tx: &lt;&lt;&lt;I <span class="kw">as </span>NodeImplementation&gt;::StateType <span class="kw">as </span>State&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.hotshot.publish_transaction_async(tx).<span class="kw">await
+    </span>}
 
-    <span class="doccomment">/// Signals to the underlying [`HotShot`] to unpause</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This will cause the background task to start running consensus again.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">start</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">background_task_handle</span>.<span class="ident">start</span>().<span class="kw">await</span>;
-        <span class="comment">// if is genesis</span>
-        <span class="kw">let</span> <span class="ident">_anchor</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">storage</span>();
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">anchor_leaf</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">storage</span>().<span class="ident">get_anchored_view</span>().<span class="kw">await</span> {
-            <span class="kw">if</span> <span class="ident">anchor_leaf</span>.<span class="ident">view_number</span> <span class="op">==</span> <span class="ident">ViewNumber::genesis</span>() {
-                <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">Event</span> {
-                    <span class="ident">view_number</span>: <span class="ident">ViewNumber::genesis</span>(),
-                    <span class="ident">event</span>: <span class="ident">EventType::Decide</span> {
-                        <span class="ident">leaf_chain</span>: <span class="ident">Arc::new</span>(<span class="macro">vec!</span>[<span class="ident">anchor_leaf</span>.<span class="ident">into</span>()]),
+    <span class="doccomment">/// Signals to the underlying [`HotShot`] to unpause
+    ///
+    /// This will cause the background task to start running consensus again.
+    </span><span class="kw">pub async fn </span>start(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.hotshot.inner.background_task_handle.start().<span class="kw">await</span>;
+        <span class="comment">// if is genesis
+        </span><span class="kw">let </span>_anchor = <span class="self">self</span>.storage();
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(anchor_leaf) = <span class="self">self</span>.storage().get_anchored_view().<span class="kw">await </span>{
+            <span class="kw">if </span>anchor_leaf.view_number == ViewNumber::genesis() {
+                <span class="kw">let </span>event = Event {
+                    view_number: ViewNumber::genesis(),
+                    event: EventType::Decide {
+                        leaf_chain: Arc::new(<span class="macro">vec!</span>[anchor_leaf.into()]),
                     },
                 };
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">sender_handle</span>.<span class="ident">send_async</span>(<span class="ident">event</span>).<span class="kw">await</span>.<span class="ident">is_err</span>() {
+                <span class="kw">if </span><span class="self">self</span>.sender_handle.send_async(event).<span class="kw">await</span>.is_err() {
                     <span class="macro">error!</span>(<span class="string">&quot;Error sending genesis storage event upstream!&quot;</span>);
                 }
             }
-        } <span class="kw">else</span> {
+        } <span class="kw">else </span>{
             <span class="macro">error!</span>(<span class="string">&quot;Hotshot storage has no anchor leaf!&quot;</span>);
         }
     }
 
-    <span class="doccomment">/// Signals the underlying [`HotShot`] to run one round, if paused.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Do not call this function if [`HotShot`] has been unpaused by [`HotShotHandle::start`].</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">start_one_round</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">hotshot</span>
-            .<span class="ident">inner</span>
-            .<span class="ident">background_task_handle</span>
-            .<span class="ident">start_one_round</span>()
+    <span class="doccomment">/// Signals the underlying [`HotShot`] to run one round, if paused.
+    ///
+    /// Do not call this function if [`HotShot`] has been unpaused by [`HotShotHandle::start`].
+    </span><span class="kw">pub async fn </span>start_one_round(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.hotshot
+            .inner
+            .background_task_handle
+            .start_one_round()
             .<span class="kw">await</span>;
     }
 
-    <span class="doccomment">/// iterate through all events on a [`NodeImplementation`] and determine if the node finished</span>
-    <span class="doccomment">/// successfully</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">/// Errors if unable to obtain storage</span>
-    <span class="doccomment">/// # Panics</span>
-    <span class="doccomment">/// Panics if the event stream is shut down while this is running</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">collect_round_events</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I::StateType</span> <span class="kw">as</span> <span class="ident">State</span><span class="op">&gt;</span><span class="ident">::BlockType</span><span class="op">&gt;</span>)<span class="op">&gt;</span> {
-        <span class="comment">// TODO we should probably do a view check</span>
-        <span class="comment">// but we can do that later. It&#39;s non-obvious how to get the view number out</span>
-        <span class="comment">// to check against</span>
+    <span class="doccomment">/// iterate through all events on a [`NodeImplementation`] and determine if the node finished
+    /// successfully
+    /// # Errors
+    /// Errors if unable to obtain storage
+    /// # Panics
+    /// Panics if the event stream is shut down while this is running
+    </span><span class="kw">pub async fn </span>collect_round_events(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;I::StateType&gt;, Vec&lt;&lt;I::StateType <span class="kw">as </span>State&gt;::BlockType&gt;)&gt; {
+        <span class="comment">// TODO we should probably do a view check
+        // but we can do that later. It&#39;s non-obvious how to get the view number out
+        // to check against
 
-        <span class="comment">// drain all events from this node</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">results</span> <span class="op">=</span> <span class="prelude-val">Ok</span>((<span class="ident">Vec::new</span>(), <span class="ident">Vec::new</span>()));
-        <span class="kw">loop</span> {
-            <span class="comment">// unwrap is fine here since the thing hasn&#39;t been shut down</span>
-            <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">next_event</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>();
-            <span class="kw">match</span> <span class="ident">event</span>.<span class="ident">event</span> {
-                <span class="ident">EventType::ReplicaViewTimeout</span> { <span class="ident">view_number</span> } =&gt; {
-                    <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">event</span>, <span class="string">&quot;Replica timed out!&quot;</span>);
-                    <span class="ident">results</span> <span class="op">=</span> <span class="prelude-val">Err</span>(<span class="ident">HotShotError::ViewTimeoutError</span> {
-                        <span class="ident">view_number</span>,
-                        <span class="ident">state</span>: <span class="ident">RoundTimedoutState::TestCollectRoundEventsTimedOut</span>,
+        // drain all events from this node
+        </span><span class="kw">let </span><span class="kw-2">mut </span>results = <span class="prelude-val">Ok</span>((Vec::new(), Vec::new()));
+        <span class="kw">loop </span>{
+            <span class="comment">// unwrap is fine here since the thing hasn&#39;t been shut down
+            </span><span class="kw">let </span>event = <span class="self">self</span>.next_event().<span class="kw">await</span>.unwrap();
+            <span class="kw">match </span>event.event {
+                EventType::ReplicaViewTimeout { view_number } =&gt; {
+                    <span class="macro">error!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;Replica timed out!&quot;</span>);
+                    results = <span class="prelude-val">Err</span>(HotShotError::ViewTimeoutError {
+                        view_number,
+                        state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                     });
                 }
-                <span class="ident">EventType::Decide</span> { <span class="ident">leaf_chain</span>, .. } =&gt; {
-                    <span class="ident">results</span> <span class="op">=</span> <span class="prelude-val">Ok</span>(<span class="ident">leaf_chain</span>
-                        .<span class="ident">iter</span>()
-                        .<span class="ident">cloned</span>()
-                        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">leaf</span><span class="op">|</span> (<span class="ident">leaf</span>.<span class="ident">state</span>, <span class="ident">leaf</span>.<span class="ident">deltas</span>))
-                        .<span class="ident">unzip</span>());
+                EventType::Decide { leaf_chain, .. } =&gt; {
+                    results = <span class="prelude-val">Ok</span>(leaf_chain
+                        .iter()
+                        .cloned()
+                        .map(|leaf| (leaf.state, leaf.deltas))
+                        .unzip());
                 }
-                <span class="ident">EventType::ViewFinished</span> { <span class="ident">view_number</span>: <span class="kw">_</span> } =&gt; <span class="kw">return</span> <span class="ident">results</span>,
-                <span class="ident">event</span> =&gt; {
-                    <span class="macro">debug!</span>(<span class="string">&quot;recv-ed event {:?}&quot;</span>, <span class="ident">event</span>);
+                EventType::ViewFinished { view_number: <span class="kw">_ </span>} =&gt; <span class="kw">return </span>results,
+                event =&gt; {
+                    <span class="macro">debug!</span>(<span class="string">&quot;recv-ed event {:?}&quot;</span>, event);
                 }
             }
         }
     }
 
-    <span class="doccomment">/// Provides a reference to the underlying storage for this [`HotShot`], allowing access to</span>
-    <span class="doccomment">/// historical data</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">storage</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">I::Storage</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">storage</span>
+    <span class="doccomment">/// Provides a reference to the underlying storage for this [`HotShot`], allowing access to
+    /// historical data
+    </span><span class="kw">pub fn </span>storage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>I::Storage {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.storage
     }
 
-    <span class="doccomment">/// Provides a reference to the underlying networking interface for this [`HotShot`], allowing access to</span>
-    <span class="doccomment">/// networking stats.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">networking</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">I::Networking</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">networking</span>
+    <span class="doccomment">/// Provides a reference to the underlying networking interface for this [`HotShot`], allowing access to
+    /// networking stats.
+    </span><span class="kw">pub fn </span>networking(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>I::Networking {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.hotshot.inner.networking
     }
 
-    <span class="doccomment">/// Shut down the the inner hotshot and wait until all background threads are closed.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">shut_down</span>(<span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">shut_down</span>.<span class="ident">store</span>(<span class="bool-val">true</span>, <span class="ident">Ordering::Relaxed</span>);
-        <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">networking</span>.<span class="ident">shut_down</span>().<span class="kw">await</span>;
-        <span class="self">self</span>.<span class="ident">hotshot</span>
-            .<span class="ident">inner</span>
-            .<span class="ident">background_task_handle</span>
-            .<span class="ident">wait_shutdown</span>(<span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">send_network_lookup</span>)
+    <span class="doccomment">/// Shut down the the inner hotshot and wait until all background threads are closed.
+    </span><span class="kw">pub async fn </span>shut_down(<span class="self">self</span>) {
+        <span class="self">self</span>.shut_down.store(<span class="bool-val">true</span>, Ordering::Relaxed);
+        <span class="self">self</span>.hotshot.inner.networking.shut_down().<span class="kw">await</span>;
+        <span class="self">self</span>.hotshot
+            .inner
+            .background_task_handle
+            .wait_shutdown(<span class="self">self</span>.hotshot.send_network_lookup)
             .<span class="kw">await</span>;
     }
 
-    <span class="doccomment">/// return the timeout for a view of the underlying `HotShot`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_next_view_timeout</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
-        <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">get_next_view_timeout</span>()
+    <span class="doccomment">/// return the timeout for a view of the underlying `HotShot`
+    </span><span class="kw">pub fn </span>get_next_view_timeout(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="self">self</span>.hotshot.get_next_view_timeout()
     }
 
-    <span class="comment">// Below is for testing only:</span>
+    <span class="comment">// Below is for testing only:
 
-    <span class="doccomment">/// Wrapper for `HotShotConsensusApi`&#39;s `get_leader` function</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_leader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="ident">I::SignatureKey</span> {
-        <span class="kw">let</span> <span class="ident">api</span> <span class="op">=</span> <span class="ident">HotShotConsensusApi</span> {
-            <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
+    </span><span class="doccomment">/// Wrapper for `HotShotConsensusApi`&#39;s `get_leader` function
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+    </span><span class="kw">pub async fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: ViewNumber) -&gt; I::SignatureKey {
+        <span class="kw">let </span>api = HotShotConsensusApi {
+            inner: <span class="self">self</span>.hotshot.inner.clone(),
         };
-        <span class="ident">api</span>.<span class="ident">get_leader</span>(<span class="ident">view_number</span>).<span class="kw">await</span>
+        api.get_leader(view_number).<span class="kw">await
+    </span>}
+
+    <span class="doccomment">/// Wrapper to get this node&#39;s public key
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+    </span><span class="kw">pub fn </span>get_public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; I::SignatureKey {
+        <span class="self">self</span>.hotshot.inner.public_key.clone()
     }
 
-    <span class="doccomment">/// Wrapper to get this node&#39;s public key</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_public_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">I::SignatureKey</span> {
-        <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">clone</span>()
+    <span class="doccomment">/// Wrapper to get this node&#39;s current view
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+    </span><span class="kw">pub async fn </span>get_current_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ViewNumber {
+        <span class="self">self</span>.hotshot.hotstuff.read().<span class="kw">await</span>.cur_view
     }
 
-    <span class="doccomment">/// Wrapper to get this node&#39;s current view</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_current_view</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ViewNumber</span> {
-        <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">hotstuff</span>.<span class="ident">read</span>().<span class="kw">await</span>.<span class="ident">cur_view</span>
-    }
-
-    <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `sign_proposal` function</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign_proposal</span>(
+    <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `sign_proposal` function
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+    </span><span class="kw">pub fn </span>sign_proposal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">leaf_commitment</span>: <span class="kw-2">&amp;</span><span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
-    ) -&gt; <span class="ident">EncodedSignature</span> {
-        <span class="kw">let</span> <span class="ident">api</span> <span class="op">=</span> <span class="ident">HotShotConsensusApi</span> {
-            <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
+        leaf_commitment: <span class="kw-2">&amp;</span>Commitment&lt;Leaf&lt;I::StateType&gt;&gt;,
+        view_number: ViewNumber,
+    ) -&gt; EncodedSignature {
+        <span class="kw">let </span>api = HotShotConsensusApi {
+            inner: <span class="self">self</span>.hotshot.inner.clone(),
         };
-        <span class="ident">api</span>.<span class="ident">sign_proposal</span>(<span class="ident">leaf_commitment</span>, <span class="ident">view_number</span>)
+        api.sign_proposal(leaf_commitment, view_number)
     }
 
-    <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `sign_vote` function</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sign_vote</span>(
+    <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `sign_vote` function
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+    </span><span class="kw">pub fn </span>sign_vote(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">leaf_commitment</span>: <span class="kw-2">&amp;</span><span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
-    ) -&gt; (<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>) {
-        <span class="kw">let</span> <span class="ident">api</span> <span class="op">=</span> <span class="ident">HotShotConsensusApi</span> {
-            <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
+        leaf_commitment: <span class="kw-2">&amp;</span>Commitment&lt;Leaf&lt;I::StateType&gt;&gt;,
+        view_number: ViewNumber,
+    ) -&gt; (EncodedPublicKey, EncodedSignature) {
+        <span class="kw">let </span>api = HotShotConsensusApi {
+            inner: <span class="self">self</span>.hotshot.inner.clone(),
         };
-        <span class="ident">api</span>.<span class="ident">sign_vote</span>(<span class="ident">leaf_commitment</span>, <span class="ident">view_number</span>)
+        api.sign_vote(leaf_commitment, view_number)
     }
 
-    <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `send_broadcast_consensus_message` function</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_broadcast_consensus_message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">msg</span>: <span class="ident">ConsensusMessage</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span>) {
-        <span class="kw">let</span> <span class="ident">_result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">send_broadcast_message</span>(<span class="ident">msg</span>).<span class="kw">await</span>;
+    <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `send_broadcast_consensus_message` function
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+    </span><span class="kw">pub async fn </span>send_broadcast_consensus_message(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: ConsensusMessage&lt;I::StateType&gt;) {
+        <span class="kw">let </span>_result = <span class="self">self</span>.hotshot.send_broadcast_message(msg).<span class="kw">await</span>;
     }
 
-    <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `send_direct_consensus_message` function</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_direct_consensus_message</span>(
+    <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `send_direct_consensus_message` function
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+    </span><span class="kw">pub async fn </span>send_direct_consensus_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">msg</span>: <span class="ident">ConsensusMessage</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span>,
-        <span class="ident">recipient</span>: <span class="ident">I::SignatureKey</span>,
+        msg: ConsensusMessage&lt;I::StateType&gt;,
+        recipient: I::SignatureKey,
     ) {
-        <span class="kw">let</span> <span class="ident">_result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">send_direct_message</span>(<span class="ident">msg</span>, <span class="ident">recipient</span>).<span class="kw">await</span>;
+        <span class="kw">let </span>_result = <span class="self">self</span>.hotshot.send_direct_message(msg, recipient).<span class="kw">await</span>;
     }
 
-    <span class="doccomment">/// Get length of the replica&#39;s receiver channel</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_replica_receiver_channel_len</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">channel_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">replica_channel_map</span>.<span class="ident">read</span>().<span class="kw">await</span>;
-        <span class="kw">let</span> <span class="ident">chan</span> <span class="op">=</span> <span class="ident">channel_map</span>.<span class="ident">channel_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">view_number</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">receiver</span> <span class="op">=</span> <span class="ident">chan</span>.<span class="ident">receiver_chan</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
-        <span class="ident">receiver</span>.<span class="ident">len</span>()
+    <span class="doccomment">/// Get length of the replica&#39;s receiver channel
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+    </span><span class="kw">pub async fn </span>get_replica_receiver_channel_len(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: ViewNumber) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="kw">let </span>channel_map = <span class="self">self</span>.hotshot.replica_channel_map.read().<span class="kw">await</span>;
+        <span class="kw">let </span>chan = channel_map.channel_map.get(<span class="kw-2">&amp;</span>view_number)<span class="question-mark">?</span>;
+        <span class="kw">let </span>receiver = chan.receiver_chan.lock().<span class="kw">await</span>;
+        receiver.len()
     }
 
-    <span class="doccomment">/// Get length of the next leaders&#39;s receiver channel</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;hotshot-testing&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_next_leader_receiver_channel_len</span>(
+    <span class="doccomment">/// Get length of the next leaders&#39;s receiver channel
+    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
+    </span><span class="kw">pub async fn </span>get_next_leader_receiver_channel_len(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
-    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">channel_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">hotshot</span>.<span class="ident">next_leader_channel_map</span>.<span class="ident">read</span>().<span class="kw">await</span>;
-        <span class="kw">let</span> <span class="ident">chan</span> <span class="op">=</span> <span class="ident">channel_map</span>.<span class="ident">channel_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">view_number</span>)<span class="question-mark">?</span>;
+        view_number: ViewNumber,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="kw">let </span>channel_map = <span class="self">self</span>.hotshot.next_leader_channel_map.read().<span class="kw">await</span>;
+        <span class="kw">let </span>chan = channel_map.channel_map.get(<span class="kw-2">&amp;</span>view_number)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">receiver</span> <span class="op">=</span> <span class="ident">chan</span>.<span class="ident">receiver_chan</span>.<span class="ident">lock</span>().<span class="kw">await</span>;
-        <span class="ident">receiver</span>.<span class="ident">len</span>()
+        <span class="kw">let </span>receiver = chan.receiver_chan.lock().<span class="kw">await</span>;
+        receiver.len()
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

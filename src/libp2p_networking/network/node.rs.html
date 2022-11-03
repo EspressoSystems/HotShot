@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/src/network/node.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>node.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../libp2p_networking/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/src/network/node.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>node.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../libp2p_networking/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -609,616 +609,616 @@
 <span id="609">609</span>
 <span id="610">610</span>
 <span id="611">611</span>
-</pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">config</span>;
-<span class="kw">mod</span> <span class="ident">handle</span>;
+</pre><pre class="rust"><code><span class="kw">mod </span>config;
+<span class="kw">mod </span>handle;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::{
-    <span class="ident">config</span>::{
-        <span class="ident">MeshParams</span>, <span class="ident">NetworkNodeConfig</span>, <span class="ident">NetworkNodeConfigBuilder</span>, <span class="ident">NetworkNodeConfigBuilderError</span>,
+<span class="kw">pub use </span><span class="self">self</span>::{
+    config::{
+        MeshParams, NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError,
     },
-    <span class="ident">handle</span>::{
-        <span class="ident">network_node_handle_error</span>, <span class="ident">NetworkNodeHandle</span>, <span class="ident">NetworkNodeHandleError</span>, <span class="ident">NetworkNodeReceiver</span>,
+    handle::{
+        network_node_handle_error, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeReceiver,
     },
 };
 
-<span class="kw">use</span> <span class="kw">super</span>::{
-    <span class="ident">behaviours::gossip::GossipBehaviour</span>,
-    <span class="ident">error</span>::{<span class="ident">GossipsubBuildSnafu</span>, <span class="ident">GossipsubConfigSnafu</span>, <span class="ident">NetworkError</span>, <span class="ident">TransportSnafu</span>},
-    <span class="ident">gen_transport</span>, <span class="ident">ClientRequest</span>, <span class="ident">NetworkDef</span>, <span class="ident">NetworkEvent</span>, <span class="ident">NetworkEventInternal</span>, <span class="ident">NetworkNodeType</span>,
+<span class="kw">use super</span>::{
+    behaviours::gossip::GossipBehaviour,
+    error::{GossipsubBuildSnafu, GossipsubConfigSnafu, NetworkError, TransportSnafu},
+    gen_transport, ClientRequest, NetworkDef, NetworkEvent, NetworkEventInternal, NetworkNodeType,
 };
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::network</span>::{
-    <span class="ident">behaviours</span>::{
-        <span class="ident">dht</span>::{<span class="ident">DHTBehaviour</span>, <span class="ident">DHTEvent</span>, <span class="ident">DHTProgress</span>, <span class="ident">KadPutQuery</span>},
-        <span class="ident">direct_message</span>::{<span class="ident">DMBehaviour</span>, <span class="ident">DMEvent</span>},
-        <span class="ident">direct_message_codec</span>::{<span class="ident">DirectMessageCodec</span>, <span class="ident">DirectMessageProtocol</span>, <span class="ident">MAX_MSG_SIZE_DM</span>},
-        <span class="ident">exponential_backoff::ExponentialBackoff</span>,
-        <span class="ident">gossip::GossipEvent</span>,
+<span class="kw">use </span><span class="kw">crate</span>::network::{
+    behaviours::{
+        dht::{DHTBehaviour, DHTEvent, DHTProgress, KadPutQuery},
+        direct_message::{DMBehaviour, DMEvent},
+        direct_message_codec::{DirectMessageCodec, DirectMessageProtocol, MAX_MSG_SIZE_DM},
+        exponential_backoff::ExponentialBackoff,
+        gossip::GossipEvent,
     },
-    <span class="ident">def::NUM_REPLICATED_TO_TRUST</span>,
+    def::NUM_REPLICATED_TO_TRUST,
 };
-<span class="kw">use</span> <span class="ident">futures</span>::{<span class="ident">select</span>, <span class="ident">FutureExt</span>, <span class="ident">StreamExt</span>};
-<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
-    <span class="ident">art::async_spawn</span>,
-    <span class="ident">channel</span>::{<span class="ident">unbounded</span>, <span class="ident">UnboundedReceiver</span>, <span class="ident">UnboundedRecvError</span>, <span class="ident">UnboundedSender</span>},
+<span class="kw">use </span>futures::{select, FutureExt, StreamExt};
+<span class="kw">use </span>hotshot_utils::{
+    art::async_spawn,
+    channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
-<span class="kw">use</span> <span class="ident">libp2p</span>::{
-    <span class="ident">core</span>::{<span class="ident">either::EitherError</span>, <span class="ident">muxing::StreamMuxerBox</span>, <span class="ident">transport::Boxed</span>},
-    <span class="ident">gossipsub</span>::{
-        <span class="ident">error::GossipsubHandlerError</span>, <span class="ident">Gossipsub</span>, <span class="ident">GossipsubConfigBuilder</span>, <span class="ident">GossipsubMessage</span>,
-        <span class="ident">MessageAuthenticity</span>, <span class="ident">MessageId</span>, <span class="ident">Topic</span>, <span class="ident">ValidationMode</span>,
+<span class="kw">use </span>libp2p::{
+    core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
+    gossipsub::{
+        error::GossipsubHandlerError, Gossipsub, GossipsubConfigBuilder, GossipsubMessage,
+        MessageAuthenticity, MessageId, Topic, ValidationMode,
     },
-    <span class="ident">identify</span>::{
-        <span class="ident">Behaviour</span> <span class="kw">as</span> <span class="ident">IdentifyBehaviour</span>, <span class="ident">Config</span> <span class="kw">as</span> <span class="ident">IdentifyConfig</span>, <span class="ident">Event</span> <span class="kw">as</span> <span class="ident">IdentifyEvent</span>,
-        <span class="ident">Info</span> <span class="kw">as</span> <span class="ident">IdentifyInfo</span>,
+    identify::{
+        Behaviour <span class="kw">as </span>IdentifyBehaviour, Config <span class="kw">as </span>IdentifyConfig, Event <span class="kw">as </span>IdentifyEvent,
+        Info <span class="kw">as </span>IdentifyInfo,
     },
-    <span class="ident">identity::Keypair</span>,
-    <span class="ident">kad</span>::{<span class="ident">store::MemoryStore</span>, <span class="ident">Kademlia</span>, <span class="ident">KademliaConfig</span>},
-    <span class="ident">request_response</span>::{<span class="ident">ProtocolSupport</span>, <span class="ident">RequestResponse</span>, <span class="ident">RequestResponseConfig</span>},
-    <span class="ident">swarm</span>::{<span class="ident">ConnectionHandlerUpgrErr</span>, <span class="ident">SwarmBuilder</span>, <span class="ident">SwarmEvent</span>},
-    <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>, <span class="ident">Swarm</span>,
+    identity::Keypair,
+    kad::{store::MemoryStore, Kademlia, KademliaConfig},
+    request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
+    swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent},
+    Multiaddr, PeerId, Swarm,
 };
-<span class="kw">use</span> <span class="ident">rand</span>::{<span class="ident">prelude::SliceRandom</span>, <span class="ident">thread_rng</span>};
-<span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>},
-    <span class="ident">io::Error</span>,
-    <span class="ident">iter</span>,
-    <span class="ident">num</span>::{<span class="ident">NonZeroU32</span>, <span class="ident">NonZeroUsize</span>},
-    <span class="ident">time::Duration</span>,
+<span class="kw">use </span>rand::{prelude::SliceRandom, thread_rng};
+<span class="kw">use </span>snafu::ResultExt;
+<span class="kw">use </span>std::{
+    collections::{HashMap, HashSet},
+    io::Error,
+    iter,
+    num::{NonZeroU32, NonZeroUsize},
+    time::Duration,
 };
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">info_span</span>, <span class="ident">instrument</span>, <span class="ident">trace</span>, <span class="ident">warn</span>, <span class="ident">Instrument</span>};
+<span class="kw">use </span>tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 
-<span class="doccomment">/// Wrapped num of connections</span>
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">ESTABLISHED_LIMIT</span>: <span class="ident">NonZeroU32</span> <span class="op">=</span>
-    <span class="kw">unsafe</span> { <span class="ident">NonZeroU32::new_unchecked</span>(<span class="ident">ESTABLISHED_LIMIT_UNWR</span>) };
-<span class="doccomment">/// Number of connections to a single peer before logging an error</span>
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">ESTABLISHED_LIMIT_UNWR</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">10</span>;
+<span class="doccomment">/// Wrapped num of connections
+</span><span class="kw">pub const </span>ESTABLISHED_LIMIT: NonZeroU32 =
+    <span class="kw">unsafe </span>{ NonZeroU32::new_unchecked(ESTABLISHED_LIMIT_UNWR) };
+<span class="doccomment">/// Number of connections to a single peer before logging an error
+</span><span class="kw">pub const </span>ESTABLISHED_LIMIT_UNWR: u32 = <span class="number">10</span>;
 
-<span class="doccomment">/// Network definition</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">custom_debug::Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">NetworkNode</span> {
-    <span class="doccomment">/// pub/private key from with peer_id is derived</span>
-    <span class="ident">identity</span>: <span class="ident">Keypair</span>,
-    <span class="doccomment">/// peer id of network node</span>
-    <span class="ident">peer_id</span>: <span class="ident">PeerId</span>,
-    <span class="doccomment">/// the swarm of networkbehaviours</span>
-    <span class="attribute">#[<span class="ident">debug</span>(<span class="ident">skip</span>)]</span>
-    <span class="ident">swarm</span>: <span class="ident">Swarm</span><span class="op">&lt;</span><span class="ident">NetworkDef</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// the configuration parameters of the netework</span>
-    <span class="ident">config</span>: <span class="ident">NetworkNodeConfig</span>,
+<span class="doccomment">/// Network definition
+</span><span class="attribute">#[derive(custom_debug::Debug)]
+</span><span class="kw">pub struct </span>NetworkNode {
+    <span class="doccomment">/// pub/private key from with peer_id is derived
+    </span>identity: Keypair,
+    <span class="doccomment">/// peer id of network node
+    </span>peer_id: PeerId,
+    <span class="doccomment">/// the swarm of networkbehaviours
+    </span><span class="attribute">#[debug(skip)]
+    </span>swarm: Swarm&lt;NetworkDef&gt;,
+    <span class="doccomment">/// the configuration parameters of the netework
+    </span>config: NetworkNodeConfig,
 }
 
-<span class="kw">impl</span> <span class="ident">NetworkNode</span> {
-    <span class="doccomment">/// Returns number of peers this node is connected to</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">num_connected</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">connected_peers</span>().<span class="ident">count</span>()
+<span class="kw">impl </span>NetworkNode {
+    <span class="doccomment">/// Returns number of peers this node is connected to
+    </span><span class="kw">pub fn </span>num_connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.swarm.connected_peers().count()
     }
 
-    <span class="doccomment">/// return hashset of PIDs this node is connected to</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">connected_pids</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">connected_peers</span>().<span class="ident">copied</span>().<span class="ident">collect</span>()
+    <span class="doccomment">/// return hashset of PIDs this node is connected to
+    </span><span class="kw">pub fn </span>connected_pids(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashSet&lt;PeerId&gt; {
+        <span class="self">self</span>.swarm.connected_peers().copied().collect()
     }
 
-    <span class="doccomment">/// starts the swarm listening on `listen_addr`</span>
-    <span class="doccomment">/// and optionally dials into peer `known_peer`</span>
-    <span class="doccomment">/// returns the address the swarm is listening upon</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>))]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">start_listen</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">listen_addr</span>: <span class="ident">Multiaddr</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Multiaddr</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">listen_on</span>(<span class="ident">listen_addr</span>).<span class="ident">context</span>(<span class="ident">TransportSnafu</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="kw">loop</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">SwarmEvent::NewListenAddr</span> { <span class="ident">address</span>, .. }) <span class="op">=</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">next</span>().<span class="kw">await</span> {
-                <span class="kw">break</span> <span class="ident">address</span>;
+    <span class="doccomment">/// starts the swarm listening on `listen_addr`
+    /// and optionally dials into peer `known_peer`
+    /// returns the address the swarm is listening upon
+    </span><span class="attribute">#[instrument(skip(<span class="self">self</span>))]
+    </span><span class="kw">pub async fn </span>start_listen(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        listen_addr: Multiaddr,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Multiaddr, NetworkError&gt; {
+        <span class="self">self</span>.swarm.listen_on(listen_addr).context(TransportSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>addr = <span class="kw">loop </span>{
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(SwarmEvent::NewListenAddr { address, .. }) = <span class="self">self</span>.swarm.next().<span class="kw">await </span>{
+                <span class="kw">break </span>address;
             }
         };
-        <span class="macro">info!</span>(<span class="string">&quot;peerid {:?} started on addr: {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">addr</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">addr</span>)
+        <span class="macro">info!</span>(<span class="string">&quot;peerid {:?} started on addr: {:?}&quot;</span>, <span class="self">self</span>.peer_id, addr);
+        <span class="prelude-val">Ok</span>(addr)
     }
 
-    <span class="doccomment">/// initialize the DHT with known peers</span>
-    <span class="doccomment">/// add the peers to kademlia and then</span>
-    <span class="doccomment">/// the `spawn_listeners` function</span>
-    <span class="doccomment">/// will start connecting to peers</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>))]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_known_peers</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">known_peers</span>: <span class="kw-2">&amp;</span>[(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>, <span class="ident">Multiaddr</span>)]) {
-        <span class="macro">info!</span>(<span class="string">&quot;Adding nodes {:?} to {:?}&quot;</span>, <span class="ident">known_peers</span>, <span class="self">self</span>.<span class="ident">peer_id</span>);
-        <span class="kw">let</span> <span class="ident">behaviour</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bs_nodes</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="op">&lt;</span><span class="ident">PeerId</span>, <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">Multiaddr</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::new</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">shuffled</span> <span class="op">=</span> <span class="ident">known_peers</span>.<span class="ident">iter</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="ident">shuffled</span>.<span class="ident">shuffle</span>(<span class="kw-2">&amp;mut</span> <span class="ident">thread_rng</span>());
-        <span class="kw">for</span> (<span class="ident">peer_id</span>, <span class="ident">addr</span>) <span class="kw">in</span> <span class="ident">shuffled</span> {
-            <span class="kw">match</span> <span class="ident">peer_id</span> {
-                <span class="prelude-val">Some</span>(<span class="ident">peer_id</span>) =&gt; {
-                    <span class="comment">// if we know the peerid, add address.</span>
-                    <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">peer_id</span> <span class="op">!</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">peer_id</span> {
-                        <span class="ident">behaviour</span>.<span class="ident">dht</span>.<span class="ident">add_address</span>(<span class="ident">peer_id</span>, <span class="ident">addr</span>.<span class="ident">clone</span>());
-                        <span class="ident">bs_nodes</span>.<span class="ident">insert</span>(<span class="kw-2">*</span><span class="ident">peer_id</span>, <span class="ident">iter::once</span>(<span class="ident">addr</span>.<span class="ident">clone</span>()).<span class="ident">collect</span>());
+    <span class="doccomment">/// initialize the DHT with known peers
+    /// add the peers to kademlia and then
+    /// the `spawn_listeners` function
+    /// will start connecting to peers
+    </span><span class="attribute">#[instrument(skip(<span class="self">self</span>))]
+    </span><span class="kw">pub fn </span>add_known_peers(<span class="kw-2">&amp;mut </span><span class="self">self</span>, known_peers: <span class="kw-2">&amp;</span>[(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)]) {
+        <span class="macro">info!</span>(<span class="string">&quot;Adding nodes {:?} to {:?}&quot;</span>, known_peers, <span class="self">self</span>.peer_id);
+        <span class="kw">let </span>behaviour = <span class="self">self</span>.swarm.behaviour_mut();
+        <span class="kw">let </span><span class="kw-2">mut </span>bs_nodes = HashMap::&lt;PeerId, HashSet&lt;Multiaddr&gt;&gt;::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>shuffled = known_peers.iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+        shuffled.shuffle(<span class="kw-2">&amp;mut </span>thread_rng());
+        <span class="kw">for </span>(peer_id, addr) <span class="kw">in </span>shuffled {
+            <span class="kw">match </span>peer_id {
+                <span class="prelude-val">Some</span>(peer_id) =&gt; {
+                    <span class="comment">// if we know the peerid, add address.
+                    </span><span class="kw">if </span><span class="kw-2">*</span>peer_id != <span class="self">self</span>.peer_id {
+                        behaviour.dht.add_address(peer_id, addr.clone());
+                        bs_nodes.insert(<span class="kw-2">*</span>peer_id, iter::once(addr.clone()).collect());
                     }
                 }
-                <span class="prelude-val">None</span> =&gt; {
-                    <span class="comment">// &lt;https://github.com/EspressoSystems/hotshot/issues/290&gt;</span>
-                    <span class="comment">// TODO actually implement this part</span>
-                    <span class="comment">// if we don&#39;t know the peerid, dial to find out what the peerid is</span>
-                }
+                <span class="prelude-val">None </span>=&gt; {
+                    <span class="comment">// &lt;https://github.com/EspressoSystems/hotshot/issues/290&gt;
+                    // TODO actually implement this part
+                    // if we don&#39;t know the peerid, dial to find out what the peerid is
+                </span>}
             }
         }
-        <span class="ident">behaviour</span>.<span class="ident">dht</span>.<span class="ident">add_bootstrap_nodes</span>(<span class="ident">bs_nodes</span>);
+        behaviour.dht.add_bootstrap_nodes(bs_nodes);
     }
 
-    <span class="doccomment">/// Creates a new `Network` with the given settings.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Currently:</span>
-    <span class="doccomment">///   * Generates a random key pair and associated [`PeerId`]</span>
-    <span class="doccomment">///   * Launches a hopefully production ready transport:</span>
-    <span class="doccomment">///       TCP + DNS + Websocket + XX auth</span>
-    <span class="doccomment">///   * Generates a connection to the &quot;broadcast&quot; topic</span>
-    <span class="doccomment">///   * Creates a swarm to manage peers and events</span>
-    <span class="attribute">#[<span class="ident">instrument</span>]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">config</span>: <span class="ident">NetworkNodeConfig</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
-        <span class="comment">// Generate a random PeerId</span>
-        <span class="kw">let</span> <span class="ident">identity</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">kp</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">identity</span> {
-            <span class="ident">kp</span>.<span class="ident">clone</span>()
-        } <span class="kw">else</span> {
-            <span class="ident">Keypair::generate_ed25519</span>()
+    <span class="doccomment">/// Creates a new `Network` with the given settings.
+    ///
+    /// Currently:
+    ///   * Generates a random key pair and associated [`PeerId`]
+    ///   * Launches a hopefully production ready transport:
+    ///       TCP + DNS + Websocket + XX auth
+    ///   * Generates a connection to the &quot;broadcast&quot; topic
+    ///   * Creates a swarm to manage peers and events
+    </span><span class="attribute">#[instrument]
+    </span><span class="kw">pub async fn </span>new(config: NetworkNodeConfig) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, NetworkError&gt; {
+        <span class="comment">// Generate a random PeerId
+        </span><span class="kw">let </span>identity = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>kp) = config.identity {
+            kp.clone()
+        } <span class="kw">else </span>{
+            Keypair::generate_ed25519()
         };
-        <span class="kw">let</span> <span class="ident">peer_id</span> <span class="op">=</span> <span class="ident">PeerId::from</span>(<span class="ident">identity</span>.<span class="ident">public</span>());
-        <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">peer_id</span>);
-        <span class="kw">let</span> <span class="ident">transport</span>: <span class="ident">Boxed</span><span class="op">&lt;</span>(<span class="ident">PeerId</span>, <span class="ident">StreamMuxerBox</span>)<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">gen_transport</span>(<span class="ident">identity</span>.<span class="ident">clone</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>peer_id = PeerId::from(identity.public());
+        <span class="macro">debug!</span>(<span class="question-mark">?</span>peer_id);
+        <span class="kw">let </span>transport: Boxed&lt;(PeerId, StreamMuxerBox)&gt; = gen_transport(identity.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="macro">trace!</span>(<span class="string">&quot;Launched network transport&quot;</span>);
-        <span class="comment">// Generate the swarm</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">swarm</span>: <span class="ident">Swarm</span><span class="op">&lt;</span><span class="ident">NetworkDef</span><span class="op">&gt;</span> <span class="op">=</span> {
-            <span class="comment">// Use the hash of the message&#39;s contents as the ID</span>
-            <span class="comment">// Use blake3 for much paranoia at very high speeds</span>
-            <span class="kw">let</span> <span class="ident">message_id_fn</span> <span class="op">=</span> <span class="op">|</span><span class="ident">message</span>: <span class="kw-2">&amp;</span><span class="ident">GossipsubMessage</span><span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">blake3::hash</span>(<span class="kw-2">&amp;</span><span class="ident">message</span>.<span class="ident">data</span>);
-                <span class="ident">MessageId::from</span>(<span class="ident">hash</span>.<span class="ident">as_bytes</span>().<span class="ident">to_vec</span>())
+        <span class="comment">// Generate the swarm
+        </span><span class="kw">let </span><span class="kw-2">mut </span>swarm: Swarm&lt;NetworkDef&gt; = {
+            <span class="comment">// Use the hash of the message&#39;s contents as the ID
+            // Use blake3 for much paranoia at very high speeds
+            </span><span class="kw">let </span>message_id_fn = |message: <span class="kw-2">&amp;</span>GossipsubMessage| {
+                <span class="kw">let </span>hash = blake3::hash(<span class="kw-2">&amp;</span>message.data);
+                MessageId::from(hash.as_bytes().to_vec())
             };
 
-            <span class="kw">let</span> <span class="ident">params</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">params</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">mesh_params</span> {
-                <span class="ident">params</span>.<span class="ident">clone</span>()
-            } <span class="kw">else</span> {
-                <span class="comment">// NOTE this should most likely be a builder pattern</span>
-                <span class="comment">// at some point in the future.</span>
-                <span class="kw">match</span> <span class="ident">config</span>.<span class="ident">node_type</span> {
-                    <span class="ident">NetworkNodeType::Bootstrap</span> =&gt; <span class="ident">MeshParams</span> {
-                        <span class="ident">mesh_n_high</span>: <span class="number">50</span>,
-                        <span class="ident">mesh_n_low</span>: <span class="number">10</span>,
-                        <span class="ident">mesh_outbound_min</span>: <span class="number">5</span>,
-                        <span class="ident">mesh_n</span>: <span class="number">15</span>,
+            <span class="kw">let </span>params = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>params) = config.mesh_params {
+                params.clone()
+            } <span class="kw">else </span>{
+                <span class="comment">// NOTE this should most likely be a builder pattern
+                // at some point in the future.
+                </span><span class="kw">match </span>config.node_type {
+                    NetworkNodeType::Bootstrap =&gt; MeshParams {
+                        mesh_n_high: <span class="number">50</span>,
+                        mesh_n_low: <span class="number">10</span>,
+                        mesh_outbound_min: <span class="number">5</span>,
+                        mesh_n: <span class="number">15</span>,
                     },
-                    <span class="ident">NetworkNodeType::Regular</span> =&gt; <span class="ident">MeshParams</span> {
-                        <span class="ident">mesh_n_high</span>: <span class="number">15</span>,
-                        <span class="ident">mesh_n_low</span>: <span class="number">8</span>,
-                        <span class="ident">mesh_outbound_min</span>: <span class="number">4</span>,
-                        <span class="ident">mesh_n</span>: <span class="number">12</span>,
+                    NetworkNodeType::Regular =&gt; MeshParams {
+                        mesh_n_high: <span class="number">15</span>,
+                        mesh_n_low: <span class="number">8</span>,
+                        mesh_outbound_min: <span class="number">4</span>,
+                        mesh_n: <span class="number">12</span>,
                     },
-                    <span class="ident">NetworkNodeType::Conductor</span> =&gt; <span class="ident">MeshParams</span> {
-                        <span class="ident">mesh_n_high</span>: <span class="number">21</span>,
-                        <span class="ident">mesh_n_low</span>: <span class="number">8</span>,
-                        <span class="ident">mesh_outbound_min</span>: <span class="number">4</span>,
-                        <span class="ident">mesh_n</span>: <span class="number">12</span>,
+                    NetworkNodeType::Conductor =&gt; MeshParams {
+                        mesh_n_high: <span class="number">21</span>,
+                        mesh_n_low: <span class="number">8</span>,
+                        mesh_outbound_min: <span class="number">4</span>,
+                        mesh_n: <span class="number">12</span>,
                     },
                 }
             };
 
-            <span class="comment">// Create a custom gossipsub</span>
-            <span class="kw">let</span> <span class="ident">gossipsub_config</span> <span class="op">=</span> <span class="ident">GossipsubConfigBuilder::default</span>()
-                .<span class="ident">opportunistic_graft_ticks</span>(<span class="number">3</span>)
-                .<span class="ident">heartbeat_interval</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>))
-                <span class="comment">// Force all messages to have valid signatures</span>
-                .<span class="ident">validation_mode</span>(<span class="ident">ValidationMode::Strict</span>)
-                .<span class="ident">history_gossip</span>(<span class="number">50</span>)
-                .<span class="ident">mesh_n_high</span>(<span class="ident">params</span>.<span class="ident">mesh_n_high</span>)
-                .<span class="ident">mesh_n_low</span>(<span class="ident">params</span>.<span class="ident">mesh_n_low</span>)
-                .<span class="ident">mesh_outbound_min</span>(<span class="ident">params</span>.<span class="ident">mesh_outbound_min</span>)
-                .<span class="ident">mesh_n</span>(<span class="ident">params</span>.<span class="ident">mesh_n</span>)
-                .<span class="ident">history_length</span>(<span class="number">500</span>)
-                .<span class="ident">max_transmit_size</span>(<span class="number">2</span> <span class="op">*</span> <span class="ident">MAX_MSG_SIZE_DM</span>)
-                <span class="comment">// Use the (blake3) hash of a message as its ID</span>
-                .<span class="ident">message_id_fn</span>(<span class="ident">message_id_fn</span>)
-                .<span class="ident">build</span>()
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">GossipsubConfigSnafu</span> { <span class="ident">message</span>: <span class="ident">s</span> }.<span class="ident">build</span>())<span class="question-mark">?</span>;
+            <span class="comment">// Create a custom gossipsub
+            </span><span class="kw">let </span>gossipsub_config = GossipsubConfigBuilder::default()
+                .opportunistic_graft_ticks(<span class="number">3</span>)
+                .heartbeat_interval(Duration::from_secs(<span class="number">1</span>))
+                <span class="comment">// Force all messages to have valid signatures
+                </span>.validation_mode(ValidationMode::Strict)
+                .history_gossip(<span class="number">50</span>)
+                .mesh_n_high(params.mesh_n_high)
+                .mesh_n_low(params.mesh_n_low)
+                .mesh_outbound_min(params.mesh_outbound_min)
+                .mesh_n(params.mesh_n)
+                .history_length(<span class="number">500</span>)
+                .max_transmit_size(<span class="number">2 </span>* MAX_MSG_SIZE_DM)
+                <span class="comment">// Use the (blake3) hash of a message as its ID
+                </span>.message_id_fn(message_id_fn)
+                .build()
+                .map_err(|s| GossipsubConfigSnafu { message: s }.build())<span class="question-mark">?</span>;
 
-            <span class="comment">// - Build a gossipsub network behavior</span>
-            <span class="kw">let</span> <span class="ident">gossipsub</span>: <span class="ident">Gossipsub</span> <span class="op">=</span> <span class="ident">Gossipsub::new</span>(
-                <span class="comment">// TODO do we even need this?</span>
-                <span class="comment">// &lt;https://github.com/EspressoSystems/hotshot/issues/42&gt;</span>
-                <span class="comment">// if messages are signed at the the consensus level AND the network</span>
-                <span class="comment">// level (noise), this feels redundant.</span>
-                <span class="ident">MessageAuthenticity::Signed</span>(<span class="ident">identity</span>.<span class="ident">clone</span>()),
-                <span class="ident">gossipsub_config</span>,
+            <span class="comment">// - Build a gossipsub network behavior
+            </span><span class="kw">let </span>gossipsub: Gossipsub = Gossipsub::new(
+                <span class="comment">// TODO do we even need this?
+                // &lt;https://github.com/EspressoSystems/hotshot/issues/42&gt;
+                // if messages are signed at the the consensus level AND the network
+                // level (noise), this feels redundant.
+                </span>MessageAuthenticity::Signed(identity.clone()),
+                gossipsub_config,
             )
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">GossipsubBuildSnafu</span> { <span class="ident">message</span>: <span class="ident">s</span> }.<span class="ident">build</span>())<span class="question-mark">?</span>;
+            .map_err(|s| GossipsubBuildSnafu { message: s }.build())<span class="question-mark">?</span>;
 
-            <span class="comment">// - Build a identify network behavior needed for own</span>
-            <span class="comment">//   node connection information</span>
-            <span class="comment">//   E.g. this will answer the question: how are other nodes</span>
-            <span class="comment">//   seeing the peer from behind a NAT</span>
-            <span class="kw">let</span> <span class="ident">identify_cfg</span> <span class="op">=</span>
-                <span class="ident">IdentifyConfig::new</span>(<span class="string">&quot;HotShot/identify/1.0&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">identity</span>.<span class="ident">public</span>());
-            <span class="kw">let</span> <span class="ident">identify</span> <span class="op">=</span> <span class="ident">IdentifyBehaviour::new</span>(<span class="ident">identify_cfg</span>);
+            <span class="comment">// - Build a identify network behavior needed for own
+            //   node connection information
+            //   E.g. this will answer the question: how are other nodes
+            //   seeing the peer from behind a NAT
+            </span><span class="kw">let </span>identify_cfg =
+                IdentifyConfig::new(<span class="string">&quot;HotShot/identify/1.0&quot;</span>.to_string(), identity.public());
+            <span class="kw">let </span>identify = IdentifyBehaviour::new(identify_cfg);
 
-            <span class="comment">// - Build DHT needed for peer discovery</span>
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">kconfig</span> <span class="op">=</span> <span class="ident">KademliaConfig::default</span>();
-            <span class="comment">// FIXME do we need this?</span>
-            <span class="comment">// &lt;https://github.com/EspressoSystems/HotShot/issues/344&gt;</span>
-            <span class="ident">kconfig</span>.<span class="ident">set_parallelism</span>(<span class="ident">NonZeroUsize::new</span>(<span class="number">1</span>).<span class="ident">unwrap</span>());
+            <span class="comment">// - Build DHT needed for peer discovery
+            </span><span class="kw">let </span><span class="kw-2">mut </span>kconfig = KademliaConfig::default();
+            <span class="comment">// FIXME do we need this?
+            // &lt;https://github.com/EspressoSystems/HotShot/issues/344&gt;
+            </span>kconfig.set_parallelism(NonZeroUsize::new(<span class="number">1</span>).unwrap());
 
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">factor</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">replication_factor</span> {
-                <span class="ident">kconfig</span>.<span class="ident">set_replication_factor</span>(<span class="ident">factor</span>);
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(factor) = config.replication_factor {
+                kconfig.set_replication_factor(factor);
             }
 
-            <span class="kw">let</span> <span class="ident">kadem</span> <span class="op">=</span> <span class="ident">Kademlia::with_config</span>(<span class="ident">peer_id</span>, <span class="ident">MemoryStore::new</span>(<span class="ident">peer_id</span>), <span class="ident">kconfig</span>);
+            <span class="kw">let </span>kadem = Kademlia::with_config(peer_id, MemoryStore::new(peer_id), kconfig);
 
-            <span class="kw">let</span> <span class="ident">rrconfig</span> <span class="op">=</span> <span class="ident">RequestResponseConfig::default</span>();
+            <span class="kw">let </span>rrconfig = RequestResponseConfig::default();
 
-            <span class="kw">let</span> <span class="ident">request_response</span> <span class="op">=</span> <span class="ident">RequestResponse::new</span>(
-                <span class="ident">DirectMessageCodec</span>(),
-                [(<span class="ident">DirectMessageProtocol</span>(), <span class="ident">ProtocolSupport::Full</span>)].<span class="ident">into_iter</span>(),
-                <span class="ident">rrconfig</span>,
+            <span class="kw">let </span>request_response = RequestResponse::new(
+                DirectMessageCodec(),
+                [(DirectMessageProtocol(), ProtocolSupport::Full)].into_iter(),
+                rrconfig,
             );
 
-            <span class="kw">let</span> <span class="ident">network</span> <span class="op">=</span> <span class="ident">NetworkDef::new</span>(
-                <span class="ident">GossipBehaviour::new</span>(<span class="ident">gossipsub</span>),
-                <span class="ident">DHTBehaviour::new</span>(
-                    <span class="ident">kadem</span>,
-                    <span class="ident">peer_id</span>,
-                    <span class="ident">config</span>
-                        .<span class="ident">replication_factor</span>
-                        .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">NonZeroUsize::new</span>(<span class="number">4</span>).<span class="ident">unwrap</span>()),
+            <span class="kw">let </span>network = NetworkDef::new(
+                GossipBehaviour::new(gossipsub),
+                DHTBehaviour::new(
+                    kadem,
+                    peer_id,
+                    config
+                        .replication_factor
+                        .unwrap_or_else(|| NonZeroUsize::new(<span class="number">4</span>).unwrap()),
                 ),
-                <span class="ident">identify</span>,
-                <span class="ident">DMBehaviour::new</span>(<span class="ident">request_response</span>),
+                identify,
+                DMBehaviour::new(request_response),
             );
-            <span class="kw">let</span> <span class="ident">executor</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="op">|</span><span class="ident">fut</span><span class="op">|</span> {
-                <span class="ident">async_spawn</span>(<span class="ident">fut</span>);
+            <span class="kw">let </span>executor = Box::new(|fut| {
+                async_spawn(fut);
             });
 
-            <span class="ident">SwarmBuilder::new</span>(<span class="ident">transport</span>, <span class="ident">network</span>, <span class="ident">peer_id</span>)
-                .<span class="ident">dial_concurrency_factor</span>(<span class="ident">std::num::NonZeroU8::new</span>(<span class="number">1</span>).<span class="ident">unwrap</span>())
-                .<span class="ident">executor</span>(<span class="ident">executor</span>)
-                .<span class="ident">build</span>()
+            SwarmBuilder::new(transport, network, peer_id)
+                .dial_concurrency_factor(std::num::NonZeroU8::new(<span class="number">1</span>).unwrap())
+                .executor(executor)
+                .build()
         };
-        <span class="kw">for</span> (<span class="ident">peer</span>, <span class="ident">addr</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">to_connect_addrs</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">peer</span>) <span class="op">=</span> <span class="ident">peer</span> {
-                <span class="kw">if</span> <span class="ident">peer</span> <span class="op">!</span><span class="op">=</span> <span class="ident">swarm</span>.<span class="ident">local_peer_id</span>() {
-                    <span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">add_address</span>(<span class="ident">peer</span>, <span class="ident">addr</span>.<span class="ident">clone</span>());
+        <span class="kw">for </span>(peer, addr) <span class="kw">in </span><span class="kw-2">&amp;</span>config.to_connect_addrs {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = peer {
+                <span class="kw">if </span>peer != swarm.local_peer_id() {
+                    swarm.behaviour_mut().add_address(peer, addr.clone());
                 }
             }
         }
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">identity</span>,
-            <span class="ident">peer_id</span>,
-            <span class="ident">swarm</span>,
-            <span class="ident">config</span>,
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            identity,
+            peer_id,
+            swarm,
+            config,
         })
     }
 
-    <span class="doccomment">/// event handler for client events</span>
-    <span class="doccomment">/// currectly supported actions include</span>
-    <span class="doccomment">/// - shutting down the swarm</span>
-    <span class="doccomment">/// - gossipping a message to known peers on the `global` topic</span>
-    <span class="doccomment">/// - returning the id of the current peer</span>
-    <span class="doccomment">/// - subscribing to a topic</span>
-    <span class="doccomment">/// - unsubscribing from a toipc</span>
-    <span class="doccomment">/// - direct messaging a peer</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>))]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_client_requests</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">msg</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ClientRequest</span>, <span class="ident">UnboundedRecvError</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">behaviour</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>();
-        <span class="kw">match</span> <span class="ident">msg</span> {
-            <span class="prelude-val">Ok</span>(<span class="ident">msg</span>) =&gt; {
-                <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::enum_glob_use</span>)]</span>
-                <span class="kw">use</span> <span class="ident">ClientRequest</span>::<span class="kw-2">*</span>;
-                <span class="kw">match</span> <span class="ident">msg</span> {
-                    <span class="ident">BeginBootstrap</span> =&gt; {
-                        <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">dht</span>.<span class="ident">begin_bootstrap</span>();
+    <span class="doccomment">/// event handler for client events
+    /// currectly supported actions include
+    /// - shutting down the swarm
+    /// - gossipping a message to known peers on the `global` topic
+    /// - returning the id of the current peer
+    /// - subscribing to a topic
+    /// - unsubscribing from a toipc
+    /// - direct messaging a peer
+    </span><span class="attribute">#[instrument(skip(<span class="self">self</span>))]
+    </span><span class="kw">async fn </span>handle_client_requests(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        msg: <span class="prelude-ty">Result</span>&lt;ClientRequest, UnboundedRecvError&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, NetworkError&gt; {
+        <span class="kw">let </span>behaviour = <span class="self">self</span>.swarm.behaviour_mut();
+        <span class="kw">match </span>msg {
+            <span class="prelude-val">Ok</span>(msg) =&gt; {
+                <span class="attribute">#[allow(clippy::enum_glob_use)]
+                </span><span class="kw">use </span>ClientRequest::<span class="kw-2">*</span>;
+                <span class="kw">match </span>msg {
+                    BeginBootstrap =&gt; {
+                        <span class="self">self</span>.swarm.behaviour_mut().dht.begin_bootstrap();
                     }
-                    <span class="ident">LookupPeer</span>(<span class="ident">pid</span>, <span class="ident">chan</span>) =&gt; {
-                        <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">dht</span>.<span class="ident">lookup_peer</span>(<span class="ident">pid</span>, <span class="ident">chan</span>);
+                    LookupPeer(pid, chan) =&gt; {
+                        <span class="self">self</span>.swarm.behaviour_mut().dht.lookup_peer(pid, chan);
                     }
-                    <span class="ident">GetRoutingTable</span>(<span class="ident">chan</span>) =&gt; {
-                        <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">dht</span>.<span class="ident">print_routing_table</span>();
-                        <span class="kw">if</span> <span class="ident">chan</span>.<span class="ident">send</span>(()).<span class="ident">is_err</span>() {
+                    GetRoutingTable(chan) =&gt; {
+                        <span class="self">self</span>.swarm.behaviour_mut().dht.print_routing_table();
+                        <span class="kw">if </span>chan.send(()).is_err() {
                             <span class="macro">warn!</span>(<span class="string">&quot;Tried to notify client but client not tracking anymore&quot;</span>);
                         }
                     }
-                    <span class="ident">PutDHT</span> { <span class="ident">key</span>, <span class="ident">value</span>, <span class="ident">notify</span> } =&gt; {
-                        <span class="kw">let</span> <span class="ident">query</span> <span class="op">=</span> <span class="ident">KadPutQuery</span> {
-                            <span class="ident">progress</span>: <span class="ident">DHTProgress::NotStarted</span>,
-                            <span class="ident">notify</span>,
-                            <span class="ident">key</span>,
-                            <span class="ident">value</span>,
-                            <span class="ident">backoff</span>: <span class="ident">ExponentialBackoff::default</span>(),
+                    PutDHT { key, value, notify } =&gt; {
+                        <span class="kw">let </span>query = KadPutQuery {
+                            progress: DHTProgress::NotStarted,
+                            notify,
+                            key,
+                            value,
+                            backoff: ExponentialBackoff::default(),
                         };
-                        <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">put_record</span>(<span class="ident">query</span>);
+                        <span class="self">self</span>.swarm.behaviour_mut().put_record(query);
                     }
-                    <span class="ident">GetConnectedPeerNum</span>(<span class="ident">s</span>) =&gt; {
-                        <span class="kw">if</span> <span class="ident">s</span>.<span class="ident">send</span>(<span class="self">self</span>.<span class="ident">num_connected</span>()).<span class="ident">is_err</span>() {
+                    GetConnectedPeerNum(s) =&gt; {
+                        <span class="kw">if </span>s.send(<span class="self">self</span>.num_connected()).is_err() {
                             <span class="macro">error!</span>(<span class="string">&quot;error sending peer number to client&quot;</span>);
                         }
                     }
-                    <span class="ident">GetConnectedPeers</span>(<span class="ident">s</span>) =&gt; {
-                        <span class="kw">if</span> <span class="ident">s</span>.<span class="ident">send</span>(<span class="self">self</span>.<span class="ident">connected_pids</span>()).<span class="ident">is_err</span>() {
+                    GetConnectedPeers(s) =&gt; {
+                        <span class="kw">if </span>s.send(<span class="self">self</span>.connected_pids()).is_err() {
                             <span class="macro">error!</span>(<span class="string">&quot;error sending peer set to client&quot;</span>);
                         }
                     }
-                    <span class="ident">GetDHT</span> {
-                        <span class="ident">key</span>,
-                        <span class="ident">notify</span>,
-                        <span class="ident">retry_count</span>,
+                    GetDHT {
+                        key,
+                        notify,
+                        retry_count,
                     } =&gt; {
-                        <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>().<span class="ident">get_record</span>(
-                            <span class="ident">key</span>,
-                            <span class="ident">notify</span>,
-                            <span class="ident">NonZeroUsize::new</span>(<span class="ident">NUM_REPLICATED_TO_TRUST</span>).<span class="ident">unwrap</span>(),
-                            <span class="ident">retry_count</span>,
+                        <span class="self">self</span>.swarm.behaviour_mut().get_record(
+                            key,
+                            notify,
+                            NonZeroUsize::new(NUM_REPLICATED_TO_TRUST).unwrap(),
+                            retry_count,
                         );
                     }
-                    <span class="ident">IgnorePeers</span>(<span class="ident">_peers</span>) =&gt; {
-                        <span class="comment">// NOTE used by test with conductor only</span>
-                    }
-                    <span class="ident">Shutdown</span> =&gt; {
+                    IgnorePeers(_peers) =&gt; {
+                        <span class="comment">// NOTE used by test with conductor only
+                    </span>}
+                    Shutdown =&gt; {
                         <span class="macro">warn!</span>(<span class="string">&quot;Libp2p listener shutting down&quot;</span>);
-                        <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
                     }
-                    <span class="ident">GossipMsg</span>(<span class="ident">topic</span>, <span class="ident">contents</span>) =&gt; {
-                        <span class="ident">behaviour</span>.<span class="ident">publish_gossip</span>(<span class="ident">Topic::new</span>(<span class="ident">topic</span>), <span class="ident">contents</span>);
+                    GossipMsg(topic, contents) =&gt; {
+                        behaviour.publish_gossip(Topic::new(topic), contents);
                     }
-                    <span class="ident">Subscribe</span>(<span class="ident">t</span>, <span class="ident">chan</span>) =&gt; {
-                        <span class="ident">behaviour</span>.<span class="ident">subscribe_gossip</span>(<span class="kw-2">&amp;</span><span class="ident">t</span>);
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">chan</span>) <span class="op">=</span> <span class="ident">chan</span> {
-                            <span class="kw">if</span> <span class="ident">chan</span>.<span class="ident">send</span>(()).<span class="ident">is_err</span>() {
+                    Subscribe(t, chan) =&gt; {
+                        behaviour.subscribe_gossip(<span class="kw-2">&amp;</span>t);
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = chan {
+                            <span class="kw">if </span>chan.send(()).is_err() {
                                 <span class="macro">error!</span>(<span class="string">&quot;finished subscribing but response channel dropped&quot;</span>);
                             }
                         }
                     }
-                    <span class="ident">Unsubscribe</span>(<span class="ident">t</span>, <span class="ident">chan</span>) =&gt; {
-                        <span class="ident">behaviour</span>.<span class="ident">unsubscribe_gossip</span>(<span class="kw-2">&amp;</span><span class="ident">t</span>);
-                        <span class="kw">if</span> <span class="ident">chan</span>.<span class="ident">send</span>(()).<span class="ident">is_err</span>() {
+                    Unsubscribe(t, chan) =&gt; {
+                        behaviour.unsubscribe_gossip(<span class="kw-2">&amp;</span>t);
+                        <span class="kw">if </span>chan.send(()).is_err() {
                             <span class="macro">error!</span>(<span class="string">&quot;finished unsubscribing but response channel dropped&quot;</span>);
                         }
                     }
-                    <span class="ident">DirectRequest</span> {
-                        <span class="ident">pid</span>,
-                        <span class="ident">contents</span>,
-                        <span class="ident">retry_count</span>,
+                    DirectRequest {
+                        pid,
+                        contents,
+                        retry_count,
                     } =&gt; {
-                        <span class="macro">info!</span>(<span class="string">&quot;pid {:?} adding direct request&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>);
-                        <span class="ident">behaviour</span>.<span class="ident">add_direct_request</span>(<span class="ident">pid</span>, <span class="ident">contents</span>, <span class="ident">retry_count</span>);
+                        <span class="macro">info!</span>(<span class="string">&quot;pid {:?} adding direct request&quot;</span>, <span class="self">self</span>.peer_id);
+                        behaviour.add_direct_request(pid, contents, retry_count);
                     }
-                    <span class="ident">DirectResponse</span>(<span class="ident">chan</span>, <span class="ident">msg</span>) =&gt; {
-                        <span class="ident">behaviour</span>.<span class="ident">add_direct_response</span>(<span class="ident">chan</span>, <span class="ident">msg</span>);
+                    DirectResponse(chan, msg) =&gt; {
+                        behaviour.add_direct_response(chan, msg);
                     }
-                    <span class="ident">AddKnownPeers</span>(<span class="ident">peers</span>) =&gt; {
-                        <span class="self">self</span>.<span class="ident">add_known_peers</span>(<span class="kw-2">&amp;</span><span class="ident">peers</span>);
+                    AddKnownPeers(peers) =&gt; {
+                        <span class="self">self</span>.add_known_peers(<span class="kw-2">&amp;</span>peers);
                     }
-                    <span class="ident">Prune</span>(<span class="ident">pid</span>) =&gt; {
-                        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">disconnect_peer_id</span>(<span class="ident">pid</span>).<span class="ident">is_err</span>() {
+                    Prune(pid) =&gt; {
+                        <span class="kw">if </span><span class="self">self</span>.swarm.disconnect_peer_id(pid).is_err() {
                             <span class="macro">error!</span>(
                                 <span class="string">&quot;Peer {:?} could not disconnect from pid {:?}&quot;</span>,
-                                <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">pid</span>
+                                <span class="self">self</span>.peer_id, pid
                             );
                         }
                     }
                 }
             }
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                <span class="macro">error!</span>(<span class="string">&quot;Error receiving msg in main behaviour loop: {:?}&quot;</span>, <span class="ident">e</span>);
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">error!</span>(<span class="string">&quot;Error receiving msg in main behaviour loop: {:?}&quot;</span>, e);
             }
         }
         <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
     }
 
-    <span class="doccomment">/// event handler for events emited from the swarm</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>))]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_swarm_events</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">event</span>: <span class="ident">SwarmEvent</span><span class="op">&lt;</span>
-            <span class="ident">NetworkEventInternal</span>,
-            <span class="ident">EitherError</span><span class="op">&lt;</span>
-                <span class="ident">EitherError</span><span class="op">&lt;</span><span class="ident">EitherError</span><span class="op">&lt;</span><span class="ident">GossipsubHandlerError</span>, <span class="ident">Error</span><span class="op">&gt;</span>, <span class="ident">Error</span><span class="op">&gt;</span>,
-                <span class="ident">ConnectionHandlerUpgrErr</span><span class="op">&lt;</span><span class="ident">Error</span><span class="op">&gt;</span>,
-            <span class="op">&gt;</span>,
-        <span class="op">&gt;</span>,
-        <span class="ident">send_to_client</span>: <span class="kw-2">&amp;</span><span class="ident">UnboundedSender</span><span class="op">&lt;</span><span class="ident">NetworkEvent</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
-        <span class="comment">// Make the match cleaner</span>
-        <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::enum_glob_use</span>)]</span>
-        <span class="kw">use</span> <span class="ident">SwarmEvent</span>::<span class="kw-2">*</span>;
-        <span class="macro">info!</span>(<span class="string">&quot;event observed {:?}&quot;</span>, <span class="ident">event</span>);
+    <span class="doccomment">/// event handler for events emited from the swarm
+    </span><span class="attribute">#[allow(clippy::type_complexity)]
+    #[instrument(skip(<span class="self">self</span>))]
+    </span><span class="kw">async fn </span>handle_swarm_events(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event: SwarmEvent&lt;
+            NetworkEventInternal,
+            EitherError&lt;
+                EitherError&lt;EitherError&lt;GossipsubHandlerError, Error&gt;, Error&gt;,
+                ConnectionHandlerUpgrErr&lt;Error&gt;,
+            &gt;,
+        &gt;,
+        send_to_client: <span class="kw-2">&amp;</span>UnboundedSender&lt;NetworkEvent&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+        <span class="comment">// Make the match cleaner
+        </span><span class="attribute">#[allow(clippy::enum_glob_use)]
+        </span><span class="kw">use </span>SwarmEvent::<span class="kw-2">*</span>;
+        <span class="macro">info!</span>(<span class="string">&quot;event observed {:?}&quot;</span>, event);
 
-        <span class="kw">match</span> <span class="ident">event</span> {
-            <span class="ident">ConnectionEstablished</span> {
-                <span class="ident">peer_id</span>,
-                <span class="ident">endpoint</span>,
-                <span class="ident">num_established</span>,
-                <span class="ident">concurrent_dial_errors</span>,
+        <span class="kw">match </span>event {
+            ConnectionEstablished {
+                peer_id,
+                endpoint,
+                num_established,
+                concurrent_dial_errors,
             } =&gt; {
-                <span class="kw">if</span> <span class="ident">num_established</span> <span class="op">&gt;</span> <span class="ident">ESTABLISHED_LIMIT</span> {
+                <span class="kw">if </span>num_established &gt; ESTABLISHED_LIMIT {
                     <span class="macro">error!</span>(
                         <span class="string">&quot;Num concurrent connections to a single peer exceeding {:?} at {:?}!&quot;</span>,
-                        <span class="ident">ESTABLISHED_LIMIT</span>, <span class="ident">num_established</span>
+                        ESTABLISHED_LIMIT, num_established
                     );
-                } <span class="kw">else</span> {
-                    <span class="macro">info!</span>(<span class="string">&quot;peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">peer_id</span>, <span class="ident">endpoint</span>, <span class="ident">concurrent_dial_errors</span>, <span class="ident">num_established</span>);
+                } <span class="kw">else </span>{
+                    <span class="macro">info!</span>(<span class="string">&quot;peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left&quot;</span>, <span class="self">self</span>.peer_id, peer_id, endpoint, concurrent_dial_errors, num_established);
                 }
             }
-            <span class="ident">ConnectionClosed</span> {
-                <span class="ident">peer_id</span>,
-                <span class="ident">endpoint</span>,
-                <span class="ident">num_established</span>,
-                <span class="ident">cause</span>,
+            ConnectionClosed {
+                peer_id,
+                endpoint,
+                num_established,
+                cause,
             } =&gt; {
-                <span class="kw">if</span> <span class="ident">num_established</span> <span class="op">&gt;</span> <span class="ident">ESTABLISHED_LIMIT_UNWR</span> {
+                <span class="kw">if </span>num_established &gt; ESTABLISHED_LIMIT_UNWR {
                     <span class="macro">error!</span>(
                         <span class="string">&quot;Num concurrent connections to a single peer exceeding {:?} at {:?}!&quot;</span>,
-                        <span class="ident">ESTABLISHED_LIMIT</span>, <span class="ident">num_established</span>
+                        ESTABLISHED_LIMIT, num_established
                     );
-                } <span class="kw">else</span> {
-                    <span class="macro">info!</span>(<span class="string">&quot;peerid {:?} connection is closed to {:?} with endpoint {:?}. {:?} connections left. Cause: {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">peer_id</span>, <span class="ident">endpoint</span>, <span class="ident">num_established</span>, <span class="ident">cause</span>);
+                } <span class="kw">else </span>{
+                    <span class="macro">info!</span>(<span class="string">&quot;peerid {:?} connection is closed to {:?} with endpoint {:?}. {:?} connections left. Cause: {:?}&quot;</span>, <span class="self">self</span>.peer_id, peer_id, endpoint, num_established, cause);
                 }
             }
-            <span class="ident">Dialing</span>(<span class="ident">p</span>) =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;{:?} is dialing {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">p</span>);
+            Dialing(p) =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;{:?} is dialing {:?}&quot;</span>, <span class="self">self</span>.peer_id, p);
             }
-            <span class="ident">BannedPeer</span> {
-                <span class="ident">peer_id</span>,
-                <span class="ident">endpoint</span>: <span class="kw">_</span>,
+            BannedPeer {
+                peer_id,
+                endpoint: <span class="kw">_</span>,
             } =&gt; {
-                <span class="macro">error!</span>(<span class="string">&quot;Peer {:?} is banning peer {:?}!!&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">peer_id</span>);
+                <span class="macro">error!</span>(<span class="string">&quot;Peer {:?} is banning peer {:?}!!&quot;</span>, <span class="self">self</span>.peer_id, peer_id);
             }
-            <span class="ident">ListenerClosed</span> {
-                <span class="ident">listener_id</span>: <span class="kw">_</span>,
-                <span class="ident">addresses</span>: <span class="kw">_</span>,
-                <span class="ident">reason</span>: <span class="kw">_</span>,
+            ListenerClosed {
+                listener_id: <span class="kw">_</span>,
+                addresses: <span class="kw">_</span>,
+                reason: <span class="kw">_</span>,
             }
-            <span class="op">|</span> <span class="ident">NewListenAddr</span> {
-                <span class="ident">listener_id</span>: <span class="kw">_</span>,
-                <span class="ident">address</span>: <span class="kw">_</span>,
+            | NewListenAddr {
+                listener_id: <span class="kw">_</span>,
+                address: <span class="kw">_</span>,
             }
-            <span class="op">|</span> <span class="ident">ExpiredListenAddr</span> {
-                <span class="ident">listener_id</span>: <span class="kw">_</span>,
-                <span class="ident">address</span>: <span class="kw">_</span>,
+            | ExpiredListenAddr {
+                listener_id: <span class="kw">_</span>,
+                address: <span class="kw">_</span>,
             }
-            <span class="op">|</span> <span class="ident">IncomingConnection</span> {
-                <span class="ident">local_addr</span>: <span class="kw">_</span>,
-                <span class="ident">send_back_addr</span>: <span class="kw">_</span>,
+            | IncomingConnection {
+                local_addr: <span class="kw">_</span>,
+                send_back_addr: <span class="kw">_</span>,
             } =&gt; {}
-            <span class="ident">Behaviour</span>(<span class="ident">b</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">maybe_event</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">b</span> {
-                    <span class="ident">NetworkEventInternal::DHTEvent</span>(<span class="ident">e</span>) =&gt; <span class="kw">match</span> <span class="ident">e</span> {
-                        <span class="ident">DHTEvent::IsBootstrapped</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">NetworkEvent::IsBootstrapped</span>),
+            Behaviour(b) =&gt; {
+                <span class="kw">let </span>maybe_event = <span class="kw">match </span>b {
+                    NetworkEventInternal::DHTEvent(e) =&gt; <span class="kw">match </span>e {
+                        DHTEvent::IsBootstrapped =&gt; <span class="prelude-val">Some</span>(NetworkEvent::IsBootstrapped),
                     },
-                    <span class="ident">NetworkEventInternal::IdentifyEvent</span>(<span class="ident">e</span>) =&gt; {
-                        <span class="comment">// NOTE feed identified peers into kademlia&#39;s routing table for peer discovery.</span>
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">IdentifyEvent::Received</span> {
-                            <span class="ident">peer_id</span>,
-                            <span class="ident">info</span>:
-                                <span class="ident">IdentifyInfo</span> {
-                                    <span class="ident">listen_addrs</span>,
-                                    <span class="ident">protocols</span>: <span class="kw">_</span>,
-                                    <span class="ident">public_key</span>: <span class="kw">_</span>,
-                                    <span class="ident">protocol_version</span>: <span class="kw">_</span>,
-                                    <span class="ident">agent_version</span>: <span class="kw">_</span>,
-                                    <span class="ident">observed_addr</span>,
+                    NetworkEventInternal::IdentifyEvent(e) =&gt; {
+                        <span class="comment">// NOTE feed identified peers into kademlia&#39;s routing table for peer discovery.
+                        </span><span class="kw">if let </span>IdentifyEvent::Received {
+                            peer_id,
+                            info:
+                                IdentifyInfo {
+                                    listen_addrs,
+                                    protocols: <span class="kw">_</span>,
+                                    public_key: <span class="kw">_</span>,
+                                    protocol_version: <span class="kw">_</span>,
+                                    agent_version: <span class="kw">_</span>,
+                                    observed_addr,
                                 },
-                        } <span class="op">=</span> <span class="kw-2">*</span><span class="ident">e</span>
+                        } = <span class="kw-2">*</span>e
                         {
-                            <span class="kw">let</span> <span class="ident">behaviour</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">behaviour_mut</span>();
-                            <span class="comment">// NOTE in practice, we will want to NOT include this. E.g. only DNS/non localhost IPs</span>
-                            <span class="comment">// NOTE I manually checked and peer_id corresponds to listen_addrs.</span>
-                            <span class="comment">// NOTE Once we&#39;ve tested on DNS addresses, this should be swapped out to play nicely</span>
-                            <span class="comment">// with autonat</span>
-                            <span class="macro">info!</span>(
+                            <span class="kw">let </span>behaviour = <span class="self">self</span>.swarm.behaviour_mut();
+                            <span class="comment">// NOTE in practice, we will want to NOT include this. E.g. only DNS/non localhost IPs
+                            // NOTE I manually checked and peer_id corresponds to listen_addrs.
+                            // NOTE Once we&#39;ve tested on DNS addresses, this should be swapped out to play nicely
+                            // with autonat
+                            </span><span class="macro">info!</span>(
                                 <span class="string">&quot;local peer {:?} IDENTIFY ADDRS LISTEN: {:?} for peer {:?}, ADDRS OBSERVED: {:?} &quot;</span>,
-                                <span class="ident">behaviour</span>.<span class="ident">dht</span>.<span class="ident">peer_id</span>, <span class="ident">peer_id</span>, <span class="ident">listen_addrs</span>, <span class="ident">observed_addr</span>
+                                behaviour.dht.peer_id, peer_id, listen_addrs, observed_addr
                                 );
-                            <span class="comment">// into hashset to delete duplicates (I checked: there are duplicates)</span>
-                            <span class="kw">for</span> <span class="ident">addr</span> <span class="kw">in</span> <span class="ident">listen_addrs</span>.<span class="ident">iter</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">HashSet</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>() {
-                                <span class="ident">behaviour</span>.<span class="ident">dht</span>.<span class="ident">add_address</span>(<span class="kw-2">&amp;</span><span class="ident">peer_id</span>, <span class="ident">addr</span>.<span class="ident">clone</span>());
+                            <span class="comment">// into hashset to delete duplicates (I checked: there are duplicates)
+                            </span><span class="kw">for </span>addr <span class="kw">in </span>listen_addrs.iter().collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;() {
+                                behaviour.dht.add_address(<span class="kw-2">&amp;</span>peer_id, addr.clone());
                             }
                         }
-                        <span class="prelude-val">None</span>
-                    }
-                    <span class="ident">NetworkEventInternal::GossipEvent</span>(<span class="ident">e</span>) =&gt; <span class="kw">match</span> <span class="ident">e</span> {
-                        <span class="ident">GossipEvent::GossipMsg</span>(<span class="ident">data</span>, <span class="ident">topic</span>) =&gt; {
-                            <span class="prelude-val">Some</span>(<span class="ident">NetworkEvent::GossipMsg</span>(<span class="ident">data</span>, <span class="ident">topic</span>))
+                        <span class="prelude-val">None
+                    </span>}
+                    NetworkEventInternal::GossipEvent(e) =&gt; <span class="kw">match </span>e {
+                        GossipEvent::GossipMsg(data, topic) =&gt; {
+                            <span class="prelude-val">Some</span>(NetworkEvent::GossipMsg(data, topic))
                         }
                     },
-                    <span class="ident">NetworkEventInternal::DMEvent</span>(<span class="ident">e</span>) =&gt; <span class="prelude-val">Some</span>(<span class="kw">match</span> <span class="ident">e</span> {
-                        <span class="ident">DMEvent::DirectRequest</span>(<span class="ident">data</span>, <span class="ident">pid</span>, <span class="ident">chan</span>) =&gt; {
-                            <span class="ident">NetworkEvent::DirectRequest</span>(<span class="ident">data</span>, <span class="ident">pid</span>, <span class="ident">chan</span>)
+                    NetworkEventInternal::DMEvent(e) =&gt; <span class="prelude-val">Some</span>(<span class="kw">match </span>e {
+                        DMEvent::DirectRequest(data, pid, chan) =&gt; {
+                            NetworkEvent::DirectRequest(data, pid, chan)
                         }
-                        <span class="ident">DMEvent::DirectResponse</span>(<span class="ident">data</span>, <span class="ident">pid</span>) =&gt; {
-                            <span class="ident">NetworkEvent::DirectResponse</span>(<span class="ident">data</span>, <span class="ident">pid</span>)
+                        DMEvent::DirectResponse(data, pid) =&gt; {
+                            NetworkEvent::DirectResponse(data, pid)
                         }
                     }),
                 };
 
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">event</span>) <span class="op">=</span> <span class="ident">maybe_event</span> {
-                    <span class="comment">// forward messages directly to Client</span>
-                    <span class="ident">send_to_client</span>
-                        .<span class="ident">send</span>(<span class="ident">event</span>)
-                        .<span class="kw">await</span>
-                        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">_e</span><span class="op">|</span> <span class="ident">NetworkError::StreamClosed</span>)<span class="question-mark">?</span>;
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(event) = maybe_event {
+                    <span class="comment">// forward messages directly to Client
+                    </span>send_to_client
+                        .send(event)
+                        .<span class="kw">await
+                        </span>.map_err(|_e| NetworkError::StreamClosed)<span class="question-mark">?</span>;
                 }
             }
-            <span class="ident">OutgoingConnectionError</span> { <span class="ident">peer_id</span>: <span class="kw">_</span>, <span class="ident">error</span> } =&gt; {
-                <span class="macro">info!</span>(<span class="question-mark">?</span><span class="ident">error</span>, <span class="string">&quot;OUTGOING CONNECTION ERROR, {:?}&quot;</span>, <span class="ident">error</span>);
+            OutgoingConnectionError { peer_id: <span class="kw">_</span>, error } =&gt; {
+                <span class="macro">info!</span>(<span class="question-mark">?</span>error, <span class="string">&quot;OUTGOING CONNECTION ERROR, {:?}&quot;</span>, error);
             }
-            <span class="ident">IncomingConnectionError</span> {
-                <span class="ident">local_addr</span>,
-                <span class="ident">send_back_addr</span>,
-                <span class="ident">error</span>,
+            IncomingConnectionError {
+                local_addr,
+                send_back_addr,
+                error,
             } =&gt; {
                 <span class="macro">info!</span>(
                     <span class="string">&quot;INCOMING CONNECTION ERROR: {:?} {:?} {:?}&quot;</span>,
-                    <span class="ident">local_addr</span>, <span class="ident">send_back_addr</span>, <span class="ident">error</span>
+                    local_addr, send_back_addr, error
                 );
             }
-            <span class="ident">ListenerError</span> { <span class="ident">listener_id</span>, <span class="ident">error</span> } =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;LISTENER ERROR {:?} {:?}&quot;</span>, <span class="ident">listener_id</span>, <span class="ident">error</span>);
+            ListenerError { listener_id, error } =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;LISTENER ERROR {:?} {:?}&quot;</span>, listener_id, error);
             }
         }
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Spawn a task to listen for requests on the returned channel</span>
-    <span class="doccomment">/// as well as any events produced by libp2p</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::panic</span>)]</span>
-    <span class="attribute">#[<span class="ident">instrument</span>]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">spawn_listeners</span>(
-        <span class="kw-2">mut</span> <span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>
+    <span class="doccomment">/// Spawn a task to listen for requests on the returned channel
+    /// as well as any events produced by libp2p
+    </span><span class="attribute">#[allow(clippy::panic)]
+    #[instrument]
+    </span><span class="kw">pub async fn </span>spawn_listeners(
+        <span class="kw-2">mut </span><span class="self">self</span>,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
-            <span class="ident">UnboundedSender</span><span class="op">&lt;</span><span class="ident">ClientRequest</span><span class="op">&gt;</span>,
-            <span class="ident">UnboundedReceiver</span><span class="op">&lt;</span><span class="ident">NetworkEvent</span><span class="op">&gt;</span>,
+            UnboundedSender&lt;ClientRequest&gt;,
+            UnboundedReceiver&lt;NetworkEvent&gt;,
         ),
-        <span class="ident">NetworkError</span>,
-    <span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">s_input</span>, <span class="ident">s_output</span>) <span class="op">=</span> <span class="ident">unbounded</span>::<span class="op">&lt;</span><span class="ident">ClientRequest</span><span class="op">&gt;</span>();
-        <span class="kw">let</span> (<span class="ident">r_input</span>, <span class="ident">r_output</span>) <span class="op">=</span> <span class="ident">unbounded</span>::<span class="op">&lt;</span><span class="ident">NetworkEvent</span><span class="op">&gt;</span>();
+        NetworkError,
+    &gt; {
+        <span class="kw">let </span>(s_input, s_output) = unbounded::&lt;ClientRequest&gt;();
+        <span class="kw">let </span>(r_input, r_output) = unbounded::&lt;NetworkEvent&gt;();
 
-        <span class="ident">async_spawn</span>(
-            <span class="kw">async</span> <span class="kw">move</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fuse</span> <span class="op">=</span> <span class="ident">s_output</span>.<span class="ident">recv</span>().<span class="ident">boxed</span>().<span class="ident">fuse</span>();
-                <span class="kw">loop</span> {
-                    <span class="macro">select!</span> {
-                        <span class="ident">event</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">swarm</span>.<span class="ident">next</span>() =&gt; {
-                            <span class="macro">debug!</span>(<span class="string">&quot;peerid {:?}\t\thandling maybe event {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">event</span>);
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">event</span>) <span class="op">=</span> <span class="ident">event</span> {
-                                <span class="macro">info!</span>(<span class="string">&quot;peerid {:?}\t\thandling event {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">event</span>);
-                                <span class="self">self</span>.<span class="ident">handle_swarm_events</span>(<span class="ident">event</span>, <span class="kw-2">&amp;</span><span class="ident">r_input</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        async_spawn(
+            <span class="kw">async move </span>{
+                <span class="kw">let </span><span class="kw-2">mut </span>fuse = s_output.recv().boxed().fuse();
+                <span class="kw">loop </span>{
+                    <span class="macro">select! </span>{
+                        event = <span class="self">self</span>.swarm.next() =&gt; {
+                            <span class="macro">debug!</span>(<span class="string">&quot;peerid {:?}\t\thandling maybe event {:?}&quot;</span>, <span class="self">self</span>.peer_id, event);
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(event) = event {
+                                <span class="macro">info!</span>(<span class="string">&quot;peerid {:?}\t\thandling event {:?}&quot;</span>, <span class="self">self</span>.peer_id, event);
+                                <span class="self">self</span>.handle_swarm_events(event, <span class="kw-2">&amp;</span>r_input).<span class="kw">await</span><span class="question-mark">?</span>;
                             }
                         },
-                        <span class="ident">msg</span> <span class="op">=</span> <span class="ident">fuse</span> =&gt; {
-                            <span class="macro">debug!</span>(<span class="string">&quot;peerid {:?}\t\thandling msg {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">msg</span>);
-                            <span class="kw">let</span> <span class="ident">shutdown</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">handle_client_requests</span>(<span class="ident">msg</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-                            <span class="kw">if</span> <span class="ident">shutdown</span> {
-                                <span class="kw">break</span>
-                            }
-                            <span class="ident">fuse</span> <span class="op">=</span> <span class="ident">s_output</span>.<span class="ident">recv</span>().<span class="ident">boxed</span>().<span class="ident">fuse</span>();
+                        msg = fuse =&gt; {
+                            <span class="macro">debug!</span>(<span class="string">&quot;peerid {:?}\t\thandling msg {:?}&quot;</span>, <span class="self">self</span>.peer_id, msg);
+                            <span class="kw">let </span>shutdown = <span class="self">self</span>.handle_client_requests(msg).<span class="kw">await</span><span class="question-mark">?</span>;
+                            <span class="kw">if </span>shutdown {
+                                <span class="kw">break
+                            </span>}
+                            fuse = s_output.recv().boxed().fuse();
                         }
                     }
                 }
-                <span class="prelude-val">Ok</span>::<span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span>(())
+                <span class="prelude-val">Ok</span>::&lt;(), NetworkError&gt;(())
             }
-            .<span class="ident">instrument</span>(<span class="macro">info_span!</span>(<span class="string">&quot;Libp2p NetworkBehaviour Handler&quot;</span>)),
+            .instrument(<span class="macro">info_span!</span>(<span class="string">&quot;Libp2p NetworkBehaviour Handler&quot;</span>)),
         );
-        <span class="prelude-val">Ok</span>((<span class="ident">s_input</span>, <span class="ident">r_output</span>))
+        <span class="prelude-val">Ok</span>((s_input, r_output))
     }
 
-    <span class="doccomment">/// Get a reference to the network node&#39;s peer id.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">peer_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">PeerId</span> {
-        <span class="self">self</span>.<span class="ident">peer_id</span>
+    <span class="doccomment">/// Get a reference to the network node&#39;s peer id.
+    </span><span class="kw">pub fn </span>peer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PeerId {
+        <span class="self">self</span>.peer_id
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/traits/election/static_committee.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>static_committee.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../hotshot/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/traits/election/static_committee.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>static_committee.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../hotshot/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -126,133 +126,133 @@
 <span id="126">126</span>
 <span id="127">127</span>
 <span id="128">128</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">hotshot_types</span>::{
-    <span class="ident">data::ViewNumber</span>,
-    <span class="ident">traits</span>::{
-        <span class="ident">election</span>::{<span class="ident">Checked</span>, <span class="ident">Election</span>, <span class="ident">ElectionConfig</span>, <span class="ident">ElectionError</span>, <span class="ident">VoteToken</span>},
-        <span class="ident">signature_key</span>::{
-            <span class="ident">ed25519</span>::{<span class="ident">Ed25519Priv</span>, <span class="ident">Ed25519Pub</span>},
-            <span class="ident">EncodedSignature</span>, <span class="ident">SignatureKey</span>,
+</pre><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
+    data::ViewNumber,
+    traits::{
+        election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
+        signature_key::{
+            ed25519::{Ed25519Priv, Ed25519Pub},
+            EncodedSignature, SignatureKey,
         },
-        <span class="ident">state::ConsensusTime</span>,
-        <span class="ident">State</span>,
+        state::ConsensusTime,
+        State,
     },
 };
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">std::marker::PhantomData</span>;
-<span class="kw">use</span> <span class="ident">std::num::NonZeroU64</span>;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::marker::PhantomData;
+<span class="kw">use </span>std::num::NonZeroU64;
 
-<span class="doccomment">/// Dummy implementation of [`Election`]</span>
+<span class="doccomment">/// Dummy implementation of [`Election`]
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StaticCommittee</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// The nodes participating</span>
-    <span class="ident">nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// State phantom</span>
-    <span class="ident">_state_phantom</span>: <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>,
+</span><span class="attribute">#[derive(Clone, Debug)]
+</span><span class="kw">pub struct </span>StaticCommittee&lt;S&gt; {
+    <span class="doccomment">/// The nodes participating
+    </span>nodes: Vec&lt;Ed25519Pub&gt;,
+    <span class="doccomment">/// State phantom
+    </span>_state_phantom: PhantomData&lt;S&gt;,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> <span class="ident">StaticCommittee</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Creates a new dummy elector</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">nodes</span>,
-            <span class="ident">_state_phantom</span>: <span class="ident">PhantomData</span>,
+<span class="kw">impl</span>&lt;S&gt; StaticCommittee&lt;S&gt; {
+    <span class="doccomment">/// Creates a new dummy elector
+    </span><span class="kw">pub fn </span>new(nodes: Vec&lt;Ed25519Pub&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            nodes,
+            _state_phantom: PhantomData,
         }
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
-<span class="doccomment">/// TODO ed - docs</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StaticVoteToken</span> {
-    <span class="doccomment">/// signature</span>
-    <span class="ident">signature</span>: <span class="ident">EncodedSignature</span>,
-    <span class="doccomment">/// public key</span>
-    <span class="ident">pub_key</span>: <span class="ident">Ed25519Pub</span>,
+<span class="attribute">#[derive(Serialize, Deserialize, Clone, Debug)]
+</span><span class="doccomment">/// TODO ed - docs
+</span><span class="kw">pub struct </span>StaticVoteToken {
+    <span class="doccomment">/// signature
+    </span>signature: EncodedSignature,
+    <span class="doccomment">/// public key
+    </span>pub_key: Ed25519Pub,
 }
 
-<span class="kw">impl</span> <span class="ident">VoteToken</span> <span class="kw">for</span> <span class="ident">StaticVoteToken</span> {
-    <span class="kw">fn</span> <span class="ident">vote_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonZeroU64</span> {
-        <span class="ident">NonZeroU64::new</span>(<span class="number">1</span>).<span class="ident">unwrap</span>()
+<span class="kw">impl </span>VoteToken <span class="kw">for </span>StaticVoteToken {
+    <span class="kw">fn </span>vote_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
+        NonZeroU64::new(<span class="number">1</span>).unwrap()
     }
 }
 
-<span class="doccomment">/// configuration for static committee. stub for now</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>, <span class="ident">Clone</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">core::fmt::Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StaticElectionConfig</span> {}
+<span class="doccomment">/// configuration for static committee. stub for now
+</span><span class="attribute">#[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
+</span><span class="kw">pub struct </span>StaticElectionConfig {}
 
-<span class="kw">impl</span> <span class="ident">ElectionConfig</span> <span class="kw">for</span> <span class="ident">StaticElectionConfig</span> {}
+<span class="kw">impl </span>ElectionConfig <span class="kw">for </span>StaticElectionConfig {}
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">S</span>, <span class="ident">T</span><span class="op">&gt;</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span>, <span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">StaticCommittee</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>
-<span class="kw">where</span>
-    <span class="ident">S</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">State</span>,
-    <span class="ident">T</span>: <span class="ident">ConsensusTime</span>,
+<span class="kw">impl</span>&lt;S, T&gt; Election&lt;Ed25519Pub, T&gt; <span class="kw">for </span>StaticCommittee&lt;S&gt;
+<span class="kw">where
+    </span>S: Send + Sync + State,
+    T: ConsensusTime,
 {
-    <span class="doccomment">/// Just use the vector of public keys for the stake table</span>
-    <span class="kw">type</span> <span class="ident">StakeTable</span> <span class="op">=</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span>;
-    <span class="kw">type</span> <span class="ident">StateType</span> <span class="op">=</span> <span class="ident">S</span>;
-    <span class="kw">type</span> <span class="ident">VoteTokenType</span> <span class="op">=</span> <span class="ident">StaticVoteToken</span>;
+    <span class="doccomment">/// Just use the vector of public keys for the stake table
+    </span><span class="kw">type </span>StakeTable = Vec&lt;Ed25519Pub&gt;;
+    <span class="kw">type </span>StateType = S;
+    <span class="kw">type </span>VoteTokenType = StaticVoteToken;
 
-    <span class="kw">type</span> <span class="ident">ElectionConfigType</span> <span class="op">=</span> <span class="ident">StaticElectionConfig</span>;
+    <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
 
-    <span class="doccomment">/// Clone the static table</span>
-    <span class="kw">fn</span> <span class="ident">get_stake_table</span>(
+    <span class="doccomment">/// Clone the static table
+    </span><span class="kw">fn </span>get_stake_table(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">_view_number</span>: <span class="ident">ViewNumber</span>,
-        <span class="ident">_state</span>: <span class="kw-2">&amp;</span><span class="ident"><span class="self">Self</span>::StateType</span>,
-    ) -&gt; <span class="ident"><span class="self">Self</span>::StakeTable</span> {
-        <span class="self">self</span>.<span class="ident">nodes</span>.<span class="ident">clone</span>()
+        _view_number: ViewNumber,
+        _state: <span class="kw-2">&amp;</span><span class="self">Self</span>::StateType,
+    ) -&gt; <span class="self">Self</span>::StakeTable {
+        <span class="self">self</span>.nodes.clone()
     }
-    <span class="doccomment">/// Index the vector of public keys with the current view number</span>
-    <span class="kw">fn</span> <span class="ident">get_leader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="ident">Ed25519Pub</span> {
-        <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">view_number</span> <span class="op">%</span> <span class="self">self</span>.<span class="ident">nodes</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>) <span class="kw">as</span> <span class="ident">usize</span>;
-        <span class="self">self</span>.<span class="ident">nodes</span>[<span class="ident">index</span>]
+    <span class="doccomment">/// Index the vector of public keys with the current view number
+    </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: ViewNumber) -&gt; Ed25519Pub {
+        <span class="kw">let </span>index = (<span class="kw-2">*</span>view_number % <span class="self">self</span>.nodes.len() <span class="kw">as </span>u64) <span class="kw">as </span>usize;
+        <span class="self">self</span>.nodes[index]
     }
 
-    <span class="doccomment">/// Simply make the partial signature</span>
-    <span class="kw">fn</span> <span class="ident">make_vote_token</span>(
+    <span class="doccomment">/// Simply make the partial signature
+    </span><span class="kw">fn </span>make_vote_token(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
-        <span class="ident">private_key</span>: <span class="kw-2">&amp;</span><span class="ident">Ed25519Priv</span>,
-    ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="ident">std::option::Option</span><span class="op">&lt;</span><span class="ident">StaticVoteToken</span><span class="op">&gt;</span>, <span class="ident">ElectionError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">message</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-        <span class="ident">message</span>.<span class="ident">extend</span>(<span class="kw-2">&amp;</span><span class="ident">view_number</span>.<span class="ident">to_le_bytes</span>());
-        <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">Ed25519Pub::sign</span>(<span class="ident">private_key</span>, <span class="kw-2">&amp;</span><span class="ident">message</span>);
-        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="ident">StaticVoteToken</span> {
-            <span class="ident">signature</span>,
-            <span class="ident">pub_key</span>: <span class="ident">Ed25519Pub::from_private</span>(<span class="ident">private_key</span>),
+        view_number: ViewNumber,
+        private_key: <span class="kw-2">&amp;</span>Ed25519Priv,
+    ) -&gt; std::result::Result&lt;std::option::Option&lt;StaticVoteToken&gt;, ElectionError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>message: Vec&lt;u8&gt; = <span class="macro">vec!</span>[];
+        message.extend(<span class="kw-2">&amp;</span>view_number.to_le_bytes());
+        <span class="kw">let </span>signature = Ed25519Pub::sign(private_key, <span class="kw-2">&amp;</span>message);
+        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(StaticVoteToken {
+            signature,
+            pub_key: Ed25519Pub::from_private(private_key),
         }))
     }
 
-    <span class="kw">fn</span> <span class="ident">validate_vote_token</span>(
+    <span class="kw">fn </span>validate_vote_token(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">_view_number</span>: <span class="ident">ViewNumber</span>,
-        <span class="ident">_pub_key</span>: <span class="ident">Ed25519Pub</span>,
-        <span class="ident">token</span>: <span class="ident">Checked</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::VoteTokenType</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>
-        <span class="ident">hotshot_types::traits::election::Checked</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::VoteTokenType</span><span class="op">&gt;</span>,
-        <span class="ident">hotshot_types::traits::election::ElectionError</span>,
-    <span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">token</span> {
-            <span class="ident">Checked::Valid</span>(<span class="ident">t</span>) <span class="op">|</span> <span class="ident">Checked::Unchecked</span>(<span class="ident">t</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Checked::Valid</span>(<span class="ident">t</span>)),
-            <span class="ident">Checked::Inval</span>(<span class="ident">t</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Checked::Inval</span>(<span class="ident">t</span>)),
+        _view_number: ViewNumber,
+        _pub_key: Ed25519Pub,
+        token: Checked&lt;<span class="self">Self</span>::VoteTokenType&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;
+        hotshot_types::traits::election::Checked&lt;<span class="self">Self</span>::VoteTokenType&gt;,
+        hotshot_types::traits::election::ElectionError,
+    &gt; {
+        <span class="kw">match </span>token {
+            Checked::Valid(t) | Checked::Unchecked(t) =&gt; <span class="prelude-val">Ok</span>(Checked::Valid(t)),
+            Checked::Inval(t) =&gt; <span class="prelude-val">Ok</span>(Checked::Inval(t)),
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">default_election_config</span>(<span class="ident">_num_nodes</span>: <span class="ident">u64</span>) -&gt; <span class="ident"><span class="self">Self</span>::ElectionConfigType</span> {
-        <span class="ident">StaticElectionConfig</span> {}
+    <span class="kw">fn </span>default_election_config(_num_nodes: u64) -&gt; <span class="self">Self</span>::ElectionConfigType {
+        StaticElectionConfig {}
     }
 
-    <span class="kw">fn</span> <span class="ident">create_election</span>(<span class="ident">keys</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span>, <span class="ident">_config</span>: <span class="ident"><span class="self">Self</span>::ElectionConfigType</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">nodes</span>: <span class="ident">keys</span>,
-            <span class="ident">_state_phantom</span>: <span class="ident">PhantomData</span>,
+    <span class="kw">fn </span>create_election(keys: Vec&lt;Ed25519Pub&gt;, _config: <span class="self">Self</span>::ElectionConfigType) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            nodes: keys,
+            _state_phantom: PhantomData,
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">get_threshold</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonZeroU64</span> {
-        <span class="ident">NonZeroU64::new</span>(((<span class="self">self</span>.<span class="ident">nodes</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span> <span class="op">*</span> <span class="number">2</span>) <span class="op">/</span> <span class="number">3</span>) <span class="op">+</span> <span class="number">1</span>).<span class="ident">unwrap</span>()
+    <span class="kw">fn </span>get_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
+        NonZeroU64::new(((<span class="self">self</span>.nodes.len() <span class="kw">as </span>u64 * <span class="number">2</span>) / <span class="number">3</span>) + <span class="number">1</span>).unwrap()
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

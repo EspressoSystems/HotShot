@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/src/network/behaviours/dht.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>dht.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../libp2p_networking/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/src/network/behaviours/dht.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>dht.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../libp2p_networking/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -715,722 +715,734 @@
 <span id="715">715</span>
 <span id="716">716</span>
 <span id="717">717</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>, <span class="ident">VecDeque</span>},
-    <span class="ident">num::NonZeroUsize</span>,
-    <span class="ident">task::Poll</span>,
-    <span class="ident">time::Duration</span>,
+<span id="718">718</span>
+<span id="719">719</span>
+<span id="720">720</span>
+<span id="721">721</span>
+<span id="722">722</span>
+<span id="723">723</span>
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::{HashMap, HashSet, VecDeque},
+    num::NonZeroUsize,
+    task::Poll,
+    time::Duration,
 };
 
-<span class="kw">use</span> <span class="ident">futures::channel::oneshot::Sender</span>;
-<span class="kw">use</span> <span class="ident">libp2p</span>::{
-    <span class="ident">core::transport::ListenerId</span>,
-    <span class="ident">kad</span>::{
-        <span class="ident">store::MemoryStore</span>, <span class="ident">BootstrapError</span>, <span class="ident">BootstrapOk</span>, <span class="ident">GetClosestPeersOk</span>, <span class="ident">GetRecordOk</span>,
-        <span class="ident">GetRecordResult</span>, <span class="ident">Kademlia</span>, <span class="ident">KademliaEvent</span>, <span class="ident">PutRecordResult</span>, <span class="ident">QueryId</span>, <span class="ident">QueryResult</span>, <span class="ident">Quorum</span>,
-        <span class="ident">Record</span>,
+<span class="kw">use </span>futures::channel::oneshot::Sender;
+<span class="kw">use </span>libp2p::{
+    core::transport::ListenerId,
+    kad::{
+        store::MemoryStore, BootstrapError, BootstrapOk, GetClosestPeersOk, GetRecordOk,
+        GetRecordResult, Kademlia, KademliaEvent, PutRecordResult, QueryId, QueryResult, Quorum,
+        Record,
     },
-    <span class="ident">swarm</span>::{<span class="ident">NetworkBehaviour</span>, <span class="ident">NetworkBehaviourAction</span>},
-    <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>,
+    swarm::{NetworkBehaviour, NetworkBehaviourAction},
+    Multiaddr, PeerId,
 };
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">warn</span>};
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const</span> <span class="ident">NUM_REPLICATED_TO_TRUST</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">2</span>;
-<span class="kw">const</span> <span class="ident">MAX_DHT_QUERY_SIZE</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">5</span>;
+<span class="kw">use </span>tracing::{error, info, warn};
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>NUM_REPLICATED_TO_TRUST: usize = <span class="number">2</span>;
+<span class="kw">const </span>MAX_DHT_QUERY_SIZE: usize = <span class="number">5</span>;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::exponential_backoff::ExponentialBackoff</span>;
+<span class="kw">use </span><span class="kw">super</span>::exponential_backoff::ExponentialBackoff;
 
-<span class="doccomment">/// Behaviour wrapping libp2p&#39;s kademlia</span>
-<span class="doccomment">/// included:</span>
-<span class="doccomment">/// - publishing API</span>
-<span class="doccomment">/// - Request API</span>
-<span class="doccomment">/// - bootstrapping into the network</span>
-<span class="doccomment">/// - peer discovery</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DHTBehaviour</span> {
-    <span class="doccomment">/// client approval to begin bootstrap</span>
-    <span class="kw">pub</span> <span class="ident">begin_bootstrap</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// in progress queries for nearby peers</span>
-    <span class="kw">pub</span> <span class="ident">in_progress_get_closest_peers</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">QueryId</span>, <span class="ident">Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// bootstrap nodes</span>
-    <span class="kw">pub</span> <span class="ident">bootstrap_nodes</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">PeerId</span>, <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">Multiaddr</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// List of kademlia events</span>
-    <span class="kw">pub</span> <span class="ident">event_queue</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">DHTEvent</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// List of in-progress get requests</span>
-    <span class="ident">in_progress_get_record_queries</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">QueryId</span>, <span class="ident">KadGetQuery</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// List of in-progress put requests</span>
-    <span class="ident">in_progress_put_record_queries</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">QueryId</span>, <span class="ident">KadPutQuery</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// List of previously failled get requests</span>
-    <span class="ident">queued_get_record_queries</span>: <span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">KadGetQuery</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// List of previously failled put requests</span>
-    <span class="ident">queued_put_record_queries</span>: <span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">KadPutQuery</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Kademlia behaviour</span>
-    <span class="kw">pub</span> <span class="ident">kadem</span>: <span class="ident">Kademlia</span><span class="op">&lt;</span><span class="ident">MemoryStore</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// State of bootstrapping</span>
-    <span class="kw">pub</span> <span class="ident">bootstrap_state</span>: <span class="ident">Bootstrap</span>,
-    <span class="doccomment">/// State of last random walk</span>
-    <span class="kw">pub</span> <span class="ident">random_walk</span>: <span class="ident">RandomWalk</span>,
-    <span class="doccomment">/// the peer id (useful only for debugging right now)</span>
-    <span class="kw">pub</span> <span class="ident">peer_id</span>: <span class="ident">PeerId</span>,
-    <span class="doccomment">/// replication factor</span>
-    <span class="kw">pub</span> <span class="ident">replication_factor</span>: <span class="ident">NonZeroUsize</span>,
+<span class="doccomment">/// Behaviour wrapping libp2p&#39;s kademlia
+/// included:
+/// - publishing API
+/// - Request API
+/// - bootstrapping into the network
+/// - peer discovery
+</span><span class="kw">pub struct </span>DHTBehaviour {
+    <span class="doccomment">/// client approval to begin bootstrap
+    </span><span class="kw">pub </span>begin_bootstrap: bool,
+    <span class="doccomment">/// in progress queries for nearby peers
+    </span><span class="kw">pub </span>in_progress_get_closest_peers: HashMap&lt;QueryId, Sender&lt;()&gt;&gt;,
+    <span class="doccomment">/// bootstrap nodes
+    </span><span class="kw">pub </span>bootstrap_nodes: HashMap&lt;PeerId, HashSet&lt;Multiaddr&gt;&gt;,
+    <span class="doccomment">/// List of kademlia events
+    </span><span class="kw">pub </span>event_queue: Vec&lt;DHTEvent&gt;,
+    <span class="doccomment">/// List of in-progress get requests
+    </span>in_progress_get_record_queries: HashMap&lt;QueryId, KadGetQuery&gt;,
+    <span class="doccomment">/// List of in-progress put requests
+    </span>in_progress_put_record_queries: HashMap&lt;QueryId, KadPutQuery&gt;,
+    <span class="doccomment">/// List of previously failled get requests
+    </span>queued_get_record_queries: VecDeque&lt;KadGetQuery&gt;,
+    <span class="doccomment">/// List of previously failled put requests
+    </span>queued_put_record_queries: VecDeque&lt;KadPutQuery&gt;,
+    <span class="doccomment">/// Kademlia behaviour
+    </span><span class="kw">pub </span>kadem: Kademlia&lt;MemoryStore&gt;,
+    <span class="doccomment">/// State of bootstrapping
+    </span><span class="kw">pub </span>bootstrap_state: Bootstrap,
+    <span class="doccomment">/// State of last random walk
+    </span><span class="kw">pub </span>random_walk: RandomWalk,
+    <span class="doccomment">/// the peer id (useful only for debugging right now)
+    </span><span class="kw">pub </span>peer_id: PeerId,
+    <span class="doccomment">/// replication factor
+    </span><span class="kw">pub </span>replication_factor: NonZeroUsize,
 }
 
-<span class="doccomment">/// State of bootstrapping</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Bootstrap</span> {
-    <span class="doccomment">/// State of bootstrap</span>
-    <span class="kw">pub</span> <span class="ident">state</span>: <span class="ident">State</span>,
-    <span class="doccomment">/// Retry timeout</span>
-    <span class="kw">pub</span> <span class="ident">backoff</span>: <span class="ident">ExponentialBackoff</span>,
+<span class="doccomment">/// State of bootstrapping
+</span><span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>Bootstrap {
+    <span class="doccomment">/// State of bootstrap
+    </span><span class="kw">pub </span>state: State,
+    <span class="doccomment">/// Retry timeout
+    </span><span class="kw">pub </span>backoff: ExponentialBackoff,
 }
 
-<span class="doccomment">/// State of the periodic random walk</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RandomWalk</span> {
-    <span class="doccomment">/// State of random walk</span>
-    <span class="ident">state</span>: <span class="ident">State</span>,
-    <span class="doccomment">/// Retry timeout</span>
-    <span class="ident">backoff</span>: <span class="ident">ExponentialBackoff</span>,
+<span class="doccomment">/// State of the periodic random walk
+</span><span class="kw">pub struct </span>RandomWalk {
+    <span class="doccomment">/// State of random walk
+    </span>state: State,
+    <span class="doccomment">/// Retry timeout
+    </span>backoff: ExponentialBackoff,
 }
 
-<span class="doccomment">/// State used for random walk and bootstrapping</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">State</span> {
-    <span class="doccomment">/// Not in progress</span>
-    <span class="ident">NotStarted</span>,
-    <span class="doccomment">/// In progress</span>
-    <span class="ident">Started</span>,
-    <span class="doccomment">/// Sucessfully completed</span>
-    <span class="ident">Finished</span>,
+<span class="doccomment">/// State used for random walk and bootstrapping
+</span><span class="attribute">#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+</span><span class="kw">pub enum </span>State {
+    <span class="doccomment">/// Not in progress
+    </span>NotStarted,
+    <span class="doccomment">/// In progress
+    </span>Started,
+    <span class="doccomment">/// Sucessfully completed
+    </span>Finished,
 }
 
-<span class="doccomment">/// DHT event enum</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">DHTEvent</span> {
-    <span class="doccomment">/// Only event tracked currently is when we successfully bootstrap into the network</span>
-    <span class="ident">IsBootstrapped</span>,
+<span class="doccomment">/// DHT event enum
+</span><span class="attribute">#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+</span><span class="kw">pub enum </span>DHTEvent {
+    <span class="doccomment">/// Only event tracked currently is when we successfully bootstrap into the network
+    </span>IsBootstrapped,
 }
 
-<span class="kw">impl</span> <span class="ident">DHTBehaviour</span> {
-    <span class="doccomment">/// Begin the bootstrap process</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">begin_bootstrap</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">begin_bootstrap</span> <span class="op">=</span> <span class="bool-val">true</span>;
+<span class="kw">impl </span>DHTBehaviour {
+    <span class="doccomment">/// Begin the bootstrap process
+    </span><span class="kw">pub fn </span>begin_bootstrap(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.begin_bootstrap = <span class="bool-val">true</span>;
     }
 
-    <span class="doccomment">/// Start a query for the closest peers</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">query_closest_peers</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">random_peer</span>: <span class="ident">PeerId</span>) {
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">get_closest_peers</span>(<span class="ident">random_peer</span>);
+    <span class="doccomment">/// Start a query for the closest peers
+    </span><span class="kw">pub fn </span>query_closest_peers(<span class="kw-2">&amp;mut </span><span class="self">self</span>, random_peer: PeerId) {
+        <span class="self">self</span>.kadem.get_closest_peers(random_peer);
     }
 
-    <span class="doccomment">/// Create a new DHT behaviour</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">kadem</span>: <span class="ident">Kademlia</span><span class="op">&lt;</span><span class="ident">MemoryStore</span><span class="op">&gt;</span>,
-        <span class="ident">pid</span>: <span class="ident">PeerId</span>,
-        <span class="ident">replication_factor</span>: <span class="ident">NonZeroUsize</span>,
-    ) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">begin_bootstrap</span>: <span class="bool-val">false</span>,
-            <span class="ident">bootstrap_nodes</span>: <span class="ident">HashMap::default</span>(),
-            <span class="ident">peer_id</span>: <span class="ident">pid</span>,
-            <span class="ident">event_queue</span>: <span class="ident">Vec::default</span>(),
-            <span class="ident">in_progress_get_record_queries</span>: <span class="ident">HashMap::default</span>(),
-            <span class="ident">in_progress_put_record_queries</span>: <span class="ident">HashMap::default</span>(),
-            <span class="ident">queued_get_record_queries</span>: <span class="ident">VecDeque::default</span>(),
-            <span class="ident">queued_put_record_queries</span>: <span class="ident">VecDeque::default</span>(),
-            <span class="ident">kadem</span>,
-            <span class="ident">bootstrap_state</span>: <span class="ident">Bootstrap</span> {
-                <span class="ident">state</span>: <span class="ident">State::NotStarted</span>,
-                <span class="ident">backoff</span>: <span class="ident">ExponentialBackoff::new</span>(<span class="number">2</span>, <span class="ident">Duration::from_secs</span>(<span class="number">1</span>)),
+    <span class="doccomment">/// Create a new DHT behaviour
+    </span><span class="kw">pub fn </span>new(
+        kadem: Kademlia&lt;MemoryStore&gt;,
+        pid: PeerId,
+        replication_factor: NonZeroUsize,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            begin_bootstrap: <span class="bool-val">false</span>,
+            bootstrap_nodes: HashMap::default(),
+            peer_id: pid,
+            event_queue: Vec::default(),
+            in_progress_get_record_queries: HashMap::default(),
+            in_progress_put_record_queries: HashMap::default(),
+            queued_get_record_queries: VecDeque::default(),
+            queued_put_record_queries: VecDeque::default(),
+            kadem,
+            bootstrap_state: Bootstrap {
+                state: State::NotStarted,
+                backoff: ExponentialBackoff::new(<span class="number">2</span>, Duration::from_secs(<span class="number">1</span>)),
             },
-            <span class="ident">random_walk</span>: <span class="ident">RandomWalk</span> {
-                <span class="ident">state</span>: <span class="ident">State::NotStarted</span>,
-                <span class="comment">// TODO jr this may be way too frequent</span>
-                <span class="ident">backoff</span>: <span class="ident">ExponentialBackoff::new</span>(<span class="number">2</span>, <span class="ident">Duration::from_secs</span>(<span class="number">1</span>)),
+            random_walk: RandomWalk {
+                state: State::NotStarted,
+                <span class="comment">// TODO jr this may be way too frequent
+                </span>backoff: ExponentialBackoff::new(<span class="number">2</span>, Duration::from_secs(<span class="number">1</span>)),
             },
-            <span class="ident">in_progress_get_closest_peers</span>: <span class="ident">HashMap::default</span>(),
-            <span class="ident">replication_factor</span>,
+            in_progress_get_closest_peers: HashMap::default(),
+            replication_factor,
         }
     }
 
-    <span class="doccomment">/// query a peer (e.g. obtain its address if it exists)</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lookup_peer</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">peer_id</span>: <span class="ident">PeerId</span>, <span class="ident">chan</span>: <span class="ident">Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>) {
-        <span class="kw">let</span> <span class="ident">qid</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">get_closest_peers</span>(<span class="ident">peer_id</span>);
-        <span class="self">self</span>.<span class="ident">in_progress_get_closest_peers</span>.<span class="ident">insert</span>(<span class="ident">qid</span>, <span class="ident">chan</span>);
+    <span class="doccomment">/// query a peer (e.g. obtain its address if it exists)
+    </span><span class="kw">pub fn </span>lookup_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, chan: Sender&lt;()&gt;) {
+        <span class="kw">let </span>qid = <span class="self">self</span>.kadem.get_closest_peers(peer_id);
+        <span class="self">self</span>.in_progress_get_closest_peers.insert(qid, chan);
     }
 
-    <span class="doccomment">/// print out the routing table to stderr</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">print_routing_table</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">err</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;KBUCKETS: PID: {:?}, &quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>);
-        <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">kbuckets</span>().<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-        <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="ident">v</span> {
-            <span class="kw">for</span> <span class="ident">j</span> <span class="kw">in</span> <span class="ident">i</span>.<span class="ident">iter</span>() {
-                <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="macro">format!</span>(
+    <span class="doccomment">/// print out the routing table to stderr
+    </span><span class="kw">pub fn </span>print_routing_table(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">let </span><span class="kw-2">mut </span>err = <span class="macro">format!</span>(<span class="string">&quot;KBUCKETS: PID: {:?}, &quot;</span>, <span class="self">self</span>.peer_id);
+        <span class="kw">let </span>v = <span class="self">self</span>.kadem.kbuckets().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+        <span class="kw">for </span>i <span class="kw">in </span>v {
+            <span class="kw">for </span>j <span class="kw">in </span>i.iter() {
+                <span class="kw">let </span>s = <span class="macro">format!</span>(
                     <span class="string">&quot;node: key: {:?}, val {:?}, status: {:?}&quot;</span>,
-                    <span class="ident">j</span>.<span class="ident">node</span>.<span class="ident">key</span>, <span class="ident">j</span>.<span class="ident">node</span>.<span class="ident">value</span>, <span class="ident">j</span>.<span class="ident">status</span>
+                    j.node.key, j.node.value, j.status
                 );
-                <span class="ident">err</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">s</span>);
+                err.push_str(<span class="kw-2">&amp;</span>s);
             }
         }
-        <span class="macro">error!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">err</span>);
+        <span class="macro">error!</span>(<span class="string">&quot;{:?}&quot;</span>, err);
     }
 
-    <span class="doccomment">/// Passthru to kademlia</span>
-    <span class="doccomment">/// Associate address with kademlia peer</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_address</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">peer_id</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>, <span class="ident">addr</span>: <span class="ident">Multiaddr</span>) {
-        <span class="comment">// add address to kademlia</span>
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">add_address</span>(<span class="ident">peer_id</span>, <span class="ident">addr</span>);
+    <span class="doccomment">/// Passthru to kademlia
+    /// Associate address with kademlia peer
+    </span><span class="kw">pub fn </span>add_address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId, addr: Multiaddr) {
+        <span class="comment">// add address to kademlia
+        </span><span class="self">self</span>.kadem.add_address(peer_id, addr);
     }
 
-    <span class="doccomment">/// Save in case kademlia forgets about bootstrap nodes</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_bootstrap_nodes</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">nodes</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">PeerId</span>, <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">Multiaddr</span><span class="op">&gt;</span><span class="op">&gt;</span>) {
-        <span class="kw">for</span> (<span class="ident">k</span>, <span class="ident">v</span>) <span class="kw">in</span> <span class="ident">nodes</span> {
-            <span class="self">self</span>.<span class="ident">bootstrap_nodes</span>.<span class="ident">insert</span>(<span class="ident">k</span>, <span class="ident">v</span>);
+    <span class="doccomment">/// Save in case kademlia forgets about bootstrap nodes
+    </span><span class="kw">pub fn </span>add_bootstrap_nodes(<span class="kw-2">&amp;mut </span><span class="self">self</span>, nodes: HashMap&lt;PeerId, HashSet&lt;Multiaddr&gt;&gt;) {
+        <span class="kw">for </span>(k, v) <span class="kw">in </span>nodes {
+            <span class="self">self</span>.bootstrap_nodes.insert(k, v);
         }
     }
 
-    <span class="doccomment">/// Publish a key/value to the kv store.</span>
-    <span class="doccomment">/// Once replicated upon all nodes, the caller is notified over</span>
-    <span class="doccomment">/// `chan`. If there is an error, a [`crate::network::error::DHTError`] is</span>
-    <span class="doccomment">/// sent instead.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">put_record</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">query</span>: <span class="ident">KadPutQuery</span>) {
-        <span class="kw">let</span> <span class="ident">record</span> <span class="op">=</span> <span class="ident">Record::new</span>(<span class="ident">query</span>.<span class="ident">key</span>.<span class="ident">clone</span>(), <span class="ident">query</span>.<span class="ident">value</span>.<span class="ident">clone</span>());
+    <span class="doccomment">/// Publish a key/value to the kv store.
+    /// Once replicated upon all nodes, the caller is notified over
+    /// `chan`. If there is an error, a [`crate::network::error::DHTError`] is
+    /// sent instead.
+    </span><span class="kw">pub fn </span>put_record(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw-2">mut </span>query: KadPutQuery) {
+        <span class="kw">let </span>record = Record::new(query.key.clone(), query.value.clone());
 
-        <span class="kw">match</span> <span class="self">self</span>
-            .<span class="ident">kadem</span>
-            .<span class="ident">put_record</span>(<span class="ident">record</span>, <span class="ident">Quorum::N</span>(<span class="self">self</span>.<span class="ident">replication_factor</span>))
+        <span class="kw">match </span><span class="self">self
+            </span>.kadem
+            .put_record(record, Quorum::N(<span class="self">self</span>.replication_factor))
         {
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                <span class="comment">// failed try again later</span>
-                <span class="ident">query</span>.<span class="ident">progress</span> <span class="op">=</span> <span class="ident">DHTProgress::NotStarted</span>;
-                <span class="ident">query</span>.<span class="ident">backoff</span>.<span class="ident">start_next</span>(<span class="bool-val">false</span>);
-                <span class="macro">warn!</span>(<span class="string">&quot;Error publishing to DHT: {e:?} for peer {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>);
-                <span class="self">self</span>.<span class="ident">queued_put_record_queries</span>.<span class="ident">push_back</span>(<span class="ident">query</span>);
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="comment">// failed try again later
+                </span>query.progress = DHTProgress::NotStarted;
+                query.backoff.start_next(<span class="bool-val">false</span>);
+                <span class="macro">warn!</span>(<span class="string">&quot;Error publishing to DHT: {e:?} for peer {:?}&quot;</span>, <span class="self">self</span>.peer_id);
+                <span class="self">self</span>.queued_put_record_queries.push_back(query);
             }
-            <span class="prelude-val">Ok</span>(<span class="ident">qid</span>) =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;Success publishing {:?} to DHT&quot;</span>, <span class="ident">qid</span>);
-                <span class="kw">let</span> <span class="ident">query</span> <span class="op">=</span> <span class="ident">KadPutQuery</span> {
-                    <span class="ident">progress</span>: <span class="ident">DHTProgress::InProgress</span>(<span class="ident">qid</span>),
-                    ..<span class="ident">query</span>
+            <span class="prelude-val">Ok</span>(qid) =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;Success publishing {:?} to DHT&quot;</span>, qid);
+                <span class="kw">let </span>query = KadPutQuery {
+                    progress: DHTProgress::InProgress(qid),
+                    ..query
                 };
-                <span class="self">self</span>.<span class="ident">in_progress_put_record_queries</span>.<span class="ident">insert</span>(<span class="ident">qid</span>, <span class="ident">query</span>);
+                <span class="self">self</span>.in_progress_put_record_queries.insert(qid, query);
             }
         }
     }
 
-    <span class="doccomment">/// Retrieve a value for a key from the DHT.</span>
-    <span class="doccomment">/// Value (serialized) is sent over `chan`, and if a value is not found,</span>
-    <span class="doccomment">/// a [`crate::network::error::DHTError`] is sent instead.</span>
-    <span class="doccomment">/// NOTE: noop if `retry_count` is 0</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_record</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">key</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-        <span class="ident">chan</span>: <span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">factor</span>: <span class="ident">NonZeroUsize</span>,
-        <span class="ident">backoff</span>: <span class="ident">ExponentialBackoff</span>,
-        <span class="ident">retry_count</span>: <span class="ident">u8</span>
+    <span class="doccomment">/// Retrieve a value for a key from the DHT.
+    /// Value (serialized) is sent over `chan`, and if a value is not found,
+    /// a [`crate::network::error::DHTError`] is sent instead.
+    /// NOTE: noop if `retry_count` is 0
+    </span><span class="kw">pub fn </span>get_record(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        key: Vec&lt;u8&gt;,
+        chan: Sender&lt;Vec&lt;u8&gt;&gt;,
+        factor: NonZeroUsize,
+        backoff: ExponentialBackoff,
+        retry_count: u8,
     ) {
-        <span class="comment">// noop</span>
-        <span class="kw">if</span> <span class="ident">retry_count</span> <span class="op">==</span> <span class="number">0</span> {
-            <span class="kw">return</span>
+        <span class="comment">// noop
+        </span><span class="kw">if </span>retry_count == <span class="number">0 </span>{
+            <span class="kw">return</span>;
         }
 
-        <span class="kw">let</span> <span class="ident">qid</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">get_record</span>(<span class="ident">key</span>.<span class="ident">clone</span>().<span class="ident">into</span>(), <span class="ident">Quorum::N</span>(<span class="ident">factor</span>));
-        <span class="kw">let</span> <span class="ident">query</span> <span class="op">=</span> <span class="ident">KadGetQuery</span> {
-            <span class="ident">backoff</span>,
-            <span class="ident">progress</span>: <span class="ident">DHTProgress::InProgress</span>(<span class="ident">qid</span>),
-            <span class="ident">notify</span>: <span class="ident">chan</span>,
-            <span class="ident">num_replicas</span>: <span class="ident">factor</span>,
-            <span class="ident">key</span>,
-            <span class="ident">retry_count</span>: <span class="ident">retry_count</span> <span class="op">-</span> <span class="number">1</span>
+        <span class="kw">let </span>qid = <span class="self">self</span>.kadem.get_record(key.clone().into(), Quorum::N(factor));
+        <span class="kw">let </span>query = KadGetQuery {
+            backoff,
+            progress: DHTProgress::InProgress(qid),
+            notify: chan,
+            num_replicas: factor,
+            key,
+            retry_count: retry_count - <span class="number">1</span>,
         };
-        <span class="self">self</span>.<span class="ident">in_progress_get_record_queries</span>.<span class="ident">insert</span>(<span class="ident">qid</span>, <span class="ident">query</span>);
+        <span class="self">self</span>.in_progress_get_record_queries.insert(qid, query);
     }
 
-    <span class="doccomment">/// update state based on recv-ed get query</span>
-    <span class="kw">fn</span> <span class="ident">handle_get_query</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">record_results</span>: <span class="ident">GetRecordResult</span>, <span class="ident">id</span>: <span class="ident">QueryId</span>) {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">KadGetQuery</span> {
-            <span class="ident">backoff</span>,
-            <span class="ident">progress</span>,
-            <span class="ident">notify</span>,
-            <span class="ident">num_replicas</span>,
-            <span class="ident">key</span>,
-            <span class="ident">retry_count</span>
-        }) <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_progress_get_record_queries</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">id</span>)
+    <span class="doccomment">/// update state based on recv-ed get query
+    </span><span class="kw">fn </span>handle_get_query(<span class="kw-2">&amp;mut </span><span class="self">self</span>, record_results: GetRecordResult, id: QueryId) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(KadGetQuery {
+            backoff,
+            progress,
+            notify,
+            num_replicas,
+            key,
+            retry_count,
+        }) = <span class="self">self</span>.in_progress_get_record_queries.remove(<span class="kw-2">&amp;</span>id)
         {
-            <span class="comment">// if channel has been dropped, cancel request</span>
-            <span class="kw">if</span> <span class="ident">notify</span>.<span class="ident">is_canceled</span>() {
+            <span class="comment">// if channel has been dropped, cancel request
+            </span><span class="kw">if </span>notify.is_canceled() {
                 <span class="kw">return</span>;
             }
-            <span class="kw">match</span> <span class="ident">record_results</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident">GetRecordOk</span> {
-                    <span class="ident">records</span>,
-                    <span class="ident">cache_candidates</span>: <span class="kw">_</span>,
+            <span class="kw">match </span>record_results {
+                <span class="prelude-val">Ok</span>(GetRecordOk {
+                    records,
+                    cache_candidates: <span class="kw">_</span>,
                 }) =&gt; {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">results</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">usize</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
+                    <span class="kw">let </span><span class="kw-2">mut </span>results: HashMap&lt;Vec&lt;u8&gt;, usize&gt; = HashMap::new();
 
-                    <span class="comment">// count the number of records that agree on each value</span>
-                    <span class="kw">for</span> <span class="ident">record</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">records</span> {
-                        <span class="kw">if</span> <span class="ident">record</span>.<span class="ident">record</span>.<span class="ident">key</span>.<span class="ident">to_vec</span>() <span class="op">==</span> <span class="ident">key</span> {
-                            <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">record</span>.<span class="ident">record</span>.<span class="ident">value</span>.<span class="ident">clone</span>();
-                            <span class="kw">let</span> <span class="ident">old_val</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="ident">results</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">value</span>.<span class="ident">clone</span>()).<span class="ident">copied</span>().<span class="ident">unwrap_or</span>(<span class="number">0</span>);
-                            <span class="ident">results</span>.<span class="ident">insert</span>(<span class="ident">value</span>, <span class="ident">old_val</span> <span class="op">+</span> <span class="number">1</span>);
+                    <span class="comment">// count the number of records that agree on each value
+                    </span><span class="kw">for </span>record <span class="kw">in </span><span class="kw-2">&amp;</span>records {
+                        <span class="kw">if </span>record.record.key.to_vec() == key {
+                            <span class="kw">let </span>value = record.record.value.clone();
+                            <span class="kw">let </span>old_val: usize = results.get(<span class="kw-2">&amp;</span>value.clone()).copied().unwrap_or(<span class="number">0</span>);
+                            results.insert(value, old_val + <span class="number">1</span>);
                         }
                     }
-                    <span class="comment">// agreement on two or more nodes =&gt; success</span>
-                    <span class="comment">// NOTE case where multiple nodes agree on different</span>
-                    <span class="comment">// values is not handles</span>
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">r</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">results</span>
-                        .<span class="ident">into_iter</span>()
-                        .<span class="ident">find</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="kw-2">*</span><span class="ident">v</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">NUM_REPLICATED_TO_TRUST</span>)
+                    <span class="comment">// agreement on two or more nodes =&gt; success
+                    // NOTE case where multiple nodes agree on different
+                    // values is not handles
+                    </span><span class="kw">if let </span><span class="prelude-val">Some</span>((r, <span class="kw">_</span>)) = results
+                        .into_iter()
+                        .find(|(<span class="kw">_</span>, v)| <span class="kw-2">*</span>v &gt;= NUM_REPLICATED_TO_TRUST)
                     {
-                        <span class="kw">if</span> <span class="ident">notify</span>.<span class="ident">send</span>(<span class="ident">r</span>).<span class="ident">is_err</span>() {
+                        <span class="kw">if </span>notify.send(r).is_err() {
                             <span class="macro">warn!</span>(<span class="string">&quot;Get DHT: channel closed before get record request result could be sent&quot;</span>);
                         }
                     }
-                    <span class="comment">// lack of replication =&gt; error</span>
-                    <span class="kw">else</span> <span class="kw">if</span> <span class="ident">records</span>.<span class="ident">len</span>() <span class="op">&lt;</span> <span class="ident">NUM_REPLICATED_TO_TRUST</span> {
-                        <span class="macro">warn!</span>(<span class="string">&quot;Get DHT: Record not replicated enough for {:?}! requerying with more nodes&quot;</span>, <span class="ident">progress</span>);
-                        <span class="self">self</span>.<span class="ident">get_record</span>(<span class="ident">key</span>, <span class="ident">notify</span>, <span class="ident">num_replicas</span>, <span class="ident">backoff</span>, <span class="ident">retry_count</span>);
+                    <span class="comment">// lack of replication =&gt; error
+                    </span><span class="kw">else if </span>records.len() &lt; NUM_REPLICATED_TO_TRUST {
+                        <span class="macro">warn!</span>(<span class="string">&quot;Get DHT: Record not replicated enough for {:?}! requerying with more nodes&quot;</span>, progress);
+                        <span class="self">self</span>.get_record(key, notify, num_replicas, backoff, retry_count);
                     }
-                    <span class="comment">// many records that don&#39;t match =&gt; disagreement</span>
-                    <span class="kw">else</span> <span class="kw">if</span> <span class="ident">records</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">MAX_DHT_QUERY_SIZE</span> {
+                    <span class="comment">// many records that don&#39;t match =&gt; disagreement
+                    </span><span class="kw">else if </span>records.len() &gt; MAX_DHT_QUERY_SIZE {
                         <span class="macro">warn!</span>(
                             <span class="string">&quot;Get DHT: Record disagreed upon; {:?}! requerying with more nodes&quot;</span>,
-                            <span class="ident">progress</span>
+                            progress
                         );
-                        <span class="self">self</span>.<span class="ident">get_record</span>(<span class="ident">key</span>, <span class="ident">notify</span>, <span class="ident">num_replicas</span>, <span class="ident">backoff</span>, <span class="ident">retry_count</span>);
+                        <span class="self">self</span>.get_record(key, notify, num_replicas, backoff, retry_count);
                     }
-                    <span class="comment">// disagreement =&gt; query more nodes</span>
-                    <span class="kw">else</span> {
-                        <span class="comment">// there is some internal disagreement.</span>
-                        <span class="comment">// Initiate new query that hits more replicas</span>
-                        <span class="kw">let</span> <span class="ident">new_factor</span> <span class="op">=</span>
-                            <span class="ident">NonZeroUsize::new</span>(<span class="ident">num_replicas</span>.<span class="ident">get</span>() <span class="op">+</span> <span class="number">1</span>).<span class="ident">unwrap_or</span>(<span class="ident">num_replicas</span>);
+                    <span class="comment">// disagreement =&gt; query more nodes
+                    </span><span class="kw">else </span>{
+                        <span class="comment">// there is some internal disagreement.
+                        // Initiate new query that hits more replicas
+                        </span><span class="kw">let </span>new_factor =
+                            NonZeroUsize::new(num_replicas.get() + <span class="number">1</span>).unwrap_or(num_replicas);
 
-                        <span class="self">self</span>.<span class="ident">get_record</span>(<span class="ident">key</span>, <span class="ident">notify</span>, <span class="ident">new_factor</span>, <span class="ident">backoff</span>, <span class="ident">retry_count</span>);
-                        <span class="macro">warn!</span>(<span class="string">&quot;Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes&quot;</span>, <span class="ident">progress</span>);
+                        <span class="self">self</span>.get_record(key, notify, new_factor, backoff, retry_count);
+                        <span class="macro">warn!</span>(<span class="string">&quot;Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes&quot;</span>, progress);
                     }
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">_e</span>) =&gt; {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_query</span> <span class="op">=</span> <span class="ident">KadGetQuery</span> {
-                        <span class="ident">backoff</span>,
-                        <span class="ident">progress</span>: <span class="ident">DHTProgress::NotStarted</span>,
-                        <span class="ident">notify</span>,
-                        <span class="ident">num_replicas</span>,
-                        <span class="ident">key</span>,
-                        <span class="ident">retry_count</span>
+                <span class="prelude-val">Err</span>(_e) =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>new_query = KadGetQuery {
+                        backoff,
+                        progress: DHTProgress::NotStarted,
+                        notify,
+                        num_replicas,
+                        key,
+                        retry_count,
                     };
-                    <span class="ident">new_query</span>.<span class="ident">backoff</span>.<span class="ident">start_next</span>(<span class="bool-val">false</span>);
-                    <span class="self">self</span>.<span class="ident">queued_get_record_queries</span>.<span class="ident">push_back</span>(<span class="ident">new_query</span>);
+                    new_query.backoff.start_next(<span class="bool-val">false</span>);
+                    <span class="self">self</span>.queued_get_record_queries.push_back(new_query);
                 }
             };
-        } <span class="kw">else</span> {
-            <span class="macro">warn!</span>(<span class="string">&quot;completed DHT query {:?} that is no longer tracked.&quot;</span>, <span class="ident">id</span>);
+        } <span class="kw">else </span>{
+            <span class="macro">warn!</span>(<span class="string">&quot;completed DHT query {:?} that is no longer tracked.&quot;</span>, id);
         }
     }
 
-    <span class="doccomment">/// Update state based on put query</span>
-    <span class="kw">fn</span> <span class="ident">handle_put_query</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">record_results</span>: <span class="ident">PutRecordResult</span>, <span class="ident">id</span>: <span class="ident">QueryId</span>) {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">mut</span> <span class="ident">query</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_progress_put_record_queries</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">id</span>) {
-            <span class="comment">// dropped so we handle further</span>
-            <span class="kw">if</span> <span class="ident">query</span>.<span class="ident">notify</span>.<span class="ident">is_canceled</span>() {
+    <span class="doccomment">/// Update state based on put query
+    </span><span class="kw">fn </span>handle_put_query(<span class="kw-2">&amp;mut </span><span class="self">self</span>, record_results: PutRecordResult, id: QueryId) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>query) = <span class="self">self</span>.in_progress_put_record_queries.remove(<span class="kw-2">&amp;</span>id) {
+            <span class="comment">// dropped so we handle further
+            </span><span class="kw">if </span>query.notify.is_canceled() {
                 <span class="kw">return</span>;
             }
 
-            <span class="kw">match</span> <span class="ident">record_results</span> {
+            <span class="kw">match </span>record_results {
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
-                    <span class="kw">if</span> <span class="ident">query</span>.<span class="ident">notify</span>.<span class="ident">send</span>(()).<span class="ident">is_err</span>() {
+                    <span class="kw">if </span>query.notify.send(()).is_err() {
                         <span class="macro">warn!</span>(<span class="string">&quot;Put DHT: client channel closed before put record request could be sent&quot;</span>);
                     }
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                    <span class="ident">query</span>.<span class="ident">progress</span> <span class="op">=</span> <span class="ident">DHTProgress::NotStarted</span>;
-                    <span class="ident">query</span>.<span class="ident">backoff</span>.<span class="ident">start_next</span>(<span class="bool-val">false</span>);
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    query.progress = DHTProgress::NotStarted;
+                    query.backoff.start_next(<span class="bool-val">false</span>);
 
                     <span class="macro">warn!</span>(
                         <span class="string">&quot;Put DHT: error performing put: {:?}. Retrying on pid {:?}.&quot;</span>,
-                        <span class="ident">e</span>, <span class="self">self</span>.<span class="ident">peer_id</span>
+                        e, <span class="self">self</span>.peer_id
                     );
-                    <span class="comment">// push back onto the queue</span>
-                    <span class="self">self</span>.<span class="ident">queued_put_record_queries</span>.<span class="ident">push_back</span>(<span class="ident">query</span>);
+                    <span class="comment">// push back onto the queue
+                    </span><span class="self">self</span>.queued_put_record_queries.push_back(query);
                 }
             }
-        } <span class="kw">else</span> {
+        } <span class="kw">else </span>{
             <span class="macro">warn!</span>(<span class="string">&quot;Put DHT: completed DHT query that is no longer tracked.&quot;</span>);
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">DHTBehaviour</span> {
-    <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy::too_many_lines</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">dht_handle_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">KademliaEvent</span>) {
-        <span class="kw">match</span> <span class="ident">event</span> {
-            <span class="ident">KademliaEvent::OutboundQueryCompleted</span> {
-                <span class="ident">result</span>: <span class="ident">QueryResult::PutRecord</span>(<span class="ident">record_results</span>),
-                <span class="ident">id</span>,
+<span class="kw">impl </span>DHTBehaviour {
+    <span class="attribute">#![allow(clippy::too_many_lines)]
+    </span><span class="kw">fn </span>dht_handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: KademliaEvent) {
+        <span class="kw">match </span>event {
+            KademliaEvent::OutboundQueryCompleted {
+                result: QueryResult::PutRecord(record_results),
+                id,
                 ..
             } =&gt; {
-                <span class="self">self</span>.<span class="ident">handle_put_query</span>(<span class="ident">record_results</span>, <span class="ident">id</span>);
+                <span class="self">self</span>.handle_put_query(record_results, id);
             }
-            <span class="ident">KademliaEvent::OutboundQueryCompleted</span> {
-                <span class="ident">result</span>: <span class="ident">QueryResult::GetClosestPeers</span>(<span class="ident">r</span>),
-                <span class="ident">id</span>: <span class="ident">query_id</span>,
-                <span class="ident">stats</span>,
-            } =&gt; <span class="kw">match</span> <span class="ident">r</span> {
-                <span class="prelude-val">Ok</span>(<span class="ident">GetClosestPeersOk</span> { <span class="ident">key</span>, <span class="ident">peers</span> }) =&gt; {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">chan</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_progress_get_closest_peers</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">query_id</span>) {
-                        <span class="kw">if</span> <span class="ident">chan</span>.<span class="ident">send</span>(()).<span class="ident">is_err</span>() {
+            KademliaEvent::OutboundQueryCompleted {
+                result: QueryResult::GetClosestPeers(r),
+                id: query_id,
+                stats,
+            } =&gt; <span class="kw">match </span>r {
+                <span class="prelude-val">Ok</span>(GetClosestPeersOk { key, peers }) =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = <span class="self">self</span>.in_progress_get_closest_peers.remove(<span class="kw-2">&amp;</span>query_id) {
+                        <span class="kw">if </span>chan.send(()).is_err() {
                             <span class="macro">warn!</span>(<span class="string">&quot;DHT: finished query but client no longer interested&quot;</span>);
                         };
-                    } <span class="kw">else</span> {
-                        <span class="self">self</span>.<span class="ident">random_walk</span>.<span class="ident">state</span> <span class="op">=</span> <span class="ident">State::NotStarted</span>;
-                        <span class="self">self</span>.<span class="ident">random_walk</span>.<span class="ident">backoff</span>.<span class="ident">start_next</span>(<span class="bool-val">true</span>);
+                    } <span class="kw">else </span>{
+                        <span class="self">self</span>.random_walk.state = State::NotStarted;
+                        <span class="self">self</span>.random_walk.backoff.start_next(<span class="bool-val">true</span>);
                     }
                     <span class="macro">info!</span>(
                         <span class="string">&quot;peer {:?} successfully completed get closest peers for {:?} with peers {:?}&quot;</span>,
-                        <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">key</span>, <span class="ident">peers</span>
+                        <span class="self">self</span>.peer_id, key, peers
                     );
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">chan</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_progress_get_closest_peers</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">query_id</span>) {
-                        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">chan</span>.<span class="ident">send</span>(());
-                    } <span class="kw">else</span> {
-                        <span class="self">self</span>.<span class="ident">random_walk</span>.<span class="ident">state</span> <span class="op">=</span> <span class="ident">State::NotStarted</span>;
-                        <span class="self">self</span>.<span class="ident">random_walk</span>.<span class="ident">backoff</span>.<span class="ident">start_next</span>(<span class="bool-val">true</span>);
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = <span class="self">self</span>.in_progress_get_closest_peers.remove(<span class="kw-2">&amp;</span>query_id) {
+                        <span class="kw">let _ </span>= chan.send(());
+                    } <span class="kw">else </span>{
+                        <span class="self">self</span>.random_walk.state = State::NotStarted;
+                        <span class="self">self</span>.random_walk.backoff.start_next(<span class="bool-val">true</span>);
                     }
                     <span class="macro">warn!</span>(
                         <span class="string">&quot;peer {:?} failed to get closest peers with {:?} and stats {:?}&quot;</span>,
-                        <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">e</span>, <span class="ident">stats</span>
+                        <span class="self">self</span>.peer_id, e, stats
                     );
                 }
             },
-            <span class="ident">KademliaEvent::OutboundQueryCompleted</span> {
-                <span class="ident">result</span>: <span class="ident">QueryResult::GetRecord</span>(<span class="ident">record_results</span>),
-                <span class="ident">id</span>,
+            KademliaEvent::OutboundQueryCompleted {
+                result: QueryResult::GetRecord(record_results),
+                id,
                 ..
             } =&gt; {
-                <span class="self">self</span>.<span class="ident">handle_get_query</span>(<span class="ident">record_results</span>, <span class="ident">id</span>);
+                <span class="self">self</span>.handle_get_query(record_results, id);
             }
-            <span class="ident">KademliaEvent::OutboundQueryCompleted</span> {
-                <span class="ident">result</span>:
-                    <span class="ident">QueryResult::Bootstrap</span>(<span class="prelude-val">Ok</span>(<span class="ident">BootstrapOk</span> {
-                        <span class="ident">peer</span>: <span class="kw">_</span>,
-                        <span class="ident">num_remaining</span>,
+            KademliaEvent::OutboundQueryCompleted {
+                result:
+                    QueryResult::Bootstrap(<span class="prelude-val">Ok</span>(BootstrapOk {
+                        peer: <span class="kw">_</span>,
+                        num_remaining,
                     })),
                 ..
             } =&gt; {
-                <span class="kw">if</span> <span class="ident">num_remaining</span> <span class="op">==</span> <span class="number">0</span> {
-                    <span class="comment">// if bootstrap is successful, restart.</span>
-                    <span class="macro">error!</span>(<span class="string">&quot;Finished bootstrap for peer {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>);
-                    <span class="self">self</span>.<span class="ident">bootstrap_state</span>.<span class="ident">state</span> <span class="op">=</span> <span class="ident">State::Finished</span>;
-                    <span class="self">self</span>.<span class="ident">event_queue</span>.<span class="ident">push</span>(<span class="ident">DHTEvent::IsBootstrapped</span>);
-                    <span class="self">self</span>.<span class="ident">begin_bootstrap</span> <span class="op">=</span> <span class="bool-val">false</span>;
-                } <span class="kw">else</span> {
+                <span class="kw">if </span>num_remaining == <span class="number">0 </span>{
+                    <span class="comment">// if bootstrap is successful, restart.
+                    </span><span class="macro">error!</span>(<span class="string">&quot;Finished bootstrap for peer {:?}&quot;</span>, <span class="self">self</span>.peer_id);
+                    <span class="self">self</span>.bootstrap_state.state = State::Finished;
+                    <span class="self">self</span>.event_queue.push(DHTEvent::IsBootstrapped);
+                    <span class="self">self</span>.begin_bootstrap = <span class="bool-val">false</span>;
+                } <span class="kw">else </span>{
                     <span class="macro">error!</span>(
                         <span class="string">&quot;Bootstrap in progress: num remaining nodes to ping {:?}&quot;</span>,
-                        <span class="ident">num_remaining</span>
+                        num_remaining
                     );
                 }
             }
-            <span class="ident">KademliaEvent::OutboundQueryCompleted</span> {
-                <span class="ident">result</span>: <span class="ident">QueryResult::Bootstrap</span>(<span class="prelude-val">Err</span>(<span class="ident">e</span>)),
+            KademliaEvent::OutboundQueryCompleted {
+                result: QueryResult::Bootstrap(<span class="prelude-val">Err</span>(e)),
                 ..
             } =&gt; {
                 <span class="macro">error!</span>(<span class="string">&quot;DHT: Bootstrap attempt failed. Retrying shortly.&quot;</span>);
-                <span class="kw">let</span> <span class="ident">BootstrapError::Timeout</span> { <span class="ident">num_remaining</span>, .. } <span class="op">=</span> <span class="ident">e</span>;
-                <span class="kw">if</span> <span class="ident">num_remaining</span>.<span class="ident">is_none</span>() {
+                <span class="kw">let </span>BootstrapError::Timeout { num_remaining, .. } = e;
+                <span class="kw">if </span>num_remaining.is_none() {
                     <span class="macro">error!</span>(
                         <span class="string">&quot;Peer {:?} failed bootstrap with error {:?}. This should not happen and means all bootstrap nodes are down or were evicted from our local DHT. Readding bootstrap nodes {:?}&quot;</span>,
-                        <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">e</span>, <span class="self">self</span>.<span class="ident">bootstrap_nodes</span>
+                        <span class="self">self</span>.peer_id, e, <span class="self">self</span>.bootstrap_nodes
                     );
-                    <span class="kw">for</span> (<span class="ident">peer</span>, <span class="ident">addrs</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">bootstrap_nodes</span>.<span class="ident">clone</span>() {
-                        <span class="kw">for</span> <span class="ident">addr</span> <span class="kw">in</span> <span class="ident">addrs</span> {
-                            <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">add_address</span>(<span class="kw-2">&amp;</span><span class="ident">peer</span>, <span class="ident">addr</span>);
+                    <span class="kw">for </span>(peer, addrs) <span class="kw">in </span><span class="self">self</span>.bootstrap_nodes.clone() {
+                        <span class="kw">for </span>addr <span class="kw">in </span>addrs {
+                            <span class="self">self</span>.kadem.add_address(<span class="kw-2">&amp;</span>peer, addr);
                         }
                     }
                 }
-                <span class="self">self</span>.<span class="ident">bootstrap_state</span>.<span class="ident">state</span> <span class="op">=</span> <span class="ident">State::NotStarted</span>;
-                <span class="self">self</span>.<span class="ident">bootstrap_state</span>.<span class="ident">backoff</span>.<span class="ident">start_next</span>(<span class="bool-val">true</span>);
+                <span class="self">self</span>.bootstrap_state.state = State::NotStarted;
+                <span class="self">self</span>.bootstrap_state.backoff.start_next(<span class="bool-val">true</span>);
             }
-            <span class="ident">KademliaEvent::RoutablePeer</span> { <span class="ident">peer</span>, <span class="ident">address</span>: <span class="kw">_</span> } =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;on peer {:?} found routable peer {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">peer</span>);
+            KademliaEvent::RoutablePeer { peer, address: <span class="kw">_ </span>} =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;on peer {:?} found routable peer {:?}&quot;</span>, <span class="self">self</span>.peer_id, peer);
             }
-            <span class="ident">KademliaEvent::PendingRoutablePeer</span> { <span class="ident">peer</span>, <span class="ident">address</span>: <span class="kw">_</span> } =&gt; {
+            KademliaEvent::PendingRoutablePeer { peer, address: <span class="kw">_ </span>} =&gt; {
                 <span class="macro">info!</span>(
                     <span class="string">&quot;on peer {:?} have pending routable peer {:?}&quot;</span>,
-                    <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">peer</span>
+                    <span class="self">self</span>.peer_id, peer
                 );
             }
-            <span class="ident">KademliaEvent::UnroutablePeer</span> { <span class="ident">peer</span> } =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;on peer {:?} have unroutable peer {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">peer</span>);
+            KademliaEvent::UnroutablePeer { peer } =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;on peer {:?} have unroutable peer {:?}&quot;</span>, <span class="self">self</span>.peer_id, peer);
             }
-            <span class="ident">KademliaEvent::InboundRequest</span> { <span class="ident">request</span>: <span class="ident">_r</span> } =&gt; {}
-            <span class="ident">KademliaEvent::RoutingUpdated</span> {
-                <span class="ident">peer</span>: <span class="kw">_</span>,
-                <span class="ident">is_new_peer</span>: <span class="kw">_</span>,
-                <span class="ident">addresses</span>: <span class="kw">_</span>,
-                <span class="ident">bucket_range</span>: <span class="kw">_</span>,
-                <span class="ident">old_peer</span>: <span class="kw">_</span>,
+            KademliaEvent::InboundRequest { request: _r } =&gt; {}
+            KademliaEvent::RoutingUpdated {
+                peer: <span class="kw">_</span>,
+                is_new_peer: <span class="kw">_</span>,
+                addresses: <span class="kw">_</span>,
+                bucket_range: <span class="kw">_</span>,
+                old_peer: <span class="kw">_</span>,
             } =&gt; {}
-            <span class="ident">e</span> @ <span class="ident">KademliaEvent::OutboundQueryCompleted</span> { .. } =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;Not handling dht event {:?}&quot;</span>, <span class="ident">e</span>);
+            e @ KademliaEvent::OutboundQueryCompleted { .. } =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;Not handling dht event {:?}&quot;</span>, e);
             }
         }
     }
 }
 
-<span class="doccomment">/// Metadata holder for get query</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">KadGetQuery</span> {
-    <span class="doccomment">/// Exponential retry backoff</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">backoff</span>: <span class="ident">ExponentialBackoff</span>,
-    <span class="doccomment">/// progress through DHT query</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">progress</span>: <span class="ident">DHTProgress</span>,
-    <span class="doccomment">/// notify client of result</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">notify</span>: <span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// number of replicas required to replicate over</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">num_replicas</span>: <span class="ident">NonZeroUsize</span>,
-    <span class="doccomment">/// the key to look up</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">key</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// the number of remaining retries before giving up</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">retry_count</span>: <span class="ident">u8</span>
+<span class="doccomment">/// Metadata holder for get query
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>KadGetQuery {
+    <span class="doccomment">/// Exponential retry backoff
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) backoff: ExponentialBackoff,
+    <span class="doccomment">/// progress through DHT query
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) progress: DHTProgress,
+    <span class="doccomment">/// notify client of result
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) notify: Sender&lt;Vec&lt;u8&gt;&gt;,
+    <span class="doccomment">/// number of replicas required to replicate over
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) num_replicas: NonZeroUsize,
+    <span class="doccomment">/// the key to look up
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) key: Vec&lt;u8&gt;,
+    <span class="doccomment">/// the number of remaining retries before giving up
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) retry_count: u8,
 }
 
-<span class="doccomment">/// Metadata holder for get query</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">KadPutQuery</span> {
-    <span class="doccomment">/// Exponential retry backoff</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">backoff</span>: <span class="ident">ExponentialBackoff</span>,
-    <span class="doccomment">/// progress through DHT query</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">progress</span>: <span class="ident">DHTProgress</span>,
-    <span class="doccomment">/// notify client of result</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">notify</span>: <span class="ident">Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
-    <span class="doccomment">/// the key to put</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">key</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// the value to put</span>
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">value</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Metadata holder for get query
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub struct </span>KadPutQuery {
+    <span class="doccomment">/// Exponential retry backoff
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) backoff: ExponentialBackoff,
+    <span class="doccomment">/// progress through DHT query
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) progress: DHTProgress,
+    <span class="doccomment">/// notify client of result
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) notify: Sender&lt;()&gt;,
+    <span class="doccomment">/// the key to put
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) key: Vec&lt;u8&gt;,
+    <span class="doccomment">/// the value to put
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) value: Vec&lt;u8&gt;,
 }
 
-<span class="doccomment">/// represents progress through DHT</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">DHTProgress</span> {
-    <span class="doccomment">/// The query has been started</span>
-    <span class="ident">InProgress</span>(<span class="ident">QueryId</span>),
-    <span class="doccomment">/// The query has not been started</span>
-    <span class="ident">NotStarted</span>,
+<span class="doccomment">/// represents progress through DHT
+</span><span class="attribute">#[derive(Debug, Clone, Eq, Hash, PartialEq)]
+</span><span class="kw">pub enum </span>DHTProgress {
+    <span class="doccomment">/// The query has been started
+    </span>InProgress(QueryId),
+    <span class="doccomment">/// The query has not been started
+    </span>NotStarted,
 }
 
-<span class="kw">impl</span> <span class="ident">NetworkBehaviour</span> <span class="kw">for</span> <span class="ident">DHTBehaviour</span> {
-    <span class="kw">type</span> <span class="ident">ConnectionHandler</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">Kademlia</span><span class="op">&lt;</span><span class="ident">MemoryStore</span><span class="op">&gt;</span> <span class="kw">as</span> <span class="ident">NetworkBehaviour</span><span class="op">&gt;</span><span class="ident">::ConnectionHandler</span>;
+<span class="kw">impl </span>NetworkBehaviour <span class="kw">for </span>DHTBehaviour {
+    <span class="kw">type </span>ConnectionHandler = &lt;Kademlia&lt;MemoryStore&gt; <span class="kw">as </span>NetworkBehaviour&gt;::ConnectionHandler;
 
-    <span class="kw">type</span> <span class="ident">OutEvent</span> <span class="op">=</span> <span class="ident">DHTEvent</span>;
+    <span class="kw">type </span>OutEvent = DHTEvent;
 
-    <span class="kw">fn</span> <span class="ident">new_handler</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::ConnectionHandler</span> {
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">new_handler</span>()
+    <span class="kw">fn </span>new_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::ConnectionHandler {
+        <span class="self">self</span>.kadem.new_handler()
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_event</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">peer_id</span>: <span class="ident">libp2p::PeerId</span>,
-        <span class="ident">connection</span>: <span class="ident">libp2p::core::connection::ConnectionId</span>,
-        <span class="ident">event</span>: <span class="op">&lt;</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::ConnectionHandler</span> <span class="kw">as</span> <span class="ident">libp2p::swarm::IntoConnectionHandler</span><span class="op">&gt;</span><span class="ident">::Handler</span> <span class="kw">as</span> <span class="ident">libp2p::swarm::ConnectionHandler</span><span class="op">&gt;</span><span class="ident">::OutEvent</span>,
+    <span class="kw">fn </span>inject_event(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        peer_id: libp2p::PeerId,
+        connection: libp2p::core::connection::ConnectionId,
+        event: &lt;&lt;<span class="self">Self</span>::ConnectionHandler <span class="kw">as </span>libp2p::swarm::IntoConnectionHandler&gt;::Handler <span class="kw">as </span>libp2p::swarm::ConnectionHandler&gt;::OutEvent,
     ) {
-        <span class="comment">// pass event GENERATED by handler from swarm to kademlia</span>
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">inject_event</span>(<span class="ident">peer_id</span>, <span class="ident">connection</span>, <span class="ident">event</span>);
+        <span class="comment">// pass event GENERATED by handler from swarm to kademlia
+        </span><span class="self">self</span>.kadem.inject_event(peer_id, connection, event);
     }
 
-    <span class="kw">fn</span> <span class="ident">poll</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">params</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">libp2p::swarm::PollParameters</span>,
-    ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span>
-        <span class="ident">libp2p::swarm::NetworkBehaviourAction</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::OutEvent</span>, <span class="ident"><span class="self">Self</span>::ConnectionHandler</span><span class="op">&gt;</span>,
-    <span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="macro">matches!</span>(<span class="self">self</span>.<span class="ident">bootstrap_state</span>.<span class="ident">state</span>, <span class="ident">State::NotStarted</span>)
-            <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">bootstrap_state</span>.<span class="ident">backoff</span>.<span class="ident">is_expired</span>()
-            <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">begin_bootstrap</span>
+    <span class="kw">fn </span>poll(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        params: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>libp2p::swarm::PollParameters,
+    ) -&gt; std::task::Poll&lt;
+        libp2p::swarm::NetworkBehaviourAction&lt;<span class="self">Self</span>::OutEvent, <span class="self">Self</span>::ConnectionHandler&gt;,
+    &gt; {
+        <span class="kw">if </span><span class="macro">matches!</span>(<span class="self">self</span>.bootstrap_state.state, State::NotStarted)
+            &amp;&amp; <span class="self">self</span>.bootstrap_state.backoff.is_expired()
+            &amp;&amp; <span class="self">self</span>.begin_bootstrap
         {
-            <span class="kw">match</span> <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">bootstrap</span>() {
+            <span class="kw">match </span><span class="self">self</span>.kadem.bootstrap() {
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
-                    <span class="macro">info!</span>(<span class="string">&quot;started bootstrap for peer {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">peer_id</span>);
-                    <span class="self">self</span>.<span class="ident">bootstrap_state</span>.<span class="ident">state</span> <span class="op">=</span> <span class="ident">State::Started</span>;
+                    <span class="macro">info!</span>(<span class="string">&quot;started bootstrap for peer {:?}&quot;</span>, <span class="self">self</span>.peer_id);
+                    <span class="self">self</span>.bootstrap_state.state = State::Started;
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
+                <span class="prelude-val">Err</span>(e) =&gt; {
                     <span class="macro">error!</span>(
                         <span class="string">&quot;peer id {:?} FAILED TO START BOOTSTRAP {:?} adding peers {:?}&quot;</span>,
-                        <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">e</span>, <span class="self">self</span>.<span class="ident">bootstrap_nodes</span>
+                        <span class="self">self</span>.peer_id, e, <span class="self">self</span>.bootstrap_nodes
                     );
-                    <span class="kw">for</span> (<span class="ident">peer</span>, <span class="ident">addrs</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">bootstrap_nodes</span>.<span class="ident">clone</span>() {
-                        <span class="kw">for</span> <span class="ident">addr</span> <span class="kw">in</span> <span class="ident">addrs</span> {
-                            <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">add_address</span>(<span class="kw-2">&amp;</span><span class="ident">peer</span>, <span class="ident">addr</span>);
+                    <span class="kw">for </span>(peer, addrs) <span class="kw">in </span><span class="self">self</span>.bootstrap_nodes.clone() {
+                        <span class="kw">for </span>addr <span class="kw">in </span>addrs {
+                            <span class="self">self</span>.kadem.add_address(<span class="kw-2">&amp;</span>peer, addr);
                         }
                     }
                 }
             }
         }
 
-        <span class="kw">if</span> <span class="macro">matches!</span>(<span class="self">self</span>.<span class="ident">random_walk</span>.<span class="ident">state</span>, <span class="ident">State::NotStarted</span>)
-            <span class="op">&amp;&amp;</span> <span class="self">self</span>.<span class="ident">random_walk</span>.<span class="ident">backoff</span>.<span class="ident">is_expired</span>()
-            <span class="op">&amp;&amp;</span> <span class="macro">matches!</span>(<span class="self">self</span>.<span class="ident">bootstrap_state</span>.<span class="ident">state</span>, <span class="ident">State::Finished</span>)
+        <span class="kw">if </span><span class="macro">matches!</span>(<span class="self">self</span>.random_walk.state, State::NotStarted)
+            &amp;&amp; <span class="self">self</span>.random_walk.backoff.is_expired()
+            &amp;&amp; <span class="macro">matches!</span>(<span class="self">self</span>.bootstrap_state.state, State::Finished)
         {
-            <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">get_closest_peers</span>(<span class="ident">PeerId::random</span>());
-            <span class="self">self</span>.<span class="ident">random_walk</span>.<span class="ident">state</span> <span class="op">=</span> <span class="ident">State::Started</span>;
+            <span class="self">self</span>.kadem.get_closest_peers(PeerId::random());
+            <span class="self">self</span>.random_walk.state = State::Started;
         }
 
-        <span class="comment">// retry put/gets if they are ready</span>
-        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">req</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">queued_get_record_queries</span>.<span class="ident">pop_front</span>() {
-            <span class="kw">if</span> <span class="ident">req</span>.<span class="ident">backoff</span>.<span class="ident">is_expired</span>() {
-                <span class="self">self</span>.<span class="ident">get_record</span>(<span class="ident">req</span>.<span class="ident">key</span>, <span class="ident">req</span>.<span class="ident">notify</span>, <span class="ident">req</span>.<span class="ident">num_replicas</span>, <span class="ident">req</span>.<span class="ident">backoff</span>, <span class="ident">req</span>.<span class="ident">retry_count</span>);
-            } <span class="kw">else</span> {
-                <span class="self">self</span>.<span class="ident">queued_get_record_queries</span>.<span class="ident">push_back</span>(<span class="ident">req</span>);
+        <span class="comment">// retry put/gets if they are ready
+        </span><span class="kw">while let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.queued_get_record_queries.pop_front() {
+            <span class="kw">if </span>req.backoff.is_expired() {
+                <span class="self">self</span>.get_record(
+                    req.key,
+                    req.notify,
+                    req.num_replicas,
+                    req.backoff,
+                    req.retry_count,
+                );
+            } <span class="kw">else </span>{
+                <span class="self">self</span>.queued_get_record_queries.push_back(req);
             }
         }
-        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">req</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">queued_put_record_queries</span>.<span class="ident">pop_front</span>() {
-            <span class="kw">if</span> <span class="ident">req</span>.<span class="ident">backoff</span>.<span class="ident">is_expired</span>() {
-                <span class="self">self</span>.<span class="ident">put_record</span>(<span class="ident">req</span>);
-            } <span class="kw">else</span> {
-                <span class="self">self</span>.<span class="ident">queued_put_record_queries</span>.<span class="ident">push_back</span>(<span class="ident">req</span>);
+        <span class="kw">while let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.queued_put_record_queries.pop_front() {
+            <span class="kw">if </span>req.backoff.is_expired() {
+                <span class="self">self</span>.put_record(req);
+            } <span class="kw">else </span>{
+                <span class="self">self</span>.queued_put_record_queries.push_back(req);
             }
         }
 
-        <span class="comment">// poll behaviour which is a passthrough and call inject event</span>
-        <span class="kw">while</span> <span class="kw">let</span> <span class="ident">Poll::Ready</span>(<span class="ident">ready</span>) <span class="op">=</span> <span class="ident">NetworkBehaviour::poll</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">kadem</span>, <span class="ident">cx</span>, <span class="ident">params</span>) {
-            <span class="kw">match</span> <span class="ident">ready</span> {
-                <span class="ident">NetworkBehaviourAction::GenerateEvent</span>(<span class="ident">e</span>) =&gt; {
-                    <span class="self">self</span>.<span class="ident">dht_handle_event</span>(<span class="ident">e</span>);
+        <span class="comment">// poll behaviour which is a passthrough and call inject event
+        </span><span class="kw">while let </span>Poll::Ready(ready) = NetworkBehaviour::poll(<span class="kw-2">&amp;mut </span><span class="self">self</span>.kadem, cx, params) {
+            <span class="kw">match </span>ready {
+                NetworkBehaviourAction::GenerateEvent(e) =&gt; {
+                    <span class="self">self</span>.dht_handle_event(e);
                 }
-                <span class="ident">NetworkBehaviourAction::Dial</span> { <span class="ident">opts</span>, <span class="ident">handler</span> } =&gt; {
-                    <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::Dial</span> { <span class="ident">opts</span>, <span class="ident">handler</span> });
+                NetworkBehaviourAction::Dial { opts, handler } =&gt; {
+                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::Dial { opts, handler });
                 }
-                <span class="ident">NetworkBehaviourAction::NotifyHandler</span> {
-                    <span class="ident">peer_id</span>,
-                    <span class="ident">handler</span>,
-                    <span class="ident">event</span>,
+                NetworkBehaviourAction::NotifyHandler {
+                    peer_id,
+                    handler,
+                    event,
                 } =&gt; {
-                    <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::NotifyHandler</span> {
-                        <span class="ident">peer_id</span>,
-                        <span class="ident">handler</span>,
-                        <span class="ident">event</span>,
+                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::NotifyHandler {
+                        peer_id,
+                        handler,
+                        event,
                     });
                 }
-                <span class="ident">NetworkBehaviourAction::ReportObservedAddr</span> { <span class="ident">address</span>, <span class="ident">score</span> } =&gt; {
-                    <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::ReportObservedAddr</span> {
-                        <span class="ident">address</span>,
-                        <span class="ident">score</span>,
+                NetworkBehaviourAction::ReportObservedAddr { address, score } =&gt; {
+                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
+                        address,
+                        score,
                     });
                 }
-                <span class="ident">NetworkBehaviourAction::CloseConnection</span> {
-                    <span class="ident">peer_id</span>,
-                    <span class="ident">connection</span>,
+                NetworkBehaviourAction::CloseConnection {
+                    peer_id,
+                    connection,
                 } =&gt; {
-                    <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::CloseConnection</span> {
-                        <span class="ident">peer_id</span>,
-                        <span class="ident">connection</span>,
+                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                        peer_id,
+                        connection,
                     });
                 }
             }
         }
-        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">event_queue</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::GenerateEvent</span>(
-                <span class="self">self</span>.<span class="ident">event_queue</span>.<span class="ident">remove</span>(<span class="number">0</span>),
+        <span class="kw">if </span>!<span class="self">self</span>.event_queue.is_empty() {
+            <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::GenerateEvent(
+                <span class="self">self</span>.event_queue.remove(<span class="number">0</span>),
             ));
         }
-        <span class="ident">Poll::Pending</span>
+        Poll::Pending
     }
 
-    <span class="kw">fn</span> <span class="ident">addresses_of_peer</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">pid</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">libp2p::Multiaddr</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">addresses_of_peer</span>(<span class="ident">pid</span>)
+    <span class="kw">fn </span>addresses_of_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pid: <span class="kw-2">&amp;</span>PeerId) -&gt; Vec&lt;libp2p::Multiaddr&gt; {
+        <span class="self">self</span>.kadem.addresses_of_peer(pid)
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_connection_established</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">peer_id</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>,
-        <span class="ident">connection_id</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::connection::ConnectionId</span>,
-        <span class="ident">endpoint</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::ConnectedPoint</span>,
-        <span class="ident">failed_addresses</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">libp2p::Multiaddr</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">other_established</span>: <span class="ident">usize</span>,
+    <span class="kw">fn </span>inject_connection_established(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        peer_id: <span class="kw-2">&amp;</span>PeerId,
+        connection_id: <span class="kw-2">&amp;</span>libp2p::core::connection::ConnectionId,
+        endpoint: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
+        failed_addresses: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;libp2p::Multiaddr&gt;&gt;,
+        other_established: usize,
     ) {
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">inject_connection_established</span>(
-            <span class="ident">peer_id</span>,
-            <span class="ident">connection_id</span>,
-            <span class="ident">endpoint</span>,
-            <span class="ident">failed_addresses</span>,
-            <span class="ident">other_established</span>,
+        <span class="self">self</span>.kadem.inject_connection_established(
+            peer_id,
+            connection_id,
+            endpoint,
+            failed_addresses,
+            other_established,
         );
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_connection_closed</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">pid</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>,
-        <span class="ident">cid</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::connection::ConnectionId</span>,
-        <span class="ident">cp</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::ConnectedPoint</span>,
-        <span class="ident">handler</span>: <span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::ConnectionHandler</span> <span class="kw">as</span> <span class="ident">libp2p::swarm::IntoConnectionHandler</span><span class="op">&gt;</span><span class="ident">::Handler</span>,
-        <span class="ident">remaining_established</span>: <span class="ident">usize</span>,
+    <span class="kw">fn </span>inject_connection_closed(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        pid: <span class="kw-2">&amp;</span>PeerId,
+        cid: <span class="kw-2">&amp;</span>libp2p::core::connection::ConnectionId,
+        cp: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
+        handler: &lt;<span class="self">Self</span>::ConnectionHandler <span class="kw">as </span>libp2p::swarm::IntoConnectionHandler&gt;::Handler,
+        remaining_established: usize,
     ) {
-        <span class="self">self</span>.<span class="ident">kadem</span>
-            .<span class="ident">inject_connection_closed</span>(<span class="ident">pid</span>, <span class="ident">cid</span>, <span class="ident">cp</span>, <span class="ident">handler</span>, <span class="ident">remaining_established</span>);
+        <span class="self">self</span>.kadem
+            .inject_connection_closed(pid, cid, cp, handler, remaining_established);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_address_change</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">pid</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>,
-        <span class="ident">cid</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::connection::ConnectionId</span>,
-        <span class="ident">old</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::ConnectedPoint</span>,
-        <span class="ident">new</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::ConnectedPoint</span>,
+    <span class="kw">fn </span>inject_address_change(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        pid: <span class="kw-2">&amp;</span>PeerId,
+        cid: <span class="kw-2">&amp;</span>libp2p::core::connection::ConnectionId,
+        old: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
+        new: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
     ) {
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">inject_address_change</span>(<span class="ident">pid</span>, <span class="ident">cid</span>, <span class="ident">old</span>, <span class="ident">new</span>);
+        <span class="self">self</span>.kadem.inject_address_change(pid, cid, old, new);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_dial_failure</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">peer_id</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>,
-        <span class="ident">handler</span>: <span class="ident"><span class="self">Self</span>::ConnectionHandler</span>,
-        <span class="ident">error</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::swarm::DialError</span>,
+    <span class="kw">fn </span>inject_dial_failure(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        peer_id: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
+        handler: <span class="self">Self</span>::ConnectionHandler,
+        error: <span class="kw-2">&amp;</span>libp2p::swarm::DialError,
     ) {
         <span class="macro">info!</span>(
             <span class="string">&quot;{:?} dial failure for peer id: {:?} with error {:?}&quot;</span>,
-            <span class="self">self</span>.<span class="ident">peer_id</span>, <span class="ident">peer_id</span>, <span class="ident">error</span>
+            <span class="self">self</span>.peer_id, peer_id, error
         );
-        <span class="comment">// NOTE if there are no addresses</span>
-        <span class="comment">// initiate query searching</span>
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">inject_dial_failure</span>(<span class="ident">peer_id</span>, <span class="ident">handler</span>, <span class="ident">error</span>);
+        <span class="comment">// NOTE if there are no addresses
+        // initiate query searching
+        </span><span class="self">self</span>.kadem.inject_dial_failure(peer_id, handler, error);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_listen_failure</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">local_addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>,
-        <span class="ident">send_back_addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>,
-        <span class="ident">handler</span>: <span class="ident"><span class="self">Self</span>::ConnectionHandler</span>,
+    <span class="kw">fn </span>inject_listen_failure(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        local_addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr,
+        send_back_addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr,
+        handler: <span class="self">Self</span>::ConnectionHandler,
     ) {
-        <span class="self">self</span>.<span class="ident">kadem</span>
-            .<span class="ident">inject_listen_failure</span>(<span class="ident">local_addr</span>, <span class="ident">send_back_addr</span>, <span class="ident">handler</span>);
+        <span class="self">self</span>.kadem
+            .inject_listen_failure(local_addr, send_back_addr, handler);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_new_listener</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>) {
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">inject_new_listener</span>(<span class="ident">id</span>);
+    <span class="kw">fn </span>inject_new_listener(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId) {
+        <span class="self">self</span>.kadem.inject_new_listener(id);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_new_listen_addr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>, <span class="ident">addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>) {
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">inject_new_listen_addr</span>(<span class="ident">id</span>, <span class="ident">addr</span>);
+    <span class="kw">fn </span>inject_new_listen_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
+        <span class="self">self</span>.kadem.inject_new_listen_addr(id, addr);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_expired_listen_addr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>, <span class="ident">addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>) {
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">inject_expired_listen_addr</span>(<span class="ident">id</span>, <span class="ident">addr</span>);
+    <span class="kw">fn </span>inject_expired_listen_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
+        <span class="self">self</span>.kadem.inject_expired_listen_addr(id, addr);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_listener_error</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>, <span class="ident">err</span>: <span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">std::error::Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>)) {
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">inject_listener_error</span>(<span class="ident">id</span>, <span class="ident">err</span>);
+    <span class="kw">fn </span>inject_listener_error(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, err: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">&#39;static</span>)) {
+        <span class="self">self</span>.kadem.inject_listener_error(id, err);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_listener_closed</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>, <span class="ident">reason</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="kw-2">&amp;</span><span class="ident">std::io::Error</span><span class="op">&gt;</span>) {
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">inject_listener_closed</span>(<span class="ident">id</span>, <span class="ident">reason</span>);
+    <span class="kw">fn </span>inject_listener_closed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, reason: <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span>std::io::Error&gt;) {
+        <span class="self">self</span>.kadem.inject_listener_closed(id, reason);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_new_external_addr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>) {
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">inject_new_external_addr</span>(<span class="ident">addr</span>);
+    <span class="kw">fn </span>inject_new_external_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
+        <span class="self">self</span>.kadem.inject_new_external_addr(addr);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_expired_external_addr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>) {
-        <span class="self">self</span>.<span class="ident">kadem</span>.<span class="ident">inject_expired_external_addr</span>(<span class="ident">addr</span>);
+    <span class="kw">fn </span>inject_expired_external_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
+        <span class="self">self</span>.kadem.inject_expired_external_addr(addr);
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

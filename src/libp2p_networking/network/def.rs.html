@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/src/network/def.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>def.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../libp2p_networking/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/src/network/def.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>def.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../libp2p_networking/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -175,182 +175,182 @@
 <span id="175">175</span>
 <span id="176">176</span>
 <span id="177">177</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">futures::channel::oneshot::Sender</span>;
-<span class="kw">use</span> <span class="ident">libp2p</span>::{
-    <span class="ident">gossipsub::IdentTopic</span> <span class="kw">as</span> <span class="ident">Topic</span>,
-    <span class="ident">identify</span>::{<span class="ident">Behaviour</span> <span class="kw">as</span> <span class="ident">IdentifyBehaviour</span>, <span class="ident">Event</span> <span class="kw">as</span> <span class="ident">IdentifyEvent</span>},
-    <span class="ident">request_response::ResponseChannel</span>,
-    <span class="ident">Multiaddr</span>, <span class="ident">NetworkBehaviour</span>, <span class="ident">PeerId</span>,
+</pre><pre class="rust"><code><span class="kw">use </span>futures::channel::oneshot::Sender;
+<span class="kw">use </span>libp2p::{
+    gossipsub::IdentTopic <span class="kw">as </span>Topic,
+    identify::{Behaviour <span class="kw">as </span>IdentifyBehaviour, Event <span class="kw">as </span>IdentifyEvent},
+    request_response::ResponseChannel,
+    Multiaddr, NetworkBehaviour, PeerId,
 };
-<span class="kw">use</span> <span class="ident">std::num::NonZeroUsize</span>;
-<span class="kw">use</span> <span class="ident">tracing::debug</span>;
+<span class="kw">use </span>std::num::NonZeroUsize;
+<span class="kw">use </span>tracing::debug;
 
-<span class="kw">use</span> <span class="kw">super</span>::{
-    <span class="ident">behaviours</span>::{
-        <span class="ident">dht</span>::{<span class="ident">DHTBehaviour</span>, <span class="ident">DHTEvent</span>, <span class="ident">KadPutQuery</span>},
-        <span class="ident">direct_message</span>::{<span class="ident">DMBehaviour</span>, <span class="ident">DMEvent</span>, <span class="ident">DMRequest</span>},
-        <span class="ident">direct_message_codec::DirectMessageResponse</span>,
-        <span class="ident">exponential_backoff::ExponentialBackoff</span>,
-        <span class="ident">gossip</span>::{<span class="ident">GossipBehaviour</span>, <span class="ident">GossipEvent</span>},
+<span class="kw">use super</span>::{
+    behaviours::{
+        dht::{DHTBehaviour, DHTEvent, KadPutQuery},
+        direct_message::{DMBehaviour, DMEvent, DMRequest},
+        direct_message_codec::DirectMessageResponse,
+        exponential_backoff::ExponentialBackoff,
+        gossip::{GossipBehaviour, GossipEvent},
     },
-    <span class="ident">NetworkEventInternal</span>,
+    NetworkEventInternal,
 };
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const</span> <span class="ident">NUM_REPLICATED_TO_TRUST</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">2</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>NUM_REPLICATED_TO_TRUST: usize = <span class="number">2</span>;
 
-<span class="doccomment">/// Overarching network behaviour performing:</span>
-<span class="doccomment">/// - network topology discovoery</span>
-<span class="doccomment">/// - direct messaging</span>
-<span class="doccomment">/// - p2p broadcast</span>
-<span class="doccomment">/// - connection management</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">NetworkBehaviour</span>, <span class="ident">custom_debug::Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">behaviour</span>(<span class="ident">out_event</span> <span class="op">=</span> <span class="string">&quot;NetworkEventInternal&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">NetworkDef</span> {
-    <span class="doccomment">/// purpose: broadcasting messages to many peers</span>
-    <span class="doccomment">/// NOTE gossipsub works ONLY for sharing messsages right now</span>
-    <span class="doccomment">/// in the future it may be able to do peer discovery and routing</span>
-    <span class="doccomment">/// &lt;https://github.com/libp2p/rust-libp2p/issues/2398&gt;</span>
-    <span class="attribute">#[<span class="ident">debug</span>(<span class="ident">skip</span>)]</span>
-    <span class="ident">gossipsub</span>: <span class="ident">GossipBehaviour</span>,
+<span class="doccomment">/// Overarching network behaviour performing:
+/// - network topology discovoery
+/// - direct messaging
+/// - p2p broadcast
+/// - connection management
+</span><span class="attribute">#[derive(NetworkBehaviour, custom_debug::Debug)]
+#[behaviour(out_event = <span class="string">&quot;NetworkEventInternal&quot;</span>)]
+</span><span class="kw">pub struct </span>NetworkDef {
+    <span class="doccomment">/// purpose: broadcasting messages to many peers
+    /// NOTE gossipsub works ONLY for sharing messsages right now
+    /// in the future it may be able to do peer discovery and routing
+    /// &lt;https://github.com/libp2p/rust-libp2p/issues/2398&gt;
+    </span><span class="attribute">#[debug(skip)]
+    </span>gossipsub: GossipBehaviour,
 
-    <span class="doccomment">/// purpose: peer routing</span>
-    <span class="doccomment">/// purpose: storing pub key &lt;-&gt; peer id bijection</span>
-    <span class="attribute">#[<span class="ident">debug</span>(<span class="ident">skip</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">dht</span>: <span class="ident">DHTBehaviour</span>,
+    <span class="doccomment">/// purpose: peer routing
+    /// purpose: storing pub key &lt;-&gt; peer id bijection
+    </span><span class="attribute">#[debug(skip)]
+    </span><span class="kw">pub </span>dht: DHTBehaviour,
 
-    <span class="doccomment">/// purpose: identifying the addresses from an outside POV</span>
-    <span class="attribute">#[<span class="ident">debug</span>(<span class="ident">skip</span>)]</span>
-    <span class="ident">identify</span>: <span class="ident">IdentifyBehaviour</span>,
+    <span class="doccomment">/// purpose: identifying the addresses from an outside POV
+    </span><span class="attribute">#[debug(skip)]
+    </span>identify: IdentifyBehaviour,
 
-    <span class="doccomment">/// purpose: directly messaging peer</span>
-    <span class="attribute">#[<span class="ident">debug</span>(<span class="ident">skip</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">request_response</span>: <span class="ident">DMBehaviour</span>,
+    <span class="doccomment">/// purpose: directly messaging peer
+    </span><span class="attribute">#[debug(skip)]
+    </span><span class="kw">pub </span>request_response: DMBehaviour,
 }
 
-<span class="kw">impl</span> <span class="ident">NetworkDef</span> {
-    <span class="doccomment">/// Create a new instance of a `NetworkDef`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">gossipsub</span>: <span class="ident">GossipBehaviour</span>,
-        <span class="ident">dht</span>: <span class="ident">DHTBehaviour</span>,
-        <span class="ident">identify</span>: <span class="ident">IdentifyBehaviour</span>,
-        <span class="ident">request_response</span>: <span class="ident">DMBehaviour</span>,
-    ) -&gt; <span class="ident">NetworkDef</span> {
-        <span class="self">Self</span> {
-            <span class="ident">gossipsub</span>,
-            <span class="ident">dht</span>,
-            <span class="ident">identify</span>,
-            <span class="ident">request_response</span>,
+<span class="kw">impl </span>NetworkDef {
+    <span class="doccomment">/// Create a new instance of a `NetworkDef`
+    </span><span class="kw">pub fn </span>new(
+        gossipsub: GossipBehaviour,
+        dht: DHTBehaviour,
+        identify: IdentifyBehaviour,
+        request_response: DMBehaviour,
+    ) -&gt; NetworkDef {
+        <span class="self">Self </span>{
+            gossipsub,
+            dht,
+            identify,
+            request_response,
         }
     }
 }
 
-<span class="doccomment">/// Address functions</span>
-<span class="kw">impl</span> <span class="ident">NetworkDef</span> {
-    <span class="doccomment">/// Add an address</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_address</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">peer_id</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>, <span class="ident">address</span>: <span class="ident">Multiaddr</span>) {
-        <span class="comment">// NOTE to get this address to play nice with the other</span>
-        <span class="comment">// behaviours using the DHT for ouring</span>
-        <span class="comment">// we only need to add this address to the DHT since it</span>
-        <span class="comment">// is always enabled. If it were not always enabled,</span>
-        <span class="comment">// we would need to manually add the address to</span>
-        <span class="comment">// the direct message behaviour</span>
-        <span class="self">self</span>.<span class="ident">dht</span>.<span class="ident">add_address</span>(<span class="ident">peer_id</span>, <span class="ident">address</span>);
+<span class="doccomment">/// Address functions
+</span><span class="kw">impl </span>NetworkDef {
+    <span class="doccomment">/// Add an address
+    </span><span class="kw">pub fn </span>add_address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId, address: Multiaddr) {
+        <span class="comment">// NOTE to get this address to play nice with the other
+        // behaviours using the DHT for ouring
+        // we only need to add this address to the DHT since it
+        // is always enabled. If it were not always enabled,
+        // we would need to manually add the address to
+        // the direct message behaviour
+        </span><span class="self">self</span>.dht.add_address(peer_id, address);
     }
 }
 
-<span class="doccomment">/// Gossip functions</span>
-<span class="kw">impl</span> <span class="ident">NetworkDef</span> {
-    <span class="doccomment">/// Publish a given gossip</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">publish_gossip</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">topic</span>: <span class="ident">Topic</span>, <span class="ident">contents</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">publish_gossip</span>(<span class="ident">topic</span>, <span class="ident">contents</span>);
+<span class="doccomment">/// Gossip functions
+</span><span class="kw">impl </span>NetworkDef {
+    <span class="doccomment">/// Publish a given gossip
+    </span><span class="kw">pub fn </span>publish_gossip(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: Topic, contents: Vec&lt;u8&gt;) {
+        <span class="self">self</span>.gossipsub.publish_gossip(topic, contents);
     }
 
-    <span class="doccomment">/// Subscribe to a given topic</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">subscribe_gossip</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">t</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">subscribe_gossip</span>(<span class="ident">t</span>);
+    <span class="doccomment">/// Subscribe to a given topic
+    </span><span class="kw">pub fn </span>subscribe_gossip(<span class="kw-2">&amp;mut </span><span class="self">self</span>, t: <span class="kw-2">&amp;</span>str) {
+        <span class="self">self</span>.gossipsub.subscribe_gossip(t);
     }
 
-    <span class="doccomment">/// Unsubscribe from a given topic</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">unsubscribe_gossip</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">t</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">unsubscribe_gossip</span>(<span class="ident">t</span>);
+    <span class="doccomment">/// Unsubscribe from a given topic
+    </span><span class="kw">pub fn </span>unsubscribe_gossip(<span class="kw-2">&amp;mut </span><span class="self">self</span>, t: <span class="kw-2">&amp;</span>str) {
+        <span class="self">self</span>.gossipsub.unsubscribe_gossip(t);
     }
 }
 
-<span class="doccomment">/// DHT functions</span>
-<span class="kw">impl</span> <span class="ident">NetworkDef</span> {
-    <span class="doccomment">/// Publish a key/value to the kv store.</span>
-    <span class="doccomment">/// Once replicated upon all nodes, the caller is notified over</span>
-    <span class="doccomment">/// `chan`. If there is an error, a [`super::error::DHTError`] is</span>
-    <span class="doccomment">/// sent instead.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">put_record</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">query</span>: <span class="ident">KadPutQuery</span>) {
-        <span class="self">self</span>.<span class="ident">dht</span>.<span class="ident">put_record</span>(<span class="ident">query</span>);
+<span class="doccomment">/// DHT functions
+</span><span class="kw">impl </span>NetworkDef {
+    <span class="doccomment">/// Publish a key/value to the kv store.
+    /// Once replicated upon all nodes, the caller is notified over
+    /// `chan`. If there is an error, a [`super::error::DHTError`] is
+    /// sent instead.
+    </span><span class="kw">pub fn </span>put_record(<span class="kw-2">&amp;mut </span><span class="self">self</span>, query: KadPutQuery) {
+        <span class="self">self</span>.dht.put_record(query);
     }
 
-    <span class="doccomment">/// Retrieve a value for a key from the DHT.</span>
-    <span class="doccomment">/// Value (serialized) is sent over `chan`, and if a value is not found,</span>
-    <span class="doccomment">/// a [`super::error::DHTError`] is sent instead.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_record</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">key</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-        <span class="ident">chan</span>: <span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">factor</span>: <span class="ident">NonZeroUsize</span>,
-        <span class="ident">retry_count</span>: <span class="ident">u8</span>,
+    <span class="doccomment">/// Retrieve a value for a key from the DHT.
+    /// Value (serialized) is sent over `chan`, and if a value is not found,
+    /// a [`super::error::DHTError`] is sent instead.
+    </span><span class="kw">pub fn </span>get_record(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        key: Vec&lt;u8&gt;,
+        chan: Sender&lt;Vec&lt;u8&gt;&gt;,
+        factor: NonZeroUsize,
+        retry_count: u8,
     ) {
-        <span class="self">self</span>.<span class="ident">dht</span>.<span class="ident">get_record</span>(
-            <span class="ident">key</span>,
-            <span class="ident">chan</span>,
-            <span class="ident">factor</span>,
-            <span class="ident">ExponentialBackoff::default</span>(),
-            <span class="ident">retry_count</span>,
+        <span class="self">self</span>.dht.get_record(
+            key,
+            chan,
+            factor,
+            ExponentialBackoff::default(),
+            retry_count,
         );
     }
 }
 
-<span class="doccomment">/// Request/response functions</span>
-<span class="kw">impl</span> <span class="ident">NetworkDef</span> {
-    <span class="doccomment">/// Add a direct request for a given peer</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_direct_request</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">peer_id</span>: <span class="ident">PeerId</span>, <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">retry_count</span>: <span class="ident">u8</span>) {
-        <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">DMRequest</span> {
-            <span class="ident">peer_id</span>,
-            <span class="ident">data</span>,
-            <span class="ident">backoff</span>: <span class="ident">ExponentialBackoff::default</span>(),
-            <span class="ident">retry_count</span>,
+<span class="doccomment">/// Request/response functions
+</span><span class="kw">impl </span>NetworkDef {
+    <span class="doccomment">/// Add a direct request for a given peer
+    </span><span class="kw">pub fn </span>add_direct_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, data: Vec&lt;u8&gt;, retry_count: u8) {
+        <span class="kw">let </span>request = DMRequest {
+            peer_id,
+            data,
+            backoff: ExponentialBackoff::default(),
+            retry_count,
         };
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">add_direct_request</span>(<span class="ident">request</span>);
+        <span class="self">self</span>.request_response.add_direct_request(request);
     }
 
-    <span class="doccomment">/// Add a direct response for a channel</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">add_direct_response</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">chan</span>: <span class="ident">ResponseChannel</span><span class="op">&lt;</span><span class="ident">DirectMessageResponse</span><span class="op">&gt;</span>,
-        <span class="ident">msg</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Add a direct response for a channel
+    </span><span class="kw">pub fn </span>add_direct_response(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        chan: ResponseChannel&lt;DirectMessageResponse&gt;,
+        msg: Vec&lt;u8&gt;,
     ) {
-        <span class="self">self</span>.<span class="ident">request_response</span>.<span class="ident">add_direct_response</span>(<span class="ident">chan</span>, <span class="ident">msg</span>);
+        <span class="self">self</span>.request_response.add_direct_response(chan, msg);
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">DMEvent</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">NetworkEventInternal</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">event</span>: <span class="ident">DMEvent</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::DMEvent</span>(<span class="ident">event</span>)
+<span class="kw">impl </span>From&lt;DMEvent&gt; <span class="kw">for </span>NetworkEventInternal {
+    <span class="kw">fn </span>from(event: DMEvent) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::DMEvent(event)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">GossipEvent</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">NetworkEventInternal</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">event</span>: <span class="ident">GossipEvent</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::GossipEvent</span>(<span class="ident">event</span>)
+<span class="kw">impl </span>From&lt;GossipEvent&gt; <span class="kw">for </span>NetworkEventInternal {
+    <span class="kw">fn </span>from(event: GossipEvent) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::GossipEvent(event)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">DHTEvent</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">NetworkEventInternal</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">event</span>: <span class="ident">DHTEvent</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::DHTEvent</span>(<span class="ident">event</span>)
+<span class="kw">impl </span>From&lt;DHTEvent&gt; <span class="kw">for </span>NetworkEventInternal {
+    <span class="kw">fn </span>from(event: DHTEvent) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::DHTEvent(event)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">IdentifyEvent</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">NetworkEventInternal</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">event</span>: <span class="ident">IdentifyEvent</span>) -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::IdentifyEvent</span>(<span class="ident">Box::new</span>(<span class="ident">event</span>))
+<span class="kw">impl </span>From&lt;IdentifyEvent&gt; <span class="kw">for </span>NetworkEventInternal {
+    <span class="kw">fn </span>from(event: IdentifyEvent) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::IdentifyEvent(Box::new(event))
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

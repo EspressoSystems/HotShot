@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/examples/counter.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>counter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../counter/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../counter/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../counter/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/examples/counter.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>counter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../counter/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../counter/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../counter/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -51,58 +51,58 @@
 <span id="51">51</span>
 <span id="52">52</span>
 <span id="53">53</span>
-</pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">common</span>;
+</pre><pre class="rust"><code><span class="kw">pub mod </span>common;
 
-<span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">color_eyre::eyre::Result</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
-<span class="kw">use</span> <span class="ident">common</span>::{
-    <span class="ident">lossy_network</span>::{<span class="ident">IsolationConfig</span>, <span class="ident">LossyNetworkBuilder</span>},
-    <span class="ident">ExecutionEnvironment</span>,
+<span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>color_eyre::eyre::Result;
+<span class="attribute">#[cfg(all(feature = <span class="string">&quot;lossy_network&quot;</span>, target_os = <span class="string">&quot;linux&quot;</span>))]
+</span><span class="kw">use </span>common::{
+    lossy_network::{IsolationConfig, LossyNetworkBuilder},
+    ExecutionEnvironment,
 };
-<span class="kw">use</span> <span class="ident">common</span>::{<span class="ident">start_main</span>, <span class="ident">CliOpt</span>};
-<span class="kw">use</span> <span class="ident">hotshot_utils::art::async_main</span>;
-<span class="kw">use</span> <span class="ident">tracing::instrument</span>;
+<span class="kw">use </span>common::{start_main, CliOpt};
+<span class="kw">use </span>hotshot_utils::art::async_main;
+<span class="kw">use </span>tracing::instrument;
 
-<span class="attribute">#[<span class="ident">async_main</span>]</span>
-<span class="attribute">#[<span class="ident">instrument</span>]</span>
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">CliOpt::parse</span>();
+<span class="attribute">#[async_main]
+#[instrument]
+</span><span class="kw">async fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">let </span>args = CliOpt::parse();
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
-    <span class="kw">let</span> <span class="ident">network</span> <span class="op">=</span> {
-        <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::lossy_network::LOSSY_QDISC</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">LossyNetworkBuilder::default</span>();
-        <span class="ident">builder</span>
-            .<span class="ident">env_type</span>(<span class="ident">args</span>.<span class="ident">env_type_delegate</span>.<span class="ident">env_type</span>)
-            .<span class="ident">netem_config</span>(<span class="ident">LOSSY_QDISC</span>);
-        <span class="kw">match</span> <span class="ident">args</span>.<span class="ident">env_type_delegate</span>.<span class="ident">env_type</span> {
-            <span class="ident">ExecutionEnvironment::Docker</span> =&gt; {
-                <span class="ident">builder</span>.<span class="ident">eth_name</span>(<span class="string">&quot;eth0&quot;</span>.<span class="ident">to_string</span>()).<span class="ident">isolation_config</span>(<span class="prelude-val">None</span>)
+    <span class="attribute">#[cfg(all(feature = <span class="string">&quot;lossy_network&quot;</span>, target_os = <span class="string">&quot;linux&quot;</span>))]
+    </span><span class="kw">let </span>network = {
+        <span class="kw">use </span><span class="kw">crate</span>::common::lossy_network::LOSSY_QDISC;
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = LossyNetworkBuilder::default();
+        builder
+            .env_type(args.env_type_delegate.env_type)
+            .netem_config(LOSSY_QDISC);
+        <span class="kw">match </span>args.env_type_delegate.env_type {
+            ExecutionEnvironment::Docker =&gt; {
+                builder.eth_name(<span class="string">&quot;eth0&quot;</span>.to_string()).isolation_config(<span class="prelude-val">None</span>)
             }
-            <span class="ident">ExecutionEnvironment::Metal</span> =&gt; <span class="ident">builder</span>
-                .<span class="ident">eth_name</span>(<span class="string">&quot;ens5&quot;</span>.<span class="ident">to_string</span>())
-                .<span class="ident">isolation_config</span>(<span class="prelude-val">Some</span>(<span class="ident">IsolationConfig::default</span>())),
+            ExecutionEnvironment::Metal =&gt; builder
+                .eth_name(<span class="string">&quot;ens5&quot;</span>.to_string())
+                .isolation_config(<span class="prelude-val">Some</span>(IsolationConfig::default())),
         };
-        <span class="ident">builder</span>.<span class="ident">build</span>()
+        builder.build()
     }<span class="question-mark">?</span>;
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
-    {
-        <span class="ident">network</span>.<span class="ident">isolate</span>().<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="ident">network</span>.<span class="ident">create_qdisc</span>().<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="attribute">#[cfg(all(feature = <span class="string">&quot;lossy_network&quot;</span>, target_os = <span class="string">&quot;linux&quot;</span>))]
+    </span>{
+        network.isolate().<span class="kw">await</span><span class="question-mark">?</span>;
+        network.create_qdisc().<span class="kw">await</span><span class="question-mark">?</span>;
     }
 
-    <span class="ident">start_main</span>(<span class="ident">args</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+    start_main(args).<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
-    {
-        <span class="comment">// implicitly deletes qdisc in the case of metal run</span>
-        <span class="comment">// leaves qdisc alive in docker run with expectation docker does cleanup</span>
-        <span class="ident">network</span>.<span class="ident">undo_isolate</span>().<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="attribute">#[cfg(all(feature = <span class="string">&quot;lossy_network&quot;</span>, target_os = <span class="string">&quot;linux&quot;</span>))]
+    </span>{
+        <span class="comment">// implicitly deletes qdisc in the case of metal run
+        // leaves qdisc alive in docker run with expectation docker does cleanup
+        </span>network.undo_isolate().<span class="kw">await</span><span class="question-mark">?</span>;
     }
 
     <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="counter" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="counter" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

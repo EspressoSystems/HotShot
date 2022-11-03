@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `examples/multi-machine-libp2p.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>multi-machine-libp2p.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../multi_machine_libp2p/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../multi_machine_libp2p/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../multi_machine_libp2p/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `examples/multi-machine-libp2p.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>multi-machine-libp2p.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../multi_machine_libp2p/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../multi_machine_libp2p/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../multi_machine_libp2p/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -625,636 +625,632 @@
 <span id="625">625</span>
 <span id="626">626</span>
 <span id="627">627</span>
-<span id="628">628</span>
-<span id="629">629</span>
-</pre><pre class="rust"><code><span class="comment">// TODO this should really be moved into the utils crate.</span>
-<span class="macro">cfg_if::cfg_if!</span> {
-    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
-        <span class="kw">use</span> <span class="ident">async_std::net::TcpStream</span>;
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>)]</span> {
-        <span class="kw">use</span> <span class="ident">tokio::net::TcpStream</span>;
-    } <span class="kw">else</span> {
-        <span class="macro">std::compile_error!</span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
-    }
-}
-<span class="kw">use</span> <span class="ident">async_lock::RwLock</span>;
-<span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">hotshot</span>::{
-    <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
-    <span class="ident">traits</span>::{
-        <span class="ident">election::static_committee</span>::{<span class="ident">StaticCommittee</span>, <span class="ident">StaticElectionConfig</span>},
-        <span class="ident">implementations</span>::{<span class="ident">Libp2pNetwork</span>, <span class="ident">MemoryStorage</span>},
-        <span class="ident">NetworkError</span>, <span class="ident">Storage</span>,
+</pre><pre class="rust"><code><span class="comment">// TODO this should really be moved into the utils crate.
+</span><span class="kw">use </span>async_lock::RwLock;
+<span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>hotshot::{
+    demos::dentry::<span class="kw-2">*</span>,
+    traits::{
+        election::static_committee::{StaticCommittee, StaticElectionConfig},
+        implementations::{Libp2pNetwork, MemoryStorage},
+        NetworkError, Storage,
     },
-    <span class="ident">types</span>::{<span class="ident">ed25519::Ed25519Priv</span>, <span class="ident">HotShotHandle</span>, <span class="ident">Message</span>},
-    <span class="ident">HotShot</span>,
+    types::{ed25519::Ed25519Priv, HotShotHandle, Message},
+    HotShot,
 };
-<span class="kw">use</span> <span class="ident">hotshot_centralized_server</span>::{
-    <span class="ident">Run</span>, <span class="ident">RunResults</span>, <span class="ident">TcpStreamUtil</span>, <span class="ident">TcpStreamUtilWithRecv</span>, <span class="ident">TcpStreamUtilWithSend</span>,
+<span class="kw">use </span>hotshot_centralized_server::{
+    Run, RunResults, TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend,
 };
-<span class="kw">use</span> <span class="ident">hotshot_types</span>::{
-    <span class="ident">traits</span>::{
-        <span class="ident">network::NetworkingImplementation</span>,
-        <span class="ident">signature_key</span>::{<span class="ident">ed25519::Ed25519Pub</span>, <span class="ident">SignatureKey</span>, <span class="ident">TestableSignatureKey</span>},
-        <span class="ident">state::TestableState</span>,
+<span class="kw">use </span>hotshot_types::{
+    traits::{
+        network::NetworkingImplementation,
+        signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
+        state::TestableState,
     },
-    <span class="ident">ExecutionType</span>, <span class="ident">HotShotConfig</span>,
+    ExecutionType, HotShotConfig,
 };
-<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
-    <span class="ident">art::async_main</span>,
-    <span class="ident">test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>},
+<span class="kw">use </span>hotshot_utils::{
+    art::async_main,
+    test_util::{setup_backtrace, setup_logging},
 };
-<span class="kw">use</span> <span class="ident">libp2p</span>::{
-    <span class="ident">identity::Keypair</span>,
-    <span class="ident">multiaddr</span>::{<span class="self">self</span>, <span class="ident">Protocol</span>},
-    <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>,
+<span class="kw">use </span>libp2p::{
+    identity::Keypair,
+    multiaddr::{<span class="self">self</span>, Protocol},
+    Multiaddr, PeerId,
 };
-<span class="kw">use</span> <span class="ident">libp2p_networking::network</span>::{<span class="ident">MeshParams</span>, <span class="ident">NetworkNodeConfigBuilder</span>, <span class="ident">NetworkNodeType</span>};
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections::HashSet</span>,
-    <span class="ident">num::NonZeroUsize</span>,
-    <span class="ident">str::FromStr</span>,
-    <span class="ident">sync::Arc</span>,
-    <span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>},
+<span class="kw">use </span>libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+<span class="kw">use </span>std::{
+    collections::HashSet,
+    num::NonZeroUsize,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, Instant},
 };
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>};
+<span class="kw">use </span>tracing::{debug, error, info};
 
-<span class="kw">type</span> <span class="ident">FromServer</span> <span class="op">=</span> <span class="ident">hotshot_centralized_server::FromServer</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span>, <span class="ident">StaticElectionConfig</span><span class="op">&gt;</span>;
-<span class="kw">type</span> <span class="ident">ToServer</span> <span class="op">=</span> <span class="ident">hotshot_centralized_server::ToServer</span><span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
+</span><span class="kw">use </span>async_std::net::TcpStream;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
+</span><span class="kw">use </span>tokio::net::TcpStream;
+<span class="attribute">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
+</span><span class="macro">std::compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
 
-<span class="doccomment">/// convert node string into multi addr</span>
-<span class="doccomment">/// node string of the form: &quot;$IP:$PORT&quot;</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse_dns</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Multiaddr</span>, <span class="ident">multiaddr::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">split</span>(<span class="string">&#39;:&#39;</span>);
-    <span class="kw">let</span> <span class="ident">ip</span> <span class="op">=</span> <span class="ident">i</span>.<span class="ident">next</span>().<span class="ident">ok_or</span>(<span class="ident">multiaddr::Error::InvalidMultiaddr</span>)<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">port</span> <span class="op">=</span> <span class="ident">i</span>.<span class="ident">next</span>().<span class="ident">ok_or</span>(<span class="ident">multiaddr::Error::InvalidMultiaddr</span>)<span class="question-mark">?</span>;
-    <span class="ident">Multiaddr::from_str</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/dns/{}/tcp/{}&quot;</span>, <span class="ident">ip</span>, <span class="ident">port</span>))
+<span class="kw">type </span>FromServer = hotshot_centralized_server::FromServer&lt;Ed25519Pub, StaticElectionConfig&gt;;
+<span class="kw">type </span>ToServer = hotshot_centralized_server::ToServer&lt;Ed25519Pub&gt;;
+
+<span class="doccomment">/// convert node string into multi addr
+/// node string of the form: &quot;$IP:$PORT&quot;
+</span><span class="kw">pub fn </span>parse_dns(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Multiaddr, multiaddr::Error&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>i = s.split(<span class="string">&#39;:&#39;</span>);
+    <span class="kw">let </span>ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)<span class="question-mark">?</span>;
+    <span class="kw">let </span>port = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)<span class="question-mark">?</span>;
+    Multiaddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/dns/{}/tcp/{}&quot;</span>, ip, port))
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse_ip</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Multiaddr</span>, <span class="ident">multiaddr::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">split</span>(<span class="string">&#39;:&#39;</span>);
-    <span class="kw">let</span> <span class="ident">ip</span> <span class="op">=</span> <span class="ident">i</span>.<span class="ident">next</span>().<span class="ident">ok_or</span>(<span class="ident">multiaddr::Error::InvalidMultiaddr</span>)<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">port</span> <span class="op">=</span> <span class="ident">i</span>.<span class="ident">next</span>().<span class="ident">ok_or</span>(<span class="ident">multiaddr::Error::InvalidMultiaddr</span>)<span class="question-mark">?</span>;
-    <span class="ident">Multiaddr::from_str</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/ip4/{}/tcp/{}&quot;</span>, <span class="ident">ip</span>, <span class="ident">port</span>))
+<span class="kw">pub fn </span>parse_ip(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Multiaddr, multiaddr::Error&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>i = s.split(<span class="string">&#39;:&#39;</span>);
+    <span class="kw">let </span>ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)<span class="question-mark">?</span>;
+    <span class="kw">let </span>port = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)<span class="question-mark">?</span>;
+    Multiaddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/ip4/{}/tcp/{}&quot;</span>, ip, port))
 }
 
-<span class="comment">// FIXME make these actual ips/ports</span>
-<span class="doccomment">/// bootstrap hardcoded metadata</span>
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">BOOTSTRAPS</span>: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>[<span class="ident">u8</span>], <span class="kw-2">&amp;</span><span class="ident">str</span>)] <span class="op">=</span> <span class="kw-2">&amp;</span>[
+<span class="comment">// FIXME make these actual ips/ports
+</span><span class="doccomment">/// bootstrap hardcoded metadata
+</span><span class="kw">pub const </span>BOOTSTRAPS: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>[u8], <span class="kw-2">&amp;</span>str)] = <span class="kw-2">&amp;</span>[
     (
         <span class="macro">include_bytes!</span>(<span class="string">&quot;../deploy/keys/private_1.pk8&quot;</span>),
-        <span class="comment">// &quot;127.0.0.1:9100&quot;,</span>
-        <span class="comment">// &quot;18.216.113.34:9000&quot;,</span>
-        <span class="string">&quot;0.ap-south-1.cluster.aws.espresso.network:9000&quot;</span>,
+        <span class="comment">// &quot;127.0.0.1:9100&quot;,
+        // &quot;18.216.113.34:9000&quot;,
+        </span><span class="string">&quot;0.ap-south-1.cluster.aws.espresso.network:9000&quot;</span>,
     ),
     (
         <span class="macro">include_bytes!</span>(<span class="string">&quot;../deploy/keys/private_2.pk8&quot;</span>),
-        <span class="comment">// &quot;127.0.0.1:9101&quot;,</span>
-        <span class="comment">// &quot;18.117.245.103:9000&quot;,</span>
-        <span class="string">&quot;1.ap-south-1.cluster.aws.espresso.network:9000&quot;</span>,
+        <span class="comment">// &quot;127.0.0.1:9101&quot;,
+        // &quot;18.117.245.103:9000&quot;,
+        </span><span class="string">&quot;1.ap-south-1.cluster.aws.espresso.network:9000&quot;</span>,
     ),
     (
         <span class="macro">include_bytes!</span>(<span class="string">&quot;../deploy/keys/private_3.pk8&quot;</span>),
-        <span class="comment">// &quot;127.0.0.1:9102&quot;,</span>
-        <span class="comment">// &quot;13.58.161.60:9000&quot;,</span>
-        <span class="string">&quot;0.us-east-2.cluster.aws.espresso.network:9000&quot;</span>,
+        <span class="comment">// &quot;127.0.0.1:9102&quot;,
+        // &quot;13.58.161.60:9000&quot;,
+        </span><span class="string">&quot;0.us-east-2.cluster.aws.espresso.network:9000&quot;</span>,
     ),
     (
         <span class="macro">include_bytes!</span>(<span class="string">&quot;../deploy/keys/private_4.pk8&quot;</span>),
-        <span class="comment">// &quot;127.0.0.1:9103&quot;,</span>
-        <span class="comment">// &quot;3.111.188.178:9000&quot;,</span>
-        <span class="string">&quot;1.us-east-2.cluster.aws.espresso.network:9000&quot;</span>,
+        <span class="comment">// &quot;127.0.0.1:9103&quot;,
+        // &quot;3.111.188.178:9000&quot;,
+        </span><span class="string">&quot;1.us-east-2.cluster.aws.espresso.network:9000&quot;</span>,
     ),
     (
         <span class="macro">include_bytes!</span>(<span class="string">&quot;../deploy/keys/private_5.pk8&quot;</span>),
-        <span class="comment">// &quot;127.0.0.1:9104&quot;,</span>
-        <span class="comment">// &quot;52.66.253.105:9000&quot;,</span>
-        <span class="string">&quot;2.us-east-2.cluster.aws.espresso.network:9000&quot;</span>,
+        <span class="comment">// &quot;127.0.0.1:9104&quot;,
+        // &quot;52.66.253.105:9000&quot;,
+        </span><span class="string">&quot;2.us-east-2.cluster.aws.espresso.network:9000&quot;</span>,
     ),
     (
         <span class="macro">include_bytes!</span>(<span class="string">&quot;../deploy/keys/private_6.pk8&quot;</span>),
-        <span class="comment">// &quot;127.0.0.1:9105&quot;,</span>
-        <span class="comment">// &quot;34.219.31.18:9000&quot;,</span>
-        <span class="string">&quot;0.us-west-2.cluster.aws.espresso.network:9000&quot;</span>,
+        <span class="comment">// &quot;127.0.0.1:9105&quot;,
+        // &quot;34.219.31.18:9000&quot;,
+        </span><span class="string">&quot;0.us-west-2.cluster.aws.espresso.network:9000&quot;</span>,
     ),
     (
         <span class="macro">include_bytes!</span>(<span class="string">&quot;../deploy/keys/private_7.pk8&quot;</span>),
-        <span class="comment">// &quot;127.0.0.1:9106&quot;,</span>
-        <span class="comment">// &quot;54.184.243.4:9000&quot;,</span>
-        <span class="string">&quot;1.us-west-2.cluster.aws.espresso.network:9000&quot;</span>,
+        <span class="comment">// &quot;127.0.0.1:9106&quot;,
+        // &quot;54.184.243.4:9000&quot;,
+        </span><span class="string">&quot;1.us-west-2.cluster.aws.espresso.network:9000&quot;</span>,
     ),
 ];
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">clap::Args</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">struct</span> <span class="ident">CliOrchestrated</span> {
-    <span class="doccomment">/// The orchestrator host to connect to</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">env</span>)]</span>
-    <span class="ident">addr</span>: <span class="ident">String</span>,
+<span class="attribute">#[derive(clap::Args, Debug)]
+</span><span class="kw">struct </span>CliOrchestrated {
+    <span class="doccomment">/// The orchestrator host to connect to
+    </span><span class="attribute">#[clap(env)]
+    </span>addr: String,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">clap::Args</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">struct</span> <span class="ident">CliStandalone</span> {
-    <span class="doccomment">/// num nodes</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">num_nodes</span>: <span class="ident">u64</span>,
+<span class="attribute">#[derive(clap::Args, Debug)]
+</span><span class="kw">struct </span>CliStandalone {
+    <span class="doccomment">/// num nodes
+    </span><span class="attribute">#[arg(long, env)]
+    </span>num_nodes: u64,
 
-    <span class="doccomment">/// num bootstrap</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">num_bootstrap</span>: <span class="ident">u64</span>,
+    <span class="doccomment">/// num bootstrap
+    </span><span class="attribute">#[arg(long, env)]
+    </span>num_bootstrap: u64,
 
-    <span class="doccomment">/// num transactions to be submitted per round</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">num_txn_per_round</span>: <span class="ident">u64</span>,
+    <span class="doccomment">/// num transactions to be submitted per round
+    </span><span class="attribute">#[arg(long, env)]
+    </span>num_txn_per_round: u64,
 
-    <span class="doccomment">/// Id of the current node</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">node_idx</span>: <span class="ident">u64</span>,
+    <span class="doccomment">/// Id of the current node
+    </span><span class="attribute">#[arg(long, env)]
+    </span>node_idx: u64,
 
-    <span class="doccomment">/// how long to run for</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;60&quot;</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">online_time</span>: <span class="ident">u64</span>,
+    <span class="doccomment">/// how long to run for
+    </span><span class="attribute">#[arg(long, default_value = <span class="string">&quot;60&quot;</span>, env)]
+    </span>online_time: u64,
 
-    <span class="doccomment">/// address to bind to</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>, <span class="ident">value_parser</span> <span class="op">=</span> <span class="ident">parse_ip</span>)]</span>
-    <span class="ident">bound_addr</span>: <span class="ident">Multiaddr</span>,
+    <span class="doccomment">/// address to bind to
+    </span><span class="attribute">#[arg(long, env, value_parser = parse_ip)]
+    </span>bound_addr: Multiaddr,
 
-    <span class="doccomment">/// seed used to generate ids</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">seed</span>: <span class="ident">u64</span>,
+    <span class="doccomment">/// seed used to generate ids
+    </span><span class="attribute">#[arg(long, env)]
+    </span>seed: u64,
 
-    <span class="doccomment">/// bootstrap node mesh high</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">bootstrap_mesh_n_high</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// bootstrap node mesh high
+    </span><span class="attribute">#[arg(long, env)]
+    </span>bootstrap_mesh_n_high: usize,
 
-    <span class="doccomment">/// bootstrap node mesh low</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">bootstrap_mesh_n_low</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// bootstrap node mesh low
+    </span><span class="attribute">#[arg(long, env)]
+    </span>bootstrap_mesh_n_low: usize,
 
-    <span class="doccomment">/// bootstrap node outbound min</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">bootstrap_mesh_outbound_min</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// bootstrap node outbound min
+    </span><span class="attribute">#[arg(long, env)]
+    </span>bootstrap_mesh_outbound_min: usize,
 
-    <span class="doccomment">/// bootstrap node mesh n</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">bootstrap_mesh_n</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// bootstrap node mesh n
+    </span><span class="attribute">#[arg(long, env)]
+    </span>bootstrap_mesh_n: usize,
 
-    <span class="doccomment">/// bootstrap node mesh high</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">mesh_n_high</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// bootstrap node mesh high
+    </span><span class="attribute">#[arg(long, env)]
+    </span>mesh_n_high: usize,
 
-    <span class="doccomment">/// bootstrap node mesh low</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">mesh_n_low</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// bootstrap node mesh low
+    </span><span class="attribute">#[arg(long, env)]
+    </span>mesh_n_low: usize,
 
-    <span class="doccomment">/// bootstrap node outbound min</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">mesh_outbound_min</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// bootstrap node outbound min
+    </span><span class="attribute">#[arg(long, env)]
+    </span>mesh_outbound_min: usize,
 
-    <span class="doccomment">/// bootstrap node mesh n</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">mesh_n</span>: <span class="ident">usize</span>,
+    <span class="doccomment">/// bootstrap node mesh n
+    </span><span class="attribute">#[arg(long, env)]
+    </span>mesh_n: usize,
 
-    <span class="doccomment">/// max round time</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">propose_max_round_time</span>: <span class="ident">u64</span>,
+    <span class="doccomment">/// max round time
+    </span><span class="attribute">#[arg(long, env)]
+    </span>propose_max_round_time: u64,
 
-    <span class="doccomment">/// min round time</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">propose_min_round_time</span>: <span class="ident">u64</span>,
+    <span class="doccomment">/// min round time
+    </span><span class="attribute">#[arg(long, env)]
+    </span>propose_min_round_time: u64,
 
-    <span class="doccomment">/// next view timeout</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">env</span>)]</span>
-    <span class="ident">next_view_timeout</span>: <span class="ident">u64</span>,
+    <span class="doccomment">/// next view timeout
+    </span><span class="attribute">#[arg(long, env)]
+    </span>next_view_timeout: u64,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Parser</span>, <span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">command</span>(
-    <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;Multi-machine consensus&quot;</span>,
-    <span class="ident">about</span> <span class="op">=</span> <span class="string">&quot;Simulates consensus among multiple machines&quot;</span>
-)]</span>
-<span class="kw">enum</span> <span class="ident">CliOpt</span> {
-    <span class="ident">Orchestrated</span>(<span class="ident">CliOrchestrated</span>),
-    <span class="ident">Standalone</span>(<span class="ident">CliStandalone</span>),
+<span class="attribute">#[derive(Parser, Debug)]
+#[command(
+    name = <span class="string">&quot;Multi-machine consensus&quot;</span>,
+    about = <span class="string">&quot;Simulates consensus among multiple machines&quot;
+</span>)]
+</span><span class="kw">enum </span>CliOpt {
+    Orchestrated(CliOrchestrated),
+    Standalone(CliStandalone),
 }
 
-<span class="kw">impl</span> <span class="ident">CliOrchestrated</span> {
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">init</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">server_conn</span>: <span class="kw-2">&amp;mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">TcpStreamUtil</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Config</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">stream</span> <span class="op">=</span> <span class="ident">TcpStream::connect</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">addr</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">expect</span>(<span class="string">&quot;Could not reach server&quot;</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stream</span> <span class="op">=</span> <span class="ident">TcpStreamUtil::new</span>(<span class="ident">stream</span>);
-        <span class="ident">stream</span>.<span class="ident">send</span>(<span class="ident">ToServer::GetConfig</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
+<span class="kw">impl </span>CliOrchestrated {
+    <span class="kw">async fn </span>init(<span class="kw-2">&amp;</span><span class="self">self</span>, server_conn: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;TcpStreamUtil&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Config, NetworkError&gt; {
+        <span class="kw">let </span>stream = TcpStream::connect(<span class="kw-2">&amp;</span><span class="self">self</span>.addr)
+            .<span class="kw">await
+            </span>.expect(<span class="string">&quot;Could not reach server&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>stream = TcpStreamUtil::new(stream);
+        stream.send(ToServer::GetConfig).<span class="kw">await</span>.unwrap();
         <span class="macro">error!</span>(<span class="string">&quot;Waiting for server config...&quot;</span>);
-        <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">config</span>, <span class="ident">run</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">stream</span>.<span class="ident">recv</span>().<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;Could not get Libp2pConfig&quot;</span>) {
-            <span class="ident">FromServer::Config</span> { <span class="ident">config</span>, <span class="ident">run</span> } =&gt; (<span class="ident">config</span>, <span class="ident">run</span>),
-            <span class="ident">x</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Expected Libp2pConfig, got {x:?}&quot;</span>),
+        <span class="kw">let </span>(<span class="kw-2">mut </span>config, run) = <span class="kw">match </span>stream.recv().<span class="kw">await</span>.expect(<span class="string">&quot;Could not get Libp2pConfig&quot;</span>) {
+            FromServer::Config { config, run } =&gt; (config, run),
+            x =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Expected Libp2pConfig, got {x:?}&quot;</span>),
         };
-        <span class="macro">assert_eq!</span>(<span class="ident">config</span>.<span class="ident">key_type_name</span>, <span class="ident">std::any::type_name</span>::<span class="op">&lt;</span><span class="ident">Ed25519Pub</span><span class="op">&gt;</span>());
+        <span class="macro">assert_eq!</span>(config.key_type_name, std::any::type_name::&lt;Ed25519Pub&gt;());
         <span class="macro">assert_eq!</span>(
-            <span class="ident">config</span>.<span class="ident">election_config_type_name</span>,
-            <span class="ident">std::any::type_name</span>::<span class="op">&lt;</span><span class="ident">StaticElectionConfig</span><span class="op">&gt;</span>()
+            config.election_config_type_name,
+            std::any::type_name::&lt;StaticElectionConfig&gt;()
         );
         <span class="macro">error!</span>(<span class="string">&quot;Received server config: {config:?}&quot;</span>);
-        <span class="kw">let</span> <span class="ident">privkey</span> <span class="op">=</span> <span class="ident">Ed25519Priv::generated_from_seed_indexed</span>(<span class="ident">config</span>.<span class="ident">seed</span>, <span class="ident">config</span>.<span class="ident">node_index</span>);
-        <span class="kw">let</span> <span class="ident">pubkey</span> <span class="op">=</span> <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">privkey</span>);
+        <span class="kw">let </span>privkey = Ed25519Priv::generated_from_seed_indexed(config.seed, config.node_index);
+        <span class="kw">let </span>pubkey = Ed25519Pub::from_private(<span class="kw-2">&amp;</span>privkey);
 
-        <span class="ident">stream</span>
-            .<span class="ident">send</span>(<span class="ident">ToServer::Identify</span> { <span class="ident">key</span>: <span class="ident">pubkey</span> })
-            .<span class="kw">await</span>
-            .<span class="ident">expect</span>(<span class="string">&quot;Could not identify with server&quot;</span>);
+        stream
+            .send(ToServer::Identify { key: pubkey })
+            .<span class="kw">await
+            </span>.expect(<span class="string">&quot;Could not identify with server&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">libp2p_config</span> <span class="op">=</span> <span class="ident">config</span>
-            .<span class="ident">libp2p_config</span>
-            .<span class="ident">take</span>()
-            .<span class="ident">expect</span>(<span class="string">&quot;Server is not configured as a libp2p server&quot;</span>);
-        <span class="kw">let</span> <span class="ident">bs</span> <span class="op">=</span> <span class="ident">libp2p_config</span>
-            .<span class="ident">bootstrap_nodes</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">addr</span>, <span class="ident">pair</span>)<span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">kp</span> <span class="op">=</span> <span class="ident">Keypair::from_protobuf_encoding</span>(<span class="ident">pair</span>).<span class="ident">unwrap</span>();
-                <span class="kw">let</span> <span class="ident">peer_id</span> <span class="op">=</span> <span class="ident">PeerId::from_public_key</span>(<span class="kw-2">&amp;</span><span class="ident">kp</span>.<span class="ident">public</span>());
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">multiaddr</span> <span class="op">=</span> <span class="ident">Multiaddr::from</span>(<span class="ident">addr</span>.<span class="ident">ip</span>());
-                <span class="ident">multiaddr</span>.<span class="ident">push</span>(<span class="ident">Protocol::Tcp</span>(<span class="ident">addr</span>.<span class="ident">port</span>()));
-                (<span class="ident">peer_id</span>, <span class="ident">multiaddr</span>)
+        <span class="kw">let </span>libp2p_config = config
+            .libp2p_config
+            .take()
+            .expect(<span class="string">&quot;Server is not configured as a libp2p server&quot;</span>);
+        <span class="kw">let </span>bs = libp2p_config
+            .bootstrap_nodes
+            .iter()
+            .map(|(addr, pair)| {
+                <span class="kw">let </span>kp = Keypair::from_protobuf_encoding(pair).unwrap();
+                <span class="kw">let </span>peer_id = PeerId::from_public_key(<span class="kw-2">&amp;</span>kp.public());
+                <span class="kw">let </span><span class="kw-2">mut </span>multiaddr = Multiaddr::from(addr.ip());
+                multiaddr.push(Protocol::Tcp(addr.port()));
+                (peer_id, multiaddr)
             })
-            .<span class="ident">collect</span>();
+            .collect();
 
-        <span class="kw">let</span> (<span class="ident">node_type</span>, <span class="ident">identity</span>) <span class="op">=</span>
-            <span class="kw">if</span> (<span class="ident">config</span>.<span class="ident">node_index</span> <span class="kw">as</span> <span class="ident">usize</span>) <span class="op">&lt;</span> <span class="ident">libp2p_config</span>.<span class="ident">bootstrap_nodes</span>.<span class="ident">len</span>() {
+        <span class="kw">let </span>(node_type, identity) =
+            <span class="kw">if </span>(config.node_index <span class="kw">as </span>usize) &lt; libp2p_config.bootstrap_nodes.len() {
                 (
-                    <span class="ident">NetworkNodeType::Bootstrap</span>,
+                    NetworkNodeType::Bootstrap,
                     <span class="prelude-val">Some</span>(
-                        <span class="ident">Keypair::from_protobuf_encoding</span>(
-                            <span class="kw-2">&amp;</span><span class="ident">libp2p_config</span>.<span class="ident">bootstrap_nodes</span>[<span class="ident">config</span>.<span class="ident">node_index</span> <span class="kw">as</span> <span class="ident">usize</span>].<span class="number">1</span>,
+                        Keypair::from_protobuf_encoding(
+                            <span class="kw-2">&amp;</span>libp2p_config.bootstrap_nodes[config.node_index <span class="kw">as </span>usize].<span class="number">1</span>,
                         )
-                        .<span class="ident">unwrap</span>(),
+                        .unwrap(),
                     ),
                 )
-            } <span class="kw">else</span> {
-                (<span class="ident">NetworkNodeType::Regular</span>, <span class="prelude-val">None</span>)
+            } <span class="kw">else </span>{
+                (NetworkNodeType::Regular, <span class="prelude-val">None</span>)
             };
 
-        <span class="kw-2">*</span><span class="ident">server_conn</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">stream</span>);
+        <span class="kw-2">*</span>server_conn = <span class="prelude-val">Some</span>(stream);
 
-        <span class="prelude-val">Ok</span>(<span class="ident">Config</span> {
-            <span class="ident">run</span>,
-            <span class="ident">privkey</span>,
-            <span class="ident">pubkey</span>,
-            <span class="ident">bs</span>,
-            <span class="ident">node_id</span>: <span class="ident">config</span>.<span class="ident">node_index</span>,
-            <span class="ident">node_type</span>,
-            <span class="ident">identity</span>,
-            <span class="ident">bound_addr</span>: <span class="macro">format!</span>(
+        <span class="prelude-val">Ok</span>(Config {
+            run,
+            privkey,
+            pubkey,
+            bs,
+            node_id: config.node_index,
+            node_type,
+            identity,
+            bound_addr: <span class="macro">format!</span>(
                 <span class="string">&quot;/{}/{}/tcp/{}&quot;</span>,
-                <span class="kw">if</span> <span class="ident">libp2p_config</span>.<span class="ident">public_ip</span>.<span class="ident">is_ipv4</span>() {
-                    <span class="string">&quot;ip4&quot;</span>
-                } <span class="kw">else</span> {
-                    <span class="string">&quot;ip6&quot;</span>
-                },
-                <span class="ident">libp2p_config</span>.<span class="ident">public_ip</span>,
-                <span class="ident">libp2p_config</span>.<span class="ident">base_port</span> <span class="op">+</span> <span class="ident">config</span>.<span class="ident">node_index</span> <span class="kw">as</span> <span class="ident">u16</span>
+                <span class="kw">if </span>libp2p_config.public_ip.is_ipv4() {
+                    <span class="string">&quot;ip4&quot;
+                </span>} <span class="kw">else </span>{
+                    <span class="string">&quot;ip6&quot;
+                </span>},
+                libp2p_config.public_ip,
+                libp2p_config.base_port + config.node_index <span class="kw">as </span>u16
             )
-            .<span class="ident">parse</span>()
-            .<span class="ident">unwrap</span>(),
-            <span class="ident">num_nodes</span>: <span class="ident">config</span>.<span class="ident">config</span>.<span class="ident">total_nodes</span>.<span class="ident">get</span>() <span class="kw">as</span> <span class="kw">_</span>,
-            <span class="ident">bootstrap_mesh_n_high</span>: <span class="ident">libp2p_config</span>.<span class="ident">bootstrap_mesh_n_high</span>,
-            <span class="ident">bootstrap_mesh_n_low</span>: <span class="ident">libp2p_config</span>.<span class="ident">bootstrap_mesh_n_low</span>,
-            <span class="ident">bootstrap_mesh_outbound_min</span>: <span class="ident">libp2p_config</span>.<span class="ident">bootstrap_mesh_outbound_min</span>,
-            <span class="ident">bootstrap_mesh_n</span>: <span class="ident">libp2p_config</span>.<span class="ident">bootstrap_mesh_n</span>,
-            <span class="ident">mesh_n_high</span>: <span class="ident">libp2p_config</span>.<span class="ident">mesh_n_high</span>,
-            <span class="ident">mesh_n_low</span>: <span class="ident">libp2p_config</span>.<span class="ident">mesh_n_low</span>,
-            <span class="ident">mesh_outbound_min</span>: <span class="ident">libp2p_config</span>.<span class="ident">mesh_outbound_min</span>,
-            <span class="ident">mesh_n</span>: <span class="ident">libp2p_config</span>.<span class="ident">mesh_n</span>,
-            <span class="ident">next_view_timeout</span>: <span class="ident">libp2p_config</span>.<span class="ident">next_view_timeout</span>,
-            <span class="ident">propose_min_round_time</span>: <span class="ident">libp2p_config</span>.<span class="ident">propose_min_round_time</span>,
-            <span class="ident">propose_max_round_time</span>: <span class="ident">libp2p_config</span>.<span class="ident">propose_max_round_time</span>,
-            <span class="ident">online_time</span>: <span class="ident">libp2p_config</span>.<span class="ident">online_time</span>,
-            <span class="ident">num_txn_per_round</span>: <span class="ident">libp2p_config</span>.<span class="ident">num_txn_per_round</span>,
+            .parse()
+            .unwrap(),
+            num_nodes: config.config.total_nodes.get() <span class="kw">as _</span>,
+            bootstrap_mesh_n_high: libp2p_config.bootstrap_mesh_n_high,
+            bootstrap_mesh_n_low: libp2p_config.bootstrap_mesh_n_low,
+            bootstrap_mesh_outbound_min: libp2p_config.bootstrap_mesh_outbound_min,
+            bootstrap_mesh_n: libp2p_config.bootstrap_mesh_n,
+            mesh_n_high: libp2p_config.mesh_n_high,
+            mesh_n_low: libp2p_config.mesh_n_low,
+            mesh_outbound_min: libp2p_config.mesh_outbound_min,
+            mesh_n: libp2p_config.mesh_n,
+            next_view_timeout: libp2p_config.next_view_timeout,
+            propose_min_round_time: libp2p_config.propose_min_round_time,
+            propose_max_round_time: libp2p_config.propose_max_round_time,
+            online_time: libp2p_config.online_time,
+            num_txn_per_round: libp2p_config.num_txn_per_round,
         })
     }
 }
-<span class="kw">impl</span> <span class="ident">CliStandalone</span> {
-    <span class="kw">fn</span> <span class="ident">init</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Config</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">seed</span> <span class="op">=</span> [<span class="number">0u8</span>; <span class="number">32</span>];
-        <span class="ident">seed</span>[<span class="number">0</span>..<span class="number">16</span>].<span class="ident">copy_from_slice</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">seed</span>.<span class="ident">to_le_bytes</span>());
-        <span class="kw">let</span> <span class="ident">privkey</span> <span class="op">=</span> <span class="ident">Ed25519Priv::generated_from_seed_indexed</span>(<span class="ident">seed</span>, <span class="self">self</span>.<span class="ident">node_idx</span>);
-        <span class="kw">let</span> <span class="ident">pubkey</span> <span class="op">=</span> <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">privkey</span>);
+<span class="kw">impl </span>CliStandalone {
+    <span class="kw">fn </span>init(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Config {
+        <span class="kw">let </span><span class="kw-2">mut </span>seed = [<span class="number">0u8</span>; <span class="number">32</span>];
+        seed[<span class="number">0</span>..<span class="number">16</span>].copy_from_slice(<span class="kw-2">&amp;</span><span class="self">self</span>.seed.to_le_bytes());
+        <span class="kw">let </span>privkey = Ed25519Priv::generated_from_seed_indexed(seed, <span class="self">self</span>.node_idx);
+        <span class="kw">let </span>pubkey = Ed25519Pub::from_private(<span class="kw-2">&amp;</span>privkey);
 
-        <span class="kw">let</span> <span class="ident">bootstrap_priv</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">BOOTSTRAPS</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">key_bytes</span>, <span class="ident">addr_str</span>)<span class="op">|</span> {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">key_bytes</span> <span class="op">=</span> <span class="op">&lt;</span><span class="kw-2">&amp;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="ident">::clone</span>(<span class="ident">key_bytes</span>).<span class="ident">to_vec</span>();
-                <span class="kw">let</span> <span class="ident">key</span> <span class="op">=</span> <span class="ident">Keypair::rsa_from_pkcs8</span>(<span class="kw-2">&amp;mut</span> <span class="ident">key_bytes</span>).<span class="ident">unwrap</span>();
-                <span class="kw">let</span> <span class="ident">multiaddr</span> <span class="op">=</span> <span class="ident">parse_dns</span>(<span class="ident">addr_str</span>).<span class="ident">unwrap</span>();
-                (<span class="ident">key</span>, <span class="ident">multiaddr</span>)
+        <span class="kw">let </span>bootstrap_priv: Vec&lt;<span class="kw">_</span>&gt; = BOOTSTRAPS
+            .iter()
+            .map(|(key_bytes, addr_str)| {
+                <span class="kw">let </span><span class="kw-2">mut </span>key_bytes = &lt;<span class="kw-2">&amp;</span>[u8]&gt;::clone(key_bytes).to_vec();
+                <span class="kw">let </span>key = Keypair::rsa_from_pkcs8(<span class="kw-2">&amp;mut </span>key_bytes).unwrap();
+                <span class="kw">let </span>multiaddr = parse_dns(addr_str).unwrap();
+                (key, multiaddr)
             })
-            .<span class="ident">take</span>(<span class="self">self</span>.<span class="ident">num_bootstrap</span> <span class="kw">as</span> <span class="ident">usize</span>)
-            .<span class="ident">collect</span>();
+            .take(<span class="self">self</span>.num_bootstrap <span class="kw">as </span>usize)
+            .collect();
 
-        <span class="kw">let</span> <span class="ident">to_connect_addrs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">bootstrap_priv</span>
-            .<span class="ident">clone</span>()
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">kp</span>, <span class="ident">ma</span>)<span class="op">|</span> (<span class="ident">PeerId::from_public_key</span>(<span class="kw-2">&amp;</span><span class="ident">kp</span>.<span class="ident">public</span>()), <span class="ident">ma</span>))
-            .<span class="ident">collect</span>();
-        <span class="kw">let</span> (<span class="ident">node_type</span>, <span class="ident">own_identity</span>) <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">node_idx</span> <span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">num_bootstrap</span> {
+        <span class="kw">let </span>to_connect_addrs: Vec&lt;<span class="kw">_</span>&gt; = bootstrap_priv
+            .clone()
+            .into_iter()
+            .map(|(kp, ma)| (PeerId::from_public_key(<span class="kw-2">&amp;</span>kp.public()), ma))
+            .collect();
+        <span class="kw">let </span>(node_type, own_identity) = <span class="kw">if </span><span class="self">self</span>.node_idx &lt; <span class="self">self</span>.num_bootstrap {
             (
-                <span class="ident">NetworkNodeType::Bootstrap</span>,
-                <span class="prelude-val">Some</span>(<span class="ident">bootstrap_priv</span>[<span class="self">self</span>.<span class="ident">node_idx</span> <span class="kw">as</span> <span class="ident">usize</span>].<span class="number">0</span>.<span class="ident">clone</span>()),
+                NetworkNodeType::Bootstrap,
+                <span class="prelude-val">Some</span>(bootstrap_priv[<span class="self">self</span>.node_idx <span class="kw">as </span>usize].<span class="number">0</span>.clone()),
             )
-        } <span class="kw">else</span> {
-            (<span class="ident">NetworkNodeType::Regular</span>, <span class="prelude-val">None</span>)
+        } <span class="kw">else </span>{
+            (NetworkNodeType::Regular, <span class="prelude-val">None</span>)
         };
 
-        <span class="ident">Config</span> {
-            <span class="ident">run</span>: <span class="ident">Run</span>(<span class="number">0</span>),
-            <span class="ident">privkey</span>,
-            <span class="ident">pubkey</span>,
-            <span class="ident">bs</span>: <span class="ident">to_connect_addrs</span>,
-            <span class="ident">node_id</span>: <span class="self">self</span>.<span class="ident">node_idx</span>,
-            <span class="ident">node_type</span>,
-            <span class="ident">bound_addr</span>: <span class="self">self</span>.<span class="ident">bound_addr</span>.<span class="ident">clone</span>(),
-            <span class="ident">identity</span>: <span class="ident">own_identity</span>,
-            <span class="ident">num_nodes</span>: <span class="self">self</span>.<span class="ident">num_nodes</span>,
-            <span class="ident">bootstrap_mesh_n_high</span>: <span class="self">self</span>.<span class="ident">bootstrap_mesh_n_high</span>,
-            <span class="ident">bootstrap_mesh_n_low</span>: <span class="self">self</span>.<span class="ident">bootstrap_mesh_n_low</span>,
-            <span class="ident">bootstrap_mesh_outbound_min</span>: <span class="self">self</span>.<span class="ident">bootstrap_mesh_outbound_min</span>,
-            <span class="ident">bootstrap_mesh_n</span>: <span class="self">self</span>.<span class="ident">bootstrap_mesh_n</span>,
-            <span class="ident">mesh_n_high</span>: <span class="self">self</span>.<span class="ident">mesh_n_high</span>,
-            <span class="ident">mesh_n_low</span>: <span class="self">self</span>.<span class="ident">mesh_n_low</span>,
-            <span class="ident">mesh_outbound_min</span>: <span class="self">self</span>.<span class="ident">mesh_outbound_min</span>,
-            <span class="ident">mesh_n</span>: <span class="self">self</span>.<span class="ident">mesh_n</span>,
-            <span class="ident">next_view_timeout</span>: <span class="self">self</span>.<span class="ident">next_view_timeout</span>,
-            <span class="ident">propose_min_round_time</span>: <span class="self">self</span>.<span class="ident">propose_min_round_time</span>,
-            <span class="ident">propose_max_round_time</span>: <span class="self">self</span>.<span class="ident">propose_max_round_time</span>,
-            <span class="ident">online_time</span>: <span class="self">self</span>.<span class="ident">online_time</span>,
-            <span class="ident">num_txn_per_round</span>: <span class="self">self</span>.<span class="ident">num_txn_per_round</span>,
+        Config {
+            run: Run(<span class="number">0</span>),
+            privkey,
+            pubkey,
+            bs: to_connect_addrs,
+            node_id: <span class="self">self</span>.node_idx,
+            node_type,
+            bound_addr: <span class="self">self</span>.bound_addr.clone(),
+            identity: own_identity,
+            num_nodes: <span class="self">self</span>.num_nodes,
+            bootstrap_mesh_n_high: <span class="self">self</span>.bootstrap_mesh_n_high,
+            bootstrap_mesh_n_low: <span class="self">self</span>.bootstrap_mesh_n_low,
+            bootstrap_mesh_outbound_min: <span class="self">self</span>.bootstrap_mesh_outbound_min,
+            bootstrap_mesh_n: <span class="self">self</span>.bootstrap_mesh_n,
+            mesh_n_high: <span class="self">self</span>.mesh_n_high,
+            mesh_n_low: <span class="self">self</span>.mesh_n_low,
+            mesh_outbound_min: <span class="self">self</span>.mesh_outbound_min,
+            mesh_n: <span class="self">self</span>.mesh_n,
+            next_view_timeout: <span class="self">self</span>.next_view_timeout,
+            propose_min_round_time: <span class="self">self</span>.propose_min_round_time,
+            propose_max_round_time: <span class="self">self</span>.propose_max_round_time,
+            online_time: <span class="self">self</span>.online_time,
+            num_txn_per_round: <span class="self">self</span>.num_txn_per_round,
         }
     }
 }
 
-<span class="kw">type</span> <span class="ident">Node</span> <span class="op">=</span> <span class="ident">DEntryNode</span><span class="op">&lt;</span>
-    <span class="ident">Libp2pNetwork</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&lt;</span><span class="ident">DEntryState</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>,
-    <span class="ident">StaticCommittee</span><span class="op">&lt;</span><span class="ident">DEntryState</span><span class="op">&gt;</span>,
-    <span class="ident">Ed25519Pub</span>,
-<span class="op">&gt;</span>;
-<span class="kw">struct</span> <span class="ident">Config</span> {
-    <span class="ident">run</span>: <span class="ident">Run</span>,
-    <span class="ident">privkey</span>: <span class="ident">Ed25519Priv</span>,
-    <span class="ident">pubkey</span>: <span class="ident">Ed25519Pub</span>,
-    <span class="ident">bs</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">PeerId</span>, <span class="ident">Multiaddr</span>)<span class="op">&gt;</span>,
-    <span class="ident">node_id</span>: <span class="ident">u64</span>,
-    <span class="ident">node_type</span>: <span class="ident">NetworkNodeType</span>,
-    <span class="ident">bound_addr</span>: <span class="ident">Multiaddr</span>,
-    <span class="ident">identity</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Keypair</span><span class="op">&gt;</span>,
-    <span class="ident">num_nodes</span>: <span class="ident">u64</span>,
-    <span class="ident">bootstrap_mesh_n_high</span>: <span class="ident">usize</span>,
-    <span class="ident">bootstrap_mesh_n_low</span>: <span class="ident">usize</span>,
-    <span class="ident">bootstrap_mesh_outbound_min</span>: <span class="ident">usize</span>,
-    <span class="ident">bootstrap_mesh_n</span>: <span class="ident">usize</span>,
-    <span class="ident">mesh_n_high</span>: <span class="ident">usize</span>,
-    <span class="ident">mesh_n_low</span>: <span class="ident">usize</span>,
-    <span class="ident">mesh_outbound_min</span>: <span class="ident">usize</span>,
-    <span class="ident">mesh_n</span>: <span class="ident">usize</span>,
-    <span class="ident">next_view_timeout</span>: <span class="ident">u64</span>,
-    <span class="ident">propose_min_round_time</span>: <span class="ident">u64</span>,
-    <span class="ident">propose_max_round_time</span>: <span class="ident">u64</span>,
-    <span class="ident">online_time</span>: <span class="ident">u64</span>,
-    <span class="ident">num_txn_per_round</span>: <span class="ident">u64</span>,
+<span class="kw">type </span>Node = DEntryNode&lt;
+    Libp2pNetwork&lt;Message&lt;DEntryState, Ed25519Pub&gt;, Ed25519Pub&gt;,
+    StaticCommittee&lt;DEntryState&gt;,
+    Ed25519Pub,
+&gt;;
+<span class="kw">struct </span>Config {
+    run: Run,
+    privkey: Ed25519Priv,
+    pubkey: Ed25519Pub,
+    bs: Vec&lt;(PeerId, Multiaddr)&gt;,
+    node_id: u64,
+    node_type: NetworkNodeType,
+    bound_addr: Multiaddr,
+    identity: <span class="prelude-ty">Option</span>&lt;Keypair&gt;,
+    num_nodes: u64,
+    bootstrap_mesh_n_high: usize,
+    bootstrap_mesh_n_low: usize,
+    bootstrap_mesh_outbound_min: usize,
+    bootstrap_mesh_n: usize,
+    mesh_n_high: usize,
+    mesh_n_low: usize,
+    mesh_outbound_min: usize,
+    mesh_n: usize,
+    next_view_timeout: u64,
+    propose_min_round_time: u64,
+    propose_max_round_time: u64,
+    online_time: u64,
+    num_txn_per_round: u64,
 }
 
-<span class="kw">impl</span> <span class="ident">Config</span> {
-    <span class="doccomment">/// Creates the initial state and hotshot for simulation.</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">init_state_and_hotshot</span>(
+<span class="kw">impl </span>Config {
+    <span class="doccomment">/// Creates the initial state and hotshot for simulation.
+    </span><span class="kw">async fn </span>init_state_and_hotshot(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
 
-        <span class="ident">networking</span>: <span class="ident">Libp2pNetwork</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&lt;</span><span class="ident">DEntryState</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>,
-    ) -&gt; (<span class="ident">DEntryState</span>, <span class="ident">HotShotHandle</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span>) {
-        <span class="kw">let</span> <span class="ident">genesis_block</span> <span class="op">=</span> <span class="ident">DEntryBlock::genesis</span>();
-        <span class="kw">let</span> <span class="ident">initializer</span> <span class="op">=</span> <span class="ident">hotshot::HotShotInitializer::from_genesis</span>(<span class="ident">genesis_block</span>).<span class="ident">unwrap</span>();
+        networking: Libp2pNetwork&lt;Message&lt;DEntryState, Ed25519Pub&gt;, Ed25519Pub&gt;,
+    ) -&gt; (DEntryState, HotShotHandle&lt;Node&gt;) {
+        <span class="kw">let </span>genesis_block = DEntryBlock::genesis();
+        <span class="kw">let </span>initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
-        <span class="comment">// Create the initial hotshot</span>
-        <span class="kw">let</span> <span class="ident">known_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="number">0</span>..<span class="self">self</span>.<span class="ident">num_nodes</span> <span class="kw">as</span> <span class="ident">u64</span>)
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> {
-                <span class="kw">let</span> <span class="ident">priv_key</span> <span class="op">=</span> <span class="ident">Ed25519Pub::generate_test_key</span>(<span class="ident">x</span>);
-                <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">priv_key</span>)
+        <span class="comment">// Create the initial hotshot
+        </span><span class="kw">let </span>known_nodes: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..<span class="self">self</span>.num_nodes <span class="kw">as </span>u64)
+            .map(|x| {
+                <span class="kw">let </span>priv_key = Ed25519Pub::generate_test_key(x);
+                Ed25519Pub::from_private(<span class="kw-2">&amp;</span>priv_key)
             })
-            .<span class="ident">collect</span>();
+            .collect();
 
-        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">HotShotConfig</span> {
-            <span class="ident">execution_type</span>: <span class="ident">ExecutionType::Continuous</span>,
-            <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize::new</span>(<span class="self">self</span>.<span class="ident">num_nodes</span> <span class="kw">as</span> <span class="ident">usize</span>).<span class="ident">unwrap</span>(),
-            <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>(),
-            <span class="ident">min_transactions</span>: <span class="number">0</span>,
-            <span class="ident">known_nodes</span>: <span class="ident">known_nodes</span>.<span class="ident">clone</span>(),
-            <span class="ident">next_view_timeout</span>: <span class="self">self</span>.<span class="ident">next_view_timeout</span> <span class="op">*</span> <span class="number">1000</span>,
-            <span class="ident">timeout_ratio</span>: (<span class="number">11</span>, <span class="number">10</span>),
-            <span class="ident">round_start_delay</span>: <span class="number">1</span>,
-            <span class="ident">start_delay</span>: <span class="number">1</span>,
-            <span class="ident">propose_min_round_time</span>: <span class="ident">Duration::from_secs</span>(<span class="self">self</span>.<span class="ident">propose_min_round_time</span>),
-            <span class="ident">propose_max_round_time</span>: <span class="ident">Duration::from_secs</span>(<span class="self">self</span>.<span class="ident">propose_max_round_time</span>),
-            <span class="ident">num_bootstrap</span>: <span class="number">7</span>,
-            <span class="ident">election_config</span>: <span class="prelude-val">Some</span>(<span class="ident">StaticElectionConfig</span> {}),
+        <span class="kw">let </span>config = HotShotConfig {
+            execution_type: ExecutionType::Continuous,
+            total_nodes: NonZeroUsize::new(<span class="self">self</span>.num_nodes <span class="kw">as </span>usize).unwrap(),
+            max_transactions: NonZeroUsize::new(<span class="number">100</span>).unwrap(),
+            min_transactions: <span class="number">0</span>,
+            known_nodes: known_nodes.clone(),
+            next_view_timeout: <span class="self">self</span>.next_view_timeout * <span class="number">1000</span>,
+            timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
+            round_start_delay: <span class="number">1</span>,
+            start_delay: <span class="number">1</span>,
+            propose_min_round_time: Duration::from_secs(<span class="self">self</span>.propose_min_round_time),
+            propose_max_round_time: Duration::from_secs(<span class="self">self</span>.propose_max_round_time),
+            num_bootstrap: <span class="number">7</span>,
+            election_config: <span class="prelude-val">Some</span>(StaticElectionConfig {}),
         };
-        <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">config</span>);
-        <span class="kw">let</span> <span class="ident">hotshot</span> <span class="op">=</span> <span class="ident">HotShot::init</span>(
-            <span class="self">self</span>.<span class="ident">pubkey</span>,
-            <span class="self">self</span>.<span class="ident">privkey</span>.<span class="ident">clone</span>(),
-            <span class="self">self</span>.<span class="ident">node_id</span> <span class="kw">as</span> <span class="ident">u64</span>,
-            <span class="ident">config</span>,
-            <span class="ident">networking</span>,
-            <span class="ident">MemoryStorage::new</span>(),
-            <span class="ident">StaticCommittee::new</span>(<span class="ident">known_nodes</span>),
-            <span class="ident">initializer</span>,
+        <span class="macro">debug!</span>(<span class="question-mark">?</span>config);
+        <span class="kw">let </span>hotshot = HotShot::init(
+            <span class="self">self</span>.pubkey,
+            <span class="self">self</span>.privkey.clone(),
+            <span class="self">self</span>.node_id <span class="kw">as </span>u64,
+            config,
+            networking,
+            MemoryStorage::new(),
+            StaticCommittee::new(known_nodes),
+            initializer,
         )
-        .<span class="kw">await</span>
-        .<span class="ident">expect</span>(<span class="string">&quot;Could not init hotshot&quot;</span>);
+        .<span class="kw">await
+        </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>);
         <span class="macro">debug!</span>(<span class="string">&quot;hotshot launched&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">storage</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">DEntryState</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">storage</span>();
+        <span class="kw">let </span>storage: <span class="kw-2">&amp;</span>MemoryStorage&lt;DEntryState&gt; = hotshot.storage();
 
-        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_anchored_view</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">state</span>;
+        <span class="kw">let </span>state = storage.get_anchored_view().<span class="kw">await</span>.unwrap().state;
 
-        (<span class="ident">state</span>, <span class="ident">hotshot</span>)
+        (state, hotshot)
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new_libp2p_network</span>(
+    <span class="kw">async fn </span>new_libp2p_network(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Libp2pNetwork</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&lt;</span><span class="ident">DEntryState</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
-        <span class="macro">assert!</span>(<span class="self">self</span>.<span class="ident">node_id</span> <span class="op">&lt;</span> <span class="self">self</span>.<span class="ident">num_nodes</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">config_builder</span> <span class="op">=</span> <span class="ident">NetworkNodeConfigBuilder::default</span>();
-        <span class="comment">// NOTE we may need to change this as we scale</span>
-        <span class="ident">config_builder</span>.<span class="ident">replication_factor</span>(<span class="ident">NonZeroUsize::new</span>(<span class="self">self</span>.<span class="ident">num_nodes</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">-</span> <span class="number">2</span>).<span class="ident">unwrap</span>());
-        <span class="ident">config_builder</span>.<span class="ident">to_connect_addrs</span>(<span class="ident">HashSet::new</span>());
-        <span class="ident">config_builder</span>.<span class="ident">node_type</span>(<span class="self">self</span>.<span class="ident">node_type</span>);
-        <span class="macro">error!</span>(<span class="string">&quot;Binding to {:?}&quot;</span>, <span class="self">self</span>.<span class="ident">bound_addr</span>);
-        <span class="ident">config_builder</span>.<span class="ident">bound_addr</span>(<span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">bound_addr</span>.<span class="ident">clone</span>()));
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;Message&lt;DEntryState, Ed25519Pub&gt;, Ed25519Pub&gt;, NetworkError&gt; {
+        <span class="macro">assert!</span>(<span class="self">self</span>.node_id &lt; <span class="self">self</span>.num_nodes);
+        <span class="kw">let </span><span class="kw-2">mut </span>config_builder = NetworkNodeConfigBuilder::default();
+        <span class="comment">// NOTE we may need to change this as we scale
+        </span>config_builder.replication_factor(NonZeroUsize::new(<span class="self">self</span>.num_nodes <span class="kw">as </span>usize - <span class="number">2</span>).unwrap());
+        config_builder.to_connect_addrs(HashSet::new());
+        config_builder.node_type(<span class="self">self</span>.node_type);
+        <span class="macro">error!</span>(<span class="string">&quot;Binding to {:?}&quot;</span>, <span class="self">self</span>.bound_addr);
+        config_builder.bound_addr(<span class="prelude-val">Some</span>(<span class="self">self</span>.bound_addr.clone()));
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">identity</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">identity</span>.<span class="ident">clone</span>() {
-            <span class="ident">config_builder</span>.<span class="ident">identity</span>(<span class="ident">identity</span>);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(identity) = <span class="self">self</span>.identity.clone() {
+            config_builder.identity(identity);
         }
 
-        <span class="kw">let</span> <span class="ident">mesh_params</span> <span class="op">=</span>
-        <span class="comment">// NOTE I&#39;m arbitrarily choosing these.</span>
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">node_type</span> {
-            <span class="ident">NetworkNodeType::Bootstrap</span> =&gt; <span class="ident">MeshParams</span> {
-                <span class="ident">mesh_n_high</span>: <span class="self">self</span>.<span class="ident">bootstrap_mesh_n_high</span>,
-                <span class="ident">mesh_n_low</span>: <span class="self">self</span>.<span class="ident">bootstrap_mesh_n_low</span>,
-                <span class="ident">mesh_outbound_min</span>: <span class="self">self</span>.<span class="ident">bootstrap_mesh_outbound_min</span>,
-                <span class="ident">mesh_n</span>: <span class="self">self</span>.<span class="ident">bootstrap_mesh_n</span>,
+        <span class="kw">let </span>mesh_params =
+        <span class="comment">// NOTE I&#39;m arbitrarily choosing these.
+        </span><span class="kw">match </span><span class="self">self</span>.node_type {
+            NetworkNodeType::Bootstrap =&gt; MeshParams {
+                mesh_n_high: <span class="self">self</span>.bootstrap_mesh_n_high,
+                mesh_n_low: <span class="self">self</span>.bootstrap_mesh_n_low,
+                mesh_outbound_min: <span class="self">self</span>.bootstrap_mesh_outbound_min,
+                mesh_n: <span class="self">self</span>.bootstrap_mesh_n,
             },
-            <span class="ident">NetworkNodeType::Regular</span> =&gt; <span class="ident">MeshParams</span> {
-                <span class="ident">mesh_n_high</span>: <span class="self">self</span>.<span class="ident">mesh_n_high</span>,
-                <span class="ident">mesh_n_low</span>: <span class="self">self</span>.<span class="ident">mesh_n_low</span>,
-                <span class="ident">mesh_outbound_min</span>: <span class="self">self</span>.<span class="ident">mesh_outbound_min</span>,
-                <span class="ident">mesh_n</span>: <span class="self">self</span>.<span class="ident">mesh_n</span>,
+            NetworkNodeType::Regular =&gt; MeshParams {
+                mesh_n_high: <span class="self">self</span>.mesh_n_high,
+                mesh_n_low: <span class="self">self</span>.mesh_n_low,
+                mesh_outbound_min: <span class="self">self</span>.mesh_outbound_min,
+                mesh_n: <span class="self">self</span>.mesh_n,
             },
-            <span class="ident">NetworkNodeType::Conductor</span> =&gt; <span class="macro">unreachable!</span>(),
+            NetworkNodeType::Conductor =&gt; <span class="macro">unreachable!</span>(),
         };
 
-        <span class="ident">config_builder</span>.<span class="ident">mesh_params</span>(<span class="prelude-val">Some</span>(<span class="ident">mesh_params</span>));
+        config_builder.mesh_params(<span class="prelude-val">Some</span>(mesh_params));
 
-        <span class="kw">let</span> <span class="ident">node_config</span> <span class="op">=</span> <span class="ident">config_builder</span>.<span class="ident">build</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">bs_len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">bs</span>.<span class="ident">len</span>();
+        <span class="kw">let </span>node_config = config_builder.build().unwrap();
+        <span class="kw">let </span>bs_len = <span class="self">self</span>.bs.len();
 
-        <span class="ident">Libp2pNetwork::new</span>(
-            <span class="ident">node_config</span>,
-            <span class="self">self</span>.<span class="ident">pubkey</span>,
-            <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(
-                <span class="self">self</span>.<span class="ident">bs</span>
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">peer_id</span>, <span class="ident">addr</span>)<span class="op">|</span> (<span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">peer_id</span>), <span class="ident">addr</span>.<span class="ident">clone</span>()))
-                    .<span class="ident">collect</span>(),
+        Libp2pNetwork::new(
+            node_config,
+            <span class="self">self</span>.pubkey,
+            Arc::new(RwLock::new(
+                <span class="self">self</span>.bs
+                    .iter()
+                    .map(|(peer_id, addr)| (<span class="prelude-val">Some</span>(<span class="kw-2">*</span>peer_id), addr.clone()))
+                    .collect(),
             )),
-            <span class="ident">bs_len</span>,
-            <span class="self">self</span>.<span class="ident">node_id</span> <span class="kw">as</span> <span class="ident">usize</span>,
+            bs_len,
+            <span class="self">self</span>.node_id <span class="kw">as </span>usize,
         )
-        .<span class="kw">await</span>
-    }
+        .<span class="kw">await
+    </span>}
 }
 
-<span class="attribute">#[<span class="ident">async_main</span>]</span>
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() {
-    <span class="ident">setup_logging</span>();
-    <span class="ident">setup_backtrace</span>();
+<span class="attribute">#[async_main]
+</span><span class="kw">async fn </span>main() {
+    setup_logging();
+    setup_backtrace();
 
-    <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">CliOpt::parse</span>();
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">server_conn</span> <span class="op">=</span> <span class="prelude-val">None</span>;
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">args</span> {
-        <span class="ident">CliOpt::Standalone</span>(<span class="ident">args</span>) =&gt; <span class="ident">args</span>.<span class="ident">init</span>(),
-        <span class="ident">CliOpt::Orchestrated</span>(<span class="ident">args</span>) =&gt; <span class="ident">args</span>
-            .<span class="ident">init</span>(<span class="kw-2">&amp;mut</span> <span class="ident">server_conn</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">expect</span>(<span class="string">&quot;Could not create Config&quot;</span>),
+    <span class="kw">let </span>args = CliOpt::parse();
+    <span class="kw">let </span><span class="kw-2">mut </span>server_conn = <span class="prelude-val">None</span>;
+    <span class="kw">let </span>config = <span class="kw">match </span>args {
+        CliOpt::Standalone(args) =&gt; args.init(),
+        CliOpt::Orchestrated(args) =&gt; args
+            .init(<span class="kw-2">&amp;mut </span>server_conn)
+            .<span class="kw">await
+            </span>.expect(<span class="string">&quot;Could not create Config&quot;</span>),
     };
-    <span class="kw">let</span> <span class="ident">own_id</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">node_id</span>;
-    <span class="kw">let</span> <span class="ident">num_nodes</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">num_nodes</span>;
+    <span class="kw">let </span>own_id = config.node_id;
+    <span class="kw">let </span>num_nodes = config.num_nodes;
     <span class="macro">error!</span>(<span class="string">&quot;Done with keygen&quot;</span>);
-    <span class="kw">let</span> <span class="ident">own_network</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">new_libp2p_network</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>();
+    <span class="kw">let </span>own_network = config.new_libp2p_network().<span class="kw">await</span>.unwrap();
 
     <span class="macro">error!</span>(<span class="string">&quot;Done with network creation&quot;</span>);
 
-    <span class="comment">// Initialize the state and hotshot</span>
-    <span class="kw">let</span> (<span class="ident">_own_state</span>, <span class="kw-2">mut</span> <span class="ident">hotshot</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">init_state_and_hotshot</span>(<span class="ident">own_network</span>).<span class="kw">await</span>;
+    <span class="comment">// Initialize the state and hotshot
+    </span><span class="kw">let </span>(_own_state, <span class="kw-2">mut </span>hotshot) = config.init_state_and_hotshot(own_network).<span class="kw">await</span>;
 
     <span class="macro">error!</span>(<span class="string">&quot;waiting for connections to hotshot!&quot;</span>);
-    <span class="ident">hotshot</span>.<span class="ident">networking</span>().<span class="ident">ready</span>().<span class="kw">await</span>;
+    hotshot.networking().ready().<span class="kw">await</span>;
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">server</span>) <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="ident">server_conn</span> {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(server) = <span class="kw-2">&amp;mut </span>server_conn {
         <span class="macro">error!</span>(<span class="string">&quot;Waiting for server to start us up&quot;</span>);
-        <span class="kw">loop</span> {
-            <span class="kw">match</span> <span class="ident">server</span>
-                .<span class="ident">recv</span>::<span class="op">&lt;</span><span class="ident">FromServer</span><span class="op">&gt;</span>()
-                .<span class="kw">await</span>
-                .<span class="ident">expect</span>(<span class="string">&quot;Lost connection to server&quot;</span>)
+        <span class="kw">loop </span>{
+            <span class="kw">match </span>server
+                .recv::&lt;FromServer&gt;()
+                .<span class="kw">await
+                </span>.expect(<span class="string">&quot;Lost connection to server&quot;</span>)
             {
-                <span class="ident">FromServer::Start</span> =&gt; {
+                FromServer::Start =&gt; {
                     <span class="macro">error!</span>(<span class="string">&quot;Starting!&quot;</span>);
                     <span class="kw">break</span>;
                 }
-                <span class="ident">x</span> =&gt; <span class="macro">error!</span>(<span class="string">&quot;Unexpected server message: {x:?}&quot;</span>),
+                x =&gt; <span class="macro">error!</span>(<span class="string">&quot;Unexpected server message: {x:?}&quot;</span>),
             }
         }
-    } <span class="kw">else</span> {
+    } <span class="kw">else </span>{
         <span class="macro">error!</span>(<span class="string">&quot;We are ready!&quot;</span>);
     }
     <span class="macro">error!</span>(<span class="string">&quot;Finished init, starting hotshot!&quot;</span>);
-    <span class="ident">hotshot</span>.<span class="ident">start</span>().<span class="kw">await</span>;
+    hotshot.start().<span class="kw">await</span>;
 
-    <span class="kw">let</span> <span class="ident">start_time</span> <span class="op">=</span> <span class="ident">Instant::now</span>();
+    <span class="kw">let </span>start_time = Instant::now();
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">view</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>view = <span class="number">0</span>;
 
-    <span class="comment">// Run random transactions until failure</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">num_failed_views</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">num_succeeded_views</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="comment">// Run random transactions until failure
+    </span><span class="kw">let </span><span class="kw-2">mut </span>num_failed_views = <span class="number">0</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>num_succeeded_views = <span class="number">0</span>;
 
-    <span class="kw">let</span> <span class="ident">online_time</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">60</span> <span class="op">*</span> <span class="ident">config</span>.<span class="ident">online_time</span>);
+    <span class="kw">let </span>online_time = Duration::from_secs(<span class="number">60 </span>* config.online_time);
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">total_txns</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>total_txns = <span class="number">0</span>;
 
-    <span class="kw">while</span> <span class="ident">start_time</span> <span class="op">+</span> <span class="ident">online_time</span> <span class="op">&gt;</span> <span class="ident">Instant::now</span>() {
-        <span class="macro">error!</span>(<span class="string">&quot;Beginning view {}&quot;</span>, <span class="ident">view</span>);
-        <span class="kw">if</span> <span class="ident">own_id</span> <span class="op">==</span> (<span class="ident">view</span> <span class="op">%</span> <span class="ident">num_nodes</span>) {
-            <span class="macro">info!</span>(<span class="string">&quot;Generating txn for view {}&quot;</span>, <span class="ident">view</span>);
-            <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">get_state</span>().<span class="kw">await</span>;
+    <span class="kw">while </span>start_time + online_time &gt; Instant::now() {
+        <span class="macro">error!</span>(<span class="string">&quot;Beginning view {}&quot;</span>, view);
+        <span class="kw">if </span>own_id == (view % num_nodes) {
+            <span class="macro">info!</span>(<span class="string">&quot;Generating txn for view {}&quot;</span>, view);
+            <span class="kw">let </span>state = hotshot.get_state().<span class="kw">await</span>;
 
-            <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">config</span>.<span class="ident">num_txn_per_round</span> {
-                <span class="kw">let</span> <span class="ident">txn</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">DEntryState</span> <span class="kw">as</span> <span class="ident">TestableState</span><span class="op">&gt;</span><span class="ident">::create_random_transaction</span>(<span class="kw-2">&amp;</span><span class="ident">state</span>);
-                <span class="macro">info!</span>(<span class="string">&quot;Submitting txn on view {}&quot;</span>, <span class="ident">view</span>);
-                <span class="ident">hotshot</span>.<span class="ident">submit_transaction</span>(<span class="ident">txn</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
+            <span class="kw">for _ in </span><span class="number">0</span>..config.num_txn_per_round {
+                <span class="kw">let </span>txn = &lt;DEntryState <span class="kw">as </span>TestableState&gt;::create_random_transaction(<span class="kw-2">&amp;</span>state);
+                <span class="macro">info!</span>(<span class="string">&quot;Submitting txn on view {}&quot;</span>, view);
+                hotshot.submit_transaction(txn).<span class="kw">await</span>.unwrap();
             }
         }
-        <span class="macro">info!</span>(<span class="string">&quot;Running the view {}&quot;</span>, <span class="ident">view</span>);
-        <span class="ident">hotshot</span>.<span class="ident">start</span>().<span class="kw">await</span>;
-        <span class="macro">info!</span>(<span class="string">&quot;Collection for view {}&quot;</span>, <span class="ident">view</span>);
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">collect_round_events</span>().<span class="kw">await</span>;
-        <span class="kw">match</span> <span class="ident">result</span> {
-            <span class="prelude-val">Ok</span>((<span class="ident">_state</span>, <span class="ident">blocks</span>)) =&gt; {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">num_tnxs</span> <span class="op">=</span> <span class="number">0</span>;
-                <span class="kw">for</span> <span class="ident">block</span> <span class="kw">in</span> <span class="ident">blocks</span> {
-                    <span class="ident">num_tnxs</span> <span class="op">+</span><span class="op">=</span> <span class="ident">block</span>.<span class="ident">txn_count</span>();
+        <span class="macro">info!</span>(<span class="string">&quot;Running the view {}&quot;</span>, view);
+        hotshot.start().<span class="kw">await</span>;
+        <span class="macro">info!</span>(<span class="string">&quot;Collection for view {}&quot;</span>, view);
+        <span class="kw">let </span>result = hotshot.collect_round_events().<span class="kw">await</span>;
+        <span class="kw">match </span>result {
+            <span class="prelude-val">Ok</span>((_state, blocks)) =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>num_tnxs = <span class="number">0</span>;
+                <span class="kw">for </span>block <span class="kw">in </span>blocks {
+                    num_tnxs += block.txn_count();
                 }
-                <span class="ident">total_txns</span> <span class="op">+</span><span class="op">=</span> <span class="ident">num_tnxs</span>;
-                <span class="ident">num_succeeded_views</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+                total_txns += num_tnxs;
+                num_succeeded_views += <span class="number">1</span>;
                 <span class="macro">error!</span>(
                     <span class="string">&quot;View {:?}: successful with total successful txns {:?}&quot;</span>,
-                    <span class="ident">view</span>, <span class="ident">total_txns</span>
+                    view, total_txns
                 );
             }
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                <span class="ident">num_failed_views</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-                <span class="macro">error!</span>(<span class="string">&quot;View: {:?}, failed with : {:?}&quot;</span>, <span class="ident">view</span>, <span class="ident">e</span>);
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                num_failed_views += <span class="number">1</span>;
+                <span class="macro">error!</span>(<span class="string">&quot;View: {:?}, failed with : {:?}&quot;</span>, view, e);
             }
         }
-        <span class="ident">view</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+        view += <span class="number">1</span>;
     }
 
     <span class="macro">error!</span>(
         <span class="string">&quot;All rounds completed, {} views with {} failures. This node {:?} has {:?} total txns successfully committed overall. Ran for {:?} from {:?} to {:?}&quot;</span>,
-        <span class="ident">view</span>,
-        <span class="ident">num_failed_views</span>,
-        <span class="ident">own_id</span>,
-        <span class="ident">total_txns</span>,
-        <span class="ident">online_time</span>,
-        <span class="ident">start_time</span>,
-        <span class="ident">Instant::now</span>()
+        view,
+        num_failed_views,
+        own_id,
+        total_txns,
+        online_time,
+        start_time,
+        Instant::now()
     );
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">mut</span> <span class="ident">server</span>) <span class="op">=</span> <span class="ident">server_conn</span> {
-        <span class="ident">server</span>
-            .<span class="ident">send</span>(<span class="ident">ToServer::Results</span>(<span class="ident">RunResults</span> {
-                <span class="ident">node_index</span>: <span class="ident">own_id</span>,
-                <span class="ident">rounds_succeeded</span>: <span class="ident">num_succeeded_views</span>,
-                <span class="ident">rounds_timed_out</span>: <span class="ident">num_failed_views</span>,
-                <span class="ident">run</span>: <span class="ident">config</span>.<span class="ident">run</span>,
-                <span class="ident">total_time_in_seconds</span>: <span class="ident">online_time</span>.<span class="ident">as_secs_f64</span>(),
-                <span class="ident">transaction_size_bytes</span>: <span class="number">0</span>,
-                <span class="ident">transactions_rejected</span>: <span class="number">0</span>,
-                <span class="ident">transactions_submitted</span>: <span class="ident">total_txns</span>,
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>server) = server_conn {
+        server
+            .send(ToServer::Results(RunResults {
+                node_index: own_id,
+                rounds_succeeded: num_succeeded_views,
+                rounds_timed_out: num_failed_views,
+                run: config.run,
+                total_time_in_seconds: online_time.as_secs_f64(),
+                transaction_size_bytes: <span class="number">0</span>,
+                transactions_rejected: <span class="number">0</span>,
+                transactions_submitted: total_txns,
             }))
-            .<span class="kw">await</span>
-            .<span class="ident">expect</span>(<span class="string">&quot;Could not report results to the server&quot;</span>);
+            .<span class="kw">await
+            </span>.expect(<span class="string">&quot;Could not report results to the server&quot;</span>);
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="multi_machine_libp2p" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="multi_machine_libp2p" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

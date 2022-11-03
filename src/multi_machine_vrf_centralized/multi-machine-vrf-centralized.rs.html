@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `examples/multi-machine-vrf-centralized.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>multi-machine-vrf-centralized.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../multi_machine_vrf_centralized/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../multi_machine_vrf_centralized/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../multi_machine_vrf_centralized/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `examples/multi-machine-vrf-centralized.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>multi-machine-vrf-centralized.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../multi_machine_vrf_centralized/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../multi_machine_vrf_centralized/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../multi_machine_vrf_centralized/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -273,280 +273,280 @@
 <span id="273">273</span>
 <span id="274">274</span>
 <span id="275">275</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">ark_bls12_381::Parameters</span> <span class="kw">as</span> <span class="ident">Param381</span>;
-<span class="kw">use</span> <span class="ident">blake3::Hasher</span>;
-<span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">commit::Committable</span>;
-<span class="kw">use</span> <span class="ident">hotshot</span>::{
-    <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
-    <span class="ident">traits</span>::{
-        <span class="ident">election::vrf</span>::{<span class="ident">VRFPubKey</span>, <span class="ident">VRFStakeTableConfig</span>, <span class="ident">VrfImpl</span>, <span class="ident">SORTITION_PARAMETER</span>},
-        <span class="ident">implementations</span>::{<span class="ident">CentralizedServerNetwork</span>, <span class="ident">MemoryStorage</span>},
-        <span class="ident">Storage</span>,
+</pre><pre class="rust"><code><span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
+<span class="kw">use </span>blake3::Hasher;
+<span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>commit::Committable;
+<span class="kw">use </span>hotshot::{
+    demos::dentry::<span class="kw-2">*</span>,
+    traits::{
+        election::vrf::{VRFPubKey, VRFStakeTableConfig, VrfImpl, SORTITION_PARAMETER},
+        implementations::{CentralizedServerNetwork, MemoryStorage},
+        Storage,
     },
-    <span class="ident">types::HotShotHandle</span>,
-    <span class="ident">HotShot</span>,
+    types::HotShotHandle,
+    HotShot,
 };
-<span class="kw">use</span> <span class="ident">hotshot_centralized_server</span>::{<span class="ident">NetworkConfig</span>, <span class="ident">RunResults</span>};
-<span class="kw">use</span> <span class="ident">hotshot_types</span>::{<span class="ident">traits::state::TestableState</span>, <span class="ident">HotShotConfig</span>};
-<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
-    <span class="ident">art</span>::{<span class="ident">async_main</span>, <span class="ident">async_sleep</span>},
-    <span class="ident">test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>},
+<span class="kw">use </span>hotshot_centralized_server::{NetworkConfig, RunResults};
+<span class="kw">use </span>hotshot_types::{traits::state::TestableState, HotShotConfig};
+<span class="kw">use </span>hotshot_utils::{
+    art::{async_main, async_sleep},
+    test_util::{setup_backtrace, setup_logging},
 };
-<span class="kw">use</span> <span class="ident">jf_primitives</span>::{
-    <span class="ident">signatures::BLSSignatureScheme</span>,
-    <span class="ident">vrf</span>::{<span class="ident">blsvrf::BLSVRFScheme</span>, <span class="ident">Vrf</span>},
+<span class="kw">use </span>jf_primitives::{
+    signatures::BLSSignatureScheme,
+    vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">cmp</span>,
-    <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">VecDeque</span>},
-    <span class="ident">fmt::Debug</span>,
-    <span class="ident">mem</span>,
-    <span class="ident">net</span>::{<span class="ident">IpAddr</span>, <span class="ident">SocketAddr</span>},
-    <span class="ident">num::NonZeroU64</span>,
-    <span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>},
+<span class="kw">use </span>std::{
+    cmp,
+    collections::{BTreeMap, VecDeque},
+    fmt::Debug,
+    mem,
+    net::{IpAddr, SocketAddr},
+    num::NonZeroU64,
+    time::{Duration, Instant},
 };
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>};
+<span class="kw">use </span>tracing::{debug, error};
 
-<span class="kw">type</span> <span class="ident">Node</span> <span class="op">=</span> <span class="ident">DEntryNode</span><span class="op">&lt;</span>
-    <span class="ident">CentralizedServerNetwork</span><span class="op">&lt;</span><span class="ident">VRFPubKey</span><span class="op">&lt;</span><span class="ident">BLSSignatureScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">VRFStakeTableConfig</span><span class="op">&gt;</span>,
-    <span class="ident">VrfImpl</span><span class="op">&lt;</span><span class="ident">DEntryState</span>, <span class="ident">BLSSignatureScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span>, <span class="ident">BLSVRFScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span>, <span class="ident">Hasher</span>, <span class="ident">Param381</span><span class="op">&gt;</span>,
-    <span class="ident">VRFPubKey</span><span class="op">&lt;</span><span class="ident">BLSSignatureScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-<span class="op">&gt;</span>;
+<span class="kw">type </span>Node = DEntryNode&lt;
+    CentralizedServerNetwork&lt;VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;, VRFStakeTableConfig&gt;,
+    VrfImpl&lt;DEntryState, BLSSignatureScheme&lt;Param381&gt;, BLSVRFScheme&lt;Param381&gt;, Hasher, Param381&gt;,
+    VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;,
+&gt;;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
-<span class="attribute">#[<span class="ident">clap</span>(
-    <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;Multi-machine consensus&quot;</span>,
-    <span class="ident">about</span> <span class="op">=</span> <span class="string">&quot;Simulates consensus among multiple machines&quot;</span>
-)]</span>
-<span class="kw">struct</span> <span class="ident">NodeOpt</span> {
-    <span class="doccomment">/// The address to connect to</span>
-    <span class="ident">host</span>: <span class="ident">IpAddr</span>,
+<span class="attribute">#[derive(Debug, Parser)]
+#[clap(
+    name = <span class="string">&quot;Multi-machine consensus&quot;</span>,
+    about = <span class="string">&quot;Simulates consensus among multiple machines&quot;
+</span>)]
+</span><span class="kw">struct </span>NodeOpt {
+    <span class="doccomment">/// The address to connect to
+    </span>host: IpAddr,
 
-    <span class="doccomment">/// The port to connect to</span>
-    <span class="ident">port</span>: <span class="ident">u16</span>,
+    <span class="doccomment">/// The port to connect to
+    </span>port: u16,
 }
 
-<span class="doccomment">/// Creates the initial state and hotshot for simulation.</span>
-<span class="comment">// TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.</span>
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">init_state_and_hotshot</span>(
-    <span class="ident">networking</span>: <span class="ident">CentralizedServerNetwork</span><span class="op">&lt;</span>
-        <span class="ident">VRFPubKey</span><span class="op">&lt;</span><span class="ident">BLSSignatureScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">VRFStakeTableConfig</span>,
-    <span class="op">&gt;</span>,
-    <span class="ident">config</span>: <span class="ident">HotShotConfig</span><span class="op">&lt;</span><span class="ident">VRFPubKey</span><span class="op">&lt;</span><span class="ident">BLSSignatureScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">VRFStakeTableConfig</span><span class="op">&gt;</span>,
-    <span class="ident">_seed</span>: [<span class="ident">u8</span>; <span class="number">32</span>],
-    <span class="ident">node_id</span>: <span class="ident">u64</span>,
-) -&gt; (<span class="ident">DEntryState</span>, <span class="ident">HotShotHandle</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span>) {
-    <span class="comment">// Create the initial block</span>
-    <span class="kw">let</span> <span class="ident">accounts</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">Account</span>, <span class="ident">Balance</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[
+<span class="doccomment">/// Creates the initial state and hotshot for simulation.
+</span><span class="comment">// TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
+</span><span class="kw">async fn </span>init_state_and_hotshot(
+    networking: CentralizedServerNetwork&lt;
+        VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;,
+        VRFStakeTableConfig,
+    &gt;,
+    config: HotShotConfig&lt;VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;, VRFStakeTableConfig&gt;,
+    _seed: [u8; <span class="number">32</span>],
+    node_id: u64,
+) -&gt; (DEntryState, HotShotHandle&lt;Node&gt;) {
+    <span class="comment">// Create the initial block
+    </span><span class="kw">let </span>accounts: BTreeMap&lt;Account, Balance&gt; = <span class="macro">vec!</span>[
         (<span class="string">&quot;Joe&quot;</span>, <span class="number">1_000_000</span>),
         (<span class="string">&quot;Nathan M&quot;</span>, <span class="number">500_000_000</span>),
         (<span class="string">&quot;John&quot;</span>, <span class="number">400_000_000</span>),
         (<span class="string">&quot;Nathan Y&quot;</span>, <span class="number">600_000_000</span>),
         (<span class="string">&quot;Ian&quot;</span>, <span class="number">300_000_000</span>),
     ]
-    .<span class="ident">into_iter</span>()
-    .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">x</span>, <span class="ident">y</span>)<span class="op">|</span> (<span class="ident">x</span>.<span class="ident">to_string</span>(), <span class="ident">y</span>))
-    .<span class="ident">collect</span>();
-    <span class="kw">let</span> <span class="ident">genesis_block</span> <span class="op">=</span> <span class="ident">DEntryBlock::genesis_from</span>(<span class="ident">accounts</span>);
-    <span class="kw">let</span> <span class="ident">genesis_seed</span> <span class="op">=</span> <span class="ident">genesis_block</span>.<span class="ident">commit</span>();
-    <span class="kw">let</span> <span class="ident">initializer</span> <span class="op">=</span> <span class="ident">hotshot::HotShotInitializer::from_genesis</span>(<span class="ident">genesis_block</span>).<span class="ident">unwrap</span>();
+    .into_iter()
+    .map(|(x, y)| (x.to_string(), y))
+    .collect();
+    <span class="kw">let </span>genesis_block = DEntryBlock::genesis_from(accounts);
+    <span class="kw">let </span>genesis_seed = genesis_block.commit();
+    <span class="kw">let </span>initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
-    <span class="kw">let</span> <span class="ident">prng</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="ident">rand::thread_rng</span>();
-    <span class="comment">// TODO we should make this more general/use different parameters</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::let_unit_value</span>)]</span>
-    <span class="kw">let</span> <span class="ident">parameters</span> <span class="op">=</span>
-        <span class="op">&lt;</span><span class="ident">BLSVRFScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span> <span class="kw">as</span> <span class="ident">Vrf</span><span class="op">&lt;</span><span class="ident">Hasher</span>, <span class="ident">Param381</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::param_gen</span>(<span class="prelude-val">Some</span>(<span class="ident">prng</span>)).<span class="ident">unwrap</span>();
-    <span class="kw">let</span> (<span class="ident">priv_key</span>, <span class="ident">pub_key</span>) <span class="op">=</span>
-        <span class="op">&lt;</span><span class="ident">BLSVRFScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span> <span class="kw">as</span> <span class="ident">Vrf</span><span class="op">&lt;</span><span class="ident">Hasher</span>, <span class="ident">Param381</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::key_gen</span>(<span class="kw-2">&amp;</span><span class="ident">parameters</span>, <span class="ident">prng</span>).<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">known_nodes</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">known_nodes</span>.<span class="ident">clone</span>();
-    <span class="comment">// let vrf_impl = VrfImpl::with_initial_stake(known_nodes.clone(), SORTITION_PARAMETER);</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">distribution</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-    <span class="kw">let</span> <span class="ident">stake_per_node</span> <span class="op">=</span> <span class="ident">NonZeroU64::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>();
-    <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="ident">known_nodes</span>.<span class="ident">iter</span>() {
-        <span class="ident">distribution</span>.<span class="ident">push</span>(<span class="ident">stake_per_node</span>);
+    <span class="kw">let </span>prng = <span class="kw-2">&amp;mut </span>rand::thread_rng();
+    <span class="comment">// TODO we should make this more general/use different parameters
+    </span><span class="attribute">#[allow(clippy::let_unit_value)]
+    </span><span class="kw">let </span>parameters =
+        &lt;BLSVRFScheme&lt;Param381&gt; <span class="kw">as </span>Vrf&lt;Hasher, Param381&gt;&gt;::param_gen(<span class="prelude-val">Some</span>(prng)).unwrap();
+    <span class="kw">let </span>(priv_key, pub_key) =
+        &lt;BLSVRFScheme&lt;Param381&gt; <span class="kw">as </span>Vrf&lt;Hasher, Param381&gt;&gt;::key_gen(<span class="kw-2">&amp;</span>parameters, prng).unwrap();
+    <span class="kw">let </span>known_nodes = config.known_nodes.clone();
+    <span class="comment">// let vrf_impl = VrfImpl::with_initial_stake(known_nodes.clone(), SORTITION_PARAMETER);
+    </span><span class="kw">let </span><span class="kw-2">mut </span>distribution = Vec::new();
+    <span class="kw">let </span>stake_per_node = NonZeroU64::new(<span class="number">100</span>).unwrap();
+    <span class="kw">for _ in </span>known_nodes.iter() {
+        distribution.push(stake_per_node);
     }
-    <span class="kw">let</span> <span class="ident">vrf_impl</span> <span class="op">=</span> <span class="ident">VrfImpl::with_initial_stake</span>(
-        <span class="ident">known_nodes</span>.<span class="ident">clone</span>(),
-        <span class="kw-2">&amp;</span><span class="ident">VRFStakeTableConfig</span> {
-            <span class="ident">sortition_parameter</span>: <span class="ident">NonZeroU64::new</span>(<span class="ident">SORTITION_PARAMETER</span>).<span class="ident">unwrap</span>(),
-            <span class="ident">distribution</span>,
+    <span class="kw">let </span>vrf_impl = VrfImpl::with_initial_stake(
+        known_nodes.clone(),
+        <span class="kw-2">&amp;</span>VRFStakeTableConfig {
+            sortition_parameter: NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
+            distribution,
         },
-        <span class="ident">genesis_seed</span>.<span class="ident">into</span>(),
+        genesis_seed.into(),
     );
-    <span class="kw">let</span> <span class="ident">hotshot</span> <span class="op">=</span> <span class="ident">HotShot::init</span>(
-        <span class="ident">VRFPubKey::from_native</span>(<span class="ident">pub_key</span>.<span class="ident">clone</span>()),
-        (<span class="ident">priv_key</span>, <span class="ident">pub_key</span>),
-        <span class="ident">node_id</span>,
-        <span class="ident">config</span>,
-        <span class="ident">networking</span>,
-        <span class="ident">MemoryStorage::new</span>(),
-        <span class="ident">vrf_impl</span>,
-        <span class="ident">initializer</span>,
+    <span class="kw">let </span>hotshot = HotShot::init(
+        VRFPubKey::from_native(pub_key.clone()),
+        (priv_key, pub_key),
+        node_id,
+        config,
+        networking,
+        MemoryStorage::new(),
+        vrf_impl,
+        initializer,
     )
-    .<span class="kw">await</span>
-    .<span class="ident">expect</span>(<span class="string">&quot;Could not init hotshot&quot;</span>);
+    .<span class="kw">await
+    </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;hotshot launched&quot;</span>);
 
-    <span class="kw">let</span> <span class="ident">storage</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStorage</span><span class="op">&lt;</span><span class="ident">DEntryState</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">storage</span>();
+    <span class="kw">let </span>storage: <span class="kw-2">&amp;</span>MemoryStorage&lt;DEntryState&gt; = hotshot.storage();
 
-    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">storage</span>.<span class="ident">get_anchored_view</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">state</span>;
+    <span class="kw">let </span>state = storage.get_anchored_view().<span class="kw">await</span>.unwrap().state;
 
-    (<span class="ident">state</span>, <span class="ident">hotshot</span>)
+    (state, hotshot)
 }
 
-<span class="attribute">#[<span class="ident">async_main</span>]</span>
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() {
-    <span class="comment">// Setup tracing listener</span>
-    <span class="ident">setup_logging</span>();
-    <span class="ident">setup_backtrace</span>();
+<span class="attribute">#[async_main]
+</span><span class="kw">async fn </span>main() {
+    <span class="comment">// Setup tracing listener
+    </span>setup_logging();
+    setup_backtrace();
 
-    <span class="kw">let</span> <span class="ident">opts</span>: <span class="ident">NodeOpt</span> <span class="op">=</span> <span class="ident">NodeOpt::parse</span>();
-    <span class="kw">let</span> <span class="ident">addr</span>: <span class="ident">SocketAddr</span> <span class="op">=</span> (<span class="ident">opts</span>.<span class="ident">host</span>, <span class="ident">opts</span>.<span class="ident">port</span>).<span class="ident">into</span>();
+    <span class="kw">let </span>opts: NodeOpt = NodeOpt::parse();
+    <span class="kw">let </span>addr: SocketAddr = (opts.host, opts.port).into();
     <span class="macro">error!</span>(<span class="string">&quot;Connecting to {addr:?} to retrieve the server config&quot;</span>);
 
-    <span class="kw">let</span> (<span class="ident">config</span>, <span class="ident">run</span>, <span class="ident">network</span>) <span class="op">=</span> <span class="ident">CentralizedServerNetwork::connect_with_server_config</span>(<span class="ident">addr</span>).<span class="kw">await</span>;
+    <span class="kw">let </span>(config, run, network) = CentralizedServerNetwork::connect_with_server_config(addr).<span class="kw">await</span>;
 
-    <span class="macro">error!</span>(<span class="string">&quot;Run: {:?}&quot;</span>, <span class="ident">run</span>);
-    <span class="macro">error!</span>(<span class="string">&quot;Config: {:?}&quot;</span>, <span class="ident">config</span>);
+    <span class="macro">error!</span>(<span class="string">&quot;Run: {:?}&quot;</span>, run);
+    <span class="macro">error!</span>(<span class="string">&quot;Config: {:?}&quot;</span>, config);
 
-    <span class="comment">// Get networking information</span>
+    <span class="comment">// Get networking information
 
-    <span class="kw">let</span> <span class="ident">node_count</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">config</span>.<span class="ident">total_nodes</span>;
+    </span><span class="kw">let </span>node_count = config.config.total_nodes;
 
     <span class="macro">debug!</span>(<span class="string">&quot;Waiting on connections...&quot;</span>);
-    <span class="kw">while</span> <span class="op">!</span><span class="ident">network</span>.<span class="ident">run_ready</span>() {
-        <span class="kw">let</span> <span class="ident">connected_clients</span> <span class="op">=</span> <span class="ident">network</span>.<span class="ident">get_connected_client_count</span>().<span class="kw">await</span>;
-        <span class="macro">error!</span>(<span class="string">&quot;{} / {}&quot;</span>, <span class="ident">connected_clients</span>, <span class="ident">node_count</span>);
-        <span class="ident">async_sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="kw">await</span>;
+    <span class="kw">while </span>!network.run_ready() {
+        <span class="kw">let </span>connected_clients = network.get_connected_client_count().<span class="kw">await</span>;
+        <span class="macro">error!</span>(<span class="string">&quot;{} / {}&quot;</span>, connected_clients, node_count);
+        async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
     }
 
-    <span class="kw">let</span> <span class="ident">NetworkConfig</span> {
-        <span class="ident">rounds</span>,
-        <span class="ident">transactions_per_round</span>,
-        <span class="ident">config</span>,
-        <span class="ident">node_index</span>,
-        <span class="ident">seed</span>,
-        <span class="ident">padding</span>,
-        <span class="ident">libp2p_config</span>: <span class="kw">_</span>,
-        <span class="ident">start_delay_seconds</span>: <span class="kw">_</span>,
-        <span class="ident">key_type_name</span>,
-        <span class="ident">election_config_type_name</span>,
-    } <span class="op">=</span> <span class="ident">config</span>;
+    <span class="kw">let </span>NetworkConfig {
+        rounds,
+        transactions_per_round,
+        config,
+        node_index,
+        seed,
+        padding,
+        libp2p_config: <span class="kw">_</span>,
+        start_delay_seconds: <span class="kw">_</span>,
+        key_type_name,
+        election_config_type_name,
+    } = config;
 
     <span class="macro">assert_eq!</span>(
-        <span class="ident">key_type_name</span>,
-        <span class="ident">std::any::type_name</span>::<span class="op">&lt;</span><span class="ident">VRFPubKey</span><span class="op">&lt;</span><span class="ident">BLSSignatureScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>()
+        key_type_name,
+        std::any::type_name::&lt;VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;&gt;()
     );
     <span class="macro">assert_eq!</span>(
-        <span class="ident">election_config_type_name</span>,
-        <span class="ident">std::any::type_name</span>::<span class="op">&lt;</span><span class="ident">VRFStakeTableConfig</span><span class="op">&gt;</span>()
+        election_config_type_name,
+        std::any::type_name::&lt;VRFStakeTableConfig&gt;()
     );
 
-    <span class="comment">// Initialize the state and hotshot</span>
-    <span class="kw">let</span> (<span class="ident">_own_state</span>, <span class="kw-2">mut</span> <span class="ident">hotshot</span>) <span class="op">=</span> <span class="ident">init_state_and_hotshot</span>(<span class="ident">network</span>, <span class="ident">config</span>, <span class="ident">seed</span>, <span class="ident">node_index</span>).<span class="kw">await</span>;
+    <span class="comment">// Initialize the state and hotshot
+    </span><span class="kw">let </span>(_own_state, <span class="kw-2">mut </span>hotshot) = init_state_and_hotshot(network, config, seed, node_index).<span class="kw">await</span>;
 
-    <span class="ident">hotshot</span>.<span class="ident">start</span>().<span class="kw">await</span>;
+    hotshot.start().<span class="kw">await</span>;
 
-    <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">DEntryTransaction</span><span class="op">&gt;</span>();
-    <span class="kw">let</span> <span class="ident">adjusted_padding</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">padding</span> <span class="op">&lt;</span> <span class="ident">size</span> { <span class="number">0</span> } <span class="kw">else</span> { <span class="ident">padding</span> <span class="op">-</span> <span class="ident">size</span> };
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">txs</span>: <span class="ident">VecDeque</span><span class="op">&lt;</span><span class="ident">DEntryTransaction</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">VecDeque::new</span>();
-    <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">get_state</span>().<span class="kw">await</span>;
-    <span class="comment">// This assumes that no node will be a leader more than 5x the expected number of times they should be the leader</span>
-    <span class="kw">let</span> <span class="ident">tx_to_gen</span> <span class="op">=</span> <span class="ident">transactions_per_round</span> <span class="op">*</span> (<span class="ident">cmp::max</span>(<span class="ident">rounds</span> <span class="op">/</span> <span class="ident">node_count</span>, <span class="number">1</span>) <span class="op">+</span> <span class="number">5</span>);
-    <span class="macro">error!</span>(<span class="string">&quot;Generated {} transactions&quot;</span>, <span class="ident">tx_to_gen</span>);
-    <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">tx_to_gen</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">txn</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">DEntryState</span> <span class="kw">as</span> <span class="ident">TestableState</span><span class="op">&gt;</span><span class="ident">::create_random_transaction</span>(<span class="kw-2">&amp;</span><span class="ident">state</span>);
-        <span class="ident">txn</span>.<span class="ident">padding</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">0</span>; <span class="ident">adjusted_padding</span>];
-        <span class="ident">txs</span>.<span class="ident">push_back</span>(<span class="ident">txn</span>);
+    <span class="kw">let </span>size = mem::size_of::&lt;DEntryTransaction&gt;();
+    <span class="kw">let </span>adjusted_padding = <span class="kw">if </span>padding &lt; size { <span class="number">0 </span>} <span class="kw">else </span>{ padding - size };
+    <span class="kw">let </span><span class="kw-2">mut </span>txs: VecDeque&lt;DEntryTransaction&gt; = VecDeque::new();
+    <span class="kw">let </span>state = hotshot.get_state().<span class="kw">await</span>;
+    <span class="comment">// This assumes that no node will be a leader more than 5x the expected number of times they should be the leader
+    </span><span class="kw">let </span>tx_to_gen = transactions_per_round * (cmp::max(rounds / node_count, <span class="number">1</span>) + <span class="number">5</span>);
+    <span class="macro">error!</span>(<span class="string">&quot;Generated {} transactions&quot;</span>, tx_to_gen);
+    <span class="kw">for _ in </span><span class="number">0</span>..tx_to_gen {
+        <span class="kw">let </span><span class="kw-2">mut </span>txn = &lt;DEntryState <span class="kw">as </span>TestableState&gt;::create_random_transaction(<span class="kw-2">&amp;</span>state);
+        txn.padding = <span class="macro">vec!</span>[<span class="number">0</span>; adjusted_padding];
+        txs.push_back(txn);
     }
 
-    <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">Instant::now</span>();
+    <span class="kw">let </span>start = Instant::now();
 
-    <span class="comment">// Run random transactions</span>
-    <span class="macro">debug!</span>(<span class="string">&quot;Running random transactions&quot;</span>);
-    <span class="macro">error!</span>(<span class="string">&quot;Adjusted padding size is = {:?}&quot;</span>, <span class="ident">adjusted_padding</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">timed_out_views</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">0</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">round</span> <span class="op">=</span> <span class="number">1</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">total_transactions</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="comment">// Run random transactions
+    </span><span class="macro">debug!</span>(<span class="string">&quot;Running random transactions&quot;</span>);
+    <span class="macro">error!</span>(<span class="string">&quot;Adjusted padding size is = {:?}&quot;</span>, adjusted_padding);
+    <span class="kw">let </span><span class="kw-2">mut </span>timed_out_views: u64 = <span class="number">0</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>round = <span class="number">1</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>total_transactions = <span class="number">0</span>;
 
-    <span class="kw">while</span> <span class="ident">round</span> <span class="op">&lt;</span><span class="op">=</span> <span class="ident">rounds</span> {
-        <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">round</span>);
-        <span class="macro">error!</span>(<span class="string">&quot;Round {}:&quot;</span>, <span class="ident">round</span>);
+    <span class="kw">while </span>round &lt;= rounds {
+        <span class="macro">debug!</span>(<span class="question-mark">?</span>round);
+        <span class="macro">error!</span>(<span class="string">&quot;Round {}:&quot;</span>, round);
 
-        <span class="kw">let</span> <span class="ident">num_submitted</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">node_index</span> <span class="op">==</span> ((<span class="ident">round</span> <span class="op">%</span> <span class="ident">node_count</span>) <span class="kw">as</span> <span class="ident">u64</span>) {
-            <span class="macro">tracing::info!</span>(<span class="string">&quot;Generating txn for round {}&quot;</span>, <span class="ident">round</span>);
+        <span class="kw">let </span>num_submitted = <span class="kw">if </span>node_index == ((round % node_count) <span class="kw">as </span>u64) {
+            <span class="macro">tracing::info!</span>(<span class="string">&quot;Generating txn for round {}&quot;</span>, round);
 
-            <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">transactions_per_round</span> {
-                <span class="kw">let</span> <span class="ident">txn</span> <span class="op">=</span> <span class="ident">txs</span>.<span class="ident">pop_front</span>().<span class="ident">unwrap</span>();
-                <span class="macro">tracing::info!</span>(<span class="string">&quot;Submitting txn on round {}&quot;</span>, <span class="ident">round</span>);
-                <span class="ident">hotshot</span>.<span class="ident">submit_transaction</span>(<span class="ident">txn</span>).<span class="kw">await</span>.<span class="ident">unwrap</span>();
+            <span class="kw">for _ in </span><span class="number">0</span>..transactions_per_round {
+                <span class="kw">let </span>txn = txs.pop_front().unwrap();
+                <span class="macro">tracing::info!</span>(<span class="string">&quot;Submitting txn on round {}&quot;</span>, round);
+                hotshot.submit_transaction(txn).<span class="kw">await</span>.unwrap();
             }
-            <span class="ident">transactions_per_round</span>
-        } <span class="kw">else</span> {
-            <span class="number">0</span>
-        };
-        <span class="macro">error!</span>(<span class="string">&quot;Submitting {} transactions&quot;</span>, <span class="ident">num_submitted</span>);
+            transactions_per_round
+        } <span class="kw">else </span>{
+            <span class="number">0
+        </span>};
+        <span class="macro">error!</span>(<span class="string">&quot;Submitting {} transactions&quot;</span>, num_submitted);
 
-        <span class="comment">// Start consensus</span>
-        <span class="macro">error!</span>(<span class="string">&quot;  - Waiting for consensus to occur&quot;</span>);
+        <span class="comment">// Start consensus
+        </span><span class="macro">error!</span>(<span class="string">&quot;  - Waiting for consensus to occur&quot;</span>);
         <span class="macro">debug!</span>(<span class="string">&quot;Waiting for consensus to occur&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">view_results</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">collect_round_events</span>().<span class="kw">await</span>;
+        <span class="kw">let </span>view_results = hotshot.collect_round_events().<span class="kw">await</span>;
 
-        <span class="kw">match</span> <span class="ident">view_results</span> {
-            <span class="prelude-val">Ok</span>((<span class="ident">state</span>, <span class="ident">blocks</span>)) =&gt; {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">state</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get</span>(<span class="number">0</span>) {
-                    <span class="kw">for</span> (<span class="ident">account</span>, <span class="ident">balance</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">state</span>.<span class="ident">balances</span> {
-                        <span class="macro">debug!</span>(<span class="string">&quot;    - {}: {}&quot;</span>, <span class="ident">account</span>, <span class="ident">balance</span>);
+        <span class="kw">match </span>view_results {
+            <span class="prelude-val">Ok</span>((state, blocks)) =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(state) = state.get(<span class="number">0</span>) {
+                    <span class="kw">for </span>(account, balance) <span class="kw">in </span><span class="kw-2">&amp;</span>state.balances {
+                        <span class="macro">debug!</span>(<span class="string">&quot;    - {}: {}&quot;</span>, account, balance);
                     }
                 }
-                <span class="kw">for</span> <span class="ident">block</span> <span class="kw">in</span> <span class="ident">blocks</span> {
-                    <span class="ident">total_transactions</span> <span class="op">+</span><span class="op">=</span> <span class="ident">block</span>.<span class="ident">txn_count</span>();
+                <span class="kw">for </span>block <span class="kw">in </span>blocks {
+                    total_transactions += block.txn_count();
                 }
             }
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                <span class="ident">timed_out_views</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
-                <span class="macro">error!</span>(<span class="string">&quot;View: {:?}, failed with : {:?}&quot;</span>, <span class="ident">round</span>, <span class="ident">e</span>);
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                timed_out_views += <span class="number">1</span>;
+                <span class="macro">error!</span>(<span class="string">&quot;View: {:?}, failed with : {:?}&quot;</span>, round, e);
             }
         }
 
-        <span class="ident">round</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+        round += <span class="number">1</span>;
     }
 
-    <span class="comment">// Print metrics</span>
-    <span class="kw">let</span> <span class="ident">total_time_elapsed</span> <span class="op">=</span> <span class="ident">start</span>.<span class="ident">elapsed</span>();
-    <span class="kw">let</span> <span class="ident">expected_transactions</span> <span class="op">=</span> <span class="ident">transactions_per_round</span> <span class="op">*</span> <span class="ident">rounds</span>;
-    <span class="kw">let</span> <span class="ident">total_size</span> <span class="op">=</span> <span class="ident">total_transactions</span> <span class="op">*</span> <span class="ident">padding</span>;
+    <span class="comment">// Print metrics
+    </span><span class="kw">let </span>total_time_elapsed = start.elapsed();
+    <span class="kw">let </span>expected_transactions = transactions_per_round * rounds;
+    <span class="kw">let </span>total_size = total_transactions * padding;
     <span class="macro">error!</span>(<span class="string">&quot;All {rounds} rounds completed in {total_time_elapsed:?}&quot;</span>);
     <span class="macro">error!</span>(<span class="string">&quot;{timed_out_views} rounds timed out&quot;</span>);
 
-    <span class="comment">// This assumes all submitted transactions make it through consensus:</span>
-    <span class="macro">error!</span>(
+    <span class="comment">// This assumes all submitted transactions make it through consensus:
+    </span><span class="macro">error!</span>(
         <span class="string">&quot;{} total bytes submitted in {:?}&quot;</span>,
-        <span class="ident">total_size</span>, <span class="ident">total_time_elapsed</span>
+        total_size, total_time_elapsed
     );
     <span class="macro">debug!</span>(<span class="string">&quot;All rounds completed&quot;</span>);
 
-    <span class="kw">let</span> <span class="ident">networking</span>: <span class="kw-2">&amp;</span><span class="ident">CentralizedServerNetwork</span><span class="op">&lt;</span>
-        <span class="ident">VRFPubKey</span><span class="op">&lt;</span><span class="ident">BLSSignatureScheme</span><span class="op">&lt;</span><span class="ident">Param381</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">VRFStakeTableConfig</span>,
-    <span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>.<span class="ident">networking</span>();
-    <span class="ident">networking</span>
-        .<span class="ident">send_results</span>(<span class="ident">RunResults</span> {
-            <span class="ident">run</span>,
-            <span class="ident">node_index</span>,
+    <span class="kw">let </span>networking: <span class="kw-2">&amp;</span>CentralizedServerNetwork&lt;
+        VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;,
+        VRFStakeTableConfig,
+    &gt; = hotshot.networking();
+    networking
+        .send_results(RunResults {
+            run,
+            node_index,
 
-            <span class="ident">transactions_submitted</span>: <span class="ident">total_transactions</span>,
-            <span class="ident">transactions_rejected</span>: <span class="ident">expected_transactions</span> <span class="op">-</span> <span class="ident">total_transactions</span>,
-            <span class="ident">transaction_size_bytes</span>: <span class="ident">total_size</span>,
+            transactions_submitted: total_transactions,
+            transactions_rejected: expected_transactions - total_transactions,
+            transaction_size_bytes: total_size,
 
-            <span class="ident">rounds_succeeded</span>: <span class="ident">rounds</span> <span class="kw">as</span> <span class="ident">u64</span> <span class="op">-</span> <span class="ident">timed_out_views</span>,
-            <span class="ident">rounds_timed_out</span>: <span class="ident">timed_out_views</span>,
-            <span class="ident">total_time_in_seconds</span>: <span class="ident">total_time_elapsed</span>.<span class="ident">as_secs_f64</span>(),
+            rounds_succeeded: rounds <span class="kw">as </span>u64 - timed_out_views,
+            rounds_timed_out: timed_out_views,
+            total_time_in_seconds: total_time_elapsed.as_secs_f64(),
         })
         .<span class="kw">await</span>;
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="multi_machine_vrf_centralized" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="multi_machine_vrf_centralized" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

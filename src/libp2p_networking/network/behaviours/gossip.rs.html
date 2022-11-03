@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/src/network/behaviours/gossip.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>gossip.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../libp2p_networking/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/src/network/behaviours/gossip.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>gossip.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../../normalize.css"><link rel="stylesheet" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../../ayu.css" disabled><link rel="stylesheet" href="../../../../dark.css" disabled><link rel="stylesheet" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../libp2p_networking/index.html"><img class="rust-logo" src="../../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -290,297 +290,297 @@
 <span id="290">290</span>
 <span id="291">291</span>
 <span id="292">292</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections</span>::{<span class="ident">HashSet</span>, <span class="ident">VecDeque</span>},
-    <span class="ident">task::Poll</span>,
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::{HashSet, VecDeque},
+    task::Poll,
 };
 
-<span class="kw">use</span> <span class="ident">libp2p</span>::{
-    <span class="ident">core</span>::{<span class="ident">connection::ConnectionId</span>, <span class="ident">transport::ListenerId</span>},
-    <span class="ident">gossipsub</span>::{<span class="ident">Gossipsub</span>, <span class="ident">GossipsubEvent</span>, <span class="ident">IdentTopic</span>, <span class="ident">TopicHash</span>},
-    <span class="ident">swarm</span>::{
-        <span class="ident">ConnectionHandler</span>, <span class="ident">IntoConnectionHandler</span>, <span class="ident">NetworkBehaviour</span>, <span class="ident">NetworkBehaviourAction</span>,
-        <span class="ident">PollParameters</span>,
+<span class="kw">use </span>libp2p::{
+    core::{connection::ConnectionId, transport::ListenerId},
+    gossipsub::{Gossipsub, GossipsubEvent, IdentTopic, TopicHash},
+    swarm::{
+        ConnectionHandler, IntoConnectionHandler, NetworkBehaviour, NetworkBehaviourAction,
+        PollParameters,
     },
-    <span class="ident">PeerId</span>,
+    PeerId,
 };
 
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">warn</span>};
+<span class="kw">use </span>tracing::{error, info, warn};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::exponential_backoff::ExponentialBackoff</span>;
+<span class="kw">use </span><span class="kw">super</span>::exponential_backoff::ExponentialBackoff;
 
-<span class="doccomment">/// wrapper metadata around libp2p&#39;s gossip protocol</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">GossipBehaviour</span> {
-    <span class="doccomment">/// Timeout trackidng when to retry gossip</span>
-    <span class="ident">backoff</span>: <span class="ident">ExponentialBackoff</span>,
-    <span class="doccomment">/// The in progress gossip queries</span>
-    <span class="ident">in_progress_gossip</span>: <span class="ident">VecDeque</span><span class="op">&lt;</span>(<span class="ident">IdentTopic</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>)<span class="op">&gt;</span>,
-    <span class="doccomment">/// The gossip behaviour</span>
-    <span class="ident">gossipsub</span>: <span class="ident">Gossipsub</span>,
-    <span class="doccomment">/// Output events to parent behavioru</span>
-    <span class="ident">out_event_queue</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">GossipEvent</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Set of topics we are subscribed to</span>
-    <span class="ident">subscribed_topics</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
+<span class="doccomment">/// wrapper metadata around libp2p&#39;s gossip protocol
+</span><span class="kw">pub struct </span>GossipBehaviour {
+    <span class="doccomment">/// Timeout trackidng when to retry gossip
+    </span>backoff: ExponentialBackoff,
+    <span class="doccomment">/// The in progress gossip queries
+    </span>in_progress_gossip: VecDeque&lt;(IdentTopic, Vec&lt;u8&gt;)&gt;,
+    <span class="doccomment">/// The gossip behaviour
+    </span>gossipsub: Gossipsub,
+    <span class="doccomment">/// Output events to parent behavioru
+    </span>out_event_queue: Vec&lt;GossipEvent&gt;,
+    <span class="doccomment">/// Set of topics we are subscribed to
+    </span>subscribed_topics: HashSet&lt;String&gt;,
 }
 
-<span class="doccomment">/// Output event</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">GossipEvent</span> {
-    <span class="doccomment">/// We received a gossip</span>
-    <span class="ident">GossipMsg</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">TopicHash</span>),
+<span class="doccomment">/// Output event
+</span><span class="attribute">#[derive(Clone, Debug, PartialEq, Eq)]
+</span><span class="kw">pub enum </span>GossipEvent {
+    <span class="doccomment">/// We received a gossip
+    </span>GossipMsg(Vec&lt;u8&gt;, TopicHash),
 }
 
-<span class="kw">impl</span> <span class="ident">GossipBehaviour</span> {
-    <span class="kw">fn</span> <span class="ident">gossip_handle_event</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">event</span>: <span class="ident">GossipsubEvent</span>) {
-        <span class="kw">match</span> <span class="ident">event</span> {
-            <span class="ident">GossipsubEvent::Message</span> { <span class="ident">message</span>, .. } =&gt; {
-                <span class="comment">// if we get an event from the gossipsub behaviour, push it</span>
-                <span class="comment">// onto the event queue (which will get popped during poll)</span>
-                <span class="comment">// and propagated back to the overall behaviour</span>
-                <span class="self">self</span>.<span class="ident">out_event_queue</span>
-                    .<span class="ident">push</span>(<span class="ident">GossipEvent::GossipMsg</span>(<span class="ident">message</span>.<span class="ident">data</span>, <span class="ident">message</span>.<span class="ident">topic</span>));
+<span class="kw">impl </span>GossipBehaviour {
+    <span class="kw">fn </span>gossip_handle_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: GossipsubEvent) {
+        <span class="kw">match </span>event {
+            GossipsubEvent::Message { message, .. } =&gt; {
+                <span class="comment">// if we get an event from the gossipsub behaviour, push it
+                // onto the event queue (which will get popped during poll)
+                // and propagated back to the overall behaviour
+                </span><span class="self">self</span>.out_event_queue
+                    .push(GossipEvent::GossipMsg(message.data, message.topic));
             }
-            <span class="ident">GossipsubEvent::Subscribed</span> { <span class="ident">topic</span>, .. } =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;subscribed to topic {}&quot;</span>, <span class="ident">topic</span>);
+            GossipsubEvent::Subscribed { topic, .. } =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;subscribed to topic {}&quot;</span>, topic);
             }
-            <span class="ident">GossipsubEvent::Unsubscribed</span> { <span class="ident">topic</span>, .. } =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;unsubscribed to topic {}&quot;</span>, <span class="ident">topic</span>);
+            GossipsubEvent::Unsubscribed { topic, .. } =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;unsubscribed to topic {}&quot;</span>, topic);
             }
-            <span class="ident">GossipsubEvent::GossipsubNotSupported</span> { <span class="ident">peer_id</span> } =&gt; {
-                <span class="macro">error!</span>(<span class="string">&quot;gossipsub not supported on {}!&quot;</span>, <span class="ident">peer_id</span>);
+            GossipsubEvent::GossipsubNotSupported { peer_id } =&gt; {
+                <span class="macro">error!</span>(<span class="string">&quot;gossipsub not supported on {}!&quot;</span>, peer_id);
             }
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">NetworkBehaviour</span> <span class="kw">for</span> <span class="ident">GossipBehaviour</span> {
-    <span class="kw">type</span> <span class="ident">ConnectionHandler</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">Gossipsub</span> <span class="kw">as</span> <span class="ident">NetworkBehaviour</span><span class="op">&gt;</span><span class="ident">::ConnectionHandler</span>;
+<span class="kw">impl </span>NetworkBehaviour <span class="kw">for </span>GossipBehaviour {
+    <span class="kw">type </span>ConnectionHandler = &lt;Gossipsub <span class="kw">as </span>NetworkBehaviour&gt;::ConnectionHandler;
 
-    <span class="kw">type</span> <span class="ident">OutEvent</span> <span class="op">=</span> <span class="ident">GossipEvent</span>;
+    <span class="kw">type </span>OutEvent = GossipEvent;
 
-    <span class="kw">fn</span> <span class="ident">new_handler</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::ConnectionHandler</span> {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">new_handler</span>()
+    <span class="kw">fn </span>new_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::ConnectionHandler {
+        <span class="self">self</span>.gossipsub.new_handler()
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_event</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">peer_id</span>: <span class="ident">PeerId</span>,
-        <span class="ident">connection</span>: <span class="ident">ConnectionId</span>,
-        <span class="ident">event</span>: <span class="op">&lt;</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::ConnectionHandler</span> <span class="kw">as</span> <span class="ident">IntoConnectionHandler</span><span class="op">&gt;</span><span class="ident">::Handler</span> <span class="kw">as</span> <span class="ident">ConnectionHandler</span><span class="op">&gt;</span><span class="ident">::OutEvent</span>,
+    <span class="kw">fn </span>inject_event(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        peer_id: PeerId,
+        connection: ConnectionId,
+        event: &lt;&lt;<span class="self">Self</span>::ConnectionHandler <span class="kw">as </span>IntoConnectionHandler&gt;::Handler <span class="kw">as </span>ConnectionHandler&gt;::OutEvent,
     ) {
-        <span class="comment">// pass event GENERATED by handler from swarm to gossipsub</span>
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">inject_event</span>(<span class="ident">peer_id</span>, <span class="ident">connection</span>, <span class="ident">event</span>);
+        <span class="comment">// pass event GENERATED by handler from swarm to gossipsub
+        </span><span class="self">self</span>.gossipsub.inject_event(peer_id, connection, event);
     }
 
-    <span class="kw">fn</span> <span class="ident">poll</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
-        <span class="ident">params</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">PollParameters</span>,
-    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">NetworkBehaviourAction</span><span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::OutEvent</span>, <span class="ident"><span class="self">Self</span>::ConnectionHandler</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="comment">// retry sending shit</span>
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">backoff</span>.<span class="ident">is_expired</span>() {
-            <span class="kw">let</span> <span class="ident">published</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">drain_publish_gossips</span>();
-            <span class="self">self</span>.<span class="ident">backoff</span>.<span class="ident">start_next</span>(<span class="ident">published</span>);
+    <span class="kw">fn </span>poll(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        params: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>PollParameters,
+    ) -&gt; Poll&lt;NetworkBehaviourAction&lt;<span class="self">Self</span>::OutEvent, <span class="self">Self</span>::ConnectionHandler&gt;&gt; {
+        <span class="comment">// retry sending shit
+        </span><span class="kw">if </span><span class="self">self</span>.backoff.is_expired() {
+            <span class="kw">let </span>published = <span class="self">self</span>.drain_publish_gossips();
+            <span class="self">self</span>.backoff.start_next(published);
         }
-        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Poll::Ready</span>(<span class="ident">ready</span>) <span class="op">=</span> <span class="ident">NetworkBehaviour::poll</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">gossipsub</span>, <span class="ident">cx</span>, <span class="ident">params</span>) {
-            <span class="kw">match</span> <span class="ident">ready</span> {
-                <span class="ident">NetworkBehaviourAction::GenerateEvent</span>(<span class="ident">e</span>) =&gt; {
-                    <span class="comment">// add event to event queue which will be subsequently popped off.</span>
-                    <span class="self">self</span>.<span class="ident">gossip_handle_event</span>(<span class="ident">e</span>);
+        <span class="kw">if let </span>Poll::Ready(ready) = NetworkBehaviour::poll(<span class="kw-2">&amp;mut </span><span class="self">self</span>.gossipsub, cx, params) {
+            <span class="kw">match </span>ready {
+                NetworkBehaviourAction::GenerateEvent(e) =&gt; {
+                    <span class="comment">// add event to event queue which will be subsequently popped off.
+                    </span><span class="self">self</span>.gossip_handle_event(e);
                 }
-                <span class="ident">NetworkBehaviourAction::Dial</span> { <span class="ident">opts</span>, <span class="ident">handler</span> } =&gt; {
-                    <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::Dial</span> { <span class="ident">opts</span>, <span class="ident">handler</span> });
+                NetworkBehaviourAction::Dial { opts, handler } =&gt; {
+                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::Dial { opts, handler });
                 }
-                <span class="ident">NetworkBehaviourAction::NotifyHandler</span> {
-                    <span class="ident">peer_id</span>,
-                    <span class="ident">handler</span>,
-                    <span class="ident">event</span>,
+                NetworkBehaviourAction::NotifyHandler {
+                    peer_id,
+                    handler,
+                    event,
                 } =&gt; {
-                    <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::NotifyHandler</span> {
-                        <span class="ident">peer_id</span>,
-                        <span class="ident">handler</span>,
-                        <span class="ident">event</span>,
+                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::NotifyHandler {
+                        peer_id,
+                        handler,
+                        event,
                     });
                 }
-                <span class="ident">NetworkBehaviourAction::ReportObservedAddr</span> { <span class="ident">address</span>, <span class="ident">score</span> } =&gt; {
-                    <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::ReportObservedAddr</span> {
-                        <span class="ident">address</span>,
-                        <span class="ident">score</span>,
+                NetworkBehaviourAction::ReportObservedAddr { address, score } =&gt; {
+                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
+                        address,
+                        score,
                     });
                 }
-                <span class="ident">NetworkBehaviourAction::CloseConnection</span> {
-                    <span class="ident">peer_id</span>,
-                    <span class="ident">connection</span>,
+                NetworkBehaviourAction::CloseConnection {
+                    peer_id,
+                    connection,
                 } =&gt; {
-                    <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::CloseConnection</span> {
-                        <span class="ident">peer_id</span>,
-                        <span class="ident">connection</span>,
+                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                        peer_id,
+                        connection,
                     });
                 }
             }
         }
-        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">out_event_queue</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">return</span> <span class="ident">Poll::Ready</span>(<span class="ident">NetworkBehaviourAction::GenerateEvent</span>(
-                <span class="self">self</span>.<span class="ident">out_event_queue</span>.<span class="ident">remove</span>(<span class="number">0</span>),
+        <span class="kw">if </span>!<span class="self">self</span>.out_event_queue.is_empty() {
+            <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::GenerateEvent(
+                <span class="self">self</span>.out_event_queue.remove(<span class="number">0</span>),
             ));
         }
-        <span class="ident">Poll::Pending</span>
+        Poll::Pending
     }
 
-    <span class="kw">fn</span> <span class="ident">addresses_of_peer</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">peer_id</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">libp2p::Multiaddr</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">addresses_of_peer</span>(<span class="ident">peer_id</span>)
+    <span class="kw">fn </span>addresses_of_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; Vec&lt;libp2p::Multiaddr&gt; {
+        <span class="self">self</span>.gossipsub.addresses_of_peer(peer_id)
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_connection_established</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">peer_id</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>,
-        <span class="ident">connection_id</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::connection::ConnectionId</span>,
-        <span class="ident">endpoint</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::ConnectedPoint</span>,
-        <span class="ident">failed_addresses</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">libp2p::Multiaddr</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">other_established</span>: <span class="ident">usize</span>,
+    <span class="kw">fn </span>inject_connection_established(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        peer_id: <span class="kw-2">&amp;</span>PeerId,
+        connection_id: <span class="kw-2">&amp;</span>libp2p::core::connection::ConnectionId,
+        endpoint: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
+        failed_addresses: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;libp2p::Multiaddr&gt;&gt;,
+        other_established: usize,
     ) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">inject_connection_established</span>(
-            <span class="ident">peer_id</span>,
-            <span class="ident">connection_id</span>,
-            <span class="ident">endpoint</span>,
-            <span class="ident">failed_addresses</span>,
-            <span class="ident">other_established</span>,
+        <span class="self">self</span>.gossipsub.inject_connection_established(
+            peer_id,
+            connection_id,
+            endpoint,
+            failed_addresses,
+            other_established,
         );
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_connection_closed</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">pid</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>,
-        <span class="ident">cid</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::connection::ConnectionId</span>,
-        <span class="ident">cp</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::ConnectedPoint</span>,
-        <span class="ident">handler</span>: <span class="op">&lt;</span><span class="ident"><span class="self">Self</span>::ConnectionHandler</span> <span class="kw">as</span> <span class="ident">libp2p::swarm::IntoConnectionHandler</span><span class="op">&gt;</span><span class="ident">::Handler</span>,
-        <span class="ident">remaining_established</span>: <span class="ident">usize</span>,
+    <span class="kw">fn </span>inject_connection_closed(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        pid: <span class="kw-2">&amp;</span>PeerId,
+        cid: <span class="kw-2">&amp;</span>libp2p::core::connection::ConnectionId,
+        cp: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
+        handler: &lt;<span class="self">Self</span>::ConnectionHandler <span class="kw">as </span>libp2p::swarm::IntoConnectionHandler&gt;::Handler,
+        remaining_established: usize,
     ) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>
-            .<span class="ident">inject_connection_closed</span>(<span class="ident">pid</span>, <span class="ident">cid</span>, <span class="ident">cp</span>, <span class="ident">handler</span>, <span class="ident">remaining_established</span>);
+        <span class="self">self</span>.gossipsub
+            .inject_connection_closed(pid, cid, cp, handler, remaining_established);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_address_change</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">pid</span>: <span class="kw-2">&amp;</span><span class="ident">PeerId</span>,
-        <span class="ident">cid</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::connection::ConnectionId</span>,
-        <span class="ident">old</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::ConnectedPoint</span>,
-        <span class="ident">new</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::core::ConnectedPoint</span>,
+    <span class="kw">fn </span>inject_address_change(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        pid: <span class="kw-2">&amp;</span>PeerId,
+        cid: <span class="kw-2">&amp;</span>libp2p::core::connection::ConnectionId,
+        old: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
+        new: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
     ) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">inject_address_change</span>(<span class="ident">pid</span>, <span class="ident">cid</span>, <span class="ident">old</span>, <span class="ident">new</span>);
+        <span class="self">self</span>.gossipsub.inject_address_change(pid, cid, old, new);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_dial_failure</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">peer_id</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>,
-        <span class="ident">handler</span>: <span class="ident"><span class="self">Self</span>::ConnectionHandler</span>,
-        <span class="ident">error</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::swarm::DialError</span>,
+    <span class="kw">fn </span>inject_dial_failure(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        peer_id: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
+        handler: <span class="self">Self</span>::ConnectionHandler,
+        error: <span class="kw-2">&amp;</span>libp2p::swarm::DialError,
     ) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">inject_dial_failure</span>(<span class="ident">peer_id</span>, <span class="ident">handler</span>, <span class="ident">error</span>);
+        <span class="self">self</span>.gossipsub.inject_dial_failure(peer_id, handler, error);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_listen_failure</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
-        <span class="ident">local_addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>,
-        <span class="ident">send_back_addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>,
-        <span class="ident">handler</span>: <span class="ident"><span class="self">Self</span>::ConnectionHandler</span>,
+    <span class="kw">fn </span>inject_listen_failure(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        local_addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr,
+        send_back_addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr,
+        handler: <span class="self">Self</span>::ConnectionHandler,
     ) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>
-            .<span class="ident">inject_listen_failure</span>(<span class="ident">local_addr</span>, <span class="ident">send_back_addr</span>, <span class="ident">handler</span>);
+        <span class="self">self</span>.gossipsub
+            .inject_listen_failure(local_addr, send_back_addr, handler);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_new_listener</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">inject_new_listener</span>(<span class="ident">id</span>);
+    <span class="kw">fn </span>inject_new_listener(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId) {
+        <span class="self">self</span>.gossipsub.inject_new_listener(id);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_new_listen_addr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>, <span class="ident">addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">inject_new_listen_addr</span>(<span class="ident">id</span>, <span class="ident">addr</span>);
+    <span class="kw">fn </span>inject_new_listen_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
+        <span class="self">self</span>.gossipsub.inject_new_listen_addr(id, addr);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_expired_listen_addr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>, <span class="ident">addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">inject_expired_listen_addr</span>(<span class="ident">id</span>, <span class="ident">addr</span>);
+    <span class="kw">fn </span>inject_expired_listen_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
+        <span class="self">self</span>.gossipsub.inject_expired_listen_addr(id, addr);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_listener_error</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>, <span class="ident">err</span>: <span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">std::error::Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>)) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">inject_listener_error</span>(<span class="ident">id</span>, <span class="ident">err</span>);
+    <span class="kw">fn </span>inject_listener_error(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, err: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">&#39;static</span>)) {
+        <span class="self">self</span>.gossipsub.inject_listener_error(id, err);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_listener_closed</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">id</span>: <span class="ident">ListenerId</span>, <span class="ident">reason</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="kw-2">&amp;</span><span class="ident">std::io::Error</span><span class="op">&gt;</span>) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">inject_listener_closed</span>(<span class="ident">id</span>, <span class="ident">reason</span>);
+    <span class="kw">fn </span>inject_listener_closed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, reason: <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span>std::io::Error&gt;) {
+        <span class="self">self</span>.gossipsub.inject_listener_closed(id, reason);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_new_external_addr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">inject_new_external_addr</span>(<span class="ident">addr</span>);
+    <span class="kw">fn </span>inject_new_external_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
+        <span class="self">self</span>.gossipsub.inject_new_external_addr(addr);
     }
 
-    <span class="kw">fn</span> <span class="ident">inject_expired_external_addr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">addr</span>: <span class="kw-2">&amp;</span><span class="ident">libp2p::Multiaddr</span>) {
-        <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">inject_expired_external_addr</span>(<span class="ident">addr</span>);
+    <span class="kw">fn </span>inject_expired_external_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
+        <span class="self">self</span>.gossipsub.inject_expired_external_addr(addr);
     }
 }
 
-<span class="kw">impl</span> <span class="ident">GossipBehaviour</span> {
-    <span class="doccomment">/// Create new gossip behavioru based on gossipsub</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">gossipsub</span>: <span class="ident">Gossipsub</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">backoff</span>: <span class="ident">ExponentialBackoff::default</span>(),
-            <span class="ident">in_progress_gossip</span>: <span class="ident">VecDeque::default</span>(),
-            <span class="ident">gossipsub</span>,
-            <span class="ident">out_event_queue</span>: <span class="ident">Vec::default</span>(),
-            <span class="ident">subscribed_topics</span>: <span class="ident">HashSet::default</span>(),
+<span class="kw">impl </span>GossipBehaviour {
+    <span class="doccomment">/// Create new gossip behavioru based on gossipsub
+    </span><span class="kw">pub fn </span>new(gossipsub: Gossipsub) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            backoff: ExponentialBackoff::default(),
+            in_progress_gossip: VecDeque::default(),
+            gossipsub,
+            out_event_queue: Vec::default(),
+            subscribed_topics: HashSet::default(),
         }
     }
 
-    <span class="doccomment">/// Publish a given gossip</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">publish_gossip</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">topic</span>: <span class="ident">IdentTopic</span>, <span class="ident">contents</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) {
-        <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">publish</span>(<span class="ident">topic</span>.<span class="ident">clone</span>(), <span class="ident">contents</span>.<span class="ident">clone</span>());
-        <span class="kw">if</span> <span class="ident">res</span>.<span class="ident">is_err</span>() {
-            <span class="macro">error!</span>(<span class="string">&quot;error publishing gossip message {:?}&quot;</span>, <span class="ident">res</span>);
-            <span class="self">self</span>.<span class="ident">in_progress_gossip</span>.<span class="ident">push_back</span>((<span class="ident">topic</span>, <span class="ident">contents</span>));
+    <span class="doccomment">/// Publish a given gossip
+    </span><span class="kw">pub fn </span>publish_gossip(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: IdentTopic, contents: Vec&lt;u8&gt;) {
+        <span class="kw">let </span>res = <span class="self">self</span>.gossipsub.publish(topic.clone(), contents.clone());
+        <span class="kw">if </span>res.is_err() {
+            <span class="macro">error!</span>(<span class="string">&quot;error publishing gossip message {:?}&quot;</span>, res);
+            <span class="self">self</span>.in_progress_gossip.push_back((topic, contents));
         }
     }
 
-    <span class="doccomment">/// Subscribe to a given topic</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">subscribe_gossip</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">t</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">subscribed_topics</span>.<span class="ident">contains</span>(<span class="ident">t</span>) {
+    <span class="doccomment">/// Subscribe to a given topic
+    </span><span class="kw">pub fn </span>subscribe_gossip(<span class="kw-2">&amp;mut </span><span class="self">self</span>, t: <span class="kw-2">&amp;</span>str) {
+        <span class="kw">if </span><span class="self">self</span>.subscribed_topics.contains(t) {
             <span class="macro">warn!</span>(
                 <span class="string">&quot;tried to subscribe to already subscribed topic {:?}. Noop.&quot;</span>,
-                <span class="ident">t</span>
+                t
             );
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">subscribe</span>(<span class="kw-2">&amp;</span><span class="ident">IdentTopic::new</span>(<span class="ident">t</span>)).<span class="ident">is_err</span>() {
-            <span class="macro">error!</span>(<span class="string">&quot;error subscribing to topic {}&quot;</span>, <span class="ident">t</span>);
-        } <span class="kw">else</span> {
-            <span class="macro">info!</span>(<span class="string">&quot;subscribed req to {:?}&quot;</span>, <span class="ident">t</span>);
-            <span class="self">self</span>.<span class="ident">subscribed_topics</span>.<span class="ident">insert</span>(<span class="ident">t</span>.<span class="ident">to_string</span>());
+        } <span class="kw">else if </span><span class="self">self</span>.gossipsub.subscribe(<span class="kw-2">&amp;</span>IdentTopic::new(t)).is_err() {
+            <span class="macro">error!</span>(<span class="string">&quot;error subscribing to topic {}&quot;</span>, t);
+        } <span class="kw">else </span>{
+            <span class="macro">info!</span>(<span class="string">&quot;subscribed req to {:?}&quot;</span>, t);
+            <span class="self">self</span>.subscribed_topics.insert(t.to_string());
         }
     }
 
-    <span class="doccomment">/// Unsubscribe from a given topic</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">unsubscribe_gossip</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">t</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">subscribed_topics</span>.<span class="ident">contains</span>(<span class="ident">t</span>) {
-            <span class="kw">if</span> <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">unsubscribe</span>(<span class="kw-2">&amp;</span><span class="ident">IdentTopic::new</span>(<span class="ident">t</span>)).<span class="ident">is_err</span>() {
-                <span class="macro">error!</span>(<span class="string">&quot;error unsubscribing to topic {}&quot;</span>, <span class="ident">t</span>);
-            } <span class="kw">else</span> {
-                <span class="self">self</span>.<span class="ident">subscribed_topics</span>.<span class="ident">remove</span>(<span class="ident">t</span>);
+    <span class="doccomment">/// Unsubscribe from a given topic
+    </span><span class="kw">pub fn </span>unsubscribe_gossip(<span class="kw-2">&amp;mut </span><span class="self">self</span>, t: <span class="kw-2">&amp;</span>str) {
+        <span class="kw">if </span><span class="self">self</span>.subscribed_topics.contains(t) {
+            <span class="kw">if </span><span class="self">self</span>.gossipsub.unsubscribe(<span class="kw-2">&amp;</span>IdentTopic::new(t)).is_err() {
+                <span class="macro">error!</span>(<span class="string">&quot;error unsubscribing to topic {}&quot;</span>, t);
+            } <span class="kw">else </span>{
+                <span class="self">self</span>.subscribed_topics.remove(t);
             }
-        } <span class="kw">else</span> {
-            <span class="macro">warn!</span>(<span class="string">&quot;tried to unsubscribe to untracked topic {:?}. Noop.&quot;</span>, <span class="ident">t</span>);
+        } <span class="kw">else </span>{
+            <span class="macro">warn!</span>(<span class="string">&quot;tried to unsubscribe to untracked topic {:?}. Noop.&quot;</span>, t);
         }
     }
 
-    <span class="doccomment">/// Attempt to drain the internal gossip list, publishing each gossip</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">drain_publish_gossips</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">r_val</span> <span class="op">=</span> <span class="bool-val">true</span>;
+    <span class="doccomment">/// Attempt to drain the internal gossip list, publishing each gossip
+    </span><span class="kw">pub fn </span>drain_publish_gossips(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">let </span><span class="kw-2">mut </span>r_val = <span class="bool-val">true</span>;
 
-        <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>((<span class="ident">topic</span>, <span class="ident">contents</span>)) <span class="op">=</span> <span class="self">self</span>.<span class="ident">in_progress_gossip</span>.<span class="ident">pop_front</span>() {
-            <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">gossipsub</span>.<span class="ident">publish</span>(<span class="ident">topic</span>.<span class="ident">clone</span>(), <span class="ident">contents</span>.<span class="ident">clone</span>());
-            <span class="kw">if</span> <span class="ident">res</span>.<span class="ident">is_err</span>() {
-                <span class="self">self</span>.<span class="ident">in_progress_gossip</span>.<span class="ident">push_back</span>((<span class="ident">topic</span>, <span class="ident">contents</span>));
-                <span class="ident">r_val</span> <span class="op">=</span> <span class="bool-val">false</span>;
+        <span class="kw">while let </span><span class="prelude-val">Some</span>((topic, contents)) = <span class="self">self</span>.in_progress_gossip.pop_front() {
+            <span class="kw">let </span>res = <span class="self">self</span>.gossipsub.publish(topic.clone(), contents.clone());
+            <span class="kw">if </span>res.is_err() {
+                <span class="self">self</span>.in_progress_gossip.push_back((topic, contents));
+                r_val = <span class="bool-val">false</span>;
                 <span class="kw">break</span>;
             }
         }
-        <span class="ident">r_val</span>
+        r_val
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

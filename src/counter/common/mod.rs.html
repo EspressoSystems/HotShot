@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/examples/common/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../counter/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../counter/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../counter/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/examples/common/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../counter/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../counter/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../counter/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -804,827 +804,811 @@
 <span id="804">804</span>
 <span id="805">805</span>
 <span id="806">806</span>
-<span id="807">807</span>
-<span id="808">808</span>
-<span id="809">809</span>
-<span id="810">810</span>
-<span id="811">811</span>
-<span id="812">812</span>
-<span id="813">813</span>
-<span id="814">814</span>
-</pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">web</span>;
+</pre><pre class="rust"><code><span class="attribute">#[cfg(feature = <span class="string">&quot;webui&quot;</span>)]
+</span><span class="kw">pub mod </span>web;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">lossy_network</span>;
+<span class="attribute">#[cfg(all(feature = <span class="string">&quot;lossy_network&quot;</span>, target_os = <span class="string">&quot;linux&quot;</span>))]
+</span><span class="kw">pub mod </span>lossy_network;
 
-<span class="macro">cfg_if::cfg_if!</span> {
-    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
-        <span class="kw">use</span> <span class="ident">async_std::prelude::StreamExt</span>;
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>)]</span> {
-        <span class="kw">use</span> <span class="ident">tokio_stream::StreamExt</span>;
-    } <span class="kw">else</span> {
-        <span class="macro">std::compile_error!</span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
-    }
-}
+<span class="attribute">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
+</span><span class="kw">use </span>async_std::prelude::StreamExt;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
+</span><span class="kw">use </span>tokio_stream::StreamExt;
+<span class="attribute">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
+</span><span class="macro">std::compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
 
-<span class="kw">use</span> <span class="ident">clap</span>::{<span class="ident">Args</span>, <span class="ident">Parser</span>};
-<span class="kw">use</span> <span class="ident">hotshot_utils::art</span>::{<span class="ident">async_sleep</span>, <span class="ident">async_spawn</span>};
-<span class="kw">use</span> <span class="ident">hotshot_utils::channel::oneshot</span>;
-<span class="kw">use</span> <span class="ident">hotshot_utils::test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>};
-<span class="kw">use</span> <span class="ident">libp2p</span>::{<span class="ident">multiaddr</span>, <span class="ident">request_response::ResponseChannel</span>, <span class="ident">Multiaddr</span>, <span class="ident">PeerId</span>};
-<span class="kw">use</span> <span class="ident">libp2p_networking::network</span>::{
-    <span class="ident">behaviours::direct_message_codec::DirectMessageResponse</span>, <span class="ident">deserialize_msg</span>,
-    <span class="ident">network_node_handle_error::NodeConfigSnafu</span>, <span class="ident">spin_up_swarm</span>, <span class="ident">NetworkEvent</span>,
-    <span class="ident">NetworkNodeConfigBuilder</span>, <span class="ident">NetworkNodeHandle</span>, <span class="ident">NetworkNodeHandleError</span>, <span class="ident">NetworkNodeType</span>,
+<span class="kw">use </span>clap::{Args, Parser};
+<span class="kw">use </span>hotshot_utils::art::{async_sleep, async_spawn};
+<span class="kw">use </span>hotshot_utils::channel::oneshot;
+<span class="kw">use </span>hotshot_utils::test_util::{setup_backtrace, setup_logging};
+<span class="kw">use </span>libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
+<span class="kw">use </span>libp2p_networking::network::{
+    behaviours::direct_message_codec::DirectMessageResponse, deserialize_msg,
+    network_node_handle_error::NodeConfigSnafu, spin_up_swarm, NetworkEvent,
+    NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
 };
-<span class="kw">use</span> <span class="ident">rand</span>::{
-    <span class="ident">distributions::Bernoulli</span>, <span class="ident">prelude::Distribution</span>, <span class="ident">seq::IteratorRandom</span>, <span class="ident">thread_rng</span>, <span class="ident">RngCore</span>,
+<span class="kw">use </span>rand::{
+    distributions::Bernoulli, prelude::Distribution, seq::IteratorRandom, thread_rng, RngCore,
 };
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">ResultExt</span>, <span class="ident">Snafu</span>};
-<span class="kw">use</span> <span class="ident">std::fmt::Debug</span>;
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>},
-    <span class="ident">str::FromStr</span>,
-    <span class="ident">sync::Arc</span>,
-    <span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">SystemTime</span>},
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>snafu::{ResultExt, Snafu};
+<span class="kw">use </span>std::fmt::Debug;
+<span class="kw">use </span>std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, SystemTime},
 };
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">instrument</span>, <span class="ident">warn</span>};
+<span class="kw">use </span>tracing::{debug, error, info, instrument, warn};
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">std::net::SocketAddr</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;webui&quot;</span>)]
+</span><span class="kw">use </span>std::net::SocketAddr;
 
-<span class="comment">// number of success responses we need in order</span>
-<span class="comment">// to increment the round number.</span>
-<span class="kw">const</span> <span class="ident">SUCCESS_NUMBER</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">15</span>;
+<span class="comment">// number of success responses we need in order
+// to increment the round number.
+</span><span class="kw">const </span>SUCCESS_NUMBER: usize = <span class="number">15</span>;
 
-<span class="doccomment">/// probability numerator that recv-er node sends back timing stats</span>
-<span class="kw">const</span> <span class="ident">SEND_NUMERATOR</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">40</span>;
-<span class="doccomment">/// probaiblity denominator that recv-er node sends back timing states</span>
-<span class="kw">const</span> <span class="ident">SEND_DENOMINATOR</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">100</span>;
+<span class="doccomment">/// probability numerator that recv-er node sends back timing stats
+</span><span class="kw">const </span>SEND_NUMERATOR: u32 = <span class="number">40</span>;
+<span class="doccomment">/// probaiblity denominator that recv-er node sends back timing states
+</span><span class="kw">const </span>SEND_DENOMINATOR: u32 = <span class="number">100</span>;
 
-<span class="doccomment">/// the timeout before ending rounding</span>
-<span class="kw">const</span> <span class="ident">TIMEOUT</span>: <span class="ident">Duration</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">500</span>);
+<span class="doccomment">/// the timeout before ending rounding
+</span><span class="kw">const </span>TIMEOUT: Duration = Duration::from_secs(<span class="number">500</span>);
 
-<span class="doccomment">/// timeout before failing to broadcast</span>
-<span class="kw">const</span> <span class="ident">BROADCAST_TIMEOUT</span>: <span class="ident">Duration</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">10</span>);
+<span class="doccomment">/// timeout before failing to broadcast
+</span><span class="kw">const </span>BROADCAST_TIMEOUT: Duration = Duration::from_secs(<span class="number">10</span>);
 
-<span class="comment">// we want message size of 32kb</span>
-<span class="comment">// so we pad with a randomly generated number</span>
-<span class="comment">// in order to do this use:</span>
-<span class="comment">// 8 bytes per u64</span>
-<span class="comment">// 32kb = 32000 bytes</span>
-<span class="comment">// so 32000/8 usizes</span>
-<span class="kw">const</span> <span class="ident">PADDING_SIZE</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">32000</span> <span class="op">/</span> <span class="number">8</span>;
+<span class="comment">// we want message size of 32kb
+// so we pad with a randomly generated number
+// in order to do this use:
+// 8 bytes per u64
+// 32kb = 32000 bytes
+// so 32000/8 usizes
+</span><span class="kw">const </span>PADDING_SIZE: usize = <span class="number">32000 </span>/ <span class="number">8</span>;
 
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">CounterState</span> <span class="op">=</span> <span class="ident">Epoch</span>;
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">Epoch</span> <span class="op">=</span> <span class="ident">u32</span>;
+<span class="kw">pub type </span>CounterState = Epoch;
+<span class="kw">pub type </span>Epoch = u32;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">EpochType</span> {
-    <span class="ident">BroadcastViaGossip</span>,
-    <span class="ident">BroadcastViaDM</span>,
-    <span class="ident">DMViaDM</span>,
+<span class="attribute">#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+</span><span class="kw">pub enum </span>EpochType {
+    BroadcastViaGossip,
+    BroadcastViaDM,
+    DMViaDM,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ConductorState</span> {
-    <span class="ident">ready_set</span>: <span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>,
-    <span class="ident">current_epoch</span>: <span class="ident">EpochData</span>,
-    <span class="ident">previous_epochs</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">Epoch</span>, <span class="ident">EpochData</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>ConductorState {
+    ready_set: HashSet&lt;PeerId&gt;,
+    current_epoch: EpochData,
+    previous_epochs: HashMap&lt;Epoch, EpochData&gt;,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">EpochData</span> {
-    <span class="ident">epoch_idx</span>: <span class="ident">Epoch</span>,
-    <span class="ident">epoch_type</span>: <span class="ident">EpochType</span>,
-    <span class="ident">node_states</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">PeerId</span>, <span class="ident">CounterState</span><span class="op">&gt;</span>,
-    <span class="ident">message_durations</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Duration</span><span class="op">&gt;</span>,
+<span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>EpochData {
+    epoch_idx: Epoch,
+    epoch_type: EpochType,
+    node_states: HashMap&lt;PeerId, CounterState&gt;,
+    message_durations: Vec&lt;Duration&gt;,
 }
 
-<span class="kw">impl</span> <span class="ident">ConductorState</span> {
-    <span class="doccomment">/// returns time per data</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">aggregate_epochs</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">num_nodes</span>: <span class="ident">usize</span>) -&gt; (<span class="ident">Duration</span>, <span class="ident">usize</span>) {
-        <span class="kw">let</span> <span class="ident">tmp_entry</span> <span class="op">=</span> <span class="ident">NormalMessage</span> {
-            <span class="ident">req</span>: <span class="ident">CounterRequest::StateRequest</span>,
-            <span class="ident">relay_to_conductor</span>: <span class="bool-val">false</span>,
-            <span class="ident">sent_ts</span>: <span class="ident">SystemTime::now</span>(),
-            <span class="ident">epoch</span>: <span class="number">0</span>,
-            <span class="ident">padding</span>: <span class="macro">vec!</span>[<span class="number">0</span>; <span class="ident">PADDING_SIZE</span>],
+<span class="kw">impl </span>ConductorState {
+    <span class="doccomment">/// returns time per data
+    </span><span class="kw">pub fn </span>aggregate_epochs(<span class="kw-2">&amp;</span><span class="self">self</span>, num_nodes: usize) -&gt; (Duration, usize) {
+        <span class="kw">let </span>tmp_entry = NormalMessage {
+            req: CounterRequest::StateRequest,
+            relay_to_conductor: <span class="bool-val">false</span>,
+            sent_ts: SystemTime::now(),
+            epoch: <span class="number">0</span>,
+            padding: <span class="macro">vec!</span>[<span class="number">0</span>; PADDING_SIZE],
         };
-        <span class="kw">let</span> <span class="ident">data_size</span> <span class="op">=</span> <span class="ident">std::mem::size_of_val</span>(<span class="kw-2">&amp;</span><span class="ident">tmp_entry</span>.<span class="ident">req</span>)
-            <span class="op">+</span> <span class="ident">std::mem::size_of_val</span>(<span class="kw-2">&amp;</span><span class="ident">tmp_entry</span>.<span class="ident">relay_to_conductor</span>)
-            <span class="op">+</span> <span class="ident">std::mem::size_of_val</span>(<span class="kw-2">&amp;</span><span class="ident">tmp_entry</span>.<span class="ident">sent_ts</span>)
-            <span class="op">+</span> <span class="ident">std::mem::size_of_val</span>(<span class="kw-2">&amp;</span><span class="ident">tmp_entry</span>.<span class="ident">epoch</span>)
-            <span class="op">+</span> <span class="ident">PADDING_SIZE</span> <span class="op">*</span> <span class="number">8</span>;
+        <span class="kw">let </span>data_size = std::mem::size_of_val(<span class="kw-2">&amp;</span>tmp_entry.req)
+            + std::mem::size_of_val(<span class="kw-2">&amp;</span>tmp_entry.relay_to_conductor)
+            + std::mem::size_of_val(<span class="kw-2">&amp;</span>tmp_entry.sent_ts)
+            + std::mem::size_of_val(<span class="kw-2">&amp;</span>tmp_entry.epoch)
+            + PADDING_SIZE * <span class="number">8</span>;
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">total_time</span> <span class="op">=</span> <span class="ident">Duration::ZERO</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">total_data</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">for</span> <span class="ident">epoch_data</span> <span class="kw">in</span> <span class="self">self</span>.<span class="ident">previous_epochs</span>.<span class="ident">values</span>() {
-            <span class="kw">if</span> <span class="ident">epoch_data</span>.<span class="ident">message_durations</span>.<span class="ident">iter</span>().<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">num_nodes</span> {
+        <span class="kw">let </span><span class="kw-2">mut </span>total_time = Duration::ZERO;
+        <span class="kw">let </span><span class="kw-2">mut </span>total_data = <span class="number">0</span>;
+        <span class="kw">for </span>epoch_data <span class="kw">in </span><span class="self">self</span>.previous_epochs.values() {
+            <span class="kw">if </span>epoch_data.message_durations.iter().len() != num_nodes {
                 <span class="macro">error!</span>(
                     <span class="string">&quot;didn&#39;t match! expected {} got {} &quot;</span>,
-                    <span class="ident">num_nodes</span>,
-                    <span class="ident">epoch_data</span>.<span class="ident">message_durations</span>.<span class="ident">iter</span>().<span class="ident">len</span>()
+                    num_nodes,
+                    epoch_data.message_durations.iter().len()
                 );
             }
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">max_prop_time</span>) <span class="op">=</span> <span class="ident">epoch_data</span>.<span class="ident">message_durations</span>.<span class="ident">iter</span>().<span class="ident">max</span>() {
-                <span class="macro">info!</span>(<span class="string">&quot;data size is {}&quot;</span>, <span class="ident">data_size</span>);
-                <span class="ident">total_time</span> <span class="op">+</span><span class="op">=</span> <span class="kw-2">*</span><span class="ident">max_prop_time</span>;
-                <span class="ident">total_data</span> <span class="op">+</span><span class="op">=</span> <span class="ident">data_size</span>;
-            } <span class="kw">else</span> {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(max_prop_time) = epoch_data.message_durations.iter().max() {
+                <span class="macro">info!</span>(<span class="string">&quot;data size is {}&quot;</span>, data_size);
+                total_time += <span class="kw-2">*</span>max_prop_time;
+                total_data += data_size;
+            } <span class="kw">else </span>{
                 <span class="macro">error!</span>(<span class="string">&quot;No timing data available for this round!&quot;</span>);
             }
         }
-        (<span class="ident">total_time</span>, <span class="ident">total_data</span>)
+        (total_time, total_data)
     }
 }
 
-<span class="kw">impl</span> <span class="ident">EpochData</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">increment_epoch</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
-        <span class="self">self</span>.<span class="ident">epoch_idx</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+<span class="kw">impl </span>EpochData {
+    <span class="kw">pub fn </span>increment_epoch(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.epoch_idx += <span class="number">1</span>;
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">ConductorState</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">ready_set</span>: <span class="ident">Default::default</span>(),
-            <span class="ident">current_epoch</span>: <span class="ident">EpochData</span> {
-                <span class="ident">epoch_idx</span>: <span class="number">0</span>,
-                <span class="ident">epoch_type</span>: <span class="ident">EpochType::BroadcastViaGossip</span>,
-                <span class="ident">node_states</span>: <span class="ident">Default::default</span>(),
-                <span class="ident">message_durations</span>: <span class="ident">Default::default</span>(),
+<span class="kw">impl </span>Default <span class="kw">for </span>ConductorState {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            ready_set: Default::default(),
+            current_epoch: EpochData {
+                epoch_idx: <span class="number">0</span>,
+                epoch_type: EpochType::BroadcastViaGossip,
+                node_states: Default::default(),
+                message_durations: Default::default(),
             },
-            <span class="ident">previous_epochs</span>: <span class="ident">Default::default</span>(),
+            previous_epochs: Default::default(),
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">ConductorState</span> {
-    <span class="doccomment">/// Increment conductor to the next epoch</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">complete_round</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">next_epoch_type</span>: <span class="ident">EpochType</span>) {
-        <span class="kw">let</span> <span class="ident">current_epoch</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">current_epoch</span>.<span class="ident">clone</span>();
-        <span class="self">self</span>.<span class="ident">previous_epochs</span>
-            .<span class="ident">insert</span>(<span class="ident">current_epoch</span>.<span class="ident">epoch_idx</span>, <span class="ident">current_epoch</span>);
-        <span class="self">self</span>.<span class="ident">current_epoch</span>.<span class="ident">epoch_type</span> <span class="op">=</span> <span class="ident">next_epoch_type</span>;
-        <span class="self">self</span>.<span class="ident">current_epoch</span>.<span class="ident">message_durations</span> <span class="op">=</span> <span class="ident">Default::default</span>();
-        <span class="self">self</span>.<span class="ident">current_epoch</span>.<span class="ident">increment_epoch</span>();
+<span class="kw">impl </span>ConductorState {
+    <span class="doccomment">/// Increment conductor to the next epoch
+    </span><span class="kw">pub fn </span>complete_round(<span class="kw-2">&amp;mut </span><span class="self">self</span>, next_epoch_type: EpochType) {
+        <span class="kw">let </span>current_epoch = <span class="self">self</span>.current_epoch.clone();
+        <span class="self">self</span>.previous_epochs
+            .insert(current_epoch.epoch_idx, current_epoch);
+        <span class="self">self</span>.current_epoch.epoch_type = next_epoch_type;
+        <span class="self">self</span>.current_epoch.message_durations = Default::default();
+        <span class="self">self</span>.current_epoch.increment_epoch();
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span>
-<span class="kw">impl</span> <span class="ident">web::WebInfo</span> <span class="kw">for</span> <span class="ident">ConductorState</span> {
-    <span class="kw">type</span> <span class="ident">Serialized</span> <span class="op">=</span> <span class="ident">serde_json::Value</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;webui&quot;</span>)]
+</span><span class="kw">impl </span>web::WebInfo <span class="kw">for </span>ConductorState {
+    <span class="kw">type </span>Serialized = serde_json::Value;
 
-    <span class="kw">fn</span> <span class="ident">get_serializable</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Serialized</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">map</span> <span class="op">=</span> <span class="ident">serde_json::map::Map::new</span>();
-        <span class="kw">for</span> (<span class="ident">peer</span>, <span class="ident">state</span>) <span class="kw">in</span> <span class="self">self</span>.<span class="ident">current_epoch</span>.<span class="ident">node_states</span>.<span class="ident">iter</span>() {
-            <span class="ident">map</span>.<span class="ident">insert</span>(<span class="ident">peer</span>.<span class="ident">to_base58</span>(), (<span class="kw-2">*</span><span class="ident">state</span>).<span class="ident">into</span>());
+    <span class="kw">fn </span>get_serializable(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Serialized {
+        <span class="kw">let </span><span class="kw-2">mut </span>map = serde_json::map::Map::new();
+        <span class="kw">for </span>(peer, state) <span class="kw">in </span><span class="self">self</span>.current_epoch.node_states.iter() {
+            map.insert(peer.to_base58(), (<span class="kw-2">*</span>state).into());
         }
-        <span class="ident">serde_json::Value::Object</span>(<span class="ident">map</span>)
+        serde_json::Value::Object(map)
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span>
-<span class="kw">impl</span> <span class="ident">web::WebInfo</span> <span class="kw">for</span> (<span class="ident">CounterState</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>) {
-    <span class="kw">type</span> <span class="ident">Serialized</span> <span class="op">=</span> (<span class="ident">u32</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>);
-    <span class="kw">fn</span> <span class="ident">get_serializable</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident"><span class="self">Self</span>::Serialized</span> {
-        <span class="kw-2">*</span><span class="self">self</span>
-    }
+<span class="attribute">#[cfg(feature = <span class="string">&quot;webui&quot;</span>)]
+</span><span class="kw">impl </span>web::WebInfo <span class="kw">for </span>(CounterState, <span class="prelude-ty">Option</span>&lt;PeerId&gt;) {
+    <span class="kw">type </span>Serialized = (u32, <span class="prelude-ty">Option</span>&lt;PeerId&gt;);
+    <span class="kw">fn </span>get_serializable(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Serialized {
+        <span class="kw-2">*</span><span class="self">self
+    </span>}
 }
 
-<span class="doccomment">/// Normal message. Sent amongst [`NetworkNodeType::Regular`] and [`NetworkNodeType::Bootstrap`] nodes</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CounterRequest</span> {
-    <span class="doccomment">/// Request state</span>
-    <span class="ident">StateRequest</span>,
-    <span class="doccomment">/// Reply with state</span>
-    <span class="ident">StateResponse</span>(<span class="ident">CounterState</span>),
-    <span class="doccomment">/// kill node</span>
-    <span class="ident">Kill</span>,
+<span class="doccomment">/// Normal message. Sent amongst [`NetworkNodeType::Regular`] and [`NetworkNodeType::Bootstrap`] nodes
+</span><span class="attribute">#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+</span><span class="kw">pub enum </span>CounterRequest {
+    <span class="doccomment">/// Request state
+    </span>StateRequest,
+    <span class="doccomment">/// Reply with state
+    </span>StateResponse(CounterState),
+    <span class="doccomment">/// kill node
+    </span>Kill,
 }
 
-<span class="doccomment">/// Message sent between non-[`NetworkNodeType::Conductor`] nodes</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">NormalMessage</span> {
-    <span class="doccomment">/// timestamp when message was sent</span>
-    <span class="ident">sent_ts</span>: <span class="ident">SystemTime</span>,
-    <span class="doccomment">/// whether or not message shuld be relayed to conductor</span>
-    <span class="ident">relay_to_conductor</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// the underlying request the recv-ing node should take</span>
-    <span class="ident">req</span>: <span class="ident">CounterRequest</span>,
-    <span class="doccomment">/// the epoch the message was sent on</span>
-    <span class="ident">epoch</span>: <span class="ident">Epoch</span>,
-    <span class="doccomment">/// arbitrary amount of padding to vary message length</span>
-    <span class="ident">padding</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Message sent between non-[`NetworkNodeType::Conductor`] nodes
+</span><span class="attribute">#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+</span><span class="kw">pub struct </span>NormalMessage {
+    <span class="doccomment">/// timestamp when message was sent
+    </span>sent_ts: SystemTime,
+    <span class="doccomment">/// whether or not message shuld be relayed to conductor
+    </span>relay_to_conductor: bool,
+    <span class="doccomment">/// the underlying request the recv-ing node should take
+    </span>req: CounterRequest,
+    <span class="doccomment">/// the epoch the message was sent on
+    </span>epoch: Epoch,
+    <span class="doccomment">/// arbitrary amount of padding to vary message length
+    </span>padding: Vec&lt;u64&gt;,
 }
 
-<span class="doccomment">/// A message sent and recv-ed by a [&#39;NetworkNodeType::Regular&#39;] or [&#39;NetworkNodeType::Bootstrap&#39;] node</span>
-<span class="doccomment">/// that is to be relayed back to a [`NetworkNodeType::Conductor`] node</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RelayedMessage</span> {
-    <span class="doccomment">/// peer</span>
-    <span class="ident">from_peer</span>: <span class="ident">PeerId</span>,
-    <span class="doccomment">/// time message took to propagate from sender to recv-er</span>
-    <span class="ident">duration</span>: <span class="ident">Duration</span>,
-    <span class="doccomment">/// the requeset being made</span>
-    <span class="ident">req</span>: <span class="ident">CounterRequest</span>,
-    <span class="doccomment">/// the epoch the request was made on</span>
-    <span class="ident">epoch</span>: <span class="ident">Epoch</span>,
+<span class="doccomment">/// A message sent and recv-ed by a [&#39;NetworkNodeType::Regular&#39;] or [&#39;NetworkNodeType::Bootstrap&#39;] node
+/// that is to be relayed back to a [`NetworkNodeType::Conductor`] node
+</span><span class="attribute">#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+</span><span class="kw">pub struct </span>RelayedMessage {
+    <span class="doccomment">/// peer
+    </span>from_peer: PeerId,
+    <span class="doccomment">/// time message took to propagate from sender to recv-er
+    </span>duration: Duration,
+    <span class="doccomment">/// the requeset being made
+    </span>req: CounterRequest,
+    <span class="doccomment">/// the epoch the request was made on
+    </span>epoch: Epoch,
 }
 
-<span class="doccomment">/// A message sent and recv-ed by a [&#39;NetworkNodeType::Regular&#39;] or [&#39;NetworkNodeType::Bootstrap&#39;] node</span>
-<span class="doccomment">/// that is to be relayed back to a [`NetworkNodeType::Conductor`] node</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ConductorMessage</span> {
-    <span class="doccomment">/// the request the recv-ing node should make</span>
-    <span class="ident">req</span>: <span class="ident">CounterRequest</span>,
-    <span class="ident">state</span>: <span class="ident">Epoch</span>,
-    <span class="doccomment">/// the type of broadcast (direct or broadcast)</span>
-    <span class="ident">broadcast_type</span>: <span class="ident">ConductorMessageMethod</span>,
+<span class="doccomment">/// A message sent and recv-ed by a [&#39;NetworkNodeType::Regular&#39;] or [&#39;NetworkNodeType::Bootstrap&#39;] node
+/// that is to be relayed back to a [`NetworkNodeType::Conductor`] node
+</span><span class="attribute">#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+</span><span class="kw">pub struct </span>ConductorMessage {
+    <span class="doccomment">/// the request the recv-ing node should make
+    </span>req: CounterRequest,
+    state: Epoch,
+    <span class="doccomment">/// the type of broadcast (direct or broadcast)
+    </span>broadcast_type: ConductorMessageMethod,
 }
 
-<span class="doccomment">/// overall message</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Message</span> {
-    <span class="doccomment">/// message to end from a peer to a peer</span>
-    <span class="ident">Normal</span>(<span class="ident">NormalMessage</span>),
-    <span class="doccomment">/// messaged recved and relayed to conductor</span>
-    <span class="ident">Relayed</span>(<span class="ident">RelayedMessage</span>),
-    <span class="doccomment">/// conductor requests that message is sent to node</span>
-    <span class="doccomment">/// that the node must send to other node(s)</span>
-    <span class="ident">Conductor</span>(<span class="ident">ConductorMessage</span>),
-    <span class="comment">// announce the conductor</span>
-    <span class="ident">ConductorIdIs</span>(<span class="ident">PeerId</span>),
-    <span class="doccomment">/// recv-ed the conductor id</span>
-    <span class="ident">RecvdConductor</span>,
-    <span class="ident">DummyRecv</span>,
+<span class="doccomment">/// overall message
+</span><span class="attribute">#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+</span><span class="kw">pub enum </span>Message {
+    <span class="doccomment">/// message to end from a peer to a peer
+    </span>Normal(NormalMessage),
+    <span class="doccomment">/// messaged recved and relayed to conductor
+    </span>Relayed(RelayedMessage),
+    <span class="doccomment">/// conductor requests that message is sent to node
+    /// that the node must send to other node(s)
+    </span>Conductor(ConductorMessage),
+    <span class="comment">// announce the conductor
+    </span>ConductorIdIs(PeerId),
+    <span class="doccomment">/// recv-ed the conductor id
+    </span>RecvdConductor,
+    DummyRecv,
 }
 
-<span class="kw">impl</span> <span class="ident">NormalMessage</span> {
-    <span class="doccomment">/// convert a normal message into a message to relay to conductor</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">normal_to_relayed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">peer_id</span>: <span class="ident">PeerId</span>) -&gt; <span class="ident">RelayedMessage</span> {
-        <span class="kw">let</span> <span class="ident">recv_ts</span> <span class="op">=</span> <span class="ident">SystemTime::now</span>();
-        <span class="kw">let</span> <span class="ident">elapsed_time</span> <span class="op">=</span> <span class="ident">recv_ts</span>
-            .<span class="ident">duration_since</span>(<span class="self">self</span>.<span class="ident">sent_ts</span>)
-            .<span class="ident">unwrap_or</span>(<span class="ident">Duration::MAX</span>);
-        <span class="ident">RelayedMessage</span> {
-            <span class="ident">from_peer</span>: <span class="ident">peer_id</span>,
-            <span class="ident">duration</span>: <span class="ident">elapsed_time</span>,
-            <span class="ident">req</span>: <span class="self">self</span>.<span class="ident">req</span>.<span class="ident">clone</span>(),
-            <span class="ident">epoch</span>: <span class="self">self</span>.<span class="ident">epoch</span>,
+<span class="kw">impl </span>NormalMessage {
+    <span class="doccomment">/// convert a normal message into a message to relay to conductor
+    </span><span class="kw">pub fn </span>normal_to_relayed(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: PeerId) -&gt; RelayedMessage {
+        <span class="kw">let </span>recv_ts = SystemTime::now();
+        <span class="kw">let </span>elapsed_time = recv_ts
+            .duration_since(<span class="self">self</span>.sent_ts)
+            .unwrap_or(Duration::MAX);
+        RelayedMessage {
+            from_peer: peer_id,
+            duration: elapsed_time,
+            req: <span class="self">self</span>.req.clone(),
+            epoch: <span class="self">self</span>.epoch,
         }
     }
 }
 
-<span class="doccomment">/// ways to send messages between nodes</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ConductorMessageMethod</span> {
-    <span class="doccomment">/// broadcast message to all nodes</span>
-    <span class="ident">Broadcast</span>,
-    <span class="doccomment">/// direct message [`PeerId`]</span>
-    <span class="ident">DirectMessage</span>(<span class="ident">PeerId</span>),
+<span class="doccomment">/// ways to send messages between nodes
+</span><span class="attribute">#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+</span><span class="kw">pub enum </span>ConductorMessageMethod {
+    <span class="doccomment">/// broadcast message to all nodes
+    </span>Broadcast,
+    <span class="doccomment">/// direct message [`PeerId`]
+    </span>DirectMessage(PeerId),
 }
 
-<span class="doccomment">/// handler for non-conductor nodes for normal messages</span>
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_normal_msg</span>(
-    <span class="ident">handle</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">NetworkNodeHandle</span><span class="op">&lt;</span>(<span class="ident">CounterState</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>)<span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">msg</span>: <span class="ident">NormalMessage</span>,
-    <span class="comment">// in case we need to reply to direct message</span>
-    <span class="ident">chan</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ResponseChannel</span><span class="op">&lt;</span><span class="ident">DirectMessageResponse</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;node={} handling normal msg {:?}&quot;</span>, <span class="ident">handle</span>.<span class="ident">id</span>(), <span class="ident">msg</span>);
-    <span class="comment">// send reply logic</span>
-    <span class="kw">match</span> <span class="ident">msg</span>.<span class="ident">req</span> {
-        <span class="comment">// direct message only</span>
-        <span class="ident">CounterRequest::StateResponse</span>(<span class="ident">c</span>) =&gt; {
-            <span class="ident">handle</span>
-                .<span class="ident">modify_state</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> {
+<span class="doccomment">/// handler for non-conductor nodes for normal messages
+</span><span class="kw">pub async fn </span>handle_normal_msg(
+    handle: Arc&lt;NetworkNodeHandle&lt;(CounterState, <span class="prelude-ty">Option</span>&lt;PeerId&gt;)&gt;&gt;,
+    msg: NormalMessage,
+    <span class="comment">// in case we need to reply to direct message
+    </span>chan: <span class="prelude-ty">Option</span>&lt;ResponseChannel&lt;DirectMessageResponse&gt;&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
+    <span class="macro">debug!</span>(<span class="string">&quot;node={} handling normal msg {:?}&quot;</span>, handle.id(), msg);
+    <span class="comment">// send reply logic
+    </span><span class="kw">match </span>msg.req {
+        <span class="comment">// direct message only
+        </span>CounterRequest::StateResponse(c) =&gt; {
+            handle
+                .modify_state(|s| {
                     <span class="macro">debug!</span>(
                         <span class="string">&quot;node={} performing modify_state with c={c}, s={:?}&quot;</span>,
-                        <span class="ident">handle</span>.<span class="ident">id</span>(),
-                        <span class="ident">s</span>
+                        handle.id(),
+                        s
                     );
-                    <span class="kw">if</span> <span class="ident">c</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">s</span>.<span class="number">0</span> {
-                        <span class="ident">s</span>.<span class="number">0</span> <span class="op">=</span> <span class="ident">c</span>
+                    <span class="kw">if </span>c &gt;= s.<span class="number">0 </span>{
+                        s.<span class="number">0 </span>= c
                     }
                 })
                 .<span class="kw">await</span>;
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">chan</span>) <span class="op">=</span> <span class="ident">chan</span> {
-                <span class="ident">handle</span>.<span class="ident">direct_response</span>(<span class="ident">chan</span>, <span class="kw-2">&amp;</span><span class="ident">Message::DummyRecv</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = chan {
+                handle.direct_response(chan, <span class="kw-2">&amp;</span>Message::DummyRecv).<span class="kw">await</span><span class="question-mark">?</span>;
             }
         }
-        <span class="comment">// only as a response</span>
-        <span class="ident">CounterRequest::StateRequest</span> =&gt; {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">chan</span>) <span class="op">=</span> <span class="ident">chan</span> {
-                <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">state</span>().<span class="kw">await</span>;
-                <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">thread_rng</span>();
-                    <span class="macro">vec!</span>[<span class="ident">rng</span>.<span class="ident">next_u64</span>(); <span class="ident">PADDING_SIZE</span>]
+        <span class="comment">// only as a response
+        </span>CounterRequest::StateRequest =&gt; {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = chan {
+                <span class="kw">let </span>state = handle.state().<span class="kw">await</span>;
+                <span class="kw">let </span>data = {
+                    <span class="kw">let </span><span class="kw-2">mut </span>rng = thread_rng();
+                    <span class="macro">vec!</span>[rng.next_u64(); PADDING_SIZE]
                 };
-                <span class="kw">let</span> <span class="ident">response</span> <span class="op">=</span> <span class="ident">Message::Normal</span>(<span class="ident">NormalMessage</span> {
-                    <span class="ident">sent_ts</span>: <span class="ident">SystemTime::now</span>(),
-                    <span class="ident">relay_to_conductor</span>: <span class="bool-val">true</span>,
-                    <span class="ident">req</span>: <span class="ident">CounterRequest::StateResponse</span>(<span class="ident">state</span>.<span class="number">0</span>),
-                    <span class="ident">epoch</span>: <span class="number">0</span>,
-                    <span class="ident">padding</span>: <span class="ident">data</span>,
+                <span class="kw">let </span>response = Message::Normal(NormalMessage {
+                    sent_ts: SystemTime::now(),
+                    relay_to_conductor: <span class="bool-val">true</span>,
+                    req: CounterRequest::StateResponse(state.<span class="number">0</span>),
+                    epoch: <span class="number">0</span>,
+                    padding: data,
                 });
-                <span class="ident">handle</span>.<span class="ident">direct_response</span>(<span class="ident">chan</span>, <span class="kw-2">&amp;</span><span class="ident">response</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-            } <span class="kw">else</span> {
+                handle.direct_response(chan, <span class="kw-2">&amp;</span>response).<span class="kw">await</span><span class="question-mark">?</span>;
+            } <span class="kw">else </span>{
                 <span class="macro">error!</span>(<span class="string">&quot;Error deserializing, channel closed!&quot;</span>);
             }
         }
-        <span class="ident">CounterRequest::Kill</span> =&gt; {
-            <span class="ident">handle</span>.<span class="ident">shutdown</span>().<span class="kw">await</span><span class="question-mark">?</span>;
+        CounterRequest::Kill =&gt; {
+            handle.shutdown().<span class="kw">await</span><span class="question-mark">?</span>;
         }
     }
-    <span class="comment">// relay the message to conductor</span>
-    <span class="kw">if</span> <span class="ident">msg</span>.<span class="ident">relay_to_conductor</span> {
+    <span class="comment">// relay the message to conductor
+    </span><span class="kw">if </span>msg.relay_to_conductor {
         <span class="macro">info!</span>(<span class="string">&quot;Recv-ed message. Deciding if should relay to conductor.&quot;</span>);
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">conductor_id</span>) <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">state</span>().<span class="kw">await</span>.<span class="number">1</span> {
-            <span class="comment">// do a dice roll here to decide if we want to keep the thing</span>
-            <span class="kw">if</span> <span class="ident">Bernoulli::from_ratio</span>(<span class="ident">SEND_NUMERATOR</span>, <span class="ident">SEND_DENOMINATOR</span>)
-                .<span class="ident">unwrap</span>()
-                .<span class="ident">sample</span>(<span class="kw-2">&amp;mut</span> <span class="ident">rand::thread_rng</span>())
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(conductor_id) = handle.state().<span class="kw">await</span>.<span class="number">1 </span>{
+            <span class="comment">// do a dice roll here to decide if we want to keep the thing
+            </span><span class="kw">if </span>Bernoulli::from_ratio(SEND_NUMERATOR, SEND_DENOMINATOR)
+                .unwrap()
+                .sample(<span class="kw-2">&amp;mut </span>rand::thread_rng())
             {
                 <span class="macro">info!</span>(<span class="string">&quot;Deciding to relay to conductor&quot;</span>);
-                <span class="kw">let</span> <span class="ident">relayed_msg</span> <span class="op">=</span> <span class="ident">Message::Relayed</span>(<span class="ident">msg</span>.<span class="ident">normal_to_relayed</span>(<span class="ident">handle</span>.<span class="ident">peer_id</span>()));
-                <span class="ident">handle</span>.<span class="ident">direct_request</span>(<span class="ident">conductor_id</span>, <span class="kw-2">&amp;</span><span class="ident">relayed_msg</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="kw">let </span>relayed_msg = Message::Relayed(msg.normal_to_relayed(handle.peer_id()));
+                handle.direct_request(conductor_id, <span class="kw-2">&amp;</span>relayed_msg).<span class="kw">await</span><span class="question-mark">?</span>;
             }
-        } <span class="kw">else</span> {
+        } <span class="kw">else </span>{
             <span class="macro">error!</span>(<span class="string">&quot;We have a message to send to the conductor, but we do not know who the conductor is!&quot;</span>);
         }
     }
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// event handler for events from the swarm</span>
-<span class="doccomment">/// - updates state based on events received</span>
-<span class="doccomment">/// - replies to direct messages</span>
-<span class="attribute">#[<span class="ident">instrument</span>]</span>
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">regular_handle_network_event</span>(
-    <span class="ident">event</span>: <span class="ident">NetworkEvent</span>,
-    <span class="ident">handle</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">NetworkNodeHandle</span><span class="op">&lt;</span>(<span class="ident">CounterState</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>)<span class="op">&gt;</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;node={} handling event {:?}&quot;</span>, <span class="ident">handle</span>.<span class="ident">id</span>(), <span class="ident">event</span>);
+<span class="doccomment">/// event handler for events from the swarm
+/// - updates state based on events received
+/// - replies to direct messages
+</span><span class="attribute">#[instrument]
+</span><span class="kw">pub async fn </span>regular_handle_network_event(
+    event: NetworkEvent,
+    handle: Arc&lt;NetworkNodeHandle&lt;(CounterState, <span class="prelude-ty">Option</span>&lt;PeerId&gt;)&gt;&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
+    <span class="macro">debug!</span>(<span class="string">&quot;node={} handling event {:?}&quot;</span>, handle.id(), event);
 
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::enum_glob_use</span>)]</span>
-    <span class="kw">use</span> <span class="ident">NetworkEvent</span>::<span class="kw-2">*</span>;
-    <span class="kw">match</span> <span class="ident">event</span> {
-        <span class="ident">IsBootstrapped</span> =&gt; {}
-        <span class="ident">GossipMsg</span>(<span class="ident">m</span>, <span class="kw">_</span>) <span class="op">|</span> <span class="ident">DirectResponse</span>(<span class="ident">m</span>, <span class="kw">_</span>) =&gt; {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">msg</span>) <span class="op">=</span> <span class="ident">deserialize_msg</span>::<span class="op">&lt;</span><span class="ident">Message</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">m</span>) {
-                <span class="macro">info!</span>(<span class="string">&quot;regular msg recved: {:?}&quot;</span>, <span class="ident">msg</span>.<span class="ident">clone</span>());
-                <span class="kw">match</span> <span class="ident">msg</span> {
-                    <span class="ident">Message::DummyRecv</span> =&gt; { },
-                    <span class="ident">Message::ConductorIdIs</span>(<span class="ident">peerid</span>) =&gt; {
-                        <span class="ident">handle</span>.<span class="ident">modify_state</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> {
-                            <span class="ident">s</span>.<span class="number">1</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">peerid</span>);
+    <span class="attribute">#[allow(clippy::enum_glob_use)]
+    </span><span class="kw">use </span>NetworkEvent::<span class="kw-2">*</span>;
+    <span class="kw">match </span>event {
+        IsBootstrapped =&gt; {}
+        GossipMsg(m, <span class="kw">_</span>) | DirectResponse(m, <span class="kw">_</span>) =&gt; {
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(msg) = deserialize_msg::&lt;Message&gt;(<span class="kw-2">&amp;</span>m) {
+                <span class="macro">info!</span>(<span class="string">&quot;regular msg recved: {:?}&quot;</span>, msg.clone());
+                <span class="kw">match </span>msg {
+                    Message::DummyRecv =&gt; { },
+                    Message::ConductorIdIs(peerid) =&gt; {
+                        handle.modify_state(|s| {
+                            s.<span class="number">1 </span>= <span class="prelude-val">Some</span>(peerid);
                         }).<span class="kw">await</span>;
                     }
-                    <span class="ident">Message::Normal</span>(<span class="ident">msg</span>) =&gt; {
-                        <span class="ident">handle_normal_msg</span>(<span class="ident">handle</span>.<span class="ident">clone</span>(), <span class="ident">msg</span>, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                    Message::Normal(msg) =&gt; {
+                        handle_normal_msg(handle.clone(), msg, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
                     }
-                    <span class="comment">// do nothing. We only expect to be reached out to by the conductor via</span>
-                    <span class="comment">// direct message</span>
-                    <span class="ident">Message::Conductor</span>(..) <span class="comment">/* only the conductor expects to receive a relayed message */</span> <span class="op">|</span> <span class="ident">Message::Relayed</span>(..) =&gt; { }
-                    <span class="comment">// only sent to conductor node</span>
-                    <span class="ident">Message::RecvdConductor</span> =&gt; {
+                    <span class="comment">// do nothing. We only expect to be reached out to by the conductor via
+                    // direct message
+                    </span>Message::Conductor(..) <span class="comment">/* only the conductor expects to receive a relayed message */ </span>| Message::Relayed(..) =&gt; { }
+                    <span class="comment">// only sent to conductor node
+                    </span>Message::RecvdConductor =&gt; {
                         <span class="macro">unreachable!</span>();
                     }
                 }
-            } <span class="kw">else</span> {
+            } <span class="kw">else </span>{
                 <span class="macro">info!</span>(<span class="string">&quot;FAILED TO PARSE GOSSIP OR DIRECT RESPONSE MESSAGE&quot;</span>);
             }
         }
-        <span class="ident">DirectRequest</span>(<span class="ident">msg</span>, <span class="ident">_peer_id</span>, <span class="ident">chan</span>) =&gt; {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">msg</span>) <span class="op">=</span> <span class="ident">deserialize_msg</span>::<span class="op">&lt;</span><span class="ident">Message</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">msg</span>) {
-                <span class="macro">info!</span>(<span class="string">&quot;from pid {:?} msg recved: {:?}&quot;</span>, <span class="ident">msg</span>.<span class="ident">clone</span>(), <span class="ident">_peer_id</span>);
-                <span class="kw">match</span> <span class="ident">msg</span> {
-                    <span class="ident">Message::DummyRecv</span> =&gt; {
-                        <span class="ident">handle</span>.<span class="ident">direct_response</span>(<span class="ident">chan</span>, <span class="kw-2">&amp;</span><span class="ident">Message::DummyRecv</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        DirectRequest(msg, _peer_id, chan) =&gt; {
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(msg) = deserialize_msg::&lt;Message&gt;(<span class="kw-2">&amp;</span>msg) {
+                <span class="macro">info!</span>(<span class="string">&quot;from pid {:?} msg recved: {:?}&quot;</span>, msg.clone(), _peer_id);
+                <span class="kw">match </span>msg {
+                    Message::DummyRecv =&gt; {
+                        handle.direct_response(chan, <span class="kw-2">&amp;</span>Message::DummyRecv).<span class="kw">await</span><span class="question-mark">?</span>;
                     }
-                    <span class="comment">// this is only done via broadcast</span>
-                    <span class="ident">Message::ConductorIdIs</span>(<span class="kw">_</span>)
-                        <span class="comment">// these are only sent to the conductor</span>
-                        <span class="op">|</span> <span class="ident">Message::Relayed</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Message::RecvdConductor</span> =&gt;
+                    <span class="comment">// this is only done via broadcast
+                    </span>Message::ConductorIdIs(<span class="kw">_</span>)
+                        <span class="comment">// these are only sent to the conductor
+                        </span>| Message::Relayed(<span class="kw">_</span>) | Message::RecvdConductor =&gt;
                     {
-                        <span class="ident">handle</span>.<span class="ident">direct_response</span>(<span class="ident">chan</span>, <span class="kw-2">&amp;</span><span class="ident">Message::DummyRecv</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                        handle.direct_response(chan, <span class="kw-2">&amp;</span>Message::DummyRecv).<span class="kw">await</span><span class="question-mark">?</span>;
                     }
-                    <span class="ident">Message::Normal</span>(<span class="ident">msg</span>) =&gt; {
-                        <span class="ident">handle_normal_msg</span>(<span class="ident">handle</span>.<span class="ident">clone</span>(), <span class="ident">msg</span>, <span class="prelude-val">Some</span>(<span class="ident">chan</span>)).<span class="kw">await</span><span class="question-mark">?</span>;
+                    Message::Normal(msg) =&gt; {
+                        handle_normal_msg(handle.clone(), msg, <span class="prelude-val">Some</span>(chan)).<span class="kw">await</span><span class="question-mark">?</span>;
                     }
-                    <span class="ident">Message::Conductor</span>(<span class="ident">msg</span>) =&gt; {
-                        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> {
-                            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">thread_rng</span>();
-                            <span class="macro">vec!</span>[<span class="ident">rng</span>.<span class="ident">next_u64</span>(); <span class="ident">PADDING_SIZE</span>]
+                    Message::Conductor(msg) =&gt; {
+                        <span class="kw">let </span>data = {
+                            <span class="kw">let </span><span class="kw-2">mut </span>rng = thread_rng();
+                            <span class="macro">vec!</span>[rng.next_u64(); PADDING_SIZE]
                         };
-                        <span class="kw">let</span> <span class="ident">response</span> <span class="op">=</span>
-                            <span class="ident">Message::Normal</span>(<span class="ident">NormalMessage</span> {
-                                <span class="ident">sent_ts</span>: <span class="ident">SystemTime::now</span>(),
-                                <span class="ident">relay_to_conductor</span>: <span class="bool-val">true</span>,
-                                <span class="ident">req</span>: <span class="ident">msg</span>.<span class="ident">req</span>,
-                                <span class="ident">epoch</span>: <span class="ident">msg</span>.<span class="ident">state</span>,
-                                <span class="ident">padding</span>: <span class="ident">data</span>,
+                        <span class="kw">let </span>response =
+                            Message::Normal(NormalMessage {
+                                sent_ts: SystemTime::now(),
+                                relay_to_conductor: <span class="bool-val">true</span>,
+                                req: msg.req,
+                                epoch: msg.state,
+                                padding: data,
                         });
-                        <span class="kw">match</span> <span class="ident">msg</span>.<span class="ident">broadcast_type</span> {
-                            <span class="comment">// if the conductor says to broadcast</span>
-                            <span class="comment">// perform broadcast with gossip protocol</span>
-                            <span class="ident">ConductorMessageMethod::Broadcast</span> =&gt; {
-                                <span class="ident">handle</span>.<span class="ident">gossip</span>(<span class="string">&quot;global&quot;</span>.<span class="ident">to_string</span>(), <span class="kw-2">&amp;</span><span class="ident">response</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                        <span class="kw">match </span>msg.broadcast_type {
+                            <span class="comment">// if the conductor says to broadcast
+                            // perform broadcast with gossip protocol
+                            </span>ConductorMessageMethod::Broadcast =&gt; {
+                                handle.gossip(<span class="string">&quot;global&quot;</span>.to_string(), <span class="kw-2">&amp;</span>response).<span class="kw">await</span><span class="question-mark">?</span>;
                             }
-                            <span class="ident">ConductorMessageMethod::DirectMessage</span>(<span class="ident">pid</span>) =&gt; {
-                                <span class="ident">handle</span>.<span class="ident">direct_request</span>(
-                                    <span class="ident">pid</span>,
-                                    <span class="kw-2">&amp;</span><span class="ident">response</span>
+                            ConductorMessageMethod::DirectMessage(pid) =&gt; {
+                                handle.direct_request(
+                                    pid,
+                                    <span class="kw-2">&amp;</span>response
                                 ).<span class="kw">await</span><span class="question-mark">?</span>;
                             }
                         }
-                        <span class="ident">handle</span>.<span class="ident">direct_response</span>(<span class="ident">chan</span>, <span class="kw-2">&amp;</span><span class="ident">Message::DummyRecv</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                        handle.direct_response(chan, <span class="kw-2">&amp;</span>Message::DummyRecv).<span class="kw">await</span><span class="question-mark">?</span>;
                     }
                 }
-            } <span class="kw">else</span> {
+            } <span class="kw">else </span>{
             }
         }
     }
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// convert node string into multi addr</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse_node</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Multiaddr</span>, <span class="ident">multiaddr::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">i</span> <span class="op">=</span> <span class="ident">s</span>.<span class="ident">split</span>(<span class="string">&#39;:&#39;</span>);
-    <span class="kw">let</span> <span class="ident">ip</span> <span class="op">=</span> <span class="ident">i</span>.<span class="ident">next</span>().<span class="ident">ok_or</span>(<span class="ident">multiaddr::Error::InvalidMultiaddr</span>)<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">port</span> <span class="op">=</span> <span class="ident">i</span>.<span class="ident">next</span>().<span class="ident">ok_or</span>(<span class="ident">multiaddr::Error::InvalidMultiaddr</span>)<span class="question-mark">?</span>;
-    <span class="ident">Multiaddr::from_str</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/ip4/{}/tcp/{}&quot;</span>, <span class="ident">ip</span>, <span class="ident">port</span>))
+<span class="doccomment">/// convert node string into multi addr
+</span><span class="kw">pub fn </span>parse_node(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Multiaddr, multiaddr::Error&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>i = s.split(<span class="string">&#39;:&#39;</span>);
+    <span class="kw">let </span>ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)<span class="question-mark">?</span>;
+    <span class="kw">let </span>port = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)<span class="question-mark">?</span>;
+    Multiaddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/ip4/{}/tcp/{}&quot;</span>, ip, port))
 }
 
-<span class="macro">cfg_if::cfg_if!</span> {
-    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span> {
-        <span class="doccomment">/// This will be flattened into CliOpt</span>
-        <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Args</span>, <span class="ident">Debug</span>)]</span>
-        <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WebUi</span> {
-            <span class="doccomment">/// Doc comment</span>
-            <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span>
-            <span class="kw">pub</span> <span class="ident">webui_addr</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">SocketAddr</span><span class="op">&gt;</span>,
-        }
-    } <span class="kw">else</span> {
-        <span class="doccomment">/// This will be flattened into CliOpt</span>
-        <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Args</span>, <span class="ident">Debug</span>)]</span>
-        <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WebUi</span> {}
-    }
+<span class="attribute">#[cfg(feature = <span class="string">&quot;webui&quot;</span>)]
+</span><span class="doccomment">/// This will be flattened into CliOpt
+</span><span class="attribute">#[derive(Args, Debug)]
+</span><span class="kw">pub struct </span>WebUi {
+    <span class="doccomment">/// Doc comment
+    </span><span class="attribute">#[arg(long = <span class="string">&quot;webui&quot;</span>)]
+    </span><span class="kw">pub </span>webui_addr: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
 }
 
-<span class="macro">cfg_if::cfg_if!</span> {
-    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span> {
-        <span class="doccomment">/// This will be flattened into CliOpt</span>
-        <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Args</span>, <span class="ident">Debug</span>)]</span>
-        <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">EnvType</span> {
-            <span class="doccomment">/// Doc comment</span>
-            <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;env&quot;</span>)]</span>
-            <span class="kw">pub</span> <span class="ident">env_type</span>: <span class="ident">ExecutionEnvironment</span>,
-        }
-    } <span class="kw">else</span> {
-        <span class="doccomment">/// This will be flattened into CliOpt</span>
-        <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Args</span>, <span class="ident">Debug</span>)]</span>
-        <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">EnvType</span> {}
-    }
+<span class="attribute">#[cfg(not(feature = <span class="string">&quot;webui&quot;</span>))]
+</span><span class="doccomment">/// This will be flattened into CliOpt
+</span><span class="attribute">#[derive(Args, Debug)]
+</span><span class="kw">pub struct </span>WebUi {}
+
+<span class="attribute">#[cfg(all(feature = <span class="string">&quot;lossy_network&quot;</span>, target_os = <span class="string">&quot;linux&quot;</span>))]
+</span><span class="doccomment">/// This will be flattened into CliOpt
+</span><span class="attribute">#[derive(Args, Debug)]
+</span><span class="kw">pub struct </span>EnvType {
+    <span class="doccomment">/// Doc comment
+    </span><span class="attribute">#[arg(long = <span class="string">&quot;env&quot;</span>)]
+    </span><span class="kw">pub </span>env_type: ExecutionEnvironment,
+}
+<span class="attribute">#[cfg(not(all(feature = <span class="string">&quot;lossy_network&quot;</span>, target_os = <span class="string">&quot;linux&quot;</span>)))]
+</span><span class="doccomment">/// This will be flattened into CliOpt
+</span><span class="attribute">#[derive(Args, Debug)]
+</span><span class="kw">pub struct </span>EnvType {}
+
+<span class="attribute">#[derive(Parser, Debug)]
+</span><span class="kw">pub struct </span>CliOpt {
+    <span class="doccomment">/// list of bootstrap node addrs
+    </span><span class="attribute">#[arg(long, value_parser = parse_node)]
+    </span><span class="kw">pub </span>to_connect_addrs: Vec&lt;Multiaddr&gt;,
+    <span class="doccomment">/// total number of nodes
+    </span><span class="attribute">#[arg(long)]
+    </span><span class="kw">pub </span>num_nodes: usize,
+    <span class="doccomment">/// the role this node plays
+    </span><span class="attribute">#[arg(long)]
+    </span><span class="kw">pub </span>node_type: NetworkNodeType,
+    <span class="doccomment">/// internal interface to bind to
+    </span><span class="attribute">#[arg(long, value_parser = parse_node)]
+    </span><span class="kw">pub </span>bound_addr: Multiaddr,
+    <span class="doccomment">/// If this value is set, a webserver will be spawned on this address with debug info
+    </span><span class="attribute">#[arg(long, value_parser = parse_node)]
+    </span><span class="kw">pub </span>conductor_addr: Multiaddr,
+
+    <span class="attribute">#[command(flatten)]
+    </span><span class="kw">pub </span>webui_delegate: WebUi,
+
+    <span class="attribute">#[command(flatten)]
+    </span><span class="kw">pub </span>env_type_delegate: EnvType,
+
+    <span class="doccomment">/// number of rounds of gossip
+    </span><span class="attribute">#[arg(long)]
+    </span><span class="kw">pub </span>num_gossip: u32,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Parser</span>, <span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CliOpt</span> {
-    <span class="doccomment">/// list of bootstrap node addrs</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">value_parser</span> <span class="op">=</span> <span class="ident">parse_node</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">to_connect_addrs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Multiaddr</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// total number of nodes</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">num_nodes</span>: <span class="ident">usize</span>,
-    <span class="doccomment">/// the role this node plays</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">node_type</span>: <span class="ident">NetworkNodeType</span>,
-    <span class="doccomment">/// internal interface to bind to</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">value_parser</span> <span class="op">=</span> <span class="ident">parse_node</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">bound_addr</span>: <span class="ident">Multiaddr</span>,
-    <span class="doccomment">/// If this value is set, a webserver will be spawned on this address with debug info</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>, <span class="ident">value_parser</span> <span class="op">=</span> <span class="ident">parse_node</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">conductor_addr</span>: <span class="ident">Multiaddr</span>,
-
-    <span class="attribute">#[<span class="ident">command</span>(<span class="ident">flatten</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">webui_delegate</span>: <span class="ident">WebUi</span>,
-
-    <span class="attribute">#[<span class="ident">command</span>(<span class="ident">flatten</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">env_type_delegate</span>: <span class="ident">EnvType</span>,
-
-    <span class="doccomment">/// number of rounds of gossip</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">long</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">num_gossip</span>: <span class="ident">u32</span>,
+<span class="doccomment">/// The execution environemnt type
+</span><span class="attribute">#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[cfg(all(feature = <span class="string">&quot;lossy_network&quot;</span>, target_os = <span class="string">&quot;linux&quot;</span>))]
+</span><span class="kw">pub enum </span>ExecutionEnvironment {
+    <span class="doccomment">/// execution environment is within docker
+    </span>Docker,
+    <span class="doccomment">/// execution environment is on metal
+    </span>Metal,
 }
 
-<span class="doccomment">/// The execution environemnt type</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Deserialize</span>, <span class="ident">Serialize</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ExecutionEnvironment</span> {
-    <span class="doccomment">/// execution environment is within docker</span>
-    <span class="ident">Docker</span>,
-    <span class="doccomment">/// execution environment is on metal</span>
-    <span class="ident">Metal</span>,
-}
+<span class="attribute">#[cfg(all(feature = <span class="string">&quot;lossy_network&quot;</span>, target_os = <span class="string">&quot;linux&quot;</span>))]
+</span><span class="kw">impl </span>FromStr <span class="kw">for </span>ExecutionEnvironment {
+    <span class="kw">type </span><span class="prelude-val">Err </span>= String;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;lossy_network&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>))]</span>
-<span class="kw">impl</span> <span class="ident">FromStr</span> <span class="kw">for</span> <span class="ident">ExecutionEnvironment</span> {
-    <span class="kw">type</span> <span class="prelude-val">Err</span> <span class="op">=</span> <span class="ident">String</span>;
-
-    <span class="kw">fn</span> <span class="ident">from_str</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExecutionEnvironment</span>, <span class="ident"><span class="self">Self</span>::Err</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">input</span> {
-            <span class="string">&quot;Docker&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">ExecutionEnvironment::Docker</span>),
-            <span class="string">&quot;Metal&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">ExecutionEnvironment::Metal</span>),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(
-                <span class="string">&quot;Couldn&#39;t parse execution environment. Must be one of Metal, Docker&quot;</span>.<span class="ident">to_string</span>(),
+    <span class="kw">fn </span>from_str(input: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;ExecutionEnvironment, <span class="self">Self</span>::Err&gt; {
+        <span class="kw">match </span>input {
+            <span class="string">&quot;Docker&quot; </span>=&gt; <span class="prelude-val">Ok</span>(ExecutionEnvironment::Docker),
+            <span class="string">&quot;Metal&quot; </span>=&gt; <span class="prelude-val">Ok</span>(ExecutionEnvironment::Metal),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(
+                <span class="string">&quot;Couldn&#39;t parse execution environment. Must be one of Metal, Docker&quot;</span>.to_string(),
             ),
         }
     }
 }
 
-<span class="doccomment">/// [&#39;bootstrap_addrs`] list of bootstrap multiaddrs. Needed to bootstrap into network</span>
-<span class="doccomment">/// [`num_nodes`] total number of nodes. Needed to create pruning rules</span>
-<span class="doccomment">/// [`node_type`] the type of this node</span>
-<span class="doccomment">/// [&#39;bound_addr`] the address to bind to</span>
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">start_main</span>(<span class="ident">opts</span>: <span class="ident">CliOpt</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CounterError</span><span class="op">&gt;</span> {
-    <span class="ident">setup_logging</span>();
-    <span class="ident">setup_backtrace</span>();
-    <span class="kw">let</span> <span class="ident">bootstrap_nodes</span> <span class="op">=</span> <span class="ident">opts</span>
-        .<span class="ident">to_connect_addrs</span>
-        .<span class="ident">iter</span>()
-        .<span class="ident">cloned</span>()
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> (<span class="prelude-val">None</span>, <span class="ident">a</span>))
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+<span class="doccomment">/// [&#39;bootstrap_addrs`] list of bootstrap multiaddrs. Needed to bootstrap into network
+/// [`num_nodes`] total number of nodes. Needed to create pruning rules
+/// [`node_type`] the type of this node
+/// [&#39;bound_addr`] the address to bind to
+</span><span class="kw">pub async fn </span>start_main(opts: CliOpt) -&gt; <span class="prelude-ty">Result</span>&lt;(), CounterError&gt; {
+    setup_logging();
+    setup_backtrace();
+    <span class="kw">let </span>bootstrap_nodes = opts
+        .to_connect_addrs
+        .iter()
+        .cloned()
+        .map(|a| (<span class="prelude-val">None</span>, a))
+        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-    <span class="kw">match</span> <span class="ident">opts</span>.<span class="ident">node_type</span> {
-        <span class="ident">NetworkNodeType::Conductor</span> =&gt; {
-            <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">NetworkNodeConfigBuilder::default</span>()
-                .<span class="ident">bound_addr</span>(<span class="prelude-val">Some</span>(<span class="ident">opts</span>.<span class="ident">bound_addr</span>))
-                .<span class="ident">node_type</span>(<span class="ident">NetworkNodeType::Conductor</span>)
-                .<span class="ident">build</span>()
-                .<span class="ident">context</span>(<span class="ident">NodeConfigSnafu</span>)
-                .<span class="ident">context</span>(<span class="ident">HandleSnafu</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">Arc::new</span>(
-                <span class="ident">NetworkNodeHandle</span>::<span class="op">&lt;</span><span class="ident">ConductorState</span><span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">config</span>.<span class="ident">clone</span>(), <span class="number">0</span>)
-                    .<span class="kw">await</span>
-                    .<span class="ident">context</span>(<span class="ident">HandleSnafu</span>)<span class="question-mark">?</span>,
+    <span class="kw">match </span>opts.node_type {
+        NetworkNodeType::Conductor =&gt; {
+            <span class="kw">let </span>config = NetworkNodeConfigBuilder::default()
+                .bound_addr(<span class="prelude-val">Some</span>(opts.bound_addr))
+                .node_type(NetworkNodeType::Conductor)
+                .build()
+                .context(NodeConfigSnafu)
+                .context(HandleSnafu)<span class="question-mark">?</span>;
+            <span class="kw">let </span>handle = Arc::new(
+                NetworkNodeHandle::&lt;ConductorState&gt;::new(config.clone(), <span class="number">0</span>)
+                    .<span class="kw">await
+                    </span>.context(HandleSnafu)<span class="question-mark">?</span>,
             );
 
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span>
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">addr</span>) <span class="op">=</span> <span class="ident">opts</span>.<span class="ident">webui_delegate</span>.<span class="ident">webui_addr</span> {
-                <span class="ident">web::spawn_server</span>(<span class="ident">Arc::clone</span>(<span class="kw-2">&amp;</span><span class="ident">handle</span>), <span class="ident">addr</span>);
+            <span class="attribute">#[cfg(feature = <span class="string">&quot;webui&quot;</span>)]
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(addr) = opts.webui_delegate.webui_addr {
+                web::spawn_server(Arc::clone(<span class="kw-2">&amp;</span>handle), addr);
             }
 
-            <span class="ident">spin_up_swarm</span>(<span class="ident">TIMEOUT</span>, <span class="ident">bootstrap_nodes</span>, <span class="ident">config</span>, <span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">handle</span>)
-                .<span class="kw">await</span>
-                .<span class="ident">context</span>(<span class="ident">HandleSnafu</span>)<span class="question-mark">?</span>;
+            spin_up_swarm(TIMEOUT, bootstrap_nodes, config, <span class="number">0</span>, <span class="kw-2">&amp;</span>handle)
+                .<span class="kw">await
+                </span>.context(HandleSnafu)<span class="question-mark">?</span>;
             <span class="macro">info!</span>(<span class="string">&quot;spun up!&quot;</span>);
 
-            <span class="kw">let</span> <span class="ident">handler_fut</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">spawn_handler</span>(<span class="ident">conductor_handle_network_event</span>).<span class="kw">await</span>;
+            <span class="kw">let </span>handler_fut = handle.spawn_handler(conductor_handle_network_event).<span class="kw">await</span>;
             <span class="macro">info!</span>(<span class="string">&quot;spawned handler&quot;</span>);
 
-            <span class="ident">handle</span>.<span class="ident">notify_webui</span>().<span class="kw">await</span>;
+            handle.notify_webui().<span class="kw">await</span>;
 
-            <span class="kw">let</span> <span class="ident">conductor_peerid</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">peer_id</span>();
+            <span class="kw">let </span>conductor_peerid = handle.peer_id();
 
-            <span class="kw">let</span> (<span class="ident">s</span>, <span class="ident">_r</span>) <span class="op">=</span> <span class="ident">oneshot</span>::<span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span>();
+            <span class="kw">let </span>(s, _r) = oneshot::&lt;bool&gt;();
 
-            <span class="ident">async_spawn</span>({
-                <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">clone</span>();
-                <span class="comment">// the &quot;conductor id&quot;</span>
-                <span class="comment">// periodically say &quot;ignore me!&quot;</span>
-                <span class="kw">async</span> <span class="kw">move</span> {
-                    <span class="kw">loop</span> {
-                        <span class="comment">// must wait for the listener to start</span>
-                        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="ident">Message::ConductorIdIs</span>(<span class="ident">conductor_peerid</span>);
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">handle</span>
-                            .<span class="ident">gossip</span>(<span class="string">&quot;global&quot;</span>.<span class="ident">to_string</span>(), <span class="kw-2">&amp;</span><span class="ident">msg</span>)
-                            .<span class="kw">await</span>
-                            .<span class="ident">context</span>(<span class="ident">HandleSnafu</span>)
+            async_spawn({
+                <span class="kw">let </span>handle = handle.clone();
+                <span class="comment">// the &quot;conductor id&quot;
+                // periodically say &quot;ignore me!&quot;
+                </span><span class="kw">async move </span>{
+                    <span class="kw">loop </span>{
+                        <span class="comment">// must wait for the listener to start
+                        </span><span class="kw">let </span>msg = Message::ConductorIdIs(conductor_peerid);
+                        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = handle
+                            .gossip(<span class="string">&quot;global&quot;</span>.to_string(), <span class="kw-2">&amp;</span>msg)
+                            .<span class="kw">await
+                            </span>.context(HandleSnafu)
                         {
-                            <span class="macro">error!</span>(<span class="string">&quot;Error {:?} gossiping the conductor ID to cluster.&quot;</span>, <span class="ident">e</span>);
+                            <span class="macro">error!</span>(<span class="string">&quot;Error {:?} gossiping the conductor ID to cluster.&quot;</span>, e);
                         }
-                        <span class="ident">async_sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">1</span>)).<span class="kw">await</span>;
+                        async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
                     }
                 }
             });
 
-            <span class="comment">// For now, just do a sleep waiting for nodes to spin up. It&#39;s easier.</span>
-            <span class="ident">async_sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">10</span>)).<span class="kw">await</span>;
+            <span class="comment">// For now, just do a sleep waiting for nodes to spin up. It&#39;s easier.
+            </span>async_sleep(Duration::from_secs(<span class="number">10</span>)).<span class="kw">await</span>;
 
-            <span class="comment">// kill conductor id broadcast thread</span>
-            <span class="ident">s</span>.<span class="ident">send</span>(<span class="bool-val">true</span>);
+            <span class="comment">// kill conductor id broadcast thread
+            </span>s.send(<span class="bool-val">true</span>);
 
-            <span class="kw">for</span> <span class="ident">i</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">opts</span>.<span class="ident">num_gossip</span> {
-                <span class="macro">info!</span>(<span class="string">&quot;iteration i: {}&quot;</span>, <span class="ident">i</span>);
-                <span class="ident">handle</span>
-                    .<span class="ident">modify_state</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">current_epoch</span>.<span class="ident">epoch_type</span> <span class="op">=</span> <span class="ident">EpochType::BroadcastViaGossip</span>)
+            <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..opts.num_gossip {
+                <span class="macro">info!</span>(<span class="string">&quot;iteration i: {}&quot;</span>, i);
+                handle
+                    .modify_state(|s| s.current_epoch.epoch_type = EpochType::BroadcastViaGossip)
                     .<span class="kw">await</span>;
-                <span class="ident">conductor_broadcast</span>(<span class="ident">BROADCAST_TIMEOUT</span>, <span class="ident">handle</span>.<span class="ident">clone</span>())
-                    .<span class="kw">await</span>
-                    .<span class="ident">context</span>(<span class="ident">HandleSnafu</span>)<span class="question-mark">?</span>;
-                <span class="ident">handle</span>
-                    .<span class="ident">modify_state</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">complete_round</span>(<span class="ident">EpochType::BroadcastViaGossip</span>))
+                conductor_broadcast(BROADCAST_TIMEOUT, handle.clone())
+                    .<span class="kw">await
+                    </span>.context(HandleSnafu)<span class="question-mark">?</span>;
+                handle
+                    .modify_state(|s| s.complete_round(EpochType::BroadcastViaGossip))
                     .<span class="kw">await</span>;
             }
-            <span class="ident">handler_fut</span>.<span class="kw">await</span>;
+            handler_fut.<span class="kw">await</span>;
 
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;benchmark-output&quot;</span>)]</span>
-            {
-                <span class="macro">trace!</span>(<span class="string">&quot;result raw: {:?}&quot;</span>, <span class="ident">handle</span>.<span class="ident">state</span>().<span class="kw">await</span>);
+            <span class="attribute">#[cfg(feature = <span class="string">&quot;benchmark-output&quot;</span>)]
+            </span>{
+                <span class="macro">trace!</span>(<span class="string">&quot;result raw: {:?}&quot;</span>, handle.state().<span class="kw">await</span>);
                 <span class="macro">trace!</span>(
                     <span class="string">&quot;result: {:?}&quot;</span>,
-                    <span class="ident">handle</span>.<span class="ident">state</span>().<span class="kw">await</span>.<span class="ident">aggregate_epochs</span>(<span class="ident">opts</span>.<span class="ident">num_nodes</span>)
+                    handle.state().<span class="kw">await</span>.aggregate_epochs(opts.num_nodes)
                 );
             }
         }
-        <span class="comment">// regular and bootstrap nodes</span>
-        <span class="ident">NetworkNodeType::Regular</span> <span class="op">|</span> <span class="ident">NetworkNodeType::Bootstrap</span> =&gt; {
-            <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">NetworkNodeConfigBuilder::default</span>()
-                .<span class="ident">bound_addr</span>(<span class="prelude-val">Some</span>(<span class="ident">opts</span>.<span class="ident">bound_addr</span>))
-                .<span class="ident">node_type</span>(<span class="ident">opts</span>.<span class="ident">node_type</span>)
-                .<span class="ident">build</span>()
-                .<span class="ident">context</span>(<span class="ident">NodeConfigSnafu</span>)
-                .<span class="ident">context</span>(<span class="ident">HandleSnafu</span>)<span class="question-mark">?</span>;
+        <span class="comment">// regular and bootstrap nodes
+        </span>NetworkNodeType::Regular | NetworkNodeType::Bootstrap =&gt; {
+            <span class="kw">let </span>config = NetworkNodeConfigBuilder::default()
+                .bound_addr(<span class="prelude-val">Some</span>(opts.bound_addr))
+                .node_type(opts.node_type)
+                .build()
+                .context(NodeConfigSnafu)
+                .context(HandleSnafu)<span class="question-mark">?</span>;
 
-            <span class="kw">let</span> <span class="ident">node</span> <span class="op">=</span> <span class="ident">NetworkNodeHandle</span>::<span class="op">&lt;</span>(<span class="ident">CounterState</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>)<span class="op">&gt;</span><span class="ident">::new</span>(<span class="ident">config</span>.<span class="ident">clone</span>(), <span class="number">0</span>)
-                .<span class="kw">await</span>
-                .<span class="ident">context</span>(<span class="ident">HandleSnafu</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>node = NetworkNodeHandle::&lt;(CounterState, <span class="prelude-ty">Option</span>&lt;PeerId&gt;)&gt;::new(config.clone(), <span class="number">0</span>)
+                .<span class="kw">await
+                </span>.context(HandleSnafu)<span class="question-mark">?</span>;
 
-            <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">node</span>);
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webui&quot;</span>)]</span>
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">addr</span>) <span class="op">=</span> <span class="ident">opts</span>.<span class="ident">webui_delegate</span>.<span class="ident">webui_addr</span> {
-                <span class="ident">web::spawn_server</span>(<span class="ident">Arc::clone</span>(<span class="kw-2">&amp;</span><span class="ident">handle</span>), <span class="ident">addr</span>);
+            <span class="kw">let </span>handle = Arc::new(node);
+            <span class="attribute">#[cfg(feature = <span class="string">&quot;webui&quot;</span>)]
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(addr) = opts.webui_delegate.webui_addr {
+                web::spawn_server(Arc::clone(<span class="kw-2">&amp;</span>handle), addr);
             }
 
-            <span class="ident">spin_up_swarm</span>(<span class="ident">TIMEOUT</span>, <span class="ident">bootstrap_nodes</span>, <span class="ident">config</span>, <span class="number">0</span>, <span class="kw-2">&amp;</span><span class="ident">handle</span>)
-                .<span class="kw">await</span>
-                .<span class="ident">context</span>(<span class="ident">HandleSnafu</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">handler_fut</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">spawn_handler</span>(<span class="ident">regular_handle_network_event</span>).<span class="kw">await</span>;
-            <span class="ident">handler_fut</span>.<span class="kw">await</span>;
-            <span class="comment">// while !handle.is_killed().await {</span>
-            <span class="comment">//     async_sleep(Duration::from_millis(100)).await;</span>
-            <span class="comment">// }</span>
-        }
+            spin_up_swarm(TIMEOUT, bootstrap_nodes, config, <span class="number">0</span>, <span class="kw-2">&amp;</span>handle)
+                .<span class="kw">await
+                </span>.context(HandleSnafu)<span class="question-mark">?</span>;
+            <span class="kw">let </span>handler_fut = handle.spawn_handler(regular_handle_network_event).<span class="kw">await</span>;
+            handler_fut.<span class="kw">await</span>;
+            <span class="comment">// while !handle.is_killed().await {
+            //     async_sleep(Duration::from_millis(100)).await;
+            // }
+        </span>}
     }
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">conductor_broadcast</span>(
-    <span class="ident">timeout</span>: <span class="ident">Duration</span>,
-    <span class="ident">handle</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">NetworkNodeHandle</span><span class="op">&lt;</span><span class="ident">ConductorState</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">new_state</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">state</span>().<span class="kw">await</span>.<span class="ident">current_epoch</span>.<span class="ident">epoch_idx</span>;
-    <span class="comment">// nOTE it&#39;s probably easier to pass in a hard coded list of PIDs</span>
-    <span class="comment">// from test.py orchestration</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">connected_peers</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">connected_pids</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>();
-    <span class="ident">connected_peers</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">handle</span>.<span class="ident">peer_id</span>());
+<span class="kw">pub async fn </span>conductor_broadcast(
+    timeout: Duration,
+    handle: Arc&lt;NetworkNodeHandle&lt;ConductorState&gt;&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
+    <span class="kw">let </span>new_state = handle.state().<span class="kw">await</span>.current_epoch.epoch_idx;
+    <span class="comment">// nOTE it&#39;s probably easier to pass in a hard coded list of PIDs
+    // from test.py orchestration
+    </span><span class="kw">let </span><span class="kw-2">mut </span>connected_peers = handle.connected_pids().<span class="kw">await</span>.unwrap();
+    connected_peers.remove(<span class="kw-2">&amp;</span>handle.peer_id());
 
-    <span class="kw">let</span> <span class="ident">chosen_peer</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">connected_peers</span>.<span class="ident">iter</span>().<span class="ident">choose</span>(<span class="kw-2">&amp;mut</span> <span class="ident">thread_rng</span>()).<span class="ident">unwrap</span>();
+    <span class="kw">let </span>chosen_peer = <span class="kw-2">*</span>connected_peers.iter().choose(<span class="kw-2">&amp;mut </span>thread_rng()).unwrap();
 
-    <span class="kw">let</span> <span class="ident">request</span> <span class="op">=</span> <span class="ident">CounterRequest::StateResponse</span>(<span class="ident">new_state</span>);
+    <span class="kw">let </span>request = CounterRequest::StateResponse(new_state);
 
-    <span class="comment">// tell the &quot;leader&quot; to do a &quot;broadcast&quot; message using gosisp protocol</span>
-    <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="ident">Message::Conductor</span>(<span class="ident">ConductorMessage</span> {
-        <span class="ident">state</span>: <span class="ident">new_state</span>,
-        <span class="ident">req</span>: <span class="ident">request</span>.<span class="ident">clone</span>(),
-        <span class="ident">broadcast_type</span>: <span class="ident">ConductorMessageMethod::Broadcast</span>,
+    <span class="comment">// tell the &quot;leader&quot; to do a &quot;broadcast&quot; message using gosisp protocol
+    </span><span class="kw">let </span>msg = Message::Conductor(ConductorMessage {
+        state: new_state,
+        req: request.clone(),
+        broadcast_type: ConductorMessageMethod::Broadcast,
     });
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">res_fut</span> <span class="op">=</span> <span class="ident">Box::pin</span>(
-        <span class="ident">handle</span>.<span class="ident">state_wait_timeout_until_with_trigger</span>(<span class="ident">timeout</span>, <span class="op">|</span><span class="ident">state</span><span class="op">|</span> {
-            <span class="ident">state</span>
-                .<span class="ident">current_epoch</span>
-                .<span class="ident">node_states</span>
-                .<span class="ident">iter</span>()
-                .<span class="ident">filter</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="kw-2">&amp;</span><span class="ident">s</span>)<span class="op">|</span> <span class="ident">s</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">new_state</span>)
-                .<span class="ident">count</span>()
-                <span class="op">&gt;</span><span class="op">=</span> <span class="ident">SUCCESS_NUMBER</span>
+    <span class="kw">let </span><span class="kw-2">mut </span>res_fut = Box::pin(
+        handle.state_wait_timeout_until_with_trigger(timeout, |state| {
+            state
+                .current_epoch
+                .node_states
+                .iter()
+                .filter(|(<span class="kw">_</span>, <span class="kw-2">&amp;</span>s)| s &gt;= new_state)
+                .count()
+                &gt;= SUCCESS_NUMBER
         }),
     );
 
-    <span class="comment">// wait for ready signal</span>
-    <span class="ident">res_fut</span>.<span class="ident">next</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
+    <span class="comment">// wait for ready signal
+    </span>res_fut.next().<span class="kw">await</span>.unwrap().unwrap();
 
-    <span class="comment">// send direct message from conductor to leader to do broadcast</span>
-    <span class="ident">handle</span>
-        .<span class="ident">direct_request</span>(<span class="ident">chosen_peer</span>, <span class="kw-2">&amp;</span><span class="ident">msg</span>)
-        .<span class="kw">await</span>
-        .<span class="ident">context</span>(<span class="ident">HandleSnafu</span>)
-        .<span class="ident">unwrap</span>();
+    <span class="comment">// send direct message from conductor to leader to do broadcast
+    </span>handle
+        .direct_request(chosen_peer, <span class="kw-2">&amp;</span>msg)
+        .<span class="kw">await
+        </span>.context(HandleSnafu)
+        .unwrap();
 
-    <span class="kw">if</span> <span class="ident">res_fut</span>.<span class="ident">next</span>().<span class="kw">await</span>.<span class="ident">unwrap</span>().<span class="ident">is_err</span>() {
+    <span class="kw">if </span>res_fut.next().<span class="kw">await</span>.unwrap().is_err() {
         <span class="macro">error!</span>(
             <span class="string">&quot;TIMED OUT with {} msgs recv-ed&quot;</span>,
-            <span class="ident">handle</span>.<span class="ident">state</span>().<span class="kw">await</span>.<span class="ident">current_epoch</span>.<span class="ident">message_durations</span>.<span class="ident">len</span>()
+            handle.state().<span class="kw">await</span>.current_epoch.message_durations.len()
         );
     }
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// network event handler for conductor</span>
-<span class="attribute">#[<span class="ident">instrument</span>]</span>
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">conductor_handle_network_event</span>(
-    <span class="ident">event</span>: <span class="ident">NetworkEvent</span>,
-    <span class="ident">handle</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">NetworkNodeHandle</span><span class="op">&lt;</span><span class="ident">ConductorState</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::enum_glob_use</span>)]</span>
-    <span class="kw">use</span> <span class="ident">NetworkEvent</span>::<span class="kw-2">*</span>;
-    <span class="kw">match</span> <span class="ident">event</span> {
-        <span class="ident">IsBootstrapped</span> =&gt; {}
-        <span class="ident">GossipMsg</span>(<span class="ident">_m</span>, <span class="ident">_t</span>) =&gt; {
-            <span class="comment">// this node isn&#39;t going to participate in gossip/dms to update state</span>
-            <span class="comment">// it&#39;s only purpose is to recv relayed messages</span>
-        }
-        <span class="ident">DirectRequest</span>(<span class="ident">m</span>, <span class="ident">peer_id</span>, <span class="ident">chan</span>) =&gt; {
-            <span class="macro">info!</span>(<span class="string">&quot;recv: {:?}&quot;</span>, <span class="ident">m</span>);
-            <span class="ident">async_spawn</span>({
-                <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">clone</span>();
-                <span class="kw">async</span> <span class="kw">move</span> {
-                    <span class="ident">handle</span>.<span class="ident">direct_response</span>(<span class="ident">chan</span>, <span class="kw-2">&amp;</span><span class="ident">Message::DummyRecv</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-                    <span class="prelude-ty">Result</span>::<span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span><span class="ident">::Ok</span>(())
+<span class="doccomment">/// network event handler for conductor
+</span><span class="attribute">#[instrument]
+</span><span class="kw">pub async fn </span>conductor_handle_network_event(
+    event: NetworkEvent,
+    handle: Arc&lt;NetworkNodeHandle&lt;ConductorState&gt;&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
+    <span class="attribute">#[allow(clippy::enum_glob_use)]
+    </span><span class="kw">use </span>NetworkEvent::<span class="kw-2">*</span>;
+    <span class="kw">match </span>event {
+        IsBootstrapped =&gt; {}
+        GossipMsg(_m, _t) =&gt; {
+            <span class="comment">// this node isn&#39;t going to participate in gossip/dms to update state
+            // it&#39;s only purpose is to recv relayed messages
+        </span>}
+        DirectRequest(m, peer_id, chan) =&gt; {
+            <span class="macro">info!</span>(<span class="string">&quot;recv: {:?}&quot;</span>, m);
+            async_spawn({
+                <span class="kw">let </span>handle = handle.clone();
+                <span class="kw">async move </span>{
+                    handle.direct_response(chan, <span class="kw-2">&amp;</span>Message::DummyRecv).<span class="kw">await</span><span class="question-mark">?</span>;
+                    <span class="prelude-ty">Result</span>::&lt;(), NetworkNodeHandleError&gt;::Ok(())
                 }
             });
             <span class="macro">info!</span>(<span class="string">&quot;finished spawning now deserializing&quot;</span>);
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">msg</span>) <span class="op">=</span> <span class="ident">deserialize_msg</span>::<span class="op">&lt;</span><span class="ident">Message</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">m</span>) {
-                <span class="macro">info!</span>(<span class="string">&quot;desrialized MESSAGE IS {:?}&quot;</span>, <span class="ident">msg</span>);
-                <span class="kw">match</span> <span class="ident">msg</span> {
-                    <span class="ident">Message::Relayed</span>(<span class="ident">msg</span>) =&gt; {
-                        <span class="kw">match</span> <span class="ident">handle</span>.<span class="ident">state</span>().<span class="kw">await</span>.<span class="ident">current_epoch</span>.<span class="ident">epoch_type</span> {
-                            <span class="ident">EpochType::BroadcastViaGossip</span> =&gt; {
-                                <span class="kw">if</span> <span class="kw">let</span> <span class="ident">CounterRequest::StateResponse</span>(..) <span class="op">=</span> <span class="ident">msg</span>.<span class="ident">req</span> {
-                                    <span class="ident">handle</span>
-                                        .<span class="ident">modify_state</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> {
-                                            <span class="kw">if</span> <span class="ident">msg</span>.<span class="ident">epoch</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">s</span>.<span class="ident">current_epoch</span>.<span class="ident">epoch_idx</span> {
-                                                <span class="ident">s</span>.<span class="ident">current_epoch</span>.<span class="ident">message_durations</span>.<span class="ident">push</span>(<span class="ident">msg</span>.<span class="ident">duration</span>)
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(msg) = deserialize_msg::&lt;Message&gt;(<span class="kw-2">&amp;</span>m) {
+                <span class="macro">info!</span>(<span class="string">&quot;desrialized MESSAGE IS {:?}&quot;</span>, msg);
+                <span class="kw">match </span>msg {
+                    Message::Relayed(msg) =&gt; {
+                        <span class="kw">match </span>handle.state().<span class="kw">await</span>.current_epoch.epoch_type {
+                            EpochType::BroadcastViaGossip =&gt; {
+                                <span class="kw">if let </span>CounterRequest::StateResponse(..) = msg.req {
+                                    handle
+                                        .modify_state(|s| {
+                                            <span class="kw">if </span>msg.epoch &gt;= s.current_epoch.epoch_idx {
+                                                s.current_epoch.message_durations.push(msg.duration)
                                             }
 
-                                            <span class="kw">if</span> <span class="ident">msg</span>.<span class="ident">epoch</span> <span class="op">&gt;</span> <span class="ident">s</span>.<span class="ident">current_epoch</span>.<span class="ident">epoch_idx</span> {
-                                                <span class="macro">warn!</span>(<span class="string">&quot;listening on epcoh {:?} but recv message on epoch {:?}&quot;</span>, <span class="ident">s</span>.<span class="ident">current_epoch</span>.<span class="ident">epoch_idx</span>, <span class="ident">msg</span>.<span class="ident">epoch</span>);
+                                            <span class="kw">if </span>msg.epoch &gt; s.current_epoch.epoch_idx {
+                                                <span class="macro">warn!</span>(<span class="string">&quot;listening on epcoh {:?} but recv message on epoch {:?}&quot;</span>, s.current_epoch.epoch_idx, msg.epoch);
                                             }
 
                                         })
                                         .<span class="kw">await</span>;
-                                    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">prune_peer</span>(<span class="ident">msg</span>.<span class="ident">from_peer</span>).<span class="kw">await</span>;
+                                    <span class="kw">let _ </span>= handle.prune_peer(msg.from_peer).<span class="kw">await</span>;
                                 }
                             }
-                            <span class="ident">EpochType::DMViaDM</span> =&gt; {
-                                <span class="macro">info!</span>(<span class="string">&quot;modifying state DM VIA DM {:?}&quot;</span>, <span class="ident">msg</span>);
-                                <span class="comment">// NOTE maybe should check epoch</span>
-                                <span class="kw">if</span> <span class="kw">let</span> <span class="ident">CounterRequest::StateRequest</span> <span class="op">=</span> <span class="ident">msg</span>.<span class="ident">req</span> {
-                                    <span class="ident">handle</span>
-                                        .<span class="ident">modify_state</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> {
-                                            <span class="ident">s</span>.<span class="ident">current_epoch</span>.<span class="ident">message_durations</span>.<span class="ident">push</span>(<span class="ident">msg</span>.<span class="ident">duration</span>);
+                            EpochType::DMViaDM =&gt; {
+                                <span class="macro">info!</span>(<span class="string">&quot;modifying state DM VIA DM {:?}&quot;</span>, msg);
+                                <span class="comment">// NOTE maybe should check epoch
+                                </span><span class="kw">if let </span>CounterRequest::StateRequest = msg.req {
+                                    handle
+                                        .modify_state(|s| {
+                                            s.current_epoch.message_durations.push(msg.duration);
                                         })
                                         .<span class="kw">await</span>;
                                 }
                             }
-                            <span class="ident">EpochType::BroadcastViaDM</span> =&gt; {
+                            EpochType::BroadcastViaDM =&gt; {
                                 <span class="macro">unimplemented!</span>(<span class="string">&quot;BroadcastViaDM is currently unimplemented&quot;</span>);
                             }
                         }
-                        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">CounterRequest::StateResponse</span>(<span class="ident">state</span>) <span class="op">=</span> <span class="ident">msg</span>.<span class="ident">req</span> {
-                            <span class="ident">handle</span>
-                                .<span class="ident">modify_state</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> {
-                                    <span class="ident">s</span>.<span class="ident">current_epoch</span>.<span class="ident">node_states</span>.<span class="ident">insert</span>(<span class="ident">peer_id</span>, <span class="ident">state</span>);
+                        <span class="kw">if let </span>CounterRequest::StateResponse(state) = msg.req {
+                            handle
+                                .modify_state(|s| {
+                                    s.current_epoch.node_states.insert(peer_id, state);
                                 })
                                 .<span class="kw">await</span>;
                         }
                     }
-                    <span class="ident">Message::RecvdConductor</span> =&gt; {
-                        <span class="ident">handle</span>
-                            .<span class="ident">modify_state</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> {
-                                <span class="ident">s</span>.<span class="ident">ready_set</span>.<span class="ident">insert</span>(<span class="ident">peer_id</span>);
+                    Message::RecvdConductor =&gt; {
+                        handle
+                            .modify_state(|s| {
+                                s.ready_set.insert(peer_id);
                             })
                             .<span class="kw">await</span>;
                     }
-                    <span class="ident">msg</span> =&gt; {
-                        <span class="macro">info!</span>(<span class="string">&quot;Unexpected message {:?}&quot;</span>, <span class="ident">msg</span>);
+                    msg =&gt; {
+                        <span class="macro">info!</span>(<span class="string">&quot;Unexpected message {:?}&quot;</span>, msg);
 
-                        <span class="comment">/* Do nothing. Conductor doesn&#39;t care about these messages. */</span>
-                    }
+                        <span class="comment">/* Do nothing. Conductor doesn&#39;t care about these messages. */
+                    </span>}
                 }
-            } <span class="kw">else</span> {
+            } <span class="kw">else </span>{
                 <span class="macro">error!</span>(<span class="string">&quot;failed to deserialize msg&quot;</span>);
             }
         }
-        <span class="ident">DirectResponse</span>(<span class="ident">_m</span>, <span class="ident">_peer_id</span>) =&gt; { <span class="comment">/* nothing to do here */</span> }
+        DirectResponse(_m, _peer_id) =&gt; { <span class="comment">/* nothing to do here */ </span>}
     }
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Snafu</span>)]</span>
-<span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">visibility</span>(<span class="kw">pub</span>))]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CounterError</span> {
-    <span class="ident">Handle</span> { <span class="ident">source</span>: <span class="ident">NetworkNodeHandleError</span> },
-    <span class="ident">FileRead</span> { <span class="ident">source</span>: <span class="ident">std::io::Error</span> },
-    <span class="ident">MissingBootstrap</span>,
+<span class="attribute">#[derive(Debug, Snafu)]
+#[snafu(visibility(<span class="kw">pub</span>))]
+</span><span class="kw">pub enum </span>CounterError {
+    Handle { source: NetworkNodeHandleError },
+    FileRead { source: std::io::Error },
+    MissingBootstrap,
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="counter" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="counter" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

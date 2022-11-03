@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/examples/common/lossy_network.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lossy_network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../counter/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../counter/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../counter/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/examples/common/lossy_network.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lossy_network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../counter/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../counter/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../counter/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -577,584 +577,584 @@
 <span id="577">577</span>
 <span id="578">578</span>
 <span id="579">579</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ExecutionEnvironment</span>;
-<span class="kw">use</span> <span class="ident">futures::TryStreamExt</span>;
-<span class="kw">use</span> <span class="ident">hotshot_utils::art::async_spawn</span>;
-<span class="kw">use</span> <span class="ident">netlink_packet_route::DecodeError</span>;
-<span class="kw">use</span> <span class="ident">nix</span>::{
-    <span class="ident">errno::Errno</span>,
-    <span class="ident">sched</span>::{<span class="ident">setns</span>, <span class="ident">CloneFlags</span>},
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::ExecutionEnvironment;
+<span class="kw">use </span>futures::TryStreamExt;
+<span class="kw">use </span>hotshot_utils::art::async_spawn;
+<span class="kw">use </span>netlink_packet_route::DecodeError;
+<span class="kw">use </span>nix::{
+    errno::Errno,
+    sched::{setns, CloneFlags},
 };
-<span class="kw">use</span> <span class="ident">rtnetlink</span>::{
-    <span class="ident">new_connection_with_socket</span>, <span class="ident">sys::SmolSocket</span>, <span class="ident">AddressHandle</span>, <span class="ident">Handle</span>, <span class="ident">NetemQdisc</span>,
-    <span class="ident">NetworkNamespace</span>, <span class="ident">RouteHandle</span>, <span class="ident">TcNetemCorrelations</span>, <span class="ident">TcNetemCorrupt</span>, <span class="ident">TcNetemDelay</span>, <span class="ident">TcNetemQopt</span>,
-    <span class="ident">NETNS_PATH</span>,
+<span class="kw">use </span>rtnetlink::{
+    new_connection_with_socket, sys::SmolSocket, AddressHandle, Handle, NetemQdisc,
+    NetworkNamespace, RouteHandle, TcNetemCorrelations, TcNetemCorrupt, TcNetemDelay, TcNetemQopt,
+    NETNS_PATH,
 };
-<span class="kw">use</span> <span class="ident">snafu</span>::{<span class="ident">ResultExt</span>, <span class="ident">Snafu</span>};
-<span class="kw">use</span> <span class="ident">std::process::Command</span>;
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">fs::File</span>,
-    <span class="ident">net</span>::{<span class="ident">AddrParseError</span>, <span class="ident">Ipv4Addr</span>},
-    <span class="ident">os::unix</span>::{<span class="ident">io::IntoRawFd</span>, <span class="ident">prelude::AsRawFd</span>},
-    <span class="ident">path::Path</span>,
+<span class="kw">use </span>snafu::{ResultExt, Snafu};
+<span class="kw">use </span>std::process::Command;
+<span class="kw">use </span>std::{
+    fs::File,
+    net::{AddrParseError, Ipv4Addr},
+    os::unix::{io::IntoRawFd, prelude::AsRawFd},
+    path::Path,
 };
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">info</span>};
+<span class="kw">use </span>tracing::{error, info};
 
-<span class="doccomment">/// hardcoded default values</span>
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">LOSSY_QDISC</span>: <span class="ident">NetemQdisc</span> <span class="op">=</span> <span class="ident">NetemQdisc</span> {
-    <span class="ident">config</span>: <span class="ident">TcNetemQopt</span> {
-        <span class="ident">limit</span>: <span class="number">10240</span>,
-        <span class="ident">loss</span>: <span class="number">2</span>,
-        <span class="ident">gap</span>: <span class="number">0</span>,
-        <span class="ident">duplicate</span>: <span class="number">0</span>,
+<span class="doccomment">/// hardcoded default values
+</span><span class="kw">pub const </span>LOSSY_QDISC: NetemQdisc = NetemQdisc {
+    config: TcNetemQopt {
+        limit: <span class="number">10240</span>,
+        loss: <span class="number">2</span>,
+        gap: <span class="number">0</span>,
+        duplicate: <span class="number">0</span>,
     },
-    <span class="ident">delay</span>: <span class="prelude-val">Some</span>(<span class="ident">TcNetemDelay</span> {
-        <span class="ident">delay</span>: <span class="number">500000</span>,
-        <span class="ident">stddev</span>: <span class="number">0</span>,
+    delay: <span class="prelude-val">Some</span>(TcNetemDelay {
+        delay: <span class="number">500000</span>,
+        stddev: <span class="number">0</span>,
     }),
-    <span class="ident">correlations</span>: <span class="prelude-val">Some</span>(<span class="ident">TcNetemCorrelations</span> {
-        <span class="ident">delay_corr</span>: <span class="number">0</span>,
-        <span class="ident">loss_corr</span>: <span class="number">0</span>,
-        <span class="ident">dup_corr</span>: <span class="number">0</span>,
+    correlations: <span class="prelude-val">Some</span>(TcNetemCorrelations {
+        delay_corr: <span class="number">0</span>,
+        loss_corr: <span class="number">0</span>,
+        dup_corr: <span class="number">0</span>,
     }),
-    <span class="ident">corruption</span>: <span class="prelude-val">Some</span>(<span class="ident">TcNetemCorrupt</span> { <span class="ident">prob</span>: <span class="number">2</span>, <span class="ident">corr</span>: <span class="number">0</span> }),
-    <span class="ident">reorder</span>: <span class="prelude-val">None</span>,
+    corruption: <span class="prelude-val">Some</span>(TcNetemCorrupt { prob: <span class="number">2</span>, corr: <span class="number">0 </span>}),
+    reorder: <span class="prelude-val">None</span>,
 };
 
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">del_link</span>(<span class="ident">handle</span>: <span class="ident">Handle</span>, <span class="ident">name</span>: <span class="ident">String</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">LossyNetworkError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">links</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">link</span>().<span class="ident">get</span>().<span class="ident">match_name</span>(<span class="ident">name</span>.<span class="ident">clone</span>()).<span class="ident">execute</span>();
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">link</span>) <span class="op">=</span> <span class="ident">links</span>.<span class="ident">try_next</span>().<span class="kw">await</span>.<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">del</span>(<span class="ident">link</span>.<span class="ident">header</span>.<span class="ident">index</span>)
-            .<span class="ident">execute</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>)
-    } <span class="kw">else</span> {
-        <span class="macro">error!</span>(<span class="string">&quot;link {} not found&quot;</span>, <span class="ident">name</span>);
+<span class="kw">async fn </span>del_link(handle: Handle, name: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), LossyNetworkError&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>links = handle.link().get().match_name(name.clone()).execute();
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(link) = links.try_next().<span class="kw">await</span>.context(RtNetlinkSnafu)<span class="question-mark">? </span>{
+        <span class="prelude-val">Ok</span>(handle
+            .link()
+            .del(link.header.index)
+            .execute()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>)
+    } <span class="kw">else </span>{
+        <span class="macro">error!</span>(<span class="string">&quot;link {} not found&quot;</span>, name);
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="doccomment">/// represent the current network namespace</span>
-<span class="doccomment">/// (useful if returning)</span>
-<span class="kw">struct</span> <span class="ident">Netns</span> {
-    <span class="ident">cur</span>: <span class="ident">File</span>,
+<span class="doccomment">/// represent the current network namespace
+/// (useful if returning)
+</span><span class="kw">struct </span>Netns {
+    cur: File,
 }
 
-<span class="kw">impl</span> <span class="ident">Netns</span> {
-    <span class="doccomment">/// creates new network namespace</span>
-    <span class="doccomment">/// and enters namespace</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">LossyNetworkError</span><span class="op">&gt;</span> {
-        <span class="comment">// create new ns</span>
-        <span class="ident">NetworkNamespace::add</span>(<span class="ident">path</span>.<span class="ident">to_string</span>())
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
+<span class="kw">impl </span>Netns {
+    <span class="doccomment">/// creates new network namespace
+    /// and enters namespace
+    </span><span class="kw">async fn </span>new(path: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, LossyNetworkError&gt; {
+        <span class="comment">// create new ns
+        </span>NetworkNamespace::add(path.to_string())
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>;
 
-        <span class="comment">// entry new ns</span>
-        <span class="kw">let</span> <span class="ident">ns_path</span> <span class="op">=</span> <span class="ident">Path::new</span>(<span class="ident">NETNS_PATH</span>);
-        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">File::open</span>(<span class="ident">ns_path</span>.<span class="ident">join</span>(<span class="ident">path</span>)).<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>;
+        <span class="comment">// entry new ns
+        </span><span class="kw">let </span>ns_path = Path::new(NETNS_PATH);
+        <span class="kw">let </span>file = File::open(ns_path.join(path)).context(IoSnafu)<span class="question-mark">?</span>;
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> { <span class="ident">cur</span>: <span class="ident">file</span> })
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ cur: file })
     }
 }
 
-<span class="doccomment">/// A description of a lossy network</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">derive_builder::Builder</span>, <span class="ident">custom_debug::Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LossyNetwork</span> {
-    <span class="doccomment">/// Ethernet interface that is connected to WAN</span>
-    <span class="ident">eth_name</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// metadata describing how to isolate. Only used when `env_type` is `Metal`</span>
-    <span class="ident">isolation_config</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">IsolationConfig</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// The network loss conditions</span>
-    <span class="ident">netem_config</span>: <span class="ident">NetemQdisc</span>,
-    <span class="doccomment">/// the execution environment</span>
-    <span class="ident">env_type</span>: <span class="ident">ExecutionEnvironment</span>,
+<span class="doccomment">/// A description of a lossy network
+</span><span class="attribute">#[derive(Clone, derive_builder::Builder, custom_debug::Debug)]
+</span><span class="kw">pub struct </span>LossyNetwork {
+    <span class="doccomment">/// Ethernet interface that is connected to WAN
+    </span>eth_name: String,
+    <span class="doccomment">/// metadata describing how to isolate. Only used when `env_type` is `Metal`
+    </span>isolation_config: <span class="prelude-ty">Option</span>&lt;IsolationConfig&gt;,
+    <span class="doccomment">/// The network loss conditions
+    </span>netem_config: NetemQdisc,
+    <span class="doccomment">/// the execution environment
+    </span>env_type: ExecutionEnvironment,
 }
 
-<span class="kw">impl</span> <span class="ident">LossyNetwork</span> {
-    <span class="doccomment">/// Create isolated environment in separate network namespace via network bridge</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">isolate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">LossyNetworkError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">isolation_config</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">isolation_config</span> {
-            <span class="ident">isolation_config</span>.<span class="ident">isolate_netlink</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">eth_name</span>).<span class="kw">await</span><span class="question-mark">?</span>
-        }
+<span class="kw">impl </span>LossyNetwork {
+    <span class="doccomment">/// Create isolated environment in separate network namespace via network bridge
+    </span><span class="kw">pub async fn </span>isolate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), LossyNetworkError&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>isolation_config) = <span class="self">self</span>.isolation_config {
+            isolation_config.isolate_netlink(<span class="kw-2">&amp;</span><span class="self">self</span>.eth_name).<span class="kw">await</span><span class="question-mark">?
+        </span>}
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Delete isolated environment and network bridge</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">undo_isolate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">LossyNetworkError</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">isolation_config</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">isolation_config</span> {
-            <span class="ident">isolation_config</span>
-                .<span class="ident">undo_isolate_netlink</span>(<span class="self">self</span>.<span class="ident">eth_name</span>.<span class="ident">clone</span>())
-                .<span class="kw">await</span><span class="question-mark">?</span>
-        }
+    <span class="doccomment">/// Delete isolated environment and network bridge
+    </span><span class="kw">pub async fn </span>undo_isolate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), LossyNetworkError&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>isolation_config) = <span class="self">self</span>.isolation_config {
+            isolation_config
+                .undo_isolate_netlink(<span class="self">self</span>.eth_name.clone())
+                .<span class="kw">await</span><span class="question-mark">?
+        </span>}
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Create a network qdisc</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_qdisc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">LossyNetworkError</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">env_type</span> {
-            <span class="ident">ExecutionEnvironment::Docker</span> =&gt; {
-                <span class="self">self</span>.<span class="ident">create_qdisc_netlink</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">eth_name</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="doccomment">/// Create a network qdisc
+    </span><span class="kw">pub async fn </span>create_qdisc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), LossyNetworkError&gt; {
+        <span class="kw">match </span><span class="self">self</span>.env_type {
+            ExecutionEnvironment::Docker =&gt; {
+                <span class="self">self</span>.create_qdisc_netlink(<span class="kw-2">&amp;</span><span class="self">self</span>.eth_name).<span class="kw">await</span><span class="question-mark">?</span>;
             }
-            <span class="ident">ExecutionEnvironment::Metal</span> =&gt; <span class="kw">match</span> <span class="self">self</span>.<span class="ident">isolation_config</span> {
-                <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">isolation_config</span>) =&gt; {
-                    <span class="self">self</span>.<span class="ident">create_qdisc_netlink</span>(<span class="kw-2">&amp;</span><span class="ident">isolation_config</span>.<span class="ident">veth2_name</span>.<span class="ident">clone</span>())
+            ExecutionEnvironment::Metal =&gt; <span class="kw">match </span><span class="self">self</span>.isolation_config {
+                <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>isolation_config) =&gt; {
+                    <span class="self">self</span>.create_qdisc_netlink(<span class="kw-2">&amp;</span>isolation_config.veth2_name.clone())
                         .<span class="kw">await</span><span class="question-mark">?</span>;
                 }
-                <span class="prelude-val">None</span> =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">LossyNetworkError::InvalidConfig</span>),
+                <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(LossyNetworkError::InvalidConfig),
             },
         }
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Internal invocation to netlink library</span>
-    <span class="doccomment">/// to create the qdisc</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_qdisc_netlink</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">veth</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">LossyNetworkError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">connection</span>, <span class="ident">handle</span>, <span class="kw">_</span>) <span class="op">=</span>
-            <span class="ident">new_connection_with_socket</span>::<span class="op">&lt;</span><span class="ident">SmolSocket</span><span class="op">&gt;</span>().<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>;
-        <span class="ident">async_spawn</span>(<span class="ident">connection</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">links</span> <span class="op">=</span> <span class="ident">handle</span>.<span class="ident">link</span>().<span class="ident">get</span>().<span class="ident">match_name</span>(<span class="ident">veth</span>.<span class="ident">to_string</span>()).<span class="ident">execute</span>();
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">link</span>) <span class="op">=</span> <span class="ident">links</span>.<span class="ident">try_next</span>().<span class="kw">await</span>.<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span> {
-            <span class="ident">handle</span>
-                .<span class="ident">qdisc</span>()
-                .<span class="ident">add</span>(<span class="ident">link</span>.<span class="ident">header</span>.<span class="ident">index</span> <span class="kw">as</span> <span class="ident">i32</span>)
-                .<span class="ident">netem</span>(<span class="self">self</span>.<span class="ident">netem_config</span>.<span class="ident">clone</span>())
-                .<span class="ident">context</span>(<span class="ident">DecodeSnafu</span>)<span class="question-mark">?</span>
-                .<span class="ident">execute</span>()
-                .<span class="kw">await</span>
-                .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>
-        } <span class="kw">else</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">LossyNetworkError::InvalidConfig</span>);
+    <span class="doccomment">/// Internal invocation to netlink library
+    /// to create the qdisc
+    </span><span class="kw">async fn </span>create_qdisc_netlink(<span class="kw-2">&amp;</span><span class="self">self</span>, veth: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(), LossyNetworkError&gt; {
+        <span class="kw">let </span>(connection, handle, <span class="kw">_</span>) =
+            new_connection_with_socket::&lt;SmolSocket&gt;().context(IoSnafu)<span class="question-mark">?</span>;
+        async_spawn(connection);
+        <span class="kw">let </span><span class="kw-2">mut </span>links = handle.link().get().match_name(veth.to_string()).execute();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(link) = links.try_next().<span class="kw">await</span>.context(RtNetlinkSnafu)<span class="question-mark">? </span>{
+            handle
+                .qdisc()
+                .add(link.header.index <span class="kw">as </span>i32)
+                .netem(<span class="self">self</span>.netem_config.clone())
+                .context(DecodeSnafu)<span class="question-mark">?
+                </span>.execute()
+                .<span class="kw">await
+                </span>.context(RtNetlinkSnafu)<span class="question-mark">?
+        </span>} <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(LossyNetworkError::InvalidConfig);
         }
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="doccomment">/// Hardcoded default values for current AWS setup</span>
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">IsolationConfig</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> {
-            <span class="ident">counter_ns</span>: <span class="string">&quot;COUNTER_NS&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">bridge_addr</span>: <span class="string">&quot;172.13.0.1&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">bridge_name</span>: <span class="string">&quot;br0&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">veth_name</span>: <span class="string">&quot;veth1&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">veth2_name</span>: <span class="string">&quot;veth2&quot;</span>.<span class="ident">to_string</span>(),
-            <span class="ident">veth2_addr</span>: <span class="string">&quot;172.13.0.2&quot;</span>.<span class="ident">to_string</span>(),
+<span class="doccomment">/// Hardcoded default values for current AWS setup
+</span><span class="kw">impl </span>Default <span class="kw">for </span>IsolationConfig {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            counter_ns: <span class="string">&quot;COUNTER_NS&quot;</span>.to_string(),
+            bridge_addr: <span class="string">&quot;172.13.0.1&quot;</span>.to_string(),
+            bridge_name: <span class="string">&quot;br0&quot;</span>.to_string(),
+            veth_name: <span class="string">&quot;veth1&quot;</span>.to_string(),
+            veth2_name: <span class="string">&quot;veth2&quot;</span>.to_string(),
+            veth2_addr: <span class="string">&quot;172.13.0.2&quot;</span>.to_string(),
         }
     }
 }
 
-<span class="doccomment">/// A description of how the network should be isolated</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">derive_builder::Builder</span>, <span class="ident">custom_debug::Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">builder</span>(<span class="ident">default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">IsolationConfig</span> {
-    <span class="doccomment">/// the network namespace name to create</span>
-    <span class="ident">counter_ns</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// the bridge ip address</span>
-    <span class="ident">bridge_addr</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// the bridge name</span>
-    <span class="ident">bridge_name</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// the virtual ethernet interface name</span>
-    <span class="doccomment">/// that lives in the default/root network namespace</span>
-    <span class="ident">veth_name</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// the virtual ethernet interface name</span>
-    <span class="doccomment">/// that lives in `counter_ns`</span>
-    <span class="ident">veth2_name</span>: <span class="ident">String</span>,
-    <span class="doccomment">/// the virtual ethernet interface ip address</span>
-    <span class="doccomment">/// that lives in `counter_ns`</span>
-    <span class="ident">veth2_addr</span>: <span class="ident">String</span>,
+<span class="doccomment">/// A description of how the network should be isolated
+</span><span class="attribute">#[derive(Clone, derive_builder::Builder, custom_debug::Debug)]
+#[builder(default)]
+</span><span class="kw">pub struct </span>IsolationConfig {
+    <span class="doccomment">/// the network namespace name to create
+    </span>counter_ns: String,
+    <span class="doccomment">/// the bridge ip address
+    </span>bridge_addr: String,
+    <span class="doccomment">/// the bridge name
+    </span>bridge_name: String,
+    <span class="doccomment">/// the virtual ethernet interface name
+    /// that lives in the default/root network namespace
+    </span>veth_name: String,
+    <span class="doccomment">/// the virtual ethernet interface name
+    /// that lives in `counter_ns`
+    </span>veth2_name: String,
+    <span class="doccomment">/// the virtual ethernet interface ip address
+    /// that lives in `counter_ns`
+    </span>veth2_addr: String,
 }
 
-<span class="kw">impl</span> <span class="ident">IsolationConfig</span> {
-    <span class="doccomment">/// Prepares server for latency by:</span>
-    <span class="doccomment">/// - creating a separate network namespace denoted `counter_ns`</span>
-    <span class="doccomment">/// - creating a virtual ethernet device (veth2) in this namespace</span>
-    <span class="doccomment">/// - bridging the virtual ethernet device within COUNTER_NS to the default/root network namespace</span>
-    <span class="doccomment">/// - adding firewall rules to allow traffic to flow between the network bridge and outside world</span>
-    <span class="doccomment">/// - execute the demo inside network namespace</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">isolate_netlink</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">eth_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">LossyNetworkError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">connection</span>, <span class="ident">handle</span>, <span class="kw">_</span>) <span class="op">=</span>
-            <span class="ident">new_connection_with_socket</span>::<span class="op">&lt;</span><span class="ident">SmolSocket</span><span class="op">&gt;</span>().<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>;
-        <span class="ident">async_spawn</span>(<span class="ident">connection</span>);
+<span class="kw">impl </span>IsolationConfig {
+    <span class="doccomment">/// Prepares server for latency by:
+    /// - creating a separate network namespace denoted `counter_ns`
+    /// - creating a virtual ethernet device (veth2) in this namespace
+    /// - bridging the virtual ethernet device within COUNTER_NS to the default/root network namespace
+    /// - adding firewall rules to allow traffic to flow between the network bridge and outside world
+    /// - execute the demo inside network namespace
+    </span><span class="kw">async fn </span>isolate_netlink(<span class="kw-2">&amp;</span><span class="self">self</span>, eth_name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(), LossyNetworkError&gt; {
+        <span class="kw">let </span>(connection, handle, <span class="kw">_</span>) =
+            new_connection_with_socket::&lt;SmolSocket&gt;().context(IoSnafu)<span class="question-mark">?</span>;
+        async_spawn(connection);
 
-        <span class="comment">// create new netns</span>
-        <span class="kw">let</span> <span class="ident">counter_ns_name</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">counter_ns</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">counter_ns</span> <span class="op">=</span> <span class="ident">Netns::new</span>(<span class="kw-2">&amp;</span><span class="ident">counter_ns_name</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="comment">// create new netns
+        </span><span class="kw">let </span>counter_ns_name = <span class="self">self</span>.counter_ns.clone();
+        <span class="kw">let </span>counter_ns = Netns::new(<span class="kw-2">&amp;</span>counter_ns_name).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="comment">// create veth interfaces</span>
-        <span class="kw">let</span> <span class="ident">veth</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">veth_name</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">veth_2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">veth2_name</span>.<span class="ident">clone</span>();
+        <span class="comment">// create veth interfaces
+        </span><span class="kw">let </span>veth = <span class="self">self</span>.veth_name.clone();
+        <span class="kw">let </span>veth_2 = <span class="self">self</span>.veth2_name.clone();
 
-        <span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">add</span>()
-            .<span class="ident">veth</span>(<span class="ident">veth</span>.<span class="ident">clone</span>(), <span class="ident">veth_2</span>.<span class="ident">clone</span>())
-            .<span class="ident">execute</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">veth_idx</span> <span class="op">=</span> <span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">get</span>()
-            .<span class="ident">match_name</span>(<span class="ident">veth</span>.<span class="ident">clone</span>())
-            .<span class="ident">execute</span>()
-            .<span class="ident">try_next</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>
-            .<span class="ident">ok_or</span>(<span class="ident">LossyNetworkError::InvalidConfig</span>)<span class="question-mark">?</span>
-            .<span class="ident">header</span>
-            .<span class="ident">index</span>;
-        <span class="kw">let</span> <span class="ident">veth_2_idx</span> <span class="op">=</span> <span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">get</span>()
-            .<span class="ident">match_name</span>(<span class="ident">veth_2</span>.<span class="ident">clone</span>())
-            .<span class="ident">execute</span>()
-            .<span class="ident">try_next</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>
-            .<span class="ident">ok_or</span>(<span class="ident">LossyNetworkError::InvalidConfig</span>)<span class="question-mark">?</span>
-            .<span class="ident">header</span>
-            .<span class="ident">index</span>;
+        handle
+            .link()
+            .add()
+            .veth(veth.clone(), veth_2.clone())
+            .execute()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>veth_idx = handle
+            .link()
+            .get()
+            .match_name(veth.clone())
+            .execute()
+            .try_next()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?
+            </span>.ok_or(LossyNetworkError::InvalidConfig)<span class="question-mark">?
+            </span>.header
+            .index;
+        <span class="kw">let </span>veth_2_idx = handle
+            .link()
+            .get()
+            .match_name(veth_2.clone())
+            .execute()
+            .try_next()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?
+            </span>.ok_or(LossyNetworkError::InvalidConfig)<span class="question-mark">?
+            </span>.header
+            .index;
 
-        <span class="comment">// set interfaces up</span>
-        <span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">set</span>(<span class="ident">veth_idx</span>)
-            .<span class="ident">up</span>()
-            .<span class="ident">execute</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
-        <span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">set</span>(<span class="ident">veth_2_idx</span>)
-            .<span class="ident">up</span>()
-            .<span class="ident">execute</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
+        <span class="comment">// set interfaces up
+        </span>handle
+            .link()
+            .set(veth_idx)
+            .up()
+            .execute()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>;
+        handle
+            .link()
+            .set(veth_2_idx)
+            .up()
+            .execute()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>;
 
-        <span class="comment">// move veth_2 to counter_ns</span>
-        <span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">set</span>(<span class="ident">veth_2_idx</span>)
-            .<span class="ident">setns_by_fd</span>(<span class="ident">counter_ns</span>.<span class="ident">cur</span>.<span class="ident">as_raw_fd</span>())
-            .<span class="ident">execute</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
+        <span class="comment">// move veth_2 to counter_ns
+        </span>handle
+            .link()
+            .set(veth_2_idx)
+            .setns_by_fd(counter_ns.cur.as_raw_fd())
+            .execute()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">bridge_name</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">bridge_name</span>.<span class="ident">clone</span>();
+        <span class="kw">let </span>bridge_name = <span class="self">self</span>.bridge_name.clone();
 
-        <span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">add</span>()
-            .<span class="ident">bridge</span>(<span class="ident">bridge_name</span>.<span class="ident">clone</span>())
-            .<span class="ident">execute</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">bridge_idx</span> <span class="op">=</span> <span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">get</span>()
-            .<span class="ident">match_name</span>(<span class="ident">bridge_name</span>.<span class="ident">clone</span>())
-            .<span class="ident">execute</span>()
-            .<span class="ident">try_next</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>
-            .<span class="ident">ok_or</span>(<span class="ident">LossyNetworkError::InvalidConfig</span>)<span class="question-mark">?</span>
-            .<span class="ident">header</span>
-            .<span class="ident">index</span>;
+        handle
+            .link()
+            .add()
+            .bridge(bridge_name.clone())
+            .execute()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>bridge_idx = handle
+            .link()
+            .get()
+            .match_name(bridge_name.clone())
+            .execute()
+            .try_next()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?
+            </span>.ok_or(LossyNetworkError::InvalidConfig)<span class="question-mark">?
+            </span>.header
+            .index;
 
-        <span class="comment">// set bridge up</span>
-        <span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">set</span>(<span class="ident">bridge_idx</span>)
-            .<span class="ident">up</span>()
-            .<span class="ident">execute</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
+        <span class="comment">// set bridge up
+        </span>handle
+            .link()
+            .set(bridge_idx)
+            .up()
+            .execute()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>;
 
-        <span class="comment">// set veth master to bridge</span>
-        <span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">set</span>(<span class="ident">veth_idx</span>)
-            .<span class="ident">master</span>(<span class="ident">bridge_idx</span>)
-            .<span class="ident">execute</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
+        <span class="comment">// set veth master to bridge
+        </span>handle
+            .link()
+            .set(veth_idx)
+            .master(bridge_idx)
+            .execute()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>;
 
-        <span class="comment">// add ip address to bridge</span>
-        <span class="kw">let</span> <span class="ident">bridge_addr</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">bridge_addr</span>
-            .<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">Ipv4Addr</span><span class="op">&gt;</span>()
-            .<span class="ident">context</span>(<span class="ident">AddrParseSnafu</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">bridge_range</span> <span class="op">=</span> <span class="number">16</span>;
-        <span class="ident">AddressHandle::new</span>(<span class="ident">handle</span>)
-            .<span class="ident">add</span>(<span class="ident">bridge_idx</span>, <span class="ident">std::net::IpAddr::V4</span>(<span class="ident">bridge_addr</span>), <span class="ident">bridge_range</span>)
-            .<span class="ident">execute</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
+        <span class="comment">// add ip address to bridge
+        </span><span class="kw">let </span>bridge_addr = <span class="self">self
+            </span>.bridge_addr
+            .parse::&lt;Ipv4Addr&gt;()
+            .context(AddrParseSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>bridge_range = <span class="number">16</span>;
+        AddressHandle::new(handle)
+            .add(bridge_idx, std::net::IpAddr::V4(bridge_addr), bridge_range)
+            .execute()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>;
 
-        <span class="comment">// switch to counter_ns</span>
-        <span class="ident">setns</span>(<span class="ident">counter_ns</span>.<span class="ident">cur</span>.<span class="ident">as_raw_fd</span>(), <span class="ident">CloneFlags::CLONE_NEWNET</span>).<span class="ident">context</span>(<span class="ident">SetNsSnafu</span>)<span class="question-mark">?</span>;
+        <span class="comment">// switch to counter_ns
+        </span>setns(counter_ns.cur.as_raw_fd(), CloneFlags::CLONE_NEWNET).context(SetNsSnafu)<span class="question-mark">?</span>;
 
-        <span class="comment">// get connection metadata in new net namespace</span>
-        <span class="kw">let</span> (<span class="ident">connection</span>, <span class="ident">handle</span>, <span class="kw">_</span>) <span class="op">=</span>
-            <span class="ident">new_connection_with_socket</span>::<span class="op">&lt;</span><span class="ident">SmolSocket</span><span class="op">&gt;</span>().<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>;
-        <span class="ident">async_spawn</span>(<span class="ident">connection</span>);
+        <span class="comment">// get connection metadata in new net namespace
+        </span><span class="kw">let </span>(connection, handle, <span class="kw">_</span>) =
+            new_connection_with_socket::&lt;SmolSocket&gt;().context(IoSnafu)<span class="question-mark">?</span>;
+        async_spawn(connection);
 
-        <span class="comment">// set lo interface to up</span>
-        <span class="kw">let</span> <span class="ident">lo_idx</span> <span class="op">=</span> <span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">get</span>()
-            .<span class="ident">match_name</span>(<span class="string">&quot;lo&quot;</span>.<span class="ident">to_string</span>())
-            .<span class="ident">execute</span>()
-            .<span class="ident">try_next</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>
-            .<span class="ident">ok_or</span>(<span class="ident">LossyNetworkError::InvalidConfig</span>)<span class="question-mark">?</span>
-            .<span class="ident">header</span>
-            .<span class="ident">index</span>;
-        <span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">set</span>(<span class="ident">lo_idx</span>)
-            .<span class="ident">up</span>()
-            .<span class="ident">execute</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
+        <span class="comment">// set lo interface to up
+        </span><span class="kw">let </span>lo_idx = handle
+            .link()
+            .get()
+            .match_name(<span class="string">&quot;lo&quot;</span>.to_string())
+            .execute()
+            .try_next()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?
+            </span>.ok_or(LossyNetworkError::InvalidConfig)<span class="question-mark">?
+            </span>.header
+            .index;
+        handle
+            .link()
+            .set(lo_idx)
+            .up()
+            .execute()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>;
 
-        <span class="comment">// set veth2 to up</span>
-        <span class="kw">let</span> <span class="ident">veth_2_idx</span> <span class="op">=</span> <span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">get</span>()
-            .<span class="ident">match_name</span>(<span class="ident">veth_2</span>)
-            .<span class="ident">execute</span>()
-            .<span class="ident">try_next</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>
-            .<span class="ident">ok_or</span>(<span class="ident">LossyNetworkError::InvalidConfig</span>)<span class="question-mark">?</span>
-            .<span class="ident">header</span>
-            .<span class="ident">index</span>;
-        <span class="ident">handle</span>
-            .<span class="ident">link</span>()
-            .<span class="ident">set</span>(<span class="ident">veth_2_idx</span>)
-            .<span class="ident">up</span>()
-            .<span class="ident">execute</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
+        <span class="comment">// set veth2 to up
+        </span><span class="kw">let </span>veth_2_idx = handle
+            .link()
+            .get()
+            .match_name(veth_2)
+            .execute()
+            .try_next()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?
+            </span>.ok_or(LossyNetworkError::InvalidConfig)<span class="question-mark">?
+            </span>.header
+            .index;
+        handle
+            .link()
+            .set(veth_2_idx)
+            .up()
+            .execute()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>;
 
-        <span class="comment">// set veth2 address</span>
-        <span class="kw">let</span> <span class="ident">veth_2_addr</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">veth2_addr</span>
-            .<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">std::net::IpAddr</span><span class="op">&gt;</span>()
-            .<span class="ident">context</span>(<span class="ident">AddrParseSnafu</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">veth_2_range</span> <span class="op">=</span> <span class="number">16</span>;
-        <span class="ident">AddressHandle::new</span>(<span class="ident">handle</span>.<span class="ident">clone</span>())
-            .<span class="ident">add</span>(<span class="ident">veth_2_idx</span>, <span class="ident">veth_2_addr</span>, <span class="ident">veth_2_range</span>)
-            .<span class="ident">execute</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
+        <span class="comment">// set veth2 address
+        </span><span class="kw">let </span>veth_2_addr = <span class="self">self
+            </span>.veth2_addr
+            .parse::&lt;std::net::IpAddr&gt;()
+            .context(AddrParseSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>veth_2_range = <span class="number">16</span>;
+        AddressHandle::new(handle.clone())
+            .add(veth_2_idx, veth_2_addr, veth_2_range)
+            .execute()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>;
 
-        <span class="comment">// add route</span>
-        <span class="kw">let</span> <span class="ident">route</span> <span class="op">=</span> <span class="ident">RouteHandle::new</span>(<span class="ident">handle</span>).<span class="ident">add</span>();
-        <span class="ident">route</span>
-            .<span class="ident">v4</span>()
-            .<span class="ident">gateway</span>(<span class="ident">bridge_addr</span>)
-            .<span class="ident">execute</span>()
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">enable_firewall</span>(<span class="ident">eth_name</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="comment">// add route
+        </span><span class="kw">let </span>route = RouteHandle::new(handle).add();
+        route
+            .v4()
+            .gateway(bridge_addr)
+            .execute()
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>;
+        <span class="self">self</span>.enable_firewall(eth_name).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Enables firewall rules to allow network bridge to function properly (e.g. no packets</span>
-    <span class="doccomment">/// dropped). Assumes firewall is via iptables</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">enable_firewall</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">eth_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">LossyNetworkError</span><span class="op">&gt;</span> {
-        <span class="comment">// accept traffic on bridge</span>
-        <span class="comment">// iptables -A FORWARD -o ens5 -i br0 -j ACCEPT</span>
-        <span class="macro">info!</span>(
+    <span class="doccomment">/// Enables firewall rules to allow network bridge to function properly (e.g. no packets
+    /// dropped). Assumes firewall is via iptables
+    </span><span class="kw">async fn </span>enable_firewall(<span class="kw-2">&amp;</span><span class="self">self</span>, eth_name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(), LossyNetworkError&gt; {
+        <span class="comment">// accept traffic on bridge
+        // iptables -A FORWARD -o ens5 -i br0 -j ACCEPT
+        </span><span class="macro">info!</span>(
             <span class="string">&quot;{:?}&quot;</span>,
-            <span class="ident">Command::new</span>(<span class="string">&quot;iptables&quot;</span>)
-                .<span class="ident">args</span>([<span class="string">&quot;-A&quot;</span>, <span class="string">&quot;FORWARD&quot;</span>, <span class="string">&quot;-o&quot;</span>, <span class="ident">eth_name</span>, <span class="string">&quot;-i&quot;</span>, <span class="string">&quot;br0&quot;</span>, <span class="string">&quot;-j&quot;</span>, <span class="string">&quot;ACCEPT&quot;</span>])
-                .<span class="ident">output</span>()
-                .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
-                .<span class="ident">status</span>
+            Command::new(<span class="string">&quot;iptables&quot;</span>)
+                .args([<span class="string">&quot;-A&quot;</span>, <span class="string">&quot;FORWARD&quot;</span>, <span class="string">&quot;-o&quot;</span>, eth_name, <span class="string">&quot;-i&quot;</span>, <span class="string">&quot;br0&quot;</span>, <span class="string">&quot;-j&quot;</span>, <span class="string">&quot;ACCEPT&quot;</span>])
+                .output()
+                .context(IoSnafu)<span class="question-mark">?
+                </span>.status
         );
-        <span class="comment">// iptables -A FORWARD -i ens5 -o br0 -j ACCEPT</span>
-        <span class="macro">info!</span>(
+        <span class="comment">// iptables -A FORWARD -i ens5 -o br0 -j ACCEPT
+        </span><span class="macro">info!</span>(
             <span class="string">&quot;{:?}&quot;</span>,
-            <span class="ident">Command::new</span>(<span class="string">&quot;iptables&quot;</span>)
-                .<span class="ident">args</span>([<span class="string">&quot;-A&quot;</span>, <span class="string">&quot;FORWARD&quot;</span>, <span class="string">&quot;-i&quot;</span>, <span class="ident">eth_name</span>, <span class="string">&quot;-o&quot;</span>, <span class="string">&quot;br0&quot;</span>, <span class="string">&quot;-j&quot;</span>, <span class="string">&quot;ACCEPT&quot;</span>])
-                .<span class="ident">output</span>()
-                .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
-                .<span class="ident">status</span>
+            Command::new(<span class="string">&quot;iptables&quot;</span>)
+                .args([<span class="string">&quot;-A&quot;</span>, <span class="string">&quot;FORWARD&quot;</span>, <span class="string">&quot;-i&quot;</span>, eth_name, <span class="string">&quot;-o&quot;</span>, <span class="string">&quot;br0&quot;</span>, <span class="string">&quot;-j&quot;</span>, <span class="string">&quot;ACCEPT&quot;</span>])
+                .output()
+                .context(IoSnafu)<span class="question-mark">?
+                </span>.status
         );
-        <span class="comment">// NAT</span>
-        <span class="comment">// iptables -t nat -A POSTROUTING -s 172.20.0.1 -o ens5 -j MASQUERADE</span>
-        <span class="macro">info!</span>(
+        <span class="comment">// NAT
+        // iptables -t nat -A POSTROUTING -s 172.20.0.1 -o ens5 -j MASQUERADE
+        </span><span class="macro">info!</span>(
             <span class="string">&quot;{:?}&quot;</span>,
-            <span class="ident">Command::new</span>(<span class="string">&quot;iptables&quot;</span>)
-                .<span class="ident">args</span>([
+            Command::new(<span class="string">&quot;iptables&quot;</span>)
+                .args([
                     <span class="string">&quot;-t&quot;</span>,
                     <span class="string">&quot;nat&quot;</span>,
                     <span class="string">&quot;-A&quot;</span>,
                     <span class="string">&quot;POSTROUTING&quot;</span>,
                     <span class="string">&quot;-s&quot;</span>,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">bridge_addr</span>,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.bridge_addr,
                     <span class="string">&quot;-o&quot;</span>,
                     <span class="string">&quot;ens5&quot;</span>,
                     <span class="string">&quot;-j&quot;</span>,
-                    <span class="string">&quot;MASQUERADE&quot;</span>
-                ])
-                .<span class="ident">output</span>()
-                .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
-                .<span class="ident">status</span>
+                    <span class="string">&quot;MASQUERADE&quot;
+                </span>])
+                .output()
+                .context(IoSnafu)<span class="question-mark">?
+                </span>.status
         );
-        <span class="comment">// iptables -t nat -A POSTROUTING -o br0 -j MASQUERADE</span>
-        <span class="macro">info!</span>(
+        <span class="comment">// iptables -t nat -A POSTROUTING -o br0 -j MASQUERADE
+        </span><span class="macro">info!</span>(
             <span class="string">&quot;{:?}&quot;</span>,
-            <span class="ident">Command::new</span>(<span class="string">&quot;iptables&quot;</span>)
-                .<span class="ident">args</span>([
+            Command::new(<span class="string">&quot;iptables&quot;</span>)
+                .args([
                     <span class="string">&quot;-t&quot;</span>,
                     <span class="string">&quot;nat&quot;</span>,
                     <span class="string">&quot;-A&quot;</span>,
                     <span class="string">&quot;POSTROUTING&quot;</span>,
                     <span class="string">&quot;-o&quot;</span>,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">bridge_name</span>,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.bridge_name,
                     <span class="string">&quot;-j&quot;</span>,
-                    <span class="string">&quot;MASQUERADE&quot;</span>
-                ])
-                .<span class="ident">output</span>()
-                .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
-                .<span class="ident">status</span>
+                    <span class="string">&quot;MASQUERADE&quot;
+                </span>])
+                .output()
+                .context(IoSnafu)<span class="question-mark">?
+                </span>.status
         );
-        <span class="comment">// iptables -t nat -A POSTROUTING -s 172.20.0.0/16 -j MASQUERADE</span>
-        <span class="macro">info!</span>(
+        <span class="comment">// iptables -t nat -A POSTROUTING -s 172.20.0.0/16 -j MASQUERADE
+        </span><span class="macro">info!</span>(
             <span class="string">&quot;{:?}&quot;</span>,
-            <span class="ident">Command::new</span>(<span class="string">&quot;iptables&quot;</span>)
-                .<span class="ident">args</span>([
+            Command::new(<span class="string">&quot;iptables&quot;</span>)
+                .args([
                     <span class="string">&quot;-t&quot;</span>,
                     <span class="string">&quot;nat&quot;</span>,
                     <span class="string">&quot;-A&quot;</span>,
                     <span class="string">&quot;POSTROUTING&quot;</span>,
                     <span class="string">&quot;-s&quot;</span>,
-                    <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/16&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">bridge_addr</span>),
+                    <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/16&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.bridge_addr),
                     <span class="string">&quot;-j&quot;</span>,
-                    <span class="string">&quot;MASQUERADE&quot;</span>
-                ])
-                .<span class="ident">output</span>()
-                .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
-                .<span class="ident">status</span>
+                    <span class="string">&quot;MASQUERADE&quot;
+                </span>])
+                .output()
+                .context(IoSnafu)<span class="question-mark">?
+                </span>.status
         );
 
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// tears down all created interfaces</span>
-    <span class="doccomment">/// deletes all iptables rules</span>
-    <span class="doccomment">/// deletes namespace</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">undo_isolate_netlink</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">eth_name</span>: <span class="ident">String</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">LossyNetworkError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">root_ns_fd</span> <span class="op">=</span> <span class="ident">File::open</span>(<span class="string">&quot;/proc/1/ns/net&quot;</span>).<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>.<span class="ident">into_raw_fd</span>();
-        <span class="ident">setns</span>(<span class="ident">root_ns_fd</span>, <span class="ident">CloneFlags::CLONE_NEWNET</span>).<span class="ident">context</span>(<span class="ident">SetNsSnafu</span>)<span class="question-mark">?</span>;
-        <span class="ident">NetworkNamespace::del</span>(<span class="self">self</span>.<span class="ident">counter_ns</span>.<span class="ident">to_string</span>())
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">RtNetlinkSnafu</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> (<span class="ident">connection</span>, <span class="ident">handle</span>, <span class="kw">_</span>) <span class="op">=</span>
-            <span class="ident">new_connection_with_socket</span>::<span class="op">&lt;</span><span class="ident">SmolSocket</span><span class="op">&gt;</span>().<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>;
-        <span class="ident">async_spawn</span>(<span class="ident">connection</span>);
-        <span class="ident">del_link</span>(<span class="ident">handle</span>, <span class="self">self</span>.<span class="ident">bridge_name</span>.<span class="ident">clone</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="comment">// delete creates iptables rules</span>
-        <span class="self">self</span>.<span class="ident">undo_firewall</span>(<span class="ident">eth_name</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="doccomment">/// tears down all created interfaces
+    /// deletes all iptables rules
+    /// deletes namespace
+    </span><span class="kw">async fn </span>undo_isolate_netlink(<span class="kw-2">&amp;</span><span class="self">self</span>, eth_name: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), LossyNetworkError&gt; {
+        <span class="kw">let </span>root_ns_fd = File::open(<span class="string">&quot;/proc/1/ns/net&quot;</span>).context(IoSnafu)<span class="question-mark">?</span>.into_raw_fd();
+        setns(root_ns_fd, CloneFlags::CLONE_NEWNET).context(SetNsSnafu)<span class="question-mark">?</span>;
+        NetworkNamespace::del(<span class="self">self</span>.counter_ns.to_string())
+            .<span class="kw">await
+            </span>.context(RtNetlinkSnafu)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(connection, handle, <span class="kw">_</span>) =
+            new_connection_with_socket::&lt;SmolSocket&gt;().context(IoSnafu)<span class="question-mark">?</span>;
+        async_spawn(connection);
+        del_link(handle, <span class="self">self</span>.bridge_name.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="comment">// delete creates iptables rules
+        </span><span class="self">self</span>.undo_firewall(eth_name).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// deletes created iptables rules</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">undo_firewall</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">eth_name</span>: <span class="ident">String</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">LossyNetworkError</span><span class="op">&gt;</span> {
-        <span class="comment">// iptables -D FORWARD -o ens5 -i br0 -j ACCEPT</span>
-        <span class="macro">info!</span>(
+    <span class="doccomment">/// deletes created iptables rules
+    </span><span class="kw">async fn </span>undo_firewall(<span class="kw-2">&amp;</span><span class="self">self</span>, eth_name: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), LossyNetworkError&gt; {
+        <span class="comment">// iptables -D FORWARD -o ens5 -i br0 -j ACCEPT
+        </span><span class="macro">info!</span>(
             <span class="string">&quot;{:?}&quot;</span>,
-            <span class="ident">Command::new</span>(<span class="string">&quot;iptables&quot;</span>)
-                .<span class="ident">args</span>([<span class="string">&quot;-D&quot;</span>, <span class="string">&quot;FORWARD&quot;</span>, <span class="string">&quot;-o&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">eth_name</span>, <span class="string">&quot;-i&quot;</span>, <span class="string">&quot;br0&quot;</span>, <span class="string">&quot;-j&quot;</span>, <span class="string">&quot;ACCEPT&quot;</span>])
-                .<span class="ident">output</span>()
-                .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
-                .<span class="ident">status</span>
+            Command::new(<span class="string">&quot;iptables&quot;</span>)
+                .args([<span class="string">&quot;-D&quot;</span>, <span class="string">&quot;FORWARD&quot;</span>, <span class="string">&quot;-o&quot;</span>, <span class="kw-2">&amp;</span>eth_name, <span class="string">&quot;-i&quot;</span>, <span class="string">&quot;br0&quot;</span>, <span class="string">&quot;-j&quot;</span>, <span class="string">&quot;ACCEPT&quot;</span>])
+                .output()
+                .context(IoSnafu)<span class="question-mark">?
+                </span>.status
         );
-        <span class="comment">// iptables -D FORWARD -i ens5 -o br0 -j ACCEPT</span>
-        <span class="macro">info!</span>(
+        <span class="comment">// iptables -D FORWARD -i ens5 -o br0 -j ACCEPT
+        </span><span class="macro">info!</span>(
             <span class="string">&quot;{:?}&quot;</span>,
-            <span class="ident">Command::new</span>(<span class="string">&quot;iptables&quot;</span>)
-                .<span class="ident">args</span>([<span class="string">&quot;-D&quot;</span>, <span class="string">&quot;FORWARD&quot;</span>, <span class="string">&quot;-i&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">eth_name</span>, <span class="string">&quot;-o&quot;</span>, <span class="string">&quot;br0&quot;</span>, <span class="string">&quot;-j&quot;</span>, <span class="string">&quot;ACCEPT&quot;</span>])
-                .<span class="ident">output</span>()
-                .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
-                .<span class="ident">status</span>
+            Command::new(<span class="string">&quot;iptables&quot;</span>)
+                .args([<span class="string">&quot;-D&quot;</span>, <span class="string">&quot;FORWARD&quot;</span>, <span class="string">&quot;-i&quot;</span>, <span class="kw-2">&amp;</span>eth_name, <span class="string">&quot;-o&quot;</span>, <span class="string">&quot;br0&quot;</span>, <span class="string">&quot;-j&quot;</span>, <span class="string">&quot;ACCEPT&quot;</span>])
+                .output()
+                .context(IoSnafu)<span class="question-mark">?
+                </span>.status
         );
-        <span class="comment">// iptables -t nat -D POSTROUTING -s $bridge_addr -o ens5 -j MASQUERADE</span>
-        <span class="macro">info!</span>(
+        <span class="comment">// iptables -t nat -D POSTROUTING -s $bridge_addr -o ens5 -j MASQUERADE
+        </span><span class="macro">info!</span>(
             <span class="string">&quot;{:?}&quot;</span>,
-            <span class="ident">Command::new</span>(<span class="string">&quot;iptables&quot;</span>)
-                .<span class="ident">args</span>([
+            Command::new(<span class="string">&quot;iptables&quot;</span>)
+                .args([
                     <span class="string">&quot;-t&quot;</span>,
                     <span class="string">&quot;nat&quot;</span>,
                     <span class="string">&quot;-D&quot;</span>,
                     <span class="string">&quot;POSTROUTING&quot;</span>,
                     <span class="string">&quot;-s&quot;</span>,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">bridge_addr</span>,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.bridge_addr,
                     <span class="string">&quot;-o&quot;</span>,
                     <span class="string">&quot;ens5&quot;</span>,
                     <span class="string">&quot;-j&quot;</span>,
-                    <span class="string">&quot;MASQUERADE&quot;</span>
-                ])
-                .<span class="ident">output</span>()
-                .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
-                .<span class="ident">status</span>
+                    <span class="string">&quot;MASQUERADE&quot;
+                </span>])
+                .output()
+                .context(IoSnafu)<span class="question-mark">?
+                </span>.status
         );
-        <span class="comment">// iptables -t nat -D POSTROUTING -o br0 -j MASQUERADE</span>
-        <span class="macro">info!</span>(
+        <span class="comment">// iptables -t nat -D POSTROUTING -o br0 -j MASQUERADE
+        </span><span class="macro">info!</span>(
             <span class="string">&quot;{:?}&quot;</span>,
-            <span class="ident">Command::new</span>(<span class="string">&quot;iptables&quot;</span>)
-                .<span class="ident">args</span>([
+            Command::new(<span class="string">&quot;iptables&quot;</span>)
+                .args([
                     <span class="string">&quot;-t&quot;</span>,
                     <span class="string">&quot;nat&quot;</span>,
                     <span class="string">&quot;-D&quot;</span>,
                     <span class="string">&quot;POSTROUTING&quot;</span>,
                     <span class="string">&quot;-o&quot;</span>,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">bridge_name</span>,
+                    <span class="kw-2">&amp;</span><span class="self">self</span>.bridge_name,
                     <span class="string">&quot;-j&quot;</span>,
-                    <span class="string">&quot;MASQUERADE&quot;</span>
-                ])
-                .<span class="ident">output</span>()
-                .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
-                .<span class="ident">status</span>
+                    <span class="string">&quot;MASQUERADE&quot;
+                </span>])
+                .output()
+                .context(IoSnafu)<span class="question-mark">?
+                </span>.status
         );
-        <span class="comment">// iptables -t nat -D POSTROUTING -s $bridge_addr/16 -j MASQUERADE</span>
-        <span class="macro">info!</span>(
+        <span class="comment">// iptables -t nat -D POSTROUTING -s $bridge_addr/16 -j MASQUERADE
+        </span><span class="macro">info!</span>(
             <span class="string">&quot;{:?}&quot;</span>,
-            <span class="ident">Command::new</span>(<span class="string">&quot;iptables&quot;</span>)
-                .<span class="ident">args</span>([
+            Command::new(<span class="string">&quot;iptables&quot;</span>)
+                .args([
                     <span class="string">&quot;-t&quot;</span>,
                     <span class="string">&quot;nat&quot;</span>,
                     <span class="string">&quot;-D&quot;</span>,
                     <span class="string">&quot;POSTROUTING&quot;</span>,
                     <span class="string">&quot;-s&quot;</span>,
-                    <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/16&quot;</span>, <span class="self">self</span>.<span class="ident">bridge_addr</span>),
+                    <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/16&quot;</span>, <span class="self">self</span>.bridge_addr),
                     <span class="string">&quot;-j&quot;</span>,
-                    <span class="string">&quot;MASQUERADE&quot;</span>
-                ])
-                .<span class="ident">output</span>()
-                .<span class="ident">context</span>(<span class="ident">IoSnafu</span>)<span class="question-mark">?</span>
-                .<span class="ident">status</span>
+                    <span class="string">&quot;MASQUERADE&quot;
+                </span>])
+                .output()
+                .context(IoSnafu)<span class="question-mark">?
+                </span>.status
         );
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Snafu</span>)]</span>
-<span class="attribute">#[<span class="ident">snafu</span>(<span class="ident">visibility</span>(<span class="kw">pub</span>))]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">LossyNetworkError</span> {
-    <span class="ident">RtNetlink</span> { <span class="ident">source</span>: <span class="ident">rtnetlink::Error</span> },
-    <span class="ident">Io</span> { <span class="ident">source</span>: <span class="ident">std::io::Error</span> },
-    <span class="ident">SetNs</span> { <span class="ident">source</span>: <span class="ident">Errno</span> },
-    <span class="ident">InvalidConfig</span>,
-    <span class="ident">Decode</span> { <span class="ident">source</span>: <span class="ident">DecodeError</span> },
-    <span class="ident">AddrParse</span> { <span class="ident">source</span>: <span class="ident">AddrParseError</span> },
+<span class="attribute">#[derive(Debug, Snafu)]
+#[snafu(visibility(<span class="kw">pub</span>))]
+</span><span class="kw">pub enum </span>LossyNetworkError {
+    RtNetlink { source: rtnetlink::Error },
+    Io { source: std::io::Error },
+    SetNs { source: Errno },
+    InvalidConfig,
+    Decode { source: DecodeError },
+    AddrParse { source: AddrParseError },
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="counter" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="counter" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

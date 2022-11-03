@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../hotshot/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../hotshot/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../hotshot/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -904,378 +904,378 @@
 <span id="904">904</span>
 <span id="905">905</span>
 <span id="906">906</span>
-</pre><pre class="rust"><code><span class="attribute">#![<span class="ident">warn</span>(
-    <span class="ident">clippy::all</span>,
-    <span class="ident">clippy::pedantic</span>,
-    <span class="ident">rust_2018_idioms</span>,
-    <span class="ident">missing_docs</span>,
-    <span class="ident">clippy::missing_docs_in_private_items</span>,
-    <span class="ident">clippy::panic</span>
-)]</span>
-<span class="attribute">#![<span class="ident">allow</span>(
-    <span class="ident">clippy::option_if_let_else</span>,
-    <span class="ident">clippy::must_use_candidate</span>,
-    <span class="ident">clippy::module_name_repetitions</span>,
-    <span class="ident">clippy::similar_names</span>,
-    <span class="ident">clippy::unused_self</span>,
-    <span class="ident">clippy::unused_async</span>, <span class="comment">// For API reasons</span>
-)]</span>
-<span class="comment">// Temporary</span>
-<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy::cast_possible_truncation</span>)]</span>
-<span class="comment">// Temporary, should be disabled after the completion of the NodeImplementation refactor</span>
-<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
-<span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol</span>
-<span class="doccomment">//!</span>
-<span class="doccomment">//! See the [protocol documentation](https://github.com/EspressoSystems/hotshot-spec) for a protocol description.</span>
+</pre><pre class="rust"><code><span class="attribute">#![warn(
+    clippy::all,
+    clippy::pedantic,
+    rust_2018_idioms,
+    missing_docs,
+    clippy::missing_docs_in_private_items,
+    clippy::panic
+)]
+#![allow(
+    clippy::option_if_let_else,
+    clippy::must_use_candidate,
+    clippy::module_name_repetitions,
+    clippy::similar_names,
+    clippy::unused_self,
+    clippy::unused_async, <span class="comment">// For API reasons
+</span>)]
+</span><span class="comment">// Temporary
+</span><span class="attribute">#![allow(clippy::cast_possible_truncation)]
+</span><span class="comment">// Temporary, should be disabled after the completion of the NodeImplementation refactor
+</span><span class="attribute">#![allow(clippy::type_complexity)]
+</span><span class="doccomment">//! Provides a generic rust implementation of the `HotShot` BFT protocol
+//!
+//! See the [protocol documentation](https://github.com/EspressoSystems/hotshot-spec) for a protocol description.
 
-<span class="comment">// Documentation module</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;docs&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">documentation</span>;
+</span><span class="comment">// Documentation module
+</span><span class="attribute">#[cfg(feature = <span class="string">&quot;docs&quot;</span>)]
+</span><span class="kw">pub mod </span>documentation;
 
-<span class="doccomment">/// Contains structures and functions for committee election</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">data</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;demo&quot;</span>))]</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">demos</span>;
-<span class="doccomment">/// Contains traits consumed by [`HotShot`]</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">traits</span>;
-<span class="doccomment">/// Contains types used by the crate</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span>;
+<span class="doccomment">/// Contains structures and functions for committee election
+</span><span class="kw">pub mod </span>data;
+<span class="attribute">#[cfg(any(feature = <span class="string">&quot;demo&quot;</span>))]
+</span><span class="kw">pub mod </span>demos;
+<span class="doccomment">/// Contains traits consumed by [`HotShot`]
+</span><span class="kw">pub mod </span>traits;
+<span class="doccomment">/// Contains types used by the crate
+</span><span class="kw">pub mod </span>types;
 
-<span class="kw">mod</span> <span class="ident">tasks</span>;
+<span class="kw">mod </span>tasks;
 
-<span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">data</span>::{<span class="ident">Leaf</span>, <span class="ident">QuorumCertificate</span>},
-    <span class="ident">traits</span>::{<span class="ident">Block</span>, <span class="ident">NetworkingImplementation</span>, <span class="ident">NodeImplementation</span>, <span class="ident">Storage</span>},
-    <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">HotShotHandle</span>},
+<span class="kw">use crate</span>::{
+    data::{Leaf, QuorumCertificate},
+    traits::{Block, NetworkingImplementation, NodeImplementation, Storage},
+    types::{Event, HotShotHandle},
 };
-<span class="kw">use</span> <span class="ident">async_lock</span>::{<span class="ident">Mutex</span>, <span class="ident">RwLock</span>, <span class="ident">RwLockUpgradableReadGuard</span>, <span class="ident">RwLockWriteGuard</span>};
-<span class="kw">use</span> <span class="ident">async_trait::async_trait</span>;
-<span class="kw">use</span> <span class="ident">bincode::Options</span>;
-<span class="kw">use</span> <span class="ident">commit</span>::{<span class="ident">Commitment</span>, <span class="ident">Committable</span>};
-<span class="kw">use</span> <span class="ident">hotshot_consensus</span>::{
-    <span class="ident">Consensus</span>, <span class="ident">ConsensusApi</span>, <span class="ident">SendToTasks</span>, <span class="ident">TransactionHashMap</span>, <span class="ident">TransactionStorage</span>, <span class="ident">View</span>, <span class="ident">ViewInner</span>,
-    <span class="ident">ViewQueue</span>,
+<span class="kw">use </span>async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
+<span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>bincode::Options;
+<span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>hotshot_consensus::{
+    Consensus, ConsensusApi, SendToTasks, TransactionHashMap, TransactionStorage, View, ViewInner,
+    ViewQueue,
 };
-<span class="kw">use</span> <span class="ident">hotshot_types::traits::election::VoteToken</span>;
-<span class="kw">use</span> <span class="ident">hotshot_types</span>::{
-    <span class="ident">constants::genesis_proposer_id</span>,
-    <span class="ident">data</span>::{<span class="ident">fake_commitment</span>, <span class="ident">ViewNumber</span>},
-    <span class="ident">error::StorageSnafu</span>,
-    <span class="ident">message</span>::{<span class="ident">ConsensusMessage</span>, <span class="ident">DataMessage</span>, <span class="ident">Message</span>},
-    <span class="ident">traits</span>::{
-        <span class="ident">election</span>::{
-            <span class="ident">Checked</span>::{<span class="self">self</span>, <span class="ident">Inval</span>, <span class="ident">Unchecked</span>, <span class="ident">Valid</span>},
-            <span class="ident">Election</span>, <span class="ident">ElectionError</span>,
+<span class="kw">use </span>hotshot_types::traits::election::VoteToken;
+<span class="kw">use </span>hotshot_types::{
+    constants::genesis_proposer_id,
+    data::{fake_commitment, ViewNumber},
+    error::StorageSnafu,
+    message::{ConsensusMessage, DataMessage, Message},
+    traits::{
+        election::{
+            Checked::{<span class="self">self</span>, Inval, Unchecked, Valid},
+            Election, ElectionError,
         },
-        <span class="ident">network</span>::{<span class="ident">NetworkChange</span>, <span class="ident">NetworkError</span>},
-        <span class="ident">node_implementation::TypeMap</span>,
-        <span class="ident">signature_key</span>::{<span class="ident">EncodedPublicKey</span>, <span class="ident">EncodedSignature</span>, <span class="ident">SignatureKey</span>},
-        <span class="ident">storage</span>::{<span class="ident">StoredView</span>, <span class="ident">ViewEntry</span>},
-        <span class="ident">State</span>,
+        network::{NetworkChange, NetworkError},
+        node_implementation::TypeMap,
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        storage::{StoredView, ViewEntry},
+        State,
     },
-    <span class="ident">HotShotConfig</span>,
+    HotShotConfig,
 };
-<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{<span class="ident">art::async_spawn</span>, <span class="ident">bincode::bincode_opts</span>, <span class="ident">broadcast::BroadcastSender</span>};
-<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
-    <span class="ident">art::async_spawn_local</span>,
-    <span class="ident">channel</span>::{<span class="ident">unbounded</span>, <span class="ident">UnboundedReceiver</span>, <span class="ident">UnboundedSender</span>},
+<span class="kw">use </span>hotshot_utils::{art::async_spawn, bincode::bincode_opts, broadcast::BroadcastSender};
+<span class="kw">use </span>hotshot_utils::{
+    art::async_spawn_local,
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
-<span class="kw">use</span> <span class="ident">snafu::ResultExt</span>;
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">collections</span>::{<span class="ident">BTreeMap</span>, <span class="ident">HashMap</span>},
-    <span class="ident">num</span>::{<span class="ident">NonZeroU64</span>, <span class="ident">NonZeroUsize</span>},
-    <span class="ident">sync</span>::{<span class="ident">atomic::Ordering</span>, <span class="ident">Arc</span>},
-    <span class="ident">time::Duration</span>,
+<span class="kw">use </span>snafu::ResultExt;
+<span class="kw">use </span>std::{
+    collections::{BTreeMap, HashMap},
+    num::{NonZeroU64, NonZeroUsize},
+    sync::{atomic::Ordering, Arc},
+    time::Duration,
 };
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">info</span>, <span class="ident">instrument</span>, <span class="ident">trace</span>, <span class="ident">warn</span>};
+<span class="kw">use </span>tracing::{debug, error, info, instrument, trace, warn};
 
-<span class="comment">// -- Rexports</span>
-<span class="comment">// External</span>
-<span class="doccomment">/// Reexport rand crate</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">rand</span>;
-<span class="comment">// Internal</span>
-<span class="doccomment">/// Reexport error type</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">hotshot_types::error::HotShotError</span>;
+<span class="comment">// -- Rexports
+// External
+</span><span class="doccomment">/// Reexport rand crate
+</span><span class="kw">pub use </span>rand;
+<span class="comment">// Internal
+</span><span class="doccomment">/// Reexport error type
+</span><span class="kw">pub use </span>hotshot_types::error::HotShotError;
 
-<span class="doccomment">/// Length, in bytes, of a 512 bit hash</span>
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">H_512</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">64</span>;
-<span class="doccomment">/// Length, in bytes, of a 256 bit hash</span>
-<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">H_256</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">32</span>;
+<span class="doccomment">/// Length, in bytes, of a 512 bit hash
+</span><span class="kw">pub const </span>H_512: usize = <span class="number">64</span>;
+<span class="doccomment">/// Length, in bytes, of a 256 bit hash
+</span><span class="kw">pub const </span>H_256: usize = <span class="number">32</span>;
 
-<span class="doccomment">/// Convenience type alias</span>
-<span class="kw">type</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">HotShotError</span><span class="op">&gt;</span>;
-<span class="doccomment">/// Holds the state needed to participate in `HotShot` consensus</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HotShotInner</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// The public key of this node</span>
-    <span class="ident">public_key</span>: <span class="ident">I::SignatureKey</span>,
+<span class="doccomment">/// Convenience type alias
+</span><span class="kw">type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, HotShotError&gt;;
+<span class="doccomment">/// Holds the state needed to participate in `HotShot` consensus
+</span><span class="kw">pub struct </span>HotShotInner&lt;I: NodeImplementation&gt; {
+    <span class="doccomment">/// The public key of this node
+    </span>public_key: I::SignatureKey,
 
-    <span class="doccomment">/// The private key of this node</span>
-    <span class="ident">private_key</span>: <span class="op">&lt;</span><span class="ident">I::SignatureKey</span> <span class="kw">as</span> <span class="ident">SignatureKey</span><span class="op">&gt;</span><span class="ident">::PrivateKey</span>,
+    <span class="doccomment">/// The private key of this node
+    </span>private_key: &lt;I::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
 
-    <span class="doccomment">/// Configuration items for this hotshot instance</span>
-    <span class="ident">config</span>: <span class="ident">HotShotConfig</span><span class="op">&lt;</span>
-        <span class="ident">I::SignatureKey</span>,
-        <span class="op">&lt;</span><span class="ident">I::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="ident">ViewNumber</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ElectionConfigType</span>,
-    <span class="op">&gt;</span>,
+    <span class="doccomment">/// Configuration items for this hotshot instance
+    </span>config: HotShotConfig&lt;
+        I::SignatureKey,
+        &lt;I::Election <span class="kw">as </span>Election&lt;I::SignatureKey, ViewNumber&gt;&gt;::ElectionConfigType,
+    &gt;,
 
-    <span class="doccomment">/// Networking interface for this hotshot instance</span>
-    <span class="ident">networking</span>: <span class="ident">I::Networking</span>,
+    <span class="doccomment">/// Networking interface for this hotshot instance
+    </span>networking: I::Networking,
 
-    <span class="doccomment">/// This `HotShot` instance&#39;s storage backend</span>
-    <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
+    <span class="doccomment">/// This `HotShot` instance&#39;s storage backend
+    </span>storage: I::Storage,
 
-    <span class="doccomment">/// This `HotShot` instance&#39;s election backend</span>
-    <span class="ident">election</span>: <span class="ident">I::Election</span>,
+    <span class="doccomment">/// This `HotShot` instance&#39;s election backend
+    </span>election: I::Election,
 
-    <span class="doccomment">/// Sender for [`Event`]s</span>
-    <span class="ident">event_sender</span>: <span class="ident">RwLock</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BroadcastSender</span><span class="op">&lt;</span><span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Sender for [`Event`]s
+    </span>event_sender: RwLock&lt;<span class="prelude-ty">Option</span>&lt;BroadcastSender&lt;Event&lt;I::StateType&gt;&gt;&gt;&gt;,
 
-    <span class="doccomment">/// Senders to the background tasks.</span>
-    <span class="ident">background_task_handle</span>: <span class="ident">tasks::TaskHandle</span>,
+    <span class="doccomment">/// Senders to the background tasks.
+    </span>background_task_handle: tasks::TaskHandle,
 }
 
-<span class="doccomment">/// Thread safe, shared view of a `HotShot`</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HotShot</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Handle to internal hotshot implementation</span>
-    <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">HotShotInner</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="doccomment">/// Thread safe, shared view of a `HotShot`
+</span><span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>HotShot&lt;I: NodeImplementation + Send + Sync + <span class="lifetime">&#39;static</span>&gt; {
+    <span class="doccomment">/// Handle to internal hotshot implementation
+    </span>inner: Arc&lt;HotShotInner&lt;I&gt;&gt;,
 
-    <span class="doccomment">/// Transactions</span>
-    <span class="doccomment">/// (this is shared btwn hotshot and `Consensus`)</span>
-    <span class="ident">transactions</span>: <span class="ident">TransactionStorage</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// Transactions
+    /// (this is shared btwn hotshot and `Consensus`)
+    </span>transactions: TransactionStorage&lt;I&gt;,
 
-    <span class="doccomment">/// The hotstuff implementation</span>
-    <span class="ident">hotstuff</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">Consensus</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// The hotstuff implementation
+    </span>hotstuff: Arc&lt;RwLock&lt;Consensus&lt;I&gt;&gt;&gt;,
 
-    <span class="doccomment">/// for sending/recv-ing things with the replica task</span>
-    <span class="ident">replica_channel_map</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">SendToTasks</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// for sending/recv-ing things with the replica task
+    </span>replica_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;I&gt;&gt;&gt;,
 
-    <span class="doccomment">/// for sending/recv-ing things with the next leader task</span>
-    <span class="ident">next_leader_channel_map</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">SendToTasks</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// for sending/recv-ing things with the next leader task
+    </span>next_leader_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;I&gt;&gt;&gt;,
 
-    <span class="doccomment">/// for sending messages to network lookup task</span>
-    <span class="ident">send_network_lookup</span>: <span class="ident">UnboundedSender</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ViewNumber</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// for sending messages to network lookup task
+    </span>send_network_lookup: UnboundedSender&lt;<span class="prelude-ty">Option</span>&lt;ViewNumber&gt;&gt;,
 
-    <span class="doccomment">/// for receiving messages in the network lookup task</span>
-    <span class="ident">recv_network_lookup</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">UnboundedReceiver</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ViewNumber</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// for receiving messages in the network lookup task
+    </span>recv_network_lookup: Arc&lt;Mutex&lt;UnboundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;ViewNumber&gt;&gt;&gt;&gt;,
 
-    <span class="doccomment">/// uid for instrumentation</span>
-    <span class="ident">id</span>: <span class="ident">u64</span>,
+    <span class="doccomment">/// uid for instrumentation
+    </span>id: u64,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> <span class="ident">HotShot</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Creates a new hotshot with the given configuration options and sets it up with the given</span>
-    <span class="doccomment">/// genesis block</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="ident">private_key</span>, <span class="ident">networking</span>, <span class="ident">storage</span>, <span class="ident">election</span>, <span class="ident">initializer</span>))]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">new</span>(
-        <span class="ident">public_key</span>: <span class="ident">I::SignatureKey</span>,
-        <span class="ident">private_key</span>: <span class="op">&lt;</span><span class="ident">I::SignatureKey</span> <span class="kw">as</span> <span class="ident">SignatureKey</span><span class="op">&gt;</span><span class="ident">::PrivateKey</span>,
-        <span class="ident">nonce</span>: <span class="ident">u64</span>,
-        <span class="ident">config</span>: <span class="ident">HotShotConfig</span><span class="op">&lt;</span>
-            <span class="ident">I::SignatureKey</span>,
-            <span class="op">&lt;</span><span class="ident">I::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="ident">ViewNumber</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ElectionConfigType</span>,
-        <span class="op">&gt;</span>,
-        <span class="ident">networking</span>: <span class="ident">I::Networking</span>,
-        <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
-        <span class="ident">election</span>: <span class="ident">I::Election</span>,
-        <span class="ident">initializer</span>: <span class="ident">HotShotInitializer</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+<span class="kw">impl</span>&lt;I: NodeImplementation + Sync + Send + <span class="lifetime">&#39;static</span>&gt; HotShot&lt;I&gt; {
+    <span class="doccomment">/// Creates a new hotshot with the given configuration options and sets it up with the given
+    /// genesis block
+    </span><span class="attribute">#[allow(clippy::too_many_arguments)]
+    #[instrument(skip(private_key, networking, storage, election, initializer))]
+    </span><span class="kw">pub async fn </span>new(
+        public_key: I::SignatureKey,
+        private_key: &lt;I::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+        nonce: u64,
+        config: HotShotConfig&lt;
+            I::SignatureKey,
+            &lt;I::Election <span class="kw">as </span>Election&lt;I::SignatureKey, ViewNumber&gt;&gt;::ElectionConfigType,
+        &gt;,
+        networking: I::Networking,
+        storage: I::Storage,
+        election: I::Election,
+        initializer: HotShotInitializer&lt;I::StateType&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="macro">info!</span>(<span class="string">&quot;Creating a new hotshot&quot;</span>);
-        <span class="kw">let</span> <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">HotShotInner</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">HotShotInner</span> {
-            <span class="ident">public_key</span>,
-            <span class="ident">private_key</span>,
-            <span class="ident">config</span>,
-            <span class="ident">networking</span>,
-            <span class="ident">storage</span>,
-            <span class="ident">election</span>,
-            <span class="ident">event_sender</span>: <span class="ident">RwLock::default</span>(),
-            <span class="ident">background_task_handle</span>: <span class="ident">tasks::TaskHandle::default</span>(),
+        <span class="kw">let </span>inner: Arc&lt;HotShotInner&lt;I&gt;&gt; = Arc::new(HotShotInner {
+            public_key,
+            private_key,
+            config,
+            networking,
+            storage,
+            election,
+            event_sender: RwLock::default(),
+            background_task_handle: tasks::TaskHandle::default(),
         });
 
-        <span class="kw">let</span> <span class="ident">anchored_leaf</span> <span class="op">=</span> <span class="ident">initializer</span>.<span class="ident">inner</span>;
+        <span class="kw">let </span>anchored_leaf = initializer.inner;
 
-        <span class="comment">// insert to storage</span>
-        <span class="ident">inner</span>
-            .<span class="ident">storage</span>
-            .<span class="ident">append</span>(<span class="macro">vec!</span>[<span class="ident">ViewEntry::Success</span>(<span class="ident">anchored_leaf</span>.<span class="ident">clone</span>().<span class="ident">into</span>())])
-            .<span class="kw">await</span>
-            .<span class="ident">context</span>(<span class="ident">StorageSnafu</span>)<span class="question-mark">?</span>;
+        <span class="comment">// insert to storage
+        </span>inner
+            .storage
+            .append(<span class="macro">vec!</span>[ViewEntry::Success(anchored_leaf.clone().into())])
+            .<span class="kw">await
+            </span>.context(StorageSnafu)<span class="question-mark">?</span>;
 
-        <span class="comment">// insert genesis (or latest block) to state map</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state_map</span> <span class="op">=</span> <span class="ident">BTreeMap::default</span>();
-        <span class="ident">state_map</span>.<span class="ident">insert</span>(
-            <span class="ident">anchored_leaf</span>.<span class="ident">view_number</span>,
-            <span class="ident">View</span> {
-                <span class="ident">view_inner</span>: <span class="ident">ViewInner::Leaf</span> {
-                    <span class="ident">leaf</span>: <span class="ident">anchored_leaf</span>.<span class="ident">commit</span>(),
+        <span class="comment">// insert genesis (or latest block) to state map
+        </span><span class="kw">let </span><span class="kw-2">mut </span>state_map = BTreeMap::default();
+        state_map.insert(
+            anchored_leaf.view_number,
+            View {
+                view_inner: ViewInner::Leaf {
+                    leaf: anchored_leaf.commit(),
                 },
             },
         );
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">saved_leaves</span> <span class="op">=</span> <span class="ident">HashMap::new</span>();
-        <span class="ident">saved_leaves</span>.<span class="ident">insert</span>(<span class="ident">anchored_leaf</span>.<span class="ident">commit</span>(), <span class="ident">anchored_leaf</span>.<span class="ident">clone</span>());
+        <span class="kw">let </span><span class="kw-2">mut </span>saved_leaves = HashMap::new();
+        saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
 
-        <span class="kw">let</span> <span class="ident">start_view</span> <span class="op">=</span> <span class="ident">anchored_leaf</span>.<span class="ident">view_number</span>;
+        <span class="kw">let </span>start_view = anchored_leaf.view_number;
 
-        <span class="kw">let</span> <span class="ident">hotstuff</span> <span class="op">=</span> <span class="ident">Consensus</span> {
-            <span class="ident">state_map</span>,
-            <span class="ident">cur_view</span>: <span class="ident">start_view</span>,
-            <span class="ident">last_decided_view</span>: <span class="ident">anchored_leaf</span>.<span class="ident">view_number</span>,
-            <span class="ident">transactions</span>: <span class="ident">Arc::default</span>(),
-            <span class="ident">saved_leaves</span>,
-            <span class="comment">// TODO this is incorrect</span>
-            <span class="comment">// https://github.com/EspressoSystems/HotShot/issues/560</span>
-            <span class="ident">locked_view</span>: <span class="ident">anchored_leaf</span>.<span class="ident">view_number</span>,
-            <span class="ident">high_qc</span>: <span class="ident">anchored_leaf</span>.<span class="ident">justify_qc</span>,
+        <span class="kw">let </span>hotstuff = Consensus {
+            state_map,
+            cur_view: start_view,
+            last_decided_view: anchored_leaf.view_number,
+            transactions: Arc::default(),
+            saved_leaves,
+            <span class="comment">// TODO this is incorrect
+            // https://github.com/EspressoSystems/HotShot/issues/560
+            </span>locked_view: anchored_leaf.view_number,
+            high_qc: anchored_leaf.justify_qc,
         };
-        <span class="kw">let</span> <span class="ident">hotstuff</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="ident">hotstuff</span>));
-        <span class="kw">let</span> <span class="ident">txns</span> <span class="op">=</span> <span class="ident">hotstuff</span>.<span class="ident">read</span>().<span class="kw">await</span>.<span class="ident">get_transactions</span>();
+        <span class="kw">let </span>hotstuff = Arc::new(RwLock::new(hotstuff));
+        <span class="kw">let </span>txns = hotstuff.read().<span class="kw">await</span>.get_transactions();
 
-        <span class="kw">let</span> (<span class="ident">send_network_lookup</span>, <span class="ident">recv_network_lookup</span>) <span class="op">=</span> <span class="ident">unbounded</span>();
+        <span class="kw">let </span>(send_network_lookup, recv_network_lookup) = unbounded();
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">id</span>: <span class="ident">nonce</span>,
-            <span class="ident">inner</span>,
-            <span class="ident">transactions</span>: <span class="ident">txns</span>,
-            <span class="ident">hotstuff</span>,
-            <span class="ident">replica_channel_map</span>: <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="ident">SendToTasks::new</span>(<span class="ident">start_view</span>))),
-            <span class="ident">next_leader_channel_map</span>: <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="ident">SendToTasks::new</span>(<span class="ident">start_view</span>))),
-            <span class="ident">send_network_lookup</span>,
-            <span class="ident">recv_network_lookup</span>: <span class="ident">Arc::new</span>(<span class="ident">Mutex::new</span>(<span class="ident">recv_network_lookup</span>)),
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            id: nonce,
+            inner,
+            transactions: txns,
+            hotstuff,
+            replica_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
+            next_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
+            send_network_lookup,
+            recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
         })
     }
 
-    <span class="doccomment">/// Marks a given view number as timed out. This should be called a fixed period after a round is started.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.</span>
-    <span class="doccomment">/// # Panics</span>
-    <span class="doccomment">/// Panics if the current view is not in the channel map</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(
-        <span class="ident">skip_all</span>,
-        <span class="ident">fields</span>(<span class="ident">id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">id</span>, <span class="ident">view</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">current_view</span>),
-        <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;Timeout consensus tasks&quot;</span>,
-        <span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;warn&quot;</span>
-    )]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">timeout_view</span>(
+    <span class="doccomment">/// Marks a given view number as timed out. This should be called a fixed period after a round is started.
+    ///
+    /// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.
+    /// # Panics
+    /// Panics if the current view is not in the channel map
+    </span><span class="attribute">#[instrument(
+        skip_all,
+        fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span>current_view),
+        name = <span class="string">&quot;Timeout consensus tasks&quot;</span>,
+        level = <span class="string">&quot;warn&quot;
+    </span>)]
+    </span><span class="kw">pub async fn </span>timeout_view(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">current_view</span>: <span class="ident">ViewNumber</span>,
-        <span class="ident">send_replica</span>: <span class="ident">UnboundedSender</span><span class="op">&lt;</span><span class="ident">ConsensusMessage</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">send_next_leader</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">UnboundedSender</span><span class="op">&lt;</span><span class="ident">ConsensusMessage</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        current_view: ViewNumber,
+        send_replica: UnboundedSender&lt;ConsensusMessage&lt;I::StateType&gt;&gt;,
+        send_next_leader: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;ConsensusMessage&lt;I::StateType&gt;&gt;&gt;,
     ) {
-        <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="ident">ConsensusMessage</span>::<span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="ident">::NextViewInterrupt</span>(<span class="ident">current_view</span>);
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">chan</span>) <span class="op">=</span> <span class="ident">send_next_leader</span> {
-            <span class="kw">if</span> <span class="ident">chan</span>.<span class="ident">send</span>(<span class="ident">msg</span>.<span class="ident">clone</span>()).<span class="kw">await</span>.<span class="ident">is_err</span>() {
+        <span class="kw">let </span>msg = ConsensusMessage::&lt;I::StateType&gt;::NextViewInterrupt(current_view);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = send_next_leader {
+            <span class="kw">if </span>chan.send(msg.clone()).<span class="kw">await</span>.is_err() {
                 <span class="macro">warn!</span>(<span class="string">&quot;Error timing out next leader task&quot;</span>);
             }
         };
-        <span class="comment">// NOTE this should always exist</span>
-        <span class="kw">if</span> <span class="ident">send_replica</span>.<span class="ident">send</span>(<span class="ident">msg</span>).<span class="kw">await</span>.<span class="ident">is_err</span>() {
+        <span class="comment">// NOTE this should always exist
+        </span><span class="kw">if </span>send_replica.send(msg).<span class="kw">await</span>.is_err() {
             <span class="macro">warn!</span>(<span class="string">&quot;Error timing out replica task&quot;</span>);
         };
     }
 
-    <span class="doccomment">/// Publishes a transaction to the network</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Will generate an error if an underlying network error occurs</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>), <span class="ident">err</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">publish_transaction_async</span>(
+    <span class="doccomment">/// Publishes a transaction to the network
+    ///
+    /// # Errors
+    ///
+    /// Will generate an error if an underlying network error occurs
+    </span><span class="attribute">#[instrument(skip(<span class="self">self</span>), err)]
+    </span><span class="kw">pub async fn </span>publish_transaction_async(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">transaction</span>: <span class="op">&lt;</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::StateType</span> <span class="kw">as</span> <span class="ident">State</span><span class="op">&gt;</span><span class="ident">::BlockType</span> <span class="kw">as</span> <span class="ident">Block</span><span class="op">&gt;</span><span class="ident">::Transaction</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="comment">// Add the transaction to our own queue first</span>
-        <span class="macro">trace!</span>(<span class="string">&quot;Adding transaction to our own queue&quot;</span>);
-        <span class="comment">// Wrap up a message</span>
-        <span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="ident">DataMessage::SubmitTransaction</span>(<span class="ident">transaction</span>);
+        transaction: &lt;&lt;&lt;I <span class="kw">as </span>NodeImplementation&gt;::StateType <span class="kw">as </span>State&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="comment">// Add the transaction to our own queue first
+        </span><span class="macro">trace!</span>(<span class="string">&quot;Adding transaction to our own queue&quot;</span>);
+        <span class="comment">// Wrap up a message
+        </span><span class="kw">let </span>message = DataMessage::SubmitTransaction(transaction);
 
-        <span class="kw">let</span> <span class="ident">api</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">clone</span>();
-        <span class="ident">async_spawn</span>(<span class="kw">async</span> <span class="kw">move</span> {
-            <span class="kw">let</span> <span class="ident">_result</span> <span class="op">=</span> <span class="ident">api</span>.<span class="ident">send_broadcast_message</span>(<span class="ident">message</span>).<span class="kw">await</span>.<span class="ident">is_err</span>();
+        <span class="kw">let </span>api = <span class="self">self</span>.clone();
+        async_spawn(<span class="kw">async move </span>{
+            <span class="kw">let </span>_result = api.send_broadcast_message(message).<span class="kw">await</span>.is_err();
         });
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Returns a copy of the state</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Panics</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Panics if internal state for consensus is inconsistent</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_state</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">I::StateType</span> {
-        <span class="self">self</span>.<span class="ident">hotstuff</span>.<span class="ident">read</span>().<span class="kw">await</span>.<span class="ident">get_decided_leaf</span>().<span class="ident">state</span>
+    <span class="doccomment">/// Returns a copy of the state
+    ///
+    /// # Panics
+    ///
+    /// Panics if internal state for consensus is inconsistent
+    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; I::StateType {
+        <span class="self">self</span>.hotstuff.read().<span class="kw">await</span>.get_decided_leaf().state
     }
 
-    <span class="doccomment">/// Returns a copy of the last decided leaf</span>
-    <span class="doccomment">/// # Panics</span>
-    <span class="doccomment">/// Panics if internal state for consensus is inconsistent</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_decided_leaf</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">hotstuff</span>.<span class="ident">read</span>().<span class="kw">await</span>.<span class="ident">get_decided_leaf</span>()
+    <span class="doccomment">/// Returns a copy of the last decided leaf
+    /// # Panics
+    /// Panics if internal state for consensus is inconsistent
+    </span><span class="kw">pub async fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;I::StateType&gt; {
+        <span class="self">self</span>.hotstuff.read().<span class="kw">await</span>.get_decided_leaf()
     }
 
-    <span class="doccomment">/// Initializes a new hotshot and does the work of setting up all the background tasks</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Assumes networking implementation is already primed.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Underlying `HotShot` instance starts out paused, and must be unpaused</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel,</span>
-    <span class="doccomment">/// the `HotShot` instance will log the error and shut down.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Will return an error when the storage failed to insert the first `QuorumCertificate`</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_lines</span>, <span class="ident">clippy::too_many_arguments</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">init</span>(
-        <span class="ident">public_key</span>: <span class="ident">I::SignatureKey</span>,
-        <span class="ident">private_key</span>: <span class="op">&lt;</span><span class="ident">I::SignatureKey</span> <span class="kw">as</span> <span class="ident">SignatureKey</span><span class="op">&gt;</span><span class="ident">::PrivateKey</span>,
-        <span class="ident">node_id</span>: <span class="ident">u64</span>,
-        <span class="ident">config</span>: <span class="ident">HotShotConfig</span><span class="op">&lt;</span>
-            <span class="ident">I::SignatureKey</span>,
-            <span class="op">&lt;</span><span class="ident">I::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span>, <span class="ident">ViewNumber</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::ElectionConfigType</span>,
-        <span class="op">&gt;</span>,
-        <span class="ident">networking</span>: <span class="ident">I::Networking</span>,
-        <span class="ident">storage</span>: <span class="ident">I::Storage</span>,
-        <span class="ident">election</span>: <span class="ident">I::Election</span>,
-        <span class="ident">initializer</span>: <span class="ident">HotShotInitializer</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">HotShotHandle</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="comment">// Save a clone of the storage for the handle</span>
-        <span class="kw">let</span> <span class="ident">hotshot</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::new</span>(
-            <span class="ident">public_key</span>,
-            <span class="ident">private_key</span>,
-            <span class="ident">node_id</span>,
-            <span class="ident">config</span>,
-            <span class="ident">networking</span>,
-            <span class="ident">storage</span>,
-            <span class="ident">election</span>,
-            <span class="ident">initializer</span>,
+    <span class="doccomment">/// Initializes a new hotshot and does the work of setting up all the background tasks
+    ///
+    /// Assumes networking implementation is already primed.
+    ///
+    /// Underlying `HotShot` instance starts out paused, and must be unpaused
+    ///
+    /// Upon encountering an unrecoverable error, such as a failure to send to a broadcast channel,
+    /// the `HotShot` instance will log the error and shut down.
+    ///
+    /// # Errors
+    ///
+    /// Will return an error when the storage failed to insert the first `QuorumCertificate`
+    </span><span class="attribute">#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+    </span><span class="kw">pub async fn </span>init(
+        public_key: I::SignatureKey,
+        private_key: &lt;I::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+        node_id: u64,
+        config: HotShotConfig&lt;
+            I::SignatureKey,
+            &lt;I::Election <span class="kw">as </span>Election&lt;I::SignatureKey, ViewNumber&gt;&gt;::ElectionConfigType,
+        &gt;,
+        networking: I::Networking,
+        storage: I::Storage,
+        election: I::Election,
+        initializer: HotShotInitializer&lt;I::StateType&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;HotShotHandle&lt;I&gt;&gt; {
+        <span class="comment">// Save a clone of the storage for the handle
+        </span><span class="kw">let </span>hotshot = <span class="self">Self</span>::new(
+            public_key,
+            private_key,
+            node_id,
+            config,
+            networking,
+            storage,
+            election,
+            initializer,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">tasks::spawn_all</span>(<span class="kw-2">&amp;</span><span class="ident">hotshot</span>).<span class="kw">await</span>;
+        <span class="kw">let </span>handle = tasks::spawn_all(<span class="kw-2">&amp;</span>hotshot).<span class="kw">await</span>;
 
-        <span class="prelude-val">Ok</span>(<span class="ident">handle</span>)
+        <span class="prelude-val">Ok</span>(handle)
     }
 
-    <span class="doccomment">/// Send a broadcast message.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is an alias for `hotshot.inner.networking.broadcast_message(msg.into())`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Will return any errors that the underlying `broadcast_message` can return.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_broadcast_message</span>(
+    <span class="doccomment">/// Send a broadcast message.
+    ///
+    /// This is an alias for `hotshot.inner.networking.broadcast_message(msg.into())`.
+    ///
+    /// # Errors
+    ///
+    /// Will return any errors that the underlying `broadcast_message` can return.
+    </span><span class="kw">pub async fn </span>send_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">kind</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&gt;</span><span class="ident">::MessageKind</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">pk</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">clone</span>();
-        <span class="kw">let</span> <span class="ident">kind</span> <span class="op">=</span> <span class="ident">kind</span>.<span class="ident">into</span>();
-        <span class="ident">async_spawn_local</span>(<span class="kw">async</span> <span class="kw">move</span> {
-            <span class="kw">if</span> <span class="ident">inner</span>
-                .<span class="ident">networking</span>
-                .<span class="ident">broadcast_message</span>(<span class="ident">Message</span> { <span class="ident">sender</span>: <span class="ident">pk</span>, <span class="ident">kind</span> })
-                .<span class="kw">await</span>
-                .<span class="ident">is_err</span>()
+        kind: <span class="kw">impl </span>Into&lt;&lt;I <span class="kw">as </span>TypeMap&gt;::MessageKind&gt;,
+    ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
+        <span class="kw">let </span>pk = <span class="self">self</span>.inner.public_key.clone();
+        <span class="kw">let </span>kind = kind.into();
+        async_spawn_local(<span class="kw">async move </span>{
+            <span class="kw">if </span>inner
+                .networking
+                .broadcast_message(Message { sender: pk, kind })
+                .<span class="kw">await
+                </span>.is_err()
             {
                 <span class="macro">warn!</span>(<span class="string">&quot;Failed to broadcast message&quot;</span>);
             };
@@ -1283,532 +1283,532 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Send a direct message to a given recipient.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This is an alias for `hotshot.inner.networking.message_node(msg.into(), recipient)`.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Will return any errors that the underlying `message_node` can return.</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_direct_message</span>(
+    <span class="doccomment">/// Send a direct message to a given recipient.
+    ///
+    /// This is an alias for `hotshot.inner.networking.message_node(msg.into(), recipient)`.
+    ///
+    /// # Errors
+    ///
+    /// Will return any errors that the underlying `message_node` can return.
+    </span><span class="kw">pub async fn </span>send_direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">kind</span>: <span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&gt;</span><span class="ident">::MessageKind</span><span class="op">&gt;</span>,
-        <span class="ident">recipient</span>: <span class="ident">I::SignatureKey</span>,
-    ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>
-            .<span class="ident">networking</span>
-            .<span class="ident">message_node</span>(
-                <span class="ident">Message</span> {
-                    <span class="ident">sender</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">clone</span>(),
-                    <span class="ident">kind</span>: <span class="ident">kind</span>.<span class="ident">into</span>(),
+        kind: <span class="kw">impl </span>Into&lt;&lt;I <span class="kw">as </span>TypeMap&gt;::MessageKind&gt;,
+        recipient: I::SignatureKey,
+    ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
+        <span class="self">self</span>.inner
+            .networking
+            .message_node(
+                Message {
+                    sender: <span class="self">self</span>.inner.public_key.clone(),
+                    kind: kind.into(),
                 },
-                <span class="ident">recipient</span>,
+                recipient,
             )
-            .<span class="kw">await</span>
-    }
+            .<span class="kw">await
+    </span>}
 
-    <span class="doccomment">/// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(
-        <span class="ident">skip</span>(<span class="self">self</span>),
-        <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;Handle broadcast consensus message&quot;</span>,
-        <span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;error&quot;</span>
-    )]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_broadcast_consensus_message</span>(
+    <span class="doccomment">/// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.
+    </span><span class="attribute">#[instrument(
+        skip(<span class="self">self</span>),
+        name = <span class="string">&quot;Handle broadcast consensus message&quot;</span>,
+        level = <span class="string">&quot;error&quot;
+    </span>)]
+    </span><span class="kw">async fn </span>handle_broadcast_consensus_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&gt;</span><span class="ident">::ConsensusMessage</span>,
-        <span class="ident">sender</span>: <span class="ident">I::SignatureKey</span>,
+        msg: &lt;I <span class="kw">as </span>TypeMap&gt;::ConsensusMessage,
+        sender: I::SignatureKey,
     ) {
-        <span class="comment">// TODO validate incoming data message based on sender signature key</span>
-        <span class="comment">// &lt;github.com/ExpressoSystems/HotShot/issues/418&gt;</span>
-        <span class="kw">let</span> <span class="ident">msg_view_number</span> <span class="op">=</span> <span class="ident">msg</span>.<span class="ident">view_number</span>();
+        <span class="comment">// TODO validate incoming data message based on sender signature key
+        // &lt;github.com/ExpressoSystems/HotShot/issues/418&gt;
+        </span><span class="kw">let </span>msg_view_number = msg.view_number();
 
-        <span class="comment">// Skip messages that are not from the leader</span>
-        <span class="kw">let</span> <span class="ident">api</span> <span class="op">=</span> <span class="ident">HotShotConsensusApi</span> {
-            <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
+        <span class="comment">// Skip messages that are not from the leader
+        </span><span class="kw">let </span>api = HotShotConsensusApi {
+            inner: <span class="self">self</span>.inner.clone(),
         };
-        <span class="kw">if</span> <span class="ident">sender</span> <span class="op">!</span><span class="op">=</span> <span class="ident">api</span>.<span class="ident">get_leader</span>(<span class="ident">msg_view_number</span>).<span class="kw">await</span> {
+        <span class="kw">if </span>sender != api.get_leader(msg_view_number).<span class="kw">await </span>{
             <span class="kw">return</span>;
         }
 
-        <span class="kw">match</span> <span class="ident">msg</span> {
-            <span class="comment">// this is ONLY intended for replica</span>
-            <span class="ident">ConsensusMessage::Proposal</span>(<span class="kw">_</span>) =&gt; {
-                <span class="kw">let</span> <span class="ident">channel_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">replica_channel_map</span>.<span class="ident">upgradable_read</span>().<span class="kw">await</span>;
+        <span class="kw">match </span>msg {
+            <span class="comment">// this is ONLY intended for replica
+            </span>ConsensusMessage::Proposal(<span class="kw">_</span>) =&gt; {
+                <span class="kw">let </span>channel_map = <span class="self">self</span>.replica_channel_map.upgradable_read().<span class="kw">await</span>;
 
-                <span class="comment">// skip if the proposal is stale</span>
-                <span class="kw">if</span> <span class="ident">msg_view_number</span> <span class="op">&lt;</span> <span class="ident">channel_map</span>.<span class="ident">cur_view</span> {
+                <span class="comment">// skip if the proposal is stale
+                </span><span class="kw">if </span>msg_view_number &lt; channel_map.cur_view {
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">let</span> <span class="ident">chan</span> <span class="op">=</span> <span class="ident">create_or_obtain_chan_from_read</span>(<span class="ident">msg_view_number</span>, <span class="ident">channel_map</span>).<span class="kw">await</span>;
+                <span class="kw">let </span>chan = create_or_obtain_chan_from_read(msg_view_number, channel_map).<span class="kw">await</span>;
 
-                <span class="kw">if</span> <span class="op">!</span><span class="ident">chan</span>.<span class="ident">has_received_proposal</span>.<span class="ident">swap</span>(<span class="bool-val">true</span>, <span class="ident">Ordering::Relaxed</span>)
-                    <span class="op">&amp;&amp;</span> <span class="ident">chan</span>.<span class="ident">sender_chan</span>.<span class="ident">send</span>(<span class="ident">msg</span>).<span class="kw">await</span>.<span class="ident">is_err</span>()
+                <span class="kw">if </span>!chan.has_received_proposal.swap(<span class="bool-val">true</span>, Ordering::Relaxed)
+                    &amp;&amp; chan.sender_chan.send(msg).<span class="kw">await</span>.is_err()
                 {
                     <span class="macro">warn!</span>(<span class="string">&quot;Failed to send to next leader!&quot;</span>);
                 }
             }
-            <span class="ident">ConsensusMessage::NextViewInterrupt</span>(<span class="kw">_</span>) =&gt; {
+            ConsensusMessage::NextViewInterrupt(<span class="kw">_</span>) =&gt; {
                 <span class="macro">warn!</span>(<span class="string">&quot;Received a next view interrupt. This shouldn&#39;t be possible.&quot;</span>);
             }
-            <span class="ident">ConsensusMessage::TimedOut</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">ConsensusMessage::Vote</span>(<span class="kw">_</span>) =&gt; {
+            ConsensusMessage::TimedOut(<span class="kw">_</span>) | ConsensusMessage::Vote(<span class="kw">_</span>) =&gt; {
                 <span class="macro">warn!</span>(<span class="string">&quot;Received a broadcast for a vote or nextview message. This shouldn&#39;t be possible.&quot;</span>);
             }
         };
     }
 
-    <span class="doccomment">/// Handle an incoming [`ConsensusMessage`] directed at this node.</span>
-    <span class="attribute">#[<span class="ident">instrument</span>(
-        <span class="ident">skip</span>(<span class="self">self</span>, <span class="ident">_sender</span>),
-        <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;Handle direct consensus message&quot;</span>,
-        <span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;error&quot;</span>
-    )]</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_direct_consensus_message</span>(
+    <span class="doccomment">/// Handle an incoming [`ConsensusMessage`] directed at this node.
+    </span><span class="attribute">#[instrument(
+        skip(<span class="self">self</span>, _sender),
+        name = <span class="string">&quot;Handle direct consensus message&quot;</span>,
+        level = <span class="string">&quot;error&quot;
+    </span>)]
+    </span><span class="kw">async fn </span>handle_direct_consensus_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&gt;</span><span class="ident">::ConsensusMessage</span>,
-        <span class="ident">_sender</span>: <span class="ident">I::SignatureKey</span>,
+        msg: &lt;I <span class="kw">as </span>TypeMap&gt;::ConsensusMessage,
+        _sender: I::SignatureKey,
     ) {
-        <span class="comment">// TODO validate incoming data message based on sender signature key</span>
+        <span class="comment">// TODO validate incoming data message based on sender signature key
 
-        <span class="comment">// We can only recv from a replicas</span>
-        <span class="comment">// replicas should only send votes or if they timed out, timeouts</span>
-        <span class="kw">match</span> <span class="ident">msg</span> {
-            <span class="ident">ConsensusMessage::Proposal</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">ConsensusMessage::NextViewInterrupt</span>(<span class="kw">_</span>) =&gt; {
+        // We can only recv from a replicas
+        // replicas should only send votes or if they timed out, timeouts
+        </span><span class="kw">match </span>msg {
+            ConsensusMessage::Proposal(<span class="kw">_</span>) | ConsensusMessage::NextViewInterrupt(<span class="kw">_</span>) =&gt; {
                 <span class="macro">warn!</span>(<span class="string">&quot;Received a direct message for a proposal. This shouldn&#39;t be possible.&quot;</span>);
             }
-            <span class="comment">// this is ONLY intended for next leader</span>
-            <span class="ident">c</span> @ (<span class="ident">ConsensusMessage::Vote</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">ConsensusMessage::TimedOut</span>(<span class="kw">_</span>)) =&gt; {
-                <span class="kw">let</span> <span class="ident">msg_view_number</span> <span class="op">=</span> <span class="ident">c</span>.<span class="ident">view_number</span>();
+            <span class="comment">// this is ONLY intended for next leader
+            </span>c @ (ConsensusMessage::Vote(<span class="kw">_</span>) | ConsensusMessage::TimedOut(<span class="kw">_</span>)) =&gt; {
+                <span class="kw">let </span>msg_view_number = c.view_number();
 
-                <span class="kw">let</span> <span class="ident">channel_map</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">next_leader_channel_map</span>.<span class="ident">upgradable_read</span>().<span class="kw">await</span>;
+                <span class="kw">let </span>channel_map = <span class="self">self</span>.next_leader_channel_map.upgradable_read().<span class="kw">await</span>;
 
-                <span class="comment">// check if</span>
-                <span class="comment">// - is in fact, actually is the next leader</span>
-                <span class="comment">// - the message is not stale</span>
-                <span class="kw">let</span> <span class="ident">is_leader</span> <span class="op">=</span> <span class="ident">ConsensusApi::is_leader</span>(
-                    <span class="kw-2">&amp;</span><span class="ident">HotShotConsensusApi</span> {
-                        <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
+                <span class="comment">// check if
+                // - is in fact, actually is the next leader
+                // - the message is not stale
+                </span><span class="kw">let </span>is_leader = ConsensusApi::is_leader(
+                    <span class="kw-2">&amp;</span>HotShotConsensusApi {
+                        inner: <span class="self">self</span>.inner.clone(),
                     },
-                    <span class="ident">msg_view_number</span> <span class="op">+</span> <span class="number">1</span>,
+                    msg_view_number + <span class="number">1</span>,
                 )
                 .<span class="kw">await</span>;
-                <span class="kw">if</span> <span class="op">!</span><span class="ident">is_leader</span> <span class="op">|</span><span class="op">|</span> <span class="ident">msg_view_number</span> <span class="op">&lt;</span> <span class="ident">channel_map</span>.<span class="ident">cur_view</span> {
+                <span class="kw">if </span>!is_leader || msg_view_number &lt; channel_map.cur_view {
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">let</span> <span class="ident">chan</span> <span class="op">=</span> <span class="ident">create_or_obtain_chan_from_read</span>(<span class="ident">msg_view_number</span>, <span class="ident">channel_map</span>).<span class="kw">await</span>;
+                <span class="kw">let </span>chan = create_or_obtain_chan_from_read(msg_view_number, channel_map).<span class="kw">await</span>;
 
-                <span class="kw">if</span> <span class="ident">chan</span>.<span class="ident">sender_chan</span>.<span class="ident">send</span>(<span class="ident">c</span>).<span class="kw">await</span>.<span class="ident">is_err</span>() {
+                <span class="kw">if </span>chan.sender_chan.send(c).<span class="kw">await</span>.is_err() {
                     <span class="macro">error!</span>(<span class="string">&quot;Failed to send to next leader!&quot;</span>);
                 }
             }
         }
     }
 
-    <span class="doccomment">/// Handle an incoming [`DataMessage`] that was broadcasted on the network</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_broadcast_data_message</span>(
+    <span class="doccomment">/// Handle an incoming [`DataMessage`] that was broadcasted on the network
+    </span><span class="kw">async fn </span>handle_broadcast_data_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&gt;</span><span class="ident">::DataMessage</span>,
-        <span class="ident">_sender</span>: <span class="ident">I::SignatureKey</span>,
+        msg: &lt;I <span class="kw">as </span>TypeMap&gt;::DataMessage,
+        _sender: I::SignatureKey,
     ) {
-        <span class="comment">// TODO validate incoming broadcast message based on sender signature key</span>
-        <span class="kw">match</span> <span class="ident">msg</span> {
-            <span class="ident">DataMessage::SubmitTransaction</span>(<span class="ident">transaction</span>) =&gt; {
-                <span class="comment">// The API contract requires the hash to be unique</span>
-                <span class="comment">// so we can assume entry == incoming txn</span>
-                <span class="comment">// even if eq not satisfied</span>
-                <span class="comment">// so insert is an idempotent operation</span>
-                <span class="kw">let</span> <span class="ident">add_transaction</span> <span class="op">=</span> <span class="op">|</span><span class="ident">txns</span>: <span class="kw-2">&amp;mut</span> <span class="ident">TransactionHashMap</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span><span class="op">|</span> {
-                    <span class="ident">txns</span>.<span class="ident">insert</span>(<span class="ident">transaction</span>.<span class="ident">commit</span>(), <span class="ident">transaction</span>);
+        <span class="comment">// TODO validate incoming broadcast message based on sender signature key
+        </span><span class="kw">match </span>msg {
+            DataMessage::SubmitTransaction(transaction) =&gt; {
+                <span class="comment">// The API contract requires the hash to be unique
+                // so we can assume entry == incoming txn
+                // even if eq not satisfied
+                // so insert is an idempotent operation
+                </span><span class="kw">let </span>add_transaction = |txns: <span class="kw-2">&amp;mut </span>TransactionHashMap&lt;I&gt;| {
+                    txns.insert(transaction.commit(), transaction);
                 };
-                <span class="self">self</span>.<span class="ident">transactions</span>.<span class="ident">modify</span>(<span class="ident">add_transaction</span>).<span class="kw">await</span>;
+                <span class="self">self</span>.transactions.modify(add_transaction).<span class="kw">await</span>;
             }
-            <span class="ident">DataMessage::NewestQuorumCertificate</span> { .. } =&gt; {
-                <span class="comment">// Log the exceptional situation and proceed</span>
-                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">msg</span>, <span class="string">&quot;Direct message received over broadcast channel&quot;</span>);
+            DataMessage::NewestQuorumCertificate { .. } =&gt; {
+                <span class="comment">// Log the exceptional situation and proceed
+                </span><span class="macro">warn!</span>(<span class="question-mark">?</span>msg, <span class="string">&quot;Direct message received over broadcast channel&quot;</span>);
             }
         }
     }
 
-    <span class="doccomment">/// Handle an incoming [`DataMessage`] that directed at this node</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_direct_data_message</span>(
+    <span class="doccomment">/// Handle an incoming [`DataMessage`] that directed at this node
+    </span><span class="kw">async fn </span>handle_direct_data_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">msg</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&gt;</span><span class="ident">::DataMessage</span>,
-        <span class="ident">_sender</span>: <span class="ident">I::SignatureKey</span>,
+        msg: &lt;I <span class="kw">as </span>TypeMap&gt;::DataMessage,
+        _sender: I::SignatureKey,
     ) {
-        <span class="comment">// TODO validate incoming data message based on sender signature key</span>
-        <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">msg</span>, <span class="string">&quot;Incoming direct data message&quot;</span>);
-        <span class="kw">match</span> <span class="ident">msg</span> {
-            <span class="ident">DataMessage::NewestQuorumCertificate</span> {
-                <span class="ident">quorum_certificate</span>: <span class="ident">qc</span>,
-                <span class="ident">block</span>,
-                <span class="ident">state</span>,
-                <span class="ident">parent_commitment</span>,
-                <span class="ident">rejected</span>,
-                <span class="ident">proposer_id</span>,
+        <span class="comment">// TODO validate incoming data message based on sender signature key
+        </span><span class="macro">debug!</span>(<span class="question-mark">?</span>msg, <span class="string">&quot;Incoming direct data message&quot;</span>);
+        <span class="kw">match </span>msg {
+            DataMessage::NewestQuorumCertificate {
+                quorum_certificate: qc,
+                block,
+                state,
+                parent_commitment,
+                rejected,
+                proposer_id,
             } =&gt; {
-                <span class="comment">// TODO https://github.com/EspressoSystems/HotShot/issues/387</span>
-                <span class="kw">let</span> <span class="ident">anchored</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">get_anchored_view</span>().<span class="kw">await</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                        <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not load QC&quot;</span>);
+                <span class="comment">// TODO https://github.com/EspressoSystems/HotShot/issues/387
+                </span><span class="kw">let </span>anchored = <span class="kw">match </span><span class="self">self</span>.inner.storage.get_anchored_view().<span class="kw">await </span>{
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="macro">error!</span>(<span class="question-mark">?</span>e, <span class="string">&quot;Could not load QC&quot;</span>);
                         <span class="kw">return</span>;
                     }
-                    <span class="prelude-val">Ok</span>(<span class="ident">n</span>) =&gt; <span class="ident">n</span>,
+                    <span class="prelude-val">Ok</span>(n) =&gt; n,
                 };
-                <span class="comment">// TODO: Don&#39;t blindly accept the newest QC but make sure it&#39;s valid with other nodes too</span>
-                <span class="comment">// we should be getting multiple data messages soon</span>
-                <span class="comment">// &lt;https://github.com/EspressoSystems/HotShot/issues/454&gt;</span>
-                <span class="kw">let</span> <span class="ident">should_save</span> <span class="op">=</span> <span class="ident">anchored</span>.<span class="ident">view_number</span> <span class="op">&lt;</span> <span class="ident">qc</span>.<span class="ident">view_number</span>; <span class="comment">// incoming view is newer</span>
-                <span class="kw">if</span> <span class="ident">should_save</span> {
-                    <span class="kw">let</span> <span class="ident">new_view</span> <span class="op">=</span> <span class="ident">StoredView::from_qc_block_and_state</span>(
-                        <span class="ident">qc</span>,
-                        <span class="ident">block</span>,
-                        <span class="ident">state</span>,
-                        <span class="ident">parent_commitment</span>,
-                        <span class="ident">rejected</span>,
-                        <span class="ident">proposer_id</span>,
+                <span class="comment">// TODO: Don&#39;t blindly accept the newest QC but make sure it&#39;s valid with other nodes too
+                // we should be getting multiple data messages soon
+                // &lt;https://github.com/EspressoSystems/HotShot/issues/454&gt;
+                </span><span class="kw">let </span>should_save = anchored.view_number &lt; qc.view_number; <span class="comment">// incoming view is newer
+                </span><span class="kw">if </span>should_save {
+                    <span class="kw">let </span>new_view = StoredView::from_qc_block_and_state(
+                        qc,
+                        block,
+                        state,
+                        parent_commitment,
+                        rejected,
+                        proposer_id,
                     );
 
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">append_single_view</span>(<span class="ident">new_view</span>).<span class="kw">await</span> {
-                        <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not insert incoming QC&quot;</span>);
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.inner.storage.append_single_view(new_view).<span class="kw">await </span>{
+                        <span class="macro">error!</span>(<span class="question-mark">?</span>e, <span class="string">&quot;Could not insert incoming QC&quot;</span>);
                     }
                 }
             }
 
-            <span class="ident">DataMessage::SubmitTransaction</span>(<span class="kw">_</span>) =&gt; {
-                <span class="comment">// Log exceptional situation and proceed</span>
-                <span class="macro">warn!</span>(<span class="question-mark">?</span><span class="ident">msg</span>, <span class="string">&quot;Broadcast message received over direct channel&quot;</span>);
+            DataMessage::SubmitTransaction(<span class="kw">_</span>) =&gt; {
+                <span class="comment">// Log exceptional situation and proceed
+                </span><span class="macro">warn!</span>(<span class="question-mark">?</span>msg, <span class="string">&quot;Broadcast message received over direct channel&quot;</span>);
             }
         }
     }
 
-    <span class="doccomment">/// Handle a change in the network</span>
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">handle_network_change</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">node</span>: <span class="ident">NetworkChange</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span><span class="op">&gt;</span>) {
-        <span class="kw">match</span> <span class="ident">node</span> {
-            <span class="ident">NetworkChange::NodeConnected</span>(<span class="ident">peer</span>) =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;Connected to node {:?}&quot;</span>, <span class="ident">peer</span>);
-                <span class="kw">let</span> <span class="ident">anchor</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">storage</span>.<span class="ident">get_anchored_view</span>().<span class="kw">await</span> {
-                    <span class="prelude-val">Ok</span>(<span class="ident">anchor</span>) =&gt; <span class="ident">anchor</span>,
-                    <span class="prelude-val">Err</span>(<span class="ident">e</span>) =&gt; {
-                        <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not retrieve newest QC&quot;</span>);
+    <span class="doccomment">/// Handle a change in the network
+    </span><span class="kw">async fn </span>handle_network_change(<span class="kw-2">&amp;</span><span class="self">self</span>, node: NetworkChange&lt;I::SignatureKey&gt;) {
+        <span class="kw">match </span>node {
+            NetworkChange::NodeConnected(peer) =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;Connected to node {:?}&quot;</span>, peer);
+                <span class="kw">let </span>anchor = <span class="kw">match </span><span class="self">self</span>.inner.storage.get_anchored_view().<span class="kw">await </span>{
+                    <span class="prelude-val">Ok</span>(anchor) =&gt; anchor,
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="macro">error!</span>(<span class="question-mark">?</span>e, <span class="string">&quot;Could not retrieve newest QC&quot;</span>);
                         <span class="kw">return</span>;
                     }
                 };
-                <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="ident">DataMessage::NewestQuorumCertificate</span> {
-                    <span class="ident">quorum_certificate</span>: <span class="ident">anchor</span>.<span class="ident">justify_qc</span>,
-                    <span class="ident">block</span>: <span class="ident">anchor</span>.<span class="ident">append</span>.<span class="ident">into_deltas</span>(),
-                    <span class="ident">state</span>: <span class="ident">anchor</span>.<span class="ident">state</span>,
-                    <span class="ident">parent_commitment</span>: <span class="ident">anchor</span>.<span class="ident">parent</span>,
-                    <span class="ident">rejected</span>: <span class="ident">anchor</span>.<span class="ident">rejected</span>,
-                    <span class="ident">proposer_id</span>: <span class="ident">anchor</span>.<span class="ident">proposer_id</span>,
+                <span class="kw">let </span>msg = DataMessage::NewestQuorumCertificate {
+                    quorum_certificate: anchor.justify_qc,
+                    block: anchor.append.into_deltas(),
+                    state: anchor.state,
+                    parent_commitment: anchor.parent,
+                    rejected: anchor.rejected,
+                    proposer_id: anchor.proposer_id,
                 };
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">send_direct_message</span>(<span class="ident">msg</span>, <span class="ident">peer</span>.<span class="ident">clone</span>()).<span class="kw">await</span> {
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.send_direct_message(msg, peer.clone()).<span class="kw">await </span>{
                     <span class="macro">error!</span>(
-                        <span class="question-mark">?</span><span class="ident">e</span>,
-                        <span class="string">&quot;Could not send newest quorumcertificate to node {:?}&quot;</span>, <span class="ident">peer</span>
+                        <span class="question-mark">?</span>e,
+                        <span class="string">&quot;Could not send newest quorumcertificate to node {:?}&quot;</span>, peer
                     );
                 }
             }
-            <span class="ident">NetworkChange::NodeDisconnected</span>(<span class="ident">peer</span>) =&gt; {
-                <span class="macro">info!</span>(<span class="string">&quot;Lost connection to node {:?}&quot;</span>, <span class="ident">peer</span>);
+            NetworkChange::NodeDisconnected(peer) =&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;Lost connection to node {:?}&quot;</span>, peer);
             }
         }
     }
 
-    <span class="doccomment">/// return the timeout for a view for `self`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_next_view_timeout</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">next_view_timeout</span>
+    <span class="doccomment">/// return the timeout for a view for `self`
+    </span><span class="kw">pub fn </span>get_next_view_timeout(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="self">self</span>.inner.config.next_view_timeout
     }
 }
 
-<span class="doccomment">/// given a view number and a upgradable read lock on a channel map, inserts entry into map if it</span>
-<span class="doccomment">/// doesn&#39;t exist, or creates entry. Then returns a clone of the entry</span>
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_or_obtain_chan_from_read</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span><span class="op">&gt;</span>(
-    <span class="ident">view_num</span>: <span class="ident">ViewNumber</span>,
-    <span class="ident">channel_map</span>: <span class="ident">RwLockUpgradableReadGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">SendToTasks</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">ViewQueue</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span> {
-    <span class="comment">// check if we have the entry</span>
-    <span class="comment">// if we don&#39;t, insert</span>
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">vq</span>) <span class="op">=</span> <span class="ident">channel_map</span>.<span class="ident">channel_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">view_num</span>) {
-        <span class="ident">vq</span>.<span class="ident">clone</span>()
-    } <span class="kw">else</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">channel_map</span> <span class="op">=</span>
-            <span class="ident">RwLockUpgradableReadGuard</span>::<span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">SendToTasks</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::upgrade</span>(<span class="ident">channel_map</span>).<span class="kw">await</span>;
-        <span class="kw">let</span> <span class="ident">new_view_queue</span> <span class="op">=</span> <span class="ident">ViewQueue::default</span>();
-        <span class="kw">let</span> <span class="ident">vq</span> <span class="op">=</span> <span class="ident">new_view_queue</span>.<span class="ident">clone</span>();
-        <span class="comment">// NOTE: the read lock is held until all other read locks are DROPPED and</span>
-        <span class="comment">// the read lock may be turned into a write lock.</span>
-        <span class="comment">// This means that the `channel_map` will not change. So we don&#39;t need</span>
-        <span class="comment">// to check again to see if a channel was added</span>
+<span class="doccomment">/// given a view number and a upgradable read lock on a channel map, inserts entry into map if it
+/// doesn&#39;t exist, or creates entry. Then returns a clone of the entry
+</span><span class="kw">pub async fn </span>create_or_obtain_chan_from_read&lt;I: NodeImplementation&gt;(
+    view_num: ViewNumber,
+    channel_map: RwLockUpgradableReadGuard&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;I&gt;&gt;,
+) -&gt; ViewQueue&lt;I&gt; {
+    <span class="comment">// check if we have the entry
+    // if we don&#39;t, insert
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(vq) = channel_map.channel_map.get(<span class="kw-2">&amp;</span>view_num) {
+        vq.clone()
+    } <span class="kw">else </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>channel_map =
+            RwLockUpgradableReadGuard::&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;I&gt;&gt;::upgrade(channel_map).<span class="kw">await</span>;
+        <span class="kw">let </span>new_view_queue = ViewQueue::default();
+        <span class="kw">let </span>vq = new_view_queue.clone();
+        <span class="comment">// NOTE: the read lock is held until all other read locks are DROPPED and
+        // the read lock may be turned into a write lock.
+        // This means that the `channel_map` will not change. So we don&#39;t need
+        // to check again to see if a channel was added
 
-        <span class="ident">channel_map</span>.<span class="ident">channel_map</span>.<span class="ident">insert</span>(<span class="ident">view_num</span>, <span class="ident">new_view_queue</span>);
-        <span class="ident">vq</span>
+        </span>channel_map.channel_map.insert(view_num, new_view_queue);
+        vq
     }
 }
 
-<span class="doccomment">/// given a view number and a write lock on a channel map, inserts entry into map if it</span>
-<span class="doccomment">/// doesn&#39;t exist, or creates entry. Then returns a clone of the entry</span>
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_or_obtain_chan_from_write</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span><span class="op">&gt;</span>(
-    <span class="ident">view_num</span>: <span class="ident">ViewNumber</span>,
-    <span class="kw-2">mut</span> <span class="ident">channel_map</span>: <span class="ident">RwLockWriteGuard</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">SendToTasks</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">ViewQueue</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span> {
-    <span class="ident">channel_map</span>.<span class="ident">channel_map</span>.<span class="ident">entry</span>(<span class="ident">view_num</span>).<span class="ident">or_default</span>().<span class="ident">clone</span>()
+<span class="doccomment">/// given a view number and a write lock on a channel map, inserts entry into map if it
+/// doesn&#39;t exist, or creates entry. Then returns a clone of the entry
+</span><span class="kw">pub async fn </span>create_or_obtain_chan_from_write&lt;I: NodeImplementation&gt;(
+    view_num: ViewNumber,
+    <span class="kw-2">mut </span>channel_map: RwLockWriteGuard&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;I&gt;&gt;,
+) -&gt; ViewQueue&lt;I&gt; {
+    channel_map.channel_map.entry(view_num).or_default().clone()
 }
 
-<span class="doccomment">/// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">struct</span> <span class="ident">HotShotConsensusApi</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// Reference to the [`HotShotInner`]</span>
-    <span class="ident">inner</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">HotShotInner</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+<span class="doccomment">/// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]
+</span><span class="attribute">#[derive(Clone)]
+</span><span class="kw">struct </span>HotShotConsensusApi&lt;I: NodeImplementation&gt; {
+    <span class="doccomment">/// Reference to the [`HotShotInner`]
+    </span>inner: Arc&lt;HotShotInner&lt;I&gt;&gt;,
 }
 
-<span class="attribute">#[<span class="ident">async_trait</span>]</span>
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">I</span>: <span class="ident">NodeImplementation</span><span class="op">&gt;</span> <span class="ident">hotshot_consensus::ConsensusApi</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">HotShotConsensusApi</span><span class="op">&lt;</span><span class="ident">I</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">total_nodes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonZeroUsize</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">total_nodes</span>
+<span class="attribute">#[async_trait]
+</span><span class="kw">impl</span>&lt;I: NodeImplementation&gt; hotshot_consensus::ConsensusApi&lt;I&gt; <span class="kw">for </span>HotShotConsensusApi&lt;I&gt; {
+    <span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroUsize {
+        <span class="self">self</span>.inner.config.total_nodes
     }
 
-    <span class="kw">fn</span> <span class="ident">threshold</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonZeroU64</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">election</span>.<span class="ident">get_threshold</span>()
+    <span class="kw">fn </span>threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
+        <span class="self">self</span>.inner.election.get_threshold()
     }
 
-    <span class="kw">fn</span> <span class="ident">propose_min_round_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Duration</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">propose_min_round_time</span>
+    <span class="kw">fn </span>propose_min_round_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Duration {
+        <span class="self">self</span>.inner.config.propose_min_round_time
     }
 
-    <span class="kw">fn</span> <span class="ident">propose_max_round_time</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Duration</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">propose_max_round_time</span>
+    <span class="kw">fn </span>propose_max_round_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Duration {
+        <span class="self">self</span>.inner.config.propose_max_round_time
     }
 
-    <span class="kw">fn</span> <span class="ident">storage</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">I::Storage</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">storage</span>
+    <span class="kw">fn </span>storage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>I::Storage {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.storage
     }
 
-    <span class="kw">fn</span> <span class="ident">max_transactions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">NonZeroUsize</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">max_transactions</span>
+    <span class="kw">fn </span>max_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroUsize {
+        <span class="self">self</span>.inner.config.max_transactions
     }
 
-    <span class="kw">fn</span> <span class="ident">min_transactions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">config</span>.<span class="ident">min_transactions</span>
+    <span class="kw">fn </span>min_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.inner.config.min_transactions
     }
 
-    <span class="doccomment">/// Generates and encodes a vote token</span>
-    <span class="kw">fn</span> <span class="ident">generate_vote_token</span>(
+    <span class="doccomment">/// Generates and encodes a vote token
+    </span><span class="kw">fn </span>generate_vote_token(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
-        <span class="ident">_next_state</span>: <span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span>
-        <span class="ident">std::option::Option</span><span class="op">&lt;</span>
-            <span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span>
-                <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::SignatureKey</span>,
-                <span class="ident">ViewNumber</span>,
-            <span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::VoteTokenType</span>,
-        <span class="op">&gt;</span>,
-        <span class="ident">ElectionError</span>,
-    <span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">inner</span>
-            .<span class="ident">election</span>
-            .<span class="ident">make_vote_token</span>(<span class="ident">view_number</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">private_key</span>)
+        view_number: ViewNumber,
+        _next_state: Commitment&lt;Leaf&lt;I::StateType&gt;&gt;,
+    ) -&gt; std::result::Result&lt;
+        std::option::Option&lt;
+            &lt;&lt;I <span class="kw">as </span>NodeImplementation&gt;::Election <span class="kw">as </span>Election&lt;
+                &lt;I <span class="kw">as </span>NodeImplementation&gt;::SignatureKey,
+                ViewNumber,
+            &gt;&gt;::VoteTokenType,
+        &gt;,
+        ElectionError,
+    &gt; {
+        <span class="self">self</span>.inner
+            .election
+            .make_vote_token(view_number, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.private_key)
     }
 
-    <span class="kw">fn</span> <span class="ident">get_election</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::Election</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">election</span>
+    <span class="kw">fn </span>get_election(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;I <span class="kw">as </span>NodeImplementation&gt;::Election {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.election
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_leader</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="ident">I::SignatureKey</span> {
-        <span class="kw">let</span> <span class="ident">election</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">election</span>;
-        <span class="ident">election</span>.<span class="ident">get_leader</span>(<span class="ident">view_number</span>)
+    <span class="kw">async fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: ViewNumber) -&gt; I::SignatureKey {
+        <span class="kw">let </span>election = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.election;
+        election.get_leader(view_number)
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">should_start_round</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="ident">ViewNumber</span>) -&gt; <span class="ident">bool</span> {
-        <span class="bool-val">false</span>
-    }
+    <span class="kw">async fn </span>should_start_round(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: ViewNumber) -&gt; bool {
+        <span class="bool-val">false
+    </span>}
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_direct_message</span>(
+    <span class="kw">async fn </span>send_direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">recipient</span>: <span class="ident">I::SignatureKey</span>,
-        <span class="ident">message</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&gt;</span><span class="ident">::ConsensusMessage</span>,
-    ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>();
-        <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">message</span>, <span class="question-mark">?</span><span class="ident">recipient</span>, <span class="string">&quot;send_direct_message&quot;</span>);
-        <span class="ident">async_spawn_local</span>(<span class="kw">async</span> <span class="kw">move</span> {
-            <span class="ident">inner</span>
-                .<span class="ident">networking</span>
-                .<span class="ident">message_node</span>(
-                    <span class="ident">Message</span> {
-                        <span class="ident">sender</span>: <span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">clone</span>(),
-                        <span class="ident">kind</span>: <span class="ident">message</span>.<span class="ident">into</span>(),
+        recipient: I::SignatureKey,
+        message: &lt;I <span class="kw">as </span>TypeMap&gt;::ConsensusMessage,
+    ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
+        <span class="macro">debug!</span>(<span class="question-mark">?</span>message, <span class="question-mark">?</span>recipient, <span class="string">&quot;send_direct_message&quot;</span>);
+        async_spawn_local(<span class="kw">async move </span>{
+            inner
+                .networking
+                .message_node(
+                    Message {
+                        sender: inner.public_key.clone(),
+                        kind: message.into(),
                     },
-                    <span class="ident">recipient</span>,
+                    recipient,
                 )
-                .<span class="kw">await</span>
-        });
+                .<span class="kw">await
+        </span>});
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_broadcast_message</span>(
+    <span class="kw">async fn </span>send_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">message</span>: <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">TypeMap</span><span class="op">&gt;</span><span class="ident">::ConsensusMessage</span>,
-    ) -&gt; <span class="ident">std::result::Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkError</span><span class="op">&gt;</span> {
-        <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">message</span>, <span class="string">&quot;send_broadcast_message&quot;</span>);
-        <span class="self">self</span>.<span class="ident">inner</span>
-            .<span class="ident">networking</span>
-            .<span class="ident">broadcast_message</span>(<span class="ident">Message</span> {
-                <span class="ident">sender</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>.<span class="ident">clone</span>(),
-                <span class="ident">kind</span>: <span class="ident">message</span>.<span class="ident">into</span>(),
+        message: &lt;I <span class="kw">as </span>TypeMap&gt;::ConsensusMessage,
+    ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
+        <span class="macro">debug!</span>(<span class="question-mark">?</span>message, <span class="string">&quot;send_broadcast_message&quot;</span>);
+        <span class="self">self</span>.inner
+            .networking
+            .broadcast_message(Message {
+                sender: <span class="self">self</span>.inner.public_key.clone(),
+                kind: message.into(),
             })
-            .<span class="kw">await</span>
-    }
+            .<span class="kw">await
+    </span>}
 
-    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">send_event</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span>) {
-        <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">event</span>, <span class="string">&quot;send_event&quot;</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event_sender</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">event_sender</span>.<span class="ident">write</span>().<span class="kw">await</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">sender</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">event_sender</span> {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">sender</span>.<span class="ident">send_async</span>(<span class="ident">event</span>).<span class="kw">await</span> {
-                <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">e</span>, <span class="string">&quot;Could not send event to event_sender&quot;</span>);
-                <span class="kw-2">*</span><span class="ident">event_sender</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+    <span class="kw">async fn </span>send_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;I::StateType&gt;) {
+        <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;send_event&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>event_sender = <span class="self">self</span>.inner.event_sender.write().<span class="kw">await</span>;
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(sender) = <span class="kw-2">&amp;*</span>event_sender {
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = sender.send_async(event).<span class="kw">await </span>{
+                <span class="macro">error!</span>(<span class="question-mark">?</span>e, <span class="string">&quot;Could not send event to event_sender&quot;</span>);
+                <span class="kw-2">*</span>event_sender = <span class="prelude-val">None</span>;
             }
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">public_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">I::SignatureKey</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">public_key</span>
+    <span class="kw">fn </span>public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>I::SignatureKey {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.public_key
     }
 
-    <span class="kw">fn</span> <span class="ident">private_key</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="op">&lt;</span><span class="ident">I::SignatureKey</span> <span class="kw">as</span> <span class="ident">SignatureKey</span><span class="op">&gt;</span><span class="ident">::PrivateKey</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">private_key</span>
+    <span class="kw">fn </span>private_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;I::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.private_key
     }
 
-    <span class="comment">// TODO ed - refactor this function to only acc stake, and not check validity</span>
-    <span class="kw">fn</span> <span class="ident">validated_stake</span>(
+    <span class="comment">// TODO ed - refactor this function to only acc stake, and not check validity
+    </span><span class="kw">fn </span>validated_stake(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">hash</span>: <span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
-        <span class="ident">signatures</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span>
-            <span class="ident">EncodedPublicKey</span>,
+        hash: Commitment&lt;Leaf&lt;I::StateType&gt;&gt;,
+        view_number: ViewNumber,
+        signatures: BTreeMap&lt;
+            EncodedPublicKey,
             (
-                <span class="ident">EncodedSignature</span>,
-                <span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span>
-                    <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::SignatureKey</span>,
-                    <span class="ident">ViewNumber</span>,
-                <span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::VoteTokenType</span>,
+                EncodedSignature,
+                &lt;&lt;I <span class="kw">as </span>NodeImplementation&gt;::Election <span class="kw">as </span>Election&lt;
+                    &lt;I <span class="kw">as </span>NodeImplementation&gt;::SignatureKey,
+                    ViewNumber,
+                &gt;&gt;::VoteTokenType,
             ),
-        <span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">u64</span> {
-        <span class="kw">let</span> <span class="ident">stake</span> <span class="op">=</span> <span class="ident">signatures</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">signature</span><span class="op">|</span> {
-                <span class="self">self</span>.<span class="ident">is_valid_signature</span>(
-                    <span class="ident">signature</span>.<span class="number">0</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">signature</span>.<span class="number">1</span> .<span class="number">0</span>,
-                    <span class="ident">hash</span>,
-                    <span class="ident">view_number</span>,
-                    <span class="ident">Unchecked</span>(<span class="ident">signature</span>.<span class="number">1</span> .<span class="number">1</span>.<span class="ident">clone</span>()),
+        &gt;,
+    ) -&gt; u64 {
+        <span class="kw">let </span>stake = signatures
+            .iter()
+            .filter(|signature| {
+                <span class="self">self</span>.is_valid_signature(
+                    signature.<span class="number">0</span>,
+                    <span class="kw-2">&amp;</span>signature.<span class="number">1 </span>.<span class="number">0</span>,
+                    hash,
+                    view_number,
+                    Unchecked(signature.<span class="number">1 </span>.<span class="number">1</span>.clone()),
                 )
             })
-            .<span class="ident">fold</span>(<span class="number">0</span>, <span class="op">|</span><span class="ident">acc</span>, <span class="ident">x</span><span class="op">|</span> (<span class="ident">acc</span> <span class="op">+</span> <span class="ident">u64::from</span>(<span class="ident">x</span>.<span class="number">1</span> .<span class="number">1</span>.<span class="ident">vote_count</span>())));
-        <span class="ident">stake</span>
+            .fold(<span class="number">0</span>, |acc, x| (acc + u64::from(x.<span class="number">1 </span>.<span class="number">1</span>.vote_count())));
+        stake
     }
 
-    <span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="self">self</span>, <span class="ident">qc</span>))]</span>
-    <span class="kw">fn</span> <span class="ident">validate_qc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">qc</span>: <span class="kw-2">&amp;</span><span class="ident">QuorumCertificate</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span>) -&gt; <span class="ident">bool</span> {
-        <span class="kw">if</span> <span class="ident">qc</span>.<span class="ident">genesis</span> <span class="op">&amp;&amp;</span> <span class="ident">qc</span>.<span class="ident">view_number</span> <span class="op">==</span> <span class="ident">ViewNumber::genesis</span>() {
-            <span class="kw">return</span> <span class="bool-val">true</span>;
+    <span class="attribute">#[instrument(skip(<span class="self">self</span>, qc))]
+    </span><span class="kw">fn </span>validate_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: <span class="kw-2">&amp;</span>QuorumCertificate&lt;I::StateType&gt;) -&gt; bool {
+        <span class="kw">if </span>qc.genesis &amp;&amp; qc.view_number == ViewNumber::genesis() {
+            <span class="kw">return </span><span class="bool-val">true</span>;
         }
-        <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="ident">qc</span>.<span class="ident">leaf_commitment</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">signature_map</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span>
-            <span class="ident">EncodedPublicKey</span>,
+        <span class="kw">let </span>hash = qc.leaf_commitment;
+        <span class="kw">let </span><span class="kw-2">mut </span>signature_map: BTreeMap&lt;
+            EncodedPublicKey,
             (
-                <span class="ident">EncodedSignature</span>,
-                <span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span>
-                    <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::SignatureKey</span>,
-                    <span class="ident">ViewNumber</span>,
-                <span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::VoteTokenType</span>,
+                EncodedSignature,
+                &lt;&lt;I <span class="kw">as </span>NodeImplementation&gt;::Election <span class="kw">as </span>Election&lt;
+                    &lt;I <span class="kw">as </span>NodeImplementation&gt;::SignatureKey,
+                    ViewNumber,
+                &gt;&gt;::VoteTokenType,
             ),
-        <span class="op">&gt;</span> <span class="op">=</span> <span class="ident">BTreeMap::new</span>();
-        <span class="comment">// TODO ed - refactor once I is impled for Vote</span>
-        <span class="kw">for</span> <span class="ident">signature</span> <span class="kw">in</span> <span class="ident">qc</span>.<span class="ident">signatures</span>.<span class="ident">clone</span>() {
-            <span class="kw">let</span> <span class="ident">decoded_vote_token</span> <span class="op">=</span> <span class="ident">bincode_opts</span>().<span class="ident">deserialize</span>(<span class="kw-2">&amp;</span><span class="ident">signature</span>.<span class="number">1</span> .<span class="number">1</span>).<span class="ident">unwrap</span>();
-            <span class="ident">signature_map</span>.<span class="ident">insert</span>(<span class="ident">signature</span>.<span class="number">0</span>, (<span class="ident">signature</span>.<span class="number">1</span> .<span class="number">0</span>, <span class="ident">decoded_vote_token</span>));
+        &gt; = BTreeMap::new();
+        <span class="comment">// TODO ed - refactor once I is impled for Vote
+        </span><span class="kw">for </span>signature <span class="kw">in </span>qc.signatures.clone() {
+            <span class="kw">let </span>decoded_vote_token = bincode_opts().deserialize(<span class="kw-2">&amp;</span>signature.<span class="number">1 </span>.<span class="number">1</span>).unwrap();
+            signature_map.insert(signature.<span class="number">0</span>, (signature.<span class="number">1 </span>.<span class="number">0</span>, decoded_vote_token));
         }
 
-        <span class="kw">let</span> <span class="ident">stake</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">validated_stake</span>(<span class="ident">hash</span>, <span class="ident">qc</span>.<span class="ident">view_number</span>, <span class="ident">signature_map</span>);
-        <span class="kw">if</span> <span class="ident">stake</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">u64::from</span>(<span class="self">self</span>.<span class="ident">threshold</span>()) {
-            <span class="kw">return</span> <span class="bool-val">true</span>;
+        <span class="kw">let </span>stake = <span class="self">self</span>.validated_stake(hash, qc.view_number, signature_map);
+        <span class="kw">if </span>stake &gt;= u64::from(<span class="self">self</span>.threshold()) {
+            <span class="kw">return </span><span class="bool-val">true</span>;
         }
-        <span class="bool-val">false</span>
-    }
+        <span class="bool-val">false
+    </span>}
 
-    <span class="kw">fn</span> <span class="ident">is_valid_signature</span>(
+    <span class="kw">fn </span>is_valid_signature(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">encoded_key</span>: <span class="kw-2">&amp;</span><span class="ident">EncodedPublicKey</span>,
-        <span class="ident">encoded_signature</span>: <span class="kw-2">&amp;</span><span class="ident">EncodedSignature</span>,
-        <span class="ident">hash</span>: <span class="ident">Commitment</span><span class="op">&lt;</span><span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">I::StateType</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">view_number</span>: <span class="ident">ViewNumber</span>,
-        <span class="ident">vote_token</span>: <span class="ident">Checked</span><span class="op">&lt;</span>
-            <span class="op">&lt;</span><span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::Election</span> <span class="kw">as</span> <span class="ident">Election</span><span class="op">&lt;</span>
-                <span class="op">&lt;</span><span class="ident">I</span> <span class="kw">as</span> <span class="ident">NodeImplementation</span><span class="op">&gt;</span><span class="ident">::SignatureKey</span>,
-                <span class="ident">ViewNumber</span>,
-            <span class="op">&gt;</span><span class="op">&gt;</span><span class="ident">::VoteTokenType</span>,
-        <span class="op">&gt;</span>,
-    ) -&gt; <span class="ident">bool</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">is_valid_vote_token</span> <span class="op">=</span> <span class="bool-val">false</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">is_valid_signature</span> <span class="op">=</span> <span class="bool-val">false</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">key</span>) <span class="op">=</span> <span class="op">&lt;</span><span class="ident">I::SignatureKey</span> <span class="kw">as</span> <span class="ident">SignatureKey</span><span class="op">&gt;</span><span class="ident">::from_bytes</span>(<span class="ident">encoded_key</span>) {
-            <span class="ident">is_valid_signature</span> <span class="op">=</span> <span class="ident">key</span>.<span class="ident">validate</span>(<span class="ident">encoded_signature</span>, <span class="ident">hash</span>.<span class="ident">as_ref</span>());
-            <span class="kw">let</span> <span class="ident">valid_vote_token</span> <span class="op">=</span>
-                <span class="self">self</span>.<span class="ident">get_election</span>()
-                    .<span class="ident">validate_vote_token</span>(<span class="ident">view_number</span>, <span class="ident">key</span>, <span class="ident">vote_token</span>);
-            <span class="ident">is_valid_vote_token</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">valid_vote_token</span> {
+        encoded_key: <span class="kw-2">&amp;</span>EncodedPublicKey,
+        encoded_signature: <span class="kw-2">&amp;</span>EncodedSignature,
+        hash: Commitment&lt;Leaf&lt;I::StateType&gt;&gt;,
+        view_number: ViewNumber,
+        vote_token: Checked&lt;
+            &lt;&lt;I <span class="kw">as </span>NodeImplementation&gt;::Election <span class="kw">as </span>Election&lt;
+                &lt;I <span class="kw">as </span>NodeImplementation&gt;::SignatureKey,
+                ViewNumber,
+            &gt;&gt;::VoteTokenType,
+        &gt;,
+    ) -&gt; bool {
+        <span class="kw">let </span><span class="kw-2">mut </span>is_valid_vote_token = <span class="bool-val">false</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>is_valid_signature = <span class="bool-val">false</span>;
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = &lt;I::SignatureKey <span class="kw">as </span>SignatureKey&gt;::from_bytes(encoded_key) {
+            is_valid_signature = key.validate(encoded_signature, hash.as_ref());
+            <span class="kw">let </span>valid_vote_token =
+                <span class="self">self</span>.get_election()
+                    .validate_vote_token(view_number, key, vote_token);
+            is_valid_vote_token = <span class="kw">match </span>valid_vote_token {
                 <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                     <span class="macro">error!</span>(<span class="string">&quot;Vote token was invalid&quot;</span>);
-                    <span class="bool-val">false</span>
-                }
-                <span class="prelude-val">Ok</span>(<span class="ident">Valid</span>(<span class="kw">_</span>)) =&gt; <span class="bool-val">true</span>,
-                <span class="prelude-val">Ok</span>(<span class="ident">Inval</span>(<span class="kw">_</span>) <span class="op">|</span> <span class="ident">Unchecked</span>(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
+                    <span class="bool-val">false
+                </span>}
+                <span class="prelude-val">Ok</span>(Valid(<span class="kw">_</span>)) =&gt; <span class="bool-val">true</span>,
+                <span class="prelude-val">Ok</span>(Inval(<span class="kw">_</span>) | Unchecked(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
             };
         }
-        <span class="ident">is_valid_signature</span> <span class="op">&amp;&amp;</span> <span class="ident">is_valid_vote_token</span>
+        is_valid_signature &amp;&amp; is_valid_vote_token
     }
 }
 
-<span class="doccomment">/// initializer struct for creating starting block</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HotShotInitializer</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">State</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// the leaf specified initialization</span>
-    <span class="ident">inner</span>: <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span>,
+<span class="doccomment">/// initializer struct for creating starting block
+</span><span class="kw">pub struct </span>HotShotInitializer&lt;STATE: State&gt; {
+    <span class="doccomment">/// the leaf specified initialization
+    </span>inner: Leaf&lt;STATE&gt;,
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">STATE</span>: <span class="ident">State</span><span class="op">&lt;</span><span class="ident">Time</span> <span class="op">=</span> <span class="ident">ViewNumber</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="ident">HotShotInitializer</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span> {
-    <span class="doccomment">/// initialize from genesis</span>
-    <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">/// If we are unable to apply the genesis block to the default state</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_genesis</span>(<span class="ident">genesis_block</span>: <span class="op">&lt;</span><span class="ident">STATE</span> <span class="kw">as</span> <span class="ident">State</span><span class="op">&gt;</span><span class="ident">::BlockType</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">STATE::default</span>()
-            .<span class="ident">append</span>(<span class="kw-2">&amp;</span><span class="ident">genesis_block</span>, <span class="kw-2">&amp;</span><span class="ident">ViewNumber::new</span>(<span class="number">0</span>))
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">HotShotError::Misc</span> {
-                <span class="ident">context</span>: <span class="ident">err</span>.<span class="ident">to_string</span>(),
+<span class="kw">impl</span>&lt;STATE: State&lt;Time = ViewNumber&gt;&gt; HotShotInitializer&lt;STATE&gt; {
+    <span class="doccomment">/// initialize from genesis
+    /// # Errors
+    /// If we are unable to apply the genesis block to the default state
+    </span><span class="kw">pub fn </span>from_genesis(genesis_block: &lt;STATE <span class="kw">as </span>State&gt;::BlockType) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>state = STATE::default()
+            .append(<span class="kw-2">&amp;</span>genesis_block, <span class="kw-2">&amp;</span>ViewNumber::new(<span class="number">0</span>))
+            .map_err(|err| HotShotError::Misc {
+                context: err.to_string(),
             })<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">view_number</span> <span class="op">=</span> <span class="ident">ViewNumber::genesis</span>();
-        <span class="kw">let</span> <span class="ident">justify_qc</span> <span class="op">=</span> <span class="ident">QuorumCertificate</span>::<span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span><span class="ident">::genesis</span>();
+        <span class="kw">let </span>view_number = ViewNumber::genesis();
+        <span class="kw">let </span>justify_qc = QuorumCertificate::&lt;STATE&gt;::genesis();
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
-            <span class="ident">inner</span>: <span class="ident">Leaf</span> {
-                <span class="ident">view_number</span>,
-                <span class="ident">justify_qc</span>,
-                <span class="ident">parent_commitment</span>: <span class="ident">fake_commitment</span>(),
-                <span class="ident">deltas</span>: <span class="ident">genesis_block</span>,
-                <span class="ident">state</span>,
-                <span class="ident">rejected</span>: <span class="ident">Vec::new</span>(),
-                <span class="ident">timestamp</span>: <span class="ident">time::OffsetDateTime::now_utc</span>().<span class="ident">unix_timestamp_nanos</span>(),
-                <span class="ident">proposer_id</span>: <span class="ident">genesis_proposer_id</span>(),
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            inner: Leaf {
+                view_number,
+                justify_qc,
+                parent_commitment: fake_commitment(),
+                deltas: genesis_block,
+                state,
+                rejected: Vec::new(),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                proposer_id: genesis_proposer_id(),
             },
         })
     }
 
-    <span class="doccomment">/// reload previous state based on most recent leaf</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_reload</span>(<span class="ident">anchor_leaf</span>: <span class="ident">Leaf</span><span class="op">&lt;</span><span class="ident">STATE</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span> { <span class="ident">inner</span>: <span class="ident">anchor_leaf</span> }
+    <span class="doccomment">/// reload previous state based on most recent leaf
+    </span><span class="kw">pub fn </span>from_reload(anchor_leaf: Leaf&lt;STATE&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ inner: anchor_leaf }
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

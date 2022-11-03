@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/src/network/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../libp2p_networking/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `libp2p-networking/src/network/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../../normalize.css"><link rel="stylesheet" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../../ayu.css" disabled><link rel="stylesheet" href="../../../dark.css" disabled><link rel="stylesheet" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../libp2p_networking/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../libp2p_networking/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -270,277 +270,283 @@
 <span id="270">270</span>
 <span id="271">271</span>
 <span id="272">272</span>
-</pre><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p&#39;s behaviours</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">behaviours</span>;
-<span class="kw">mod</span> <span class="ident">def</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">error</span>;
-<span class="kw">mod</span> <span class="ident">node</span>;
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+</pre><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p&#39;s behaviours
+</span><span class="kw">pub mod </span>behaviours;
+<span class="kw">mod </span>def;
+<span class="kw">pub mod </span>error;
+<span class="kw">mod </span>node;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::{
-    <span class="ident">def::NetworkDef</span>,
-    <span class="ident">error::NetworkError</span>,
-    <span class="ident">node</span>::{
-        <span class="ident">network_node_handle_error</span>, <span class="ident">MeshParams</span>, <span class="ident">NetworkNode</span>, <span class="ident">NetworkNodeConfig</span>,
-        <span class="ident">NetworkNodeConfigBuilder</span>, <span class="ident">NetworkNodeConfigBuilderError</span>, <span class="ident">NetworkNodeHandle</span>,
-        <span class="ident">NetworkNodeHandleError</span>,
+<span class="kw">pub use </span><span class="self">self</span>::{
+    def::NetworkDef,
+    error::NetworkError,
+    node::{
+        network_node_handle_error, MeshParams, NetworkNode, NetworkNodeConfig,
+        NetworkNodeConfigBuilder, NetworkNodeConfigBuilderError, NetworkNodeHandle,
+        NetworkNodeHandleError,
     },
 };
 
-<span class="kw">use</span> <span class="ident"><span class="self">self</span>::behaviours</span>::{
-    <span class="ident">dht::DHTEvent</span>, <span class="ident">direct_message::DMEvent</span>, <span class="ident">direct_message_codec::DirectMessageResponse</span>,
-    <span class="ident">gossip::GossipEvent</span>,
+<span class="kw">use </span><span class="self">self</span>::behaviours::{
+    dht::DHTEvent, direct_message::DMEvent, direct_message_codec::DirectMessageResponse,
+    gossip::GossipEvent,
 };
-<span class="kw">use</span> <span class="ident">bincode::Options</span>;
-<span class="kw">use</span> <span class="ident">futures::channel::oneshot::Sender</span>;
-<span class="kw">use</span> <span class="ident">hotshot_utils::bincode::bincode_opts</span>;
-<span class="macro">cfg_if::cfg_if!</span> {
-    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span> {
-        <span class="kw">use</span> <span class="ident">libp2p::dns::DnsConfig</span> <span class="kw">as</span> <span class="ident">DnsConfig</span>;
-        <span class="kw">use</span> <span class="ident">tcp::TcpTransport</span> <span class="kw">as</span> <span class="ident">TcpTransport</span>;
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>)]</span> {
-        <span class="kw">use</span> <span class="ident">libp2p::dns::TokioDnsConfig</span> <span class="kw">as</span> <span class="ident">DnsConfig</span>;
-        <span class="kw">use</span> <span class="ident">tcp::TokioTcpTransport</span> <span class="kw">as</span> <span class="ident">TcpTransport</span>;
-    } <span class="kw">else</span> {
-        <span class="macro">std::compile_error!</span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
-    }
-}
-<span class="kw">use</span> <span class="ident">libp2p</span>::{
-    <span class="ident">build_multiaddr</span>,
-    <span class="ident">core</span>::{<span class="ident">muxing::StreamMuxerBox</span>, <span class="ident">transport::Boxed</span>, <span class="ident">upgrade</span>},
-    <span class="ident">gossipsub::TopicHash</span>,
-    <span class="ident">identify::Event</span> <span class="kw">as</span> <span class="ident">IdentifyEvent</span>,
-    <span class="ident">identity::Keypair</span>,
-    <span class="ident">noise</span>,
-    <span class="ident">request_response::ResponseChannel</span>,
-    <span class="ident">tcp</span>,
-    <span class="ident">yamux</span>::{<span class="ident">WindowUpdateMode</span>, <span class="ident">YamuxConfig</span>},
-    <span class="ident">InboundUpgradeExt</span>, <span class="ident">Multiaddr</span>, <span class="ident">OutboundUpgradeExt</span>, <span class="ident">PeerId</span>, <span class="ident">Transport</span>,
+<span class="kw">use </span>bincode::Options;
+<span class="kw">use </span>futures::channel::oneshot::Sender;
+<span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
+<span class="kw">use </span>libp2p::{
+    build_multiaddr,
+    core::{muxing::StreamMuxerBox, transport::Boxed, upgrade},
+    gossipsub::TopicHash,
+    identify::Event <span class="kw">as </span>IdentifyEvent,
+    identity::Keypair,
+    noise,
+    request_response::ResponseChannel,
+    tcp,
+    yamux::{WindowUpdateMode, YamuxConfig},
+    InboundUpgradeExt, Multiaddr, OutboundUpgradeExt, PeerId, Transport,
 };
-<span class="kw">use</span> <span class="ident">rand</span>::{<span class="ident">seq::IteratorRandom</span>, <span class="ident">thread_rng</span>};
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections::HashSet</span>, <span class="ident">fmt::Debug</span>, <span class="ident">io</span>, <span class="ident">str::FromStr</span>, <span class="ident">sync::Arc</span>, <span class="ident">time::Duration</span>};
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">info</span>, <span class="ident">instrument</span>};
+<span class="kw">use </span>rand::{seq::IteratorRandom, thread_rng};
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::{collections::HashSet, fmt::Debug, io, str::FromStr, sync::Arc, time::Duration};
+<span class="kw">use </span>tracing::{info, instrument};
 
-<span class="doccomment">/// this is mostly to estimate how many network connections</span>
-<span class="doccomment">/// a node should allow</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Deserialize</span>, <span class="ident">Serialize</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">NetworkNodeType</span> {
-    <span class="doccomment">/// bootstrap node accepts all connections</span>
-    <span class="ident">Bootstrap</span>,
-    <span class="doccomment">/// regular node has a limit to the</span>
-    <span class="doccomment">/// number of connections to accept</span>
-    <span class="ident">Regular</span>,
-    <span class="doccomment">/// conductor node is never pruned</span>
-    <span class="ident">Conductor</span>,
+<span class="attribute">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
+</span><span class="kw">use </span>libp2p::dns::DnsConfig;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
+</span><span class="kw">use </span>libp2p::dns::TokioDnsConfig <span class="kw">as </span>DnsConfig;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
+</span><span class="kw">use </span>tcp::TcpTransport;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
+</span><span class="kw">use </span>tcp::TokioTcpTransport <span class="kw">as </span>TcpTransport;
+<span class="attribute">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
+</span><span class="macro">std::compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
+
+<span class="doccomment">/// this is mostly to estimate how many network connections
+/// a node should allow
+</span><span class="attribute">#[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
+</span><span class="kw">pub enum </span>NetworkNodeType {
+    <span class="doccomment">/// bootstrap node accepts all connections
+    </span>Bootstrap,
+    <span class="doccomment">/// regular node has a limit to the
+    /// number of connections to accept
+    </span>Regular,
+    <span class="doccomment">/// conductor node is never pruned
+    </span>Conductor,
 }
 
-<span class="kw">impl</span> <span class="ident">FromStr</span> <span class="kw">for</span> <span class="ident">NetworkNodeType</span> {
-    <span class="kw">type</span> <span class="prelude-val">Err</span> <span class="op">=</span> <span class="ident">String</span>;
+<span class="kw">impl </span>FromStr <span class="kw">for </span>NetworkNodeType {
+    <span class="kw">type </span><span class="prelude-val">Err </span>= String;
 
-    <span class="kw">fn</span> <span class="ident">from_str</span>(<span class="ident">input</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">NetworkNodeType</span>, <span class="ident"><span class="self">Self</span>::Err</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">input</span> {
-            <span class="string">&quot;Conductor&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">NetworkNodeType::Conductor</span>),
-            <span class="string">&quot;Regular&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">NetworkNodeType::Regular</span>),
-            <span class="string">&quot;Bootstrap&quot;</span> =&gt; <span class="prelude-val">Ok</span>(<span class="ident">NetworkNodeType::Bootstrap</span>),
-            <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(
-                <span class="string">&quot;Couldn&#39;t parse node type. Must be one of Conductor, Bootstrap, Regular&quot;</span>
-                    .<span class="ident">to_string</span>(),
+    <span class="kw">fn </span>from_str(input: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkNodeType, <span class="self">Self</span>::Err&gt; {
+        <span class="kw">match </span>input {
+            <span class="string">&quot;Conductor&quot; </span>=&gt; <span class="prelude-val">Ok</span>(NetworkNodeType::Conductor),
+            <span class="string">&quot;Regular&quot; </span>=&gt; <span class="prelude-val">Ok</span>(NetworkNodeType::Regular),
+            <span class="string">&quot;Bootstrap&quot; </span>=&gt; <span class="prelude-val">Ok</span>(NetworkNodeType::Bootstrap),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(
+                <span class="string">&quot;Couldn&#39;t parse node type. Must be one of Conductor, Bootstrap, Regular&quot;
+                    </span>.to_string(),
             ),
         }
     }
 }
 
-<span class="doccomment">/// Serialize an arbitrary message</span>
-<span class="doccomment">/// # Errors</span>
-<span class="doccomment">/// When unable to serialize a message</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">serialize_msg</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Serialize</span><span class="op">&gt;</span>(<span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="ident">T</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">bincode::ErrorKind</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="ident">bincode_opts</span>().<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="ident">msg</span>)
+<span class="doccomment">/// Serialize an arbitrary message
+/// # Errors
+/// When unable to serialize a message
+</span><span class="kw">pub fn </span>serialize_msg&lt;T: Serialize&gt;(msg: <span class="kw-2">&amp;</span>T) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, Box&lt;bincode::ErrorKind&gt;&gt; {
+    bincode_opts().serialize(<span class="kw-2">&amp;</span>msg)
 }
 
-<span class="doccomment">/// Deserialize an arbitrary message</span>
-<span class="doccomment">/// # Errors</span>
-<span class="doccomment">/// When unable to deserialize a message</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deserialize_msg</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span>: <span class="ident">Deserialize</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>(
-    <span class="ident">msg</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> [<span class="ident">u8</span>],
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">bincode::ErrorKind</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="ident">bincode_opts</span>().<span class="ident">deserialize</span>(<span class="ident">msg</span>)
+<span class="doccomment">/// Deserialize an arbitrary message
+/// # Errors
+/// When unable to deserialize a message
+</span><span class="kw">pub fn </span>deserialize_msg&lt;<span class="lifetime">&#39;a</span>, T: Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;&gt;(
+    msg: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8],
+) -&gt; <span class="prelude-ty">Result</span>&lt;T, Box&lt;bincode::ErrorKind&gt;&gt; {
+    bincode_opts().deserialize(msg)
 }
 
-<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">NetworkNodeType</span> {
-    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
-        <span class="ident"><span class="self">Self</span>::Bootstrap</span>
+<span class="kw">impl </span>Default <span class="kw">for </span>NetworkNodeType {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::Bootstrap
     }
 }
 
-<span class="doccomment">/// Actions to send from the client to the swarm</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ClientRequest</span> {
-    <span class="doccomment">/// Start the bootstrap process to kademlia</span>
-    <span class="ident">BeginBootstrap</span>,
-    <span class="doccomment">/// kill the swarm</span>
-    <span class="ident">Shutdown</span>,
-    <span class="doccomment">/// broadcast a serialized message</span>
-    <span class="ident">GossipMsg</span>(<span class="ident">String</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>),
-    <span class="doccomment">/// subscribe to a topic</span>
-    <span class="ident">Subscribe</span>(<span class="ident">String</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span>),
-    <span class="doccomment">/// unsubscribe from a topic</span>
-    <span class="ident">Unsubscribe</span>(<span class="ident">String</span>, <span class="ident">Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>),
-    <span class="doccomment">/// client request to send a direct serialized message</span>
-    <span class="ident">DirectRequest</span> {
-        <span class="doccomment">/// peer id</span>
-        <span class="ident">pid</span>: <span class="ident">PeerId</span>,
-        <span class="doccomment">/// msg contents</span>
-        <span class="ident">contents</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-        <span class="doccomment">/// number of retries</span>
-        <span class="ident">retry_count</span>: <span class="ident">u8</span>,
+<span class="doccomment">/// Actions to send from the client to the swarm
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub enum </span>ClientRequest {
+    <span class="doccomment">/// Start the bootstrap process to kademlia
+    </span>BeginBootstrap,
+    <span class="doccomment">/// kill the swarm
+    </span>Shutdown,
+    <span class="doccomment">/// broadcast a serialized message
+    </span>GossipMsg(String, Vec&lt;u8&gt;),
+    <span class="doccomment">/// subscribe to a topic
+    </span>Subscribe(String, <span class="prelude-ty">Option</span>&lt;Sender&lt;()&gt;&gt;),
+    <span class="doccomment">/// unsubscribe from a topic
+    </span>Unsubscribe(String, Sender&lt;()&gt;),
+    <span class="doccomment">/// client request to send a direct serialized message
+    </span>DirectRequest {
+        <span class="doccomment">/// peer id
+        </span>pid: PeerId,
+        <span class="doccomment">/// msg contents
+        </span>contents: Vec&lt;u8&gt;,
+        <span class="doccomment">/// number of retries
+        </span>retry_count: u8,
     },
-    <span class="doccomment">/// client request to send a direct reply to a message</span>
-    <span class="ident">DirectResponse</span>(<span class="ident">ResponseChannel</span><span class="op">&lt;</span><span class="ident">DirectMessageResponse</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>),
-    <span class="doccomment">/// prune a peer</span>
-    <span class="ident">Prune</span>(<span class="ident">PeerId</span>),
-    <span class="doccomment">/// add vec of known peers or addresses</span>
-    <span class="ident">AddKnownPeers</span>(<span class="ident">Vec</span><span class="op">&lt;</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>, <span class="ident">Multiaddr</span>)<span class="op">&gt;</span>),
-    <span class="doccomment">/// Ignore peers. Only here for debugging purposes.</span>
-    <span class="doccomment">/// Allows us to have nodes that are never pruned</span>
-    <span class="ident">IgnorePeers</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>),
-    <span class="doccomment">/// Put(Key, Value) into DHT</span>
-    <span class="doccomment">/// relay success back on channel</span>
-    <span class="ident">PutDHT</span> {
-        <span class="doccomment">/// Key to publish under</span>
-        <span class="ident">key</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-        <span class="doccomment">/// Value to publish under</span>
-        <span class="ident">value</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-        <span class="doccomment">/// Channel to notify caller of result of publishing</span>
-        <span class="ident">notify</span>: <span class="ident">Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>,
+    <span class="doccomment">/// client request to send a direct reply to a message
+    </span>DirectResponse(ResponseChannel&lt;DirectMessageResponse&gt;, Vec&lt;u8&gt;),
+    <span class="doccomment">/// prune a peer
+    </span>Prune(PeerId),
+    <span class="doccomment">/// add vec of known peers or addresses
+    </span>AddKnownPeers(Vec&lt;(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)&gt;),
+    <span class="doccomment">/// Ignore peers. Only here for debugging purposes.
+    /// Allows us to have nodes that are never pruned
+    </span>IgnorePeers(Vec&lt;PeerId&gt;),
+    <span class="doccomment">/// Put(Key, Value) into DHT
+    /// relay success back on channel
+    </span>PutDHT {
+        <span class="doccomment">/// Key to publish under
+        </span>key: Vec&lt;u8&gt;,
+        <span class="doccomment">/// Value to publish under
+        </span>value: Vec&lt;u8&gt;,
+        <span class="doccomment">/// Channel to notify caller of result of publishing
+        </span>notify: Sender&lt;()&gt;,
     },
-    <span class="doccomment">/// Get(Key, Chan)</span>
-    <span class="ident">GetDHT</span> {
-        <span class="doccomment">/// Key to search for</span>
-        <span class="ident">key</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
-        <span class="doccomment">/// Channel to notify caller of value (or failure to find value)</span>
-        <span class="ident">notify</span>: <span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="doccomment">/// number of retries to make</span>
-        <span class="ident">retry_count</span>: <span class="ident">u8</span>,
+    <span class="doccomment">/// Get(Key, Chan)
+    </span>GetDHT {
+        <span class="doccomment">/// Key to search for
+        </span>key: Vec&lt;u8&gt;,
+        <span class="doccomment">/// Channel to notify caller of value (or failure to find value)
+        </span>notify: Sender&lt;Vec&lt;u8&gt;&gt;,
+        <span class="doccomment">/// number of retries to make
+        </span>retry_count: u8,
     },
-    <span class="doccomment">/// Request the number of connected peers</span>
-    <span class="ident">GetConnectedPeerNum</span>(<span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>),
-    <span class="doccomment">/// Request the set of connected peers</span>
-    <span class="ident">GetConnectedPeers</span>(<span class="ident">Sender</span><span class="op">&lt;</span><span class="ident">HashSet</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span><span class="op">&gt;</span>),
-    <span class="doccomment">/// Print the routing  table to stderr, debugging only</span>
-    <span class="ident">GetRoutingTable</span>(<span class="ident">Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>),
-    <span class="doccomment">/// Get address of peer</span>
-    <span class="ident">LookupPeer</span>(<span class="ident">PeerId</span>, <span class="ident">Sender</span><span class="op">&lt;</span>()<span class="op">&gt;</span>),
+    <span class="doccomment">/// Request the number of connected peers
+    </span>GetConnectedPeerNum(Sender&lt;usize&gt;),
+    <span class="doccomment">/// Request the set of connected peers
+    </span>GetConnectedPeers(Sender&lt;HashSet&lt;PeerId&gt;&gt;),
+    <span class="doccomment">/// Print the routing  table to stderr, debugging only
+    </span>GetRoutingTable(Sender&lt;()&gt;),
+    <span class="doccomment">/// Get address of peer
+    </span>LookupPeer(PeerId, Sender&lt;()&gt;),
 }
 
-<span class="doccomment">/// events generated by the swarm that we wish</span>
-<span class="doccomment">/// to relay to the client</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">NetworkEvent</span> {
-    <span class="doccomment">/// Recv-ed a broadcast</span>
-    <span class="ident">GossipMsg</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">TopicHash</span>),
-    <span class="doccomment">/// Recv-ed a direct message from a node</span>
-    <span class="ident">DirectRequest</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">PeerId</span>, <span class="ident">ResponseChannel</span><span class="op">&lt;</span><span class="ident">DirectMessageResponse</span><span class="op">&gt;</span>),
-    <span class="doccomment">/// Recv-ed a direct response from a node (that hopefully was initiated by this node)</span>
-    <span class="ident">DirectResponse</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">PeerId</span>),
-    <span class="doccomment">/// Report that kademlia has successfully bootstrapped into the network</span>
-    <span class="ident">IsBootstrapped</span>,
+<span class="doccomment">/// events generated by the swarm that we wish
+/// to relay to the client
+</span><span class="attribute">#[derive(Debug)]
+</span><span class="kw">pub enum </span>NetworkEvent {
+    <span class="doccomment">/// Recv-ed a broadcast
+    </span>GossipMsg(Vec&lt;u8&gt;, TopicHash),
+    <span class="doccomment">/// Recv-ed a direct message from a node
+    </span>DirectRequest(Vec&lt;u8&gt;, PeerId, ResponseChannel&lt;DirectMessageResponse&gt;),
+    <span class="doccomment">/// Recv-ed a direct response from a node (that hopefully was initiated by this node)
+    </span>DirectResponse(Vec&lt;u8&gt;, PeerId),
+    <span class="doccomment">/// Report that kademlia has successfully bootstrapped into the network
+    </span>IsBootstrapped,
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="doccomment">/// internal representation of the network events</span>
-<span class="doccomment">/// only used for event processing before relaying to client</span>
-<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">NetworkEventInternal</span> {
-    <span class="doccomment">/// a DHT event</span>
-    <span class="ident">DHTEvent</span>(<span class="ident">DHTEvent</span>),
-    <span class="doccomment">/// a identify event. Is boxed because this event is much larger than the other ones so we want</span>
-    <span class="doccomment">/// to store it on the heap.</span>
-    <span class="ident">IdentifyEvent</span>(<span class="ident">Box</span><span class="op">&lt;</span><span class="ident">IdentifyEvent</span><span class="op">&gt;</span>),
-    <span class="doccomment">/// a gossip  event</span>
-    <span class="ident">GossipEvent</span>(<span class="ident">GossipEvent</span>),
-    <span class="doccomment">/// a direct message event</span>
-    <span class="ident">DMEvent</span>(<span class="ident">DMEvent</span>),
+<span class="attribute">#[derive(Debug)]
+</span><span class="doccomment">/// internal representation of the network events
+/// only used for event processing before relaying to client
+</span><span class="kw">pub enum </span>NetworkEventInternal {
+    <span class="doccomment">/// a DHT event
+    </span>DHTEvent(DHTEvent),
+    <span class="doccomment">/// a identify event. Is boxed because this event is much larger than the other ones so we want
+    /// to store it on the heap.
+    </span>IdentifyEvent(Box&lt;IdentifyEvent&gt;),
+    <span class="doccomment">/// a gossip  event
+    </span>GossipEvent(GossipEvent),
+    <span class="doccomment">/// a direct message event
+    </span>DMEvent(DMEvent),
 }
 
-<span class="doccomment">/// Bind all interfaces on port `port`</span>
-<span class="doccomment">/// NOTE we may want something more general in the fture.</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_multiaddr</span>(<span class="ident">port</span>: <span class="ident">u16</span>) -&gt; <span class="ident">Multiaddr</span> {
-    <span class="macro">build_multiaddr!</span>(<span class="ident">Ip4</span>([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]), <span class="ident">Tcp</span>(<span class="ident">port</span>))
+<span class="doccomment">/// Bind all interfaces on port `port`
+/// NOTE we may want something more general in the fture.
+</span><span class="kw">pub fn </span>gen_multiaddr(port: u16) -&gt; Multiaddr {
+    <span class="macro">build_multiaddr!</span>(Ip4([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]), Tcp(port))
 }
 
-<span class="doccomment">/// Generate authenticated transport, copied from `development_transport`</span>
-<span class="doccomment">/// &lt;http://noiseprotocol.org/noise.html#payload-security-properties&gt; for definition of XX</span>
-<span class="doccomment">/// and multiplexing from example</span>
-<span class="doccomment">/// &lt;https://github.com/mxinden/libp2p-lookup/blob/master/src/main.rs&gt;</span>
-<span class="doccomment">/// # Errors</span>
-<span class="doccomment">/// could not sign the noise key with `identity`</span>
-<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="ident">identity</span>))]</span>
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">gen_transport</span>(
-    <span class="ident">identity</span>: <span class="ident">Keypair</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Boxed</span><span class="op">&lt;</span>(<span class="ident">PeerId</span>, <span class="ident">StreamMuxerBox</span>)<span class="op">&gt;</span>, <span class="ident">NetworkError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">transport</span> <span class="op">=</span> <span class="kw">async</span> <span class="kw">move</span> {
-        <span class="kw">let</span> <span class="ident">dns_tcp</span> <span class="op">=</span> <span class="ident">DnsConfig::system</span>(<span class="ident">TcpTransport::new</span>(<span class="ident">tcp::GenTcpConfig::new</span>().<span class="ident">nodelay</span>(<span class="bool-val">true</span>)));
+<span class="doccomment">/// Generate authenticated transport, copied from `development_transport`
+/// &lt;http://noiseprotocol.org/noise.html#payload-security-properties&gt; for definition of XX
+/// and multiplexing from example
+/// &lt;https://github.com/mxinden/libp2p-lookup/blob/master/src/main.rs&gt;
+/// # Errors
+/// could not sign the noise key with `identity`
+</span><span class="attribute">#[instrument(skip(identity))]
+</span><span class="kw">pub async fn </span>gen_transport(
+    identity: Keypair,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Boxed&lt;(PeerId, StreamMuxerBox)&gt;, NetworkError&gt; {
+    <span class="kw">let </span>transport = <span class="kw">async move </span>{
+        <span class="kw">let </span>dns_tcp = DnsConfig::system(TcpTransport::new(tcp::GenTcpConfig::new().nodelay(<span class="bool-val">true</span>)));
 
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;async-std-executor&quot;</span>)]</span>
-        <span class="kw">return</span> <span class="ident">dns_tcp</span>
-            .<span class="kw">await</span>
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">NetworkError::TransportLaunch</span> { <span class="ident">source</span>: <span class="ident">e</span> });
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
+        </span><span class="kw">return </span>dns_tcp
+            .<span class="kw">await
+            </span>.map_err(|e| NetworkError::TransportLaunch { source: e });
 
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;tokio-executor&quot;</span>)]</span>
-        <span class="kw">return</span> <span class="ident">dns_tcp</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">NetworkError::TransportLaunch</span> { <span class="ident">source</span>: <span class="ident">e</span> });
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
+        </span><span class="kw">return </span>dns_tcp.map_err(|e| NetworkError::TransportLaunch { source: e });
+
+        <span class="attribute">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
+        </span><span class="macro">compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
     }
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="comment">// keys for signing messages</span>
-    <span class="kw">let</span> <span class="ident">noise_keys</span> <span class="op">=</span> <span class="ident">noise::Keypair</span>::<span class="op">&lt;</span><span class="ident">noise::X25519Spec</span><span class="op">&gt;</span><span class="ident">::new</span>()
-        .<span class="ident">into_authentic</span>(<span class="kw-2">&amp;</span><span class="ident">identity</span>)
-        .<span class="ident">expect</span>(<span class="string">&quot;Signing libp2p-noise static DH keypair failed.&quot;</span>);
-    <span class="kw">let</span> <span class="ident">multiplexing_config</span> <span class="op">=</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">yamux_config</span> <span class="op">=</span> <span class="ident">YamuxConfig::default</span>();
-        <span class="ident">yamux_config</span>.<span class="ident">set_window_update_mode</span>(<span class="ident">WindowUpdateMode::on_read</span>());
+    <span class="comment">// keys for signing messages
+    </span><span class="kw">let </span>noise_keys = noise::Keypair::&lt;noise::X25519Spec&gt;::new()
+        .into_authentic(<span class="kw-2">&amp;</span>identity)
+        .expect(<span class="string">&quot;Signing libp2p-noise static DH keypair failed.&quot;</span>);
+    <span class="kw">let </span>multiplexing_config = {
+        <span class="kw">let </span><span class="kw-2">mut </span>yamux_config = YamuxConfig::default();
+        yamux_config.set_window_update_mode(WindowUpdateMode::on_read());
 
-        <span class="ident">yamux_config</span>
-            .<span class="ident">map_inbound</span>(<span class="ident">StreamMuxerBox::new</span>)
-            .<span class="ident">map_outbound</span>(<span class="ident">StreamMuxerBox::new</span>)
+        yamux_config
+            .map_inbound(StreamMuxerBox::new)
+            .map_outbound(StreamMuxerBox::new)
     };
 
-    <span class="prelude-val">Ok</span>(<span class="ident">transport</span>
-        .<span class="ident">upgrade</span>(<span class="ident">upgrade::Version::V1</span>)
-        <span class="comment">// authentication: messages are signed</span>
-        .<span class="ident">authenticate</span>(<span class="ident">noise::NoiseConfig::xx</span>(<span class="ident">noise_keys</span>).<span class="ident">into_authenticated</span>())
-        <span class="comment">// muxxing streams</span>
-        <span class="comment">// useful because only one connection opened</span>
-        <span class="comment">// with multiple substreams</span>
-        <span class="comment">// https://docs.libp2p.io/concepts/stream-multiplexing/</span>
-        .<span class="ident">multiplex</span>(<span class="ident">multiplexing_config</span>)
-        .<span class="ident">timeout</span>(<span class="ident">Duration::from_secs</span>(<span class="number">20</span>))
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::Other</span>, <span class="ident">err</span>))
-        .<span class="ident">boxed</span>())
+    <span class="prelude-val">Ok</span>(transport
+        .upgrade(upgrade::Version::V1)
+        <span class="comment">// authentication: messages are signed
+        </span>.authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
+        <span class="comment">// muxxing streams
+        // useful because only one connection opened
+        // with multiple substreams
+        // https://docs.libp2p.io/concepts/stream-multiplexing/
+        </span>.multiplex(multiplexing_config)
+        .timeout(Duration::from_secs(<span class="number">20</span>))
+        .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
+        .boxed())
 }
 
-<span class="doccomment">/// a single node, connects them to each other</span>
-<span class="doccomment">/// and waits for connections to propagate to all nodes.</span>
-<span class="attribute">#[<span class="ident">instrument</span>]</span>
-<span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">spin_up_swarm</span><span class="op">&lt;</span><span class="ident">S</span>: <span class="ident">std::fmt::Debug</span> <span class="op">+</span> <span class="ident">Default</span><span class="op">&gt;</span>(
-    <span class="ident">timeout_len</span>: <span class="ident">Duration</span>,
-    <span class="ident">known_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PeerId</span><span class="op">&gt;</span>, <span class="ident">Multiaddr</span>)<span class="op">&gt;</span>,
-    <span class="ident">config</span>: <span class="ident">NetworkNodeConfig</span>,
-    <span class="ident">idx</span>: <span class="ident">usize</span>,
-    <span class="ident">handle</span>: <span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">NetworkNodeHandle</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">NetworkNodeHandleError</span><span class="op">&gt;</span> {
-    <span class="macro">info!</span>(<span class="string">&quot;known_nodes{:?}&quot;</span>, <span class="ident">known_nodes</span>);
-    <span class="ident">handle</span>.<span class="ident">add_known_peers</span>(<span class="ident">known_nodes</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-    <span class="ident">handle</span>.<span class="ident">wait_to_connect</span>(<span class="number">4</span>, <span class="ident">idx</span>, <span class="ident">timeout_len</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-    <span class="ident">handle</span>.<span class="ident">subscribe</span>(<span class="string">&quot;global&quot;</span>.<span class="ident">to_string</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
+<span class="doccomment">/// a single node, connects them to each other
+/// and waits for connections to propagate to all nodes.
+</span><span class="attribute">#[instrument]
+</span><span class="kw">pub async fn </span>spin_up_swarm&lt;S: std::fmt::Debug + Default&gt;(
+    timeout_len: Duration,
+    known_nodes: Vec&lt;(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)&gt;,
+    config: NetworkNodeConfig,
+    idx: usize,
+    handle: <span class="kw-2">&amp;</span>Arc&lt;NetworkNodeHandle&lt;S&gt;&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
+    <span class="macro">info!</span>(<span class="string">&quot;known_nodes{:?}&quot;</span>, known_nodes);
+    handle.add_known_peers(known_nodes).<span class="kw">await</span><span class="question-mark">?</span>;
+    handle.wait_to_connect(<span class="number">4</span>, idx, timeout_len).<span class="kw">await</span><span class="question-mark">?</span>;
+    handle.subscribe(<span class="string">&quot;global&quot;</span>.to_string()).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Given a slice of handles assumed to be larger than 0,</span>
-<span class="doccomment">/// chooses one</span>
-<span class="doccomment">/// # Panics</span>
-<span class="doccomment">/// panics if handles is of length 0</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_random_handle</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span>(<span class="ident">handles</span>: <span class="kw-2">&amp;</span>[<span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">NetworkNodeHandle</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span><span class="op">&gt;</span>]) -&gt; <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">NetworkNodeHandle</span><span class="op">&lt;</span><span class="ident">S</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="ident">handles</span>.<span class="ident">iter</span>().<span class="ident">choose</span>(<span class="kw-2">&amp;mut</span> <span class="ident">thread_rng</span>()).<span class="ident">unwrap</span>().<span class="ident">clone</span>()
+<span class="doccomment">/// Given a slice of handles assumed to be larger than 0,
+/// chooses one
+/// # Panics
+/// panics if handles is of length 0
+</span><span class="kw">pub fn </span>get_random_handle&lt;S&gt;(handles: <span class="kw-2">&amp;</span>[Arc&lt;NetworkNodeHandle&lt;S&gt;&gt;]) -&gt; Arc&lt;NetworkNodeHandle&lt;S&gt;&gt; {
+    handles.iter().choose(<span class="kw-2">&amp;mut </span>thread_rng()).unwrap().clone()
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

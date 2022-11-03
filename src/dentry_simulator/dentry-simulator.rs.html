@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `examples/dentry-simulator.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>dentry-simulator.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../dentry_simulator/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../dentry_simulator/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../dentry_simulator/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `examples/dentry-simulator.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>dentry-simulator.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" href="../../normalize.css"><link rel="stylesheet" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" href="../../ayu.css" disabled><link rel="stylesheet" href="../../dark.css" disabled><link rel="stylesheet" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../dentry_simulator/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../dentry_simulator/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../dentry_simulator/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -383,390 +383,390 @@
 <span id="383">383</span>
 <span id="384">384</span>
 <span id="385">385</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">futures::future::join_all</span>;
-<span class="kw">use</span> <span class="ident">hotshot_types::traits</span>::{
-    <span class="ident">signature_key</span>::{
-        <span class="ident">ed25519</span>::{<span class="ident">Ed25519Priv</span>, <span class="ident">Ed25519Pub</span>},
-        <span class="ident">SignatureKey</span>,
+</pre><pre class="rust"><code><span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>futures::future::join_all;
+<span class="kw">use </span>hotshot_types::traits::{
+    signature_key::{
+        ed25519::{Ed25519Priv, Ed25519Pub},
+        SignatureKey,
     },
-    <span class="ident">state::TestableState</span>,
+    state::TestableState,
 };
-<span class="kw">use</span> <span class="ident">hotshot_types</span>::{<span class="ident">ExecutionType</span>, <span class="ident">HotShotConfig</span>};
-<span class="kw">use</span> <span class="ident">hotshot_utils</span>::{
-    <span class="ident">art</span>::{<span class="ident">async_main</span>, <span class="ident">async_sleep</span>, <span class="ident">async_spawn</span>},
-    <span class="ident">test_util</span>::{<span class="ident">setup_backtrace</span>, <span class="ident">setup_logging</span>},
+<span class="kw">use </span>hotshot_types::{ExecutionType, HotShotConfig};
+<span class="kw">use </span>hotshot_utils::{
+    art::{async_main, async_sleep, async_spawn},
+    test_util::{setup_backtrace, setup_logging},
 };
-<span class="kw">use</span> <span class="ident">rand_xoshiro</span>::{<span class="ident">rand_core::SeedableRng</span>, <span class="ident">Xoshiro256StarStar</span>};
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">de::DeserializeOwned</span>, <span class="ident">Serialize</span>};
-<span class="kw">use</span> <span class="ident">std</span>::{
-    <span class="ident">num::NonZeroUsize</span>,
-    <span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>},
+<span class="kw">use </span>rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
+<span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
+<span class="kw">use </span>std::{
+    num::NonZeroUsize,
+    time::{Duration, Instant},
 };
-<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">instrument</span>};
+<span class="kw">use </span>tracing::{debug, error, instrument};
 
-<span class="kw">use</span> <span class="ident">hotshot</span>::{
-    <span class="ident">demos::dentry</span>::<span class="kw-2">*</span>,
-    <span class="ident">traits</span>::{
-        <span class="ident">election::static_committee</span>::{<span class="ident">StaticCommittee</span>, <span class="ident">StaticElectionConfig</span>},
-        <span class="ident">implementations</span>::{<span class="ident">MemoryStorage</span>, <span class="ident">WNetwork</span>},
+<span class="kw">use </span>hotshot::{
+    demos::dentry::<span class="kw-2">*</span>,
+    traits::{
+        election::static_committee::{StaticCommittee, StaticElectionConfig},
+        implementations::{MemoryStorage, WNetwork},
     },
-    <span class="ident">types</span>::{<span class="ident">Event</span>, <span class="ident">EventType</span>, <span class="ident">HotShotHandle</span>, <span class="ident">Message</span>},
-    <span class="ident">HotShot</span>,
+    types::{Event, EventType, HotShotHandle, Message},
+    HotShot,
 };
 
-<span class="kw">type</span> <span class="ident">Node</span> <span class="op">=</span> <span class="ident">DEntryNode</span><span class="op">&lt;</span>
-    <span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&lt;</span><span class="ident">DEntryState</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>,
-    <span class="ident">StaticCommittee</span><span class="op">&lt;</span><span class="ident">DEntryState</span><span class="op">&gt;</span>,
-    <span class="ident">Ed25519Pub</span>,
-<span class="op">&gt;</span>;
+<span class="kw">type </span>Node = DEntryNode&lt;
+    WNetwork&lt;Message&lt;DEntryState, Ed25519Pub&gt;, Ed25519Pub&gt;,
+    StaticCommittee&lt;DEntryState&gt;,
+    Ed25519Pub,
+&gt;;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
-<span class="attribute">#[<span class="ident">command</span>(
-    <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;Double Entry Simulator&quot;</span>,
-    <span class="ident">about</span> <span class="op">=</span> <span class="string">&quot;Simulates consensus among a number of nodes&quot;</span>
-)]</span>
-<span class="kw">struct</span> <span class="ident">Opt</span> {
-    <span class="doccomment">/// Number of nodes to run</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;n&#39;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;7&quot;</span>)]</span>
-    <span class="ident">nodes</span>: <span class="ident">usize</span>,
-    <span class="doccomment">/// Number of transactions to simulate</span>
-    <span class="attribute">#[<span class="ident">arg</span>(<span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;t&#39;</span>, <span class="ident">default_value</span> <span class="op">=</span> <span class="string">&quot;10&quot;</span>)]</span>
-    <span class="ident">transactions</span>: <span class="ident">usize</span>,
+<span class="attribute">#[derive(Debug, Parser)]
+#[command(
+    name = <span class="string">&quot;Double Entry Simulator&quot;</span>,
+    about = <span class="string">&quot;Simulates consensus among a number of nodes&quot;
+</span>)]
+</span><span class="kw">struct </span>Opt {
+    <span class="doccomment">/// Number of nodes to run
+    </span><span class="attribute">#[arg(short = <span class="string">&#39;n&#39;</span>, default_value = <span class="string">&quot;7&quot;</span>)]
+    </span>nodes: usize,
+    <span class="doccomment">/// Number of transactions to simulate
+    </span><span class="attribute">#[arg(short = <span class="string">&#39;t&#39;</span>, default_value = <span class="string">&quot;10&quot;</span>)]
+    </span>transactions: usize,
 }
-<span class="doccomment">/// Prebaked list of transactions</span>
-<span class="kw">fn</span> <span class="ident">prebaked_transactions</span>() -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">DEntryTransaction</span><span class="op">&gt;</span> {
+<span class="doccomment">/// Prebaked list of transactions
+</span><span class="kw">fn </span>prebaked_transactions() -&gt; Vec&lt;DEntryTransaction&gt; {
     <span class="macro">vec!</span>[
-        <span class="ident">DEntryTransaction</span> {
-            <span class="ident">add</span>: <span class="ident">Addition</span> {
-                <span class="ident">account</span>: <span class="string">&quot;Ian&quot;</span>.<span class="ident">to_string</span>(),
-                <span class="ident">amount</span>: <span class="number">100</span>,
+        DEntryTransaction {
+            add: Addition {
+                account: <span class="string">&quot;Ian&quot;</span>.to_string(),
+                amount: <span class="number">100</span>,
             },
-            <span class="ident">sub</span>: <span class="ident">Subtraction</span> {
-                <span class="ident">account</span>: <span class="string">&quot;Joe&quot;</span>.<span class="ident">to_string</span>(),
-                <span class="ident">amount</span>: <span class="number">100</span>,
+            sub: Subtraction {
+                account: <span class="string">&quot;Joe&quot;</span>.to_string(),
+                amount: <span class="number">100</span>,
             },
-            <span class="ident">nonce</span>: <span class="number">0</span>,
-            <span class="ident">padding</span>: <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">0</span>],
+            nonce: <span class="number">0</span>,
+            padding: <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">0</span>],
         },
-        <span class="ident">DEntryTransaction</span> {
-            <span class="ident">add</span>: <span class="ident">Addition</span> {
-                <span class="ident">account</span>: <span class="string">&quot;John&quot;</span>.<span class="ident">to_string</span>(),
-                <span class="ident">amount</span>: <span class="number">25</span>,
+        DEntryTransaction {
+            add: Addition {
+                account: <span class="string">&quot;John&quot;</span>.to_string(),
+                amount: <span class="number">25</span>,
             },
-            <span class="ident">sub</span>: <span class="ident">Subtraction</span> {
-                <span class="ident">account</span>: <span class="string">&quot;Joe&quot;</span>.<span class="ident">to_string</span>(),
-                <span class="ident">amount</span>: <span class="number">25</span>,
+            sub: Subtraction {
+                account: <span class="string">&quot;Joe&quot;</span>.to_string(),
+                amount: <span class="number">25</span>,
             },
-            <span class="ident">nonce</span>: <span class="number">1</span>,
-            <span class="ident">padding</span>: <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">0</span>],
+            nonce: <span class="number">1</span>,
+            padding: <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">0</span>],
         },
     ]
 }
 
-<span class="attribute">#[<span class="ident">async_main</span>]</span>
-<span class="attribute">#[<span class="ident">instrument</span>]</span>
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">main</span>() {
-    <span class="comment">// Setup tracing listener</span>
-    <span class="ident">setup_logging</span>();
-    <span class="ident">setup_backtrace</span>();
+<span class="attribute">#[async_main]
+#[instrument]
+</span><span class="kw">async fn </span>main() {
+    <span class="comment">// Setup tracing listener
+    </span>setup_logging();
+    setup_backtrace();
 
-    <span class="comment">// Get options</span>
-    <span class="kw">let</span> <span class="ident">opt</span> <span class="op">=</span> <span class="ident">Opt::parse</span>();
-    <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">opt</span>);
+    <span class="comment">// Get options
+    </span><span class="kw">let </span>opt = Opt::parse();
+    <span class="macro">debug!</span>(<span class="question-mark">?</span>opt);
 
-    <span class="comment">// Calculate our threshold</span>
-    <span class="kw">let</span> <span class="ident">nodes</span> <span class="op">=</span> <span class="ident">opt</span>.<span class="ident">nodes</span>;
-    <span class="kw">let</span> <span class="ident">threshold</span> <span class="op">=</span> ((<span class="ident">nodes</span> <span class="op">*</span> <span class="number">2</span>) <span class="op">/</span> <span class="number">3</span>) <span class="op">+</span> <span class="number">1</span>;
-    <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">nodes</span>, <span class="question-mark">?</span><span class="ident">threshold</span>);
-    <span class="comment">// Generate our private key set</span>
-    <span class="comment">// Generated using xoshiro for reproduceability</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rng</span> <span class="op">=</span> <span class="ident">Xoshiro256StarStar::seed_from_u64</span>(<span class="number">0</span>);
-    <span class="comment">// Spawn the networking backends and connect them together</span>
-    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">networkings</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(
-        <span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&lt;</span><span class="ident">DEntryState</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>,
-        <span class="ident">u16</span>,
-        <span class="ident">Ed25519Pub</span>,
-        <span class="ident">u64</span>,
-    )<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-    <span class="kw">for</span> <span class="ident">node_id</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">nodes</span> <span class="kw">as</span> <span class="ident">u64</span> {
-        <span class="kw">let</span> <span class="ident">private_key</span> <span class="op">=</span> <span class="ident">Ed25519Priv::generated_from_seed_indexed</span>([<span class="number">0_u8</span>; <span class="number">32</span>], <span class="ident">node_id</span>);
-        <span class="kw">let</span> <span class="ident">public_key</span> <span class="op">=</span> <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">private_key</span>);
-        <span class="ident">networkings</span>.<span class="ident">push</span>(<span class="ident">get_networking</span>(<span class="ident">public_key</span>, <span class="string">&quot;0.0.0.0&quot;</span>, <span class="ident">node_id</span>, <span class="kw-2">&amp;mut</span> <span class="ident">rng</span>).<span class="kw">await</span>);
+    <span class="comment">// Calculate our threshold
+    </span><span class="kw">let </span>nodes = opt.nodes;
+    <span class="kw">let </span>threshold = ((nodes * <span class="number">2</span>) / <span class="number">3</span>) + <span class="number">1</span>;
+    <span class="macro">debug!</span>(<span class="question-mark">?</span>nodes, <span class="question-mark">?</span>threshold);
+    <span class="comment">// Generate our private key set
+    // Generated using xoshiro for reproduceability
+    </span><span class="kw">let </span><span class="kw-2">mut </span>rng = Xoshiro256StarStar::seed_from_u64(<span class="number">0</span>);
+    <span class="comment">// Spawn the networking backends and connect them together
+    </span><span class="attribute">#[allow(clippy::type_complexity)]
+    </span><span class="kw">let </span><span class="kw-2">mut </span>networkings: Vec&lt;(
+        WNetwork&lt;Message&lt;DEntryState, Ed25519Pub&gt;, Ed25519Pub&gt;,
+        u16,
+        Ed25519Pub,
+        u64,
+    )&gt; = Vec::new();
+    <span class="kw">for </span>node_id <span class="kw">in </span><span class="number">0</span>..nodes <span class="kw">as </span>u64 {
+        <span class="kw">let </span>private_key = Ed25519Priv::generated_from_seed_indexed([<span class="number">0_u8</span>; <span class="number">32</span>], node_id);
+        <span class="kw">let </span>public_key = Ed25519Pub::from_private(<span class="kw-2">&amp;</span>private_key);
+        networkings.push(get_networking(public_key, <span class="string">&quot;0.0.0.0&quot;</span>, node_id, <span class="kw-2">&amp;mut </span>rng).<span class="kw">await</span>);
     }
-    <span class="comment">// Connect the networking implementations</span>
-    <span class="kw">for</span> (<span class="ident">i</span>, (<span class="ident">n</span>, <span class="kw">_</span>, <span class="ident">self_key</span>, <span class="ident">_node_id</span>)) <span class="kw">in</span> <span class="ident">networkings</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
-        <span class="kw">for</span> (<span class="kw">_</span>, <span class="ident">port</span>, <span class="ident">key</span>, <span class="ident">_other_node_id</span>) <span class="kw">in</span> <span class="ident">networkings</span>[<span class="ident">i</span>..].<span class="ident">iter</span>() {
-            <span class="kw">if</span> <span class="ident">key</span> <span class="op">!</span><span class="op">=</span> <span class="ident">self_key</span> {
-                <span class="kw">let</span> <span class="ident">socket</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;localhost:{}&quot;</span>, <span class="ident">port</span>);
-                <span class="ident">n</span>.<span class="ident">connect_to</span>(<span class="kw-2">*</span><span class="ident">key</span>, <span class="kw-2">&amp;</span><span class="ident">socket</span>)
-                    .<span class="kw">await</span>
-                    .<span class="ident">expect</span>(<span class="string">&quot;Unable to connect to node&quot;</span>);
+    <span class="comment">// Connect the networking implementations
+    </span><span class="kw">for </span>(i, (n, <span class="kw">_</span>, self_key, _node_id)) <span class="kw">in </span>networkings.iter().enumerate() {
+        <span class="kw">for </span>(<span class="kw">_</span>, port, key, _other_node_id) <span class="kw">in </span>networkings[i..].iter() {
+            <span class="kw">if </span>key != self_key {
+                <span class="kw">let </span>socket = <span class="macro">format!</span>(<span class="string">&quot;localhost:{}&quot;</span>, port);
+                n.connect_to(<span class="kw-2">*</span>key, <span class="kw-2">&amp;</span>socket)
+                    .<span class="kw">await
+                    </span>.expect(<span class="string">&quot;Unable to connect to node&quot;</span>);
             }
         }
     }
-    <span class="comment">// Wait for the networking implementations to connect</span>
-    <span class="kw">for</span> (<span class="ident">n</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">networkings</span> {
-        <span class="kw">while</span> <span class="ident">n</span>.<span class="ident">connection_table_size</span>().<span class="kw">await</span> <span class="op">&lt;</span> <span class="ident">nodes</span> <span class="op">-</span> <span class="number">1</span> {
-            <span class="ident">async_sleep</span>(<span class="ident">std::time::Duration::from_millis</span>(<span class="number">10</span>)).<span class="kw">await</span>;
+    <span class="comment">// Wait for the networking implementations to connect
+    </span><span class="kw">for </span>(n, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) <span class="kw">in </span><span class="kw-2">&amp;</span>networkings {
+        <span class="kw">while </span>n.connection_table_size().<span class="kw">await </span>&lt; nodes - <span class="number">1 </span>{
+            async_sleep(std::time::Duration::from_millis(<span class="number">10</span>)).<span class="kw">await</span>;
         }
     }
-    <span class="comment">// Create the hotshots</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">hotshots</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">HotShotHandle</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">join_all</span>(
-        <span class="ident">networkings</span>
-            .<span class="ident">into_iter</span>()
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">network</span>, <span class="kw">_</span>, <span class="ident">_pk</span>, <span class="ident">node_id</span>)<span class="op">|</span> <span class="ident">get_hotshot</span>(<span class="ident">nodes</span>, <span class="ident">threshold</span>, <span class="ident">node_id</span>, <span class="ident">network</span>)),
+    <span class="comment">// Create the hotshots
+    </span><span class="kw">let </span><span class="kw-2">mut </span>hotshots: Vec&lt;HotShotHandle&lt;<span class="kw">_</span>&gt;&gt; = join_all(
+        networkings
+            .into_iter()
+            .map(|(network, <span class="kw">_</span>, _pk, node_id)| get_hotshot(nodes, threshold, node_id, network)),
     )
     .<span class="kw">await</span>;
 
-    <span class="kw">let</span> <span class="ident">prebaked_txns</span> <span class="op">=</span> <span class="ident">prebaked_transactions</span>();
-    <span class="kw">let</span> <span class="ident">prebaked_count</span> <span class="op">=</span> <span class="ident">prebaked_txns</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>;
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">state</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+    <span class="kw">let </span>prebaked_txns = prebaked_transactions();
+    <span class="kw">let </span>prebaked_count = prebaked_txns.len() <span class="kw">as </span>u64;
+    <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="prelude-val">None</span>;
 
-    <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">Instant::now</span>();
+    <span class="kw">let </span>start = Instant::now();
 
     <span class="macro">println!</span>(<span class="string">&quot;Running through prebaked transactions&quot;</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;Running through prebaked transactions&quot;</span>);
-    <span class="kw">for</span> (<span class="ident">round</span>, <span class="ident">tx</span>) <span class="kw">in</span> <span class="ident">prebaked_txns</span>.<span class="ident">into_iter</span>().<span class="ident">enumerate</span>() {
-        <span class="macro">println!</span>(<span class="string">&quot;Round {}:&quot;</span>, <span class="ident">round</span>);
-        <span class="macro">println!</span>(<span class="string">&quot;  - Proposing: {:?}&quot;</span>, <span class="ident">tx</span>);
-        <span class="macro">debug!</span>(<span class="string">&quot;Proposing: {:?}&quot;</span>, <span class="ident">tx</span>);
-        <span class="ident">hotshots</span>[<span class="number">0</span>]
-            .<span class="ident">submit_transaction</span>(<span class="ident">tx</span>)
-            .<span class="kw">await</span>
-            .<span class="ident">expect</span>(<span class="string">&quot;Failed to submit transaction&quot;</span>);
+    <span class="kw">for </span>(round, tx) <span class="kw">in </span>prebaked_txns.into_iter().enumerate() {
+        <span class="macro">println!</span>(<span class="string">&quot;Round {}:&quot;</span>, round);
+        <span class="macro">println!</span>(<span class="string">&quot;  - Proposing: {:?}&quot;</span>, tx);
+        <span class="macro">debug!</span>(<span class="string">&quot;Proposing: {:?}&quot;</span>, tx);
+        hotshots[<span class="number">0</span>]
+            .submit_transaction(tx)
+            .<span class="kw">await
+            </span>.expect(<span class="string">&quot;Failed to submit transaction&quot;</span>);
         <span class="macro">println!</span>(<span class="string">&quot;  - Unlocking round&quot;</span>);
         <span class="macro">debug!</span>(<span class="string">&quot;Unlocking round&quot;</span>);
-        <span class="kw">for</span> <span class="ident">hotshot</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">hotshots</span> {
-            <span class="ident">hotshot</span>.<span class="ident">start_one_round</span>().<span class="kw">await</span>;
+        <span class="kw">for </span>hotshot <span class="kw">in </span><span class="kw-2">&amp;</span>hotshots {
+            hotshot.start_one_round().<span class="kw">await</span>;
         }
         <span class="macro">println!</span>(<span class="string">&quot;  - Waiting for consensus to occur&quot;</span>);
         <span class="macro">debug!</span>(<span class="string">&quot;Waiting for consensus to occur&quot;</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">blocks</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">states</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">DEntryState</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">for</span> (<span class="ident">node_id</span>, <span class="ident">hotshot</span>) <span class="kw">in</span> <span class="ident">hotshots</span>.<span class="ident">iter_mut</span>().<span class="ident">enumerate</span>() {
-            <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">node_id</span>, <span class="string">&quot;Waiting on node to emit decision&quot;</span>);
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">DEntryState</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>
-                .<span class="ident">next_event</span>()
-                .<span class="kw">await</span>
-                .<span class="ident">expect</span>(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
-            <span class="kw">while</span> <span class="op">!</span><span class="macro">matches!</span>(<span class="ident">event</span>.<span class="ident">event</span>, <span class="ident">EventType::Decide</span> { .. }) {
-                <span class="kw">if</span> <span class="macro">matches!</span>(<span class="ident">event</span>.<span class="ident">event</span>, <span class="ident">EventType::ReplicaViewTimeout</span> { .. }) {
-                    <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">event</span>, <span class="string">&quot;Round timed out!&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>blocks: Vec&lt;Vec&lt;DEntryBlock&gt;&gt; = Vec::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>states: Vec&lt;Vec&lt;DEntryState&gt;&gt; = Vec::new();
+        <span class="kw">for </span>(node_id, hotshot) <span class="kw">in </span>hotshots.iter_mut().enumerate() {
+            <span class="macro">debug!</span>(<span class="question-mark">?</span>node_id, <span class="string">&quot;Waiting on node to emit decision&quot;</span>);
+            <span class="kw">let </span><span class="kw-2">mut </span>event: Event&lt;DEntryState&gt; = hotshot
+                .next_event()
+                .<span class="kw">await
+                </span>.expect(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
+            <span class="kw">while </span>!<span class="macro">matches!</span>(event.event, EventType::Decide { .. }) {
+                <span class="kw">if </span><span class="macro">matches!</span>(event.event, EventType::ReplicaViewTimeout { .. }) {
+                    <span class="macro">error!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;Round timed out!&quot;</span>);
                     <span class="macro">panic!</span>(<span class="string">&quot;Round failed&quot;</span>);
                 }
-                <span class="macro">debug!</span> {<span class="question-mark">?</span><span class="ident">node_id</span>, <span class="question-mark">?</span><span class="ident">event</span>};
-                <span class="ident">event</span> <span class="op">=</span> <span class="ident">hotshot</span>
-                    .<span class="ident">next_event</span>()
-                    .<span class="kw">await</span>
-                    .<span class="ident">expect</span>(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
+                <span class="macro">debug! </span>{<span class="question-mark">?</span>node_id, <span class="question-mark">?</span>event};
+                event = hotshot
+                    .next_event()
+                    .<span class="kw">await
+                    </span>.expect(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
             }
-            <span class="macro">println!</span>(<span class="string">&quot;    - Node {} reached decision&quot;</span>, <span class="ident">node_id</span>);
-            <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">node_id</span>, <span class="string">&quot;Decision emitted&quot;</span>);
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">EventType::Decide</span> { <span class="ident">leaf_chain</span>, .. } <span class="op">=</span> <span class="ident">event</span>.<span class="ident">event</span> {
-                <span class="kw">let</span> (<span class="ident">block</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">leaf_chain</span>
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">cloned</span>()
-                    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">leaf</span><span class="op">|</span> (<span class="ident">leaf</span>.<span class="ident">deltas</span>, <span class="ident">leaf</span>.<span class="ident">state</span>))
-                    .<span class="ident">unzip</span>();
-                <span class="ident">blocks</span>.<span class="ident">push</span>(<span class="ident">block</span>);
-                <span class="ident">states</span>.<span class="ident">push</span>(<span class="ident">state</span>);
-            } <span class="kw">else</span> {
+            <span class="macro">println!</span>(<span class="string">&quot;    - Node {} reached decision&quot;</span>, node_id);
+            <span class="macro">debug!</span>(<span class="question-mark">?</span>node_id, <span class="string">&quot;Decision emitted&quot;</span>);
+            <span class="kw">if let </span>EventType::Decide { leaf_chain, .. } = event.event {
+                <span class="kw">let </span>(block, state) = leaf_chain
+                    .iter()
+                    .cloned()
+                    .map(|leaf| (leaf.deltas, leaf.state))
+                    .unzip();
+                blocks.push(block);
+                states.push(state);
+            } <span class="kw">else </span>{
                 <span class="macro">unreachable!</span>()
             }
         }
         <span class="macro">debug!</span>(<span class="string">&quot;All nodes reached decision&quot;</span>);
-        <span class="macro">assert!</span>(<span class="ident">states</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="ident">nodes</span>);
-        <span class="macro">assert!</span>(<span class="ident">blocks</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="ident">nodes</span>);
-        <span class="kw">let</span> <span class="ident">b_test</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">blocks</span>[<span class="number">0</span>];
-        <span class="kw">for</span> <span class="ident">b</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">blocks</span>[<span class="number">1</span>..] {
-            <span class="macro">assert!</span>(<span class="ident">b</span> <span class="op">==</span> <span class="ident">b_test</span>);
+        <span class="macro">assert!</span>(states.len() == nodes);
+        <span class="macro">assert!</span>(blocks.len() == nodes);
+        <span class="kw">let </span>b_test = <span class="kw-2">&amp;</span>blocks[<span class="number">0</span>];
+        <span class="kw">for </span>b <span class="kw">in </span><span class="kw-2">&amp;</span>blocks[<span class="number">1</span>..] {
+            <span class="macro">assert!</span>(b == b_test);
         }
-        <span class="kw">let</span> <span class="ident">s_test</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">states</span>[<span class="number">0</span>];
-        <span class="kw">for</span> <span class="ident">s</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">states</span>[<span class="number">1</span>..] {
-            <span class="macro">assert!</span>(<span class="ident">s</span> <span class="op">==</span> <span class="ident">s_test</span>);
+        <span class="kw">let </span>s_test = <span class="kw-2">&amp;</span>states[<span class="number">0</span>];
+        <span class="kw">for </span>s <span class="kw">in </span><span class="kw-2">&amp;</span>states[<span class="number">1</span>..] {
+            <span class="macro">assert!</span>(s == s_test);
         }
         <span class="macro">println!</span>(<span class="string">&quot;  - All states match&quot;</span>);
         <span class="macro">println!</span>(<span class="string">&quot;  - Balances:&quot;</span>);
-        <span class="kw">for</span> (<span class="ident">account</span>, <span class="ident">balance</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">s_test</span>[<span class="number">0</span>].<span class="ident">balances</span> {
-            <span class="macro">println!</span>(<span class="string">&quot;    - {}: {}&quot;</span>, <span class="ident">account</span>, <span class="ident">balance</span>);
+        <span class="kw">for </span>(account, balance) <span class="kw">in </span><span class="kw-2">&amp;</span>s_test[<span class="number">0</span>].balances {
+            <span class="macro">println!</span>(<span class="string">&quot;    - {}: {}&quot;</span>, account, balance);
         }
-        <span class="ident">state</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">s_test</span>.<span class="ident">clone</span>());
+        state = <span class="prelude-val">Some</span>(s_test.clone());
     }
 
     <span class="macro">println!</span>(<span class="string">&quot;Running random transactions&quot;</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;Running random transactions&quot;</span>);
-    <span class="kw">for</span> <span class="ident">round</span> <span class="kw">in</span> <span class="ident">prebaked_count</span>..<span class="ident">opt</span>.<span class="ident">transactions</span> <span class="kw">as</span> <span class="ident">u64</span> {
-        <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">round</span>);
-        <span class="kw">let</span> <span class="ident">tx</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">state</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>()[<span class="number">0</span>].<span class="ident">create_random_transaction</span>();
-        <span class="macro">println!</span>(<span class="string">&quot;Round {}:&quot;</span>, <span class="ident">round</span>);
-        <span class="macro">println!</span>(<span class="string">&quot;  - Proposing: {:?}&quot;</span>, <span class="ident">tx</span>);
-        <span class="macro">debug!</span>(<span class="string">&quot;Proposing: {:?}&quot;</span>, <span class="ident">tx</span>);
-        <span class="ident">hotshots</span>[<span class="number">0</span>]
-            .<span class="ident">submit_transaction</span>(<span class="ident">tx</span>.<span class="ident">clone</span>())
-            .<span class="kw">await</span>
-            .<span class="ident">expect</span>(<span class="string">&quot;Failed to submit transaction&quot;</span>);
+    <span class="kw">for </span>round <span class="kw">in </span>prebaked_count..opt.transactions <span class="kw">as </span>u64 {
+        <span class="macro">debug!</span>(<span class="question-mark">?</span>round);
+        <span class="kw">let </span>tx = <span class="kw-2">&amp;</span>state.as_ref().unwrap()[<span class="number">0</span>].create_random_transaction();
+        <span class="macro">println!</span>(<span class="string">&quot;Round {}:&quot;</span>, round);
+        <span class="macro">println!</span>(<span class="string">&quot;  - Proposing: {:?}&quot;</span>, tx);
+        <span class="macro">debug!</span>(<span class="string">&quot;Proposing: {:?}&quot;</span>, tx);
+        hotshots[<span class="number">0</span>]
+            .submit_transaction(tx.clone())
+            .<span class="kw">await
+            </span>.expect(<span class="string">&quot;Failed to submit transaction&quot;</span>);
         <span class="macro">println!</span>(<span class="string">&quot;  - Unlocking round&quot;</span>);
         <span class="macro">debug!</span>(<span class="string">&quot;Unlocking round&quot;</span>);
-        <span class="kw">for</span> <span class="ident">hotshot</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">hotshots</span> {
-            <span class="ident">hotshot</span>.<span class="ident">start_one_round</span>().<span class="kw">await</span>;
+        <span class="kw">for </span>hotshot <span class="kw">in </span><span class="kw-2">&amp;</span>hotshots {
+            hotshot.start_one_round().<span class="kw">await</span>;
         }
         <span class="macro">println!</span>(<span class="string">&quot;  - Waiting for consensus to occur&quot;</span>);
         <span class="macro">debug!</span>(<span class="string">&quot;Waiting for consensus to occur&quot;</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">blocks</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">DEntryBlock</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">states</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">DEntryState</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">for</span> (<span class="ident">node_id</span>, <span class="ident">hotshot</span>) <span class="kw">in</span> <span class="ident">hotshots</span>.<span class="ident">iter_mut</span>().<span class="ident">enumerate</span>() {
-            <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">node_id</span>, <span class="string">&quot;Waiting on node to emit decision&quot;</span>);
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">event</span>: <span class="ident">Event</span><span class="op">&lt;</span><span class="ident">DEntryState</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">hotshot</span>
-                .<span class="ident">next_event</span>()
-                .<span class="kw">await</span>
-                .<span class="ident">expect</span>(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
-            <span class="kw">while</span> <span class="op">!</span><span class="macro">matches!</span>(<span class="ident">event</span>.<span class="ident">event</span>, <span class="ident">EventType::Decide</span> { .. }) {
-                <span class="kw">if</span> <span class="macro">matches!</span>(<span class="ident">event</span>.<span class="ident">event</span>, <span class="ident">EventType::ReplicaViewTimeout</span> { .. }) {
-                    <span class="macro">error!</span>(<span class="question-mark">?</span><span class="ident">event</span>, <span class="string">&quot;Round timed out!&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>blocks: Vec&lt;Vec&lt;DEntryBlock&gt;&gt; = Vec::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>states: Vec&lt;Vec&lt;DEntryState&gt;&gt; = Vec::new();
+        <span class="kw">for </span>(node_id, hotshot) <span class="kw">in </span>hotshots.iter_mut().enumerate() {
+            <span class="macro">debug!</span>(<span class="question-mark">?</span>node_id, <span class="string">&quot;Waiting on node to emit decision&quot;</span>);
+            <span class="kw">let </span><span class="kw-2">mut </span>event: Event&lt;DEntryState&gt; = hotshot
+                .next_event()
+                .<span class="kw">await
+                </span>.expect(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
+            <span class="kw">while </span>!<span class="macro">matches!</span>(event.event, EventType::Decide { .. }) {
+                <span class="kw">if </span><span class="macro">matches!</span>(event.event, EventType::ReplicaViewTimeout { .. }) {
+                    <span class="macro">error!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;Round timed out!&quot;</span>);
                     <span class="macro">panic!</span>(<span class="string">&quot;Round failed&quot;</span>);
                 }
-                <span class="macro">debug!</span> {<span class="question-mark">?</span><span class="ident">node_id</span>, <span class="question-mark">?</span><span class="ident">event</span>};
-                <span class="ident">event</span> <span class="op">=</span> <span class="ident">hotshot</span>
-                    .<span class="ident">next_event</span>()
-                    .<span class="kw">await</span>
-                    .<span class="ident">expect</span>(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
+                <span class="macro">debug! </span>{<span class="question-mark">?</span>node_id, <span class="question-mark">?</span>event};
+                event = hotshot
+                    .next_event()
+                    .<span class="kw">await
+                    </span>.expect(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
             }
-            <span class="macro">println!</span>(<span class="string">&quot;    - Node {} reached decision&quot;</span>, <span class="ident">node_id</span>);
-            <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">node_id</span>, <span class="string">&quot;Decision emitted&quot;</span>);
-            <span class="kw">if</span> <span class="kw">let</span> <span class="ident">EventType::Decide</span> { <span class="ident">leaf_chain</span>, .. } <span class="op">=</span> <span class="ident">event</span>.<span class="ident">event</span> {
-                <span class="kw">let</span> (<span class="ident">block</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">leaf_chain</span>
-                    .<span class="ident">iter</span>()
-                    .<span class="ident">cloned</span>()
-                    .<span class="ident">map</span>(<span class="op">|</span><span class="ident">leaf</span><span class="op">|</span> (<span class="ident">leaf</span>.<span class="ident">deltas</span>, <span class="ident">leaf</span>.<span class="ident">state</span>))
-                    .<span class="ident">unzip</span>();
-                <span class="ident">blocks</span>.<span class="ident">push</span>(<span class="ident">block</span>);
-                <span class="ident">states</span>.<span class="ident">push</span>(<span class="ident">state</span>);
-            } <span class="kw">else</span> {
+            <span class="macro">println!</span>(<span class="string">&quot;    - Node {} reached decision&quot;</span>, node_id);
+            <span class="macro">debug!</span>(<span class="question-mark">?</span>node_id, <span class="string">&quot;Decision emitted&quot;</span>);
+            <span class="kw">if let </span>EventType::Decide { leaf_chain, .. } = event.event {
+                <span class="kw">let </span>(block, state) = leaf_chain
+                    .iter()
+                    .cloned()
+                    .map(|leaf| (leaf.deltas, leaf.state))
+                    .unzip();
+                blocks.push(block);
+                states.push(state);
+            } <span class="kw">else </span>{
                 <span class="macro">unreachable!</span>()
             }
         }
         <span class="macro">debug!</span>(<span class="string">&quot;All nodes reached decision&quot;</span>);
-        <span class="macro">assert!</span>(<span class="ident">states</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="ident">nodes</span>);
-        <span class="macro">assert!</span>(<span class="ident">blocks</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="ident">nodes</span>);
-        <span class="kw">let</span> <span class="ident">b_test</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">blocks</span>[<span class="number">0</span>];
-        <span class="kw">for</span> <span class="ident">b</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">blocks</span>[<span class="number">1</span>..] {
-            <span class="macro">assert!</span>(<span class="ident">b</span> <span class="op">==</span> <span class="ident">b_test</span>);
+        <span class="macro">assert!</span>(states.len() == nodes);
+        <span class="macro">assert!</span>(blocks.len() == nodes);
+        <span class="kw">let </span>b_test = <span class="kw-2">&amp;</span>blocks[<span class="number">0</span>];
+        <span class="kw">for </span>b <span class="kw">in </span><span class="kw-2">&amp;</span>blocks[<span class="number">1</span>..] {
+            <span class="macro">assert!</span>(b == b_test);
         }
-        <span class="kw">let</span> <span class="ident">s_test</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">states</span>[<span class="number">0</span>];
-        <span class="kw">for</span> <span class="ident">s</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">states</span>[<span class="number">1</span>..] {
-            <span class="macro">assert!</span>(<span class="ident">s</span> <span class="op">==</span> <span class="ident">s_test</span>);
+        <span class="kw">let </span>s_test = <span class="kw-2">&amp;</span>states[<span class="number">0</span>];
+        <span class="kw">for </span>s <span class="kw">in </span><span class="kw-2">&amp;</span>states[<span class="number">1</span>..] {
+            <span class="macro">assert!</span>(s == s_test);
         }
         <span class="macro">println!</span>(<span class="string">&quot;  - All states match&quot;</span>);
         <span class="macro">println!</span>(<span class="string">&quot;  - Balances:&quot;</span>);
-        <span class="kw">for</span> (<span class="ident">account</span>, <span class="ident">balance</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="ident">s_test</span>[<span class="number">0</span>].<span class="ident">balances</span> {
-            <span class="macro">println!</span>(<span class="string">&quot;    - {}: {}&quot;</span>, <span class="ident">account</span>, <span class="ident">balance</span>);
+        <span class="kw">for </span>(account, balance) <span class="kw">in </span><span class="kw-2">&amp;</span>s_test[<span class="number">0</span>].balances {
+            <span class="macro">println!</span>(<span class="string">&quot;    - {}: {}&quot;</span>, account, balance);
         }
-        <span class="ident">state</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">s_test</span>.<span class="ident">clone</span>());
+        state = <span class="prelude-val">Some</span>(s_test.clone());
     }
 
-    <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="ident">Instant::now</span>();
+    <span class="kw">let </span>end = Instant::now();
     <span class="macro">println!</span>();
-    <span class="kw">let</span> <span class="ident">duration</span> <span class="op">=</span> <span class="ident">end</span>.<span class="ident">duration_since</span>(<span class="ident">start</span>);
-    <span class="kw">let</span> <span class="ident">time</span> <span class="op">=</span> <span class="ident">duration</span>.<span class="ident">as_secs_f64</span>();
-    <span class="kw">let</span> <span class="ident">per_round</span> <span class="op">=</span> <span class="ident">time</span> <span class="op">/</span> (<span class="ident">opt</span>.<span class="ident">transactions</span> <span class="kw">as</span> <span class="ident">f64</span>);
+    <span class="kw">let </span>duration = end.duration_since(start);
+    <span class="kw">let </span>time = duration.as_secs_f64();
+    <span class="kw">let </span>per_round = time / (opt.transactions <span class="kw">as </span>f64);
     <span class="macro">println!</span>(
         <span class="string">&quot;Completed {} rounds of consensus in {:.3} seconds ({:.3} seconds / round)&quot;</span>,
-        <span class="ident">opt</span>.<span class="ident">transactions</span>, <span class="ident">time</span>, <span class="ident">per_round</span>
+        opt.transactions, time, per_round
     );
 }
 
-<span class="doccomment">/// Trys to get a networking implementation with the given id</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// also starts the background task</span>
-<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="ident">rng</span>))]</span>
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_networking</span><span class="op">&lt;</span>
-    <span class="ident">T</span>: <span class="ident">Clone</span> <span class="op">+</span> <span class="ident">Serialize</span> <span class="op">+</span> <span class="ident">DeserializeOwned</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">std::fmt::Debug</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>,
-    <span class="ident">R</span>: <span class="ident">hotshot::rand::Rng</span>,
-<span class="op">&gt;</span>(
-    <span class="ident">pub_key</span>: <span class="ident">Ed25519Pub</span>,
-    <span class="ident">listen_addr</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">node_id</span>: <span class="ident">u64</span>,
-    <span class="ident">rng</span>: <span class="kw-2">&amp;mut</span> <span class="ident">R</span>,
-) -&gt; (<span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>, <span class="ident">u16</span>, <span class="ident">Ed25519Pub</span>, <span class="ident">u64</span>) {
-    <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">pub_key</span>);
-    <span class="kw">for</span> <span class="ident">attempt</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">50</span> {
-        <span class="kw">let</span> <span class="ident">port</span>: <span class="ident">u16</span> <span class="op">=</span> <span class="ident">rng</span>.<span class="ident">gen_range</span>(<span class="number">10_000</span>..<span class="number">50_000</span>);
+<span class="doccomment">/// Trys to get a networking implementation with the given id
+///
+/// also starts the background task
+</span><span class="attribute">#[instrument(skip(rng))]
+</span><span class="kw">async fn </span>get_networking&lt;
+    T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + <span class="lifetime">&#39;static</span>,
+    R: hotshot::rand::Rng,
+&gt;(
+    pub_key: Ed25519Pub,
+    listen_addr: <span class="kw-2">&amp;</span>str,
+    node_id: u64,
+    rng: <span class="kw-2">&amp;mut </span>R,
+) -&gt; (WNetwork&lt;T, Ed25519Pub&gt;, u16, Ed25519Pub, u64) {
+    <span class="macro">debug!</span>(<span class="question-mark">?</span>pub_key);
+    <span class="kw">for </span>attempt <span class="kw">in </span><span class="number">0</span>..<span class="number">50 </span>{
+        <span class="kw">let </span>port: u16 = rng.gen_range(<span class="number">10_000</span>..<span class="number">50_000</span>);
         <span class="macro">debug!</span>(
-            <span class="question-mark">?</span><span class="ident">attempt</span>,
-            <span class="question-mark">?</span><span class="ident">port</span>,
-            <span class="string">&quot;Attempting to bind network listener to port&quot;</span>
-        );
-        <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">WNetwork::new</span>(<span class="ident">pub_key</span>, <span class="ident">listen_addr</span>, <span class="ident">port</span>, <span class="prelude-val">None</span>).<span class="kw">await</span>;
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">x</span> {
-            <span class="kw">let</span> (<span class="ident">c</span>, <span class="ident">sync</span>) <span class="op">=</span> <span class="ident">futures::channel::oneshot::channel</span>();
-            <span class="kw">match</span> <span class="ident">x</span>.<span class="ident">generate_task</span>(<span class="ident">c</span>) {
-                <span class="prelude-val">Some</span>(<span class="ident">task</span>) =&gt; {
-                    <span class="ident">task</span>.<span class="ident">into_iter</span>().<span class="ident">for_each</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> {
-                        <span class="ident">async_spawn</span>(<span class="ident">x</span>);
+            <span class="question-mark">?</span>attempt,
+            <span class="question-mark">?</span>port,
+            <span class="string">&quot;Attempting to bind network listener to port&quot;
+        </span>);
+        <span class="kw">let </span>x = WNetwork::new(pub_key, listen_addr, port, <span class="prelude-val">None</span>).<span class="kw">await</span>;
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(x) = x {
+            <span class="kw">let </span>(c, sync) = futures::channel::oneshot::channel();
+            <span class="kw">match </span>x.generate_task(c) {
+                <span class="prelude-val">Some</span>(task) =&gt; {
+                    task.into_iter().for_each(|x| {
+                        async_spawn(x);
                     });
-                    <span class="ident">sync</span>.<span class="kw">await</span>.<span class="ident">expect</span>(<span class="string">&quot;sync.await failed&quot;</span>);
+                    sync.<span class="kw">await</span>.expect(<span class="string">&quot;sync.await failed&quot;</span>);
                 }
-                <span class="prelude-val">None</span> =&gt; {
+                <span class="prelude-val">None </span>=&gt; {
                     <span class="macro">panic!</span>(<span class="string">&quot;Failed to launch networking task&quot;</span>);
                 }
             }
-            <span class="kw">return</span> (<span class="ident">x</span>, <span class="ident">port</span>, <span class="ident">pub_key</span>, <span class="ident">node_id</span>);
+            <span class="kw">return </span>(x, port, pub_key, node_id);
         }
     }
     <span class="macro">panic!</span>(<span class="string">&quot;Failed to open a port&quot;</span>);
 }
 
-<span class="doccomment">/// Creates a hotshot</span>
-<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">skip</span>(<span class="ident">networking</span>))]</span>
-<span class="kw">async</span> <span class="kw">fn</span> <span class="ident">get_hotshot</span>(
-    <span class="ident">nodes</span>: <span class="ident">usize</span>,
-    <span class="ident">threshold</span>: <span class="ident">usize</span>,
-    <span class="ident">node_id</span>: <span class="ident">u64</span>,
-    <span class="ident">networking</span>: <span class="ident">WNetwork</span><span class="op">&lt;</span><span class="ident">Message</span><span class="op">&lt;</span><span class="ident">DEntryState</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>, <span class="ident">Ed25519Pub</span><span class="op">&gt;</span>,
-) -&gt; <span class="ident">HotShotHandle</span><span class="op">&lt;</span><span class="ident">Node</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">known_nodes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="number">0</span>..<span class="ident">nodes</span>)
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> {
-            <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">Ed25519Priv::generated_from_seed_indexed</span>(
-                [<span class="number">0_u8</span>; <span class="number">32</span>], <span class="ident">x</span> <span class="kw">as</span> <span class="ident">u64</span>,
+<span class="doccomment">/// Creates a hotshot
+</span><span class="attribute">#[instrument(skip(networking))]
+</span><span class="kw">async fn </span>get_hotshot(
+    nodes: usize,
+    threshold: usize,
+    node_id: u64,
+    networking: WNetwork&lt;Message&lt;DEntryState, Ed25519Pub&gt;, Ed25519Pub&gt;,
+) -&gt; HotShotHandle&lt;Node&gt; {
+    <span class="kw">let </span>known_nodes: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..nodes)
+        .map(|x| {
+            Ed25519Pub::from_private(<span class="kw-2">&amp;</span>Ed25519Priv::generated_from_seed_indexed(
+                [<span class="number">0_u8</span>; <span class="number">32</span>], x <span class="kw">as </span>u64,
             ))
         })
-        .<span class="ident">collect</span>();
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">HotShotConfig</span> {
-        <span class="ident">execution_type</span>: <span class="ident">ExecutionType::Continuous</span>,
-        <span class="ident">total_nodes</span>: <span class="ident">NonZeroUsize::new</span>(<span class="ident">nodes</span>).<span class="ident">unwrap</span>(),
-        <span class="ident">max_transactions</span>: <span class="ident">NonZeroUsize::new</span>(<span class="number">100</span>).<span class="ident">unwrap</span>(),
-        <span class="ident">min_transactions</span>: <span class="number">0</span>,
-        <span class="ident">known_nodes</span>: <span class="ident">known_nodes</span>.<span class="ident">clone</span>(),
-        <span class="ident">next_view_timeout</span>: <span class="number">100000</span>,
-        <span class="ident">timeout_ratio</span>: (<span class="number">11</span>, <span class="number">10</span>),
-        <span class="ident">round_start_delay</span>: <span class="number">1</span>,
-        <span class="ident">start_delay</span>: <span class="number">1</span>,
-        <span class="ident">propose_min_round_time</span>: <span class="ident">Duration::from_millis</span>(<span class="number">0</span>),
-        <span class="ident">propose_max_round_time</span>: <span class="ident">Duration::from_millis</span>(<span class="number">1000</span>),
-        <span class="ident">num_bootstrap</span>: <span class="number">5</span>,
-        <span class="ident">election_config</span>: <span class="prelude-val">Some</span>(<span class="ident">StaticElectionConfig</span> {})
+        .collect();
+    <span class="kw">let </span>config = HotShotConfig {
+        execution_type: ExecutionType::Continuous,
+        total_nodes: NonZeroUsize::new(nodes).unwrap(),
+        max_transactions: NonZeroUsize::new(<span class="number">100</span>).unwrap(),
+        min_transactions: <span class="number">0</span>,
+        known_nodes: known_nodes.clone(),
+        next_view_timeout: <span class="number">100000</span>,
+        timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
+        round_start_delay: <span class="number">1</span>,
+        start_delay: <span class="number">1</span>,
+        propose_min_round_time: Duration::from_millis(<span class="number">0</span>),
+        propose_max_round_time: Duration::from_millis(<span class="number">1000</span>),
+        num_bootstrap: <span class="number">5</span>,
+        election_config: <span class="prelude-val">Some</span>(StaticElectionConfig {}),
     };
-    <span class="macro">debug!</span>(<span class="question-mark">?</span><span class="ident">config</span>);
-    <span class="kw">let</span> <span class="ident">private_key</span> <span class="op">=</span> <span class="ident">Ed25519Priv::generated_from_seed_indexed</span>([<span class="number">0_u8</span>; <span class="number">32</span>], <span class="ident">node_id</span>);
-    <span class="kw">let</span> <span class="ident">public_key</span> <span class="op">=</span> <span class="ident">Ed25519Pub::from_private</span>(<span class="kw-2">&amp;</span><span class="ident">private_key</span>);
-    <span class="kw">let</span> <span class="ident">genesis_block</span> <span class="op">=</span> <span class="ident">DEntryBlock::genesis</span>();
-    <span class="kw">let</span> <span class="ident">initializer</span> <span class="op">=</span> <span class="ident">hotshot::HotShotInitializer::from_genesis</span>(<span class="ident">genesis_block</span>).<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">h</span> <span class="op">=</span> <span class="ident">HotShot::init</span>(
-        <span class="ident">public_key</span>,
-        <span class="ident">private_key</span>,
-        <span class="ident">node_id</span>,
-        <span class="ident">config</span>,
-        <span class="ident">networking</span>,
-        <span class="ident">MemoryStorage::new</span>(),
-        <span class="ident">StaticCommittee::new</span>(<span class="ident">known_nodes</span>),
-        <span class="ident">initializer</span>,
+    <span class="macro">debug!</span>(<span class="question-mark">?</span>config);
+    <span class="kw">let </span>private_key = Ed25519Priv::generated_from_seed_indexed([<span class="number">0_u8</span>; <span class="number">32</span>], node_id);
+    <span class="kw">let </span>public_key = Ed25519Pub::from_private(<span class="kw-2">&amp;</span>private_key);
+    <span class="kw">let </span>genesis_block = DEntryBlock::genesis();
+    <span class="kw">let </span>initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
+    <span class="kw">let </span>h = HotShot::init(
+        public_key,
+        private_key,
+        node_id,
+        config,
+        networking,
+        MemoryStorage::new(),
+        StaticCommittee::new(known_nodes),
+        initializer,
     )
-    .<span class="kw">await</span>
-    .<span class="ident">expect</span>(<span class="string">&quot;Could not init hotshot&quot;</span>);
+    .<span class="kw">await
+    </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;hotshot launched&quot;</span>);
-    <span class="ident">h</span>
+    h
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="dentry_simulator" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="dentry_simulator" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>
