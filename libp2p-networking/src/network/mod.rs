@@ -21,17 +21,6 @@ use self::behaviours::{
 use bincode::Options;
 use futures::channel::oneshot::Sender;
 use hotshot_utils::bincode::bincode_opts;
-cfg_if::cfg_if! {
-    if #[cfg(feature = "async-std-executor")] {
-        use libp2p::dns::DnsConfig as DnsConfig;
-        use tcp::TcpTransport as TcpTransport;
-    } else if #[cfg(feature = "tokio-executor")] {
-        use libp2p::dns::TokioDnsConfig as DnsConfig;
-        use tcp::TokioTcpTransport as TcpTransport;
-    } else {
-        std::compile_error!{"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-    }
-}
 use libp2p::{
     build_multiaddr,
     core::{muxing::StreamMuxerBox, transport::Boxed, upgrade},
@@ -48,6 +37,17 @@ use rand::{seq::IteratorRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fmt::Debug, io, str::FromStr, sync::Arc, time::Duration};
 use tracing::{info, instrument};
+
+#[cfg(feature = "async-std-executor")]
+use libp2p::dns::DnsConfig;
+#[cfg(feature = "tokio-executor")]
+use libp2p::dns::TokioDnsConfig as DnsConfig;
+#[cfg(feature = "async-std-executor")]
+use tcp::TcpTransport;
+#[cfg(feature = "tokio-executor")]
+use tcp::TokioTcpTransport as TcpTransport;
+#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 /// this is mostly to estimate how many network connections
 /// a node should allow
@@ -215,6 +215,9 @@ pub async fn gen_transport(
 
         #[cfg(feature = "tokio-executor")]
         return dns_tcp.map_err(|e| NetworkError::TransportLaunch { source: e });
+
+        #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+        compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
     .await?;
 

@@ -13,7 +13,13 @@ use crate::{
 };
 use std::fmt::Debug;
 
-use super::{State, state::{TestableState, TestableBlock}, network::TestableNetworkingImplementation, signature_key::TestableSignatureKey, storage::TestableStorage};
+use super::{
+    network::TestableNetworkingImplementation,
+    signature_key::TestableSignatureKey,
+    state::{TestableBlock, TestableState},
+    storage::TestableStorage,
+    State,
+};
 
 /// Node implementation aggregate trait
 ///
@@ -45,7 +51,10 @@ pub trait TestableNodeImplementation: Send + Sync + Debug + Clone + 'static {
     /// Storage type for this consensus implementation
     type Storage: TestableStorage<Self::StateType>;
     /// Networking type for this consensus implementation
-    type Networking: TestableNetworkingImplementation<Message<Self::StateType, Self::SignatureKey>, Self::SignatureKey>;
+    type Networking: TestableNetworkingImplementation<
+        Message<Self::StateType, Self::SignatureKey>,
+        Self::SignatureKey,
+    >;
     /// The signature key type for this implementation
     type SignatureKey: TestableSignatureKey;
     /// Election
@@ -56,7 +65,13 @@ pub trait TestableNodeImplementation: Send + Sync + Debug + Clone + 'static {
     type Block: TestableBlock;
 
     /// propagate
-    type NodeImplementation: NodeImplementation<StateType = Self::StateType, Storage = Self::Storage, Networking = Self::Networking, SignatureKey = Self::SignatureKey, Election = Self::Election>;
+    type NodeImplementation: NodeImplementation<
+        StateType = Self::StateType,
+        Storage = Self::Storage,
+        Networking = Self::Networking,
+        SignatureKey = Self::SignatureKey,
+        Election = Self::Election,
+    >;
 }
 
 /// Helper trait to make aliases.

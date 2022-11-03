@@ -1,7 +1,7 @@
 //! Contains the [`NextLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
 
-use crate::ConsensusApi;
 use crate::traits::Signatures;
+use crate::ConsensusApi;
 use async_lock::Mutex;
 use bincode::Options;
 use commit::Commitment;
@@ -21,7 +21,6 @@ use std::{
     sync::Arc,
 };
 use tracing::{info, instrument, warn};
-
 
 /// The next view's leader
 #[derive(Debug, Clone)]
@@ -89,13 +88,17 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
 
                     qcs.insert(vote.justify_qc);
 
-                    let (_bh, map)= vote_outcomes.entry(vote.leaf_commitment).or_insert_with(|| (vote.block_commitment, BTreeMap::new()));
-                    map.insert(vote.signature.0.clone(), (vote.signature.1.clone(), vote.vote_token));
+                    let (_bh, map) = vote_outcomes
+                        .entry(vote.leaf_commitment)
+                        .or_insert_with(|| (vote.block_commitment, BTreeMap::new()));
+                    map.insert(
+                        vote.signature.0.clone(),
+                        (vote.signature.1.clone(), vote.vote_token),
+                    );
                     let valid_signatures = map;
 
                     // TODO ed - this is repeated code from validate_qc, but should clean itself up once we implement I for Vote
-                    let mut signature_map: Signatures<I>
-                        = BTreeMap::new();
+                    let mut signature_map: Signatures<I> = BTreeMap::new();
                     // TODO ed - there is a better way to do this, but it should be gone once I is impled for Vote
                     for signature in valid_signatures.clone() {
                         let decoded_vote_token =

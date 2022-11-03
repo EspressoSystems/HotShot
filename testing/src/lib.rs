@@ -13,27 +13,26 @@ mod launcher;
 /// implementations of various networking models
 pub mod network_reliability;
 
-pub use self::{/* impls::TestElection,  */launcher::TestLauncher};
+pub use self::launcher::TestLauncher;
 
 use futures::future::LocalBoxFuture;
 use hotshot::{
     data::Leaf,
-    traits::{
-        Block, NetworkingImplementation,
-        NodeImplementation, State, Storage,
-    },
+    traits::{Block, NetworkingImplementation, NodeImplementation, State, Storage},
     types::{HotShotHandle, Message},
     HotShot, HotShotError, HotShotInitializer, H_256,
 };
 use hotshot_types::{
+    data::ViewNumber,
     traits::{
+        election::Election,
         network::TestableNetworkingImplementation,
-        signature_key::{
-            SignatureKey, TestableSignatureKey,
-        },
-        state::{TestableBlock, TestableState}, election::Election, node_implementation::TestableNodeImplementation, storage::TestableStorage,
+        node_implementation::TestableNodeImplementation,
+        signature_key::{SignatureKey, TestableSignatureKey},
+        state::{TestableBlock, TestableState},
+        storage::TestableStorage,
     },
-    HotShotConfig, data::ViewNumber,
+    HotShotConfig,
 };
 use snafu::Snafu;
 use std::{collections::HashMap, fmt, marker::PhantomData};
@@ -73,16 +72,12 @@ pub type RoundSetup<I> = Box<
 >;
 
 /// Type of function used for checking safety before beginnning consensus
-pub type RoundPreSafetyCheck<I> = Box<
-    dyn FnOnce(
-        &TestRunner<I>,
-    ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
->;
+pub type RoundPreSafetyCheck<I> =
+    Box<dyn FnOnce(&TestRunner<I>) -> LocalBoxFuture<Result<(), ConsensusRoundError>>>;
 
 /// functions to run a round of consensus
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
-pub struct Round<I: TestableNodeImplementation> where
-{
+pub struct Round<I: TestableNodeImplementation> {
     /// Safety check before round is set up and run
     /// to ensure consistent state
     pub safety_check_post: Option<RoundPostSafetyCheck<I>>,
@@ -94,8 +89,7 @@ pub struct Round<I: TestableNodeImplementation> where
     pub safety_check_pre: Option<RoundPreSafetyCheck<I>>,
 }
 
-impl<I: TestableNodeImplementation> Default for Round<I>
-{
+impl<I: TestableNodeImplementation> Default for Round<I> {
     fn default() -> Self {
         Self {
             safety_check_post: None,
@@ -107,31 +101,28 @@ impl<I: TestableNodeImplementation> Default for Round<I>
 
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
-pub struct TestRunner<I: TestableNodeImplementation> where
-{
+pub struct TestRunner<I: TestableNodeImplementation> {
     network_generator: Generator<I::Networking>,
     storage_generator: Generator<I::Storage>,
-    default_node_config: HotShotConfig<I::SignatureKey, <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType>,
+    default_node_config: HotShotConfig<
+        I::SignatureKey,
+        <I::Election as Election<I::SignatureKey, ViewNumber>>::ElectionConfigType,
+    >,
     nodes: Vec<Node<I>>,
     next_node_id: u64,
     rounds: Vec<Round<I>>,
 }
 
-struct Node<I: TestableNodeImplementation> where
-{
+struct Node<I: TestableNodeImplementation> {
     pub node_id: u64,
-    pub handle: HotShotHandle<I::NodeImplementation
-        // TestNodeImpl
-        // <I::Networking, I::Storage, I::StateType, I::Election, I::SignatureKey>
-        >,
+    pub handle: HotShotHandle<
+        I::NodeImplementation, // TestNodeImpl
+                               // <I::Networking, I::Storage, I::StateType, I::Election, I::SignatureKey>
+    >,
 }
 
-impl<I: TestableNodeImplementation> TestRunner<I>
-where
-{
-    pub(self) fn new(
-        launcher: TestLauncher<I>,
-    ) -> Self {
+impl<I: TestableNodeImplementation> TestRunner<I> {
+    pub(self) fn new(launcher: TestLauncher<I>) -> Self {
         Self {
             network_generator: launcher.network,
             storage_generator: launcher.storage,
@@ -193,14 +184,26 @@ where
         network: I::Networking,
         storage: I::Storage,
         initializer: HotShotInitializer<I::StateType>,
-        config: HotShotConfig<<I as TestableNodeImplementation>::SignatureKey, <<I as TestableNodeImplementation>::Election as Election<<I as TestableNodeImplementation>::SignatureKey, ViewNumber>>::ElectionConfigType>,) -> u64 {
+        config: HotShotConfig<
+            <I as TestableNodeImplementation>::SignatureKey,
+            <<I as TestableNodeImplementation>::Election as Election<
+                <I as TestableNodeImplementation>::SignatureKey,
+                ViewNumber,
+            >>::ElectionConfigType,
+        >,
+    ) -> u64 {
         let node_id = self.next_node_id;
         self.next_node_id += 1;
 
         let known_nodes = config.known_nodes.clone();
         let private_key = <I::SignatureKey as TestableSignatureKey>::generate_test_key(node_id);
         let public_key = <I::SignatureKey as SignatureKey>::from_private(&private_key);
-        let election_config = config.election_config.clone().unwrap_or_else(|| <I::Election as Election<_, _>>::default_election_config(config.total_nodes.get() as u64));
+        let election_config =
+            config.election_config.clone().unwrap_or_else(|| {
+                <I::Election as Election<_, _>>::default_election_config(
+                    config.total_nodes.get() as u64
+                )
+            });
         let handle = HotShot::init(
             public_key,
             private_key,
@@ -220,7 +223,8 @@ where
     /// Iterate over the [`HotShotHandle`] nodes in this runner.
     pub fn nodes(
         &self,
-    ) -> impl Iterator<Item = &HotShotHandle<<I as TestableNodeImplementation>::NodeImplementation>> + '_ {
+    ) -> impl Iterator<Item = &HotShotHandle<<I as TestableNodeImplementation>::NodeImplementation>> + '_
+    {
         self.nodes.iter().map(|node| &node.handle)
     }
 
@@ -345,10 +349,7 @@ where
 
     /// returns the requested handle specified by `id` if it exists
     /// else returns `None`
-    pub fn get_handle(
-        &self,
-        id: u64,
-    ) -> Option<HotShotHandle<I::NodeImplementation>> {
+    pub fn get_handle(&self, id: u64) -> Option<HotShotHandle<I::NodeImplementation>> {
         self.nodes.iter().find_map(|node| {
             if node.node_id == id {
                 Some(node.handle.clone())
@@ -364,8 +365,7 @@ where
     }
 }
 
-impl<I: TestableNodeImplementation > TestRunner<I>
-{
+impl<I: TestableNodeImplementation> TestRunner<I> {
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
         let mut leaves = Vec::<Leaf<I::StateType>>::new();
@@ -428,8 +428,7 @@ impl<I: TestableNodeImplementation > TestRunner<I>
 
 // FIXME make these return some sort of generic error.
 // corresponding issue: <https://github.com/EspressoSystems/hotshot/issues/181>
-impl<I: TestableNodeImplementation> TestRunner<I>
-{
+impl<I: TestableNodeImplementation> TestRunner<I> {
     /// Add a random transaction to this runner.
     pub async fn add_random_transaction(
         &self,
@@ -533,7 +532,7 @@ pub enum ConsensusTestError {
 
 /// An implementation to make the trio `NETWORK`, `STORAGE` and `STATE` implement [`NodeImplementation`]
 #[derive(Clone)]
-pub struct TestNodeImpl<STATE, STORAGE, NETWORKING, KEY, ELECTION>{
+pub struct TestNodeImpl<STATE, STORAGE, NETWORKING, KEY, ELECTION> {
     _pd_0: PhantomData<STATE>,
     _pd_1: PhantomData<STORAGE>,
     _pd_2: PhantomData<NETWORKING>,
@@ -541,15 +540,15 @@ pub struct TestNodeImpl<STATE, STORAGE, NETWORKING, KEY, ELECTION>{
     _pd_4: PhantomData<ELECTION>,
 }
 
-impl<STATE, BLOCK, STORAGE, NETWORKING, KEY, ELECTION>
-    TestableNodeImplementation for TestNodeImpl<STATE, STORAGE, NETWORKING, KEY, ELECTION>
+impl<STATE, BLOCK, STORAGE, NETWORKING, KEY, ELECTION> TestableNodeImplementation
+    for TestNodeImpl<STATE, STORAGE, NETWORKING, KEY, ELECTION>
 where
-  BLOCK: TestableBlock + 'static,
-  STATE: TestableState<Time = ViewNumber, BlockType = BLOCK> + 'static,
-  STORAGE: TestableStorage<STATE> + 'static,
-  KEY: TestableSignatureKey + 'static,
-  NETWORKING: TestableNetworkingImplementation<Message<STATE, KEY>, KEY> + Clone + 'static,
-  ELECTION: Election<KEY, ViewNumber, StateType = STATE> + Clone + 'static
+    BLOCK: TestableBlock + 'static,
+    STATE: TestableState<Time = ViewNumber, BlockType = BLOCK> + 'static,
+    STORAGE: TestableStorage<STATE> + 'static,
+    KEY: TestableSignatureKey + 'static,
+    NETWORKING: TestableNetworkingImplementation<Message<STATE, KEY>, KEY> + Clone + 'static,
+    ELECTION: Election<KEY, ViewNumber, StateType = STATE> + Clone + 'static,
 {
     type StateType = <Self as NodeImplementation>::StateType;
     type Storage = <Self as NodeImplementation>::Storage;
@@ -560,14 +559,14 @@ where
     type NodeImplementation = Self;
 }
 
-impl<STATE, STORAGE, NETWORKING, KEY, ELECTION> NodeImplementation for TestNodeImpl<STATE, STORAGE, NETWORKING, KEY, ELECTION>
+impl<STATE, STORAGE, NETWORKING, KEY, ELECTION> NodeImplementation
+    for TestNodeImpl<STATE, STORAGE, NETWORKING, KEY, ELECTION>
 where
-  STATE: State<Time = ViewNumber> + 'static,
-  STORAGE: Storage<STATE> + Clone + 'static,
-  KEY: SignatureKey + 'static,
-  NETWORKING: NetworkingImplementation<Message<STATE, KEY>, KEY> + Clone + 'static,
-  ELECTION: Election<KEY, ViewNumber, StateType = STATE> + Clone + 'static,
-
+    STATE: State<Time = ViewNumber> + 'static,
+    STORAGE: Storage<STATE> + Clone + 'static,
+    KEY: SignatureKey + 'static,
+    NETWORKING: NetworkingImplementation<Message<STATE, KEY>, KEY> + Clone + 'static,
+    ELECTION: Election<KEY, ViewNumber, StateType = STATE> + Clone + 'static,
 {
     type StateType = STATE;
 
@@ -580,7 +579,9 @@ where
     type Election = ELECTION;
 }
 
-impl<STATE, STORAGE, NETWORKING, KEY, ELECTION> fmt::Debug for TestNodeImpl<STATE, STORAGE, NETWORKING, KEY, ELECTION>{
+impl<STATE, STORAGE, NETWORKING, KEY, ELECTION> fmt::Debug
+    for TestNodeImpl<STATE, STORAGE, NETWORKING, KEY, ELECTION>
+{
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("TestNodeImpl")
             // .field("network", &std::any::type_name::<<Self as TestableNodeImplementation>::Networking>())
