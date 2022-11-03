@@ -20,7 +20,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
-use tracing::{instrument, warn, error};
+use tracing::{error, instrument, warn};
 
 /// The next view's leader
 #[derive(Debug, Clone)]
@@ -75,7 +75,10 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     // and ignore
 
                     // TODO ed - ignoring serialization errors since we are changing this type in the future
-                    let vote_token: <<I as NodeImplementation>::Election as Election<<I as NodeImplementation>::SignatureKey, ViewNumber>>::VoteTokenType = bincode_opts().deserialize(&vote.vote_token).unwrap();
+                    let vote_token: <<I as NodeImplementation>::Election as Election<
+                        <I as NodeImplementation>::SignatureKey,
+                        ViewNumber,
+                    >>::VoteTokenType = bincode_opts().deserialize(&vote.vote_token).unwrap();
 
                     if !self.api.is_valid_signature(
                         &vote.signature.0,
@@ -99,7 +102,6 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     );
 
                     stake_casted += u64::from(vote_token.vote_count());
-
 
                     if stake_casted >= u64::from(threshold) {
                         let (block_commitment, valid_signatures) =
