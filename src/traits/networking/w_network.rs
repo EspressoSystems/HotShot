@@ -371,6 +371,10 @@ impl<
             let (mut ws_sink, ws_stream) = stream.split();
             #[cfg(feature="tokio-executor")]
             let (mut ws_sink, ws_stream) = stream.into_split();
+
+            #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+            compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+
             let ws_stream = ws_stream.map(|x| match x {
                 Ok(x) => Combo::Message(x),
                 Err(x) => Combo::Error(x),

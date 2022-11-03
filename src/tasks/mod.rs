@@ -333,6 +333,9 @@ pub async fn run_view<I: NodeImplementation>(hotshot: HotShot<I>) -> Result<(), 
         .max_by_key(|qc| qc.view_number)
         .unwrap();
 
+    #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+    compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+
     let mut consensus = hotshot.hotstuff.write().await;
     consensus.high_qc = high_qc;
     c_api.send_view_finished(consensus.cur_view).await;

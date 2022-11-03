@@ -140,6 +140,8 @@ async fn run_request_response_increment<'a>(
             requester_handle
                 .state_wait_timeout_until_with_trigger(timeout, move |state| *state == new_state),
         );
+        #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+        compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
         let requestee_pid = requestee_handle.peer_id();
 
@@ -194,6 +196,8 @@ async fn run_gossip_round(
     let mut merged_streams = futures::stream::select_all(futs);
     #[cfg(feature = "tokio-executor")]
     let mut merged_streams = Box::pin(futures::stream::select_all(futs));
+    #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+    compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
     // make sure all are ready/listening
     for i in 0..len - 1 {

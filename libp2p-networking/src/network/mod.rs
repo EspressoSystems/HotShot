@@ -215,6 +215,9 @@ pub async fn gen_transport(
 
         #[cfg(feature = "tokio-executor")]
         return dns_tcp.map_err(|e| NetworkError::TransportLaunch { source: e });
+
+        #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+        compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
     .await?;
 

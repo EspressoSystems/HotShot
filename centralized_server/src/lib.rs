@@ -57,6 +57,9 @@ mod types {
         net::{tcp::OwnedReadHalf, tcp::OwnedWriteHalf, TcpListener, TcpStream},
     };
 }
+
+#[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 use types::*;
 
 /// 256KB, assumed to be the kernel receive buffer
@@ -355,15 +358,13 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> Server<K, E> {
         let timeout = async_timeout(Duration::from_secs(5), background_task_handle).await;
 
         #[cfg(feature = "async-std-executor")]
-        {
-            timeout.expect("Could not join on the background thread");
-        }
+        timeout.expect("Could not join on the background thread");
         #[cfg(feature = "tokio-executor")]
-        {
-            timeout
-                .expect("background task timed_out")
-                .expect("Could not join on the background thread");
-        }
+        timeout
+            .expect("background task timed_out")
+            .expect("Could not join on the background thread");
+        #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+        compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
     }
 }
 
@@ -714,13 +715,11 @@ impl Drop for TcpStreamSendUtil {
     fn drop(&mut self) {
         if !std::thread::panicking() {
             #[cfg(feature = "async-std-executor")]
-            {
-                let _ = self.stream.shutdown(Shutdown::Write);
-            }
+            let _ = self.stream.shutdown(Shutdown::Write);
             #[cfg(feature = "tokio-executor")]
-            {
-                let _ = hotshot_utils::art::async_block_on(self.stream.shutdown());
-            }
+            let _ = hotshot_utils::art::async_block_on(self.stream.shutdown());
+            #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+            compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
         }
     }
 }
@@ -735,9 +734,9 @@ impl Drop for TcpStreamRecvUtil {
     fn drop(&mut self) {
         if !std::thread::panicking() {
             #[cfg(feature = "async-std-executor")]
-            {
-                let _ = self.stream.shutdown(Shutdown::Read);
-            }
+            let _ = self.stream.shutdown(Shutdown::Read);
+            #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+            compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
         }
     }
 }
@@ -756,13 +755,11 @@ impl Drop for TcpStreamUtil {
     fn drop(&mut self) {
         if !std::thread::panicking() {
             #[cfg(feature = "async-std-executor")]
-            {
-                let _ = self.stream.shutdown(Shutdown::Both);
-            }
+            let _ = self.stream.shutdown(Shutdown::Both);
             #[cfg(feature = "tokio-executor")]
-            {
-                let _ = hotshot_utils::art::async_block_on(self.stream.shutdown());
-            }
+            let _ = hotshot_utils::art::async_block_on(self.stream.shutdown());
+            #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+            compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
         }
     }
 }
