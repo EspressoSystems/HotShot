@@ -58,7 +58,7 @@ async fn init_state_and_hotshot(
         VRFStakeTableConfig,
     >,
     config: HotShotConfig<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
-    _seed: [u8; 32],
+    seed: [u8; 32],
     node_id: u64,
 ) -> (DEntryState, HotShotHandle<Node>) {
     // Create the initial block
@@ -79,7 +79,7 @@ async fn init_state_and_hotshot(
     // TODO we should make this more general/use different parameters
     #[allow(clippy::let_unit_value)]
     let vrf_key =
-        VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(_seed, node_id);
+        VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(seed, node_id);
     let priv_key = vrf_key.1;
     let pub_key = VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
 
@@ -93,7 +93,7 @@ async fn init_state_and_hotshot(
         known_nodes.clone(),
         &VRFStakeTableConfig {
             // TODO ed - make this a var in the dockerfile
-            sortition_parameter: NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
+            sortition_parameter: NonZeroU64::new(10000).unwrap(),
             distribution,
         },
         genesis_seed.into(),
