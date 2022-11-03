@@ -2,10 +2,11 @@ use ark_bls12_381::Parameters as Param381;
 use blake3::Hasher;
 use clap::Parser;
 use commit::Committable;
+use hotshot::types::SignatureKey;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::vrf::{VRFPubKey, VRFStakeTableConfig, VrfImpl, SORTITION_PARAMETER},
+        election::vrf::{VRFPubKey, VRFStakeTableConfig, VrfImpl},
         implementations::{CentralizedServerNetwork, MemoryStorage},
         Storage,
     },
@@ -18,10 +19,7 @@ use hotshot_utils::{
     art::{async_main, async_sleep},
     test_util::{setup_backtrace, setup_logging},
 };
-use jf_primitives::{
-    signatures::BLSSignatureScheme,
-    vrf::{blsvrf::BLSVRFScheme, Vrf},
-};
+use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use std::{
     cmp,
     collections::{BTreeMap, VecDeque},
@@ -60,7 +58,7 @@ async fn init_state_and_hotshot(
         VRFStakeTableConfig,
     >,
     config: HotShotConfig<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
-    _seed: [u8; 32],
+    seed: [u8; 32],
     node_id: u64,
 ) -> (DEntryState, HotShotHandle<Node>) {
     // Create the initial block
@@ -78,15 +76,14 @@ async fn init_state_and_hotshot(
     let genesis_seed = genesis_block.commit();
     let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
-    let prng = &mut rand::thread_rng();
     // TODO we should make this more general/use different parameters
     #[allow(clippy::let_unit_value)]
-    let parameters =
-        <BLSVRFScheme<Param381> as Vrf<Hasher, Param381>>::param_gen(Some(prng)).unwrap();
-    let (priv_key, pub_key) =
-        <BLSVRFScheme<Param381> as Vrf<Hasher, Param381>>::key_gen(&parameters, prng).unwrap();
+    let vrf_key =
+        VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(seed, node_id);
+    let priv_key = vrf_key.1;
+    let pub_key = vrf_key.0; 
+
     let known_nodes = config.known_nodes.clone();
-    // let vrf_impl = VrfImpl::with_initial_stake(known_nodes.clone(), SORTITION_PARAMETER);
     let mut distribution = Vec::new();
     let stake_per_node = NonZeroU64::new(100).unwrap();
     for _ in known_nodes.iter() {
@@ -95,14 +92,15 @@ async fn init_state_and_hotshot(
     let vrf_impl = VrfImpl::with_initial_stake(
         known_nodes.clone(),
         &VRFStakeTableConfig {
-            sortition_parameter: NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
+            // TODO ed - make this a var in the dockerfile
+            sortition_parameter: NonZeroU64::new(10000).unwrap(),
             distribution,
         },
         genesis_seed.into(),
     );
     let hotshot = HotShot::init(
-        VRFPubKey::from_native(pub_key.clone()),
-        (priv_key, pub_key),
+        pub_key,
+        priv_key,
         node_id,
         config,
         networking,

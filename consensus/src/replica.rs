@@ -146,6 +146,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                         // if !(safety_check || liveness_check)
                         // if !safety_check && !liveness_check
                         if !safety_check && !liveness_check {
+                            warn!("Failed safety check and liveness check");
                             continue;
                         }
 
@@ -160,14 +161,12 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                     "Failed to generate vote token for {:?} {:?}",
                                     self.cur_view, e
                                 );
-                                continue;
                             }
                             Ok(None) => {
-                                error!("We were not chosen for committee on {:?}", self.cur_view);
-                                continue;
+                                info!("We were not chosen for committee on {:?}", self.cur_view);
                             }
                             Ok(Some(vote_token)) => {
-                                error!("We were chosen for committee on {:?}", self.cur_view);
+                                info!("We were chosen for committee on {:?}", self.cur_view);
                                 let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
                                 // Generate and send vote
@@ -176,11 +175,11 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                         <<I::StateType as State>::BlockType as Committable>::commit(
                                             &leaf.deltas,
                                         ),
-                                    justify_qc: leaf.justify_qc.clone(),
+                                    justify_qc_commitment: leaf.justify_qc.commit(),
                                     signature,
                                     leaf_commitment,
                                     current_view: self.cur_view,
-                                    // Going to ignore serialization errors belwo since we are getting rid of this soon
+                                    // Going to ignore serialization errors below since we are getting rid of this soon
                                     vote_token: bincode_opts().serialize(&vote_token).unwrap(),
                                 });
 
@@ -196,10 +195,9 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> Replica<A, I> {
                                 {
                                     warn!("Failed to send vote to next leader");
                                 }
-
-                                break leaf;
                             }
                         }
+                        break leaf;
                     }
                     ConsensusMessage::NextViewInterrupt(_view_number) => {
                         let next_leader = self.api.get_leader(self.cur_view + 1).await;

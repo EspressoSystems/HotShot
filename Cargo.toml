@@ -88,6 +88,10 @@ required-features = ["demo", "libp2p/rsa"]
 name = "orchestrator"
 required-features = ["bin-orchestrator"]
 
+[[bin]]
+name = "orchestrator-vrf"
+required-features = ["bin-orchestrator"]
+
 [dependencies]
 ark-ec = { version = "0.3.0" }
 ark-bls12-381 = { version = "0.3.0" }

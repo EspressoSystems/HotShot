@@ -83,14 +83,9 @@ where
     SIGSCHEME::Signature: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
 {
     fn generate_test_key(id: u64) -> Self::PrivateKey {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(&id.to_le_bytes());
-        let new_seed = *hasher.finalize().as_bytes();
-        let mut prng = rand::rngs::StdRng::from_seed(new_seed);
-        // TODO we should make this more general/use different parameters
-        #[allow(clippy::let_unit_value)]
-        let parameters = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
-        SIGSCHEME::key_gen(&parameters, &mut prng).unwrap()
+        let seed = [0_u8; 32];
+        let vrf_key = Self::generated_from_seed_indexed(seed, id);
+        vrf_key.1
     }
 }
 
@@ -214,14 +209,16 @@ where
             _pd_0: PhantomData,
         })
     }
-    // TODO this is wrong.
-    fn generated_from_seed_indexed(_seed: [u8; 32], _index: u64) -> (Self, Self::PrivateKey) {
-        let mut prng = rand::thread_rng();
 
-        // TODO we should make this more general/use different parameters
+    fn generated_from_seed_indexed(_seed: [u8; 32], index: u64) -> (Self, Self::PrivateKey) {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&index.to_le_bytes());
+        let new_seed = *hasher.finalize().as_bytes();
+        let mut prng = rand::rngs::StdRng::from_seed(new_seed);
+
         #[allow(clippy::let_unit_value)]
-        let param = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
-        let (sk, pk) = SIGSCHEME::key_gen(&param, &mut prng).unwrap();
+        let parameters = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
+        let (sk, pk) = SIGSCHEME::key_gen(&parameters, &mut prng).unwrap();
         (
             Self {
                 pk: pk.clone(),
@@ -648,7 +645,7 @@ fn calculate_threshold(query: BinomialQuery) -> Option<Ratio<BigUint>> {
     // this is the p parameter for the bernoulli distribution
     let p = Ratio::new(sortition_parameter_big, total_stake_big);
 
-    assert!(p.numer() < p.denom());
+    assert!(p.numer() <= p.denom());
 
     info!("p is {p:?}");
 
@@ -810,7 +807,6 @@ where
             .map(|x| x.to_bytes())
             .zip(config.distribution.clone())
             .collect();
-        error!("stake table: {:?}", key_with_stake);
         VrfImpl {
             stake_table: {
                 let st = VRFStakeTable {

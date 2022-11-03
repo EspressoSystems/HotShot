@@ -168,10 +168,11 @@ pub struct Vote<STATE: State> {
     /// TODO we should remove this
     /// this is correct, but highly inefficient
     /// we should check a cache, and if that fails request the qc
-    #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
-    pub justify_qc: QuorumCertificate<STATE>,
+    #[serde(
+        deserialize_with = "<Commitment<QuorumCertificate<STATE>> as Deserialize>::deserialize"
+    )]
+    pub justify_qc_commitment: Commitment<QuorumCertificate<STATE>>,
     /// The signature share associated with this vote
-    /// TODO ct/vrf: use VoteToken
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a Vec<u8>
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// Hash of the item being voted on
