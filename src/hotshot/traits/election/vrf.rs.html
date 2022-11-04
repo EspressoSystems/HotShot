@@ -2056,7 +2056,7 @@
     ///
     </span><span class="attribute">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub fn </span>check_sortition_proof(
-        public_key: <span class="kw-2">&amp;</span>SIGSCHEME::VerificationKey,
+        public_key: <span class="kw-2">&amp;</span>VRFPubKey&lt;SIGSCHEME&gt;,
         proof_param: <span class="kw-2">&amp;</span>VRF::PublicParameter,
         proof: <span class="kw-2">&amp;</span>VRF::Proof,
         total_stake: NonZeroU64,
@@ -2068,7 +2068,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, hotshot_types::traits::election::ElectionError&gt; {
         <span class="kw">let </span>view_seed = generate_view_seed::&lt;VRFHASHER&gt;(view_number, chain_seed);
         <span class="self">Self</span>::internal_check_sortition(
-            public_key,
+            <span class="kw-2">&amp;</span>public_key.pk,
             proof_param,
             proof,
             total_stake,
