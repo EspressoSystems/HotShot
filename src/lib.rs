@@ -403,7 +403,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
     ) {
         // TODO validate incoming data message based on sender signature key
         // <github.com/ExpressoSystems/HotShot/issues/418>
-        let msg_time = msg.time();
+        let msg_time = msg.view_number();
 
         // Skip messages that are not from the leader
         let api = HotShotConsensusApi {
@@ -462,7 +462,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
             }
             // this is ONLY intended for next leader
             c @ (ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_)) => {
-                let msg_time = c.time();
+                let msg_time = c.view_number();
 
                 let channel_map = self.next_leader_channel_map.upgradable_read().await;
 

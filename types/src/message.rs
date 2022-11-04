@@ -67,7 +67,7 @@ pub enum ConsensusMessage<TYPES: NodeTypes> {
 impl<TYPES: NodeTypes> ConsensusMessage<TYPES> {
     /// The view number of the (leader|replica) when the message was sent
     /// or the view of the timeout
-    pub fn time(&self) -> TYPES::Time {
+    pub fn view_number(&self) -> TYPES::Time {
         match self {
             ConsensusMessage::Proposal(p) => {
                 // view of leader in the leaf when proposal

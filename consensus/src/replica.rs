@@ -50,7 +50,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
-                if msg.time() != self.cur_view {
+                if msg.view_number() != self.cur_view {
                     continue;
                 }
                 match msg {
