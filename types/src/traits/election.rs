@@ -87,7 +87,7 @@ pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
     fn make_vote_token(
         &self,
         view_number: TYPES::Time,
-        pub_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        priv_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Result<Option<TYPES::VoteTokenType>, ElectionError>;
 
     /// Checks the claims of a received vote token
