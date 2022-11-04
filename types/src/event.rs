@@ -10,7 +10,7 @@ use std::sync::Arc;
 #[derive(Clone, Debug)]
 pub struct Event<TYPES: NodeTypes> {
     /// The view number that this event originates from
-    pub time: TYPES::Time,
+    pub view_number: TYPES::Time,
     /// The underlying event
     pub event: EventType<TYPES>,
 }
@@ -40,16 +40,16 @@ pub enum EventType<TYPES: NodeTypes> {
     /// A replica task was canceled by a timeout interrupt
     ReplicaViewTimeout {
         /// The view that timed out
-        time: TYPES::Time,
+        view_number: TYPES::Time,
     },
     /// A next leader task was canceled by a timeout interrupt
     NextLeaderViewTimeout {
         /// The view that timed out
-        time: TYPES::Time,
+        view_number: TYPES::Time,
     },
     /// The view has finished.  If values were decided on, a `Decide` event will also be emitted.
     ViewFinished {
         /// The view number that has just finished
-        time: TYPES::Time,
+        view_number: TYPES::Time,
     },
 }

@@ -248,7 +248,7 @@ impl State for DEntryState {
 
     // Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check
     // for clarity, the logic is duplicated with append_to
-    fn validate_block(&self, block: &Self::BlockType, _time: &Self::Time) -> bool {
+    fn validate_block(&self, block: &Self::BlockType, _view_number: &Self::Time) -> bool {
         match block {
             DEntryBlock::Genesis(_) => self.balances.is_empty(), //  && self.nonces.is_empty(),
             DEntryBlock::Normal(block) => {
@@ -308,7 +308,7 @@ impl State for DEntryState {
     fn append(
         &self,
         block: &Self::BlockType,
-        _time: &Self::Time,
+        _view_number: &Self::Time,
     ) -> std::result::Result<Self, Self::Error> {
         match block {
             DEntryBlock::Genesis(block) => {
@@ -572,7 +572,7 @@ pub fn random_quorum_certificate<TYPES: NodeTypes>(
     QuorumCertificate {
         block_commitment: random_commitment(rng),
         leaf_commitment: random_commitment(rng),
-        time: TYPES::Time::new(rng.gen()),
+        view_number: TYPES::Time::new(rng.gen()),
         signatures: BTreeMap::default(),
         genesis: rng.gen(),
     }
@@ -588,7 +588,7 @@ pub fn random_leaf<TYPES: NodeTypes>(
         .append(&deltas, &TYPES::Time::new(42))
         .unwrap_or_default();
     Leaf {
-        time: justify_qc.time,
+        view_number: justify_qc.view_number,
         justify_qc,
         parent_commitment: random_commitment(rng),
         deltas,

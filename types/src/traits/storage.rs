@@ -113,7 +113,7 @@ where
 #[derivative(PartialEq)]
 pub struct StoredView<TYPES: NodeTypes> {
     /// The view number of this view
-    pub time: TYPES::Time,
+    pub view_number: TYPES::Time,
     /// The parent of this view
     pub parent: Commitment<Leaf<TYPES>>,
     /// The justify QC of this view. See the hotstuff paper for more information on this.
@@ -149,7 +149,7 @@ where
     ) -> Self {
         Self {
             append: ViewAppend::Block { block },
-            time: qc.time,
+            view_number: qc.view_number,
             parent: parent_commitment,
             justify_qc: qc,
             state,

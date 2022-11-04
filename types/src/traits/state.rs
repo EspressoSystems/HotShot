@@ -42,13 +42,17 @@ pub trait State:
     /// Returns an empty, template next block given this current state
     fn next_block(&self) -> Self::BlockType;
     /// Returns true if and only if the provided block is valid and can extend this state
-    fn validate_block(&self, block: &Self::BlockType, time: &Self::Time) -> bool;
+    fn validate_block(&self, block: &Self::BlockType, view_number: &Self::Time) -> bool;
     /// Appends the given block to this state, returning an new state
     ///
     /// # Errors
     ///
     /// Should produce and error if appending this block would lead to an invalid state
-    fn append(&self, block: &Self::BlockType, time: &Self::Time) -> Result<Self, Self::Error>;
+    fn append(
+        &self,
+        block: &Self::BlockType,
+        view_number: &Self::Time,
+    ) -> Result<Self, Self::Error>;
     /// Gets called to notify the persistence backend that this state has been committed
     fn on_commit(&self);
 }
@@ -142,14 +146,14 @@ pub mod dummy {
             DummyBlock { nonce: self.nonce }
         }
 
-        fn validate_block(&self, _block: &Self::BlockType, _time: &Self::Time) -> bool {
+        fn validate_block(&self, _block: &Self::BlockType, _view_number: &Self::Time) -> bool {
             false
         }
 
         fn append(
             &self,
             _block: &Self::BlockType,
-            _time: &Self::Time,
+            _view_number: &Self::Time,
         ) -> Result<Self, Self::Error> {
             Ok(Self {
                 nonce: self.nonce + 1,

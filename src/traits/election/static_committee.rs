@@ -81,8 +81,8 @@ where
         self.nodes.clone()
     }
     /// Index the vector of public keys with the current view number
-    fn get_leader(&self, time: TYPES::Time) -> Ed25519Pub {
-        let index = (*time % self.nodes.len() as u64) as usize;
+    fn get_leader(&self, view_number: TYPES::Time) -> Ed25519Pub {
+        let index = (*view_number % self.nodes.len() as u64) as usize;
         self.nodes[index]
     }
 

@@ -55,17 +55,17 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     #[allow(clippy::type_complexity)]
     fn generate_vote_token(
         &self,
-        time: TYPES::Time,
+        view_number: TYPES::Time,
         next_state: Commitment<Leaf<TYPES>>,
     ) -> Result<Option<TYPES::VoteTokenType>, ElectionError>;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
-    async fn get_leader(&self, time: TYPES::Time) -> TYPES::SignatureKey;
+    async fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
 
     /// Returns `true` if hotstuff should start the given round. A round can also be started manually by sending `NewView` to the leader.
     ///
     /// In production code this should probably always return `true`.
-    async fn should_start_round(&self, time: TYPES::Time) -> bool;
+    async fn should_start_round(&self, view_number: TYPES::Time) -> bool;
 
     /// Send a direct message to the given recipient
     async fn send_direct_message(
@@ -92,41 +92,41 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     // Utility functions
 
     /// returns `true` if the current node is a leader for the given `view_number`
-    async fn is_leader(&self, time: TYPES::Time) -> bool {
-        &self.get_leader(time).await == self.public_key()
+    async fn is_leader(&self, view_number: TYPES::Time) -> bool {
+        &self.get_leader(view_number).await == self.public_key()
     }
 
     /// notifies client of an error
-    async fn send_view_error(&self, time: TYPES::Time, error: Arc<HotShotError<TYPES>>) {
+    async fn send_view_error(&self, view_number: TYPES::Time, error: Arc<HotShotError<TYPES>>) {
         self.send_event(Event {
-            time,
+            view_number,
             event: EventType::Error { error },
         })
         .await;
     }
 
     /// notifies client of a replica timeout
-    async fn send_replica_timeout(&self, time: TYPES::Time) {
+    async fn send_replica_timeout(&self, view_number: TYPES::Time) {
         self.send_event(Event {
-            time,
-            event: EventType::ReplicaViewTimeout { time },
+            view_number,
+            event: EventType::ReplicaViewTimeout { view_number },
         })
         .await;
     }
 
     /// notifies client of a next leader timeout
-    async fn send_next_leader_timeout(&self, time: TYPES::Time) {
+    async fn send_next_leader_timeout(&self, view_number: TYPES::Time) {
         self.send_event(Event {
-            time,
-            event: EventType::NextLeaderViewTimeout { time },
+            view_number,
+            event: EventType::NextLeaderViewTimeout { view_number },
         })
         .await;
     }
 
     /// sends a decide event down the channel
-    async fn send_decide(&self, time: TYPES::Time, leaf_views: Vec<Leaf<TYPES>>) {
+    async fn send_decide(&self, view_number: TYPES::Time, leaf_views: Vec<Leaf<TYPES>>) {
         self.send_event(Event {
-            time,
+            view_number,
             event: EventType::Decide {
                 leaf_chain: Arc::new(leaf_views),
             },
@@ -135,10 +135,10 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     }
 
     /// Sends a `ViewFinished` event
-    async fn send_view_finished(&self, time: TYPES::Time) {
+    async fn send_view_finished(&self, view_number: TYPES::Time) {
         self.send_event(Event {
-            time,
-            event: EventType::ViewFinished { time },
+            view_number,
+            event: EventType::ViewFinished { view_number },
         })
         .await;
     }

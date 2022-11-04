@@ -68,10 +68,10 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
 
                         // go no further if the parent view number does not
                         // match the justify_qc. We can't accept this
-                        if parent.time != justify_qc.time {
+                        if parent.view_number != justify_qc.view_number {
                             warn!(
                                 "Inconsistency in recv-ed proposal. The parent's view number, {:?} did not match the justify_qc view number, {:?}",
-                                parent.time, justify_qc.time
+                                parent.view_number, justify_qc.view_number
                             );
                             continue;
                         }
@@ -111,17 +111,17 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                             continue;
                         }
 
-                        let liveness_check = justify_qc.time > consensus.locked_view + 2;
+                        let liveness_check = justify_qc.view_number > consensus.locked_view + 2;
 
                         // check if proposal extends from the locked leaf
                         let outcome = consensus.visit_leaf_ancestors(
-                            parent.time,
+                            parent.view_number,
                             Terminator::Inclusive(consensus.locked_view),
                             false,
                             |leaf| {
                                 // if leaf view no == locked view no then we're done, report success by
                                 // returning true
-                                leaf.time != consensus.locked_view
+                                leaf.view_number != consensus.locked_view
                             },
                         );
 
@@ -164,7 +164,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                                     justify_qc_commitment: leaf.justify_qc.commit(),
                                     signature,
                                     leaf_commitment,
-                                    time: self.cur_view,
+                                    current_view: self.cur_view,
                                     vote_token,
                                 });
 
@@ -188,7 +188,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                         let next_leader = self.api.get_leader(self.cur_view + 1).await;
 
                         let timed_out_msg = ConsensusMessage::TimedOut(TimedOut {
-                            current_time: self.cur_view,
+                            current_view: self.cur_view,
                             justify_qc: self.high_qc.clone(),
                         });
                         warn!(
@@ -255,7 +255,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
         let mut leaf_views = Vec::new();
         let mut included_txns = HashSet::new();
         let old_anchor_view = consensus.last_decided_view;
-        let parent_view = leaf.justify_qc.time;
+        let parent_view = leaf.justify_qc.view_number;
         if parent_view + 1 == self.cur_view {
             let mut current_chain_length = 1usize;
             if let Err(e) = consensus.visit_leaf_ancestors(
@@ -264,14 +264,14 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                 true,
                 |leaf| {
                     if !new_decide_reached {
-                        if last_view_number_visited == leaf.time + 1 {
-                            last_view_number_visited = leaf.time;
+                        if last_view_number_visited == leaf.view_number + 1 {
+                            last_view_number_visited = leaf.view_number;
                             current_chain_length += 1;
                             if current_chain_length == 2 {
-                                new_locked_view = leaf.time;
+                                new_locked_view = leaf.view_number;
                                 new_commit_reached = true;
                             } else if current_chain_length == 3 {
-                                new_anchor_view = leaf.time;
+                                new_anchor_view = leaf.view_number;
                                 new_decide_reached = true;
                             }
                         } else {

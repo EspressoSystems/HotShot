@@ -76,7 +76,7 @@ impl<TYPES: NodeTypes> QuorumCertificate<TYPES> {
         Self {
             block_commitment: fake_commitment(),
             leaf_commitment: fake_commitment::<Leaf<TYPES>>(),
-            time: <TYPES::Time as ConsensusTime>::genesis(),
+            view_number: <TYPES::Time as ConsensusTime>::genesis(),
             signatures: BTreeMap::default(),
             genesis: true,
         }
@@ -107,7 +107,7 @@ pub struct QuorumCertificate<TYPES: NodeTypes> {
     /// The view number this quorum certificate was generated during
     ///
     /// This value is covered by the threshold signature.
-    pub time: TYPES::Time,
+    pub view_number: TYPES::Time,
 
     /// The list of signatures establishing the validity of this Quorum Certifcate
     ///
@@ -135,7 +135,7 @@ impl<TYPES: NodeTypes> Committable for QuorumCertificate<TYPES> {
         builder = builder
             .field("Block commitment", self.block_commitment)
             .field("Leaf commitment", self.leaf_commitment)
-            .u64_field("View number", *self.time.deref());
+            .u64_field("View number", *self.view_number.deref());
 
         for (idx, (k, v)) in self.signatures.iter().enumerate() {
             builder = builder
@@ -159,7 +159,7 @@ pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 #[derivative(PartialEq, Hash)]
 pub struct ProposalLeaf<TYPES: NodeTypes> {
     /// CurView from leader when proposing leaf
-    pub time: TYPES::Time,
+    pub view_number: TYPES::Time,
 
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES>,
@@ -192,7 +192,7 @@ pub struct ProposalLeaf<TYPES: NodeTypes> {
 #[serde(bound(deserialize = ""))]
 pub struct Leaf<TYPES: NodeTypes> {
     /// CurView from leader when proposing leaf
-    pub time: TYPES::Time,
+    pub view_number: TYPES::Time,
 
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES>,
@@ -243,12 +243,12 @@ impl<TYPES: NodeTypes> Committable for Leaf<TYPES> {
         }
         commit::RawCommitmentBuilder::new("Leaf Comm")
             .constant_str("view_number")
-            .u64(*self.time)
+            .u64(*self.view_number)
             .field("parent Leaf commitment", self.parent_commitment)
             .field("deltas commitment", self.deltas.commit())
             .field("state commitment", self.state.commit())
             .constant_str("justify_qc view number")
-            .u64(*self.justify_qc.time)
+            .u64(*self.justify_qc.view_number)
             .field(
                 "justify_qc block commitment",
                 self.justify_qc.block_commitment,
@@ -266,7 +266,7 @@ impl<TYPES: NodeTypes> Committable for Leaf<TYPES> {
 impl<TYPES: NodeTypes> From<Leaf<TYPES>> for ProposalLeaf<TYPES> {
     fn from(leaf: Leaf<TYPES>) -> Self {
         Self {
-            time: leaf.time,
+            view_number: leaf.view_number,
             justify_qc: leaf.justify_qc,
             parent_commitment: leaf.parent_commitment,
             deltas: leaf.deltas,
@@ -289,13 +289,13 @@ impl<TYPES: NodeTypes> Leaf<TYPES> {
         deltas: TYPES::BlockType,
         parent_commitment: Commitment<Leaf<TYPES>>,
         justify_qc: QuorumCertificate<TYPES>,
-        time: TYPES::Time,
+        view_number: TYPES::Time,
         rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
         timestamp: i128,
         proposer_id: EncodedPublicKey,
     ) -> Self {
         Leaf {
-            time,
+            view_number,
             justify_qc,
             parent_commitment,
             deltas,
@@ -321,7 +321,7 @@ impl<TYPES: NodeTypes> Leaf<TYPES> {
             .append(&deltas, &TYPES::Time::genesis())
             .unwrap();
         Self {
-            time: TYPES::Time::genesis(),
+            view_number: TYPES::Time::genesis(),
             justify_qc: QuorumCertificate::genesis(),
             parent_commitment: fake_commitment(),
             deltas,
@@ -340,7 +340,7 @@ impl<TYPES: NodeTypes> From<StoredView<TYPES>> for Leaf<TYPES> {
             append.append.into_deltas(),
             append.parent,
             append.justify_qc,
-            append.time,
+            append.view_number,
             Vec::new(),
             append.timestamp,
             append.proposer_id,
@@ -351,7 +351,7 @@ impl<TYPES: NodeTypes> From<StoredView<TYPES>> for Leaf<TYPES> {
 impl<TYPES: NodeTypes> From<Leaf<TYPES>> for StoredView<TYPES> {
     fn from(val: Leaf<TYPES>) -> Self {
         StoredView {
-            time: val.time,
+            view_number: val.view_number,
             parent: val.parent_commitment,
             justify_qc: val.justify_qc,
             state: val.state,

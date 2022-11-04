@@ -61,8 +61,8 @@ async fn submit_proposal<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
 
     // Build proposal
     let mut leaf = random_leaf(TYPES::BlockType::genesis(), &mut rng);
-    leaf.time = view_number;
-    let signature = handle.sign_proposal(&leaf.commit(), leaf.time);
+    leaf.view_number = view_number;
+    let signature = handle.sign_proposal(&leaf.commit(), leaf.view_number);
     let msg = ConsensusMessage::Proposal(Proposal {
         leaf: leaf.into(),
         signature,
@@ -88,12 +88,12 @@ async fn submit_vote<TYPES: NodeTypes, ELECTION: TestableElection<TYPES>>(
 
     // Build vote
     let mut leaf = random_leaf(TYPES::BlockType::genesis(), &mut rng);
-    leaf.time = view_number;
-    let signature = handle.sign_vote(&leaf.commit(), leaf.time);
+    leaf.view_number = view_number;
+    let signature = handle.sign_vote(&leaf.commit(), leaf.view_number);
     let msg = ConsensusMessage::Vote(Vote {
         signature,
         justify_qc_commitment: leaf.justify_qc.commit(),
-        time: leaf.time,
+        current_view: leaf.view_number,
         block_commitment: leaf.deltas.commit(),
         leaf_commitment: leaf.commit(),
         // TODO placeholder below

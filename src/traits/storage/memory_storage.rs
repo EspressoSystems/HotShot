@@ -71,7 +71,7 @@ impl<TYPES: NodeTypes> Storage<TYPES> for MemoryStorage<TYPES> {
                     inner.failed.insert(num);
                 }
                 ViewEntry::Success(view) => {
-                    inner.stored.insert(view.time, view);
+                    inner.stored.insert(view.view_number, view);
                 }
             }
         }
@@ -154,17 +154,20 @@ mod test {
     }
 
     #[instrument(skip(rng))]
-    fn random_stored_view(rng: &mut dyn rand::RngCore, time: ViewNumber) -> StoredView<DummyTypes> {
+    fn random_stored_view(
+        rng: &mut dyn rand::RngCore,
+        view_number: ViewNumber,
+    ) -> StoredView<DummyTypes> {
         // TODO is it okay to be using genesis here?
         let dummy_block_commit = fake_commitment::<DummyBlock>();
         let dummy_leaf_commit = fake_commitment::<Leaf<DummyTypes>>();
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
                 block_commitment: dummy_block_commit,
-                genesis: time == ViewNumber::genesis(),
+                genesis: view_number == ViewNumber::genesis(),
                 leaf_commitment: dummy_leaf_commit,
                 signatures: BTreeMap::new(),
-                time,
+                view_number,
             },
             DummyBlock::random(rng),
             DummyState::random(rng),
@@ -190,12 +193,12 @@ mod test {
             .expect("Could not append block");
         assert_eq!(storage.get_anchored_view().await.unwrap(), genesis);
         storage
-            .cleanup_storage_up_to_view(genesis.time)
+            .cleanup_storage_up_to_view(genesis.view_number)
             .await
             .unwrap();
         assert_eq!(storage.get_anchored_view().await.unwrap(), genesis);
         storage
-            .cleanup_storage_up_to_view(genesis.time + 1)
+            .cleanup_storage_up_to_view(genesis.view_number + 1)
             .await
             .unwrap();
         assert!(storage.get_anchored_view().await.is_err());

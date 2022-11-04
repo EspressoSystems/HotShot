@@ -40,7 +40,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
         error!("Leader task started!");
 
         let task_start_time = Instant::now();
-        let parent_view_number = &self.high_qc.time;
+        let parent_view_number = &self.high_qc.view_number;
         let consensus = self.consensus.read().await;
         let mut reached_decided = false;
 
@@ -48,7 +48,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
             match &parent_view.view_inner {
                 ViewInner::Leaf { leaf } => {
                     if let Some(leaf) = consensus.saved_leaves.get(leaf) {
-                        if leaf.time == consensus.last_decided_view {
+                        if leaf.view_number == consensus.last_decided_view {
                             reached_decided = true;
                         }
                         leaf
@@ -77,7 +77,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
 
         if !reached_decided {
             while let Some(next_parent_leaf) = consensus.saved_leaves.get(&next_parent_hash) {
-                if next_parent_leaf.time <= consensus.last_decided_view {
+                if next_parent_leaf.view_number <= consensus.last_decided_view {
                     break;
                 }
                 let next_parent_txns = next_parent_leaf.deltas.contained_transactions();
@@ -140,7 +140,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
 
         if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
             let leaf = Leaf {
-                time: self.cur_view,
+                view_number: self.cur_view,
                 justify_qc: self.high_qc.clone(),
                 parent_commitment: original_parent_hash,
                 deltas: block,

@@ -149,9 +149,9 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
         // if is genesis
         let _anchor = self.storage();
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
-            if anchor_leaf.time == TYPES::Time::genesis() {
+            if anchor_leaf.view_number == TYPES::Time::genesis() {
                 let event = Event {
-                    time: TYPES::Time::genesis(),
+                    view_number: TYPES::Time::genesis(),
                     event: EventType::Decide {
                         leaf_chain: Arc::new(vec![anchor_leaf.into()]),
                     },
@@ -195,7 +195,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
             // unwrap is fine here since the thing hasn't been shut down
             let event = self.next_event().await.unwrap();
             match event.event {
-                EventType::ReplicaViewTimeout { time } => {
+                EventType::ReplicaViewTimeout { view_number: time } => {
                     error!(?event, "Replica timed out!");
                     results = Err(HotShotError::ViewTimeoutError {
                         view_number: time,
@@ -209,7 +209,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
                         .map(|leaf| (leaf.state, leaf.deltas))
                         .unzip());
                 }
-                EventType::ViewFinished { time: _ } => return results,
+                EventType::ViewFinished { view_number: _ } => return results,
                 event => {
                     debug!("recv-ed event {:?}", event);
                 }

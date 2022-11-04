@@ -191,7 +191,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         // insert genesis (or latest block) to state map
         let mut state_map = BTreeMap::default();
         state_map.insert(
-            anchored_leaf.time,
+            anchored_leaf.view_number,
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
@@ -202,17 +202,17 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         let mut saved_leaves = HashMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
 
-        let start_view = anchored_leaf.time;
+        let start_view = anchored_leaf.view_number;
 
         let hotstuff = Consensus {
             state_map,
             cur_view: start_view,
-            last_decided_view: anchored_leaf.time,
+            last_decided_view: anchored_leaf.view_number,
             transactions: Arc::default(),
             saved_leaves,
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
-            locked_view: anchored_leaf.time,
+            locked_view: anchored_leaf.view_number,
             high_qc: anchored_leaf.justify_qc,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
@@ -547,7 +547,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
                 // TODO: Don't blindly accept the newest QC but make sure it's valid with other nodes too
                 // we should be getting multiple data messages soon
                 // <https://github.com/EspressoSystems/HotShot/issues/454>
-                let should_save = anchored.time < qc.time; // incoming view is newer
+                let should_save = anchored.view_number < qc.view_number; // incoming view is newer
                 if should_save {
                     let new_view = StoredView::from_qc_block_and_state(
                         qc,
@@ -661,17 +661,17 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
     /// Generates and encodes a vote token
     fn generate_vote_token(
         &self,
-        time: TYPES::Time,
+        view_number: TYPES::Time,
         _next_state: Commitment<Leaf<TYPES>>,
     ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError> {
         self.inner
             .election
-            .make_vote_token(time, &self.inner.private_key)
+            .make_vote_token(view_number, &self.inner.private_key)
     }
 
-    async fn get_leader(&self, time: TYPES::Time) -> TYPES::SignatureKey {
+    async fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         let election = &self.inner.election;
-        election.get_leader(time)
+        election.get_leader(view_number)
     }
 
     async fn should_start_round(&self, _: TYPES::Time) -> bool {
@@ -735,7 +735,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
 
     #[instrument(skip(self, qc))]
     fn validate_qc(&self, qc: &QuorumCertificate<TYPES>) -> bool {
-        if qc.genesis && qc.time == TYPES::Time::genesis() {
+        if qc.genesis && qc.view_number == TYPES::Time::genesis() {
             return true;
         }
         let hash = qc.leaf_commitment;
@@ -748,7 +748,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
                     signature.0,
                     &signature.1 .0,
                     hash,
-                    qc.time,
+                    qc.view_number,
                     Unchecked(signature.1 .1.clone()),
                 )
             })
@@ -765,17 +765,17 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
         hash: Commitment<Leaf<TYPES>>,
-        time: TYPES::Time,
+        view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
         let mut is_valid_vote_token = false;
         let mut is_valid_signature = false;
         if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
             is_valid_signature = key.validate(encoded_signature, hash.as_ref());
-            let valid_vote_token = self
-                .inner
-                .election
-                .validate_vote_token(time, key, vote_token);
+            let valid_vote_token =
+                self.inner
+                    .election
+                    .validate_vote_token(view_number, key, vote_token);
             is_valid_vote_token = match valid_vote_token {
                 Err(_) => {
                     error!("Vote token was invalid");
@@ -823,7 +823,7 @@ impl<TYPES: NodeTypes> HotShotInitializer<TYPES> {
 
         Ok(Self {
             inner: Leaf {
-                time,
+                view_number: time,
                 justify_qc,
                 parent_commitment: fake_commitment(),
                 deltas: genesis_block,

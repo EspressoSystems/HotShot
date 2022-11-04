@@ -70,10 +70,14 @@ pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
     fn create_election(keys: Vec<TYPES::SignatureKey>, config: TYPES::ElectionConfigType) -> Self;
 
     /// Returns the table from the current committed state
-    fn get_stake_table(&self, time: TYPES::Time, state: &TYPES::StateType) -> Self::StakeTable;
+    fn get_stake_table(
+        &self,
+        view_number: TYPES::Time,
+        state: &TYPES::StateType,
+    ) -> Self::StakeTable;
 
     /// Returns leader for the current view number, given the current stake table
-    fn get_leader(&self, time: TYPES::Time) -> TYPES::SignatureKey;
+    fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
 
     /// Attempts to generate a vote token for self
     ///
@@ -82,7 +86,7 @@ pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
     /// TODO tbd
     fn make_vote_token(
         &self,
-        time: TYPES::Time,
+        view_number: TYPES::Time,
         pub_key: &<TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Result<Option<TYPES::VoteTokenType>, ElectionError>;
 
@@ -92,7 +96,7 @@ pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
     /// TODO tbd
     fn validate_vote_token(
         &self,
-        time: TYPES::Time,
+        view_number: TYPES::Time,
         pub_key: TYPES::SignatureKey,
         token: Checked<TYPES::VoteTokenType>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError>;

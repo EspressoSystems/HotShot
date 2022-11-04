@@ -62,7 +62,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> NextLeader<A, TYPES> {
                         &vote.signature.0,
                         &vote.signature.1,
                         vote.leaf_commitment,
-                        vote.time,
+                        vote.current_view,
                         // Ignoring deserialization errors below since we are getting rid of it soon
                         Unchecked(vote.vote_token.clone()),
                     ) {
@@ -89,7 +89,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> NextLeader<A, TYPES> {
                         let qc = QuorumCertificate {
                             block_commitment,
                             leaf_commitment: vote.leaf_commitment,
-                            time: self.cur_view,
+                            view_number: self.cur_view,
                             signatures: valid_signatures,
                             genesis: false,
                         };
@@ -106,6 +106,6 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> NextLeader<A, TYPES> {
             }
         }
 
-        qcs.into_iter().max_by_key(|qc| qc.time).unwrap()
+        qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
     }
 }

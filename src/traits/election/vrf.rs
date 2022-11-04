@@ -953,14 +953,14 @@ where
         private_key: &SIGSCHEME::SigningKey,
         proof_param: &VRF::PublicParameter,
         chain_seed: &VRF::Input,
-        time: TYPES::Time,
+        view_number: TYPES::Time,
         total_stake: NonZeroU64,
         voter_stake: NonZeroU64,
         sortition_parameter: NonZeroU64,
     ) -> Result<(VRF::Proof, Option<NonZeroU64>), hotshot_types::traits::election::ElectionError>
     {
         let mut rng = ChaChaRng::from_seed(Default::default()); // maybe use something else that isn't deterministic?
-        let view_seed = generate_view_seed::<TYPES, VRFHASHER>(time, chain_seed);
+        let view_seed = generate_view_seed::<TYPES, VRFHASHER>(view_number, chain_seed);
         let proof = Self::internal_get_vrf_proof(private_key, proof_param, &mut rng, &view_seed)?;
         let sortition = Self::internal_get_sortition_for_proof(
             proof_param,
@@ -985,9 +985,9 @@ where
         sortition_parameter: NonZeroU64,
         sortition_claim: NonZeroU64,
         chain_seed: &VRF::Input,
-        time: TYPES::Time,
+        view_number: TYPES::Time,
     ) -> Result<bool, hotshot_types::traits::election::ElectionError> {
-        let view_seed = generate_view_seed::<TYPES, VRFHASHER>(time, chain_seed);
+        let view_seed = generate_view_seed::<TYPES, VRFHASHER>(view_number, chain_seed);
         Self::internal_check_sortition(
             public_key,
             proof_param,

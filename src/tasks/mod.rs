@@ -327,7 +327,7 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
 
     // unwrap is fine since results must have >= 1 item(s)
     #[cfg(feature = "async-std-executor")]
-    let high_qc = results.into_iter().max_by_key(|qc| qc.time).unwrap();
+    let high_qc = results.into_iter().max_by_key(|qc| qc.view_number).unwrap();
     #[cfg(feature = "tokio-executor")]
     let high_qc = results
         .into_iter()
