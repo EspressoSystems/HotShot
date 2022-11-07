@@ -216,7 +216,7 @@
         private_key: <span class="kw-2">&amp;</span>Ed25519Priv,
     ) -&gt; std::result::Result&lt;std::option::Option&lt;StaticVoteToken&gt;, ElectionError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>message: Vec&lt;u8&gt; = <span class="macro">vec!</span>[];
-        message.extend(<span class="kw-2">&amp;</span>view_number.to_le_bytes());
+        message.extend(view_number.to_le_bytes());
         <span class="kw">let </span>signature = Ed25519Pub::sign(private_key, <span class="kw-2">&amp;</span>message);
         <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(StaticVoteToken {
             signature,

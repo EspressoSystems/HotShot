@@ -1551,7 +1551,7 @@
         <span class="kw">let </span>proof = <span class="self">Self</span>::internal_get_vrf_proof(
             <span class="kw-2">&amp;</span>private_key.<span class="number">0</span>,
             <span class="kw-2">&amp;</span><span class="self">self</span>.proof_parameters,
-            <span class="kw-2">&amp;mut *</span><span class="self">self</span>.prng.lock().unwrap(),
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>.prng.lock().unwrap(),
             <span class="kw-2">&amp;</span>view_seed,
         )<span class="question-mark">?</span>;
 
