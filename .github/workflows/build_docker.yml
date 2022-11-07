@@ -14,7 +14,7 @@ jobs:
   build:
     runs-on: [self-hosted, X64]
     container:
-      image: ghcr.io/espressosystems/devops-rust:1.63
+      image: ghcr.io/espressosystems/devops-rust:1.65
     timeout-minutes: 60
     steps:
       - uses: styfle/cancel-workflow-action@0.11.0
@@ -22,6 +22,8 @@ jobs:
         with:
           all_but_latest: true
           access_token: ${{ github.token }}
+
+      - uses: dtolnay/rust-toolchain@1.65.0
 
       - name: Install dependencies
         run: |

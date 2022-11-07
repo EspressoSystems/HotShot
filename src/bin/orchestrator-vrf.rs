@@ -6,10 +6,9 @@ use hotshot_centralized_server::{
     config::{HotShotConfigFile, Libp2pConfigFile, NetworkConfigFile, RoundConfig},
     NetworkConfig, Server,
 };
-use hotshot_types::traits::signature_key::TestableSignatureKey;
 use hotshot_utils::art::async_main;
 use hotshot_utils::test_util::setup_logging;
-use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
+use jf_primitives::signatures::BLSSignatureScheme;
 use std::{fs, num::NonZeroUsize, time::Duration};
 
 #[derive(clap::Parser)]
@@ -62,15 +61,11 @@ fn load_configs(
                 let seed = [0u8; 32];
                 run.config.known_nodes = (0..run.config.total_nodes.get())
                     .map(|node_id| {
-                        let vrf_key =
-                            VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(
-                                seed,
-                                node_id.try_into().unwrap(),
-                            );
-                        let priv_key = vrf_key.1;
-                        let pub_key =
-                            VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
-                        pub_key
+                        VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(
+                            seed,
+                            node_id.try_into().unwrap(),
+                        )
+                        .0
                     })
                     .collect();
 

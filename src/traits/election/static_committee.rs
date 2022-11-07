@@ -88,7 +88,7 @@ where
         private_key: &Ed25519Priv,
     ) -> std::result::Result<std::option::Option<StaticVoteToken>, ElectionError> {
         let mut message: Vec<u8> = vec![];
-        message.extend(&view_number.to_le_bytes());
+        message.extend(view_number.to_le_bytes());
         let signature = Ed25519Pub::sign(private_key, &message);
         Ok(Some(StaticVoteToken {
             signature,

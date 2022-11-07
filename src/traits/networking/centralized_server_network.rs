@@ -688,7 +688,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
             },
             pub_key,
         );
-        (config, run, result)
+        (*config, run, result)
     }
 
     /// Send the results for this run to the server
