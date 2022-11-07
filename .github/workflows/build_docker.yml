@@ -23,9 +23,10 @@ jobs:
           all_but_latest: true
           access_token: ${{ github.token }}
 
+      - uses: dtolnay/rust-toolchain@1.65.0
+
       - name: Install dependencies
         run: |
-          rustup default 1.65.0
           apt-get update
           apt-get install -y protobuf-compiler
 
