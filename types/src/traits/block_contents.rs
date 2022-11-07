@@ -61,14 +61,13 @@ pub mod dummy {
     #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
     pub struct DummyBlock {
         /// Some dummy data
-        nonce: u64,
+        pub nonce: u64,
     }
 
     impl DummyBlock {
         /// Generate a random `DummyBlock`
-        pub fn random() -> Self {
-            let x = rand::thread_rng().gen();
-            Self { nonce: x }
+        pub fn random(rng: &mut dyn rand::RngCore) -> Self {
+            Self { nonce: rng.gen() }
         }
     }
 

@@ -72,11 +72,16 @@ async fn is_upcoming_leader(
 }
 
 /// Builds and submits a random proposal for the specified view number
-async fn submit_proposal(runner: &AppliedTestRunner, sender_node_id: u64, view_number: ViewNumber) {
+async fn submit_proposal(
+    runner: &AppliedTestRunner,
+    sender_node_id: u64,
+    view_number: ViewNumber,
+    rng: &mut dyn rand::RngCore,
+) {
     let handle = runner.get_handle(sender_node_id).unwrap();
 
     // Build proposal
-    let mut leaf = random_leaf(DEntryBlock::genesis());
+    let mut leaf = random_leaf(DEntryBlock::genesis(), rng);
     leaf.view_number = view_number;
     let signature = handle.sign_proposal(&leaf.commit(), leaf.view_number);
     let msg = ConsensusMessage::Proposal(Proposal {
@@ -94,11 +99,12 @@ async fn submit_vote(
     sender_node_id: u64,
     view_number: ViewNumber,
     recipient_node_id: u64,
+    rng: &mut dyn rand::RngCore,
 ) {
     let handle = runner.get_handle(sender_node_id).unwrap();
 
     // Build vote
-    let mut leaf = random_leaf(DEntryBlock::genesis());
+    let mut leaf = random_leaf(DEntryBlock::genesis(), rng);
     leaf.view_number = view_number;
     let signature = handle.sign_vote(&leaf.commit(), leaf.view_number);
     let msg = ConsensusMessage::Vote(Vote {
@@ -176,11 +182,12 @@ fn test_vote_queueing_round_setup(
     runner: &mut AppliedTestRunner,
 ) -> LocalBoxFuture<Vec<TestTransaction>> {
     async move {
+        let mut rng = rand::thread_rng();
         let node_id = DEFAULT_NODE_ID;
         for j in runner.ids() {
             for i in 1..NUM_VIEWS {
                 if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                    submit_vote(runner, j, ViewNumber::new(i - 1), node_id).await;
+                    submit_vote(runner, j, ViewNumber::new(i - 1), node_id, &mut rng).await;
                 }
             }
         }
@@ -236,11 +243,12 @@ fn test_proposal_queueing_round_setup(
     runner: &mut AppliedTestRunner,
 ) -> LocalBoxFuture<Vec<TestTransaction>> {
     async move {
+        let mut rng = rand::thread_rng();
         let node_id = DEFAULT_NODE_ID;
 
         for i in 0..NUM_VIEWS {
             if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
+                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
             }
         }
 
@@ -254,14 +262,15 @@ fn test_bad_proposal_round_setup(
     runner: &mut AppliedTestRunner,
 ) -> LocalBoxFuture<Vec<TestTransaction>> {
     async move {
+        let mut rng = rand::thread_rng();
         let node_id = DEFAULT_NODE_ID;
         for i in 0..NUM_VIEWS {
             if !is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
+                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
             } else {
-                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
-                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
-                submit_proposal(runner, node_id, ViewNumber::new(i)).await;
+                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
+                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
+                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
             }
         }
         Vec::new()
@@ -322,10 +331,11 @@ fn test_bad_vote_round_setup(
     runner: &mut AppliedTestRunner,
 ) -> LocalBoxFuture<Vec<TestTransaction>> {
     async move {
+        let mut rng = rand::thread_rng();
         let node_id = DEFAULT_NODE_ID;
         for j in runner.ids() {
             for i in 1..NUM_VIEWS {
-                submit_vote(runner, j, ViewNumber::new(i - 1), node_id).await;
+                submit_vote(runner, j, ViewNumber::new(i - 1), node_id, &mut rng).await;
             }
         }
         Vec::new()

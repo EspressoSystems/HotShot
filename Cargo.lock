@@ -2140,7 +2140,7 @@ dependencies = [
 
 [[package]]
 name = "hotshot"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",

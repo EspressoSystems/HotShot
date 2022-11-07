@@ -214,7 +214,7 @@ async fn main() {
     debug!("Running random transactions");
     for round in prebaked_count..opt.transactions as u64 {
         debug!(?round);
-        let tx = &state.as_ref().unwrap()[0].create_random_transaction();
+        let tx = &state.as_ref().unwrap()[0].create_random_transaction(&mut rng);
         println!("Round {}:", round);
         println!("  - Proposing: {:?}", tx);
         debug!("Proposing: {:?}", tx);

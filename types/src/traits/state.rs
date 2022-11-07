@@ -63,7 +63,10 @@ where
 {
     /// Creates random transaction if possible
     /// otherwise panics
-    fn create_random_transaction(&self) -> <Self::BlockType as Block>::Transaction;
+    fn create_random_transaction(
+        &self,
+        rng: &mut dyn rand::RngCore,
+    ) -> <Self::BlockType as Block>::Transaction;
 }
 
 /// extra functions required on block to be usable by hotshot-testing
@@ -100,9 +103,10 @@ pub mod dummy {
 
     impl DummyState {
         /// Generate a random `DummyState`
-        pub fn random() -> Self {
-            let x = rand::thread_rng().gen_range(1..1_000_000);
-            Self { nonce: x }
+        pub fn random(r: &mut dyn rand::RngCore) -> Self {
+            Self {
+                nonce: r.gen_range(1..1_000_000),
+            }
         }
     }
 
@@ -113,7 +117,7 @@ pub mod dummy {
         type Time = ViewNumber;
 
         fn next_block(&self) -> Self::BlockType {
-            DummyBlock::random()
+            DummyBlock { nonce: self.nonce }
         }
 
         fn validate_block(&self, _block: &Self::BlockType, _time: &Self::Time) -> bool {

@@ -239,8 +239,7 @@ pub fn fake_commitment<S: Committable>() -> Commitment<S> {
 }
 
 /// create a random commitment
-pub fn random_commitment<S: Committable>() -> Commitment<S> {
-    let mut rng = rand::thread_rng();
+pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitment<S> {
     let random_array: Vec<u8> = (0u8..100u8).map(|_| rng.gen_range(0..255)).collect();
     commit::RawCommitmentBuilder::new("Random Commitment")
         .constant_str("Random Field")

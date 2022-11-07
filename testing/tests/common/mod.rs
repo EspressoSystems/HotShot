@@ -332,12 +332,15 @@ pub fn default_submitter_id_to_round<
                 Vec<<<I::StateType as State>::BlockType as Block>::Transaction>,
             > {
                 async move {
+                    let mut rng = rand::thread_rng();
                     for id in shutdown_ids.clone() {
                         runner.shutdown(id).await.unwrap();
                     }
                     let mut txns = Vec::new();
                     for id in round_ids.clone() {
-                        let new_txn = runner.add_random_transaction(Some(id as usize)).await;
+                        let new_txn = runner
+                            .add_random_transaction(Some(id as usize), &mut rng)
+                            .await;
                         txns.push(new_txn);
                     }
                     txns
@@ -381,6 +384,7 @@ pub fn default_randomized_ids_to_round<
                 Vec<<<I::StateType as State>::BlockType as Block>::Transaction>,
             > {
                 async move {
+                    let mut rng = rand::thread_rng();
                     if let Some(to_shut_down) = to_kill.clone() {
                         for idx in to_shut_down {
                             runner.shutdown(idx).await.unwrap();
@@ -388,7 +392,7 @@ pub fn default_randomized_ids_to_round<
                     }
 
                     runner
-                        .add_random_transactions(txns_per_round as usize)
+                        .add_random_transactions(txns_per_round as usize, &mut rng)
                         .await
                         .unwrap()
                 }
