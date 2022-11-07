@@ -623,11 +623,6 @@
 <span id="623">623</span>
 <span id="624">624</span>
 <span id="625">625</span>
-<span id="626">626</span>
-<span id="627">627</span>
-<span id="628">628</span>
-<span id="629">629</span>
-<span id="630">630</span>
 </pre><pre class="rust"><code><span class="comment">// TODO this should really be moved into the utils crate.
 </span><span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>clap::Parser;
@@ -638,7 +633,7 @@
         implementations::{Libp2pNetwork, MemoryStorage},
         NetworkError, Storage,
     },
-    types::{ed25519::Ed25519Priv, HotShotHandle, Message},
+    types::{ed25519::Ed25519Priv, HotShotHandle},
     HotShot,
 };
 <span class="kw">use </span>hotshot_centralized_server::{
@@ -991,11 +986,8 @@
     }
 }
 
-<span class="kw">type </span>Node = DEntryNode&lt;
-    Libp2pNetwork&lt;Message&lt;DEntryState, Ed25519Pub&gt;, Ed25519Pub&gt;,
-    StaticCommittee&lt;DEntryState&gt;,
-    Ed25519Pub,
-&gt;;
+<span class="kw">type </span>Node = DEntryNode&lt;DEntryTypes, Libp2pNetwork&lt;DEntryTypes&gt;, StaticCommittee&lt;DEntryTypes&gt;&gt;;
+
 <span class="kw">struct </span>Config {
     run: Run,
     privkey: Ed25519Priv,
@@ -1026,8 +1018,8 @@
     </span><span class="kw">async fn </span>init_state_and_hotshot(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
 
-        networking: Libp2pNetwork&lt;Message&lt;DEntryState, Ed25519Pub&gt;, Ed25519Pub&gt;,
-    ) -&gt; (DEntryState, HotShotHandle&lt;Node&gt;) {
+        networking: Libp2pNetwork&lt;DEntryTypes&gt;,
+    ) -&gt; (DEntryState, HotShotHandle&lt;DEntryTypes, Node&gt;) {
         <span class="kw">let </span>genesis_block = DEntryBlock::genesis();
         <span class="kw">let </span>initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
@@ -1069,16 +1061,14 @@
         </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>);
         <span class="macro">debug!</span>(<span class="string">&quot;hotshot launched&quot;</span>);
 
-        <span class="kw">let </span>storage: <span class="kw-2">&amp;</span>MemoryStorage&lt;DEntryState&gt; = hotshot.storage();
+        <span class="kw">let </span>storage: <span class="kw-2">&amp;</span>MemoryStorage&lt;DEntryTypes&gt; = hotshot.storage();
 
         <span class="kw">let </span>state = storage.get_anchored_view().<span class="kw">await</span>.unwrap().state;
 
         (state, hotshot)
     }
 
-    <span class="kw">async fn </span>new_libp2p_network(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;Message&lt;DEntryState, Ed25519Pub&gt;, Ed25519Pub&gt;, NetworkError&gt; {
+    <span class="kw">async fn </span>new_libp2p_network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;DEntryTypes&gt;, NetworkError&gt; {
         <span class="macro">assert!</span>(<span class="self">self</span>.node_id &lt; <span class="self">self</span>.num_nodes);
         <span class="kw">let </span><span class="kw-2">mut </span>config_builder = NetworkNodeConfigBuilder::default();
         <span class="comment">// NOTE we may need to change this as we scale

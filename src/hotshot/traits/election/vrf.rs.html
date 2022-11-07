@@ -1117,18 +1117,125 @@
 <span id="1117">1117</span>
 <span id="1118">1118</span>
 <span id="1119">1119</span>
-</pre><pre class="rust"><code><span class="kw">use </span>ark_ec::bls12::Bls12Parameters;
+<span id="1120">1120</span>
+<span id="1121">1121</span>
+<span id="1122">1122</span>
+<span id="1123">1123</span>
+<span id="1124">1124</span>
+<span id="1125">1125</span>
+<span id="1126">1126</span>
+<span id="1127">1127</span>
+<span id="1128">1128</span>
+<span id="1129">1129</span>
+<span id="1130">1130</span>
+<span id="1131">1131</span>
+<span id="1132">1132</span>
+<span id="1133">1133</span>
+<span id="1134">1134</span>
+<span id="1135">1135</span>
+<span id="1136">1136</span>
+<span id="1137">1137</span>
+<span id="1138">1138</span>
+<span id="1139">1139</span>
+<span id="1140">1140</span>
+<span id="1141">1141</span>
+<span id="1142">1142</span>
+<span id="1143">1143</span>
+<span id="1144">1144</span>
+<span id="1145">1145</span>
+<span id="1146">1146</span>
+<span id="1147">1147</span>
+<span id="1148">1148</span>
+<span id="1149">1149</span>
+<span id="1150">1150</span>
+<span id="1151">1151</span>
+<span id="1152">1152</span>
+<span id="1153">1153</span>
+<span id="1154">1154</span>
+<span id="1155">1155</span>
+<span id="1156">1156</span>
+<span id="1157">1157</span>
+<span id="1158">1158</span>
+<span id="1159">1159</span>
+<span id="1160">1160</span>
+<span id="1161">1161</span>
+<span id="1162">1162</span>
+<span id="1163">1163</span>
+<span id="1164">1164</span>
+<span id="1165">1165</span>
+<span id="1166">1166</span>
+<span id="1167">1167</span>
+<span id="1168">1168</span>
+<span id="1169">1169</span>
+<span id="1170">1170</span>
+<span id="1171">1171</span>
+<span id="1172">1172</span>
+<span id="1173">1173</span>
+<span id="1174">1174</span>
+<span id="1175">1175</span>
+<span id="1176">1176</span>
+<span id="1177">1177</span>
+<span id="1178">1178</span>
+<span id="1179">1179</span>
+<span id="1180">1180</span>
+<span id="1181">1181</span>
+<span id="1182">1182</span>
+<span id="1183">1183</span>
+<span id="1184">1184</span>
+<span id="1185">1185</span>
+<span id="1186">1186</span>
+<span id="1187">1187</span>
+<span id="1188">1188</span>
+<span id="1189">1189</span>
+<span id="1190">1190</span>
+<span id="1191">1191</span>
+<span id="1192">1192</span>
+<span id="1193">1193</span>
+<span id="1194">1194</span>
+<span id="1195">1195</span>
+<span id="1196">1196</span>
+<span id="1197">1197</span>
+<span id="1198">1198</span>
+<span id="1199">1199</span>
+<span id="1200">1200</span>
+<span id="1201">1201</span>
+<span id="1202">1202</span>
+<span id="1203">1203</span>
+<span id="1204">1204</span>
+<span id="1205">1205</span>
+<span id="1206">1206</span>
+<span id="1207">1207</span>
+<span id="1208">1208</span>
+<span id="1209">1209</span>
+<span id="1210">1210</span>
+<span id="1211">1211</span>
+<span id="1212">1212</span>
+<span id="1213">1213</span>
+<span id="1214">1214</span>
+<span id="1215">1215</span>
+<span id="1216">1216</span>
+<span id="1217">1217</span>
+<span id="1218">1218</span>
+</pre><pre class="rust"><code><span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
+<span class="kw">use </span>ark_ec::bls12::Bls12Parameters;
 <span class="kw">use </span>bincode::Options;
-<span class="kw">use </span>hotshot_types::{
-    data::ViewNumber,
-    traits::{
-        election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
-        State,
-    },
+<span class="kw">use </span>blake3::Hasher;
+<span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
+<span class="kw">use </span>hotshot_types::traits::{
+    election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
+    node_implementation::NodeTypes,
+    signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
-<span class="kw">use </span>jf_primitives::{hash_to_group::SWHashToGroup, signatures::SignatureScheme, vrf::Vrf};
+<span class="kw">use </span>jf_primitives::{
+    hash_to_group::SWHashToGroup,
+    signatures::{
+        bls::{BLSSignature, BLSVerKey},
+        BLSSignatureScheme, SignatureScheme,
+    },
+    vrf::{blsvrf::BLSVRFScheme, Vrf},
+};
+<span class="kw">use </span>num::{rational::Ratio, BigUint, ToPrimitive};
 <span class="kw">use </span>rand::SeedableRng;
 <span class="kw">use </span>rand_chacha::ChaChaRng;
 <span class="kw">use </span>serde::{
@@ -1145,8 +1252,6 @@
     sync::{Arc, Mutex},
 };
 <span class="kw">use </span>tracing::{error, info, instrument};
-
-<span class="kw">use </span>num::{rational::Ratio, BigUint, ToPrimitive};
 
 <span class="comment">// TODO wrong palce for this
 </span><span class="doccomment">/// the sortition committee size parameter
@@ -1383,9 +1488,10 @@
 }
 
 <span class="doccomment">/// the vrf implementation
-</span><span class="kw">pub struct </span>VrfImpl&lt;STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS&gt;
+</span><span class="kw">pub struct </span>VrfImpl&lt;TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS&gt;
 <span class="kw">where
     </span>VRF: Vrf&lt;VRFHASHER, VRFPARAMS&gt; + Sync + Send,
+    TYPES: NodeTypes,
 {
     <span class="doccomment">/// the stake table
     </span>stake_table: VRFStakeTable&lt;VRF, VRFHASHER, VRFPARAMS&gt;,
@@ -1407,17 +1513,17 @@
     <span class="doccomment">/// phantom data
     </span>_pd_1: PhantomData&lt;VRFPARAMS&gt;,
     <span class="doccomment">/// phantom data
-    </span>_pd_2: PhantomData&lt;STATE&gt;,
+    </span>_pd_2: PhantomData&lt;TYPES&gt;,
     <span class="doccomment">/// phantom data
     </span>_pd_3: PhantomData&lt;VRF&gt;,
     <span class="doccomment">/// phantom data
     </span>_pd_4: PhantomData&lt;SIGSCHEME&gt;,
 }
-
-<span class="kw">impl</span>&lt;STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS&gt; Clone
-    <span class="kw">for </span>VrfImpl&lt;STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS&gt;
+<span class="kw">impl</span>&lt;TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS&gt; Clone
+    <span class="kw">for </span>VrfImpl&lt;TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS&gt;
 <span class="kw">where
     </span>VRF: Vrf&lt;VRFHASHER, VRFPARAMS, PublicParameter = ()&gt; + Sync + Send,
+    TYPES: NodeTypes,
 {
     <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
@@ -1437,47 +1543,82 @@
 }
 
 <span class="doccomment">/// TODO doc me
-</span><span class="attribute">#[derive(Serialize, Deserialize, Debug)]
-</span><span class="kw">pub struct </span>VRFVoteToken&lt;VRF: Vrf&lt;VRFHASHER, VRFPARAMS&gt;, VRFHASHER, VRFPARAMS&gt; {
+</span><span class="attribute">#[derive(Serialize, Deserialize, Clone)]
+</span><span class="kw">pub struct </span>VRFVoteToken&lt;PUBKEY, PROOF&gt; {
     <span class="doccomment">/// The public key assocaited with this token
-    </span><span class="kw">pub </span>pub_key: VRF::PublicKey,
+    </span><span class="kw">pub </span>pub_key: PUBKEY,
     <span class="doccomment">/// The list of signatures
-    </span><span class="kw">pub </span>proof: VRF::Proof,
+    </span><span class="kw">pub </span>proof: PROOF,
     <span class="doccomment">/// The number of signatures that are valid
     /// TODO (ct) this should be the sorition outbput
     </span><span class="kw">pub </span>count: NonZeroU64,
 }
 
-<span class="kw">impl</span>&lt;VRF: Vrf&lt;VRFHASHER, VRFPARAMS&gt;, VRFHASHER, VRFPARAMS&gt; Clone
-    <span class="kw">for </span>VRFVoteToken&lt;VRF, VRFHASHER, VRFPARAMS&gt;
+<span class="kw">impl</span>&lt;PUBKEY, PROOF&gt; Hash <span class="kw">for </span>VRFVoteToken&lt;PUBKEY, PROOF&gt;
 <span class="kw">where
-    </span>VRF::PublicKey: Clone,
-    VRF::Proof: Clone,
+    </span>PUBKEY: serde::Serialize,
+    PROOF: serde::Serialize,
 {
-    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            pub_key: <span class="self">self</span>.pub_key.clone(),
-            proof: <span class="self">self</span>.proof.clone(),
-            count: <span class="self">self</span>.count,
-        }
+    <span class="kw">fn </span>hash&lt;H: std::hash::Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
+        bincode_opts().serialize(<span class="kw-2">&amp;</span><span class="self">self</span>.pub_key).unwrap().hash(state);
+        bincode_opts().serialize(<span class="kw-2">&amp;</span><span class="self">self</span>.proof).unwrap().hash(state);
+        <span class="self">self</span>.count.hash(state);
     }
 }
 
-<span class="kw">impl</span>&lt;VRF, VRFHASHER, VRFPARAMS&gt; VoteToken <span class="kw">for </span>VRFVoteToken&lt;VRF, VRFHASHER, VRFPARAMS&gt;
+<span class="kw">impl</span>&lt;PUBKEY, PROOF&gt; Debug <span class="kw">for </span>VRFVoteToken&lt;PUBKEY, PROOF&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">&quot;VRFVoteToken&quot;</span>)
+            .field(<span class="string">&quot;pub_key&quot;</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;PUBKEY&gt;())
+            .field(<span class="string">&quot;proof&quot;</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;PROOF&gt;())
+            .field(<span class="string">&quot;count&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.count)
+            .finish()
+    }
+}
+
+<span class="kw">impl</span>&lt;PUBKEY, PROOF&gt; PartialEq <span class="kw">for </span>VRFVoteToken&lt;PUBKEY, PROOF&gt;
 <span class="kw">where
-    </span>VRF: Vrf&lt;VRFHASHER, VRFPARAMS&gt;,
+    </span>PUBKEY: serde::Serialize,
+    PROOF: serde::Serialize,
+{
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+        <span class="self">self</span>.count == other.count
+            &amp;&amp; bincode_opts().serialize(<span class="kw-2">&amp;</span><span class="self">self</span>.pub_key).unwrap()
+                == bincode_opts().serialize(<span class="kw-2">&amp;</span>other.pub_key).unwrap()
+            &amp;&amp; bincode_opts().serialize(<span class="kw-2">&amp;</span><span class="self">self</span>.proof).unwrap()
+                == bincode_opts().serialize(<span class="kw-2">&amp;</span>other.proof).unwrap()
+    }
+}
+
+<span class="kw">impl</span>&lt;PUBKEY, PROOF&gt; VoteToken <span class="kw">for </span>VRFVoteToken&lt;PUBKEY, PROOF&gt;
+<span class="kw">where
+    </span>PUBKEY: Clone + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;de</span>&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+    PROOF: Clone + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;de</span>&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 {
     <span class="kw">fn </span>vote_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
         <span class="self">self</span>.count
     }
 }
 
-<span class="comment">// KEY is VRFPubKey
-</span><span class="kw">impl</span>&lt;VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, STATE&gt;
-    Election&lt;VRFPubKey&lt;SIGSCHEME&gt;, &lt;STATE <span class="kw">as </span>State&gt;::Time&gt;
-    <span class="kw">for </span>VrfImpl&lt;STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS&gt;
+<span class="kw">impl</span>&lt;PUBKEY, PROOF&gt; Committable <span class="kw">for </span>VRFVoteToken&lt;PUBKEY, PROOF&gt;
 <span class="kw">where
-    </span>SIGSCHEME: SignatureScheme&lt;PublicParameter = (), MessageUnit = u8&gt; + Sync + Send,
+    </span>PUBKEY: serde::Serialize,
+    PROOF: serde::Serialize,
+{
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
+        RawCommitmentBuilder::new(std::any::type_name::&lt;<span class="self">Self</span>&gt;())
+            .u64(<span class="self">self</span>.count.get())
+            .var_size_bytes(bincode_opts().serialize(<span class="kw-2">&amp;</span><span class="self">self</span>.pub_key).unwrap().as_slice())
+            .var_size_bytes(bincode_opts().serialize(<span class="kw-2">&amp;</span><span class="self">self</span>.proof).unwrap().as_slice())
+            .finalize()
+    }
+}
+
+<span class="comment">// KEY is VRFPubKey
+</span><span class="kw">impl</span>&lt;VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, TYPES&gt; Election&lt;TYPES&gt;
+    <span class="kw">for </span>VrfImpl&lt;TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS&gt;
+<span class="kw">where
+    </span>SIGSCHEME: SignatureScheme&lt;PublicParameter = (), MessageUnit = u8&gt; + Sync + Send + <span class="lifetime">&#39;static</span>,
     SIGSCHEME::VerificationKey: Clone + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Sync + Send,
     SIGSCHEME::SigningKey: Clone + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Sync + Send,
     SIGSCHEME::Signature: Clone + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Sync + Send,
@@ -1490,36 +1631,33 @@
             PublicKey = SIGSCHEME::VerificationKey,
             SecretKey = SIGSCHEME::SigningKey,
         &gt; + Sync
-        + Send,
+        + Send
+        + <span class="lifetime">&#39;static</span>,
     VRF::Proof: Clone + Sync + Send + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;,
     VRF::PublicParameter: Sync + Send,
-    VRFHASHER: digest::Digest + Clone + Sync + Send,
+    VRFHASHER: digest::Digest + Clone + Sync + Send + <span class="lifetime">&#39;static</span>,
     VRFPARAMS: Sync + Send + Bls12Parameters,
-    STATE: State,
     &lt;VRFPARAMS <span class="kw">as </span>Bls12Parameters&gt;::G1Parameters: SWHashToGroup,
+    TYPES: NodeTypes&lt;
+        VoteTokenType = VRFVoteToken&lt;VRF::PublicKey, VRF::Proof&gt;,
+        ElectionConfigType = VRFStakeTableConfig,
+        SignatureKey = VRFPubKey&lt;SIGSCHEME&gt;,
+    &gt;,
 {
     <span class="comment">// pubkey -&gt; unit of stake
     </span><span class="kw">type </span>StakeTable = VRFStakeTable&lt;VRF, VRFHASHER, VRFPARAMS&gt;;
-
-    <span class="kw">type </span>StateType = STATE;
-
-    <span class="comment">// TODO generics in terms of vrf trait output(s)
-    // represents a vote on a proposal
-    </span><span class="kw">type </span>VoteTokenType = VRFVoteToken&lt;VRF, VRFHASHER, VRFPARAMS&gt;;
-
-    <span class="kw">type </span>ElectionConfigType = VRFStakeTableConfig;
 
     <span class="comment">// FIXED STAKE
     // just return the state
     </span><span class="kw">fn </span>get_stake_table(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _view_number: hotshot_types::data::ViewNumber,
-        _state: <span class="kw-2">&amp;</span><span class="self">Self</span>::StateType,
+        _view_number: TYPES::Time,
+        _state: <span class="kw-2">&amp;</span>TYPES::StateType,
     ) -&gt; <span class="self">Self</span>::StakeTable {
         <span class="self">self</span>.stake_table.clone()
     }
 
-    <span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: hotshot_types::data::ViewNumber) -&gt; VRFPubKey&lt;SIGSCHEME&gt; {
+    <span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; VRFPubKey&lt;SIGSCHEME&gt; {
         <span class="comment">// TODO fst2 (ct) this is round robin, we should make this dependent on
         // the VRF + some source of randomness
 
@@ -1537,16 +1675,16 @@
         <span class="comment">// TODO see if we can make this take &amp;mut self
         // because we&#39;re using a mutable prng
         </span><span class="kw-2">&amp;</span><span class="self">self</span>,
-        view_number: hotshot_types::data::ViewNumber,
-        private_key: <span class="kw-2">&amp;</span>&lt;VRFPubKey&lt;SIGSCHEME&gt; <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::VoteTokenType&gt;, hotshot_types::traits::election::ElectionError&gt; {
+        view_number: TYPES::Time,
+        private_key: <span class="kw-2">&amp;</span>(SIGSCHEME::SigningKey, SIGSCHEME::VerificationKey),
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TYPES::VoteTokenType&gt;, ElectionError&gt; {
         <span class="kw">let </span>pub_key = VRFPubKey::&lt;SIGSCHEME&gt;::from_native(private_key.<span class="number">1</span>.clone());
         <span class="kw">let </span>replicas_stake = <span class="kw">match </span><span class="self">self</span>.stake_table.get_stake(<span class="kw-2">&amp;</span>pub_key) {
             <span class="prelude-val">Some</span>(val) =&gt; val,
             <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
         };
 
-        <span class="kw">let </span>view_seed = generate_view_seed::&lt;VRFHASHER&gt;(view_number, <span class="kw-2">&amp;</span><span class="self">self</span>.chain_seed);
+        <span class="kw">let </span>view_seed = generate_view_seed::&lt;TYPES, VRFHASHER&gt;(view_number, <span class="kw-2">&amp;</span><span class="self">self</span>.chain_seed);
 
         <span class="kw">let </span>proof = <span class="self">Self</span>::internal_get_vrf_proof(
             <span class="kw-2">&amp;</span>private_key.<span class="number">0</span>,
@@ -1586,14 +1724,15 @@
 
     <span class="kw">fn </span>validate_vote_token(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        view_number: hotshot_types::data::ViewNumber,
+        view_number: TYPES::Time,
         pub_key: VRFPubKey&lt;SIGSCHEME&gt;,
-        token: Checked&lt;<span class="self">Self</span>::VoteTokenType&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Checked&lt;<span class="self">Self</span>::VoteTokenType&gt;, hotshot_types::traits::election::ElectionError&gt; {
+        token: Checked&lt;TYPES::VoteTokenType&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Checked&lt;TYPES::VoteTokenType&gt;, ElectionError&gt; {
         <span class="kw">match </span>token {
             Checked::Unchecked(token) =&gt; {
                 <span class="kw">let </span>stake: <span class="prelude-ty">Option</span>&lt;NonZeroU64&gt; = <span class="self">self</span>.stake_table.get_stake(<span class="kw-2">&amp;</span>pub_key);
-                <span class="kw">let </span>view_seed = generate_view_seed::&lt;VRFHASHER&gt;(view_number, <span class="kw-2">&amp;</span><span class="self">self</span>.chain_seed);
+                <span class="kw">let </span>view_seed =
+                    generate_view_seed::&lt;TYPES, VRFHASHER&gt;(view_number, <span class="kw-2">&amp;</span><span class="self">self</span>.chain_seed);
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(stake) = stake {
                     <span class="self">Self</span>::internal_check_sortition(
                         <span class="kw-2">&amp;</span>pub_key.pk,
@@ -1619,14 +1758,14 @@
         }
     }
 
-    <span class="kw">fn </span>create_election(keys: Vec&lt;VRFPubKey&lt;SIGSCHEME&gt;&gt;, config: <span class="self">Self</span>::ElectionConfigType) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>create_election(keys: Vec&lt;VRFPubKey&lt;SIGSCHEME&gt;&gt;, config: TYPES::ElectionConfigType) -&gt; <span class="self">Self </span>{
         <span class="comment">// This all needs to be refactored. For one thing, having the stake table - even an initial
         // stake table - hardcoded like this is flat-out broken. This is, obviously, an artifact
         </span><span class="kw">let </span>genesis_seed = [<span class="number">0u8</span>; <span class="number">32</span>];
         VrfImpl::with_initial_stake(keys, <span class="kw-2">&amp;</span>config, genesis_seed)
     }
 
-    <span class="kw">fn </span>default_election_config(num_nodes: u64) -&gt; <span class="self">Self</span>::ElectionConfigType {
+    <span class="kw">fn </span>default_election_config(num_nodes: u64) -&gt; TYPES::ElectionConfigType {
         <span class="kw">let </span><span class="kw-2">mut </span>stake = Vec::new();
         <span class="kw">let </span>units_of_stake_per_node = NonZeroU64::new(<span class="number">100</span>).unwrap();
         <span class="kw">for _ in </span><span class="number">0</span>..num_nodes {
@@ -1666,8 +1805,8 @@
 <span class="doccomment">/// generates the seed from algorand paper
 /// baseed on `view_number` and a constant as of now, but in the future will be other things
 /// this is a stop-gap
-</span><span class="kw">fn </span>generate_view_seed&lt;HASHER: digest::Digest&gt;(
-    view_number: ViewNumber,
+</span><span class="kw">fn </span>generate_view_seed&lt;TYPES: NodeTypes, HASHER: digest::Digest&gt;(
+    view_number: TYPES::Time,
     vrf_seed: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>],
 ) -&gt; [u8; <span class="number">32</span>] {
     <span class="kw">let </span><span class="kw-2">mut </span>hasher = HASHER::new();
@@ -1888,8 +2027,8 @@
     }
 }
 
-<span class="kw">impl</span>&lt;STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS&gt;
-    VrfImpl&lt;STATE, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS&gt;
+<span class="kw">impl</span>&lt;TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS&gt;
+    VrfImpl&lt;TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS&gt;
 <span class="kw">where
     </span>SIGSCHEME: SignatureScheme&lt;PublicParameter = (), MessageUnit = u8&gt; + Sync + Send,
     SIGSCHEME::VerificationKey: Clone + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Sync + Send,
@@ -1909,8 +2048,8 @@
     VRF::PublicParameter: Sync + Send,
     VRFHASHER: digest::Digest + Clone + Sync + Send,
     VRFPARAMS: Sync + Send + Bls12Parameters,
-    STATE: State,
     &lt;VRFPARAMS <span class="kw">as </span>Bls12Parameters&gt;::G1Parameters: SWHashToGroup,
+    TYPES: NodeTypes,
 {
     <span class="doccomment">/// create stake table with this initial stake
     /// # Panics
@@ -2032,14 +2171,14 @@
         private_key: <span class="kw-2">&amp;</span>SIGSCHEME::SigningKey,
         proof_param: <span class="kw-2">&amp;</span>VRF::PublicParameter,
         chain_seed: <span class="kw-2">&amp;</span>VRF::Input,
-        view_number: ViewNumber,
+        view_number: TYPES::Time,
         total_stake: NonZeroU64,
         voter_stake: NonZeroU64,
         sortition_parameter: NonZeroU64,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(VRF::Proof, <span class="prelude-ty">Option</span>&lt;NonZeroU64&gt;), hotshot_types::traits::election::ElectionError&gt;
     {
         <span class="kw">let </span><span class="kw-2">mut </span>rng = ChaChaRng::from_seed(Default::default()); <span class="comment">// maybe use something else that isn&#39;t deterministic?
-        </span><span class="kw">let </span>view_seed = generate_view_seed::&lt;VRFHASHER&gt;(view_number, chain_seed);
+        </span><span class="kw">let </span>view_seed = generate_view_seed::&lt;TYPES, VRFHASHER&gt;(view_number, chain_seed);
         <span class="kw">let </span>proof = <span class="self">Self</span>::internal_get_vrf_proof(private_key, proof_param, <span class="kw-2">&amp;mut </span>rng, <span class="kw-2">&amp;</span>view_seed)<span class="question-mark">?</span>;
         <span class="kw">let </span>sortition = <span class="self">Self</span>::internal_get_sortition_for_proof(
             proof_param,
@@ -2064,9 +2203,9 @@
         sortition_parameter: NonZeroU64,
         sortition_claim: NonZeroU64,
         chain_seed: <span class="kw-2">&amp;</span>VRF::Input,
-        view_number: ViewNumber,
+        view_number: TYPES::Time,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, hotshot_types::traits::election::ElectionError&gt; {
-        <span class="kw">let </span>view_seed = generate_view_seed::&lt;VRFHASHER&gt;(view_number, chain_seed);
+        <span class="kw">let </span>view_seed = generate_view_seed::&lt;TYPES, VRFHASHER&gt;(view_number, chain_seed);
         <span class="self">Self</span>::internal_check_sortition(
             <span class="kw-2">&amp;</span>public_key.pk,
             proof_param,
@@ -2078,6 +2217,27 @@
             <span class="kw-2">&amp;</span>view_seed,
         )
         .map(|c| <span class="macro">matches!</span>(c, Checked::Valid(<span class="kw">_</span>)))
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES&gt; TestableElection&lt;TYPES&gt;
+    <span class="kw">for </span>VrfImpl&lt;TYPES, BLSSignatureScheme&lt;Param381&gt;, BLSVRFScheme&lt;Param381&gt;, Hasher, Param381&gt;
+<span class="kw">where
+    </span>TYPES: NodeTypes&lt;
+        VoteTokenType = VRFVoteToken&lt;
+            BLSVerKey&lt;ark_bls12_381::Parameters&gt;,
+            BLSSignature&lt;ark_bls12_381::Parameters&gt;,
+        &gt;,
+        ElectionConfigType = VRFStakeTableConfig,
+        SignatureKey = VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;,
+    &gt;,
+{
+    <span class="kw">fn </span>generate_test_vote_token() -&gt; TYPES::VoteTokenType {
+        VRFVoteToken {
+            count: NonZeroU64::new(<span class="number">1234</span>).unwrap(),
+            proof: BLSSignature::default(),
+            pub_key: BLSVerKey::default(),
+        }
     }
 }
 
@@ -2103,20 +2263,58 @@
 
 <span class="attribute">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span>std::{num::NonZeroUsize, time::Duration};
-
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
     <span class="kw">use </span>ark_std::test_rng;
     <span class="kw">use </span>blake3::Hasher;
-    <span class="kw">use </span>hotshot_types::{data::ViewNumber, traits::state::dummy::DummyState};
+    <span class="kw">use </span>hotshot_types::{
+        data::ViewNumber,
+        traits::{
+            block_contents::dummy::{DummyBlock, DummyTransaction},
+            state::{dummy::DummyState, ConsensusTime},
+        },
+    };
     <span class="kw">use </span>hotshot_utils::test_util::setup_logging;
-    <span class="kw">use </span>jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
+    <span class="kw">use </span>jf_primitives::{
+        signatures::{
+            bls::{BLSSignature, BLSVerKey},
+            BLSSignatureScheme,
+        },
+        vrf::blsvrf::BLSVRFScheme,
+    };
+    <span class="kw">use </span>std::{num::NonZeroUsize, time::Duration};
 
-    <span class="kw">pub fn </span>gen_vrf_impl(
+    <span class="attribute">#[derive(
+        Copy,
+        Clone,
+        Debug,
+        Default,
+        Hash,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        serde::Serialize,
+        serde::Deserialize,
+    )]
+    </span><span class="kw">struct </span>TestTypes;
+    <span class="kw">impl </span>NodeTypes <span class="kw">for </span>TestTypes {
+        <span class="kw">type </span>Time = ViewNumber;
+        <span class="kw">type </span>BlockType = DummyBlock;
+        <span class="kw">type </span>SignatureKey = VRFPubKey&lt;BLSSignatureScheme&lt;ark_bls12_381::Parameters&gt;&gt;;
+        <span class="kw">type </span>VoteTokenType = VRFVoteToken&lt;
+            BLSVerKey&lt;ark_bls12_381::Parameters&gt;,
+            BLSSignature&lt;ark_bls12_381::Parameters&gt;,
+        &gt;;
+        <span class="kw">type </span>Transaction = DummyTransaction;
+        <span class="kw">type </span>ElectionConfigType = VRFStakeTableConfig;
+        <span class="kw">type </span>StateType = DummyState;
+    }
+
+    <span class="kw">fn </span>gen_vrf_impl(
         num_nodes: usize,
     ) -&gt; (
-        VrfImpl&lt;DummyState, BLSSignatureScheme&lt;Param381&gt;, BLSVRFScheme&lt;Param381&gt;, Hasher, Param381&gt;,
+        VrfImpl&lt;TestTypes, BLSSignatureScheme&lt;Param381&gt;, BLSVRFScheme&lt;Param381&gt;, Hasher, Param381&gt;,
         Vec&lt;(
             jf_primitives::signatures::bls::BLSSignKey&lt;Param381&gt;,
             jf_primitives::signatures::bls::BLSVerKey&lt;Param381&gt;,

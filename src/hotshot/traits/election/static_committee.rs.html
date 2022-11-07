@@ -126,16 +126,15 @@
 <span id="126">126</span>
 <span id="127">127</span>
 <span id="128">128</span>
-</pre><pre class="rust"><code><span class="kw">use </span>hotshot_types::{
-    data::ViewNumber,
-    traits::{
-        election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
-        signature_key::{
-            ed25519::{Ed25519Priv, Ed25519Pub},
-            EncodedSignature, SignatureKey,
-        },
-        state::ConsensusTime,
-        State,
+<span id="129">129</span>
+<span id="130">130</span>
+</pre><pre class="rust"><code><span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
+<span class="kw">use </span>hotshot_types::traits::{
+    election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
+    node_implementation::NodeTypes,
+    signature_key::{
+        ed25519::{Ed25519Priv, Ed25519Pub},
+        EncodedSignature, SignatureKey,
     },
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -162,7 +161,7 @@
     }
 }
 
-<span class="attribute">#[derive(Serialize, Deserialize, Clone, Debug)]
+<span class="attribute">#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 </span><span class="doccomment">/// TODO ed - docs
 </span><span class="kw">pub struct </span>StaticVoteToken {
     <span class="doccomment">/// signature
@@ -177,34 +176,42 @@
     }
 }
 
+<span class="kw">impl </span>Committable <span class="kw">for </span>StaticVoteToken {
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt; {
+        RawCommitmentBuilder::new(<span class="string">&quot;StaticVoteToken&quot;</span>)
+            .var_size_field(<span class="string">&quot;signature&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.signature.<span class="number">0</span>)
+            .var_size_field(<span class="string">&quot;pub_key&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.pub_key.to_bytes().<span class="number">0</span>)
+            .finalize()
+    }
+}
+
 <span class="doccomment">/// configuration for static committee. stub for now
 </span><span class="attribute">#[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
 </span><span class="kw">pub struct </span>StaticElectionConfig {}
 
 <span class="kw">impl </span>ElectionConfig <span class="kw">for </span>StaticElectionConfig {}
 
-<span class="kw">impl</span>&lt;S, T&gt; Election&lt;Ed25519Pub, T&gt; <span class="kw">for </span>StaticCommittee&lt;S&gt;
+<span class="kw">impl</span>&lt;TYPES&gt; Election&lt;TYPES&gt; <span class="kw">for </span>StaticCommittee&lt;TYPES&gt;
 <span class="kw">where
-    </span>S: Send + Sync + State,
-    T: ConsensusTime,
+    </span>TYPES: NodeTypes&lt;
+        SignatureKey = Ed25519Pub,
+        VoteTokenType = StaticVoteToken,
+        ElectionConfigType = StaticElectionConfig,
+    &gt;,
 {
     <span class="doccomment">/// Just use the vector of public keys for the stake table
     </span><span class="kw">type </span>StakeTable = Vec&lt;Ed25519Pub&gt;;
-    <span class="kw">type </span>StateType = S;
-    <span class="kw">type </span>VoteTokenType = StaticVoteToken;
-
-    <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
 
     <span class="doccomment">/// Clone the static table
     </span><span class="kw">fn </span>get_stake_table(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _view_number: ViewNumber,
-        _state: <span class="kw-2">&amp;</span><span class="self">Self</span>::StateType,
+        _view_number: TYPES::Time,
+        _state: <span class="kw-2">&amp;</span>TYPES::StateType,
     ) -&gt; <span class="self">Self</span>::StakeTable {
         <span class="self">self</span>.nodes.clone()
     }
     <span class="doccomment">/// Index the vector of public keys with the current view number
-    </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: ViewNumber) -&gt; Ed25519Pub {
+    </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; Ed25519Pub {
         <span class="kw">let </span>index = (<span class="kw-2">*</span>view_number % <span class="self">self</span>.nodes.len() <span class="kw">as </span>u64) <span class="kw">as </span>usize;
         <span class="self">self</span>.nodes[index]
     }
@@ -212,9 +219,9 @@
     <span class="doccomment">/// Simply make the partial signature
     </span><span class="kw">fn </span>make_vote_token(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        view_number: ViewNumber,
+        view_number: TYPES::Time,
         private_key: <span class="kw-2">&amp;</span>Ed25519Priv,
-    ) -&gt; std::result::Result&lt;std::option::Option&lt;StaticVoteToken&gt;, ElectionError&gt; {
+    ) -&gt; std::result::Result&lt;<span class="prelude-ty">Option</span>&lt;StaticVoteToken&gt;, ElectionError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>message: Vec&lt;u8&gt; = <span class="macro">vec!</span>[];
         message.extend(view_number.to_le_bytes());
         <span class="kw">let </span>signature = Ed25519Pub::sign(private_key, <span class="kw-2">&amp;</span>message);
@@ -226,24 +233,21 @@
 
     <span class="kw">fn </span>validate_vote_token(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _view_number: ViewNumber,
+        _view_number: TYPES::Time,
         _pub_key: Ed25519Pub,
-        token: Checked&lt;<span class="self">Self</span>::VoteTokenType&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;
-        hotshot_types::traits::election::Checked&lt;<span class="self">Self</span>::VoteTokenType&gt;,
-        hotshot_types::traits::election::ElectionError,
-    &gt; {
+        token: Checked&lt;TYPES::VoteTokenType&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Checked&lt;TYPES::VoteTokenType&gt;, ElectionError&gt; {
         <span class="kw">match </span>token {
             Checked::Valid(t) | Checked::Unchecked(t) =&gt; <span class="prelude-val">Ok</span>(Checked::Valid(t)),
             Checked::Inval(t) =&gt; <span class="prelude-val">Ok</span>(Checked::Inval(t)),
         }
     }
 
-    <span class="kw">fn </span>default_election_config(_num_nodes: u64) -&gt; <span class="self">Self</span>::ElectionConfigType {
+    <span class="kw">fn </span>default_election_config(_num_nodes: u64) -&gt; TYPES::ElectionConfigType {
         StaticElectionConfig {}
     }
 
-    <span class="kw">fn </span>create_election(keys: Vec&lt;Ed25519Pub&gt;, _config: <span class="self">Self</span>::ElectionConfigType) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>create_election(keys: Vec&lt;Ed25519Pub&gt;, _config: TYPES::ElectionConfigType) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             nodes: keys,
             _state_phantom: PhantomData,

@@ -182,16 +182,37 @@
 <span id="182">182</span>
 <span id="183">183</span>
 <span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
 </pre><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
 
-</span><span class="kw">use </span><span class="kw">crate</span>::traits::State;
-<span class="kw">use </span>async_lock::RwLock;
+</span><span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>hotshot_types::{
-    data::ViewNumber,
-    traits::storage::{
+<span class="kw">use </span>hotshot_types::traits::{
+    node_implementation::NodeTypes,
+    storage::{
         <span class="prelude-ty">Result</span>, Storage, StorageError, StorageState, StoredView, TestableStorage, ViewEntry,
     },
 };
@@ -201,25 +222,22 @@
 };
 
 <span class="doccomment">/// Internal state for a [`MemoryStorage`]
-</span><span class="kw">struct </span>MemoryStorageInternal&lt;STATE: State&gt; {
+</span><span class="kw">struct </span>MemoryStorageInternal&lt;TYPES: NodeTypes&gt; {
     <span class="doccomment">/// The views that have been stored
-    </span>stored: BTreeMap&lt;ViewNumber, StoredView&lt;STATE&gt;&gt;,
+    </span>stored: BTreeMap&lt;TYPES::Time, StoredView&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// The views that have failed
-    </span>failed: BTreeSet&lt;ViewNumber&gt;,
+    </span>failed: BTreeSet&lt;TYPES::Time&gt;,
 }
 
 <span class="doccomment">/// In memory, ephemeral, storage for a [`HotShot`](crate::HotShot) instance
 </span><span class="attribute">#[derive(Clone)]
-</span><span class="kw">pub struct </span>MemoryStorage&lt;STATE&gt;
-<span class="kw">where
-    </span>STATE: State + <span class="lifetime">&#39;static</span>,
-{
+</span><span class="kw">pub struct </span>MemoryStorage&lt;TYPES: NodeTypes&gt; {
     <span class="doccomment">/// The inner state of this [`MemoryStorage`]
-    </span>inner: Arc&lt;RwLock&lt;MemoryStorageInternal&lt;STATE&gt;&gt;&gt;,
+    </span>inner: Arc&lt;RwLock&lt;MemoryStorageInternal&lt;TYPES&gt;&gt;&gt;,
 }
 
 <span class="attribute">#[allow(clippy::new_without_default)]
-</span><span class="kw">impl</span>&lt;STATE: State&gt; MemoryStorage&lt;STATE&gt; {
+</span><span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; MemoryStorage&lt;TYPES&gt; {
     <span class="doccomment">/// Create a new instance of the memory storage with the given block and state
     /// NOTE: left as `new` because this API is not stable
     /// we may add arguments to new in the future
@@ -235,15 +253,12 @@
 }
 
 <span class="attribute">#[async_trait]
-</span><span class="kw">impl</span>&lt;STATE&gt; TestableStorage&lt;STATE&gt; <span class="kw">for </span>MemoryStorage&lt;STATE&gt;
-<span class="kw">where
-    </span>STATE: State + <span class="lifetime">&#39;static</span>,
-{
+</span><span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; TestableStorage&lt;TYPES&gt; <span class="kw">for </span>MemoryStorage&lt;TYPES&gt; {
     <span class="kw">fn </span>construct_tmp_storage() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::new())
     }
 
-    <span class="kw">async fn </span>get_full_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StorageState&lt;STATE&gt; {
+    <span class="kw">async fn </span>get_full_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StorageState&lt;TYPES&gt; {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().<span class="kw">await</span>;
         StorageState {
             stored: inner.stored.clone(),
@@ -253,11 +268,8 @@
 }
 
 <span class="attribute">#[async_trait]
-</span><span class="kw">impl</span>&lt;STATE&gt; Storage&lt;STATE&gt; <span class="kw">for </span>MemoryStorage&lt;STATE&gt;
-<span class="kw">where
-    </span>STATE: State + <span class="lifetime">&#39;static</span>,
-{
-    <span class="kw">async fn </span>append(<span class="kw-2">&amp;</span><span class="self">self</span>, views: Vec&lt;ViewEntry&lt;STATE&gt;&gt;) -&gt; <span class="prelude-ty">Result </span>{
+</span><span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; Storage&lt;TYPES&gt; <span class="kw">for </span>MemoryStorage&lt;TYPES&gt; {
+    <span class="kw">async fn </span>append(<span class="kw-2">&amp;</span><span class="self">self</span>, views: Vec&lt;ViewEntry&lt;TYPES&gt;&gt;) -&gt; <span class="prelude-ty">Result </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write().<span class="kw">await</span>;
         <span class="kw">for </span>view <span class="kw">in </span>views {
             <span class="kw">match </span>view {
@@ -272,7 +284,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>cleanup_storage_up_to_view(<span class="kw-2">&amp;</span><span class="self">self</span>, view: ViewNumber) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+    <span class="kw">async fn </span>cleanup_storage_up_to_view(<span class="kw-2">&amp;</span><span class="self">self</span>, view: TYPES::Time) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.write().<span class="kw">await</span>;
 
         <span class="comment">// .split_off will return everything after the given key, including the key.
@@ -287,7 +299,7 @@
         <span class="prelude-val">Ok</span>(old_stored.len() + old_failed.len())
     }
 
-    <span class="kw">async fn </span>get_anchored_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;StoredView&lt;STATE&gt;&gt; {
+    <span class="kw">async fn </span>get_anchored_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;StoredView&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().<span class="kw">await</span>;
         <span class="kw">let </span>last = inner
             .stored
@@ -304,6 +316,9 @@
 
 <span class="attribute">#[cfg(test)]
 </span><span class="kw">mod </span>test {
+    <span class="kw">use </span><span class="kw">crate</span>::traits::election::static_committee::StaticElectionConfig;
+    <span class="kw">use </span><span class="kw">crate</span>::traits::election::static_committee::StaticVoteToken;
+
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span>hotshot_types::constants::genesis_proposer_id;
     <span class="kw">use </span>hotshot_types::data::fake_commitment;
@@ -312,24 +327,53 @@
     <span class="kw">use </span>hotshot_types::data::ViewNumber;
     <span class="attribute">#[allow(clippy::wildcard_imports)]
     </span><span class="kw">use </span>hotshot_types::traits::block_contents::dummy::<span class="kw-2">*</span>;
+    <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeTypes;
+    <span class="kw">use </span>hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
+    <span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
+    <span class="kw">use </span>hotshot_types::traits::Block;
     <span class="kw">use </span>std::collections::BTreeMap;
     <span class="kw">use </span>tracing::instrument;
+
+    <span class="attribute">#[derive(
+        Copy,
+        Clone,
+        Debug,
+        Default,
+        Hash,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        serde::Serialize,
+        serde::Deserialize,
+    )]
+    </span><span class="kw">struct </span>DummyTypes;
+
+    <span class="kw">impl </span>NodeTypes <span class="kw">for </span>DummyTypes {
+        <span class="kw">type </span>Time = ViewNumber;
+        <span class="kw">type </span>BlockType = DummyBlock;
+        <span class="kw">type </span>SignatureKey = Ed25519Pub;
+        <span class="kw">type </span>VoteTokenType = StaticVoteToken;
+        <span class="kw">type </span>Transaction = &lt;DummyBlock <span class="kw">as </span>Block&gt;::Transaction;
+        <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
+        <span class="kw">type </span>StateType = DummyState;
+    }
 
     <span class="attribute">#[instrument(skip(rng))]
     </span><span class="kw">fn </span>random_stored_view(
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
-        number: ViewNumber,
-    ) -&gt; StoredView&lt;DummyState&gt; {
+        view_number: ViewNumber,
+    ) -&gt; StoredView&lt;DummyTypes&gt; {
         <span class="comment">// TODO is it okay to be using genesis here?
         </span><span class="kw">let </span>dummy_block_commit = fake_commitment::&lt;DummyBlock&gt;();
-        <span class="kw">let </span>dummy_leaf_commit = fake_commitment::&lt;Leaf&lt;DummyState&gt;&gt;();
+        <span class="kw">let </span>dummy_leaf_commit = fake_commitment::&lt;Leaf&lt;DummyTypes&gt;&gt;();
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
                 block_commitment: dummy_block_commit,
-                genesis: number == ViewNumber::genesis(),
+                genesis: view_number == ViewNumber::genesis(),
                 leaf_commitment: dummy_leaf_commit,
                 signatures: BTreeMap::new(),
-                view_number: number,
+                view_number,
             },
             DummyBlock::random(rng),
             DummyState::random(rng),

@@ -1117,6 +1117,66 @@
 <span id="1117">1117</span>
 <span id="1118">1118</span>
 <span id="1119">1119</span>
+<span id="1120">1120</span>
+<span id="1121">1121</span>
+<span id="1122">1122</span>
+<span id="1123">1123</span>
+<span id="1124">1124</span>
+<span id="1125">1125</span>
+<span id="1126">1126</span>
+<span id="1127">1127</span>
+<span id="1128">1128</span>
+<span id="1129">1129</span>
+<span id="1130">1130</span>
+<span id="1131">1131</span>
+<span id="1132">1132</span>
+<span id="1133">1133</span>
+<span id="1134">1134</span>
+<span id="1135">1135</span>
+<span id="1136">1136</span>
+<span id="1137">1137</span>
+<span id="1138">1138</span>
+<span id="1139">1139</span>
+<span id="1140">1140</span>
+<span id="1141">1141</span>
+<span id="1142">1142</span>
+<span id="1143">1143</span>
+<span id="1144">1144</span>
+<span id="1145">1145</span>
+<span id="1146">1146</span>
+<span id="1147">1147</span>
+<span id="1148">1148</span>
+<span id="1149">1149</span>
+<span id="1150">1150</span>
+<span id="1151">1151</span>
+<span id="1152">1152</span>
+<span id="1153">1153</span>
+<span id="1154">1154</span>
+<span id="1155">1155</span>
+<span id="1156">1156</span>
+<span id="1157">1157</span>
+<span id="1158">1158</span>
+<span id="1159">1159</span>
+<span id="1160">1160</span>
+<span id="1161">1161</span>
+<span id="1162">1162</span>
+<span id="1163">1163</span>
+<span id="1164">1164</span>
+<span id="1165">1165</span>
+<span id="1166">1166</span>
+<span id="1167">1167</span>
+<span id="1168">1168</span>
+<span id="1169">1169</span>
+<span id="1170">1170</span>
+<span id="1171">1171</span>
+<span id="1172">1172</span>
+<span id="1173">1173</span>
+<span id="1174">1174</span>
+<span id="1175">1175</span>
+<span id="1176">1176</span>
+<span id="1177">1177</span>
+<span id="1178">1178</span>
+<span id="1179">1179</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that attempts to connect to a centralized server.
 //!
 //! To run the server, see the `./centralized_server/` folder in this repo.
@@ -1136,13 +1196,16 @@
     FromServer, NetworkConfig, Run, RunResults, TcpStreamRecvUtil, TcpStreamSendUtil,
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToServer,
 };
-<span class="kw">use </span>hotshot_types::traits::{
-    election::ElectionConfig,
-    network::{
-        FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
-        NetworkingImplementation, TestableNetworkingImplementation,
+<span class="kw">use </span>hotshot_types::{
+    message::Message,
+    traits::{
+        network::{
+            FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
+            NetworkingImplementation, TestableNetworkingImplementation,
+        },
+        node_implementation::NodeTypes,
+        signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     },
-    signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
 };
 <span class="kw">use </span>hotshot_utils::{
     art::{async_block_on, async_sleep, async_spawn, split_stream},
@@ -1166,24 +1229,38 @@
 
 <span class="doccomment">/// The inner state of the `CentralizedServerNetwork`
 </span><span class="attribute">#[derive(Debug)]
-</span><span class="kw">struct </span>Inner&lt;K: SignatureKey, E: ElectionConfig&gt; {
+</span><span class="kw">struct </span>Inner&lt;TYPES: NodeTypes&gt; {
     <span class="doccomment">/// Self-identifying public key
-    </span>own_key: K,
+    </span>own_key: TYPES::SignatureKey,
     <span class="doccomment">/// List of all known nodes
-    </span>known_nodes: Vec&lt;K&gt;,
+    </span>known_nodes: Vec&lt;TYPES::SignatureKey&gt;,
     <span class="doccomment">/// `true` if the TCP stream is connected to the server
     </span>connected: AtomicBool,
     <span class="doccomment">/// `true` if the client is still running.
     </span>running: AtomicBool,
     <span class="doccomment">/// A queue of messages to be send to the server. This is emptied by `run_background`.
     /// Each message can optionally have a callback sender that will be invoked when the message is send.
-    </span>sending: UnboundedSender&lt;((ToServer&lt;K&gt;, Vec&lt;u8&gt;), <span class="prelude-ty">Option</span>&lt;OneShotSender&lt;()&gt;&gt;)&gt;,
+    </span>sending: UnboundedSender&lt;(
+        (ToServer&lt;TYPES::SignatureKey&gt;, Vec&lt;u8&gt;),
+        <span class="prelude-ty">Option</span>&lt;OneShotSender&lt;()&gt;&gt;,
+    )&gt;,
     <span class="doccomment">/// A loopback sender that will send to `receiving`, for broadcasting to self.
-    </span>receiving_loopback: UnboundedSender&lt;(FromServer&lt;K, E&gt;, Vec&lt;u8&gt;)&gt;,
+    </span>receiving_loopback: UnboundedSender&lt;(
+        FromServer&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        Vec&lt;u8&gt;,
+    )&gt;,
     <span class="doccomment">/// A queue of messages to be received by this node. This is filled by `run_background`.
-    </span>receiving: UnboundedReceiver&lt;(FromServer&lt;K, E&gt;, Vec&lt;u8&gt;)&gt;,
+    </span>receiving: UnboundedReceiver&lt;(
+        FromServer&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        Vec&lt;u8&gt;,
+    )&gt;,
     <span class="doccomment">/// An internal queue of messages and, for some message types, payloads that have been received but not yet processed.
-    </span>incoming_queue: RwLock&lt;Vec&lt;(FromServer&lt;K, E&gt;, Vec&lt;u8&gt;)&gt;&gt;,
+    </span>incoming_queue: RwLock&lt;
+        Vec&lt;(
+            FromServer&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+            Vec&lt;u8&gt;,
+        )&gt;,
+    &gt;,
     <span class="doccomment">/// a sender used to immediately broadcast the amount of clients connected
     </span>request_client_count_sender: RwLock&lt;Vec&lt;OneShotSender&lt;u32&gt;&gt;&gt;,
     <span class="doccomment">/// `true` if the server indicated that the run is ready to start, otherwise `false`
@@ -1213,7 +1290,7 @@
     </span>accumulated_stream: Vec&lt;u8&gt;,
 }
 
-<span class="kw">impl</span>&lt;K: SignatureKey, E: ElectionConfig&gt; Inner&lt;K, E&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; Inner&lt;TYPES&gt; {
     <span class="doccomment">/// Send a broadcast mesasge to the server.
     </span><span class="kw">async fn </span>broadcast(<span class="kw-2">&amp;</span><span class="self">self</span>, message: Vec&lt;u8&gt;) {
         <span class="self">self</span>.sending
@@ -1240,7 +1317,7 @@
         </span>.expect(<span class="string">&quot;Loopback exited, this should never happen because we have a reference to this receiver ourselves&quot;</span>);
     }
     <span class="doccomment">/// Send a direct message to the server.
-    </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, target: K, message: Vec&lt;u8&gt;) {
+    </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, target: TYPES::SignatureKey, message: Vec&lt;u8&gt;) {
         <span class="kw">if </span>target == <span class="self">self</span>.own_key {
             <span class="self">self</span>.receiving_loopback.send((
                 FromServer::Direct {
@@ -1284,14 +1361,17 @@
     </span><span class="kw">async fn </span>remove_next_message_from_queue&lt;F, FAIL, RET&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, c: F, f: FAIL) -&gt; RET
     <span class="kw">where
         </span>F: Fn(
-            <span class="kw-2">&amp;</span>(FromServer&lt;K, E&gt;, Vec&lt;u8&gt;),
+            <span class="kw-2">&amp;</span>(
+                FromServer&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+                Vec&lt;u8&gt;,
+            ),
             usize,
-            <span class="kw-2">&amp;mut </span>HashMap&lt;K, MsgStepContext&gt;,
+            <span class="kw-2">&amp;mut </span>HashMap&lt;TYPES::SignatureKey, MsgStepContext&gt;,
         ) -&gt; MsgStepOutcome&lt;RET&gt;,
-        FAIL: FnOnce(usize, <span class="kw-2">&amp;mut </span>HashMap&lt;K, MsgStepContext&gt;) -&gt; RET,
+        FAIL: FnOnce(usize, <span class="kw-2">&amp;mut </span>HashMap&lt;TYPES::SignatureKey, MsgStepContext&gt;) -&gt; RET,
     {
         <span class="kw">let </span>incoming_queue = <span class="self">self</span>.incoming_queue.upgradable_read().<span class="kw">await</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>context_map: HashMap&lt;K, MsgStepContext&gt; = HashMap::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>context_map: HashMap&lt;<span class="kw">_</span>, MsgStepContext&gt; = HashMap::new();
         <span class="comment">// pop all messages from the incoming stream, push them onto `result` if they match `c`, else push them onto our `lock`
         </span><span class="kw">let </span>temp_start_index = incoming_queue.len();
         <span class="kw">for </span>(i, msg) <span class="kw">in </span>incoming_queue.iter().enumerate() {
@@ -1370,14 +1450,17 @@
     </span><span class="kw">async fn </span>remove_messages_from_queue&lt;F, RET&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, c: F) -&gt; Vec&lt;RET&gt;
     <span class="kw">where
         </span>F: Fn(
-            <span class="kw-2">&amp;</span>(FromServer&lt;K, E&gt;, Vec&lt;u8&gt;),
+            <span class="kw-2">&amp;</span>(
+                FromServer&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+                Vec&lt;u8&gt;,
+            ),
             usize,
-            <span class="kw-2">&amp;mut </span>HashMap&lt;K, MsgStepContext&gt;,
+            <span class="kw-2">&amp;mut </span>HashMap&lt;TYPES::SignatureKey, MsgStepContext&gt;,
         ) -&gt; MsgStepOutcome&lt;RET&gt;,
     {
         <span class="kw">let </span>incoming_queue = <span class="self">self</span>.incoming_queue.upgradable_read().<span class="kw">await</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>result = Vec::new();
-        <span class="kw">let </span><span class="kw-2">mut </span>context_map: HashMap&lt;K, MsgStepContext&gt; = HashMap::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>context_map: HashMap&lt;<span class="kw">_</span>, MsgStepContext&gt; = HashMap::new();
         <span class="comment">// pop all messages from the incoming stream, push them onto `result` if they match `c`, else push them onto our `lock`
         </span><span class="kw">let </span>temp_queue: Vec&lt;<span class="kw">_</span>&gt; = <span class="self">self
             </span>.receiving
@@ -1714,7 +1797,7 @@
     </span>}
 
     <span class="doccomment">/// Get the current `NetworkChange` messages received from the server. Returning 0 messages if nothing was received.
-    </span><span class="kw">async fn </span>get_network_changes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;NetworkChange&lt;K&gt;&gt; {
+    </span><span class="kw">async fn </span>get_network_changes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;NetworkChange&lt;TYPES::SignatureKey&gt;&gt; {
         <span class="self">self</span>.remove_messages_from_queue(|msg, index, <span class="kw">_</span>| {
             <span class="kw">let </span><span class="kw-2">mut </span>remove_this = BTreeSet::new();
             remove_this.insert(index);
@@ -1735,14 +1818,14 @@
 
 <span class="doccomment">/// Handle for connecting to a centralized server
 </span><span class="attribute">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>CentralizedServerNetwork&lt;K: SignatureKey, E: ElectionConfig&gt; {
+</span><span class="kw">pub struct </span>CentralizedServerNetwork&lt;TYPES: NodeTypes&gt; {
     <span class="doccomment">/// The inner state
-    </span>inner: Arc&lt;Inner&lt;K, E&gt;&gt;,
+    </span>inner: Arc&lt;Inner&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     </span>server_shutdown_signal: <span class="prelude-ty">Option</span>&lt;Arc&lt;OneShotSender&lt;()&gt;&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">&#39;static</span>, E: ElectionConfig + <span class="lifetime">&#39;static</span>&gt; CentralizedServerNetwork&lt;K, E&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; CentralizedServerNetwork&lt;TYPES&gt; {
     <span class="doccomment">/// Connect with the server running at `addr` and retrieve the config from the server.
     ///
     /// The config is returned along with the current run index and the running `CentralizedServerNetwork`
@@ -1750,7 +1833,13 @@
     /// # Panics
     ///
     /// Will panic if the server has a different signature key (`K`) or election config (`E`)
-    </span><span class="kw">pub async fn </span>connect_with_server_config(addr: SocketAddr) -&gt; (NetworkConfig&lt;K, E&gt;, Run, <span class="self">Self</span>) {
+    </span><span class="kw">pub async fn </span>connect_with_server_config(
+        addr: SocketAddr,
+    ) -&gt; (
+        NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        Run,
+        <span class="self">Self</span>,
+    ) {
         <span class="kw">let </span>(streams, run, config) = <span class="kw">loop </span>{
             <span class="kw">let </span>(<span class="kw-2">mut </span>recv_stream, <span class="kw-2">mut </span>send_stream) = <span class="kw">match </span>TcpStream::connect(addr).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(stream) =&gt; {
@@ -1775,8 +1864,14 @@
             }
             <span class="kw">match </span>recv_stream.recv().<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(FromServer::Config { config, run }) =&gt; {
-                    <span class="macro">assert_eq!</span>(config.key_type_name, std::any::type_name::&lt;K&gt;());
-                    <span class="macro">assert_eq!</span>(config.election_config_type_name, std::any::type_name::&lt;E&gt;());
+                    <span class="macro">assert_eq!</span>(
+                        config.key_type_name,
+                        std::any::type_name::&lt;TYPES::SignatureKey&gt;()
+                    );
+                    <span class="macro">assert_eq!</span>(
+                        config.election_config_type_name,
+                        std::any::type_name::&lt;TYPES::ElectionConfigType&gt;()
+                    );
                     <span class="kw">break </span>((recv_stream, send_stream), run, config);
                 }
                 x =&gt; {
@@ -1787,7 +1882,8 @@
             }
         };
 
-        <span class="kw">let </span>(pub_key, _priv_key) = K::generated_from_seed_indexed(config.seed, config.node_index);
+        <span class="kw">let </span>(pub_key, _priv_key) =
+            TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
         <span class="kw">let </span>known_nodes = config.config.known_nodes.clone();
 
         <span class="kw">let </span><span class="kw-2">mut </span>streams = <span class="prelude-val">Some</span>(streams);
@@ -1828,7 +1924,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;K: SignatureKey + <span class="lifetime">&#39;static</span>, E: ElectionConfig + <span class="lifetime">&#39;static</span>&gt; CentralizedServerNetwork&lt;K, E&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; CentralizedServerNetwork&lt;TYPES&gt; {
     <span class="doccomment">/// Connect to a given socket address. Will loop and try to connect every 5 seconds if the server is unreachable.
     </span><span class="kw">fn </span>connect_to(addr: SocketAddr) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, (TcpStreamRecvUtil, TcpStreamSendUtil)&gt; {
         <span class="kw">async move </span>{
@@ -1855,14 +1951,22 @@
         .boxed()
     }
     <span class="doccomment">/// Connect to a centralized server
-    </span><span class="kw">pub fn </span>connect(known_nodes: Vec&lt;K&gt;, addr: SocketAddr, key: K) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>connect(
+        known_nodes: Vec&lt;TYPES::SignatureKey&gt;,
+        addr: SocketAddr,
+        key: TYPES::SignatureKey,
+    ) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::create(known_nodes, <span class="kw">move </span>|| <span class="self">Self</span>::connect_to(addr), key)
     }
 
     <span class="doccomment">/// Create a `CentralizedServerNetwork`. Every time a new TCP connection is needed, `create_connection` is called.
     ///
     /// This will auto-reconnect when the network loses connection to the server.
-    </span><span class="kw">fn </span>create&lt;F&gt;(known_nodes: Vec&lt;K&gt;, <span class="kw-2">mut </span>create_connection: F, key: K) -&gt; <span class="self">Self
+    </span><span class="kw">fn </span>create&lt;F&gt;(
+        known_nodes: Vec&lt;TYPES::SignatureKey&gt;,
+        <span class="kw-2">mut </span>create_connection: F,
+        key: TYPES::SignatureKey,
+    ) -&gt; <span class="self">Self
     </span><span class="kw">where
         </span>F: FnMut() -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, (TcpStreamRecvUtil, TcpStreamSendUtil)&gt; + Send + <span class="lifetime">&#39;static</span>,
     {
@@ -1925,13 +2029,19 @@
 ///
 /// - All messages sent to the sender of `to_background` will be sent to the server.
 /// - All messages received from the TCP stream will be sent to `from_background_sender`.
-</span><span class="kw">async fn </span>run_background&lt;K: SignatureKey, E: ElectionConfig&gt;(
+</span><span class="kw">async fn </span>run_background&lt;TYPES: NodeTypes&gt;(
     recv_stream: TcpStreamRecvUtil,
     <span class="kw-2">mut </span>send_stream: TcpStreamSendUtil,
-    key: K,
-    to_background: <span class="kw-2">&amp;mut </span>UnboundedReceiver&lt;((ToServer&lt;K&gt;, Vec&lt;u8&gt;), <span class="prelude-ty">Option</span>&lt;OneShotSender&lt;()&gt;&gt;)&gt;,
-    from_background_sender: UnboundedSender&lt;(FromServer&lt;K, E&gt;, Vec&lt;u8&gt;)&gt;,
-    connection: Arc&lt;Inner&lt;K, E&gt;&gt;,
+    key: TYPES::SignatureKey,
+    to_background: <span class="kw-2">&amp;mut </span>UnboundedReceiver&lt;(
+        (ToServer&lt;TYPES::SignatureKey&gt;, Vec&lt;u8&gt;),
+        <span class="prelude-ty">Option</span>&lt;OneShotSender&lt;()&gt;&gt;,
+    )&gt;,
+    from_background_sender: UnboundedSender&lt;(
+        FromServer&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        Vec&lt;u8&gt;,
+    )&gt;,
+    connection: Arc&lt;Inner&lt;TYPES&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
     <span class="comment">// let mut stream = TcpStreamUtil::new(TcpStream::connect(addr).await.context(StreamSnafu)?);
 
@@ -1948,7 +2058,9 @@
         .<span class="kw">await
         </span>.is_empty()
     {
-        send_stream.send(ToServer::&lt;K&gt;::RequestClientCount).<span class="kw">await</span><span class="question-mark">?</span>;
+        send_stream
+            .send(ToServer::&lt;TYPES::SignatureKey&gt;::RequestClientCount)
+            .<span class="kw">await</span><span class="question-mark">?</span>;
     }
 
     <span class="kw">let </span>send_handle = run_background_send(send_stream, to_background);
@@ -1994,10 +2106,13 @@
 <span class="doccomment">/// Loop on the TCP recv stream.
 ///
 /// - All messages received from the TCP stream will be sent to `from_background_sender`.
-</span><span class="kw">async fn </span>run_background_recv&lt;K: SignatureKey, E: ElectionConfig&gt;(
+</span><span class="kw">async fn </span>run_background_recv&lt;TYPES: NodeTypes&gt;(
     <span class="kw-2">mut </span>stream: TcpStreamRecvUtil,
-    from_background_sender: UnboundedSender&lt;(FromServer&lt;K, E&gt;, Vec&lt;u8&gt;)&gt;,
-    connection: Arc&lt;Inner&lt;K, E&gt;&gt;,
+    from_background_sender: UnboundedSender&lt;(
+        FromServer&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+        Vec&lt;u8&gt;,
+    )&gt;,
+    connection: Arc&lt;Inner&lt;TYPES&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
     <span class="kw">loop </span>{
         <span class="kw">let </span>msg = stream.recv().<span class="kw">await</span><span class="question-mark">?</span>;
@@ -2089,12 +2204,7 @@
 }
 
 <span class="attribute">#[async_trait]
-</span><span class="kw">impl</span>&lt;M, P, E&gt; NetworkingImplementation&lt;M, P&gt; <span class="kw">for </span>CentralizedServerNetwork&lt;P, E&gt;
-<span class="kw">where
-    </span>M: Serialize + DeserializeOwned + Send + Sync + Clone + <span class="lifetime">&#39;static</span>,
-    P: SignatureKey + <span class="lifetime">&#39;static</span>,
-    E: ElectionConfig + <span class="lifetime">&#39;static</span>,
-{
+</span><span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; NetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>CentralizedServerNetwork&lt;TYPES&gt; {
     <span class="kw">async fn </span>ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="kw">while </span>!<span class="self">self</span>.inner.connected.load(Ordering::Relaxed) {
             async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
@@ -2102,7 +2212,7 @@
         <span class="bool-val">true
     </span>}
 
-    <span class="kw">async fn </span>broadcast_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: M) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    <span class="kw">async fn </span>broadcast_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: Message&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="self">self</span>.inner
             .broadcast(
                 bincode_opts()
@@ -2113,7 +2223,11 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>message_node(<span class="kw-2">&amp;</span><span class="self">self</span>, message: M, recipient: P) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    <span class="kw">async fn </span>message_node(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message: Message&lt;TYPES&gt;,
+        recipient: TYPES::SignatureKey,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="self">self</span>.inner
             .direct_message(
                 recipient,
@@ -2125,7 +2239,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>broadcast_queue(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt; {
+    <span class="kw">async fn </span>broadcast_queue(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt; {
         <span class="self">self</span>.inner
             .get_broadcasts()
             .<span class="kw">await
@@ -2134,11 +2248,11 @@
             .context(FailedToDeserializeSnafu)
     }
 
-    <span class="kw">async fn </span>next_broadcast(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;M, NetworkError&gt; {
+    <span class="kw">async fn </span>next_broadcast(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Message&lt;TYPES&gt;, NetworkError&gt; {
         <span class="self">self</span>.inner.get_next_broadcast().<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>direct_queue(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt; {
+    <span class="kw">async fn </span>direct_queue(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt; {
         <span class="self">self</span>.inner
             .get_direct_messages()
             .<span class="kw">await
@@ -2147,15 +2261,17 @@
             .context(FailedToDeserializeSnafu)
     }
 
-    <span class="kw">async fn </span>next_direct(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;M, NetworkError&gt; {
+    <span class="kw">async fn </span>next_direct(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Message&lt;TYPES&gt;, NetworkError&gt; {
         <span class="self">self</span>.inner.get_next_direct_message().<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>known_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;P&gt; {
+    <span class="kw">async fn </span>known_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;TYPES::SignatureKey&gt; {
         <span class="self">self</span>.inner.known_nodes.clone()
     }
 
-    <span class="kw">async fn </span>network_changes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;NetworkChange&lt;P&gt;&gt;, NetworkError&gt; {
+    <span class="kw">async fn </span>network_changes(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;NetworkChange&lt;TYPES::SignatureKey&gt;&gt;, NetworkError&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.inner.get_network_changes().<span class="kw">await</span>)
     }
 
@@ -2178,16 +2294,18 @@
         <span class="prelude-val">Err</span>(NetworkError::DHTError)
     }
 
-    <span class="kw">async fn </span>notify_of_subsequent_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, _pk: P, _cancelled: Arc&lt;AtomicBool&gt;) {
+    <span class="kw">async fn </span>notify_of_subsequent_leader(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _pk: TYPES::SignatureKey,
+        _cancelled: Arc&lt;AtomicBool&gt;,
+    ) {
         <span class="comment">// do nothing. We&#39;re centralized
     </span>}
 }
 
-<span class="kw">impl</span>&lt;M, P, E&gt; TestableNetworkingImplementation&lt;M, P&gt; <span class="kw">for </span>CentralizedServerNetwork&lt;P, E&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; TestableNetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>CentralizedServerNetwork&lt;TYPES&gt;
 <span class="kw">where
-    </span>M: Serialize + DeserializeOwned + Sync + Send + Clone + <span class="lifetime">&#39;static</span>,
-    P: TestableSignatureKey + <span class="lifetime">&#39;static</span>,
-    E: ElectionConfig + <span class="lifetime">&#39;static</span>,
+    </span>TYPES::SignatureKey: TestableSignatureKey,
 {
     <span class="kw">fn </span>generator(
         expected_node_count: usize,
@@ -2196,16 +2314,18 @@
         <span class="kw">let </span>(server_shutdown_sender, server_shutdown) = oneshot();
         <span class="kw">let </span>sender = Arc::new(server_shutdown_sender);
 
-        <span class="kw">let </span>server = async_block_on(hotshot_centralized_server::Server::&lt;P, E&gt;::new(
-            Ipv4Addr::LOCALHOST.into(),
-            <span class="number">0</span>,
-        ))
+        <span class="kw">let </span>server = async_block_on(hotshot_centralized_server::Server::&lt;
+            TYPES::SignatureKey,
+            TYPES::ElectionConfigType,
+        &gt;::new(Ipv4Addr::LOCALHOST.into(), <span class="number">0</span>))
         .with_shutdown_signal(server_shutdown);
         <span class="kw">let </span>addr = server.addr();
         async_spawn(server.run());
 
         <span class="kw">let </span>known_nodes = (<span class="number">0</span>..expected_node_count <span class="kw">as </span>u64)
-            .map(|id| P::from_private(<span class="kw-2">&amp;</span>P::generate_test_key(id)))
+            .map(|id| {
+                TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>TYPES::SignatureKey::generate_test_key(id))
+            })
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
         Box::new(<span class="kw">move </span>|id| {
@@ -2225,7 +2345,7 @@
     </span>}
 }
 
-<span class="kw">impl</span>&lt;P: SignatureKey, E: ElectionConfig&gt; Drop <span class="kw">for </span>CentralizedServerNetwork&lt;P, E&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; Drop <span class="kw">for </span>CentralizedServerNetwork&lt;TYPES&gt; {
     <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(shutdown) = <span class="self">self</span>.server_shutdown_signal.take() {
             <span class="comment">// we try to unwrap this Arc. If we&#39;re the last one with a reference to this arc, we&#39;ll be able to unwrap this

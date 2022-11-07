@@ -273,10 +273,37 @@
 <span id="273">273</span>
 <span id="274">274</span>
 <span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
 </pre><pre class="rust"><code><span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>blake3::Hasher;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>commit::Committable;
+<span class="kw">use </span>hotshot::traits::election::vrf::VRFVoteToken;
 <span class="kw">use </span>hotshot::types::SignatureKey;
 <span class="kw">use </span>hotshot::{
     demos::dentry::<span class="kw-2">*</span>,
@@ -289,11 +316,16 @@
     HotShot,
 };
 <span class="kw">use </span>hotshot_centralized_server::{NetworkConfig, RunResults};
-<span class="kw">use </span>hotshot_types::{traits::state::TestableState, HotShotConfig};
+<span class="kw">use </span>hotshot_types::{
+    data::ViewNumber,
+    traits::{node_implementation::NodeTypes, state::TestableState},
+    HotShotConfig,
+};
 <span class="kw">use </span>hotshot_utils::{
     art::{async_main, async_sleep},
     test_util::{setup_backtrace, setup_logging},
 };
+<span class="kw">use </span>jf_primitives::signatures::bls::{BLSSignature, BLSVerKey};
 <span class="kw">use </span>jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 <span class="kw">use </span>std::{
     cmp,
@@ -306,10 +338,36 @@
 };
 <span class="kw">use </span>tracing::{debug, error};
 
+<span class="doccomment">/// Implementation of [`NodeTypes`] for [`DEntryNode`]
+</span><span class="attribute">#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+</span><span class="kw">pub struct </span>VrfTypes;
+
+<span class="kw">impl </span>NodeTypes <span class="kw">for </span>VrfTypes {
+    <span class="kw">type </span>Time = ViewNumber;
+    <span class="kw">type </span>BlockType = DEntryBlock;
+    <span class="kw">type </span>SignatureKey = VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;;
+    <span class="kw">type </span>VoteTokenType =
+        VRFVoteToken&lt;BLSVerKey&lt;ark_bls12_381::Parameters&gt;, BLSSignature&lt;ark_bls12_381::Parameters&gt;&gt;;
+    <span class="kw">type </span>Transaction = DEntryTransaction;
+    <span class="kw">type </span>ElectionConfigType = VRFStakeTableConfig;
+    <span class="kw">type </span>StateType = DEntryState;
+}
 <span class="kw">type </span>Node = DEntryNode&lt;
-    CentralizedServerNetwork&lt;VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;, VRFStakeTableConfig&gt;,
-    VrfImpl&lt;DEntryState, BLSSignatureScheme&lt;Param381&gt;, BLSVRFScheme&lt;Param381&gt;, Hasher, Param381&gt;,
-    VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;,
+    VrfTypes,
+    CentralizedServerNetwork&lt;VrfTypes&gt;,
+    VrfImpl&lt;VrfTypes, BLSSignatureScheme&lt;Param381&gt;, BLSVRFScheme&lt;Param381&gt;, Hasher, Param381&gt;,
 &gt;;
 
 <span class="attribute">#[derive(Debug, Parser)]
@@ -328,14 +386,11 @@
 <span class="doccomment">/// Creates the initial state and hotshot for simulation.
 </span><span class="comment">// TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
 </span><span class="kw">async fn </span>init_state_and_hotshot(
-    networking: CentralizedServerNetwork&lt;
-        VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;,
-        VRFStakeTableConfig,
-    &gt;,
+    networking: CentralizedServerNetwork&lt;VrfTypes&gt;,
     config: HotShotConfig&lt;VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;, VRFStakeTableConfig&gt;,
     seed: [u8; <span class="number">32</span>],
     node_id: u64,
-) -&gt; (DEntryState, HotShotHandle&lt;Node&gt;) {
+) -&gt; (DEntryState, HotShotHandle&lt;VrfTypes, Node&gt;) {
     <span class="comment">// Create the initial block
     </span><span class="kw">let </span>accounts: BTreeMap&lt;Account, Balance&gt; = <span class="macro">vec!</span>[
         (<span class="string">&quot;Joe&quot;</span>, <span class="number">1_000_000</span>),
@@ -387,7 +442,7 @@
     </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;hotshot launched&quot;</span>);
 
-    <span class="kw">let </span>storage: <span class="kw-2">&amp;</span>MemoryStorage&lt;DEntryState&gt; = hotshot.storage();
+    <span class="kw">let </span>storage: <span class="kw-2">&amp;</span>MemoryStorage&lt;VrfTypes&gt; = hotshot.storage();
 
     <span class="kw">let </span>state = storage.get_anchored_view().<span class="kw">await</span>.unwrap().state;
 
@@ -529,10 +584,7 @@
     );
     <span class="macro">debug!</span>(<span class="string">&quot;All rounds completed&quot;</span>);
 
-    <span class="kw">let </span>networking: <span class="kw-2">&amp;</span>CentralizedServerNetwork&lt;
-        VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;,
-        VRFStakeTableConfig,
-    &gt; = hotshot.networking();
+    <span class="kw">let </span>networking: <span class="kw-2">&amp;</span>CentralizedServerNetwork&lt;VrfTypes&gt; = hotshot.networking();
     networking
         .send_results(RunResults {
             run,

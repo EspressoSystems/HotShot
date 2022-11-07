@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"hotshot":[["impl&lt;STATE&gt; TestableStorage&lt;STATE&gt; for <a class=\"struct\" href=\"hotshot/traits/implementations/struct.MemoryStorage.html\" title=\"struct hotshot::traits::implementations::MemoryStorage\">MemoryStorage</a>&lt;STATE&gt;<span class=\"where fmt-newline\">where<br>&nbsp;&nbsp;&nbsp;&nbsp;STATE: <a class=\"trait\" href=\"hotshot/traits/trait.State.html\" title=\"trait hotshot::traits::State\">State</a> + 'static,</span>"]]
+"hotshot":[["impl&lt;TYPES:&nbsp;NodeTypes&gt; TestableStorage&lt;TYPES&gt; for <a class=\"struct\" href=\"hotshot/traits/implementations/struct.MemoryStorage.html\" title=\"struct hotshot::traits::implementations::MemoryStorage\">MemoryStorage</a>&lt;TYPES&gt;"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -238,10 +238,6 @@
 <span id="238">238</span>
 <span id="239">239</span>
 <span id="240">240</span>
-<span id="241">241</span>
-<span id="242">242</span>
-<span id="243">243</span>
-<span id="244">244</span>
 </pre><pre class="rust"><code><span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot::{
     demos::dentry::<span class="kw-2">*</span>,
@@ -274,11 +270,8 @@
 };
 <span class="kw">use </span>tracing::{debug, error};
 
-<span class="kw">type </span>Node = DEntryNode&lt;
-    CentralizedServerNetwork&lt;Ed25519Pub, StaticElectionConfig&gt;,
-    StaticCommittee&lt;DEntryState&gt;,
-    Ed25519Pub,
-&gt;;
+<span class="kw">type </span>Node =
+    DEntryNode&lt;DEntryTypes, CentralizedServerNetwork&lt;DEntryTypes&gt;, StaticCommittee&lt;DEntryTypes&gt;&gt;;
 
 <span class="attribute">#[derive(Debug, Parser)]
 #[clap(
@@ -296,11 +289,11 @@
 <span class="doccomment">/// Creates the initial state and hotshot for simulation.
 </span><span class="comment">// TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
 </span><span class="kw">async fn </span>init_state_and_hotshot(
-    networking: CentralizedServerNetwork&lt;Ed25519Pub, StaticElectionConfig&gt;,
+    networking: CentralizedServerNetwork&lt;DEntryTypes&gt;,
     config: HotShotConfig&lt;Ed25519Pub, StaticElectionConfig&gt;,
     seed: [u8; <span class="number">32</span>],
     node_id: u64,
-) -&gt; (DEntryState, HotShotHandle&lt;Node&gt;) {
+) -&gt; (DEntryState, HotShotHandle&lt;DEntryTypes, Node&gt;) {
     <span class="comment">// Create the initial block
     </span><span class="kw">let </span>accounts: BTreeMap&lt;Account, Balance&gt; = <span class="macro">vec!</span>[
         (<span class="string">&quot;Joe&quot;</span>, <span class="number">1_000_000</span>),
@@ -332,7 +325,7 @@
     </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>);
     <span class="macro">debug!</span>(<span class="string">&quot;hotshot launched&quot;</span>);
 
-    <span class="kw">let </span>storage: <span class="kw-2">&amp;</span>MemoryStorage&lt;DEntryState&gt; = hotshot.storage();
+    <span class="kw">let </span>storage: <span class="kw-2">&amp;</span>MemoryStorage&lt;DEntryTypes&gt; = hotshot.storage();
 
     <span class="kw">let </span>state = storage.get_anchored_view().<span class="kw">await</span>.unwrap().state;
 
@@ -469,8 +462,7 @@
     );
     <span class="macro">debug!</span>(<span class="string">&quot;All rounds completed&quot;</span>);
 
-    <span class="kw">let </span>networking: <span class="kw-2">&amp;</span>CentralizedServerNetwork&lt;Ed25519Pub, StaticElectionConfig&gt; =
-        hotshot.networking();
+    <span class="kw">let </span>networking: <span class="kw-2">&amp;</span>CentralizedServerNetwork&lt;DEntryTypes&gt; = hotshot.networking();
     networking
         .send_results(RunResults {
             run,

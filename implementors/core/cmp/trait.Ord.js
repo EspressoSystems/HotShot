@@ -1,0 +1,5 @@
+(function() {var implementors = {
+"hotshot":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.65.0/core/cmp/trait.Ord.html\" title=\"trait core::cmp::Ord\">Ord</a> for <a class=\"struct\" href=\"hotshot/demos/dentry/struct.DEntryTypes.html\" title=\"struct hotshot::demos::dentry::DEntryTypes\">DEntryTypes</a>"]],
+"multi_machine_vrf_centralized":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.65.0/core/cmp/trait.Ord.html\" title=\"trait core::cmp::Ord\">Ord</a> for <a class=\"struct\" href=\"multi_machine_vrf_centralized/struct.VrfTypes.html\" title=\"struct multi_machine_vrf_centralized::VrfTypes\">VrfTypes</a>"]],
+"multi_machine_vrf_libp2p":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.65.0/core/cmp/trait.Ord.html\" title=\"trait core::cmp::Ord\">Ord</a> for <a class=\"struct\" href=\"multi_machine_vrf_libp2p/struct.VrfTypes.html\" title=\"struct multi_machine_vrf_libp2p::VrfTypes\">VrfTypes</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

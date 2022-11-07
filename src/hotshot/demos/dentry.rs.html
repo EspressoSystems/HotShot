@@ -547,6 +547,57 @@
 <span id="547">547</span>
 <span id="548">548</span>
 <span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
+<span id="552">552</span>
+<span id="553">553</span>
+<span id="554">554</span>
+<span id="555">555</span>
+<span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Double entry accounting demo
 //!
 //! This module provides an implementation of the `HotShot` suite of traits that implements a
@@ -555,18 +606,22 @@
 //! These implementations are useful in examples and integration testing, but are not suitable for
 //! production use.
 
-</span><span class="kw">use crate</span>::{
-    traits::{implementations::MemoryStorage, Block, NetworkingImplementation, NodeImplementation},
-    types::Message,
+</span><span class="kw">use </span><span class="kw">crate</span>::traits::{
+    election::static_committee::{StaticElectionConfig, StaticVoteToken},
+    implementations::MemoryStorage,
+    Block, NetworkingImplementation, NodeImplementation,
 };
 <span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>hotshot_types::{
     constants::genesis_proposer_id,
     data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
     traits::{
+        block_contents::Transaction,
         election::Election,
-        signature_key::SignatureKey,
-        state::{TestableBlock, TestableState},
+        node_implementation::NodeTypes,
+        signature_key::ed25519::Ed25519Pub,
+        state::{ConsensusTime, TestableBlock, TestableState},
         State,
     },
 };
@@ -641,6 +696,8 @@
     <span class="doccomment">/// Number of bytes to pad to each transaction
     </span><span class="kw">pub </span>padding: Vec&lt;u8&gt;,
 }
+
+<span class="kw">impl </span>Transaction <span class="kw">for </span>DEntryTransaction {}
 
 <span class="kw">impl </span>DEntryTransaction {
     <span class="doccomment">/// Ensures that this transaction is at least consistent with itself
@@ -791,7 +848,7 @@
 
     <span class="comment">// Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check
     // for clarity, the logic is duplicated with append_to
-    </span><span class="kw">fn </span>validate_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockType, _time: <span class="kw-2">&amp;</span><span class="self">Self</span>::Time) -&gt; bool {
+    </span><span class="kw">fn </span>validate_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockType, _view_number: <span class="kw-2">&amp;</span><span class="self">Self</span>::Time) -&gt; bool {
         <span class="kw">match </span>block {
             DEntryBlock::Genesis(<span class="kw">_</span>) =&gt; <span class="self">self</span>.balances.is_empty(), <span class="comment">//  &amp;&amp; self.nonces.is_empty(),
             </span>DEntryBlock::Normal(block) =&gt; {
@@ -851,7 +908,7 @@
     <span class="kw">fn </span>append(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         block: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockType,
-        _time: <span class="kw-2">&amp;</span><span class="self">Self</span>::Time,
+        _view_number: <span class="kw-2">&amp;</span><span class="self">Self</span>::Time,
     ) -&gt; std::result::Result&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         <span class="kw">match </span>block {
             DEntryBlock::Genesis(block) =&gt; {
@@ -1014,18 +1071,55 @@
     }
 }
 
-<span class="doccomment">/// The node implementation for the dentry demo
-</span><span class="attribute">#[derive(Clone)]
-</span><span class="kw">pub struct </span>DEntryNode&lt;NET, ELE, KEY&gt; {
-    <span class="doccomment">/// Network phantom
-    </span>_phantom_0: PhantomData&lt;NET&gt;,
-    <span class="doccomment">/// Election phantom
-    </span>_phantom_1: PhantomData&lt;ELE&gt;,
-    <span class="doccomment">/// Key phantom
-    </span>_phantom_2: PhantomData&lt;KEY&gt;,
+<span class="doccomment">/// Implementation of [`NodeTypes`] for [`DEntryNode`]
+</span><span class="attribute">#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+</span><span class="kw">pub struct </span>DEntryTypes;
+
+<span class="kw">impl </span>NodeTypes <span class="kw">for </span>DEntryTypes {
+    <span class="kw">type </span>Time = ViewNumber;
+    <span class="kw">type </span>BlockType = DEntryBlock;
+    <span class="kw">type </span>SignatureKey = Ed25519Pub;
+    <span class="kw">type </span>VoteTokenType = StaticVoteToken;
+    <span class="kw">type </span>Transaction = DEntryTransaction;
+    <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
+    <span class="kw">type </span>StateType = DEntryState;
 }
 
-<span class="kw">impl</span>&lt;NET, ELE, KEY&gt; DEntryNode&lt;NET, ELE, KEY&gt; {
+<span class="doccomment">/// The node implementation for the dentry demo
+</span><span class="attribute">#[derive(Derivative)]
+#[derivative(Clone(bound = <span class="string">&quot;&quot;</span>))]
+</span><span class="kw">pub struct </span>DEntryNode&lt;TYPES, NET, ELE&gt;
+<span class="kw">where
+    </span>TYPES: NodeTypes,
+    NET: NetworkingImplementation&lt;TYPES&gt;,
+    ELE: Election&lt;TYPES&gt;,
+{
+    <span class="doccomment">/// Network phantom
+    </span>_phantom_0: PhantomData&lt;TYPES&gt;,
+    <span class="doccomment">/// Election phantom
+    </span>_phantom_1: PhantomData&lt;NET&gt;,
+    <span class="doccomment">/// Key phantom
+    </span>_phantom_2: PhantomData&lt;ELE&gt;,
+}
+
+<span class="kw">impl</span>&lt;TYPES, NET, ELE&gt; DEntryNode&lt;TYPES, NET, ELE&gt;
+<span class="kw">where
+    </span>TYPES: NodeTypes,
+    NET: NetworkingImplementation&lt;TYPES&gt;,
+    ELE: Election&lt;TYPES&gt;,
+{
     <span class="doccomment">/// Create a new `DEntryNode`
     </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         DEntryNode {
@@ -1036,7 +1130,12 @@
     }
 }
 
-<span class="kw">impl</span>&lt;NET, ELE, KEY&gt; Debug <span class="kw">for </span>DEntryNode&lt;NET, ELE, KEY&gt; {
+<span class="kw">impl</span>&lt;TYPES, NET, ELE&gt; Debug <span class="kw">for </span>DEntryNode&lt;TYPES, NET, ELE&gt;
+<span class="kw">where
+    </span>TYPES: NodeTypes,
+    NET: NetworkingImplementation&lt;TYPES&gt;,
+    ELE: Election&lt;TYPES&gt;,
+{
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         f.debug_struct(<span class="string">&quot;DEntryNode&quot;</span>)
             .field(<span class="string">&quot;_phantom&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;phantom&quot;</span>)
@@ -1044,46 +1143,49 @@
     }
 }
 
-<span class="kw">impl</span>&lt;NET, ELE, KEY&gt; Default <span class="kw">for </span>DEntryNode&lt;NET, ELE, KEY&gt; {
+<span class="kw">impl</span>&lt;TYPES, NET, ELE&gt; Default <span class="kw">for </span>DEntryNode&lt;TYPES, NET, ELE&gt;
+<span class="kw">where
+    </span>TYPES: NodeTypes,
+    NET: NetworkingImplementation&lt;TYPES&gt;,
+    ELE: Election&lt;TYPES&gt;,
+{
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::new()
     }
 }
 
-<span class="kw">impl</span>&lt;NET, ELE, KEY&gt; NodeImplementation <span class="kw">for </span>DEntryNode&lt;NET, ELE, KEY&gt;
+<span class="kw">impl</span>&lt;TYPES, NET, ELE&gt; NodeImplementation&lt;TYPES&gt; <span class="kw">for </span>DEntryNode&lt;TYPES, NET, ELE&gt;
 <span class="kw">where
-    </span>NET: NetworkingImplementation&lt;Message&lt;DEntryState, KEY&gt;, KEY&gt; + Clone + Debug + <span class="lifetime">&#39;static</span>,
-    ELE: Election&lt;KEY, ViewNumber, StateType = DEntryState&gt; + Clone + <span class="lifetime">&#39;static</span>,
-    KEY: SignatureKey + Clone + <span class="lifetime">&#39;static</span>,
+    </span>TYPES: NodeTypes,
+    NET: NetworkingImplementation&lt;TYPES&gt;,
+    ELE: Election&lt;TYPES&gt;,
 {
-    <span class="kw">type </span>StateType = DEntryState;
-    <span class="kw">type </span>Storage = MemoryStorage&lt;DEntryState&gt;;
+    <span class="kw">type </span>Storage = MemoryStorage&lt;TYPES&gt;;
     <span class="kw">type </span>Networking = NET;
     <span class="kw">type </span>Election = ELE;
-    <span class="kw">type </span>SignatureKey = KEY;
 }
 
 <span class="doccomment">/// Provides a random [`QuorumCertificate`]
-</span><span class="kw">pub fn </span>random_quorum_certificate&lt;STATE: State&gt;(
+</span><span class="kw">pub fn </span>random_quorum_certificate&lt;TYPES: NodeTypes&gt;(
     rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
-) -&gt; QuorumCertificate&lt;STATE&gt; {
+) -&gt; QuorumCertificate&lt;TYPES&gt; {
     QuorumCertificate {
         block_commitment: random_commitment(rng),
         leaf_commitment: random_commitment(rng),
-        view_number: ViewNumber::new(rng.gen()),
+        view_number: TYPES::Time::new(rng.gen()),
         signatures: BTreeMap::default(),
         genesis: rng.gen(),
     }
 }
 
 <span class="doccomment">/// Provides a random [`Leaf`]
-</span><span class="kw">pub fn </span>random_leaf&lt;STATE: State&lt;Time = ViewNumber&gt;&gt;(
-    deltas: STATE::BlockType,
+</span><span class="kw">pub fn </span>random_leaf&lt;TYPES: NodeTypes&gt;(
+    deltas: TYPES::BlockType,
     rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
-) -&gt; Leaf&lt;STATE&gt; {
+) -&gt; Leaf&lt;TYPES&gt; {
     <span class="kw">let </span>justify_qc = random_quorum_certificate(rng);
-    <span class="kw">let </span>state = STATE::default()
-        .append(<span class="kw-2">&amp;</span>deltas, <span class="kw-2">&amp;</span>ViewNumber::new(<span class="number">42</span>))
+    <span class="kw">let </span>state = TYPES::StateType::default()
+        .append(<span class="kw-2">&amp;</span>deltas, <span class="kw-2">&amp;</span>TYPES::Time::new(<span class="number">42</span>))
         .unwrap_or_default();
     Leaf {
         view_number: justify_qc.view_number,

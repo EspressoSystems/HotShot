@@ -840,39 +840,6 @@
 <span id="840">840</span>
 <span id="841">841</span>
 <span id="842">842</span>
-<span id="843">843</span>
-<span id="844">844</span>
-<span id="845">845</span>
-<span id="846">846</span>
-<span id="847">847</span>
-<span id="848">848</span>
-<span id="849">849</span>
-<span id="850">850</span>
-<span id="851">851</span>
-<span id="852">852</span>
-<span id="853">853</span>
-<span id="854">854</span>
-<span id="855">855</span>
-<span id="856">856</span>
-<span id="857">857</span>
-<span id="858">858</span>
-<span id="859">859</span>
-<span id="860">860</span>
-<span id="861">861</span>
-<span id="862">862</span>
-<span id="863">863</span>
-<span id="864">864</span>
-<span id="865">865</span>
-<span id="866">866</span>
-<span id="867">867</span>
-<span id="868">868</span>
-<span id="869">869</span>
-<span id="870">870</span>
-<span id="871">871</span>
-<span id="872">872</span>
-<span id="873">873</span>
-<span id="874">874</span>
-<span id="875">875</span>
 </pre><pre class="rust"><code><span class="attribute">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -914,21 +881,16 @@
 
 <span class="kw">use crate</span>::{
     data::{Leaf, QuorumCertificate},
-    traits::{Block, NetworkingImplementation, NodeImplementation, Storage},
+    traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };
 <span class="kw">use </span>async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>commit::{Commitment, Committable};
-<span class="kw">use </span>hotshot_consensus::{
-    Consensus, ConsensusApi, SendToTasks, TransactionHashMap, TransactionStorage, View, ViewInner,
-    ViewQueue,
-};
-<span class="kw">use </span>hotshot_types::traits::election::VoteToken;
+<span class="kw">use </span>hotshot_consensus::{Consensus, ConsensusApi, SendToTasks, View, ViewInner, ViewQueue};
 <span class="kw">use </span>hotshot_types::{
     constants::genesis_proposer_id,
-    data::{fake_commitment, ViewNumber},
+    data::fake_commitment,
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
@@ -937,14 +899,18 @@
             Election, ElectionError,
         },
         network::{NetworkChange, NetworkError},
-        node_implementation::TypeMap,
+        node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        state::ConsensusTime,
         storage::{StoredView, ViewEntry},
         State,
     },
     HotShotConfig,
 };
-<span class="kw">use </span>hotshot_utils::{art::async_spawn, bincode::bincode_opts, broadcast::BroadcastSender};
+<span class="kw">use </span>hotshot_types::{message::MessageKind, traits::election::VoteToken};
+<span class="kw">use </span>hotshot_utils::{
+    art::async_spawn, broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock,
+};
 <span class="kw">use </span>hotshot_utils::{
     art::async_spawn_local,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -971,21 +937,16 @@
 <span class="doccomment">/// Length, in bytes, of a 256 bit hash
 </span><span class="kw">pub const </span>H_256: usize = <span class="number">32</span>;
 
-<span class="doccomment">/// Convenience type alias
-</span><span class="kw">type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, HotShotError&gt;;
 <span class="doccomment">/// Holds the state needed to participate in `HotShot` consensus
-</span><span class="kw">pub struct </span>HotShotInner&lt;I: NodeImplementation&gt; {
+</span><span class="kw">pub struct </span>HotShotInner&lt;TYPES: NodeTypes, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// The public key of this node
-    </span>public_key: I::SignatureKey,
+    </span>public_key: TYPES::SignatureKey,
 
     <span class="doccomment">/// The private key of this node
-    </span>private_key: &lt;I::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
 
     <span class="doccomment">/// Configuration items for this hotshot instance
-    </span>config: HotShotConfig&lt;
-        I::SignatureKey,
-        &lt;I::Election <span class="kw">as </span>Election&lt;I::SignatureKey, ViewNumber&gt;&gt;::ElectionConfigType,
-    &gt;,
+    </span>config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
 
     <span class="doccomment">/// Networking interface for this hotshot instance
     </span>networking: I::Networking,
@@ -997,61 +958,59 @@
     </span>election: I::Election,
 
     <span class="doccomment">/// Sender for [`Event`]s
-    </span>event_sender: RwLock&lt;<span class="prelude-ty">Option</span>&lt;BroadcastSender&lt;Event&lt;I::StateType&gt;&gt;&gt;&gt;,
+    </span>event_sender: RwLock&lt;<span class="prelude-ty">Option</span>&lt;BroadcastSender&lt;Event&lt;TYPES&gt;&gt;&gt;&gt;,
 
     <span class="doccomment">/// Senders to the background tasks.
-    </span>background_task_handle: tasks::TaskHandle,
+    </span>background_task_handle: tasks::TaskHandle&lt;TYPES&gt;,
 }
 
 <span class="doccomment">/// Thread safe, shared view of a `HotShot`
 </span><span class="attribute">#[derive(Clone)]
-</span><span class="kw">pub struct </span>HotShot&lt;I: NodeImplementation + Send + Sync + <span class="lifetime">&#39;static</span>&gt; {
+</span><span class="kw">pub struct </span>HotShot&lt;TYPES: NodeTypes, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Handle to internal hotshot implementation
-    </span>inner: Arc&lt;HotShotInner&lt;I&gt;&gt;,
+    </span>inner: Arc&lt;HotShotInner&lt;TYPES, I&gt;&gt;,
 
     <span class="doccomment">/// Transactions
     /// (this is shared btwn hotshot and `Consensus`)
-    </span>transactions: TransactionStorage&lt;I&gt;,
+    </span>transactions:
+        Arc&lt;SubscribableRwLock&lt;HashMap&lt;Commitment&lt;TYPES::Transaction&gt;, TYPES::Transaction&gt;&gt;&gt;,
 
     <span class="doccomment">/// The hotstuff implementation
-    </span>hotstuff: Arc&lt;RwLock&lt;Consensus&lt;I&gt;&gt;&gt;,
+    </span>hotstuff: Arc&lt;RwLock&lt;Consensus&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// for sending/recv-ing things with the replica task
-    </span>replica_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;I&gt;&gt;&gt;,
+    </span>replica_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// for sending/recv-ing things with the next leader task
-    </span>next_leader_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;I&gt;&gt;&gt;,
+    </span>next_leader_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES&gt;&gt;&gt;,
 
     <span class="doccomment">/// for sending messages to network lookup task
-    </span>send_network_lookup: UnboundedSender&lt;<span class="prelude-ty">Option</span>&lt;ViewNumber&gt;&gt;,
+    </span>send_network_lookup: UnboundedSender&lt;<span class="prelude-ty">Option</span>&lt;TYPES::Time&gt;&gt;,
 
     <span class="doccomment">/// for receiving messages in the network lookup task
-    </span>recv_network_lookup: Arc&lt;Mutex&lt;UnboundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;ViewNumber&gt;&gt;&gt;&gt;,
+    </span>recv_network_lookup: Arc&lt;Mutex&lt;UnboundedReceiver&lt;<span class="prelude-ty">Option</span>&lt;TYPES::Time&gt;&gt;&gt;&gt;,
 
     <span class="doccomment">/// uid for instrumentation
     </span>id: u64,
 }
 
-<span class="kw">impl</span>&lt;I: NodeImplementation + Sync + Send + <span class="lifetime">&#39;static</span>&gt; HotShot&lt;I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeTypes, I: NodeImplementation&lt;TYPES&gt;&gt; HotShot&lt;TYPES, I&gt; {
     <span class="doccomment">/// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     </span><span class="attribute">#[allow(clippy::too_many_arguments)]
     #[instrument(skip(private_key, networking, storage, election, initializer))]
     </span><span class="kw">pub async fn </span>new(
-        public_key: I::SignatureKey,
-        private_key: &lt;I::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+        public_key: TYPES::SignatureKey,
+        private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         nonce: u64,
-        config: HotShotConfig&lt;
-            I::SignatureKey,
-            &lt;I::Election <span class="kw">as </span>Election&lt;I::SignatureKey, ViewNumber&gt;&gt;::ElectionConfigType,
-        &gt;,
+        config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
-        initializer: HotShotInitializer&lt;I::StateType&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+        initializer: HotShotInitializer&lt;TYPES&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
         <span class="macro">info!</span>(<span class="string">&quot;Creating a new hotshot&quot;</span>);
-        <span class="kw">let </span>inner: Arc&lt;HotShotInner&lt;I&gt;&gt; = Arc::new(HotShotInner {
+        <span class="kw">let </span>inner: Arc&lt;HotShotInner&lt;TYPES, I&gt;&gt; = Arc::new(HotShotInner {
             public_key,
             private_key,
             config,
@@ -1128,11 +1087,11 @@
     </span>)]
     </span><span class="kw">pub async fn </span>timeout_view(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        current_view: ViewNumber,
-        send_replica: UnboundedSender&lt;ConsensusMessage&lt;I::StateType&gt;&gt;,
-        send_next_leader: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;ConsensusMessage&lt;I::StateType&gt;&gt;&gt;,
+        current_view: TYPES::Time,
+        send_replica: UnboundedSender&lt;ConsensusMessage&lt;TYPES&gt;&gt;,
+        send_next_leader: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;ConsensusMessage&lt;TYPES&gt;&gt;&gt;,
     ) {
-        <span class="kw">let </span>msg = ConsensusMessage::&lt;I::StateType&gt;::NextViewInterrupt(current_view);
+        <span class="kw">let </span>msg = ConsensusMessage::&lt;TYPES&gt;::NextViewInterrupt(current_view);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = send_next_leader {
             <span class="kw">if </span>chan.send(msg.clone()).<span class="kw">await</span>.is_err() {
                 <span class="macro">warn!</span>(<span class="string">&quot;Error timing out next leader task&quot;</span>);
@@ -1152,8 +1111,8 @@
     </span><span class="attribute">#[instrument(skip(<span class="self">self</span>), err)]
     </span><span class="kw">pub async fn </span>publish_transaction_async(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        transaction: &lt;&lt;&lt;I <span class="kw">as </span>NodeImplementation&gt;::StateType <span class="kw">as </span>State&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        transaction: TYPES::Transaction,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), HotShotError&lt;TYPES&gt;&gt; {
         <span class="comment">// Add the transaction to our own queue first
         </span><span class="macro">trace!</span>(<span class="string">&quot;Adding transaction to our own queue&quot;</span>);
         <span class="comment">// Wrap up a message
@@ -1171,14 +1130,14 @@
     /// # Panics
     ///
     /// Panics if internal state for consensus is inconsistent
-    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; I::StateType {
+    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::StateType {
         <span class="self">self</span>.hotstuff.read().<span class="kw">await</span>.get_decided_leaf().state
     }
 
     <span class="doccomment">/// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    </span><span class="kw">pub async fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;I::StateType&gt; {
+    </span><span class="kw">pub async fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
         <span class="self">self</span>.hotstuff.read().<span class="kw">await</span>.get_decided_leaf()
     }
 
@@ -1196,18 +1155,15 @@
     /// Will return an error when the storage failed to insert the first `QuorumCertificate`
     </span><span class="attribute">#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
     </span><span class="kw">pub async fn </span>init(
-        public_key: I::SignatureKey,
-        private_key: &lt;I::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+        public_key: TYPES::SignatureKey,
+        private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         node_id: u64,
-        config: HotShotConfig&lt;
-            I::SignatureKey,
-            &lt;I::Election <span class="kw">as </span>Election&lt;I::SignatureKey, ViewNumber&gt;&gt;::ElectionConfigType,
-        &gt;,
+        config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
-        initializer: HotShotInitializer&lt;I::StateType&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;HotShotHandle&lt;I&gt;&gt; {
+        initializer: HotShotInitializer&lt;TYPES&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;HotShotHandle&lt;TYPES, I&gt;, HotShotError&lt;TYPES&gt;&gt; {
         <span class="comment">// Save a clone of the storage for the handle
         </span><span class="kw">let </span>hotshot = <span class="self">Self</span>::new(
             public_key,
@@ -1234,7 +1190,7 @@
     /// Will return any errors that the underlying `broadcast_message` can return.
     </span><span class="kw">pub async fn </span>send_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        kind: <span class="kw">impl </span>Into&lt;&lt;I <span class="kw">as </span>TypeMap&gt;::MessageKind&gt;,
+        kind: <span class="kw">impl </span>Into&lt;MessageKind&lt;TYPES&gt;&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
         <span class="kw">let </span>pk = <span class="self">self</span>.inner.public_key.clone();
@@ -1261,8 +1217,8 @@
     /// Will return any errors that the underlying `message_node` can return.
     </span><span class="kw">pub async fn </span>send_direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        kind: <span class="kw">impl </span>Into&lt;&lt;I <span class="kw">as </span>TypeMap&gt;::MessageKind&gt;,
-        recipient: I::SignatureKey,
+        kind: <span class="kw">impl </span>Into&lt;MessageKind&lt;TYPES&gt;&gt;,
+        recipient: TYPES::SignatureKey,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
         <span class="self">self</span>.inner
             .networking
@@ -1284,18 +1240,18 @@
     </span>)]
     </span><span class="kw">async fn </span>handle_broadcast_consensus_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        msg: &lt;I <span class="kw">as </span>TypeMap&gt;::ConsensusMessage,
-        sender: I::SignatureKey,
+        msg: ConsensusMessage&lt;TYPES&gt;,
+        sender: TYPES::SignatureKey,
     ) {
         <span class="comment">// TODO validate incoming data message based on sender signature key
         // &lt;github.com/ExpressoSystems/HotShot/issues/418&gt;
-        </span><span class="kw">let </span>msg_view_number = msg.view_number();
+        </span><span class="kw">let </span>msg_time = msg.view_number();
 
         <span class="comment">// Skip messages that are not from the leader
         </span><span class="kw">let </span>api = HotShotConsensusApi {
             inner: <span class="self">self</span>.inner.clone(),
         };
-        <span class="kw">if </span>sender != api.get_leader(msg_view_number).<span class="kw">await </span>{
+        <span class="kw">if </span>sender != api.get_leader(msg_time).<span class="kw">await </span>{
             <span class="kw">return</span>;
         }
 
@@ -1305,15 +1261,12 @@
                 <span class="kw">let </span>channel_map = <span class="self">self</span>.replica_channel_map.upgradable_read().<span class="kw">await</span>;
 
                 <span class="comment">// skip if the proposal is stale
-                </span><span class="kw">if </span>msg_view_number &lt; channel_map.cur_view {
-                    <span class="macro">warn!</span>(
-                        <span class="string">&quot;Throwing away proposal for view number: {:?}&quot;</span>,
-                        msg_view_number
-                    );
+                </span><span class="kw">if </span>msg_time &lt; channel_map.cur_view {
+                    <span class="macro">warn!</span>(<span class="string">&quot;Throwing away proposal for view number: {:?}&quot;</span>, msg_time);
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">let </span>chan = create_or_obtain_chan_from_read(msg_view_number, channel_map).<span class="kw">await</span>;
+                <span class="kw">let </span>chan = create_or_obtain_chan_from_read(msg_time, channel_map).<span class="kw">await</span>;
 
                 <span class="kw">if </span>!chan.has_received_proposal.swap(<span class="bool-val">true</span>, Ordering::Relaxed)
                     &amp;&amp; chan.sender_chan.send(msg).<span class="kw">await</span>.is_err()
@@ -1338,8 +1291,8 @@
     </span>)]
     </span><span class="kw">async fn </span>handle_direct_consensus_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        msg: &lt;I <span class="kw">as </span>TypeMap&gt;::ConsensusMessage,
-        _sender: I::SignatureKey,
+        msg: ConsensusMessage&lt;TYPES&gt;,
+        _sender: TYPES::SignatureKey,
     ) {
         <span class="comment">// TODO validate incoming data message based on sender signature key
 
@@ -1351,7 +1304,7 @@
             }
             <span class="comment">// this is ONLY intended for next leader
             </span>c @ (ConsensusMessage::Vote(<span class="kw">_</span>) | ConsensusMessage::TimedOut(<span class="kw">_</span>)) =&gt; {
-                <span class="kw">let </span>msg_view_number = c.view_number();
+                <span class="kw">let </span>msg_time = c.view_number();
 
                 <span class="kw">let </span>channel_map = <span class="self">self</span>.next_leader_channel_map.upgradable_read().<span class="kw">await</span>;
 
@@ -1362,18 +1315,18 @@
                     <span class="kw-2">&amp;</span>HotShotConsensusApi {
                         inner: <span class="self">self</span>.inner.clone(),
                     },
-                    msg_view_number + <span class="number">1</span>,
+                    msg_time + <span class="number">1</span>,
                 )
                 .<span class="kw">await</span>;
-                <span class="kw">if </span>!is_leader || msg_view_number &lt; channel_map.cur_view {
+                <span class="kw">if </span>!is_leader || msg_time &lt; channel_map.cur_view {
                     <span class="macro">warn!</span>(
                         <span class="string">&quot;Throwing away Vote or TimedOut message for view number: {:?}&quot;</span>,
-                        msg_view_number
+                        msg_time
                     );
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">let </span>chan = create_or_obtain_chan_from_read(msg_view_number, channel_map).<span class="kw">await</span>;
+                <span class="kw">let </span>chan = create_or_obtain_chan_from_read(msg_time, channel_map).<span class="kw">await</span>;
 
                 <span class="kw">if </span>chan.sender_chan.send(c).<span class="kw">await</span>.is_err() {
                     <span class="macro">error!</span>(<span class="string">&quot;Failed to send to next leader!&quot;</span>);
@@ -1385,8 +1338,8 @@
     <span class="doccomment">/// Handle an incoming [`DataMessage`] that was broadcasted on the network
     </span><span class="kw">async fn </span>handle_broadcast_data_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        msg: &lt;I <span class="kw">as </span>TypeMap&gt;::DataMessage,
-        _sender: I::SignatureKey,
+        msg: DataMessage&lt;TYPES&gt;,
+        _sender: TYPES::SignatureKey,
     ) {
         <span class="comment">// TODO validate incoming broadcast message based on sender signature key
         </span><span class="kw">match </span>msg {
@@ -1395,10 +1348,11 @@
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
-                </span><span class="kw">let </span>add_transaction = |txns: <span class="kw-2">&amp;mut </span>TransactionHashMap&lt;I&gt;| {
-                    txns.insert(transaction.commit(), transaction);
-                };
-                <span class="self">self</span>.transactions.modify(add_transaction).<span class="kw">await</span>;
+                </span><span class="self">self</span>.transactions
+                    .modify(|txns| {
+                        txns.insert(transaction.commit(), transaction);
+                    })
+                    .<span class="kw">await</span>;
             }
             DataMessage::NewestQuorumCertificate { .. } =&gt; {
                 <span class="comment">// Log the exceptional situation and proceed
@@ -1410,8 +1364,8 @@
     <span class="doccomment">/// Handle an incoming [`DataMessage`] that directed at this node
     </span><span class="kw">async fn </span>handle_direct_data_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        msg: &lt;I <span class="kw">as </span>TypeMap&gt;::DataMessage,
-        _sender: I::SignatureKey,
+        msg: DataMessage&lt;TYPES&gt;,
+        _sender: TYPES::SignatureKey,
     ) {
         <span class="comment">// TODO validate incoming data message based on sender signature key
         </span><span class="macro">debug!</span>(<span class="question-mark">?</span>msg, <span class="string">&quot;Incoming direct data message&quot;</span>);
@@ -1460,8 +1414,7 @@
     }
 
     <span class="doccomment">/// Handle a change in the network
-    /// In the future, catchup semantics can be handled here
-    </span><span class="kw">async fn </span>handle_network_change(<span class="kw-2">&amp;</span><span class="self">self</span>, node: NetworkChange&lt;I::SignatureKey&gt;) {
+    </span><span class="kw">async fn </span>handle_network_change(<span class="kw-2">&amp;</span><span class="self">self</span>, node: NetworkChange&lt;TYPES::SignatureKey&gt;) {
         <span class="kw">match </span>node {
             NetworkChange::NodeConnected(peer) =&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;Connected to node {:?}&quot;</span>, peer);
@@ -1480,17 +1433,17 @@
 
 <span class="doccomment">/// given a view number and a upgradable read lock on a channel map, inserts entry into map if it
 /// doesn&#39;t exist, or creates entry. Then returns a clone of the entry
-</span><span class="kw">pub async fn </span>create_or_obtain_chan_from_read&lt;I: NodeImplementation&gt;(
-    view_num: ViewNumber,
-    channel_map: RwLockUpgradableReadGuard&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;I&gt;&gt;,
-) -&gt; ViewQueue&lt;I&gt; {
+</span><span class="kw">pub async fn </span>create_or_obtain_chan_from_read&lt;TYPES: NodeTypes&gt;(
+    view_num: TYPES::Time,
+    channel_map: RwLockUpgradableReadGuard&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;TYPES&gt;&gt;,
+) -&gt; ViewQueue&lt;TYPES&gt; {
     <span class="comment">// check if we have the entry
     // if we don&#39;t, insert
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(vq) = channel_map.channel_map.get(<span class="kw-2">&amp;</span>view_num) {
         vq.clone()
     } <span class="kw">else </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>channel_map =
-            RwLockUpgradableReadGuard::&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;I&gt;&gt;::upgrade(channel_map).<span class="kw">await</span>;
+            RwLockUpgradableReadGuard::&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;TYPES&gt;&gt;::upgrade(channel_map).<span class="kw">await</span>;
         <span class="kw">let </span>new_view_queue = ViewQueue::default();
         <span class="kw">let </span>vq = new_view_queue.clone();
         <span class="comment">// NOTE: the read lock is held until all other read locks are DROPPED and
@@ -1505,22 +1458,24 @@
 
 <span class="doccomment">/// given a view number and a write lock on a channel map, inserts entry into map if it
 /// doesn&#39;t exist, or creates entry. Then returns a clone of the entry
-</span><span class="kw">pub async fn </span>create_or_obtain_chan_from_write&lt;I: NodeImplementation&gt;(
-    view_num: ViewNumber,
-    <span class="kw-2">mut </span>channel_map: RwLockWriteGuard&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;I&gt;&gt;,
-) -&gt; ViewQueue&lt;I&gt; {
+</span><span class="kw">pub async fn </span>create_or_obtain_chan_from_write&lt;TYPES: NodeTypes&gt;(
+    view_num: TYPES::Time,
+    <span class="kw-2">mut </span>channel_map: RwLockWriteGuard&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;TYPES&gt;&gt;,
+) -&gt; ViewQueue&lt;TYPES&gt; {
     channel_map.channel_map.entry(view_num).or_default().clone()
 }
 
 <span class="doccomment">/// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]
 </span><span class="attribute">#[derive(Clone)]
-</span><span class="kw">struct </span>HotShotConsensusApi&lt;I: NodeImplementation&gt; {
+</span><span class="kw">struct </span>HotShotConsensusApi&lt;TYPES: NodeTypes, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Reference to the [`HotShotInner`]
-    </span>inner: Arc&lt;HotShotInner&lt;I&gt;&gt;,
+    </span>inner: Arc&lt;HotShotInner&lt;TYPES, I&gt;&gt;,
 }
 
 <span class="attribute">#[async_trait]
-</span><span class="kw">impl</span>&lt;I: NodeImplementation&gt; hotshot_consensus::ConsensusApi&lt;I&gt; <span class="kw">for </span>HotShotConsensusApi&lt;I&gt; {
+</span><span class="kw">impl</span>&lt;TYPES: NodeTypes, I: NodeImplementation&lt;TYPES&gt;&gt; hotshot_consensus::ConsensusApi&lt;TYPES&gt;
+    <span class="kw">for </span>HotShotConsensusApi&lt;TYPES, I&gt;
+{
     <span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroUsize {
         <span class="self">self</span>.inner.config.total_nodes
     }
@@ -1537,10 +1492,6 @@
         <span class="self">self</span>.inner.config.propose_max_round_time
     }
 
-    <span class="kw">fn </span>storage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>I::Storage {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.storage
-    }
-
     <span class="kw">fn </span>max_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroUsize {
         <span class="self">self</span>.inner.config.max_transactions
     }
@@ -1552,39 +1503,27 @@
     <span class="doccomment">/// Generates and encodes a vote token
     </span><span class="kw">fn </span>generate_vote_token(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        view_number: ViewNumber,
-        _next_state: Commitment&lt;Leaf&lt;I::StateType&gt;&gt;,
-    ) -&gt; std::result::Result&lt;
-        std::option::Option&lt;
-            &lt;&lt;I <span class="kw">as </span>NodeImplementation&gt;::Election <span class="kw">as </span>Election&lt;
-                &lt;I <span class="kw">as </span>NodeImplementation&gt;::SignatureKey,
-                ViewNumber,
-            &gt;&gt;::VoteTokenType,
-        &gt;,
-        ElectionError,
-    &gt; {
+        view_number: TYPES::Time,
+        _next_state: Commitment&lt;Leaf&lt;TYPES&gt;&gt;,
+    ) -&gt; std::result::Result&lt;std::option::Option&lt;TYPES::VoteTokenType&gt;, ElectionError&gt; {
         <span class="self">self</span>.inner
             .election
             .make_vote_token(view_number, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.private_key)
     }
 
-    <span class="kw">fn </span>get_election(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;I <span class="kw">as </span>NodeImplementation&gt;::Election {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.inner.election
-    }
-
-    <span class="kw">async fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: ViewNumber) -&gt; I::SignatureKey {
+    <span class="kw">async fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey {
         <span class="kw">let </span>election = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.election;
         election.get_leader(view_number)
     }
 
-    <span class="kw">async fn </span>should_start_round(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: ViewNumber) -&gt; bool {
+    <span class="kw">async fn </span>should_start_round(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: TYPES::Time) -&gt; bool {
         <span class="bool-val">false
     </span>}
 
     <span class="kw">async fn </span>send_direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        recipient: I::SignatureKey,
-        message: &lt;I <span class="kw">as </span>TypeMap&gt;::ConsensusMessage,
+        recipient: TYPES::SignatureKey,
+        message: ConsensusMessage&lt;TYPES&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
         <span class="macro">debug!</span>(<span class="question-mark">?</span>message, <span class="question-mark">?</span>recipient, <span class="string">&quot;send_direct_message&quot;</span>);
@@ -1605,7 +1544,7 @@
 
     <span class="kw">async fn </span>send_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: &lt;I <span class="kw">as </span>TypeMap&gt;::ConsensusMessage,
+        message: ConsensusMessage&lt;TYPES&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
         <span class="macro">debug!</span>(<span class="question-mark">?</span>message, <span class="string">&quot;send_broadcast_message&quot;</span>);
         <span class="self">self</span>.inner
@@ -1617,7 +1556,7 @@
             .<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>send_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;I::StateType&gt;) {
+    <span class="kw">async fn </span>send_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES&gt;) {
         <span class="macro">debug!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;send_event&quot;</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>event_sender = <span class="self">self</span>.inner.event_sender.write().<span class="kw">await</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(sender) = <span class="kw-2">&amp;*</span>event_sender {
@@ -1628,37 +1567,23 @@
         }
     }
 
-    <span class="kw">fn </span>public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>I::SignatureKey {
+    <span class="kw">fn </span>public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>TYPES::SignatureKey {
         <span class="kw-2">&amp;</span><span class="self">self</span>.inner.public_key
     }
 
-    <span class="kw">fn </span>private_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;I::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey {
+    <span class="kw">fn </span>private_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey {
         <span class="kw-2">&amp;</span><span class="self">self</span>.inner.private_key
     }
 
     <span class="attribute">#[instrument(skip(<span class="self">self</span>, qc))]
-    </span><span class="kw">fn </span>validate_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: <span class="kw-2">&amp;</span>QuorumCertificate&lt;I::StateType&gt;) -&gt; bool {
-        <span class="kw">if </span>qc.genesis &amp;&amp; qc.view_number == ViewNumber::genesis() {
+    </span><span class="kw">fn </span>validate_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: <span class="kw-2">&amp;</span>QuorumCertificate&lt;TYPES&gt;) -&gt; bool {
+        <span class="kw">if </span>qc.genesis &amp;&amp; qc.view_number == TYPES::Time::genesis() {
             <span class="kw">return </span><span class="bool-val">true</span>;
         }
         <span class="kw">let </span>hash = qc.leaf_commitment;
-        <span class="kw">let </span><span class="kw-2">mut </span>signature_map: BTreeMap&lt;
-            EncodedPublicKey,
-            (
-                EncodedSignature,
-                &lt;&lt;I <span class="kw">as </span>NodeImplementation&gt;::Election <span class="kw">as </span>Election&lt;
-                    &lt;I <span class="kw">as </span>NodeImplementation&gt;::SignatureKey,
-                    ViewNumber,
-                &gt;&gt;::VoteTokenType,
-            ),
-        &gt; = BTreeMap::new();
 
-        <span class="kw">for </span>signature <span class="kw">in </span>qc.signatures.clone() {
-            <span class="kw">let </span>decoded_vote_token = bincode_opts().deserialize(<span class="kw-2">&amp;</span>signature.<span class="number">1 </span>.<span class="number">1</span>).unwrap();
-            signature_map.insert(signature.<span class="number">0</span>, (signature.<span class="number">1 </span>.<span class="number">0</span>, decoded_vote_token));
-        }
-
-        <span class="kw">let </span>stake = signature_map
+        <span class="kw">let </span>stake = qc
+            .signatures
             .iter()
             .filter(|signature| {
                 <span class="self">self</span>.is_valid_signature(
@@ -1681,21 +1606,17 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         encoded_key: <span class="kw-2">&amp;</span>EncodedPublicKey,
         encoded_signature: <span class="kw-2">&amp;</span>EncodedSignature,
-        hash: Commitment&lt;Leaf&lt;I::StateType&gt;&gt;,
-        view_number: ViewNumber,
-        vote_token: Checked&lt;
-            &lt;&lt;I <span class="kw">as </span>NodeImplementation&gt;::Election <span class="kw">as </span>Election&lt;
-                &lt;I <span class="kw">as </span>NodeImplementation&gt;::SignatureKey,
-                ViewNumber,
-            &gt;&gt;::VoteTokenType,
-        &gt;,
+        hash: Commitment&lt;Leaf&lt;TYPES&gt;&gt;,
+        view_number: TYPES::Time,
+        vote_token: Checked&lt;TYPES::VoteTokenType&gt;,
     ) -&gt; bool {
         <span class="kw">let </span><span class="kw-2">mut </span>is_valid_vote_token = <span class="bool-val">false</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>is_valid_signature = <span class="bool-val">false</span>;
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = &lt;I::SignatureKey <span class="kw">as </span>SignatureKey&gt;::from_bytes(encoded_key) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::from_bytes(encoded_key) {
             is_valid_signature = key.validate(encoded_signature, hash.as_ref());
             <span class="kw">let </span>valid_vote_token =
-                <span class="self">self</span>.get_election()
+                <span class="self">self</span>.inner
+                    .election
                     .validate_vote_token(view_number, key, vote_token);
             is_valid_vote_token = <span class="kw">match </span>valid_vote_token {
                 <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
@@ -1708,30 +1629,43 @@
         }
         is_valid_signature &amp;&amp; is_valid_vote_token
     }
+
+    <span class="kw">async fn </span>store_leaf(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        old_anchor_view: TYPES::Time,
+        leaf: Leaf&lt;TYPES&gt;,
+    ) -&gt; std::result::Result&lt;(), hotshot_types::traits::storage::StorageError&gt; {
+        <span class="kw">let </span>view_to_insert = StoredView::from(leaf);
+        <span class="kw">let </span>storage = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.storage;
+        storage.append_single_view(view_to_insert).<span class="kw">await</span><span class="question-mark">?</span>;
+        storage.cleanup_storage_up_to_view(old_anchor_view).<span class="kw">await</span><span class="question-mark">?</span>;
+        storage.commit().<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
 }
 
 <span class="doccomment">/// initializer struct for creating starting block
-</span><span class="kw">pub struct </span>HotShotInitializer&lt;STATE: State&gt; {
+</span><span class="kw">pub struct </span>HotShotInitializer&lt;TYPES: NodeTypes&gt; {
     <span class="doccomment">/// the leaf specified initialization
-    </span>inner: Leaf&lt;STATE&gt;,
+    </span>inner: Leaf&lt;TYPES&gt;,
 }
 
-<span class="kw">impl</span>&lt;STATE: State&lt;Time = ViewNumber&gt;&gt; HotShotInitializer&lt;STATE&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; HotShotInitializer&lt;TYPES&gt; {
     <span class="doccomment">/// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
-    </span><span class="kw">pub fn </span>from_genesis(genesis_block: &lt;STATE <span class="kw">as </span>State&gt;::BlockType) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">let </span>state = STATE::default()
-            .append(<span class="kw-2">&amp;</span>genesis_block, <span class="kw-2">&amp;</span>ViewNumber::new(<span class="number">0</span>))
+    </span><span class="kw">pub fn </span>from_genesis(genesis_block: TYPES::BlockType) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
+        <span class="kw">let </span>state = TYPES::StateType::default()
+            .append(<span class="kw-2">&amp;</span>genesis_block, <span class="kw-2">&amp;</span>TYPES::Time::new(<span class="number">0</span>))
             .map_err(|err| HotShotError::Misc {
                 context: err.to_string(),
             })<span class="question-mark">?</span>;
-        <span class="kw">let </span>view_number = ViewNumber::genesis();
-        <span class="kw">let </span>justify_qc = QuorumCertificate::&lt;STATE&gt;::genesis();
+        <span class="kw">let </span>time = TYPES::Time::genesis();
+        <span class="kw">let </span>justify_qc = QuorumCertificate::&lt;TYPES&gt;::genesis();
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             inner: Leaf {
-                view_number,
+                view_number: time,
                 justify_qc,
                 parent_commitment: fake_commitment(),
                 deltas: genesis_block,
@@ -1744,7 +1678,7 @@
     }
 
     <span class="doccomment">/// reload previous state based on most recent leaf
-    </span><span class="kw">pub fn </span>from_reload(anchor_leaf: Leaf&lt;STATE&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>from_reload(anchor_leaf: Leaf&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ inner: anchor_leaf }
     }
 }

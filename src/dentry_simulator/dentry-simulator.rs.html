@@ -369,20 +369,6 @@
 <span id="369">369</span>
 <span id="370">370</span>
 <span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-<span id="380">380</span>
-<span id="381">381</span>
-<span id="382">382</span>
-<span id="383">383</span>
-<span id="384">384</span>
-<span id="385">385</span>
 </pre><pre class="rust"><code><span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot_types::traits::{
@@ -398,7 +384,6 @@
     test_util::{setup_backtrace, setup_logging},
 };
 <span class="kw">use </span>rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
-<span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
 <span class="kw">use </span>std::{
     num::NonZeroUsize,
     time::{Duration, Instant},
@@ -411,15 +396,11 @@
         election::static_committee::{StaticCommittee, StaticElectionConfig},
         implementations::{MemoryStorage, WNetwork},
     },
-    types::{Event, EventType, HotShotHandle, Message},
+    types::{Event, EventType, HotShotHandle},
     HotShot,
 };
 
-<span class="kw">type </span>Node = DEntryNode&lt;
-    WNetwork&lt;Message&lt;DEntryState, Ed25519Pub&gt;, Ed25519Pub&gt;,
-    StaticCommittee&lt;DEntryState&gt;,
-    Ed25519Pub,
-&gt;;
+<span class="kw">type </span>Node = DEntryNode&lt;DEntryTypes, WNetwork&lt;DEntryTypes&gt;, StaticCommittee&lt;DEntryTypes&gt;&gt;;
 
 <span class="attribute">#[derive(Debug, Parser)]
 #[command(
@@ -484,12 +465,7 @@
     </span><span class="kw">let </span><span class="kw-2">mut </span>rng = Xoshiro256StarStar::seed_from_u64(<span class="number">0</span>);
     <span class="comment">// Spawn the networking backends and connect them together
     </span><span class="attribute">#[allow(clippy::type_complexity)]
-    </span><span class="kw">let </span><span class="kw-2">mut </span>networkings: Vec&lt;(
-        WNetwork&lt;Message&lt;DEntryState, Ed25519Pub&gt;, Ed25519Pub&gt;,
-        u16,
-        Ed25519Pub,
-        u64,
-    )&gt; = Vec::new();
+    </span><span class="kw">let </span><span class="kw-2">mut </span>networkings: Vec&lt;(WNetwork&lt;DEntryTypes&gt;, u16, Ed25519Pub, u64)&gt; = Vec::new();
     <span class="kw">for </span>node_id <span class="kw">in </span><span class="number">0</span>..nodes <span class="kw">as </span>u64 {
         <span class="kw">let </span>private_key = Ed25519Priv::generated_from_seed_indexed([<span class="number">0_u8</span>; <span class="number">32</span>], node_id);
         <span class="kw">let </span>public_key = Ed25519Pub::from_private(<span class="kw-2">&amp;</span>private_key);
@@ -513,10 +489,10 @@
         }
     }
     <span class="comment">// Create the hotshots
-    </span><span class="kw">let </span><span class="kw-2">mut </span>hotshots: Vec&lt;HotShotHandle&lt;<span class="kw">_</span>&gt;&gt; = join_all(
+    </span><span class="kw">let </span><span class="kw-2">mut </span>hotshots: Vec&lt;HotShotHandle&lt;DEntryTypes, Node&gt;&gt; = join_all(
         networkings
             .into_iter()
-            .map(|(network, <span class="kw">_</span>, _pk, node_id)| get_hotshot(nodes, threshold, node_id, network)),
+            .map(|(network, <span class="kw">_</span>, _pk, node_id)| get_hotshot(nodes, node_id, network)),
     )
     .<span class="kw">await</span>;
 
@@ -547,7 +523,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>states: Vec&lt;Vec&lt;DEntryState&gt;&gt; = Vec::new();
         <span class="kw">for </span>(node_id, hotshot) <span class="kw">in </span>hotshots.iter_mut().enumerate() {
             <span class="macro">debug!</span>(<span class="question-mark">?</span>node_id, <span class="string">&quot;Waiting on node to emit decision&quot;</span>);
-            <span class="kw">let </span><span class="kw-2">mut </span>event: Event&lt;DEntryState&gt; = hotshot
+            <span class="kw">let </span><span class="kw-2">mut </span>event: Event&lt;DEntryTypes&gt; = hotshot
                 .next_event()
                 .<span class="kw">await
                 </span>.expect(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
@@ -618,7 +594,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>states: Vec&lt;Vec&lt;DEntryState&gt;&gt; = Vec::new();
         <span class="kw">for </span>(node_id, hotshot) <span class="kw">in </span>hotshots.iter_mut().enumerate() {
             <span class="macro">debug!</span>(<span class="question-mark">?</span>node_id, <span class="string">&quot;Waiting on node to emit decision&quot;</span>);
-            <span class="kw">let </span><span class="kw-2">mut </span>event: Event&lt;DEntryState&gt; = hotshot
+            <span class="kw">let </span><span class="kw-2">mut </span>event: Event&lt;DEntryTypes&gt; = hotshot
                 .next_event()
                 .<span class="kw">await
                 </span>.expect(<span class="string">&quot;HotShot unexpectedly closed&quot;</span>);
@@ -681,15 +657,12 @@
 ///
 /// also starts the background task
 </span><span class="attribute">#[instrument(skip(rng))]
-</span><span class="kw">async fn </span>get_networking&lt;
-    T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + <span class="lifetime">&#39;static</span>,
-    R: hotshot::rand::Rng,
-&gt;(
+</span><span class="kw">async fn </span>get_networking&lt;R: hotshot::rand::Rng&gt;(
     pub_key: Ed25519Pub,
     listen_addr: <span class="kw-2">&amp;</span>str,
     node_id: u64,
     rng: <span class="kw-2">&amp;mut </span>R,
-) -&gt; (WNetwork&lt;T, Ed25519Pub&gt;, u16, Ed25519Pub, u64) {
+) -&gt; (WNetwork&lt;DEntryTypes&gt;, u16, Ed25519Pub, u64) {
     <span class="macro">debug!</span>(<span class="question-mark">?</span>pub_key);
     <span class="kw">for </span>attempt <span class="kw">in </span><span class="number">0</span>..<span class="number">50 </span>{
         <span class="kw">let </span>port: u16 = rng.gen_range(<span class="number">10_000</span>..<span class="number">50_000</span>);
@@ -719,13 +692,12 @@
 }
 
 <span class="doccomment">/// Creates a hotshot
-</span><span class="attribute">#[instrument(skip(networking))]
+</span><span class="comment">// #[instrument(skip(networking))]
 </span><span class="kw">async fn </span>get_hotshot(
     nodes: usize,
-    threshold: usize,
     node_id: u64,
-    networking: WNetwork&lt;Message&lt;DEntryState, Ed25519Pub&gt;, Ed25519Pub&gt;,
-) -&gt; HotShotHandle&lt;Node&gt; {
+    networking: WNetwork&lt;DEntryTypes&gt;,
+) -&gt; HotShotHandle&lt;DEntryTypes, Node&gt; {
     <span class="kw">let </span>known_nodes: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..nodes)
         .map(|x| {
             Ed25519Pub::from_private(<span class="kw-2">&amp;</span>Ed25519Priv::generated_from_seed_indexed(
@@ -753,7 +725,7 @@
     <span class="kw">let </span>public_key = Ed25519Pub::from_private(<span class="kw-2">&amp;</span>private_key);
     <span class="kw">let </span>genesis_block = DEntryBlock::genesis();
     <span class="kw">let </span>initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
-    <span class="kw">let </span>h = HotShot::init(
+    <span class="kw">let </span>h = HotShot::&lt;DEntryTypes, Node&gt;::init(
         public_key,
         private_key,
         node_id,

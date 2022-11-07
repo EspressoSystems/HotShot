@@ -329,18 +329,31 @@
 <span id="329">329</span>
 <span id="330">330</span>
 <span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 </span><span class="kw">use crate</span>::{
-    traits::{Block, NetworkError::ShutDown, NodeImplementation},
+    traits::{NetworkError::ShutDown, NodeImplementation},
     types::{Event, HotShotError::NetworkFault},
-    HotShot, <span class="prelude-ty">Result</span>,
+    HotShot,
 };
 <span class="kw">use </span>hotshot_types::{
-    data::{Leaf, ViewNumber},
+    data::Leaf,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
-    traits::{network::NetworkingImplementation, storage::Storage, State},
+    traits::{
+        network::NetworkingImplementation, node_implementation::NodeTypes, state::ConsensusTime,
+        storage::Storage,
+    },
 };
 <span class="kw">use </span>hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 <span class="kw">use </span>std::sync::{
@@ -366,23 +379,23 @@
 /// This type provides the means to message and interact with a background [`HotShot`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
-</span><span class="kw">pub struct </span>HotShotHandle&lt;I: NodeImplementation + Send + Sync + <span class="lifetime">&#39;static</span>&gt; {
+</span><span class="kw">pub struct </span>HotShotHandle&lt;TYPES: NodeTypes, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// The [sender](BroadcastSender) for the output stream from the background process
     ///
     /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
     /// method is needed to generate new receivers for cloning the handle.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) sender_handle: Arc&lt;BroadcastSender&lt;Event&lt;I::StateType&gt;&gt;&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) sender_handle: Arc&lt;BroadcastSender&lt;Event&lt;TYPES&gt;&gt;&gt;,
     <span class="doccomment">/// Internal reference to the underlying [`HotShot`]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) hotshot: HotShot&lt;I&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) hotshot: HotShot&lt;TYPES, I&gt;,
     <span class="doccomment">/// The [`BroadcastReceiver`] we get the events from
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) stream_output: BroadcastReceiver&lt;Event&lt;I::StateType&gt;&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) stream_output: BroadcastReceiver&lt;Event&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Global to signify the `HotShot` should be closed after completing the next round
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) shut_down: Arc&lt;AtomicBool&gt;,
     <span class="doccomment">/// Our copy of the `Storage` view for a hotshot
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) storage: I::Storage,
 }
 
-<span class="kw">impl</span>&lt;I: NodeImplementation + <span class="lifetime">&#39;static</span>&gt; Clone <span class="kw">for </span>HotShotHandle&lt;I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeTypes, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">&#39;static</span>&gt; Clone <span class="kw">for </span>HotShotHandle&lt;TYPES, I&gt; {
     <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             sender_handle: <span class="self">self</span>.sender_handle.clone(),
@@ -394,13 +407,13 @@
     }
 }
 
-<span class="kw">impl</span>&lt;I: NodeImplementation + <span class="lifetime">&#39;static</span>&gt; HotShotHandle&lt;I&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeTypes, I: NodeImplementation&lt;TYPES&gt; + <span class="lifetime">&#39;static</span>&gt; HotShotHandle&lt;TYPES, I&gt; {
     <span class="doccomment">/// Will return the next event in the queue
     ///
     /// # Errors
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] has been closed.
-    </span><span class="kw">pub async fn </span>next_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Event&lt;I::StateType&gt;&gt; {
+    </span><span class="kw">pub async fn </span>next_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Event&lt;TYPES&gt;, HotShotError&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>result = <span class="self">self</span>.stream_output.recv_async().<span class="kw">await</span>;
         <span class="kw">match </span>result {
             <span class="prelude-val">Ok</span>(result) =&gt; <span class="prelude-val">Ok</span>(result),
@@ -412,7 +425,7 @@
     /// # Errors
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down
-    </span><span class="kw">pub fn </span>try_next_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Event&lt;I::StateType&gt;&gt;&gt; {
+    </span><span class="kw">pub fn </span>try_next_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Event&lt;TYPES&gt;&gt;, HotShotError&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>result = <span class="self">self</span>.stream_output.try_recv();
         <span class="prelude-val">Ok</span>(result)
     }
@@ -423,7 +436,7 @@
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut
     /// down.
-    </span><span class="kw">pub fn </span>available_events(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Event&lt;I::StateType&gt;&gt;&gt; {
+    </span><span class="kw">pub fn </span>available_events(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Event&lt;TYPES&gt;&gt;, HotShotError&lt;TYPES&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>output = <span class="macro">vec!</span>[];
         <span class="comment">// Loop to pull out all the outputs
         </span><span class="kw">loop </span>{
@@ -442,7 +455,7 @@
     /// # Errors
     ///
     /// Returns an error if the underlying `Storage` returns an error
-    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; I::StateType {
+    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::StateType {
         <span class="self">self</span>.hotshot.get_state().<span class="kw">await
     </span>}
 
@@ -450,7 +463,7 @@
     /// # Panics
     ///
     /// Panics if internal consensus is in an inconsistent state.
-    </span><span class="kw">pub async fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;I::StateType&gt; {
+    </span><span class="kw">pub async fn </span>get_decided_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Leaf&lt;TYPES&gt; {
         <span class="self">self</span>.hotshot.get_decided_leaf().<span class="kw">await
     </span>}
 
@@ -464,8 +477,8 @@
     /// [`HotShot`] instance.
     </span><span class="kw">pub async fn </span>submit_transaction(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        tx: &lt;&lt;&lt;I <span class="kw">as </span>NodeImplementation&gt;::StateType <span class="kw">as </span>State&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        tx: TYPES::Transaction,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), HotShotError&lt;TYPES&gt;&gt; {
         <span class="self">self</span>.hotshot.publish_transaction_async(tx).<span class="kw">await
     </span>}
 
@@ -477,9 +490,9 @@
         <span class="comment">// if is genesis
         </span><span class="kw">let </span>_anchor = <span class="self">self</span>.storage();
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(anchor_leaf) = <span class="self">self</span>.storage().get_anchored_view().<span class="kw">await </span>{
-            <span class="kw">if </span>anchor_leaf.view_number == ViewNumber::genesis() {
+            <span class="kw">if </span>anchor_leaf.view_number == TYPES::Time::genesis() {
                 <span class="kw">let </span>event = Event {
-                    view_number: ViewNumber::genesis(),
+                    view_number: TYPES::Time::genesis(),
                     event: EventType::Decide {
                         leaf_chain: Arc::new(<span class="macro">vec!</span>[anchor_leaf.into()]),
                     },
@@ -512,7 +525,7 @@
     /// Panics if the event stream is shut down while this is running
     </span><span class="kw">pub async fn </span>collect_round_events(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;I::StateType&gt;, Vec&lt;&lt;I::StateType <span class="kw">as </span>State&gt;::BlockType&gt;)&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;TYPES::StateType&gt;, Vec&lt;TYPES::BlockType&gt;), HotShotError&lt;TYPES&gt;&gt; {
         <span class="comment">// TODO we should probably do a view check
         // but we can do that later. It&#39;s non-obvious how to get the view number out
         // to check against
@@ -523,10 +536,10 @@
             <span class="comment">// unwrap is fine here since the thing hasn&#39;t been shut down
             </span><span class="kw">let </span>event = <span class="self">self</span>.next_event().<span class="kw">await</span>.unwrap();
             <span class="kw">match </span>event.event {
-                EventType::ReplicaViewTimeout { view_number } =&gt; {
+                EventType::ReplicaViewTimeout { view_number: time } =&gt; {
                     <span class="macro">error!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;Replica timed out!&quot;</span>);
                     results = <span class="prelude-val">Err</span>(HotShotError::ViewTimeoutError {
-                        view_number,
+                        view_number: time,
                         state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                     });
                 }
@@ -577,7 +590,7 @@
 
     </span><span class="doccomment">/// Wrapper for `HotShotConsensusApi`&#39;s `get_leader` function
     </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
-    </span><span class="kw">pub async fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: ViewNumber) -&gt; I::SignatureKey {
+    </span><span class="kw">pub async fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey {
         <span class="kw">let </span>api = HotShotConsensusApi {
             inner: <span class="self">self</span>.hotshot.inner.clone(),
         };
@@ -586,13 +599,13 @@
 
     <span class="doccomment">/// Wrapper to get this node&#39;s public key
     </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
-    </span><span class="kw">pub fn </span>get_public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; I::SignatureKey {
+    </span><span class="kw">pub fn </span>get_public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::SignatureKey {
         <span class="self">self</span>.hotshot.inner.public_key.clone()
     }
 
     <span class="doccomment">/// Wrapper to get this node&#39;s current view
     </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
-    </span><span class="kw">pub async fn </span>get_current_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ViewNumber {
+    </span><span class="kw">pub async fn </span>get_current_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="self">self</span>.hotshot.hotstuff.read().<span class="kw">await</span>.cur_view
     }
 
@@ -600,8 +613,8 @@
     </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
     </span><span class="kw">pub fn </span>sign_proposal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        leaf_commitment: <span class="kw-2">&amp;</span>Commitment&lt;Leaf&lt;I::StateType&gt;&gt;,
-        view_number: ViewNumber,
+        leaf_commitment: <span class="kw-2">&amp;</span>Commitment&lt;Leaf&lt;TYPES&gt;&gt;,
+        view_number: TYPES::Time,
     ) -&gt; EncodedSignature {
         <span class="kw">let </span>api = HotShotConsensusApi {
             inner: <span class="self">self</span>.hotshot.inner.clone(),
@@ -613,8 +626,8 @@
     </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
     </span><span class="kw">pub fn </span>sign_vote(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        leaf_commitment: <span class="kw-2">&amp;</span>Commitment&lt;Leaf&lt;I::StateType&gt;&gt;,
-        view_number: ViewNumber,
+        leaf_commitment: <span class="kw-2">&amp;</span>Commitment&lt;Leaf&lt;TYPES&gt;&gt;,
+        view_number: TYPES::Time,
     ) -&gt; (EncodedPublicKey, EncodedSignature) {
         <span class="kw">let </span>api = HotShotConsensusApi {
             inner: <span class="self">self</span>.hotshot.inner.clone(),
@@ -624,7 +637,7 @@
 
     <span class="doccomment">/// Wrapper around `HotShotConsensusApi`&#39;s `send_broadcast_consensus_message` function
     </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
-    </span><span class="kw">pub async fn </span>send_broadcast_consensus_message(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: ConsensusMessage&lt;I::StateType&gt;) {
+    </span><span class="kw">pub async fn </span>send_broadcast_consensus_message(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: ConsensusMessage&lt;TYPES&gt;) {
         <span class="kw">let </span>_result = <span class="self">self</span>.hotshot.send_broadcast_message(msg).<span class="kw">await</span>;
     }
 
@@ -632,32 +645,39 @@
     </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
     </span><span class="kw">pub async fn </span>send_direct_consensus_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        msg: ConsensusMessage&lt;I::StateType&gt;,
-        recipient: I::SignatureKey,
+        msg: ConsensusMessage&lt;TYPES&gt;,
+        recipient: TYPES::SignatureKey,
     ) {
         <span class="kw">let </span>_result = <span class="self">self</span>.hotshot.send_direct_message(msg, recipient).<span class="kw">await</span>;
     }
 
     <span class="doccomment">/// Get length of the replica&#39;s receiver channel
     </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
-    </span><span class="kw">pub async fn </span>get_replica_receiver_channel_len(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: ViewNumber) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+    </span><span class="kw">pub async fn </span>get_replica_receiver_channel_len(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        view_number: TYPES::Time,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="kw">use </span>hotshot_utils::channel::UnboundedReceiver;
+
         <span class="kw">let </span>channel_map = <span class="self">self</span>.hotshot.replica_channel_map.read().<span class="kw">await</span>;
         <span class="kw">let </span>chan = channel_map.channel_map.get(<span class="kw-2">&amp;</span>view_number)<span class="question-mark">?</span>;
         <span class="kw">let </span>receiver = chan.receiver_chan.lock().<span class="kw">await</span>;
-        receiver.len()
+        UnboundedReceiver::len(<span class="kw-2">&amp;*</span>receiver)
     }
 
     <span class="doccomment">/// Get length of the next leaders&#39;s receiver channel
     </span><span class="attribute">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
     </span><span class="kw">pub async fn </span>get_next_leader_receiver_channel_len(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        view_number: ViewNumber,
+        view_number: TYPES::Time,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="kw">use </span>hotshot_utils::channel::UnboundedReceiver;
+
         <span class="kw">let </span>channel_map = <span class="self">self</span>.hotshot.next_leader_channel_map.read().<span class="kw">await</span>;
         <span class="kw">let </span>chan = channel_map.channel_map.get(<span class="kw-2">&amp;</span>view_number)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>receiver = chan.receiver_chan.lock().<span class="kw">await</span>;
-        receiver.len()
+        UnboundedReceiver::len(<span class="kw-2">&amp;*</span>receiver)
     }
 }
 </code></pre></div>

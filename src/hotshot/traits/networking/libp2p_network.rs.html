@@ -694,11 +694,6 @@
 <span id="694">694</span>
 <span id="695">695</span>
 <span id="696">696</span>
-<span id="697">697</span>
-<span id="698">698</span>
-<span id="699">699</span>
-<span id="700">700</span>
-<span id="701">701</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Libp2p based production networkign implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -708,12 +703,16 @@
 <span class="kw">use </span>bimap::BiHashMap;
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>dashmap::DashSet;
-<span class="kw">use </span>hotshot_types::traits::{
-    network::{
-        FailedToSerializeSnafu, NetworkChange, NetworkError, NetworkingImplementation,
-        TestableNetworkingImplementation, UnboundedChannelDisconnectedSnafu,
+<span class="kw">use </span>hotshot_types::{
+    message::Message,
+    traits::{
+        network::{
+            FailedToSerializeSnafu, NetworkChange, NetworkError, NetworkingImplementation,
+            TestableNetworkingImplementation, UnboundedChannelDisconnectedSnafu,
+        },
+        node_implementation::NodeTypes,
+        signature_key::{SignatureKey, TestableSignatureKey},
     },
-    signature_key::{SignatureKey, TestableSignatureKey},
 };
 <span class="kw">use </span>hotshot_utils::{
     art::{async_block_on, async_sleep, async_spawn},
@@ -728,7 +727,7 @@
     },
     reexport::{Multiaddr, PeerId},
 };
-<span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
+<span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>std::{
     collections::HashSet,
@@ -752,11 +751,7 @@
     </span>Empty,
 }
 
-<span class="kw">impl</span>&lt;
-        T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + <span class="lifetime">&#39;static</span>,
-        P: SignatureKey + <span class="lifetime">&#39;static</span>,
-    &gt; std::fmt::Debug <span class="kw">for </span>Libp2pNetwork&lt;T, P&gt;
-{
+<span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; std::fmt::Debug <span class="kw">for </span>Libp2pNetwork&lt;TYPES&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         f.debug_struct(<span class="string">&quot;Libp2p&quot;</span>).field(<span class="string">&quot;inner&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;inner&quot;</span>).finish()
     }
@@ -766,25 +761,22 @@
 </span><span class="kw">pub type </span>PeerInfoVec = Arc&lt;RwLock&lt;Vec&lt;(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)&gt;&gt;&gt;;
 
 <span class="doccomment">/// The underlying state of the libp2p network
-</span><span class="kw">struct </span>Libp2pNetworkInner&lt;
-    M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + <span class="lifetime">&#39;static</span>,
-    P: SignatureKey + <span class="lifetime">&#39;static</span>,
-&gt; {
+</span><span class="kw">struct </span>Libp2pNetworkInner&lt;TYPES: NodeTypes&gt; {
     <span class="doccomment">/// this node&#39;s public key
-    </span>pk: P,
+    </span>pk: TYPES::SignatureKey,
     <span class="doccomment">/// handle to control the network
     </span>handle: Arc&lt;NetworkNodeHandle&lt;()&gt;&gt;,
     <span class="doccomment">/// Bidirectional map from public key provided by espresso
     /// to public key provided by libp2p
-    </span>pubkey_pid_map: RwLock&lt;BiHashMap&lt;P, PeerId&gt;&gt;,
+    </span>pubkey_pid_map: RwLock&lt;BiHashMap&lt;TYPES::SignatureKey, PeerId&gt;&gt;,
     <span class="doccomment">/// map of known replica peer ids to public keys
-    </span>broadcast_recv: UnboundedReceiver&lt;M&gt;,
+    </span>broadcast_recv: UnboundedReceiver&lt;Message&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Sender for broadcast messages
-    </span>broadcast_send: UnboundedSender&lt;M&gt;,
+    </span>broadcast_send: UnboundedSender&lt;Message&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Sender for direct messages (only used for sending messages back to oneself)
-    </span>direct_send: UnboundedSender&lt;M&gt;,
+    </span>direct_send: UnboundedSender&lt;Message&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// Receiver for direct messages
-    </span>direct_recv: UnboundedReceiver&lt;M&gt;,
+    </span>direct_recv: UnboundedReceiver&lt;Message&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     </span>bootstrap_addrs: PeerInfoVec,
@@ -804,18 +796,14 @@
 <span class="doccomment">/// Networking implementation that uses libp2p
 /// generic over `M` which is the message type
 </span><span class="attribute">#[derive(Clone)]
-</span><span class="kw">pub struct </span>Libp2pNetwork&lt;
-    M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + <span class="lifetime">&#39;static</span>,
-    P: SignatureKey + <span class="lifetime">&#39;static</span>,
-&gt; {
+</span><span class="kw">pub struct </span>Libp2pNetwork&lt;TYPES: NodeTypes&gt; {
     <span class="doccomment">/// holds the state of the libp2p network
-    </span>inner: Arc&lt;Libp2pNetworkInner&lt;M, P&gt;&gt;,
+    </span>inner: Arc&lt;Libp2pNetworkInner&lt;TYPES&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;
-        T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + <span class="lifetime">&#39;static</span>,
-        P: TestableSignatureKey + <span class="lifetime">&#39;static</span>,
-    &gt; TestableNetworkingImplementation&lt;T, P&gt; <span class="kw">for </span>Libp2pNetwork&lt;T, P&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; TestableNetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>Libp2pNetwork&lt;TYPES&gt;
+<span class="kw">where
+    </span>TYPES::SignatureKey: TestableSignatureKey,
 {
     <span class="doccomment">/// Returns a boxed function `f(node_id, public_key) -&gt; Libp2pNetwork`
     /// with the purpose of generating libp2p networks.
@@ -843,8 +831,8 @@
                 <span class="kw">let </span>addr =
                     <span class="comment">// Multiaddr::from_str(&amp;format!(&quot;/ip4/127.0.0.1/tcp/0&quot;)).unwrap();
                     </span>Multiaddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/ip4/127.0.0.1/tcp/{}&quot;</span>, <span class="number">5000 </span>+ node_id)).unwrap();
-                <span class="kw">let </span>privkey = P::generate_test_key(node_id);
-                <span class="kw">let </span>pubkey = P::from_private(<span class="kw-2">&amp;</span>privkey);
+                <span class="kw">let </span>privkey = TYPES::SignatureKey::generate_test_key(node_id);
+                <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
                 <span class="comment">// we want the majority of peers to have this lying around.
                 </span><span class="kw">let </span>replication_factor = NonZeroUsize::new(<span class="number">2 </span>* expected_node_count / <span class="number">3</span>).unwrap();
                 <span class="kw">let </span>config = <span class="kw">if </span>node_id &lt; num_bootstrap <span class="kw">as </span>u64 {
@@ -903,11 +891,7 @@
     </span>}
 }
 
-<span class="kw">impl</span>&lt;
-        M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + <span class="lifetime">&#39;static</span>,
-        P: SignatureKey + <span class="lifetime">&#39;static</span>,
-    &gt; Libp2pNetwork&lt;M, P&gt;
-{
+<span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; Libp2pNetwork&lt;TYPES&gt; {
     <span class="doccomment">/// Returns when network is ready
     </span><span class="kw">pub async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">loop </span>{
@@ -937,11 +921,11 @@
     /// This will panic if there are less than 5 bootstrap nodes
     </span><span class="kw">pub async fn </span>new(
         config: NetworkNodeConfig,
-        pk: P,
+        pk: TYPES::SignatureKey,
         bootstrap_addrs: Arc&lt;RwLock&lt;Vec&lt;(<span class="prelude-ty">Option</span>&lt;PeerId&gt;, Multiaddr)&gt;&gt;&gt;,
         bootstrap_addrs_len: usize,
         id: usize,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;M, P&gt;, NetworkError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Libp2pNetwork&lt;TYPES&gt;, NetworkError&gt; {
         <span class="macro">assert!</span>(bootstrap_addrs_len &gt; <span class="number">4</span>, <span class="string">&quot;Need at least 5 bootstrap nodes&quot;</span>);
         <span class="kw">let </span>network_handle = Arc::new(
             NetworkNodeHandle::&lt;()&gt;::new(config, id)
@@ -1013,7 +997,7 @@
                     <span class="kw">if </span>bs_addrs.len() &gt;= num_bootstrap {
                         <span class="kw">break </span>bs_addrs;
                     }
-                    <span class="macro">error!</span>(
+                    <span class="macro">info!</span>(
                         <span class="string">&quot;NODE {:?} bs addr len {:?}, number of bootstrap expected {:?}&quot;</span>,
                         id,
                         bs_addrs.len(),
@@ -1088,8 +1072,8 @@
     /// terminates on shut down of network
     </span><span class="kw">fn </span>spawn_event_generator(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        direct_send: UnboundedSender&lt;M&gt;,
-        broadcast_send: UnboundedSender&lt;M&gt;,
+        direct_send: UnboundedSender&lt;Message&lt;TYPES&gt;&gt;,
+        broadcast_send: UnboundedSender&lt;Message&lt;TYPES&gt;&gt;,
     ) {
         <span class="kw">let </span>handle = <span class="self">self</span>.clone();
         <span class="kw">let </span>is_bootstrapped = <span class="self">self</span>.inner.is_bootstrapped.clone();
@@ -1097,7 +1081,7 @@
             <span class="kw">while let </span><span class="prelude-val">Ok</span>(msg) = handle.inner.handle.receiver().recv().<span class="kw">await </span>{
                 <span class="kw">match </span>msg {
                     GossipMsg(msg, _topic) =&gt; {
-                        <span class="kw">let </span>result: <span class="prelude-ty">Result</span>&lt;M, <span class="kw">_</span>&gt; = bincode_opts().deserialize(<span class="kw-2">&amp;</span>msg);
+                        <span class="kw">let </span>result: <span class="prelude-ty">Result</span>&lt;Message&lt;TYPES&gt;, <span class="kw">_</span>&gt; = bincode_opts().deserialize(<span class="kw-2">&amp;</span>msg);
                         <span class="kw">if let </span><span class="prelude-val">Ok</span>(result) = result {
                             broadcast_send
                                 .send(result)
@@ -1106,7 +1090,7 @@
                         }
                     }
                     DirectRequest(msg, _pid, chan) =&gt; {
-                        <span class="kw">let </span>result: <span class="prelude-ty">Result</span>&lt;M, <span class="kw">_</span>&gt; = bincode_opts()
+                        <span class="kw">let </span>result: <span class="prelude-ty">Result</span>&lt;Message&lt;TYPES&gt;, <span class="kw">_</span>&gt; = bincode_opts()
                             .deserialize(<span class="kw-2">&amp;</span>msg)
                             .context(FailedToSerializeSnafu);
                         <span class="kw">if let </span><span class="prelude-val">Ok</span>(result) = result {
@@ -1126,7 +1110,7 @@
                         };
                     }
                     DirectResponse(msg, <span class="kw">_</span>) =&gt; {
-                        <span class="kw">let </span>_result: <span class="prelude-ty">Result</span>&lt;M, <span class="kw">_</span>&gt; = bincode_opts()
+                        <span class="kw">let </span>_result: <span class="prelude-ty">Result</span>&lt;Message&lt;TYPES&gt;, <span class="kw">_</span>&gt; = bincode_opts()
                             .deserialize(<span class="kw-2">&amp;</span>msg)
                             .context(FailedToSerializeSnafu);
                     }
@@ -1142,11 +1126,7 @@
 }
 
 <span class="attribute">#[async_trait]
-</span><span class="kw">impl</span>&lt;
-        M: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + <span class="lifetime">&#39;static</span>,
-        P: SignatureKey + <span class="lifetime">&#39;static</span>,
-    &gt; NetworkingImplementation&lt;M, P&gt; <span class="kw">for </span>Libp2pNetwork&lt;M, P&gt;
-{
+</span><span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; NetworkingImplementation&lt;TYPES&gt; <span class="kw">for </span>Libp2pNetwork&lt;TYPES&gt; {
     <span class="attribute">#[instrument(name = <span class="string">&quot;Libp2pNetwork::ready&quot;</span>, skip_all)]
     </span><span class="kw">async fn </span>ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.wait_for_ready().<span class="kw">await</span>;
@@ -1154,7 +1134,7 @@
     </span>}
 
     <span class="attribute">#[instrument(name = <span class="string">&quot;Libp2pNetwork::broadcast_message&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>broadcast_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: M) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    </span><span class="kw">async fn </span>broadcast_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: Message&lt;TYPES&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::ShutDown);
         }
@@ -1179,7 +1159,11 @@
     }
 
     <span class="attribute">#[instrument(name = <span class="string">&quot;Libp2pNetwork::message_node&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>message_node(<span class="kw-2">&amp;</span><span class="self">self</span>, message: M, recipient: P) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+    </span><span class="kw">async fn </span>message_node(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message: Message&lt;TYPES&gt;,
+        recipient: TYPES::SignatureKey,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::ShutDown);
         }
@@ -1233,7 +1217,7 @@
     }
 
     <span class="attribute">#[instrument(name = <span class="string">&quot;Libp2pNetwork::broadcast_queue&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>broadcast_queue(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt; {
+    </span><span class="kw">async fn </span>broadcast_queue(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt; {
         <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
             <span class="prelude-val">Err</span>(NetworkError::ShutDown)
         } <span class="kw">else </span>{
@@ -1246,7 +1230,7 @@
     }
 
     <span class="attribute">#[instrument(name = <span class="string">&quot;Libp2pNetwork::next_broadcast&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>next_broadcast(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;M, NetworkError&gt; {
+    </span><span class="kw">async fn </span>next_broadcast(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Message&lt;TYPES&gt;, NetworkError&gt; {
         <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
             <span class="prelude-val">Err</span>(NetworkError::ShutDown)
         } <span class="kw">else </span>{
@@ -1259,7 +1243,7 @@
     }
 
     <span class="attribute">#[instrument(name = <span class="string">&quot;Libp2pNetwork::direct_queue&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>direct_queue(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt; {
+    </span><span class="kw">async fn </span>direct_queue(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES&gt;&gt;, NetworkError&gt; {
         <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
             <span class="prelude-val">Err</span>(NetworkError::ShutDown)
         } <span class="kw">else </span>{
@@ -1272,7 +1256,7 @@
     }
 
     <span class="attribute">#[instrument(name = <span class="string">&quot;Libp2pNetwork::next_direct&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>next_direct(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;M, NetworkError&gt; {
+    </span><span class="kw">async fn </span>next_direct(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Message&lt;TYPES&gt;, NetworkError&gt; {
         <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
             <span class="prelude-val">Err</span>(NetworkError::ShutDown)
         } <span class="kw">else </span>{
@@ -1285,7 +1269,7 @@
     }
 
     <span class="attribute">#[instrument(name = <span class="string">&quot;Libp2pNetwork::known_nodes&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>known_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;P&gt; {
+    </span><span class="kw">async fn </span>known_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;TYPES::SignatureKey&gt; {
         <span class="self">self</span>.inner
             .pubkey_pid_map
             .read()
@@ -1296,7 +1280,9 @@
     }
 
     <span class="attribute">#[instrument(name = <span class="string">&quot;Libp2pNetwork::network_changes&quot;</span>, skip_all, <span class="self">self</span>.peer_id)]
-    </span><span class="kw">async fn </span>network_changes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;NetworkChange&lt;P&gt;&gt;, NetworkError&gt; {
+    </span><span class="kw">async fn </span>network_changes(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;NetworkChange&lt;TYPES::SignatureKey&gt;&gt;, NetworkError&gt; {
         <span class="kw">if </span><span class="self">self</span>.inner.handle.is_killed() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::ShutDown);
         }
@@ -1315,7 +1301,7 @@
         </span><span class="kw">let </span>added_peers = cur_connected.difference(<span class="kw-2">&amp;</span>old_connected);
 
         <span class="kw">for </span>pid <span class="kw">in </span>added_peers.clone() {
-            <span class="kw">let </span>pk: <span class="prelude-ty">Result</span>&lt;P, <span class="kw">_</span>&gt; = <span class="self">self
+            <span class="kw">let </span>pk: <span class="prelude-ty">Result</span>&lt;TYPES::SignatureKey, <span class="kw">_</span>&gt; = <span class="self">self
                 </span>.inner
                 .handle
                 .get_record_timeout(<span class="kw-2">&amp;</span>pid, <span class="self">self</span>.inner.dht_timeout)
@@ -1374,7 +1360,11 @@
             </span>.map_err(Into::&lt;NetworkError&gt;::into)
     }
 
-    <span class="kw">async fn </span>notify_of_subsequent_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: P, is_cancelled: Arc&lt;AtomicBool&gt;) {
+    <span class="kw">async fn </span>notify_of_subsequent_leader(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        pk: TYPES::SignatureKey,
+        is_cancelled: Arc&lt;AtomicBool&gt;,
+    ) {
         <span class="self">self</span>.wait_for_ready().<span class="kw">await</span>;
 
         <span class="kw">if </span>is_cancelled.load(Ordering::Relaxed) {
