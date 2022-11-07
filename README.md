@@ -99,9 +99,6 @@ To test as if running on CI, one must limit the number of cores and ram to match
 ```
 ASYNC_STD_THREAD_COUNT=1 RUST_LOG=$ERROR_LOG_LEVEL RUST_LOG_FORMAT=$ERROR_LOG_FORMAT cargo test --verbose --release --lib --bins --tests --benches --features=full-ci --workspace -- --nocapture --test-threads=1
 ```
-# Documentation
-
-The specification and research paper is available in the [papers](https://github.com/EspressoSystems/papers/tree/main/hotshot-paper) repository.
 
 # Tokio-console
 

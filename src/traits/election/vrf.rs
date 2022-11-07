@@ -977,7 +977,7 @@ where
     ///
     #[allow(clippy::too_many_arguments)]
     pub fn check_sortition_proof(
-        public_key: &SIGSCHEME::VerificationKey,
+        public_key: &VRFPubKey<SIGSCHEME>,
         proof_param: &VRF::PublicParameter,
         proof: &VRF::Proof,
         total_stake: NonZeroU64,
@@ -989,7 +989,7 @@ where
     ) -> Result<bool, hotshot_types::traits::election::ElectionError> {
         let view_seed = generate_view_seed::<TYPES, VRFHASHER>(view_number, chain_seed);
         Self::internal_check_sortition(
-            public_key,
+            &public_key.pk,
             proof_param,
             proof,
             total_stake,

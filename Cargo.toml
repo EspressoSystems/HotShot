@@ -4,8 +4,8 @@ description = "HotShot consesus module"
 edition = "2021"
 name = "hotshot"
 readme = "README.md"
-version = "0.3.1"
-rust-version = "1.63.0"
+version = "0.3.3"
+rust-version = "1.65.0"
 
 [features]
 default = ["demo", "docs", "doc-images"]

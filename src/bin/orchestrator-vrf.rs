@@ -61,13 +61,11 @@ fn load_configs(
                 let seed = [0u8; 32];
                 run.config.known_nodes = (0..run.config.total_nodes.get())
                     .map(|node_id| {
-                        let vrf_key =
-                            VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(
-                                seed,
-                                node_id.try_into().unwrap(),
-                            );
-                        let priv_key = vrf_key.1;
-                        VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key)
+                        VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(
+                            seed,
+                            node_id.try_into().unwrap(),
+                        )
+                        .0
                     })
                     .collect();
 
