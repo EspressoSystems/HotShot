@@ -29,6 +29,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          rustup default 1.65.0
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
 
@@ -36,14 +37,6 @@ jobs:
         run: |
           git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf git://github.com/
           git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: default
-          toolchain: stable
-          override: true
-          default: true
 
       - uses: Swatinem/rust-cache@v1
         name: Enable Rust Caching

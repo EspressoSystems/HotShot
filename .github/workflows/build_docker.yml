@@ -25,6 +25,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          rustup default 1.65.0
           apt-get update
           apt-get install -y protobuf-compiler
 
