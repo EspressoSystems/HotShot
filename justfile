@@ -33,6 +33,25 @@ test_async_std_pkg_all pkg=test_pkg:
 test_async_std_pkg_test pkg=test_pkg name=test_name:
   cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --package={{pkg}} --no-fail-fast {{name}} -- --test-threads=1 --nocapture
 
+check: check_tokio check_tokio_flume check_async_std check_async_std_flume
+
+check_tokio:
+  echo Checking with tokio executor
+  cargo check --workspace --all-targets --no-default-features --features=tokio-executor,demo,docs,doc-images,hotshot-testing,channel-tokio --bins --tests --examples
+
+check_tokio_flume:
+  echo Checking with tokio executor and flume
+  cargo check --workspace --all-targets --no-default-features --features=tokio-executor,demo,docs,doc-images,hotshot-testing,channel-flume --bins --tests --examples
+
+check_async_std:
+  echo Checking with async std executor
+  cargo check --workspace --all-targets --no-default-features --features=async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std --bins --tests --examples
+
+check_async_std_flume:
+  echo Checking with async std executor and flume
+  cargo check --workspace --all-targets --no-default-features --features=async-std-executor,demo,docs,doc-images,hotshot-testing,channel-flume --bins --tests --examples
+
+
 lint: fmt lint_tokio lint_tokio_flume lint_async_std lint_async_std_flume
 
 fmt:

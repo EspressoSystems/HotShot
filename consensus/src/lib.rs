@@ -27,55 +27,59 @@ pub use leader::Leader;
 pub use next_leader::NextLeader;
 pub use replica::Replica;
 pub use traits::ConsensusApi;
-pub use utils::{SendToTasks, TransactionHashMap, TransactionStorage, View, ViewInner, ViewQueue};
+pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
 
 use commit::Commitment;
 use hotshot_types::{
-    data::{Leaf, QuorumCertificate, ViewNumber},
+    data::{Leaf, QuorumCertificate},
     error::HotShotError,
-    traits::node_implementation::NodeImplementation,
+    traits::{node_implementation::NodeTypes, state::ConsensusTime},
 };
+use hotshot_utils::subscribable_rwlock::SubscribableRwLock;
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
 };
 use tracing::{error, warn};
-use utils::{Result, Terminator};
+use utils::Terminator;
+
+/// A type alias for `HashMap<Commitment<T>, T>`
+type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 
 /// A reference to the consensus algorithm
 ///
 /// This will contain the state of all rounds.
 #[derive(Debug)]
-pub struct Consensus<I: NodeImplementation> {
+pub struct Consensus<TYPES: NodeTypes> {
     /// The phases that are currently loaded in memory
     // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
-    pub state_map: BTreeMap<ViewNumber, View<I::StateType>>,
+    pub state_map: BTreeMap<TYPES::Time, View<TYPES>>,
 
     /// cur_view from pseudocode
-    pub cur_view: ViewNumber,
+    pub cur_view: TYPES::Time,
 
     /// last view had a successful decide event
-    pub last_decided_view: ViewNumber,
+    pub last_decided_view: TYPES::Time,
 
     /// A list of undecided transactions
-    pub transactions: TransactionStorage<I>,
+    pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
 
     /// Map of leaf hash -> leaf
     /// - contains undecided leaves
     /// - includes the MOST RECENT decided leaf
-    pub saved_leaves: HashMap<Commitment<Leaf<I::StateType>>, Leaf<I::StateType>>,
+    pub saved_leaves: CommitmentMap<Leaf<TYPES>>,
 
     /// The `locked_qc` view number
-    pub locked_view: ViewNumber,
+    pub locked_view: TYPES::Time,
 
     /// the highqc per spec
-    pub high_qc: QuorumCertificate<I::StateType>,
+    pub high_qc: QuorumCertificate<TYPES>,
 }
 
-impl<I: NodeImplementation> Consensus<I> {
+impl<TYPES: NodeTypes> Consensus<TYPES> {
     /// increment the current view
     /// NOTE may need to do gc here
-    pub fn increment_view(&mut self) -> ViewNumber {
+    pub fn increment_view(&mut self) -> TYPES::Time {
         self.cur_view += 1;
         self.cur_view
     }
@@ -85,13 +89,13 @@ impl<I: NodeImplementation> Consensus<I> {
     /// If the leaf or its ancestors are not found in storage
     pub fn visit_leaf_ancestors<F>(
         &self,
-        start_from: ViewNumber,
-        terminator: Terminator,
+        start_from: TYPES::Time,
+        terminator: Terminator<TYPES::Time>,
         ok_when_finished: bool,
         mut f: F,
-    ) -> Result<()>
+    ) -> Result<(), HotShotError<TYPES>>
     where
-        F: FnMut(&Leaf<I::StateType>) -> bool,
+        F: FnMut(&Leaf<TYPES>) -> bool,
     {
         let mut next_leaf = if let Some(view) = self.state_map.get(&start_from) {
             *view
@@ -138,8 +142,8 @@ impl<I: NodeImplementation> Consensus<I> {
     /// and `state_map` fields of `Consensus`
     pub async fn collect_garbage(
         &mut self,
-        old_anchor_view: ViewNumber,
-        new_anchor_view: ViewNumber,
+        old_anchor_view: TYPES::Time,
+        new_anchor_view: TYPES::Time,
     ) {
         // state check
         let anchor_entry = self
@@ -164,7 +168,7 @@ impl<I: NodeImplementation> Consensus<I> {
 
     /// return a clone of the internal storage of unclaimed transactions
     #[must_use]
-    pub fn get_transactions(&self) -> TransactionStorage<I> {
+    pub fn get_transactions(&self) -> Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>> {
         self.transactions.clone()
     }
 
@@ -173,7 +177,7 @@ impl<I: NodeImplementation> Consensus<I> {
     /// if the last decided view's state does not exist in the state map
     /// this should never happen.
     #[must_use]
-    pub fn get_decided_leaf(&self) -> Leaf<I::StateType> {
+    pub fn get_decided_leaf(&self) -> Leaf<TYPES> {
         let decided_view_num = self.last_decided_view;
         let view = self.state_map.get(&decided_view_num).unwrap();
         let leaf = view
@@ -183,15 +187,15 @@ impl<I: NodeImplementation> Consensus<I> {
     }
 }
 
-impl<I: NodeImplementation> Default for Consensus<I> {
+impl<TYPES: NodeTypes> Default for Consensus<TYPES> {
     fn default() -> Self {
         Self {
             transactions: Arc::default(),
-            cur_view: ViewNumber::genesis(),
-            last_decided_view: ViewNumber::genesis(),
+            cur_view: TYPES::Time::genesis(),
+            last_decided_view: TYPES::Time::genesis(),
             state_map: BTreeMap::default(),
             saved_leaves: HashMap::default(),
-            locked_view: ViewNumber::genesis(),
+            locked_view: TYPES::Time::genesis(),
             high_qc: QuorumCertificate::genesis(),
         }
     }

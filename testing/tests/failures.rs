@@ -1,13 +1,9 @@
 #![allow(clippy::type_complexity)]
 mod common;
+
 use common::*;
-use hotshot::{
-    demos::dentry::DEntryState,
-    traits::implementations::{MemoryNetwork, MemoryStorage},
-};
-
 use either::Either::Right;
-
+use hotshot::traits::implementations::{MemoryNetwork, MemoryStorage};
 use std::collections::HashSet;
 
 // This test simulates a single permanent failed node

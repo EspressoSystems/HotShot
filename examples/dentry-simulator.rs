@@ -13,7 +13,6 @@ use hotshot_utils::{
     test_util::{setup_backtrace, setup_logging},
 };
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256StarStar};
-use serde::{de::DeserializeOwned, Serialize};
 use std::{
     num::NonZeroUsize,
     time::{Duration, Instant},
@@ -26,15 +25,11 @@ use hotshot::{
         election::static_committee::{StaticCommittee, StaticElectionConfig},
         implementations::{MemoryStorage, WNetwork},
     },
-    types::{Event, EventType, HotShotHandle, Message},
+    types::{Event, EventType, HotShotHandle},
     HotShot,
 };
 
-type Node = DEntryNode<
-    WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
-    StaticCommittee<DEntryState>,
-    Ed25519Pub,
->;
+type Node = DEntryNode<DEntryTypes, WNetwork<DEntryTypes>, StaticCommittee<DEntryTypes>>;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -99,12 +94,7 @@ async fn main() {
     let mut rng = Xoshiro256StarStar::seed_from_u64(0);
     // Spawn the networking backends and connect them together
     #[allow(clippy::type_complexity)]
-    let mut networkings: Vec<(
-        WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
-        u16,
-        Ed25519Pub,
-        u64,
-    )> = Vec::new();
+    let mut networkings: Vec<(WNetwork<DEntryTypes>, u16, Ed25519Pub, u64)> = Vec::new();
     for node_id in 0..nodes as u64 {
         let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
         let public_key = Ed25519Pub::from_private(&private_key);
@@ -128,10 +118,10 @@ async fn main() {
         }
     }
     // Create the hotshots
-    let mut hotshots: Vec<HotShotHandle<_>> = join_all(
+    let mut hotshots: Vec<HotShotHandle<DEntryTypes, Node>> = join_all(
         networkings
             .into_iter()
-            .map(|(network, _, _pk, node_id)| get_hotshot(nodes, threshold, node_id, network)),
+            .map(|(network, _, _pk, node_id)| get_hotshot(nodes, node_id, network)),
     )
     .await;
 
@@ -162,7 +152,7 @@ async fn main() {
         let mut states: Vec<Vec<DEntryState>> = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryState> = hotshot
+            let mut event: Event<DEntryTypes> = hotshot
                 .next_event()
                 .await
                 .expect("HotShot unexpectedly closed");
@@ -233,7 +223,7 @@ async fn main() {
         let mut states: Vec<Vec<DEntryState>> = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryState> = hotshot
+            let mut event: Event<DEntryTypes> = hotshot
                 .next_event()
                 .await
                 .expect("HotShot unexpectedly closed");
@@ -296,15 +286,12 @@ async fn main() {
 ///
 /// also starts the background task
 #[instrument(skip(rng))]
-async fn get_networking<
-    T: Clone + Serialize + DeserializeOwned + Send + Sync + std::fmt::Debug + 'static,
-    R: hotshot::rand::Rng,
->(
+async fn get_networking<R: hotshot::rand::Rng>(
     pub_key: Ed25519Pub,
     listen_addr: &str,
     node_id: u64,
     rng: &mut R,
-) -> (WNetwork<T, Ed25519Pub>, u16, Ed25519Pub, u64) {
+) -> (WNetwork<DEntryTypes>, u16, Ed25519Pub, u64) {
     debug!(?pub_key);
     for attempt in 0..50 {
         let port: u16 = rng.gen_range(10_000..50_000);
@@ -334,13 +321,12 @@ async fn get_networking<
 }
 
 /// Creates a hotshot
-#[instrument(skip(networking))]
+// #[instrument(skip(networking))]
 async fn get_hotshot(
     nodes: usize,
-    threshold: usize,
     node_id: u64,
-    networking: WNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
-) -> HotShotHandle<Node> {
+    networking: WNetwork<DEntryTypes>,
+) -> HotShotHandle<DEntryTypes, Node> {
     let known_nodes: Vec<_> = (0..nodes)
         .map(|x| {
             Ed25519Pub::from_private(&Ed25519Priv::generated_from_seed_indexed(
@@ -368,7 +354,7 @@ async fn get_hotshot(
     let public_key = Ed25519Pub::from_private(&private_key);
     let genesis_block = DEntryBlock::genesis();
     let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
-    let h = HotShot::init(
+    let h = HotShot::<DEntryTypes, Node>::init(
         public_key,
         private_key,
         node_id,

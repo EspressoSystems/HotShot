@@ -8,7 +8,7 @@ use hotshot::{
         implementations::{Libp2pNetwork, MemoryStorage},
         NetworkError, Storage,
     },
-    types::{ed25519::Ed25519Priv, HotShotHandle, Message},
+    types::{ed25519::Ed25519Priv, HotShotHandle},
     HotShot,
 };
 use hotshot_centralized_server::{
@@ -361,11 +361,8 @@ impl CliStandalone {
     }
 }
 
-type Node = DEntryNode<
-    Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
-    StaticCommittee<DEntryState>,
-    Ed25519Pub,
->;
+type Node = DEntryNode<DEntryTypes, Libp2pNetwork<DEntryTypes>, StaticCommittee<DEntryTypes>>;
+
 struct Config {
     run: Run,
     privkey: Ed25519Priv,
@@ -396,8 +393,8 @@ impl Config {
     async fn init_state_and_hotshot(
         &self,
 
-        networking: Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
-    ) -> (DEntryState, HotShotHandle<Node>) {
+        networking: Libp2pNetwork<DEntryTypes>,
+    ) -> (DEntryState, HotShotHandle<DEntryTypes, Node>) {
         let genesis_block = DEntryBlock::genesis();
         let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
@@ -439,16 +436,14 @@ impl Config {
         .expect("Could not init hotshot");
         debug!("hotshot launched");
 
-        let storage: &MemoryStorage<DEntryState> = hotshot.storage();
+        let storage: &MemoryStorage<DEntryTypes> = hotshot.storage();
 
         let state = storage.get_anchored_view().await.unwrap().state;
 
         (state, hotshot)
     }
 
-    async fn new_libp2p_network(
-        &self,
-    ) -> Result<Libp2pNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>, NetworkError> {
+    async fn new_libp2p_network(&self) -> Result<Libp2pNetwork<DEntryTypes>, NetworkError> {
         assert!(self.node_id < self.num_nodes);
         let mut config_builder = NetworkNodeConfigBuilder::default();
         // NOTE we may need to change this as we scale

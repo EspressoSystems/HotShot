@@ -25,15 +25,7 @@ pub trait Block:
     type Error: Error + Debug + Send + Sync;
 
     /// The type of the transitions we are applying
-    type Transaction: Clone
-        + Serialize
-        + DeserializeOwned
-        + Debug
-        + PartialEq
-        + Eq
-        + Sync
-        + Send
-        + Committable;
+    type Transaction: Transaction;
 
     /// Attempts to add a transaction, returning an Error if it would result in a structurally
     /// invalid block
@@ -48,6 +40,12 @@ pub trait Block:
     fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>>;
 }
 
+/// Abstraction over any type of transaction. Used by [`Block`].
+pub trait Transaction:
+    Clone + Serialize + DeserializeOwned + Debug + PartialEq + Eq + Sync + Send + Committable + Hash
+{
+}
+
 /// Dummy implementation of `BlockContents` for unit tests
 pub mod dummy {
     #[allow(clippy::wildcard_imports)]
@@ -56,6 +54,7 @@ pub mod dummy {
     use serde::Deserialize;
 
     pub use crate::traits::state::dummy::DummyState;
+    use crate::traits::state::TestableBlock;
 
     /// The dummy block
     #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -76,7 +75,7 @@ pub mod dummy {
     pub struct DummyError;
 
     /// dummy transaction. No functionality
-    #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
     pub enum DummyTransaction {
         /// the only variant. Dummy.
         Dummy,
@@ -89,6 +88,7 @@ pub mod dummy {
                 .finalize()
         }
     }
+    impl super::Transaction for DummyTransaction {}
 
     impl std::error::Error for DummyError {}
 
@@ -107,11 +107,19 @@ pub mod dummy {
             &self,
             _tx: &Self::Transaction,
         ) -> std::result::Result<Self, Self::Error> {
-            Err(DummyError)
+            Ok(Self {
+                nonce: self.nonce + 1,
+            })
         }
 
         fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>> {
             HashSet::new()
+        }
+    }
+
+    impl TestableBlock for DummyBlock {
+        fn genesis() -> Self {
+            Self { nonce: 0 }
         }
     }
 

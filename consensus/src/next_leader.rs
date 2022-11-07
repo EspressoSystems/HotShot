@@ -2,20 +2,11 @@
 
 use crate::ConsensusApi;
 use async_lock::Mutex;
-use bincode::Options;
-use commit::Commitment;
 use hotshot_types::traits::election::Checked::Unchecked;
-use hotshot_types::traits::election::{Election, VoteToken};
-use hotshot_types::{
-    data::{Leaf, QuorumCertificate, ViewNumber},
-    message::ConsensusMessage,
-    traits::{
-        node_implementation::NodeImplementation,
-        signature_key::{EncodedPublicKey, EncodedSignature},
-        State,
-    },
-};
-use hotshot_utils::{bincode::bincode_opts, channel::UnboundedReceiver};
+use hotshot_types::traits::election::VoteToken;
+use hotshot_types::traits::node_implementation::NodeTypes;
+use hotshot_types::{data::QuorumCertificate, message::ConsensusMessage};
+use hotshot_utils::channel::UnboundedReceiver;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
@@ -24,38 +15,31 @@ use tracing::{error, instrument, warn};
 
 /// The next view's leader
 #[derive(Debug, Clone)]
-pub struct NextLeader<A: ConsensusApi<I>, I: NodeImplementation> {
+pub struct NextLeader<A: ConsensusApi<TYPES>, TYPES: NodeTypes> {
     /// id of node
     pub id: u64,
     /// generic_qc before starting this
-    pub generic_qc: QuorumCertificate<I::StateType>,
+    pub generic_qc: QuorumCertificate<TYPES>,
     /// channel through which the leader collects votes
-    pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<I::StateType>>>>,
+    pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<TYPES>>>>,
     /// The view number we're running on
-    pub cur_view: ViewNumber,
+    pub cur_view: TYPES::Time,
     /// Limited access to the consensus protocol
     pub api: A,
 }
 
-impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
+impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> NextLeader<A, TYPES> {
     /// Run one view of the next leader task
     /// # Panics
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Leader Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<I::StateType> {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES> {
         error!("Next Leader task started!");
-        let mut qcs = HashSet::<QuorumCertificate<I::StateType>>::new();
+        let mut qcs = HashSet::<QuorumCertificate<TYPES>>::new();
         qcs.insert(self.generic_qc.clone());
 
-        #[allow(clippy::type_complexity)]
-        let mut vote_outcomes: HashMap<
-            Commitment<Leaf<I::StateType>>,
-            (
-                Commitment<<I::StateType as State>::BlockType>,
-                BTreeMap<EncodedPublicKey, (EncodedSignature, Vec<u8>)>,
-            ),
-        > = HashMap::new();
+        let mut vote_outcomes = HashMap::new();
 
         let threshold = self.api.threshold();
         let mut stake_casted = 0;
@@ -74,19 +58,13 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                     // assume it's sent by byzantine node
                     // and ignore
 
-                    // TODO ed - ignoring serialization errors since we are changing this type in the future
-                    let vote_token: <<I as NodeImplementation>::Election as Election<
-                        <I as NodeImplementation>::SignatureKey,
-                        ViewNumber,
-                    >>::VoteTokenType = bincode_opts().deserialize(&vote.vote_token).unwrap();
-
                     if !self.api.is_valid_signature(
                         &vote.signature.0,
                         &vote.signature.1,
                         vote.leaf_commitment,
                         vote.current_view,
                         // Ignoring deserialization errors below since we are getting rid of it soon
-                        Unchecked(vote_token.clone()),
+                        Unchecked(vote.vote_token.clone()),
                     ) {
                         continue;
                     }
@@ -98,10 +76,10 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                         .or_insert_with(|| (vote.block_commitment, BTreeMap::new()));
                     map.insert(
                         vote.signature.0.clone(),
-                        (vote.signature.1.clone(), vote.vote_token),
+                        (vote.signature.1.clone(), vote.vote_token.clone()),
                     );
 
-                    stake_casted += u64::from(vote_token.vote_count());
+                    stake_casted += u64::from(vote.vote_token.vote_count());
 
                     if stake_casted >= u64::from(threshold) {
                         let (block_commitment, valid_signatures) =
@@ -127,6 +105,7 @@ impl<A: ConsensusApi<I>, I: NodeImplementation> NextLeader<A, I> {
                 }
             }
         }
+
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
     }
 }

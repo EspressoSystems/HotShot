@@ -133,7 +133,10 @@ mod tests {
     use hotshot_centralized_server::{TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend};
     use hotshot_types::{
         data::ViewNumber,
-        traits::signature_key::{EncodedPublicKey, EncodedSignature},
+        traits::{
+            block_contents::Transaction,
+            signature_key::{EncodedPublicKey, EncodedSignature},
+        },
     };
     use hotshot_utils::{
         channel::oneshot,
@@ -391,6 +394,7 @@ mod tests {
     #[derive(Clone, serde::Serialize, serde::Deserialize, Debug, Hash, Eq, PartialEq)]
     struct TestTransaction {}
 
+    impl Transaction for TestTransaction {}
     impl Committable for TestTransaction {
         fn commit(&self) -> Commitment<Self> {
             commit::RawCommitmentBuilder::new("Test Txn Comm")

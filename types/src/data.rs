@@ -6,6 +6,7 @@
 use crate::{
     constants::genesis_proposer_id,
     traits::{
+        node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature},
         state::ConsensusTime,
         storage::StoredView,
@@ -36,16 +37,13 @@ use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 )]
 pub struct ViewNumber(u64);
 
-impl ConsensusTime for ViewNumber {}
-
-impl ViewNumber {
+impl ConsensusTime for ViewNumber {
     /// Create a genesis view number (0)
-    pub const fn genesis() -> Self {
+    fn genesis() -> Self {
         Self(0)
     }
-
     /// Create a new `ViewNumber` with the given value.
-    pub const fn new(n: u64) -> Self {
+    fn new(n: u64) -> Self {
         Self(n)
     }
 }
@@ -72,13 +70,13 @@ impl std::ops::Deref for ViewNumber {
     }
 }
 
-impl<STATE: State> QuorumCertificate<STATE> {
+impl<TYPES: NodeTypes> QuorumCertificate<TYPES> {
     /// To be used only for generating the genesis quorum certificate; will fail if used anywhere else
     pub fn genesis() -> Self {
         Self {
             block_commitment: fake_commitment(),
-            leaf_commitment: fake_commitment::<Leaf<STATE>>(),
-            view_number: ViewNumber::genesis(),
+            leaf_commitment: fake_commitment::<Leaf<TYPES>>(),
+            view_number: <TYPES::Time as ConsensusTime>::genesis(),
             signatures: BTreeMap::default(),
             genesis: true,
         }
@@ -89,28 +87,27 @@ impl<STATE: State> QuorumCertificate<STATE> {
 ///
 /// A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
 /// metadata, such as the [`Stage`] of consensus the quorum certificate was generated during.
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, custom_debug::Debug, std::hash::Hash)]
-pub struct QuorumCertificate<STATE: State> {
+#[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
+#[serde(bound(deserialize = ""))]
+pub struct QuorumCertificate<TYPES: NodeTypes> {
     /// Hash of the block refereed to by this Quorum Certificate.
     ///
     /// This is included for convenience, and is not fundamental to consensus or covered by the
     /// signature. This _must_ be identical to the [`BlockContents`] provided hash of the `item` in
     /// the referenced leaf.
     #[debug(skip)]
-    #[serde(deserialize_with = "<Commitment<STATE::BlockType> as Deserialize>::deserialize")]
-    pub block_commitment: Commitment<STATE::BlockType>,
+    pub block_commitment: Commitment<TYPES::BlockType>,
 
     /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
     /// This value is covered by the threshold signature.
     #[debug(skip)]
-    #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
-    pub leaf_commitment: Commitment<Leaf<STATE>>,
+    pub leaf_commitment: Commitment<Leaf<TYPES>>,
 
     /// The view number this quorum certificate was generated during
     ///
     /// This value is covered by the threshold signature.
-    pub view_number: ViewNumber,
+    pub view_number: TYPES::Time,
 
     /// The list of signatures establishing the validity of this Quorum Certifcate
     ///
@@ -119,7 +116,7 @@ pub struct QuorumCertificate<STATE: State> {
     ///
     /// These formats are deliberatly done as a `Vec` instead of an array to prevent creating the
     /// assumption that singatures are constant in length
-    pub signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, Vec<u8>)>,
+    pub signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
 
     /// Temporary bypass for boostrapping
     ///
@@ -129,7 +126,9 @@ pub struct QuorumCertificate<STATE: State> {
     pub genesis: bool,
 }
 
-impl<STATE: State> Committable for QuorumCertificate<STATE> {
+impl<TYPES: NodeTypes> Eq for QuorumCertificate<TYPES> {}
+
+impl<TYPES: NodeTypes> Committable for QuorumCertificate<TYPES> {
     fn commit(&self) -> Commitment<Self> {
         let mut builder = commit::RawCommitmentBuilder::new("Quorum Certificate Commitment");
 
@@ -138,18 +137,14 @@ impl<STATE: State> Committable for QuorumCertificate<STATE> {
             .field("Leaf commitment", self.leaf_commitment)
             .u64_field("View number", *self.view_number.deref());
 
-        let mut signatures_bytes = vec![];
-        for (k, v) in &self.signatures {
-            // TODO there is probably a way to avoid cloning.
-            signatures_bytes.extend_from_slice(&k.0);
-            signatures_bytes.extend_from_slice(&v.0 .0);
-            signatures_bytes.extend_from_slice(&v.1);
+        for (idx, (k, v)) in self.signatures.iter().enumerate() {
+            builder = builder
+                .var_size_field(&format!("Signature {idx} public key"), &k.0)
+                .var_size_field(&format!("Signature {idx} signature"), &v.0 .0)
+                .field(&format!("Signature {idx} signature"), v.1.commit());
         }
 
-        builder
-            .var_size_bytes(&signatures_bytes)
-            .u64_field("Genesis", self.genesis.into())
-            .finalize()
+        builder.u64_field("Genesis", self.genesis.into()).finalize()
     }
 }
 
@@ -159,34 +154,30 @@ pub type Transaction<STATE> = <<STATE as State>::BlockType as Block>::Transactio
 pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 
 /// subset of state that we stick into a leaf.
-#[derive(Clone, Derivative, Serialize, Deserialize, custom_debug::Debug)]
-#[derivative(PartialEq, Eq, Hash)]
-pub struct ProposalLeaf<STATE: State> {
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Derivative)]
+#[serde(bound(deserialize = ""))]
+#[derivative(PartialEq, Hash)]
+pub struct ProposalLeaf<TYPES: NodeTypes> {
     /// CurView from leader when proposing leaf
-    pub view_number: ViewNumber,
+    pub view_number: TYPES::Time,
 
     /// Per spec, justification
-    #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
-    pub justify_qc: QuorumCertificate<STATE>,
+    pub justify_qc: QuorumCertificate<TYPES>,
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
     #[debug(skip)]
-    #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
-    pub parent_commitment: Commitment<Leaf<STATE>>,
+    pub parent_commitment: Commitment<Leaf<TYPES>>,
 
     /// Block leaf wants to apply
-    #[serde(deserialize_with = "STATE::BlockType::deserialize")]
-    pub deltas: STATE::BlockType,
+    pub deltas: TYPES::BlockType,
 
     /// What the state should be after applying `self.deltas`
-    #[serde(deserialize_with = "<Commitment<STATE> as Deserialize>::deserialize")]
     #[debug(skip)]
-    pub state_commitment: Commitment<STATE>,
+    pub state_commitment: Commitment<TYPES::StateType>,
 
     /// Transactions that were marked for rejection while collecting deltas
-    #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>> as Deserialize>::deserialize")]
-    pub rejected: Vec<TxnCommitment<STATE>>,
+    pub rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
 
     /// the propser id
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
@@ -196,33 +187,28 @@ pub struct ProposalLeaf<STATE: State> {
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
-#[derive(Serialize, Deserialize, custom_debug::Debug, Clone, Derivative)]
-#[derivative(PartialEq, Eq)]
-pub struct Leaf<STATE: State> {
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative)]
+#[derivative(PartialEq)]
+#[serde(bound(deserialize = ""))]
+pub struct Leaf<TYPES: NodeTypes> {
     /// CurView from leader when proposing leaf
-    pub view_number: ViewNumber,
+    pub view_number: TYPES::Time,
 
     /// Per spec, justification
-    #[serde(deserialize_with = "<QuorumCertificate<STATE> as Deserialize>::deserialize")]
-    pub justify_qc: QuorumCertificate<STATE>,
+    pub justify_qc: QuorumCertificate<TYPES>,
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
-    #[debug(skip)]
-    #[serde(deserialize_with = "<Commitment<Leaf<STATE>> as Deserialize>::deserialize")]
-    pub parent_commitment: Commitment<Leaf<STATE>>,
+    pub parent_commitment: Commitment<Leaf<TYPES>>,
 
     /// Block leaf wants to apply
-    #[serde(deserialize_with = "STATE::BlockType::deserialize")]
-    pub deltas: STATE::BlockType,
+    pub deltas: TYPES::BlockType,
 
     /// What the state should be AFTER applying `self.deltas`
-    #[serde(deserialize_with = "STATE::deserialize")]
-    pub state: STATE,
+    pub state: TYPES::StateType,
 
     /// Transactions that were marked for rejection while collecting deltas
-    #[serde(deserialize_with = "<Vec<TxnCommitment<STATE>> as Deserialize>::deserialize")]
-    pub rejected: Vec<TxnCommitment<STATE>>,
+    pub rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
 
     /// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
     #[derivative(PartialEq = "ignore")]
@@ -247,14 +233,13 @@ pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitm
         .finalize()
 }
 
-impl<STATE: State> Committable for Leaf<STATE> {
+impl<TYPES: NodeTypes> Committable for Leaf<TYPES> {
     fn commit(&self) -> commit::Commitment<Self> {
         let mut signatures_bytes = vec![];
         for (k, v) in &self.justify_qc.signatures {
-            // TODO there is probably a way to avoid cloning.
-            signatures_bytes.append(&mut k.0.clone());
-            signatures_bytes.append(&mut v.0 .0.clone());
-            signatures_bytes.append(&mut v.1.clone());
+            signatures_bytes.extend(&k.0);
+            signatures_bytes.extend(&v.0 .0);
+            signatures_bytes.extend(v.1.commit().as_ref());
         }
         commit::RawCommitmentBuilder::new("Leaf Comm")
             .constant_str("view_number")
@@ -278,8 +263,8 @@ impl<STATE: State> Committable for Leaf<STATE> {
     }
 }
 
-impl<STATE: State> From<Leaf<STATE>> for ProposalLeaf<STATE> {
-    fn from(leaf: Leaf<STATE>) -> Self {
+impl<TYPES: NodeTypes> From<Leaf<TYPES>> for ProposalLeaf<TYPES> {
+    fn from(leaf: Leaf<TYPES>) -> Self {
         Self {
             view_number: leaf.view_number,
             justify_qc: leaf.justify_qc,
@@ -292,7 +277,7 @@ impl<STATE: State> From<Leaf<STATE>> for ProposalLeaf<STATE> {
     }
 }
 
-impl<STATE: State<Time = ViewNumber>> Leaf<STATE> {
+impl<TYPES: NodeTypes> Leaf<TYPES> {
     /// Creates a new leaf with the specified block and parent
     ///
     /// # Arguments
@@ -300,12 +285,12 @@ impl<STATE: State<Time = ViewNumber>> Leaf<STATE> {
     ///   * `parent` - The hash of the `Leaf` that is to be the parent of this `Leaf`
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        state: STATE,
-        deltas: STATE::BlockType,
-        parent_commitment: Commitment<Leaf<STATE>>,
-        justify_qc: QuorumCertificate<STATE>,
-        view_number: ViewNumber,
-        rejected: Vec<TxnCommitment<STATE>>,
+        state: TYPES::StateType,
+        deltas: TYPES::BlockType,
+        parent_commitment: Commitment<Leaf<TYPES>>,
+        justify_qc: QuorumCertificate<TYPES>,
+        view_number: TYPES::Time,
+        rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
         timestamp: i128,
         proposer_id: EncodedPublicKey,
     ) -> Self {
@@ -330,13 +315,13 @@ impl<STATE: State<Time = ViewNumber>> Leaf<STATE> {
     ///
     /// Panics if deltas is not a valid genesis block,
     /// or if state cannot extend deltas from default()
-    pub fn genesis(deltas: STATE::BlockType) -> Self {
+    pub fn genesis(deltas: TYPES::BlockType) -> Self {
         // if this fails, we're not able to initialize consensus.
-        let state = STATE::default()
-            .append(&deltas, &ViewNumber::genesis())
+        let state = TYPES::StateType::default()
+            .append(&deltas, &TYPES::Time::genesis())
             .unwrap();
         Self {
-            view_number: ViewNumber::genesis(),
+            view_number: TYPES::Time::genesis(),
             justify_qc: QuorumCertificate::genesis(),
             parent_commitment: fake_commitment(),
             deltas,
@@ -348,8 +333,8 @@ impl<STATE: State<Time = ViewNumber>> Leaf<STATE> {
     }
 }
 
-impl<STATE: State<Time = ViewNumber>> From<StoredView<STATE>> for Leaf<STATE> {
-    fn from(append: StoredView<STATE>) -> Self {
+impl<TYPES: NodeTypes> From<StoredView<TYPES>> for Leaf<TYPES> {
+    fn from(append: StoredView<TYPES>) -> Self {
         Leaf::new(
             append.state,
             append.append.into_deltas(),
@@ -363,8 +348,8 @@ impl<STATE: State<Time = ViewNumber>> From<StoredView<STATE>> for Leaf<STATE> {
     }
 }
 
-impl<STATE: State> From<Leaf<STATE>> for StoredView<STATE> {
-    fn from(val: Leaf<STATE>) -> Self {
+impl<TYPES: NodeTypes> From<Leaf<TYPES>> for StoredView<TYPES> {
+    fn from(val: Leaf<TYPES>) -> Self {
         StoredView {
             view_number: val.view_number,
             parent: val.parent_commitment,

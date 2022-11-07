@@ -4,18 +4,11 @@ use ark_bls12_381::Parameters as Param381;
 use blake3::Hasher;
 use common::*;
 use either::Either::Right;
-use hotshot::{
-    demos::dentry::DEntryState,
-    traits::{
-        election::{
-            static_committee::{StaticCommittee, StaticElectionConfig},
-            vrf::{VRFPubKey, VRFStakeTableConfig, VrfImpl},
-        },
-        implementations::{CentralizedServerNetwork, MemoryStorage},
-    },
+use hotshot::traits::{
+    election::{static_committee::StaticCommittee, vrf::VrfImpl},
+    implementations::{CentralizedServerNetwork, MemoryStorage},
 };
 use hotshot_testing::TestNodeImpl;
-use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
 use hotshot_utils::test_util::shutdown_logging;
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use tracing::instrument;
@@ -42,13 +35,12 @@ async fn centralized_server_network_vrf() {
     };
 
     description
-        .build::<TestNodeImpl<
-            DEntryState,
-            MemoryStorage<DEntryState>,
-            CentralizedServerNetwork<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
-            VRFPubKey<BLSSignatureScheme<Param381>>,
+        .build::<VrfTestTypes, TestNodeImpl<
+            VrfTestTypes,
+            CentralizedServerNetwork<VrfTestTypes>,
+            MemoryStorage<VrfTestTypes>,
             VrfImpl<
-                DEntryState,
+                VrfTestTypes,
                 BLSSignatureScheme<Param381>,
                 BLSVRFScheme<Param381>,
                 Hasher,
@@ -83,12 +75,11 @@ async fn centralized_server_network() {
     };
 
     description
-        .build::<TestNodeImpl<
-            DEntryState,
-            MemoryStorage<DEntryState>,
-            CentralizedServerNetwork<Ed25519Pub, StaticElectionConfig>,
-            Ed25519Pub,
-            StaticCommittee<DEntryState>,
+        .build::<StaticCommitteeTestTypes, TestNodeImpl<
+            StaticCommitteeTestTypes,
+            CentralizedServerNetwork<StaticCommitteeTestTypes>,
+            MemoryStorage<StaticCommitteeTestTypes>,
+            StaticCommittee<StaticCommitteeTestTypes>,
         >>()
         .execute()
         .await
@@ -119,12 +110,11 @@ async fn test_stress_centralized_server_network() {
     };
 
     description
-        .build::<TestNodeImpl<
-            DEntryState,
-            MemoryStorage<DEntryState>,
-            CentralizedServerNetwork<Ed25519Pub, StaticElectionConfig>,
-            Ed25519Pub,
-            StaticCommittee<DEntryState>,
+        .build::<StaticCommitteeTestTypes, TestNodeImpl<
+            StaticCommitteeTestTypes,
+            CentralizedServerNetwork<StaticCommitteeTestTypes>,
+            MemoryStorage<StaticCommitteeTestTypes>,
+            StaticCommittee<StaticCommitteeTestTypes>,
         >>()
         .execute()
         .await
