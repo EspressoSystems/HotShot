@@ -2179,7 +2179,7 @@ dependencies = [
  "sha2 0.10.6",
  "snafu",
  "tempfile",
- "time 0.3.16",
+ "time 0.3.17",
  "tokio",
  "toml",
  "tracing",
@@ -2220,7 +2220,7 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "snafu",
- "time 0.3.16",
+ "time 0.3.17",
  "tokio",
  "tracing",
 ]
@@ -2276,7 +2276,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "tagged-base64 0.2.2",
- "time 0.3.16",
+ "time 0.3.17",
  "tokio",
  "tracing",
 ]
@@ -3928,15 +3928,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19e64526ebdee182341572e50e9ad03965aa510cd94427a4549448f285e957a1"
 dependencies = [
  "hermit-abi",
- "libc",
-]
-
-[[package]]
-name = "num_threads"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2819ce041d2ee131036f4fc9d6ae7ae125a3a40e97ba64d04fe799ad9dabbb44"
-dependencies = [
  "libc",
 ]
 
@@ -5717,12 +5708,10 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.16"
+version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fab5c8b9980850e06d92ddbe3ab839c062c801f3927c0fb8abd6fc8e918fbca"
+checksum = "a561bf4617eebd33bca6434b988f39ed798e527f51a1e797d0ee4f61c0a38376"
 dependencies = [
- "libc",
- "num_threads",
  "serde",
  "time-core",
 ]
