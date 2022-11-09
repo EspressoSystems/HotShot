@@ -1,6 +1,8 @@
 # NOTE run from parent directory
 FROM ubuntu:jammy
 
+EXPOSE 9000
+
 # assuming this is built already
 COPY target/release-lto/examples/multi-machine-libp2p /bin/multi-machine-libp2p
 
