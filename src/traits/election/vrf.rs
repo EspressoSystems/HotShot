@@ -639,7 +639,7 @@ fn calculate_threshold_from_cache(
                 BigUint::from(query.stake_attempt),
             );
             let p = query.get_p();
-            assert!(p.numer() < p.denom());
+            assert!(p.numer() <= p.denom(), "P invalid, number = {}, denom = {}", p.numer(), p.denom());
             let reciprocal = Ratio::recip(&(Ratio::from_integer(BigUint::from(1_u32)) - p.clone()));
             let result = previous_result * p * reciprocal * permutation;
             assert!(result.numer() < result.denom());
@@ -685,7 +685,7 @@ fn calculate_threshold(query: BinomialQuery) -> Option<Ratio<BigUint>> {
     // this is the p parameter for the bernoulli distribution
     let p = Ratio::new(sortition_parameter_big, total_stake_big);
 
-    assert!(p.numer() <= p.denom());
+    assert!(p.numer() <= p.denom(), "P invalid, number = {}, denom = {}", p.numer(), p.denom());
 
     info!("p is {p:?}");
 
