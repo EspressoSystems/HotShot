@@ -102,9 +102,9 @@ impl<K, E> RoundConfig<K, E> {
                     // we have enough bootstrap nodes
                     // fill the bootstrap nodes list in `libp2p_config`, then send this to the other nodes
                     libp2p_config.bootstrap_nodes = Vec::new();
-                    for (idx, (addr, _sender)) in self.libp2p_config_sender.iter().enumerate() {
+                    for (_idx, (addr, _sender)) in self.libp2p_config_sender.iter().enumerate() {
                         let pair = libp2p_core::identity::Keypair::generate_ed25519();
-                        let port = libp2p_config.base_port + idx as u16;
+                        let port = libp2p_config.base_port; //  + idx as u16;
                         let peer_id = PeerId::from_public_key(&pair.public());
                         error!(" - {peer_id} at {addr}:{port}");
                         libp2p_config.bootstrap_nodes.push((

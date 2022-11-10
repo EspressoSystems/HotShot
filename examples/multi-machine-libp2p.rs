@@ -280,7 +280,7 @@ impl CliOrchestrated {
                 } else {
                     "ip6"
                 },
-                libp2p_config.public_ip,
+                "0.0.0.0",
                 // Needs to be mapped to the same port as the ECS task
                 // libp2p_config.base_port + config.node_index as u16
                 libp2p_config.base_port,
