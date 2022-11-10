@@ -453,7 +453,7 @@ impl Config {
             .collect();
 
         let election_config = VRFStakeTableConfig {
-            sortition_parameter: NonZeroU64::new(10000).unwrap(),
+            sortition_parameter: NonZeroU64::new((known_nodes.len() * 10) as u64).unwrap(),
             distribution: known_nodes
                 .iter()
                 .map(|_| NonZeroU64::new(100).unwrap())
