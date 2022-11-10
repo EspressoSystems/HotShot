@@ -41,7 +41,6 @@ pub struct Libp2pConfig {
     pub propose_min_round_time: u64,
     pub propose_max_round_time: u64,
     pub online_time: u64,
-    pub num_txn_per_round: u64,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -58,7 +57,6 @@ pub struct Libp2pConfigFile {
     pub propose_min_round_time: u64,
     pub propose_max_round_time: u64,
     pub online_time: u64,
-    pub num_txn_per_round: u64,
     pub base_port: u16,
 }
 
@@ -139,7 +137,6 @@ impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
                 propose_min_round_time: libp2p_config.propose_min_round_time,
                 propose_max_round_time: libp2p_config.propose_max_round_time,
                 online_time: libp2p_config.online_time,
-                num_txn_per_round: libp2p_config.num_txn_per_round,
             }),
             config: val.config.into(),
             key_type_name: std::any::type_name::<K>().to_string(),

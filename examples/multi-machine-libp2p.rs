@@ -300,7 +300,8 @@ impl CliOrchestrated {
             propose_min_round_time: libp2p_config.propose_min_round_time,
             propose_max_round_time: libp2p_config.propose_max_round_time,
             online_time: libp2p_config.online_time,
-            num_txn_per_round: libp2p_config.num_txn_per_round,
+            num_txn_per_round: config.transactions_per_round as u64,
+            padding: config.padding,
         })
     }
 }
@@ -359,6 +360,7 @@ impl CliStandalone {
             propose_max_round_time: self.propose_max_round_time,
             online_time: self.online_time,
             num_txn_per_round: self.num_txn_per_round,
+            padding: 0,
         }
     }
 }
@@ -391,6 +393,7 @@ struct Config {
     propose_max_round_time: u64,
     online_time: u64,
     num_txn_per_round: u64,
+    padding: usize,
 }
 
 impl Config {
@@ -562,6 +565,12 @@ async fn main() {
     let mut num_succeeded_views = 0;
 
     let online_time = Duration::from_secs(60 * config.online_time);
+    let size = std::mem::size_of::<DEntryTransaction>();
+    let adjusted_padding = if config.padding < size {
+        0
+    } else {
+        config.padding - size
+    };
 
     let mut total_txns = 0;
 
@@ -572,8 +581,9 @@ async fn main() {
             let state = hotshot.get_state().await;
 
             for _ in 0..config.num_txn_per_round {
-                let txn =
+                let mut txn =
                     <DEntryState as TestableState>::create_random_transaction(&state, &mut rng);
+                txn.padding = vec![0; adjusted_padding];
                 info!("Submitting txn on view {}", view);
                 hotshot.submit_transaction(txn).await.unwrap();
             }

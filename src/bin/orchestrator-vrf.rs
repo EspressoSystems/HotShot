@@ -6,10 +6,9 @@ use hotshot_centralized_server::{
     config::{HotShotConfigFile, Libp2pConfigFile, NetworkConfigFile, RoundConfig},
     NetworkConfig, Server,
 };
-use hotshot_types::traits::signature_key::TestableSignatureKey;
 use hotshot_utils::art::async_main;
 use hotshot_utils::test_util::setup_logging;
-use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
+use jf_primitives::signatures::BLSSignatureScheme;
 use std::{fs, num::NonZeroUsize, time::Duration};
 
 #[derive(clap::Parser)]
@@ -113,7 +112,6 @@ fn load_configs(
                     propose_min_round_time: 0,
                     propose_max_round_time: 10,
                     online_time: 10,
-                    num_txn_per_round: 10,
                     base_port: 2346,
                 })
             } else {

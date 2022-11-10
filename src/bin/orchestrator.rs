@@ -105,7 +105,6 @@ fn load_configs(
                     propose_min_round_time: 0,
                     propose_max_round_time: 10,
                     online_time: 10,
-                    num_txn_per_round: 10,
                     base_port: 2346,
                 })
             } else {
