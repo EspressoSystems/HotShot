@@ -452,12 +452,18 @@ impl Config {
             })
             .collect();
 
+        let mut distribution = Vec::new();
+        for i in 0..known_nodes.len() {
+            if i < known_nodes.len() / 10 {
+                distribution.push(NonZeroU64::new(900).unwrap());
+            } else {
+                distribution.push(NonZeroU64::new(10).unwrap());
+            }
+        }
+
         let election_config = VRFStakeTableConfig {
-            sortition_parameter: NonZeroU64::new((known_nodes.len() * 10) as u64).unwrap(),
-            distribution: known_nodes
-                .iter()
-                .map(|_| NonZeroU64::new(100).unwrap())
-                .collect(),
+            sortition_parameter: NonZeroU64::new((10 * known_nodes.len() as u64)).unwrap(),
+            distribution,
         };
         let election =
             VrfImpl::with_initial_stake(known_nodes.clone(), &election_config, genesis_seed.into());
