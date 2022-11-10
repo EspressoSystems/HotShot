@@ -2,15 +2,17 @@
 
 use async_trait::async_trait;
 use commit::Commitment;
+use hotshot_types::message::ConsensusMessage;
 use hotshot_types::traits::election::Checked;
+use hotshot_types::traits::node_implementation::NodeTypes;
+use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
-    data::{Leaf, QuorumCertificate, ViewNumber},
+    data::{Leaf, QuorumCertificate},
     error::HotShotError,
     event::{Event, EventType},
     traits::{
-        election::{Election, ElectionError},
+        election::ElectionError,
         network::NetworkError,
-        node_implementation::{NodeImplementation, TypeMap},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
@@ -22,7 +24,7 @@ use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 ///
 /// [`HotStuff`]: struct.HotStuff.html
 #[async_trait]
-pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
+pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     /// Total number of nodes in the network. Also known as `n`.
     fn total_nodes(&self) -> NonZeroUsize;
 
@@ -36,8 +38,12 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// If this time is reached, the leader has to send a propose without transactions.
     fn propose_max_round_time(&self) -> Duration;
 
-    /// Get a reference to the storage implementation
-    fn storage(&self) -> &I::Storage;
+    /// Store a leaf in the storage
+    async fn store_leaf(
+        &self,
+        old_anchor_view: TYPES::Time,
+        leaf: Leaf<TYPES>,
+    ) -> Result<(), StorageError>;
 
     /// Retuns the maximum transactions allowed in a block
     fn max_transactions(&self) -> NonZeroUsize;
@@ -49,55 +55,49 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     #[allow(clippy::type_complexity)]
     fn generate_vote_token(
         &self,
-        view_number: ViewNumber,
-        next_state: Commitment<Leaf<I::StateType>>,
-    ) -> Result<
-        Option<<I::Election as Election<I::SignatureKey, ViewNumber>>::VoteTokenType>,
-        ElectionError,
-    >;
-
-    /// return a reference to the election
-    fn get_election(&self) -> &I::Election;
+        view_number: TYPES::Time,
+        next_state: Commitment<Leaf<TYPES>>,
+    ) -> Result<Option<TYPES::VoteTokenType>, ElectionError>;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
-    async fn get_leader(&self, view_number: ViewNumber) -> I::SignatureKey;
+    async fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
 
     /// Returns `true` if hotstuff should start the given round. A round can also be started manually by sending `NewView` to the leader.
     ///
     /// In production code this should probably always return `true`.
-    async fn should_start_round(&self, view_number: ViewNumber) -> bool;
+    async fn should_start_round(&self, view_number: TYPES::Time) -> bool;
 
     /// Send a direct message to the given recipient
     async fn send_direct_message(
         &self,
-        recipient: I::SignatureKey,
-        message: <I as TypeMap>::ConsensusMessage,
+        recipient: TYPES::SignatureKey,
+        message: ConsensusMessage<TYPES>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Send a broadcast message to the entire network.
     async fn send_broadcast_message(
         &self,
-        message: <I as TypeMap>::ConsensusMessage,
+        message: ConsensusMessage<TYPES>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Notify the system of an event within `hotshot-consensus`.
-    async fn send_event(&self, event: Event<I::StateType>);
+    async fn send_event(&self, event: Event<TYPES>);
 
     /// Get a reference to the public key.
-    fn public_key(&self) -> &I::SignatureKey;
+    fn public_key(&self) -> &TYPES::SignatureKey;
 
     /// Get a reference to the private key.
-    fn private_key(&self) -> &<I::SignatureKey as SignatureKey>::PrivateKey;
+    fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey;
 
     // Utility functions
 
     /// returns `true` if the current node is a leader for the given `view_number`
-    async fn is_leader(&self, view_number: ViewNumber) -> bool {
+    async fn is_leader(&self, view_number: TYPES::Time) -> bool {
         &self.get_leader(view_number).await == self.public_key()
     }
 
     /// notifies client of an error
-    async fn send_view_error(&self, view_number: ViewNumber, error: Arc<HotShotError>) {
+    async fn send_view_error(&self, view_number: TYPES::Time, error: Arc<HotShotError<TYPES>>) {
         self.send_event(Event {
             view_number,
             event: EventType::Error { error },
@@ -106,7 +106,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     }
 
     /// notifies client of a replica timeout
-    async fn send_replica_timeout(&self, view_number: ViewNumber) {
+    async fn send_replica_timeout(&self, view_number: TYPES::Time) {
         self.send_event(Event {
             view_number,
             event: EventType::ReplicaViewTimeout { view_number },
@@ -115,7 +115,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     }
 
     /// notifies client of a next leader timeout
-    async fn send_next_leader_timeout(&self, view_number: ViewNumber) {
+    async fn send_next_leader_timeout(&self, view_number: TYPES::Time) {
         self.send_event(Event {
             view_number,
             event: EventType::NextLeaderViewTimeout { view_number },
@@ -124,7 +124,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     }
 
     /// sends a decide event down the channel
-    async fn send_decide(&self, view_number: ViewNumber, leaf_views: Vec<Leaf<I::StateType>>) {
+    async fn send_decide(&self, view_number: TYPES::Time, leaf_views: Vec<Leaf<TYPES>>) {
         self.send_event(Event {
             view_number,
             event: EventType::Decide {
@@ -135,7 +135,7 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     }
 
     /// Sends a `ViewFinished` event
-    async fn send_view_finished(&self, view_number: ViewNumber) {
+    async fn send_view_finished(&self, view_number: TYPES::Time) {
         self.send_event(Event {
             view_number,
             event: EventType::ViewFinished { view_number },
@@ -146,39 +146,34 @@ pub trait ConsensusApi<I: NodeImplementation>: Send + Sync {
     /// Signs a vote
     fn sign_vote(
         &self,
-        leaf_commitment: &Commitment<Leaf<I::StateType>>,
-        _view_number: ViewNumber,
+        leaf_commitment: &Commitment<Leaf<TYPES>>,
+        _view_number: TYPES::Time,
     ) -> (EncodedPublicKey, EncodedSignature) {
-        let signature = I::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
+        let signature = TYPES::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
         (self.public_key().to_bytes(), signature)
     }
 
     /// Signs a proposal
     fn sign_proposal(
         &self,
-        leaf_commitment: &Commitment<Leaf<I::StateType>>,
-        _view_number: ViewNumber,
+        leaf_commitment: &Commitment<Leaf<TYPES>>,
+        _view_number: TYPES::Time,
     ) -> EncodedSignature {
-        let signature = I::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
+        let signature = TYPES::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
         signature
     }
 
     /// Validate a quorum certificate by checking
     /// signatures
-    fn validate_qc(&self, quorum_certificate: &QuorumCertificate<I::StateType>) -> bool;
+    fn validate_qc(&self, quorum_certificate: &QuorumCertificate<TYPES>) -> bool;
 
     /// Check if a signature is valid
     fn is_valid_signature(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<Leaf<I::StateType>>,
-        view_number: ViewNumber,
-        vote_token: Checked<
-            <<I as NodeImplementation>::Election as Election<
-                <I as NodeImplementation>::SignatureKey,
-                ViewNumber,
-            >>::VoteTokenType,
-        >,
+        hash: Commitment<Leaf<TYPES>>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool;
 }

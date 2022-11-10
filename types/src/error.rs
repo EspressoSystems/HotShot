@@ -3,7 +3,7 @@
 //! This module provides [`HotShotError`], which is an enum representing possible faults that can
 //! occur while interacting with this crate.
 
-use crate::{data::ViewNumber, traits::storage::StorageError};
+use crate::traits::{node_implementation::NodeTypes, storage::StorageError};
 use snafu::Snafu;
 use std::num::NonZeroU64;
 
@@ -15,10 +15,10 @@ use tokio::time::error::Elapsed as TimeoutError;
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 /// Error type for `HotShot`
-#[derive(Debug, Snafu)]
+#[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
-pub enum HotShotError {
+pub enum HotShotError<TYPES: NodeTypes> {
     /// Failed to Message the leader in the given stage
     #[snafu(display("Failed to message leader with error: {source}"))]
     FailedToMessageLeader {
@@ -64,7 +64,7 @@ pub enum HotShotError {
     /// HotShot timed out during round
     ViewTimeoutError {
         /// view number
-        view_number: ViewNumber,
+        view_number: TYPES::Time,
         /// The state that the round was in when it timed out
         state: RoundTimedoutState,
     },

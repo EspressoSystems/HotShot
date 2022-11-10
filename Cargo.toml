@@ -4,14 +4,14 @@ description = "HotShot consesus module"
 edition = "2021"
 name = "hotshot"
 readme = "README.md"
-version = "0.3.1"
-rust-version = "1.63.0"
+version = "0.3.3"
+rust-version = "1.65.0"
 
 [features]
 default = ["demo", "docs", "doc-images"]
 
 # Enable demo/testing logic
-demo = ["blake3", "hotshot-types/demo", "libp2p/rsa"]
+demo = ["dep:blake3", "hotshot-types/demo", "libp2p/rsa", "dep:derivative"]
 
 # Features required for binaries
 bin-orchestrator = ["toml", "clap"]
@@ -109,6 +109,7 @@ clap = { version = "4.0", features = ["derive", "env"], optional = true }
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.0" }
 custom_debug = "0.5"
 dashmap = "5.3.4"
+derivative = { version = "2.2.0", optional = true }
 digest = "0.10.5"
 embed-doc-image = "0.1.4"
 futures = "0.3.25"
@@ -151,7 +152,7 @@ rand_chacha = "0.3.1"
 serde = { version = "1.0.147", features = ["derive", "rc"] }
 snafu = "0.7.3"
 tempfile = "3.3.0"
-time = "0.3.16"
+time = "0.3.17"
 toml = { version = "0.5.9", optional = true }
 tokio = { version = "1", optional = true, features = [
         "fs",
@@ -169,7 +170,7 @@ tokio = { version = "1", optional = true, features = [
         "tracing",
 ] }
 tracing = "0.1.37"
-tracing-unwrap = "0.9.2"
+tracing-unwrap = { version = "0.10.0", features = ["log-location"] }
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }

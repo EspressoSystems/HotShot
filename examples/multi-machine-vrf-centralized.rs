@@ -2,6 +2,7 @@ use ark_bls12_381::Parameters as Param381;
 use blake3::Hasher;
 use clap::Parser;
 use commit::Committable;
+use hotshot::traits::election::vrf::VRFVoteToken;
 use hotshot::types::SignatureKey;
 use hotshot::{
     demos::dentry::*,
@@ -14,11 +15,16 @@ use hotshot::{
     HotShot,
 };
 use hotshot_centralized_server::{NetworkConfig, RunResults};
-use hotshot_types::{traits::state::TestableState, HotShotConfig};
+use hotshot_types::{
+    data::ViewNumber,
+    traits::{node_implementation::NodeTypes, state::TestableState},
+    HotShotConfig,
+};
 use hotshot_utils::{
     art::{async_main, async_sleep},
     test_util::{setup_backtrace, setup_logging},
 };
+use jf_primitives::signatures::bls::{BLSSignature, BLSVerKey};
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use std::{
     cmp,
@@ -31,10 +37,36 @@ use std::{
 };
 use tracing::{debug, error};
 
+/// Implementation of [`NodeTypes`] for [`DEntryNode`]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub struct VrfTypes;
+
+impl NodeTypes for VrfTypes {
+    type Time = ViewNumber;
+    type BlockType = DEntryBlock;
+    type SignatureKey = VRFPubKey<BLSSignatureScheme<Param381>>;
+    type VoteTokenType =
+        VRFVoteToken<BLSVerKey<ark_bls12_381::Parameters>, BLSSignature<ark_bls12_381::Parameters>>;
+    type Transaction = DEntryTransaction;
+    type ElectionConfigType = VRFStakeTableConfig;
+    type StateType = DEntryState;
+}
 type Node = DEntryNode<
-    CentralizedServerNetwork<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
-    VrfImpl<DEntryState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
-    VRFPubKey<BLSSignatureScheme<Param381>>,
+    VrfTypes,
+    CentralizedServerNetwork<VrfTypes>,
+    VrfImpl<VrfTypes, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
 >;
 
 #[derive(Debug, Parser)]
@@ -53,14 +85,11 @@ struct NodeOpt {
 /// Creates the initial state and hotshot for simulation.
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
 async fn init_state_and_hotshot(
-    networking: CentralizedServerNetwork<
-        VRFPubKey<BLSSignatureScheme<Param381>>,
-        VRFStakeTableConfig,
-    >,
+    networking: CentralizedServerNetwork<VrfTypes>,
     config: HotShotConfig<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
     seed: [u8; 32],
     node_id: u64,
-) -> (DEntryState, HotShotHandle<Node>) {
+) -> (DEntryState, HotShotHandle<VrfTypes, Node>) {
     // Create the initial block
     let accounts: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
@@ -112,7 +141,7 @@ async fn init_state_and_hotshot(
     .expect("Could not init hotshot");
     debug!("hotshot launched");
 
-    let storage: &MemoryStorage<DEntryState> = hotshot.storage();
+    let storage: &MemoryStorage<VrfTypes> = hotshot.storage();
 
     let state = storage.get_anchored_view().await.unwrap().state;
 
@@ -254,10 +283,7 @@ async fn main() {
     );
     debug!("All rounds completed");
 
-    let networking: &CentralizedServerNetwork<
-        VRFPubKey<BLSSignatureScheme<Param381>>,
-        VRFStakeTableConfig,
-    > = hotshot.networking();
+    let networking: &CentralizedServerNetwork<VrfTypes> = hotshot.networking();
     networking
         .send_results(RunResults {
             run,

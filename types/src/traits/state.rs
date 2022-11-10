@@ -3,10 +3,10 @@
 //! This module provides the [`State`] trait, which serves as an abstraction over the current
 //! network state, which is modified by the transactions contained within blocks.
 
-use crate::{data::ViewNumber, traits::Block};
+use crate::traits::Block;
 use commit::Committable;
 use serde::{de::DeserializeOwned, Serialize};
-use std::{error::Error, fmt::Debug, hash::Hash};
+use std::{error::Error, fmt::Debug, hash::Hash, ops, ops::Deref};
 
 /// Abstraction over the state that blocks modify
 ///
@@ -42,22 +42,48 @@ pub trait State:
     /// Returns an empty, template next block given this current state
     fn next_block(&self) -> Self::BlockType;
     /// Returns true if and only if the provided block is valid and can extend this state
-    fn validate_block(&self, block: &Self::BlockType, time: &Self::Time) -> bool;
+    fn validate_block(&self, block: &Self::BlockType, view_number: &Self::Time) -> bool;
     /// Appends the given block to this state, returning an new state
     ///
     /// # Errors
     ///
     /// Should produce and error if appending this block would lead to an invalid state
-    fn append(&self, block: &Self::BlockType, time: &Self::Time) -> Result<Self, Self::Error>;
+    fn append(
+        &self,
+        block: &Self::BlockType,
+        view_number: &Self::Time,
+    ) -> Result<Self, Self::Error>;
     /// Gets called to notify the persistence backend that this state has been committed
     fn on_commit(&self);
 }
 
 /// Trait for time abstraction needed for reward collection
-pub trait ConsensusTime: PartialOrd {}
+pub trait ConsensusTime:
+    PartialOrd
+    + Ord
+    + Send
+    + Sync
+    + Debug
+    + Clone
+    + Copy
+    + Hash
+    + Deref<Target = u64>
+    + serde::Serialize
+    + for<'de> serde::Deserialize<'de>
+    + ops::AddAssign<u64>
+    + ops::Add<u64, Output = Self>
+    + 'static
+{
+    /// Create a new instance of this time unit at time number 0
+    fn genesis() -> Self {
+        Self::new(0)
+    }
+    /// Create a new instance of this time unit
+    fn new(val: u64) -> Self;
+}
 
 /// extra functions required on state to be usable by hotshot-testing
-pub trait TestableState: State<Time = ViewNumber>
+pub trait TestableState: State
 where
     <Self as State>::BlockType: TestableBlock,
 {
@@ -81,7 +107,7 @@ pub mod dummy {
     use super::*;
     use crate::{
         data::ViewNumber,
-        traits::block_contents::dummy::{DummyBlock, DummyError},
+        traits::block_contents::dummy::{DummyBlock, DummyError, DummyTransaction},
     };
     use rand::Rng;
     use serde::Deserialize;
@@ -120,18 +146,26 @@ pub mod dummy {
             DummyBlock { nonce: self.nonce }
         }
 
-        fn validate_block(&self, _block: &Self::BlockType, _time: &Self::Time) -> bool {
+        fn validate_block(&self, _block: &Self::BlockType, _view_number: &Self::Time) -> bool {
             false
         }
 
         fn append(
             &self,
             _block: &Self::BlockType,
-            _time: &Self::Time,
+            _view_number: &Self::Time,
         ) -> Result<Self, Self::Error> {
-            Err(DummyError)
+            Ok(Self {
+                nonce: self.nonce + 1,
+            })
         }
 
         fn on_commit(&self) {}
+    }
+
+    impl TestableState for DummyState {
+        fn create_random_transaction(&self, _: &mut dyn rand::RngCore) -> DummyTransaction {
+            DummyTransaction::Dummy
+        }
     }
 }

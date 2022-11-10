@@ -1,56 +1,26 @@
 mod common;
-use ark_bls12_381::Parameters as Param381;
-use blake3::Hasher;
+
 use commit::Committable;
 use common::{
     AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
-    TestRoundResult, TestTransaction,
+    StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType, VrfTestTypes,
 };
 use either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
-use hotshot::{
-    demos::dentry::{random_leaf, DEntryBlock, DEntryState},
-    traits::{
-        election::{
-            static_committee::StaticCommittee,
-            vrf::{VRFPubKey, VrfImpl},
-        },
-        implementations::{MemoryNetwork, MemoryStorage},
-    },
-    types::{ed25519::Ed25519Pub, Message, Vote},
-};
-use hotshot_testing::{ConsensusRoundError, TestNodeImpl};
+use hotshot::{demos::dentry::random_leaf, types::Vote};
+use hotshot_testing::{ConsensusRoundError, RoundResult};
 use hotshot_types::{
-    data::ViewNumber,
     message::{ConsensusMessage, Proposal},
+    traits::{
+        election::{Election, TestableElection},
+        node_implementation::NodeTypes,
+        signature_key::TestableSignatureKey,
+        state::{ConsensusTime, TestableBlock, TestableState},
+    },
 };
-use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use std::time::Duration;
 use std::time::Instant;
 use tracing::{instrument, warn};
-
-/// type synonym for vrf committee election
-/// with in-memory network
-pub type StandardNodeImplType = TestNodeImpl<
-    DEntryState,
-    MemoryStorage<DEntryState>,
-    MemoryNetwork<
-        Message<DEntryState, VRFPubKey<BLSSignatureScheme<Param381>>>,
-        VRFPubKey<BLSSignatureScheme<Param381>>,
-    >,
-    VRFPubKey<BLSSignatureScheme<Param381>>,
-    VrfImpl<DEntryState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
->;
-
-/// type synonym for static committee
-/// with in-memory network
-pub type StaticNodeImplType = TestNodeImpl<
-    DEntryState,
-    MemoryStorage<DEntryState>,
-    MemoryNetwork<Message<DEntryState, Ed25519Pub>, Ed25519Pub>,
-    Ed25519Pub,
-    StaticCommittee<DEntryState>,
->;
 
 const NUM_VIEWS: u64 = 100;
 const DEFAULT_NODE_ID: u64 = 0;
@@ -61,27 +31,36 @@ enum QueuedMessageTense {
 }
 
 /// Returns true if `node_id` is the leader of `view_number`
-async fn is_upcoming_leader(
-    runner: &AppliedTestRunner,
+async fn is_upcoming_leader<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+    runner: &AppliedTestRunner<TYPES, ELECTION>,
     node_id: u64,
-    view_number: ViewNumber,
-) -> bool {
+    view_number: TYPES::Time,
+) -> bool
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+{
     let handle = runner.get_handle(node_id).unwrap();
     let leader = handle.get_leader(view_number).await;
     leader == handle.get_public_key()
 }
 
 /// Builds and submits a random proposal for the specified view number
-async fn submit_proposal(
-    runner: &AppliedTestRunner,
+async fn submit_proposal<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+    runner: &AppliedTestRunner<TYPES, ELECTION>,
     sender_node_id: u64,
-    view_number: ViewNumber,
-    rng: &mut dyn rand::RngCore,
-) {
+    view_number: TYPES::Time,
+) where
+    TYPES::SignatureKey: TestableSignatureKey,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+{
+    let mut rng = rand::thread_rng();
     let handle = runner.get_handle(sender_node_id).unwrap();
 
     // Build proposal
-    let mut leaf = random_leaf(DEntryBlock::genesis(), rng);
+    let mut leaf = random_leaf(TYPES::BlockType::genesis(), &mut rng);
     leaf.view_number = view_number;
     let signature = handle.sign_proposal(&leaf.commit(), leaf.view_number);
     let msg = ConsensusMessage::Proposal(Proposal {
@@ -94,27 +73,31 @@ async fn submit_proposal(
 }
 
 /// Builds and submits a random vote for the specified view number from the specified node
-async fn submit_vote(
-    runner: &AppliedTestRunner,
+async fn submit_vote<TYPES: NodeTypes, ELECTION: TestableElection<TYPES>>(
+    runner: &AppliedTestRunner<TYPES, ELECTION>,
     sender_node_id: u64,
-    view_number: ViewNumber,
+    view_number: TYPES::Time,
     recipient_node_id: u64,
-    rng: &mut dyn rand::RngCore,
-) {
+) where
+    TYPES::SignatureKey: TestableSignatureKey,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+{
+    let mut rng = rand::thread_rng();
     let handle = runner.get_handle(sender_node_id).unwrap();
 
     // Build vote
-    let mut leaf = random_leaf(DEntryBlock::genesis(), rng);
+    let mut leaf = random_leaf(TYPES::BlockType::genesis(), &mut rng);
     leaf.view_number = view_number;
     let signature = handle.sign_vote(&leaf.commit(), leaf.view_number);
     let msg = ConsensusMessage::Vote(Vote {
         signature,
-        justify_qc_commitment: leaf.clone().justify_qc.commit(),
+        justify_qc_commitment: leaf.justify_qc.commit(),
         current_view: leaf.view_number,
         block_commitment: leaf.deltas.commit(),
         leaf_commitment: leaf.commit(),
         // TODO placeholder below
-        vote_token: Vec::new(),
+        vote_token: ELECTION::generate_test_vote_token(),
     });
 
     let recipient = runner
@@ -138,10 +121,15 @@ fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
 }
 
 /// Checks that votes are queued correctly for views 1..NUM_VIEWS
-fn test_vote_queueing_post_safety_check(
-    runner: &AppliedTestRunner,
-    _results: TestRoundResult,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
+fn test_vote_queueing_post_safety_check<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+    runner: &AppliedTestRunner<TYPES, ELECTION>,
+    _results: RoundResult<TYPES>,
+) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+{
     async move {
         let node_id = DEFAULT_NODE_ID;
         let mut result = Ok(());
@@ -151,8 +139,8 @@ fn test_vote_queueing_post_safety_check(
 
 
         for i in 1..NUM_VIEWS {
-            if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                let ref_view_number = ViewNumber::new(i - 1);
+            if is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await {
+                let ref_view_number = TYPES::Time::new(i - 1);
                 let is_past = ref_view_number < cur_view;
                 let len = handle
                     .get_next_leader_receiver_channel_len(ref_view_number)
@@ -178,16 +166,20 @@ fn test_vote_queueing_post_safety_check(
 }
 
 /// For 1..NUM_VIEWS submit votes to each node in the network
-fn test_vote_queueing_round_setup(
-    runner: &mut AppliedTestRunner,
-) -> LocalBoxFuture<Vec<TestTransaction>> {
+fn test_vote_queueing_round_setup<TYPES: NodeTypes, ELECTION: TestableElection<TYPES>>(
+    runner: &mut AppliedTestRunner<TYPES, ELECTION>,
+) -> LocalBoxFuture<Vec<TYPES::Transaction>>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+{
     async move {
-        let mut rng = rand::thread_rng();
         let node_id = DEFAULT_NODE_ID;
         for j in runner.ids() {
             for i in 1..NUM_VIEWS {
-                if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                    submit_vote(runner, j, ViewNumber::new(i - 1), node_id, &mut rng).await;
+                if is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await {
+                    submit_vote(runner, j, TYPES::Time::new(i - 1), node_id).await;
                 }
             }
         }
@@ -197,10 +189,15 @@ fn test_vote_queueing_round_setup(
 }
 
 /// Checks views 0..NUM_VIEWS for whether proposal messages are properly queued
-fn test_proposal_queueing_post_safety_check(
-    runner: &AppliedTestRunner,
-    _results: TestRoundResult,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
+fn test_proposal_queueing_post_safety_check<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+    runner: &AppliedTestRunner<TYPES, ELECTION>,
+    _results: RoundResult<TYPES>,
+) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+{
     async move {
         let node_id = DEFAULT_NODE_ID;
         let mut result = Ok(());
@@ -211,8 +208,8 @@ fn test_proposal_queueing_post_safety_check(
             let cur_view = handle.get_current_view().await;
 
             for i in 0..NUM_VIEWS {
-                if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                    let ref_view_number = ViewNumber::new(i);
+                if is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await {
+                    let ref_view_number = TYPES::Time::new(i);
                     let is_past = ref_view_number < cur_view;
                     let len = handle
                         .get_replica_receiver_channel_len(ref_view_number)
@@ -239,16 +236,20 @@ fn test_proposal_queueing_post_safety_check(
 }
 
 /// Submits proposals for 0..NUM_VIEWS rounds where `node_id` is the leader
-fn test_proposal_queueing_round_setup(
-    runner: &mut AppliedTestRunner,
-) -> LocalBoxFuture<Vec<TestTransaction>> {
+fn test_proposal_queueing_round_setup<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+    runner: &mut AppliedTestRunner<TYPES, ELECTION>,
+) -> LocalBoxFuture<Vec<TYPES::Transaction>>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+{
     async move {
-        let mut rng = rand::thread_rng();
         let node_id = DEFAULT_NODE_ID;
 
         for i in 0..NUM_VIEWS {
-            if is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
+            if is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await {
+                submit_proposal(runner, node_id, TYPES::Time::new(i)).await;
             }
         }
 
@@ -258,19 +259,23 @@ fn test_proposal_queueing_round_setup(
 }
 
 /// Submits proposals for views where `node_id` is not the leader, and submits multiple proposals for views where `node_id` is the leader
-fn test_bad_proposal_round_setup(
-    runner: &mut AppliedTestRunner,
-) -> LocalBoxFuture<Vec<TestTransaction>> {
+fn test_bad_proposal_round_setup<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+    runner: &mut AppliedTestRunner<TYPES, ELECTION>,
+) -> LocalBoxFuture<Vec<TYPES::Transaction>>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+{
     async move {
-        let mut rng = rand::thread_rng();
         let node_id = DEFAULT_NODE_ID;
         for i in 0..NUM_VIEWS {
-            if !is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await {
-                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
+            if !is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await {
+                submit_proposal(runner, node_id, TYPES::Time::new(i)).await;
             } else {
-                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
-                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
-                submit_proposal(runner, node_id, ViewNumber::new(i), &mut rng).await;
+                submit_proposal(runner, node_id, TYPES::Time::new(i)).await;
+                submit_proposal(runner, node_id, TYPES::Time::new(i)).await;
+                submit_proposal(runner, node_id, TYPES::Time::new(i)).await;
             }
         }
         Vec::new()
@@ -279,10 +284,15 @@ fn test_bad_proposal_round_setup(
 }
 
 /// Checks nodes do not queue bad proposal messages
-fn test_bad_proposal_post_safety_check(
-    runner: &AppliedTestRunner,
-    _results: TestRoundResult,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
+fn test_bad_proposal_post_safety_check<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+    runner: &AppliedTestRunner<TYPES, ELECTION>,
+    _results: RoundResult<TYPES>,
+) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+{
     async move {
         let node_id = DEFAULT_NODE_ID;
         let mut result = Ok(());
@@ -293,8 +303,8 @@ fn test_bad_proposal_post_safety_check(
             let cur_view = handle.get_current_view().await;
 
             for i in 0..NUM_VIEWS {
-                let is_upcoming_leader = is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await;
-                let ref_view_number = ViewNumber::new(i);
+                let is_upcoming_leader = is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await;
+                let ref_view_number = TYPES::Time::new(i);
                 let is_past = ref_view_number < cur_view;
                 let len = handle
                     .get_replica_receiver_channel_len(ref_view_number)
@@ -327,15 +337,19 @@ fn test_bad_proposal_post_safety_check(
 }
 
 /// Submits votes to non-leaders and submits too many votes from a singular node
-fn test_bad_vote_round_setup(
-    runner: &mut AppliedTestRunner,
-) -> LocalBoxFuture<Vec<TestTransaction>> {
+fn test_bad_vote_round_setup<TYPES: NodeTypes, ELECTION: TestableElection<TYPES>>(
+    runner: &mut AppliedTestRunner<TYPES, ELECTION>,
+) -> LocalBoxFuture<Vec<TYPES::Transaction>>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+{
     async move {
-        let mut rng = rand::thread_rng();
         let node_id = DEFAULT_NODE_ID;
         for j in runner.ids() {
             for i in 1..NUM_VIEWS {
-                submit_vote(runner, j, ViewNumber::new(i - 1), node_id, &mut rng).await;
+                submit_vote(runner, j, TYPES::Time::new(i - 1), node_id).await;
             }
         }
         Vec::new()
@@ -344,10 +358,15 @@ fn test_bad_vote_round_setup(
 }
 
 /// Checks that non-leaders do not queue votes, and that leaders do not queue more than 1 vote per node
-fn test_bad_vote_post_safety_check(
-    runner: &AppliedTestRunner,
-    _results: TestRoundResult,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
+fn test_bad_vote_post_safety_check<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+    runner: &AppliedTestRunner<TYPES, ELECTION>,
+    _results: RoundResult<TYPES>,
+) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+{
     async move {
         let node_id = DEFAULT_NODE_ID;
         let mut result = Ok(());
@@ -355,8 +374,8 @@ fn test_bad_vote_post_safety_check(
         let cur_view = handle.get_current_view().await;
 
         for i in 1..NUM_VIEWS {
-            let is_upcoming_leader = is_upcoming_leader(runner, node_id, ViewNumber::new(i)).await;
-            let ref_view_number = ViewNumber::new(i - 1);
+            let is_upcoming_leader = is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await;
+            let ref_view_number = TYPES::Time::new(i - 1);
             let is_past = ref_view_number < cur_view;
             let len = handle
                 .get_next_leader_receiver_channel_len(ref_view_number)
@@ -398,7 +417,7 @@ fn test_bad_vote_post_safety_check(
 #[ignore]
 async fn test_proposal_queueing() {
     let num_rounds = 10;
-    let description: DetailedTestDescriptionBuilder<StandardNodeImplType> =
+    let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
         DetailedTestDescriptionBuilder {
             general_info: GeneralTestDescriptionBuilder {
                 total_nodes: 4,
@@ -430,7 +449,7 @@ async fn test_proposal_queueing() {
 #[ignore]
 async fn test_vote_queueing() {
     let num_rounds = 10;
-    let description: DetailedTestDescriptionBuilder<StandardNodeImplType> =
+    let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
         DetailedTestDescriptionBuilder {
             general_info: GeneralTestDescriptionBuilder {
                 total_nodes: 4,
@@ -463,7 +482,7 @@ async fn test_vote_queueing() {
 #[ignore]
 async fn test_bad_proposal() {
     let num_rounds = 10;
-    let description: DetailedTestDescriptionBuilder<StandardNodeImplType> =
+    let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
         DetailedTestDescriptionBuilder {
             general_info: GeneralTestDescriptionBuilder {
                 total_nodes: 4,
@@ -495,7 +514,7 @@ async fn test_bad_proposal() {
 #[ignore]
 async fn test_bad_vote() {
     let num_rounds = 10;
-    let description: DetailedTestDescriptionBuilder<StandardNodeImplType> =
+    let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
         DetailedTestDescriptionBuilder {
             general_info: GeneralTestDescriptionBuilder {
                 total_nodes: 4,
@@ -526,7 +545,7 @@ async fn test_bad_vote() {
 #[instrument]
 async fn test_single_node_network() {
     let num_rounds = 100;
-    let description: DetailedTestDescriptionBuilder<StaticNodeImplType> =
+    let description: DetailedTestDescriptionBuilder<StaticCommitteeTestTypes, StaticNodeImplType> =
         DetailedTestDescriptionBuilder {
             general_info: GeneralTestDescriptionBuilder {
                 total_nodes: 1,
@@ -554,7 +573,7 @@ async fn test_min_propose() {
     let num_rounds = 5;
     let propose_min_round_time = Duration::new(1, 0);
     let propose_max_round_time = Duration::new(5, 0);
-    let description: DetailedTestDescriptionBuilder<StandardNodeImplType> =
+    let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
         DetailedTestDescriptionBuilder {
             general_info: GeneralTestDescriptionBuilder {
                 total_nodes: 5,
@@ -594,7 +613,7 @@ async fn test_max_propose() {
     let propose_min_round_time = Duration::new(0, 0);
     let propose_max_round_time = Duration::new(1, 0);
     let min_transactions: usize = 10;
-    let description: DetailedTestDescriptionBuilder<StandardNodeImplType> =
+    let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
         DetailedTestDescriptionBuilder {
             general_info: GeneralTestDescriptionBuilder {
                 total_nodes: 5,

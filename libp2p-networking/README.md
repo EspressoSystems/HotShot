@@ -74,8 +74,6 @@ nix develop -c cargo run --features webui,async-std-executor --release --example
 nix develop -c cargo run --features webui,async-std-executor --release --example counter -- --bound_addr 127.0.0.1:9004 --node_type Conductor --num_nodes 5 --bootstrap 127.0.0.1:9000 --webui 127.0.0.1:8004
 ```
 
-To run on the AWS cluster, see [here](https://github.com/EspressoSystems/cloud-infrastructure/blob/c86873a5c647772836907fc206fce5702a5878bb/ansible/networking-demo/README.md).
-
 ### Network Emulation
 One may introduce simulated network latency via the network emulationn queueing discipline. This is implemented in two ways: on what is assumed to be a AWS EC2 instance, and in a docker container. Example usage on AWS EC2 instance:
 

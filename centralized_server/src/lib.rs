@@ -127,7 +127,7 @@ pub struct Run(pub usize);
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub enum FromServer<K, E> {
     Config {
-        config: NetworkConfig<K, E>,
+        config: Box<NetworkConfig<K, E>>,
         run: Run,
     },
     NodeConnected {
@@ -183,7 +183,10 @@ pub struct FromBackground<K, E> {
 impl<K, E> FromBackground<K, E> {
     pub fn config(config: NetworkConfig<K, E>, run: Run) -> FromBackground<K, E> {
         FromBackground {
-            header: FromServer::Config { config, run },
+            header: FromServer::Config {
+                config: Box::new(config),
+                run,
+            },
             payload: None,
         }
     }

@@ -7,19 +7,21 @@ use commit::Committable;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::vrf::{VRFPubKey, VRFStakeTableConfig, VrfImpl},
+        election::vrf::{VRFPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
         implementations::{Libp2pNetwork, MemoryStorage},
         NetworkError, Storage,
     },
-    types::{HotShotHandle, Message},
+    types::HotShotHandle,
     HotShot,
 };
 use hotshot_centralized_server::{
     Run, RunResults, TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend,
 };
 use hotshot_types::{
+    data::ViewNumber,
     traits::{
         network::NetworkingImplementation,
+        node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
         state::TestableState,
     },
@@ -29,7 +31,13 @@ use hotshot_utils::{
     art::async_main,
     test_util::{setup_backtrace, setup_logging},
 };
-use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
+use jf_primitives::{
+    signatures::{
+        bls::{BLSSignature, BLSVerKey},
+        BLSSignatureScheme,
+    },
+    vrf::blsvrf::BLSVRFScheme,
+};
 use libp2p::{
     identity::Keypair,
     multiaddr::{self, Protocol},
@@ -368,11 +376,36 @@ impl CliStandalone {
         }
     }
 }
+/// Implementation of [`NodeTypes`] for [`DEntryNode`]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub struct VrfTypes;
 
+impl NodeTypes for VrfTypes {
+    type Time = ViewNumber;
+    type BlockType = DEntryBlock;
+    type SignatureKey = VRFPubKey<BLSSignatureScheme<Param381>>;
+    type VoteTokenType =
+        VRFVoteToken<BLSVerKey<ark_bls12_381::Parameters>, BLSSignature<ark_bls12_381::Parameters>>;
+    type Transaction = DEntryTransaction;
+    type ElectionConfigType = VRFStakeTableConfig;
+    type StateType = DEntryState;
+}
 type Node = DEntryNode<
-    Libp2pNetwork<Message<DEntryState, Key>, Key>,
-    VrfImpl<DEntryState, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
-    VRFPubKey<BLSSignatureScheme<Param381>>,
+    VrfTypes,
+    Libp2pNetwork<VrfTypes>,
+    VrfImpl<VrfTypes, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
 >;
 struct Config {
     run: Run,
@@ -405,8 +438,8 @@ impl Config {
     async fn init_state_and_hotshot(
         &self,
 
-        networking: Libp2pNetwork<Message<DEntryState, Key>, Key>,
-    ) -> (DEntryState, HotShotHandle<Node>) {
+        networking: Libp2pNetwork<VrfTypes>,
+    ) -> (DEntryState, HotShotHandle<VrfTypes, Node>) {
         let genesis_block = DEntryBlock::genesis();
         let genesis_seed = genesis_block.commit();
         let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
@@ -458,16 +491,14 @@ impl Config {
         .expect("Could not init hotshot");
         debug!("hotshot launched");
 
-        let storage: &MemoryStorage<DEntryState> = hotshot.storage();
+        let storage: &MemoryStorage<VrfTypes> = hotshot.storage();
 
         let state = storage.get_anchored_view().await.unwrap().state;
 
         (state, hotshot)
     }
 
-    async fn new_libp2p_network(
-        &self,
-    ) -> Result<Libp2pNetwork<Message<DEntryState, Key>, Key>, NetworkError> {
+    async fn new_libp2p_network(&self) -> Result<Libp2pNetwork<VrfTypes>, NetworkError> {
         assert!(self.node_id < self.num_nodes);
         let mut config_builder = NetworkNodeConfigBuilder::default();
         // NOTE we may need to change this as we scale

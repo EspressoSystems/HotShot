@@ -17,13 +17,16 @@ use hotshot_centralized_server::{
     FromServer, NetworkConfig, Run, RunResults, TcpStreamRecvUtil, TcpStreamSendUtil,
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToServer,
 };
-use hotshot_types::traits::{
-    election::ElectionConfig,
-    network::{
-        FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
-        NetworkingImplementation, TestableNetworkingImplementation,
+use hotshot_types::{
+    message::Message,
+    traits::{
+        network::{
+            FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
+            NetworkingImplementation, TestableNetworkingImplementation,
+        },
+        node_implementation::NodeTypes,
+        signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     },
-    signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
 };
 use hotshot_utils::{
     art::{async_block_on, async_sleep, async_spawn, split_stream},
@@ -47,24 +50,38 @@ use tracing::error;
 
 /// The inner state of the `CentralizedServerNetwork`
 #[derive(Debug)]
-struct Inner<K: SignatureKey, E: ElectionConfig> {
+struct Inner<TYPES: NodeTypes> {
     /// Self-identifying public key
-    own_key: K,
+    own_key: TYPES::SignatureKey,
     /// List of all known nodes
-    known_nodes: Vec<K>,
+    known_nodes: Vec<TYPES::SignatureKey>,
     /// `true` if the TCP stream is connected to the server
     connected: AtomicBool,
     /// `true` if the client is still running.
     running: AtomicBool,
     /// A queue of messages to be send to the server. This is emptied by `run_background`.
     /// Each message can optionally have a callback sender that will be invoked when the message is send.
-    sending: UnboundedSender<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
+    sending: UnboundedSender<(
+        (ToServer<TYPES::SignatureKey>, Vec<u8>),
+        Option<OneShotSender<()>>,
+    )>,
     /// A loopback sender that will send to `receiving`, for broadcasting to self.
-    receiving_loopback: UnboundedSender<(FromServer<K, E>, Vec<u8>)>,
+    receiving_loopback: UnboundedSender<(
+        FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        Vec<u8>,
+    )>,
     /// A queue of messages to be received by this node. This is filled by `run_background`.
-    receiving: UnboundedReceiver<(FromServer<K, E>, Vec<u8>)>,
+    receiving: UnboundedReceiver<(
+        FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        Vec<u8>,
+    )>,
     /// An internal queue of messages and, for some message types, payloads that have been received but not yet processed.
-    incoming_queue: RwLock<Vec<(FromServer<K, E>, Vec<u8>)>>,
+    incoming_queue: RwLock<
+        Vec<(
+            FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+            Vec<u8>,
+        )>,
+    >,
     /// a sender used to immediately broadcast the amount of clients connected
     request_client_count_sender: RwLock<Vec<OneShotSender<u32>>>,
     /// `true` if the server indicated that the run is ready to start, otherwise `false`
@@ -94,7 +111,7 @@ struct MsgStepContext {
     accumulated_stream: Vec<u8>,
 }
 
-impl<K: SignatureKey, E: ElectionConfig> Inner<K, E> {
+impl<TYPES: NodeTypes> Inner<TYPES> {
     /// Send a broadcast mesasge to the server.
     async fn broadcast(&self, message: Vec<u8>) {
         self.sending
@@ -121,7 +138,7 @@ impl<K: SignatureKey, E: ElectionConfig> Inner<K, E> {
         .expect("Loopback exited, this should never happen because we have a reference to this receiver ourselves");
     }
     /// Send a direct message to the server.
-    async fn direct_message(&self, target: K, message: Vec<u8>) {
+    async fn direct_message(&self, target: TYPES::SignatureKey, message: Vec<u8>) {
         if target == self.own_key {
             self.receiving_loopback.send((
                 FromServer::Direct {
@@ -165,14 +182,17 @@ impl<K: SignatureKey, E: ElectionConfig> Inner<K, E> {
     async fn remove_next_message_from_queue<F, FAIL, RET>(&self, c: F, f: FAIL) -> RET
     where
         F: Fn(
-            &(FromServer<K, E>, Vec<u8>),
+            &(
+                FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+                Vec<u8>,
+            ),
             usize,
-            &mut HashMap<K, MsgStepContext>,
+            &mut HashMap<TYPES::SignatureKey, MsgStepContext>,
         ) -> MsgStepOutcome<RET>,
-        FAIL: FnOnce(usize, &mut HashMap<K, MsgStepContext>) -> RET,
+        FAIL: FnOnce(usize, &mut HashMap<TYPES::SignatureKey, MsgStepContext>) -> RET,
     {
         let incoming_queue = self.incoming_queue.upgradable_read().await;
-        let mut context_map: HashMap<K, MsgStepContext> = HashMap::new();
+        let mut context_map: HashMap<_, MsgStepContext> = HashMap::new();
         // pop all messages from the incoming stream, push them onto `result` if they match `c`, else push them onto our `lock`
         let temp_start_index = incoming_queue.len();
         for (i, msg) in incoming_queue.iter().enumerate() {
@@ -251,14 +271,17 @@ impl<K: SignatureKey, E: ElectionConfig> Inner<K, E> {
     async fn remove_messages_from_queue<F, RET>(&self, c: F) -> Vec<RET>
     where
         F: Fn(
-            &(FromServer<K, E>, Vec<u8>),
+            &(
+                FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+                Vec<u8>,
+            ),
             usize,
-            &mut HashMap<K, MsgStepContext>,
+            &mut HashMap<TYPES::SignatureKey, MsgStepContext>,
         ) -> MsgStepOutcome<RET>,
     {
         let incoming_queue = self.incoming_queue.upgradable_read().await;
         let mut result = Vec::new();
-        let mut context_map: HashMap<K, MsgStepContext> = HashMap::new();
+        let mut context_map: HashMap<_, MsgStepContext> = HashMap::new();
         // pop all messages from the incoming stream, push them onto `result` if they match `c`, else push them onto our `lock`
         let temp_queue: Vec<_> = self
             .receiving
@@ -595,7 +618,7 @@ impl<K: SignatureKey, E: ElectionConfig> Inner<K, E> {
     }
 
     /// Get the current `NetworkChange` messages received from the server. Returning 0 messages if nothing was received.
-    async fn get_network_changes(&self) -> Vec<NetworkChange<K>> {
+    async fn get_network_changes(&self) -> Vec<NetworkChange<TYPES::SignatureKey>> {
         self.remove_messages_from_queue(|msg, index, _| {
             let mut remove_this = BTreeSet::new();
             remove_this.insert(index);
@@ -616,14 +639,14 @@ impl<K: SignatureKey, E: ElectionConfig> Inner<K, E> {
 
 /// Handle for connecting to a centralized server
 #[derive(Clone, Debug)]
-pub struct CentralizedServerNetwork<K: SignatureKey, E: ElectionConfig> {
+pub struct CentralizedServerNetwork<TYPES: NodeTypes> {
     /// The inner state
-    inner: Arc<Inner<K, E>>,
+    inner: Arc<Inner<TYPES>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
-impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNetwork<K, E> {
+impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
     /// Connect with the server running at `addr` and retrieve the config from the server.
     ///
     /// The config is returned along with the current run index and the running `CentralizedServerNetwork`
@@ -631,7 +654,13 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
     /// # Panics
     ///
     /// Will panic if the server has a different signature key (`K`) or election config (`E`)
-    pub async fn connect_with_server_config(addr: SocketAddr) -> (NetworkConfig<K, E>, Run, Self) {
+    pub async fn connect_with_server_config(
+        addr: SocketAddr,
+    ) -> (
+        NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        Run,
+        Self,
+    ) {
         let (streams, run, config) = loop {
             let (mut recv_stream, mut send_stream) = match TcpStream::connect(addr).await {
                 Ok(stream) => {
@@ -656,8 +685,14 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
             }
             match recv_stream.recv().await {
                 Ok(FromServer::Config { config, run }) => {
-                    assert_eq!(config.key_type_name, std::any::type_name::<K>());
-                    assert_eq!(config.election_config_type_name, std::any::type_name::<E>());
+                    assert_eq!(
+                        config.key_type_name,
+                        std::any::type_name::<TYPES::SignatureKey>()
+                    );
+                    assert_eq!(
+                        config.election_config_type_name,
+                        std::any::type_name::<TYPES::ElectionConfigType>()
+                    );
                     break ((recv_stream, send_stream), run, config);
                 }
                 x => {
@@ -668,7 +703,8 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
             }
         };
 
-        let (pub_key, _priv_key) = K::generated_from_seed_indexed(config.seed, config.node_index);
+        let (pub_key, _priv_key) =
+            TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
         let known_nodes = config.config.known_nodes.clone();
 
         let mut streams = Some(streams);
@@ -688,7 +724,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
             },
             pub_key,
         );
-        (config, run, result)
+        (*config, run, result)
     }
 
     /// Send the results for this run to the server
@@ -709,7 +745,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
     }
 }
 
-impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNetwork<K, E> {
+impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
     /// Connect to a given socket address. Will loop and try to connect every 5 seconds if the server is unreachable.
     fn connect_to(addr: SocketAddr) -> BoxFuture<'static, (TcpStreamRecvUtil, TcpStreamSendUtil)> {
         async move {
@@ -736,14 +772,22 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
         .boxed()
     }
     /// Connect to a centralized server
-    pub fn connect(known_nodes: Vec<K>, addr: SocketAddr, key: K) -> Self {
+    pub fn connect(
+        known_nodes: Vec<TYPES::SignatureKey>,
+        addr: SocketAddr,
+        key: TYPES::SignatureKey,
+    ) -> Self {
         Self::create(known_nodes, move || Self::connect_to(addr), key)
     }
 
     /// Create a `CentralizedServerNetwork`. Every time a new TCP connection is needed, `create_connection` is called.
     ///
     /// This will auto-reconnect when the network loses connection to the server.
-    fn create<F>(known_nodes: Vec<K>, mut create_connection: F, key: K) -> Self
+    fn create<F>(
+        known_nodes: Vec<TYPES::SignatureKey>,
+        mut create_connection: F,
+        key: TYPES::SignatureKey,
+    ) -> Self
     where
         F: FnMut() -> BoxFuture<'static, (TcpStreamRecvUtil, TcpStreamSendUtil)> + Send + 'static,
     {
@@ -806,13 +850,19 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
 ///
 /// - All messages sent to the sender of `to_background` will be sent to the server.
 /// - All messages received from the TCP stream will be sent to `from_background_sender`.
-async fn run_background<K: SignatureKey, E: ElectionConfig>(
+async fn run_background<TYPES: NodeTypes>(
     recv_stream: TcpStreamRecvUtil,
     mut send_stream: TcpStreamSendUtil,
-    key: K,
-    to_background: &mut UnboundedReceiver<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
-    from_background_sender: UnboundedSender<(FromServer<K, E>, Vec<u8>)>,
-    connection: Arc<Inner<K, E>>,
+    key: TYPES::SignatureKey,
+    to_background: &mut UnboundedReceiver<(
+        (ToServer<TYPES::SignatureKey>, Vec<u8>),
+        Option<OneShotSender<()>>,
+    )>,
+    from_background_sender: UnboundedSender<(
+        FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        Vec<u8>,
+    )>,
+    connection: Arc<Inner<TYPES>>,
 ) -> Result<(), Error> {
     // let mut stream = TcpStreamUtil::new(TcpStream::connect(addr).await.context(StreamSnafu)?);
 
@@ -829,7 +879,9 @@ async fn run_background<K: SignatureKey, E: ElectionConfig>(
         .await
         .is_empty()
     {
-        send_stream.send(ToServer::<K>::RequestClientCount).await?;
+        send_stream
+            .send(ToServer::<TYPES::SignatureKey>::RequestClientCount)
+            .await?;
     }
 
     let send_handle = run_background_send(send_stream, to_background);
@@ -875,10 +927,13 @@ async fn run_background_send<K: SignatureKey>(
 /// Loop on the TCP recv stream.
 ///
 /// - All messages received from the TCP stream will be sent to `from_background_sender`.
-async fn run_background_recv<K: SignatureKey, E: ElectionConfig>(
+async fn run_background_recv<TYPES: NodeTypes>(
     mut stream: TcpStreamRecvUtil,
-    from_background_sender: UnboundedSender<(FromServer<K, E>, Vec<u8>)>,
-    connection: Arc<Inner<K, E>>,
+    from_background_sender: UnboundedSender<(
+        FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        Vec<u8>,
+    )>,
+    connection: Arc<Inner<TYPES>>,
 ) -> Result<(), Error> {
     loop {
         let msg = stream.recv().await?;
@@ -970,12 +1025,7 @@ impl From<hotshot_centralized_server::Error> for Error {
 }
 
 #[async_trait]
-impl<M, P, E> NetworkingImplementation<M, P> for CentralizedServerNetwork<P, E>
-where
-    M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static,
-    P: SignatureKey + 'static,
-    E: ElectionConfig + 'static,
-{
+impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetwork<TYPES> {
     async fn ready(&self) -> bool {
         while !self.inner.connected.load(Ordering::Relaxed) {
             async_sleep(Duration::from_secs(1)).await;
@@ -983,7 +1033,7 @@ where
         true
     }
 
-    async fn broadcast_message(&self, message: M) -> Result<(), NetworkError> {
+    async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
         self.inner
             .broadcast(
                 bincode_opts()
@@ -994,7 +1044,11 @@ where
         Ok(())
     }
 
-    async fn message_node(&self, message: M, recipient: P) -> Result<(), NetworkError> {
+    async fn message_node(
+        &self,
+        message: Message<TYPES>,
+        recipient: TYPES::SignatureKey,
+    ) -> Result<(), NetworkError> {
         self.inner
             .direct_message(
                 recipient,
@@ -1006,7 +1060,7 @@ where
         Ok(())
     }
 
-    async fn broadcast_queue(&self) -> Result<Vec<M>, NetworkError> {
+    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
         self.inner
             .get_broadcasts()
             .await
@@ -1015,11 +1069,11 @@ where
             .context(FailedToDeserializeSnafu)
     }
 
-    async fn next_broadcast(&self) -> Result<M, NetworkError> {
+    async fn next_broadcast(&self) -> Result<Message<TYPES>, NetworkError> {
         self.inner.get_next_broadcast().await
     }
 
-    async fn direct_queue(&self) -> Result<Vec<M>, NetworkError> {
+    async fn direct_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
         self.inner
             .get_direct_messages()
             .await
@@ -1028,15 +1082,17 @@ where
             .context(FailedToDeserializeSnafu)
     }
 
-    async fn next_direct(&self) -> Result<M, NetworkError> {
+    async fn next_direct(&self) -> Result<Message<TYPES>, NetworkError> {
         self.inner.get_next_direct_message().await
     }
 
-    async fn known_nodes(&self) -> Vec<P> {
+    async fn known_nodes(&self) -> Vec<TYPES::SignatureKey> {
         self.inner.known_nodes.clone()
     }
 
-    async fn network_changes(&self) -> Result<Vec<NetworkChange<P>>, NetworkError> {
+    async fn network_changes(
+        &self,
+    ) -> Result<Vec<NetworkChange<TYPES::SignatureKey>>, NetworkError> {
         Ok(self.inner.get_network_changes().await)
     }
 
@@ -1059,16 +1115,18 @@ where
         Err(NetworkError::DHTError)
     }
 
-    async fn notify_of_subsequent_leader(&self, _pk: P, _cancelled: Arc<AtomicBool>) {
+    async fn notify_of_subsequent_leader(
+        &self,
+        _pk: TYPES::SignatureKey,
+        _cancelled: Arc<AtomicBool>,
+    ) {
         // do nothing. We're centralized
     }
 }
 
-impl<M, P, E> TestableNetworkingImplementation<M, P> for CentralizedServerNetwork<P, E>
+impl<TYPES: NodeTypes> TestableNetworkingImplementation<TYPES> for CentralizedServerNetwork<TYPES>
 where
-    M: Serialize + DeserializeOwned + Sync + Send + Clone + 'static,
-    P: TestableSignatureKey + 'static,
-    E: ElectionConfig + 'static,
+    TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generator(
         expected_node_count: usize,
@@ -1077,16 +1135,18 @@ where
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
 
-        let server = async_block_on(hotshot_centralized_server::Server::<P, E>::new(
-            Ipv4Addr::LOCALHOST.into(),
-            0,
-        ))
+        let server = async_block_on(hotshot_centralized_server::Server::<
+            TYPES::SignatureKey,
+            TYPES::ElectionConfigType,
+        >::new(Ipv4Addr::LOCALHOST.into(), 0))
         .with_shutdown_signal(server_shutdown);
         let addr = server.addr();
         async_spawn(server.run());
 
         let known_nodes = (0..expected_node_count as u64)
-            .map(|id| P::from_private(&P::generate_test_key(id)))
+            .map(|id| {
+                TYPES::SignatureKey::from_private(&TYPES::SignatureKey::generate_test_key(id))
+            })
             .collect::<Vec<_>>();
 
         Box::new(move |id| {
@@ -1106,7 +1166,7 @@ where
     }
 }
 
-impl<P: SignatureKey, E: ElectionConfig> Drop for CentralizedServerNetwork<P, E> {
+impl<TYPES: NodeTypes> Drop for CentralizedServerNetwork<TYPES> {
     fn drop(&mut self) {
         if let Some(shutdown) = self.server_shutdown_signal.take() {
             // we try to unwrap this Arc. If we're the last one with a reference to this arc, we'll be able to unwrap this

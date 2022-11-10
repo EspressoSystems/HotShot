@@ -1,13 +1,10 @@
-use hotshot_types::{
-    data::ViewNumber,
-    traits::{
-        election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
-        signature_key::{
-            ed25519::{Ed25519Priv, Ed25519Pub},
-            EncodedSignature, SignatureKey,
-        },
-        state::ConsensusTime,
-        State,
+use commit::{Commitment, Committable, RawCommitmentBuilder};
+use hotshot_types::traits::{
+    election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
+    node_implementation::NodeTypes,
+    signature_key::{
+        ed25519::{Ed25519Priv, Ed25519Pub},
+        EncodedSignature, SignatureKey,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -34,7 +31,7 @@ impl<S> StaticCommittee<S> {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 /// TODO ed - docs
 pub struct StaticVoteToken {
     /// signature
@@ -49,34 +46,42 @@ impl VoteToken for StaticVoteToken {
     }
 }
 
+impl Committable for StaticVoteToken {
+    fn commit(&self) -> Commitment<Self> {
+        RawCommitmentBuilder::new("StaticVoteToken")
+            .var_size_field("signature", &self.signature.0)
+            .var_size_field("pub_key", &self.pub_key.to_bytes().0)
+            .finalize()
+    }
+}
+
 /// configuration for static committee. stub for now
 #[derive(Default, Clone, Serialize, Deserialize, core::fmt::Debug)]
 pub struct StaticElectionConfig {}
 
 impl ElectionConfig for StaticElectionConfig {}
 
-impl<S, T> Election<Ed25519Pub, T> for StaticCommittee<S>
+impl<TYPES> Election<TYPES> for StaticCommittee<TYPES>
 where
-    S: Send + Sync + State,
-    T: ConsensusTime,
+    TYPES: NodeTypes<
+        SignatureKey = Ed25519Pub,
+        VoteTokenType = StaticVoteToken,
+        ElectionConfigType = StaticElectionConfig,
+    >,
 {
     /// Just use the vector of public keys for the stake table
     type StakeTable = Vec<Ed25519Pub>;
-    type StateType = S;
-    type VoteTokenType = StaticVoteToken;
-
-    type ElectionConfigType = StaticElectionConfig;
 
     /// Clone the static table
     fn get_stake_table(
         &self,
-        _view_number: ViewNumber,
-        _state: &Self::StateType,
+        _view_number: TYPES::Time,
+        _state: &TYPES::StateType,
     ) -> Self::StakeTable {
         self.nodes.clone()
     }
     /// Index the vector of public keys with the current view number
-    fn get_leader(&self, view_number: ViewNumber) -> Ed25519Pub {
+    fn get_leader(&self, view_number: TYPES::Time) -> Ed25519Pub {
         let index = (*view_number % self.nodes.len() as u64) as usize;
         self.nodes[index]
     }
@@ -84,11 +89,11 @@ where
     /// Simply make the partial signature
     fn make_vote_token(
         &self,
-        view_number: ViewNumber,
+        view_number: TYPES::Time,
         private_key: &Ed25519Priv,
-    ) -> std::result::Result<std::option::Option<StaticVoteToken>, ElectionError> {
+    ) -> std::result::Result<Option<StaticVoteToken>, ElectionError> {
         let mut message: Vec<u8> = vec![];
-        message.extend(&view_number.to_le_bytes());
+        message.extend(view_number.to_le_bytes());
         let signature = Ed25519Pub::sign(private_key, &message);
         Ok(Some(StaticVoteToken {
             signature,
@@ -98,24 +103,21 @@ where
 
     fn validate_vote_token(
         &self,
-        _view_number: ViewNumber,
+        _view_number: TYPES::Time,
         _pub_key: Ed25519Pub,
-        token: Checked<Self::VoteTokenType>,
-    ) -> Result<
-        hotshot_types::traits::election::Checked<Self::VoteTokenType>,
-        hotshot_types::traits::election::ElectionError,
-    > {
+        token: Checked<TYPES::VoteTokenType>,
+    ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError> {
         match token {
             Checked::Valid(t) | Checked::Unchecked(t) => Ok(Checked::Valid(t)),
             Checked::Inval(t) => Ok(Checked::Inval(t)),
         }
     }
 
-    fn default_election_config(_num_nodes: u64) -> Self::ElectionConfigType {
+    fn default_election_config(_num_nodes: u64) -> TYPES::ElectionConfigType {
         StaticElectionConfig {}
     }
 
-    fn create_election(keys: Vec<Ed25519Pub>, _config: Self::ElectionConfigType) -> Self {
+    fn create_election(keys: Vec<Ed25519Pub>, _config: TYPES::ElectionConfigType) -> Self {
         Self {
             nodes: keys,
             _state_phantom: PhantomData,

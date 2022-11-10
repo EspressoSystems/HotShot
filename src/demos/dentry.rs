@@ -6,18 +6,22 @@
 //! These implementations are useful in examples and integration testing, but are not suitable for
 //! production use.
 
-use crate::{
-    traits::{implementations::MemoryStorage, Block, NetworkingImplementation, NodeImplementation},
-    types::Message,
+use crate::traits::{
+    election::static_committee::{StaticElectionConfig, StaticVoteToken},
+    implementations::MemoryStorage,
+    Block, NetworkingImplementation, NodeImplementation,
 };
 use commit::{Commitment, Committable};
+use derivative::Derivative;
 use hotshot_types::{
     constants::genesis_proposer_id,
     data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
     traits::{
+        block_contents::Transaction,
         election::Election,
-        signature_key::SignatureKey,
-        state::{TestableBlock, TestableState},
+        node_implementation::NodeTypes,
+        signature_key::ed25519::Ed25519Pub,
+        state::{ConsensusTime, TestableBlock, TestableState},
         State,
     },
 };
@@ -92,6 +96,8 @@ pub struct DEntryTransaction {
     /// Number of bytes to pad to each transaction
     pub padding: Vec<u8>,
 }
+
+impl Transaction for DEntryTransaction {}
 
 impl DEntryTransaction {
     /// Ensures that this transaction is at least consistent with itself
@@ -242,7 +248,7 @@ impl State for DEntryState {
 
     // Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check
     // for clarity, the logic is duplicated with append_to
-    fn validate_block(&self, block: &Self::BlockType, _time: &Self::Time) -> bool {
+    fn validate_block(&self, block: &Self::BlockType, _view_number: &Self::Time) -> bool {
         match block {
             DEntryBlock::Genesis(_) => self.balances.is_empty(), //  && self.nonces.is_empty(),
             DEntryBlock::Normal(block) => {
@@ -302,7 +308,7 @@ impl State for DEntryState {
     fn append(
         &self,
         block: &Self::BlockType,
-        _time: &Self::Time,
+        _view_number: &Self::Time,
     ) -> std::result::Result<Self, Self::Error> {
         match block {
             DEntryBlock::Genesis(block) => {
@@ -465,18 +471,55 @@ impl Block for DEntryBlock {
     }
 }
 
-/// The node implementation for the dentry demo
-#[derive(Clone)]
-pub struct DEntryNode<NET, ELE, KEY> {
-    /// Network phantom
-    _phantom_0: PhantomData<NET>,
-    /// Election phantom
-    _phantom_1: PhantomData<ELE>,
-    /// Key phantom
-    _phantom_2: PhantomData<KEY>,
+/// Implementation of [`NodeTypes`] for [`DEntryNode`]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub struct DEntryTypes;
+
+impl NodeTypes for DEntryTypes {
+    type Time = ViewNumber;
+    type BlockType = DEntryBlock;
+    type SignatureKey = Ed25519Pub;
+    type VoteTokenType = StaticVoteToken;
+    type Transaction = DEntryTransaction;
+    type ElectionConfigType = StaticElectionConfig;
+    type StateType = DEntryState;
 }
 
-impl<NET, ELE, KEY> DEntryNode<NET, ELE, KEY> {
+/// The node implementation for the dentry demo
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
+pub struct DEntryNode<TYPES, NET, ELE>
+where
+    TYPES: NodeTypes,
+    NET: NetworkingImplementation<TYPES>,
+    ELE: Election<TYPES>,
+{
+    /// Network phantom
+    _phantom_0: PhantomData<TYPES>,
+    /// Election phantom
+    _phantom_1: PhantomData<NET>,
+    /// Key phantom
+    _phantom_2: PhantomData<ELE>,
+}
+
+impl<TYPES, NET, ELE> DEntryNode<TYPES, NET, ELE>
+where
+    TYPES: NodeTypes,
+    NET: NetworkingImplementation<TYPES>,
+    ELE: Election<TYPES>,
+{
     /// Create a new `DEntryNode`
     pub fn new() -> Self {
         DEntryNode {
@@ -487,7 +530,12 @@ impl<NET, ELE, KEY> DEntryNode<NET, ELE, KEY> {
     }
 }
 
-impl<NET, ELE, KEY> Debug for DEntryNode<NET, ELE, KEY> {
+impl<TYPES, NET, ELE> Debug for DEntryNode<TYPES, NET, ELE>
+where
+    TYPES: NodeTypes,
+    NET: NetworkingImplementation<TYPES>,
+    ELE: Election<TYPES>,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DEntryNode")
             .field("_phantom", &"phantom")
@@ -495,46 +543,49 @@ impl<NET, ELE, KEY> Debug for DEntryNode<NET, ELE, KEY> {
     }
 }
 
-impl<NET, ELE, KEY> Default for DEntryNode<NET, ELE, KEY> {
+impl<TYPES, NET, ELE> Default for DEntryNode<TYPES, NET, ELE>
+where
+    TYPES: NodeTypes,
+    NET: NetworkingImplementation<TYPES>,
+    ELE: Election<TYPES>,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<NET, ELE, KEY> NodeImplementation for DEntryNode<NET, ELE, KEY>
+impl<TYPES, NET, ELE> NodeImplementation<TYPES> for DEntryNode<TYPES, NET, ELE>
 where
-    NET: NetworkingImplementation<Message<DEntryState, KEY>, KEY> + Clone + Debug + 'static,
-    ELE: Election<KEY, ViewNumber, StateType = DEntryState> + Clone + 'static,
-    KEY: SignatureKey + Clone + 'static,
+    TYPES: NodeTypes,
+    NET: NetworkingImplementation<TYPES>,
+    ELE: Election<TYPES>,
 {
-    type StateType = DEntryState;
-    type Storage = MemoryStorage<DEntryState>;
+    type Storage = MemoryStorage<TYPES>;
     type Networking = NET;
     type Election = ELE;
-    type SignatureKey = KEY;
 }
 
 /// Provides a random [`QuorumCertificate`]
-pub fn random_quorum_certificate<STATE: State>(
+pub fn random_quorum_certificate<TYPES: NodeTypes>(
     rng: &mut dyn rand::RngCore,
-) -> QuorumCertificate<STATE> {
+) -> QuorumCertificate<TYPES> {
     QuorumCertificate {
         block_commitment: random_commitment(rng),
         leaf_commitment: random_commitment(rng),
-        view_number: ViewNumber::new(rng.gen()),
+        view_number: TYPES::Time::new(rng.gen()),
         signatures: BTreeMap::default(),
         genesis: rng.gen(),
     }
 }
 
 /// Provides a random [`Leaf`]
-pub fn random_leaf<STATE: State<Time = ViewNumber>>(
-    deltas: STATE::BlockType,
+pub fn random_leaf<TYPES: NodeTypes>(
+    deltas: TYPES::BlockType,
     rng: &mut dyn rand::RngCore,
-) -> Leaf<STATE> {
+) -> Leaf<TYPES> {
     let justify_qc = random_quorum_certificate(rng);
-    let state = STATE::default()
-        .append(&deltas, &ViewNumber::new(42))
+    let state = TYPES::StateType::default()
+        .append(&deltas, &TYPES::Time::new(42))
         .unwrap_or_default();
     Leaf {
         view_number: justify_qc.view_number,

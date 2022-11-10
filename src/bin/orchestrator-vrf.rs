@@ -61,15 +61,11 @@ fn load_configs(
                 let seed = [0u8; 32];
                 run.config.known_nodes = (0..run.config.total_nodes.get())
                     .map(|node_id| {
-                        let vrf_key =
-                            VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(
-                                seed,
-                                node_id.try_into().unwrap(),
-                            );
-                        let priv_key = vrf_key.1;
-                        let pub_key =
-                            VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&priv_key);
-                        pub_key
+                        VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(
+                            seed,
+                            node_id.try_into().unwrap(),
+                        )
+                        .0
                     })
                     .collect();
 
@@ -139,7 +135,10 @@ mod tests {
     use hotshot_centralized_server::{TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend};
     use hotshot_types::{
         data::ViewNumber,
-        traits::signature_key::{EncodedPublicKey, EncodedSignature},
+        traits::{
+            block_contents::Transaction,
+            signature_key::{EncodedPublicKey, EncodedSignature},
+        },
     };
     use hotshot_utils::{
         channel::oneshot,
@@ -392,6 +391,8 @@ mod tests {
 
     #[derive(Clone, serde::Serialize, serde::Deserialize, Debug, Hash, Eq, PartialEq)]
     struct TestTransaction {}
+
+    impl Transaction for TestTransaction {}
 
     impl Committable for TestTransaction {
         fn commit(&self) -> Commitment<Self> {
