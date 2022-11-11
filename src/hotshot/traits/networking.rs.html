@@ -19,6 +19,46 @@
 <span id="19">19</span>
 <span id="20">20</span>
 <span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Network access abstraction
 //!
 //! This module contains a trait abstracting over network access, as well as implementations of that
@@ -40,5 +80,45 @@
     NetworkingImplementation, NoSocketsSnafu, NoSuchNodeSnafu, OtherSnafu, ShutDownSnafu,
     SocketDecodeSnafu, WebSocketSnafu,
 };
+
+<span class="kw">use </span>hotshot_types::traits::metrics::{Counter, Gauge, Metrics};
+
+<span class="doccomment">/// Contains the metrics that we&#39;re interested in from the networking interfaces
+</span><span class="kw">pub</span>(<span class="self">self</span>) <span class="kw">struct </span>NetworkingMetrics {
+    <span class="doccomment">/// A [`Gauge`] which tracks how many peers are connected
+    </span><span class="kw">pub </span>connected_peers: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
+    <span class="doccomment">/// A [`Counter`] which tracks how many messages have been received
+    </span><span class="kw">pub </span>incoming_message_count: Box&lt;<span class="kw">dyn </span>Counter&gt;,
+    <span class="doccomment">/// A [`Counter`] which tracks how many messages have been send
+    </span><span class="kw">pub </span>outgoing_message_count: Box&lt;<span class="kw">dyn </span>Counter&gt;,
+    <span class="doccomment">/// A [`Counter`] which tracks how many messages failed to send
+    </span><span class="kw">pub </span>message_failed_to_send: Box&lt;<span class="kw">dyn </span>Counter&gt;,
+    <span class="doccomment">/// A [`Gauge`] which tracks how many connected entries there are in the gossipsub mesh
+    </span><span class="kw">pub </span>gossipsub_mesh_connected: Box&lt;<span class="kw">dyn </span>Gauge&gt;,
+    <span class="comment">// /// A [`Gauge`] which tracks how many kademlia entries there are
+    // pub kademlia_entries: Box&lt;dyn Gauge&gt;,
+    // /// A [`Gauge`] which tracks how many kademlia buckets there are
+    // pub kademlia_buckets: Box&lt;dyn Gauge&gt;,
+</span>}
+
+<span class="kw">impl </span>NetworkingMetrics {
+    <span class="doccomment">/// Create a new instance of this [`NetworkingMetrics`] struct, setting all the counters and gauges
+    </span><span class="attribute">#[allow(clippy::needless_pass_by_value)] </span><span class="comment">// with the metrics API is it more ergonomic to pass a `Box&lt;dyn Metrics&gt;` around
+    </span><span class="kw">pub</span>(<span class="self">self</span>) <span class="kw">fn </span>new(metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            connected_peers: metrics.create_gauge(String::from(<span class="string">&quot;connected_peers&quot;</span>), <span class="prelude-val">None</span>),
+            incoming_message_count: metrics
+                .create_counter(String::from(<span class="string">&quot;incoming_message_count&quot;</span>), <span class="prelude-val">None</span>),
+            outgoing_message_count: metrics
+                .create_counter(String::from(<span class="string">&quot;outgoing_message_count&quot;</span>), <span class="prelude-val">None</span>),
+            message_failed_to_send: metrics
+                .create_counter(String::from(<span class="string">&quot;message_failed_to_send&quot;</span>), <span class="prelude-val">None</span>),
+            gossipsub_mesh_connected: metrics
+                .create_gauge(String::from(<span class="string">&quot;gossipsub_mesh_connected&quot;</span>), <span class="prelude-val">None</span>),
+            <span class="comment">// kademlia_entries: metrics.create_gauge(String::from(&quot;kademlia_entries&quot;), None),
+            // kademlia_buckets: metrics.create_gauge(String::from(&quot;kademlia_buckets&quot;), None),
+        </span>}
+    }
+}
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="hotshot" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

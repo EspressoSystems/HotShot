@@ -299,6 +299,9 @@
 <span id="299">299</span>
 <span id="300">300</span>
 <span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
 </pre><pre class="rust"><code><span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>blake3::Hasher;
 <span class="kw">use </span>clap::Parser;
@@ -316,6 +319,7 @@
     HotShot,
 };
 <span class="kw">use </span>hotshot_centralized_server::{NetworkConfig, RunResults};
+<span class="kw">use </span>hotshot_types::traits::metrics::NoMetrics;
 <span class="kw">use </span>hotshot_types::{
     data::ViewNumber,
     traits::{node_implementation::NodeTypes, state::TestableState},
@@ -437,6 +441,7 @@
         MemoryStorage::new(),
         vrf_impl,
         initializer,
+        NoMetrics::new(),
     )
     .<span class="kw">await
     </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>);
@@ -461,7 +466,8 @@
     <span class="kw">let </span>addr: SocketAddr = (opts.host, opts.port).into();
     <span class="macro">error!</span>(<span class="string">&quot;Connecting to {addr:?} to retrieve the server config&quot;</span>);
 
-    <span class="kw">let </span>(config, run, network) = CentralizedServerNetwork::connect_with_server_config(addr).<span class="kw">await</span>;
+    <span class="kw">let </span>(config, run, network) =
+        CentralizedServerNetwork::connect_with_server_config(NoMetrics::new(), addr).<span class="kw">await</span>;
 
     <span class="macro">error!</span>(<span class="string">&quot;Run: {:?}&quot;</span>, run);
     <span class="macro">error!</span>(<span class="string">&quot;Config: {:?}&quot;</span>, config);

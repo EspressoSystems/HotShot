@@ -1177,6 +1177,25 @@
 <span id="1177">1177</span>
 <span id="1178">1178</span>
 <span id="1179">1179</span>
+<span id="1180">1180</span>
+<span id="1181">1181</span>
+<span id="1182">1182</span>
+<span id="1183">1183</span>
+<span id="1184">1184</span>
+<span id="1185">1185</span>
+<span id="1186">1186</span>
+<span id="1187">1187</span>
+<span id="1188">1188</span>
+<span id="1189">1189</span>
+<span id="1190">1190</span>
+<span id="1191">1191</span>
+<span id="1192">1192</span>
+<span id="1193">1193</span>
+<span id="1194">1194</span>
+<span id="1195">1195</span>
+<span id="1196">1196</span>
+<span id="1197">1197</span>
+<span id="1198">1198</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that attempts to connect to a centralized server.
 //!
 //! To run the server, see the `./centralized_server/` folder in this repo.
@@ -1199,6 +1218,7 @@
 <span class="kw">use </span>hotshot_types::{
     message::Message,
     traits::{
+        metrics::{Metrics, NoMetrics},
         network::{
             FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
             NetworkingImplementation, TestableNetworkingImplementation,
@@ -1227,8 +1247,10 @@
 };
 <span class="kw">use </span>tracing::error;
 
+<span class="kw">use </span><span class="kw">super</span>::NetworkingMetrics;
+
 <span class="doccomment">/// The inner state of the `CentralizedServerNetwork`
-</span><span class="attribute">#[derive(Debug)]
+</span><span class="attribute">#[derive(custom_debug::Debug)]
 </span><span class="kw">struct </span>Inner&lt;TYPES: NodeTypes&gt; {
     <span class="doccomment">/// Self-identifying public key
     </span>own_key: TYPES::SignatureKey,
@@ -1265,6 +1287,9 @@
     </span>request_client_count_sender: RwLock&lt;Vec&lt;OneShotSender&lt;u32&gt;&gt;&gt;,
     <span class="doccomment">/// `true` if the server indicated that the run is ready to start, otherwise `false`
     </span>run_ready: AtomicBool,
+    <span class="attribute">#[debug(skip)]
+    </span><span class="doccomment">/// The networking metrics we&#39;re keeping track of
+    </span>metrics: NetworkingMetrics,
 }
 
 <span class="doccomment">/// Internal implementation detail; effectively allows interleaved streams to each behave as a state machine
@@ -1315,6 +1340,8 @@
         ))
         .<span class="kw">await
         </span>.expect(<span class="string">&quot;Loopback exited, this should never happen because we have a reference to this receiver ourselves&quot;</span>);
+
+        <span class="self">self</span>.metrics.outgoing_message_count.add(<span class="number">1</span>);
     }
     <span class="doccomment">/// Send a direct message to the server.
     </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, target: TYPES::SignatureKey, message: Vec&lt;u8&gt;) {
@@ -1344,6 +1371,7 @@
                 .<span class="kw">await
                 </span>.expect(<span class="string">&quot;Background thread exited&quot;</span>);
         }
+        <span class="self">self</span>.metrics.outgoing_message_count.add(<span class="number">1</span>);
     }
 
     <span class="doccomment">/// Request the client count from the server
@@ -1396,6 +1424,7 @@
                         })
                         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
+                    <span class="self">self</span>.metrics.incoming_message_count.add(<span class="number">1</span>);
                     <span class="kw">return </span>ret;
                 }
             }
@@ -1434,6 +1463,7 @@
                             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
                     }
 
+                    <span class="self">self</span>.metrics.incoming_message_count.add(<span class="number">1</span>);
                     <span class="kw">return </span>ret;
                 }
             }
@@ -1505,6 +1535,7 @@
                 })
                 .collect();
         }
+        <span class="self">self</span>.metrics.incoming_message_count.add(result.len());
         result
     }
 
@@ -1834,6 +1865,7 @@
     ///
     /// Will panic if the server has a different signature key (`K`) or election config (`E`)
     </span><span class="kw">pub async fn </span>connect_with_server_config(
+        metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
         addr: SocketAddr,
     ) -&gt; (
         NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
@@ -1889,6 +1921,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>streams = <span class="prelude-val">Some</span>(streams);
 
         <span class="kw">let </span>result = <span class="self">Self</span>::create(
+            metrics,
             known_nodes,
             <span class="kw">move </span>|| {
                 <span class="kw">let </span>streams = streams.take();
@@ -1952,17 +1985,19 @@
     }
     <span class="doccomment">/// Connect to a centralized server
     </span><span class="kw">pub fn </span>connect(
+        metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
         known_nodes: Vec&lt;TYPES::SignatureKey&gt;,
         addr: SocketAddr,
         key: TYPES::SignatureKey,
     ) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::create(known_nodes, <span class="kw">move </span>|| <span class="self">Self</span>::connect_to(addr), key)
+        <span class="self">Self</span>::create(metrics, known_nodes, <span class="kw">move </span>|| <span class="self">Self</span>::connect_to(addr), key)
     }
 
     <span class="doccomment">/// Create a `CentralizedServerNetwork`. Every time a new TCP connection is needed, `create_connection` is called.
     ///
     /// This will auto-reconnect when the network loses connection to the server.
     </span><span class="kw">fn </span>create&lt;F&gt;(
+        metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
         known_nodes: Vec&lt;TYPES::SignatureKey&gt;,
         <span class="kw-2">mut </span>create_connection: F,
         key: TYPES::SignatureKey,
@@ -1985,6 +2020,7 @@
             incoming_queue: RwLock::default(),
             request_client_count_sender: RwLock::default(),
             run_ready: AtomicBool::new(<span class="bool-val">false</span>),
+            metrics: NetworkingMetrics::new(metrics),
         });
         async_spawn({
             <span class="kw">let </span>inner = Arc::clone(<span class="kw-2">&amp;</span>inner);
@@ -2151,6 +2187,7 @@
             FromServer::ClientCount(count) =&gt; {
                 <span class="kw">let </span>senders =
                     std::mem::take(<span class="kw-2">&amp;mut *</span>connection.request_client_count_sender.write().<span class="kw">await</span>);
+                connection.metrics.connected_peers.set(count <span class="kw">as _</span>);
                 <span class="kw">for </span>sender <span class="kw">in </span>senders {
                     sender.send(count);
                 }
@@ -2331,6 +2368,7 @@
         Box::new(<span class="kw">move </span>|id| {
             <span class="kw">let </span>sender = Arc::clone(<span class="kw-2">&amp;</span>sender);
             <span class="kw">let </span><span class="kw-2">mut </span>network = CentralizedServerNetwork::connect(
+                NoMetrics::new(),
                 known_nodes.clone(),
                 addr,
                 known_nodes[id <span class="kw">as </span>usize].clone(),

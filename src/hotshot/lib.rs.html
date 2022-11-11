@@ -840,6 +840,20 @@
 <span id="840">840</span>
 <span id="841">841</span>
 <span id="842">842</span>
+<span id="843">843</span>
+<span id="844">844</span>
+<span id="845">845</span>
+<span id="846">846</span>
+<span id="847">847</span>
+<span id="848">848</span>
+<span id="849">849</span>
+<span id="850">850</span>
+<span id="851">851</span>
+<span id="852">852</span>
+<span id="853">853</span>
+<span id="854">854</span>
+<span id="855">855</span>
+<span id="856">856</span>
 </pre><pre class="rust"><code><span class="attribute">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -887,7 +901,9 @@
 <span class="kw">use </span>async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>commit::{Commitment, Committable};
-<span class="kw">use </span>hotshot_consensus::{Consensus, ConsensusApi, SendToTasks, View, ViewInner, ViewQueue};
+<span class="kw">use </span>hotshot_consensus::{
+    Consensus, ConsensusApi, ConsensusMetrics, SendToTasks, View, ViewInner, ViewQueue,
+};
 <span class="kw">use </span>hotshot_types::{
     constants::genesis_proposer_id,
     data::fake_commitment,
@@ -898,6 +914,7 @@
             Checked::{<span class="self">self</span>, Inval, Unchecked, Valid},
             Election, ElectionError,
         },
+        metrics::Metrics,
         network::{NetworkChange, NetworkError},
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
@@ -962,6 +979,9 @@
 
     <span class="doccomment">/// Senders to the background tasks.
     </span>background_task_handle: tasks::TaskHandle&lt;TYPES&gt;,
+
+    <span class="doccomment">/// a reference to the metrics that the implementor is using.
+    </span>metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
 }
 
 <span class="doccomment">/// Thread safe, shared view of a `HotShot`
@@ -998,7 +1018,7 @@
     <span class="doccomment">/// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     </span><span class="attribute">#[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, networking, storage, election, initializer))]
+    #[instrument(skip(private_key, networking, storage, election, initializer, metrics))]
     </span><span class="kw">pub async fn </span>new(
         public_key: TYPES::SignatureKey,
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
@@ -1008,6 +1028,7 @@
         storage: I::Storage,
         election: I::Election,
         initializer: HotShotInitializer&lt;TYPES&gt;,
+        metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
         <span class="macro">info!</span>(<span class="string">&quot;Creating a new hotshot&quot;</span>);
         <span class="kw">let </span>inner: Arc&lt;HotShotInner&lt;TYPES, I&gt;&gt; = Arc::new(HotShotInner {
@@ -1019,6 +1040,7 @@
             election,
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
+            metrics,
         });
 
         <span class="kw">let </span>anchored_leaf = initializer.inner;
@@ -1056,6 +1078,10 @@
             // https://github.com/EspressoSystems/HotShot/issues/560
             </span>locked_view: anchored_leaf.view_number,
             high_qc: anchored_leaf.justify_qc,
+
+            metrics: Arc::new(ConsensusMetrics::new(
+                inner.metrics.subgroup(<span class="string">&quot;consensus&quot;</span>.to_string()),
+            )),
         };
         <span class="kw">let </span>hotstuff = Arc::new(RwLock::new(hotstuff));
         <span class="kw">let </span>txns = hotstuff.read().<span class="kw">await</span>.get_transactions();
@@ -1163,6 +1189,7 @@
         storage: I::Storage,
         election: I::Election,
         initializer: HotShotInitializer&lt;TYPES&gt;,
+        metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;HotShotHandle&lt;TYPES, I&gt;, HotShotError&lt;TYPES&gt;&gt; {
         <span class="comment">// Save a clone of the storage for the handle
         </span><span class="kw">let </span>hotshot = <span class="self">Self</span>::new(
@@ -1174,6 +1201,7 @@
             storage,
             election,
             initializer,
+            metrics,
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let </span>handle = tasks::spawn_all(<span class="kw-2">&amp;</span>hotshot).<span class="kw">await</span>;

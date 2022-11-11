@@ -747,12 +747,38 @@
 <span id="747">747</span>
 <span id="748">748</span>
 <span id="749">749</span>
+<span id="750">750</span>
+<span id="751">751</span>
+<span id="752">752</span>
+<span id="753">753</span>
+<span id="754">754</span>
+<span id="755">755</span>
+<span id="756">756</span>
+<span id="757">757</span>
+<span id="758">758</span>
+<span id="759">759</span>
+<span id="760">760</span>
+<span id="761">761</span>
+<span id="762">762</span>
+<span id="763">763</span>
+<span id="764">764</span>
+<span id="765">765</span>
+<span id="766">766</span>
+<span id="767">767</span>
+<span id="768">768</span>
+<span id="769">769</span>
+<span id="770">770</span>
+<span id="771">771</span>
+<span id="772">772</span>
 </pre><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
 //! integration tests.
 
-</span><span class="kw">use super</span>::{FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation};
+</span><span class="kw">use super</span>::{
+    FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation,
+    NetworkingMetrics,
+};
 <span class="kw">use </span>async_lock::{Mutex, RwLock};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bincode::Options;
@@ -761,6 +787,7 @@
 <span class="kw">use </span>hotshot_types::{
     message::Message,
     traits::{
+        metrics::{Metrics, NoMetrics},
         network::{ChannelDisconnectedSnafu, NetworkChange, TestableNetworkingImplementation},
         node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -849,6 +876,9 @@
 
     <span class="doccomment">/// Count of messages that are in-flight (send but not processed yet)
     </span>in_flight_message_count: AtomicUsize,
+
+    <span class="doccomment">/// The networking metrics we&#39;re keeping track of
+    </span>metrics: NetworkingMetrics,
 }
 
 <span class="doccomment">/// In memory only network simulator.
@@ -874,9 +904,10 @@
 
 <span class="kw">impl</span>&lt;TYPES: NodeTypes&gt; MemoryNetwork&lt;TYPES&gt; {
     <span class="doccomment">/// Creates a new `MemoryNetwork` and hooks it up to the group through the provided `MasterMap`
-    </span><span class="attribute">#[instrument]
+    </span><span class="attribute">#[instrument(skip(metrics))]
     </span><span class="kw">pub fn </span>new(
         pub_key: TYPES::SignatureKey,
+        metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
         master_map: Arc&lt;MasterMap&lt;TYPES&gt;&gt;,
         reliability_config: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span><span class="lifetime">&#39;static </span>+ NetworkReliability&gt;&gt;,
     ) -&gt; MemoryNetwork&lt;TYPES&gt; {
@@ -1004,6 +1035,7 @@
                 network_changes_input: RwLock::new(<span class="prelude-val">Some</span>(network_changes_input)),
                 network_changes_output: Mutex::new(network_changes_output),
                 in_flight_message_count,
+                metrics: NetworkingMetrics::new(metrics),
             }),
         };
         master_map.map.insert(pub_key, mn.clone());
@@ -1019,6 +1051,7 @@
             .fetch_add(<span class="number">1</span>, Ordering::Relaxed);
         <span class="kw">let </span>input = <span class="self">self</span>.inner.broadcast_input.read().<span class="kw">await</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(input) = <span class="kw-2">&amp;*</span>input {
+            <span class="self">self</span>.inner.metrics.outgoing_message_count.add(<span class="number">1</span>);
             input.send(message).<span class="kw">await
         </span>} <span class="kw">else </span>{
             <span class="prelude-val">Err</span>(SendError(message))
@@ -1032,6 +1065,7 @@
             .fetch_add(<span class="number">1</span>, Ordering::Relaxed);
         <span class="kw">let </span>input = <span class="self">self</span>.inner.direct_input.read().<span class="kw">await</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(input) = <span class="kw-2">&amp;*</span>input {
+            <span class="self">self</span>.inner.metrics.outgoing_message_count.add(<span class="number">1</span>);
             input.send(message).<span class="kw">await
         </span>} <span class="kw">else </span>{
             <span class="prelude-val">Err</span>(SendError(message))
@@ -1064,7 +1098,7 @@
         Box::new(<span class="kw">move </span>|node_id| {
             <span class="kw">let </span>privkey = TYPES::SignatureKey::generate_test_key(node_id);
             <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
-            MemoryNetwork::new(pubkey, master.clone(), <span class="prelude-val">None</span>)
+            MemoryNetwork::new(pubkey, NoMetrics::new(), master.clone(), <span class="prelude-val">None</span>)
         })
     }
 
@@ -1088,8 +1122,12 @@
             <span class="macro">trace!</span>(<span class="question-mark">?</span>key, <span class="string">&quot;Sending message to node&quot;</span>);
             <span class="kw">let </span>res = node.broadcast_input(vec.clone()).<span class="kw">await</span>;
             <span class="kw">match </span>res {
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">trace!</span>(<span class="question-mark">?</span>key, <span class="string">&quot;Delivered message to remote&quot;</span>),
+                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
+                    <span class="self">self</span>.inner.metrics.outgoing_message_count.add(<span class="number">1</span>);
+                    <span class="macro">trace!</span>(<span class="question-mark">?</span>key, <span class="string">&quot;Delivered message to remote&quot;</span>);
+                }
                 <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
                     <span class="macro">error!</span>(<span class="question-mark">?</span>e, <span class="question-mark">?</span>key, <span class="string">&quot;Error sending broadcast message to node&quot;</span>);
                 }
             }
@@ -1119,15 +1157,18 @@
             <span class="kw">let </span>res = node.direct_input(vec).<span class="kw">await</span>;
             <span class="kw">match </span>res {
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
+                    <span class="self">self</span>.inner.metrics.outgoing_message_count.add(<span class="number">1</span>);
                     <span class="macro">trace!</span>(<span class="question-mark">?</span>recipient, <span class="string">&quot;Delivered message to remote&quot;</span>);
                     <span class="prelude-val">Ok</span>(())
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
                     <span class="macro">error!</span>(<span class="question-mark">?</span>e, <span class="question-mark">?</span>recipient, <span class="string">&quot;Error delivering direct message&quot;</span>);
                     <span class="prelude-val">Err</span>(NetworkError::CouldNotDeliver)
                 }
             }
         } <span class="kw">else </span>{
+            <span class="self">self</span>.inner.metrics.message_failed_to_send.add(<span class="number">1</span>);
             <span class="macro">error!</span>(<span class="question-mark">?</span>recipient, <span class="question-mark">?</span><span class="self">self</span>.inner.master_map.map, <span class="string">&quot;Node does not exist in map&quot;</span>);
             <span class="prelude-val">Err</span>(NetworkError::NoSuchNode)
         }
@@ -1146,6 +1187,7 @@
         <span class="self">self</span>.inner
             .in_flight_message_count
             .fetch_sub(ret.len(), Ordering::Relaxed);
+        <span class="self">self</span>.inner.metrics.incoming_message_count.add(ret.len());
         <span class="prelude-val">Ok</span>(ret)
     }
 
@@ -1162,6 +1204,7 @@
         <span class="self">self</span>.inner
             .in_flight_message_count
             .fetch_sub(<span class="number">1</span>, Ordering::Relaxed);
+        <span class="self">self</span>.inner.metrics.incoming_message_count.add(<span class="number">1</span>);
         <span class="prelude-val">Ok</span>(ret)
     }
 
@@ -1178,6 +1221,7 @@
         <span class="self">self</span>.inner
             .in_flight_message_count
             .fetch_sub(ret.len(), Ordering::Relaxed);
+        <span class="self">self</span>.inner.metrics.incoming_message_count.add(ret.len());
         <span class="prelude-val">Ok</span>(ret)
     }
 
@@ -1194,6 +1238,7 @@
         <span class="self">self</span>.inner
             .in_flight_message_count
             .fetch_sub(<span class="number">1</span>, Ordering::Relaxed);
+        <span class="self">self</span>.inner.metrics.incoming_message_count.add(<span class="number">1</span>);
         <span class="prelude-val">Ok</span>(ret)
     }
 
@@ -1308,7 +1353,7 @@
         <span class="kw">let </span>group: Arc&lt;MasterMap&lt;Test&gt;&gt; = MasterMap::new();
         <span class="macro">trace!</span>(<span class="question-mark">?</span>group);
         <span class="kw">let </span>pub_key = get_pubkey();
-        <span class="kw">let </span>_network = MemoryNetwork::new(pub_key, group, Option::None);
+        <span class="kw">let </span>_network = MemoryNetwork::new(pub_key, NoMetrics::new(), group, Option::None);
     }
 
     <span class="comment">// Spawning a two MemoryNetworks and connecting them should produce no errors
@@ -1323,9 +1368,10 @@
         <span class="kw">let </span>group: Arc&lt;MasterMap&lt;Test&gt;&gt; = MasterMap::new();
         <span class="macro">trace!</span>(<span class="question-mark">?</span>group);
         <span class="kw">let </span>pub_key_1 = get_pubkey();
-        <span class="kw">let </span>_network_1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
+        <span class="kw">let </span>_network_1 =
+            MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
         <span class="kw">let </span>pub_key_2 = get_pubkey();
-        <span class="kw">let </span>_network_2 = MemoryNetwork::new(pub_key_2, group, Option::None);
+        <span class="kw">let </span>_network_2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
     }
 
     <span class="comment">// Check to make sure direct queue works

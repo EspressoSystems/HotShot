@@ -369,9 +369,12 @@
 <span id="369">369</span>
 <span id="370">370</span>
 <span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
 </pre><pre class="rust"><code><span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>futures::future::join_all;
 <span class="kw">use </span>hotshot_types::traits::{
+    metrics::NoMetrics,
     signature_key::{
         ed25519::{Ed25519Priv, Ed25519Pub},
         SignatureKey,
@@ -734,6 +737,7 @@
         MemoryStorage::new(),
         StaticCommittee::new(known_nodes),
         initializer,
+        NoMetrics::new(),
     )
     .<span class="kw">await
     </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>);
