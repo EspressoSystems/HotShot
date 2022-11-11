@@ -7,7 +7,7 @@
 //! - [`Label`]: Stores the last string (example usage: current version, network online/offline)
 
 /// The metrics type.
-pub trait Metrics {
+pub trait Metrics: Send + Sync {
     /// Create a [`Counter`] with an optional `unit_label`.
     ///
     /// The `unit_label` can be used to indicate what the unit of the value is, e.g. "kb" or "seconds"
@@ -27,25 +27,72 @@ pub trait Metrics {
     fn subgroup(&self, subgroup_name: String) -> Box<dyn Metrics>;
 }
 
+/// Use this if you're not planning to use any metrics. All methods are implemented as a no-op
+pub struct NoMetrics;
+
+impl NoMetrics {
+    /// Create a new `Box<dyn Metrics>` with this [`NoMetrics`]
+    // with our API it is more ergonomic to return `Box<dyn Metrics>`
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new() -> Box<dyn Metrics> {
+        Box::new(NoMetrics)
+    }
+}
+
+impl Metrics for NoMetrics {
+    fn create_counter(&self, _: String, _: Option<String>) -> Box<dyn Counter> {
+        Box::new(NoMetrics)
+    }
+
+    fn create_gauge(&self, _: String, _: Option<String>) -> Box<dyn Gauge> {
+        Box::new(NoMetrics)
+    }
+
+    fn create_histogram(&self, _: String, _: Option<String>) -> Box<dyn Histogram> {
+        Box::new(NoMetrics)
+    }
+
+    fn create_label(&self, _: String) -> Box<dyn Label> {
+        Box::new(NoMetrics)
+    }
+
+    fn subgroup(&self, _: String) -> Box<dyn Metrics> {
+        Box::new(NoMetrics)
+    }
+}
+
+impl Counter for NoMetrics {
+    fn add(&self, _: usize) {}
+}
+impl Gauge for NoMetrics {
+    fn set(&self, _: usize) {}
+}
+impl Histogram for NoMetrics {
+    fn add_point(&self, _: f64) {}
+}
+impl Label for NoMetrics {
+    fn set(&self, _: String) {}
+}
+
 /// An ever-incrementing counter
-pub trait Counter {
+pub trait Counter: Send + Sync {
     /// Add a value to the counter
     fn add(&self, amount: usize);
 }
 /// A gauge that stores the latest value.
-pub trait Gauge {
+pub trait Gauge: Send + Sync {
     /// Set the gauge value
     fn set(&self, amount: usize);
 }
 
 /// A histogram which will record a series of points.
-pub trait Histogram {
+pub trait Histogram: Send + Sync {
     /// Add a point to this histogram.
     fn add_point(&self, point: f64);
 }
 
 /// A label that stores the last string value.
-pub trait Label {
+pub trait Label: Send + Sync {
     /// Set the label value
     fn set(&self, value: String);
 }

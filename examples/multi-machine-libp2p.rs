@@ -16,6 +16,7 @@ use hotshot_centralized_server::{
 };
 use hotshot_types::{
     traits::{
+        metrics::NoMetrics,
         network::NetworkingImplementation,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
         state::TestableState,
@@ -431,6 +432,7 @@ impl Config {
             MemoryStorage::new(),
             StaticCommittee::new(known_nodes),
             initializer,
+            NoMetrics::new(),
         )
         .await
         .expect("Could not init hotshot");
@@ -481,6 +483,7 @@ impl Config {
         let bs_len = self.bs.len();
 
         Libp2pNetwork::new(
+            NoMetrics::new(),
             node_config,
             self.pubkey,
             Arc::new(RwLock::new(

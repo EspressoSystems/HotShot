@@ -12,6 +12,7 @@ use hotshot::{
 use hotshot_centralized_server::{NetworkConfig, RunResults};
 use hotshot_types::{
     traits::{
+        metrics::NoMetrics,
         signature_key::{ed25519::Ed25519Pub, SignatureKey},
         state::TestableState,
     },
@@ -80,6 +81,7 @@ async fn init_state_and_hotshot(
         MemoryStorage::new(),
         StaticCommittee::new(known_nodes),
         initializer,
+        NoMetrics::new(),
     )
     .await
     .expect("Could not init hotshot");
@@ -103,7 +105,8 @@ async fn main() {
     let addr: SocketAddr = (opts.host, opts.port).into();
     error!("Connecting to {addr:?} to retrieve the server config");
 
-    let (config, run, network) = CentralizedServerNetwork::connect_with_server_config(addr).await;
+    let (config, run, network) =
+        CentralizedServerNetwork::connect_with_server_config(NoMetrics::new(), addr).await;
 
     error!("Run: {:?}", run);
     error!("Config: {:?}", config);

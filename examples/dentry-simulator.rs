@@ -1,6 +1,7 @@
 use clap::Parser;
 use futures::future::join_all;
 use hotshot_types::traits::{
+    metrics::NoMetrics,
     signature_key::{
         ed25519::{Ed25519Priv, Ed25519Pub},
         SignatureKey,
@@ -363,6 +364,7 @@ async fn get_hotshot(
         MemoryStorage::new(),
         StaticCommittee::new(known_nodes),
         initializer,
+        NoMetrics::new(),
     )
     .await
     .expect("Could not init hotshot");

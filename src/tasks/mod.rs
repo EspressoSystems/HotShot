@@ -24,7 +24,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tracing::{error, info, info_span, instrument, trace, Instrument};
 
@@ -210,6 +210,8 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
     let c_api = HotShotConsensusApi {
         inner: hotshot.inner.clone(),
     };
+    let start = Instant::now();
+    let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
 
     // do book keeping on channel map
     // TODO probably cleaner to separate this into a function
@@ -268,6 +270,7 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
     };
 
     info!("Starting tasks for View {:?}!", cur_view);
+    metrics.current_view.set(*cur_view as usize);
 
     let mut task_handles = Vec::new();
 
@@ -340,6 +343,10 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
 
     let mut consensus = hotshot.hotstuff.write().await;
     consensus.high_qc = high_qc;
+    consensus
+        .metrics
+        .view_duration
+        .add_point(start.elapsed().as_secs_f64());
     c_api.send_view_finished(consensus.cur_view).await;
 
     info!("Returning from view {:?}!", cur_view);
