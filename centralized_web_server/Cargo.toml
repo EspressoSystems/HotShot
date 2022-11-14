@@ -26,7 +26,8 @@ channel-async-std = [
 ]
 
 [dependencies]
-async-std = { version = "1.12", optional = false }
+async-lock = "2.6"
+async-std = { version = "1.12", optional = true }
 async-trait = "0.1.58"
 bincode = "1.3.3"
 clap = { version = "4.0", features = ["derive", "env"], optional = false }

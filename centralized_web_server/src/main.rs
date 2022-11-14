@@ -65,7 +65,7 @@ async fn main() -> () {
     //     toml::from_slice(&std::fs::read("./centralized_web_server/api.toml").unwrap()).unwrap();
     let options = Options::default();
     let mut api = define_api(&options).unwrap();
-    let mut app = App::<WebServerState, Error>::with_state(RwLock<WebServerState>::new(WebServerState::default()));
+    let mut app = App::<RwLock<WebServerState>, Error>::with_state(RwLock::new(WebServerState::default()));
     // api.get("proposal", |req, state| {
     //     async move { Ok("Hello, world!") }.boxed()
     // })
