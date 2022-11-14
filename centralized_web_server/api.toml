@@ -6,7 +6,8 @@ FORMAT_VERSION = "0.1.0"
 # GET the proposed block for a view, where the view is passed as an argument
 # TODO add view number as argument
 [route.proposal]
-PATH = ["proposal"]
+PATH = ["proposal/:view-number"]
+":view-number" = "Integer"
 DOC = """
 Return the proposal for `view_number`.
 """
