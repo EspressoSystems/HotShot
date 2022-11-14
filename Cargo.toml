@@ -92,6 +92,10 @@ required-features = ["bin-orchestrator"]
 name = "orchestrator-vrf"
 required-features = ["bin-orchestrator"]
 
+[[web-server]]
+name = "centralized_web_server"
+required-features = [""]
+
 [dependencies]
 ark-ec = { version = "0.3.0" }
 ark-bls12-381 = { version = "0.3.0" }
@@ -227,6 +231,7 @@ incremental = true
 
 members = [
         "centralized_server",
+        "centralized_web_server",
         "centralized_server/benchmark_client",
         "consensus",
         "libp2p-networking",
