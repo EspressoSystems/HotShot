@@ -4,11 +4,12 @@
 //! expected to have.
 
 use commit::{Commitment, Committable};
-use serde::{de::DeserializeOwned, Serialize};
+use hotshot_utils::hack::nll_todo;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
 
-/// Abstraction over the contents of a block
+/// Abstraction over the full contents of a block
 ///
 /// This trait encapsulates the behaviors that a block must have in order to be used by consensus:
 ///   * Must have a predefined error type ([`BlockContents::Error`])
@@ -38,6 +39,27 @@ pub trait Block:
 
     /// returns hashes of all the transactions in this block
     fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>>;
+
+    /// Gets a [`Commitment`] to this block
+    fn block_commit(&self) -> BlockCommitment<Self>;
+}
+
+/// Commitment to a block, used by data availibity
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(bound(deserialize = ""))]
+pub struct BlockCommitment<T: Block>(pub Commitment<T>);
+
+impl<T: Block> Ord for BlockCommitment<T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // FIXME (nm/da-sprint-1): This is sort of hacky, we should investigate better options
+        self.0.as_ref().cmp(other.0.as_ref())
+    }
+}
+
+impl<T: Block> PartialOrd for BlockCommitment<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 /// Abstraction over any type of transaction. Used by [`Block`].
@@ -50,6 +72,7 @@ pub trait Transaction:
 pub mod dummy {
     #[allow(clippy::wildcard_imports)]
     use super::*;
+    use hotshot_utils::hack::nll_todo;
     use rand::Rng;
     use serde::Deserialize;
 
@@ -114,6 +137,10 @@ pub mod dummy {
 
         fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>> {
             HashSet::new()
+        }
+
+        fn block_commit(&self) -> BlockCommitment<Self> {
+            nll_todo()
         }
     }
 

@@ -17,7 +17,7 @@ use hotshot_types::{
     constants::genesis_proposer_id,
     data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
     traits::{
-        block_contents::Transaction,
+        block_contents::{BlockCommitment, Transaction},
         election::Election,
         node_implementation::NodeTypes,
         signature_key::ed25519::Ed25519Pub,
@@ -468,6 +468,10 @@ impl Block for DEntryBlock {
                 .map(|tx| tx.commit())
                 .collect(),
         }
+    }
+
+    fn block_commit(&self) -> BlockCommitment<Self> {
+        BlockCommitment(self.commit())
     }
 }
 

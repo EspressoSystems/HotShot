@@ -5,6 +5,7 @@ use blake3::Hasher;
 use either::Either;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
+    da::{DABlock, DAState, DATransaction},
     traits::{
         dummy::DummyState,
         election::{
@@ -343,6 +344,30 @@ impl NodeTypes for StaticCommitteeTestTypes {
     type ElectionConfigType = StaticElectionConfig;
     type StateType = DummyState;
 }
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+pub struct DACommitteeTestTypes;
+impl NodeTypes for DACommitteeTestTypes {
+    type Time = ViewNumber;
+    type BlockType = DABlock<DummyBlock>;
+    type SignatureKey = Ed25519Pub;
+    type VoteTokenType = StaticVoteToken;
+    type Transaction = DATransaction<DummyBlock>;
+    type ElectionConfigType = StaticElectionConfig;
+    type StateType = DAState<DummyBlock>;
+}
+
 /// type synonym for vrf committee election
 /// with in-memory network
 pub type StandardNodeImplType = TestNodeImpl<

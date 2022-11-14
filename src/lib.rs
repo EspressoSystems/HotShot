@@ -26,6 +26,8 @@
 #[cfg(feature = "docs")]
 pub mod documentation;
 
+/// Data availability support
+pub mod da;
 /// Contains structures and functions for committee election
 pub mod data;
 #[cfg(any(feature = "demo"))]
