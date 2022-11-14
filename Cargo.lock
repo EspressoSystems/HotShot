@@ -2331,6 +2331,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bincode",
+ "clap 4.0.23",
  "commit",
  "futures",
  "hotshot-types",
