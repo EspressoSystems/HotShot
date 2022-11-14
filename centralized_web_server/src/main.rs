@@ -73,7 +73,7 @@ async fn main() -> () {
  
 
     app.register_module("api", api);
-    app.serve("http://localhost:8080").await;
+    app.serve("http://0.0.0.0:8080").await;
 
     ()
 }
