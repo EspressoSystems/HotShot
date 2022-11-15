@@ -613,6 +613,20 @@ dependencies = [
 
 [[package]]
 name = "async-tungstenite"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "742cc7dcb20b2f84a42f4691aa999070ec7e78f8e7e7438bf14be7017b44907e"
+dependencies = [
+ "async-std",
+ "futures-io",
+ "futures-util",
+ "log",
+ "pin-project-lite 0.2.9",
+ "tungstenite 0.15.0",
+]
+
+[[package]]
+name = "async-tungstenite"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b750efd83b7e716a015eed5ebb583cda83c52d9b24a8f0125e5c48c3313c9f8"
@@ -2338,9 +2352,11 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "libp2p-core",
+ "portpicker",
  "serde",
  "serde_json",
  "snafu",
+ "surf-disco",
  "tide-disco",
  "tokio",
  "toml",
@@ -4635,6 +4651,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "portpicker"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be97d76faf1bfab666e1375477b23fde79eccf0276e9b63b92a39d676a889ba9"
+dependencies = [
+ "rand 0.8.5",
+]
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5908,6 +5933,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "surf-disco"
+version = "0.1.0"
+source = "git+ssh://git@github.com/EspressoSystems/surf-disco.git?branch=main#78aea853fde5c6fdfcae0c163abc3f2943d180cb"
+dependencies = [
+ "async-std",
+ "async-tungstenite 0.15.0",
+ "bincode",
+ "derivative",
+ "futures",
+ "hex",
+ "serde",
+ "serde_json",
+ "surf",
+ "tide-disco",
+]
+
+[[package]]
 name = "sval"
 version = "1.0.0-alpha.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6669,6 +6711,25 @@ dependencies = [
  "http",
  "httparse",
  "input_buffer",
+ "log",
+ "rand 0.8.5",
+ "sha-1 0.9.8",
+ "thiserror",
+ "url",
+ "utf-8",
+]
+
+[[package]]
+name = "tungstenite"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "983d40747bce878d2fb67d910dcb8bd3eca2b2358540c3cc1b98c027407a3ae3"
+dependencies = [
+ "base64",
+ "byteorder",
+ "bytes 1.2.1",
+ "http",
+ "httparse",
  "log",
  "rand 0.8.5",
  "sha-1 0.9.8",

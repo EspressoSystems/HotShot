@@ -132,3 +132,71 @@ async fn main() -> () {
     app.serve("http://0.0.0.0:8080").await;
     ()
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use async_std::task::spawn;
+    use portpicker::pick_unused_port;
+    use tide_disco::StatusCode::BadRequest;
+
+    type State = RwLock<WebServerState>;
+    type Error = ServerError;
+
+    #[async_std::test]
+    async fn test_web_server() {
+        let port = pick_unused_port().unwrap();
+        let base_url = format!("0.0.0.0:{port}");
+        let options = Options::default();
+        let api = define_api(&options).unwrap();
+        let mut app = App::<State, Error>::with_state(State::default());
+
+        app.register_module("api", api).unwrap();
+        let handle = spawn(app.serve(base_url.clone()));
+
+        let base_url = format!("http://{base_url}").parse().unwrap();
+        let client = surf_disco::Client::<ServerError>::new(base_url);
+        assert!(client.connect(None).await);
+
+        let prop1 = "test";
+        client
+            .post::<()>("api/postproposal/1")
+            .body_binary(&prop1)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+        let resp = client
+            .get::<Vec<u8>>("api/getproposal/1")
+            .send()
+            .await
+            .unwrap();
+        let res1: &str = bincode::deserialize(&resp).unwrap();
+        assert_eq!(res1, prop1);
+
+        let prop2 = "test2";
+        client
+            .post::<()>("api/postproposal/2")
+            .body_binary(&prop2)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+        let resp = client
+            .get::<Vec<u8>>("api/getproposal/2")
+            .send()
+            .await
+            .unwrap();
+        let res2: &str = bincode::deserialize(&resp).unwrap();
+        assert_eq!(res2, prop2);
+        assert_ne!(res1, res2);
+
+        assert_eq!(
+            client.get::<Vec<u8>>("api/getproposal/3").send().await,
+            Err(ServerError {
+                status: BadRequest,
+                message: String::from("No proposal for view 3")
+            })
+        );
+    }
+}
