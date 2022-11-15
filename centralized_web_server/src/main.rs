@@ -19,7 +19,7 @@ type Error = ServerError;
 
 #[derive(Clone, Default)]
 struct WebServerState {
-    proposals: HashMap<u64, Vec<u8>>,
+    proposals: HashMap<u128, Vec<u8>>,
     votes: HashMap<u128, Vec<Vec<u8>>>,
 }
 
@@ -27,11 +27,26 @@ impl WebServerState {
     fn new() -> Result<Self, ServerError> {
         Ok(WebServerState::default())
     }
+}
 
-    fn put_vote(&self, view_number: u128, vote: Vec<u8>) -> Result<&Self, ServerError> {
+pub trait WebServerDataSource {
+    fn put_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), ServerError>;
+    fn put_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), ServerError>;
+}
+
+impl WebServerDataSource for WebServerState {
+    fn put_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), ServerError> {
         // TODO use entry here so we can modify votes vector in place
-        // self.votes.insert(view_number, vote);
-        Ok(self)
+        // KALEY: should we be adding to votes per view, i.e. 
+        self.votes.entry(view_number).and_modify(|current_votes| current_votes.push(vote.clone())).or_insert(vec![vote]);
+        //self.votes.insert(view_number, vote);
+        Ok(())
+    }
+
+    fn put_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), ServerError> {
+        //TODO KALEY: security check for valid proposal from correct node?
+        self.proposals.insert(view_number, proposal);
+        Ok(())
     }
 }
 
@@ -45,7 +60,7 @@ pub struct Options {
 fn define_api<State>(options: &Options) -> Result<Api<State, Error>, ApiError>
 where
     State: 'static + Send + Sync + ReadState + WriteState,
-    for<'a> &'a <State as ReadState>::State: Send + Sync,
+    <State as ReadState>::State: Send + Sync + WebServerDataSource,
 {
     let mut api = match &options.api_path {
         Some(path) => Api::<State, Error>::from_file(path)?,
@@ -75,7 +90,8 @@ where
             let vote = req.body_bytes();
             // Add vote to state
             // *state.votes.get(view_number);
-            (*state).put_vote(view_number, vote);
+            state.put_vote(view_number, vote.clone());
+            //(*state).put_vote(view_number, vote);
 
             Ok(format!(
                 "You voted for view {:?}.  \n This is the vote you sent: {:?}",
@@ -84,7 +100,17 @@ where
         }
         .boxed()
     })?
-    .post("postproposal", |req, state| async move { Ok(()) }.boxed())?;
+    .post("postproposal", |req, state| async move {
+        let view_number: u128 = req.integer_param("view_number").unwrap();
+        // using body_bytes because we don't want to deserialize.  body_auto or body_json deserailizes
+        let proposal = req.body_bytes();
+        // Add proposal to state
+        state.put_proposal(view_number, proposal.clone());
+
+        Ok(format!(
+            "You sent a proposal for view {:?}.  \n This is the proposal you sent: {:?}",
+            view_number, proposal
+    )) }.boxed())?;
     Ok(api)
 }
 
