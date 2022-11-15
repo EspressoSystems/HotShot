@@ -738,7 +738,7 @@ name = "benchmark_client"
 version = "0.1.0"
 dependencies = [
  "async-std",
- "clap 4.0.23",
+ "clap 4.0.24",
  "futures",
  "hotshot-centralized-server",
  "hotshot-types",
@@ -977,9 +977,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.0.23"
+version = "4.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0eb41c13df48950b20eb4cd0eefa618819469df1bffc49d11e8487c4ba0037e5"
+checksum = "60494cedb60cb47462c0ff7be53de32c0e42a6fc2c772184554fa12bd9489c03"
 dependencies = [
  "atty",
  "bitflags",
@@ -2154,7 +2154,7 @@ dependencies = [
  "bimap",
  "bincode",
  "blake3",
- "clap 4.0.23",
+ "clap 4.0.24",
  "commit",
  "custom_debug",
  "dashmap",
@@ -3075,7 +3075,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
- "clap 4.0.23",
+ "clap 4.0.24",
  "color-eyre",
  "custom_debug",
  "derive_builder",
