@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use clap::Args;
 use futures::FutureExt;
+use tide_disco::method::WriteState;
 use std::path::PathBuf;
 use tide_disco::api::ApiError;
 use tide_disco::error::ServerError;
@@ -36,7 +37,7 @@ pub struct Options {
 
 fn define_api<State>(options: &Options) -> Result<Api<State, Error>, ApiError>
 where
-    State: 'static + Send + Sync + ReadState,
+    State: 'static + Send + Sync + ReadState + WriteState,
     for<'a> &'a <State as ReadState>::State: Send + Sync,
 {
     let mut api = match &options.api_path {
@@ -50,8 +51,11 @@ where
             Api::<State, Error>::new(toml)?
         }
     };
-    api.get("proposal", |req, state| {
+    api.get("getproposal", |req, state| {
         async move { Ok("Hello, world!") }.boxed()
+    })?
+    .post("postproposal",  |req, state| {
+        async move { Ok(()) }.boxed()
     })?;
     Ok(api)
 }
