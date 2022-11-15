@@ -361,7 +361,7 @@ pub struct DACommitteeTestTypes;
 impl NodeTypes for DACommitteeTestTypes {
     type Time = ViewNumber;
     type BlockType = DABlock<DummyBlock>;
-    type SignatureKey = Ed25519Pub;
+    type SignatureKey = VRFPubKey<BLSSignatureScheme<Param381>>;
     type VoteTokenType = StaticVoteToken;
     type Transaction = DATransaction<DummyBlock>;
     type ElectionConfigType = StaticElectionConfig;

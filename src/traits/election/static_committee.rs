@@ -14,30 +14,35 @@ use std::num::NonZeroU64;
 /// Dummy implementation of [`Election`]
 
 #[derive(Clone, Debug)]
-pub struct StaticCommittee<S> {
+pub struct GeneralStaticCommittee<S, PUBKEY, PRIVKEY> {
     /// The nodes participating
-    nodes: Vec<Ed25519Pub>,
+    nodes: Vec<PUBKEY>,
     /// State phantom
     _state_phantom: PhantomData<S>,
+    /// private key phantom data
+    _priv_key_phantom: PhantomData<PRIVKEY>,
 }
 
-impl<S> StaticCommittee<S> {
+pub type StaticCommittee<S> = GeneralStaticCommittee<S, Ed25519Pub>;
+
+impl<S, K> GeneralStaticCommittee<S, K> {
     /// Creates a new dummy elector
-    pub fn new(nodes: Vec<Ed25519Pub>) -> Self {
+    pub fn new(nodes: Vec<K>) -> Self {
         Self {
             nodes,
             _state_phantom: PhantomData,
+            _priv_key_phantom: PhantomData,
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 /// TODO ed - docs
-pub struct StaticVoteToken {
+pub struct StaticVoteToken<K> {
     /// signature
     signature: EncodedSignature,
     /// public key
-    pub_key: Ed25519Pub,
+    pub_key: K,
 }
 
 impl VoteToken for StaticVoteToken {
@@ -61,16 +66,16 @@ pub struct StaticElectionConfig {}
 
 impl ElectionConfig for StaticElectionConfig {}
 
-impl<TYPES> Election<TYPES> for StaticCommittee<TYPES>
+impl<TYPES, PUBKEY, PRIVKEY> Election<TYPES> for GeneralStaticCommittee<TYPES, PUBKEY, PRIVKEY>
 where
     TYPES: NodeTypes<
-        SignatureKey = Ed25519Pub,
+        SignatureKey = PUBKEY,
         VoteTokenType = StaticVoteToken,
         ElectionConfigType = StaticElectionConfig,
     >,
 {
     /// Just use the vector of public keys for the stake table
-    type StakeTable = Vec<Ed25519Pub>;
+    type StakeTable = Vec<PUBKEY>;
 
     /// Clone the static table
     fn get_stake_table(
@@ -81,7 +86,7 @@ where
         self.nodes.clone()
     }
     /// Index the vector of public keys with the current view number
-    fn get_leader(&self, view_number: TYPES::Time) -> Ed25519Pub {
+    fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {
         let index = (*view_number % self.nodes.len() as u64) as usize;
         self.nodes[index]
     }
@@ -90,14 +95,14 @@ where
     fn make_vote_token(
         &self,
         view_number: TYPES::Time,
-        private_key: &Ed25519Priv,
+        private_key: &PRIVKEY,
     ) -> std::result::Result<Option<StaticVoteToken>, ElectionError> {
         let mut message: Vec<u8> = vec![];
         message.extend(view_number.to_le_bytes());
-        let signature = Ed25519Pub::sign(private_key, &message);
+        let signature = PUBKEY::sign(private_key, &message);
         Ok(Some(StaticVoteToken {
             signature,
-            pub_key: Ed25519Pub::from_private(private_key),
+            pub_key: PUBKEY::from_private(private_key),
         }))
     }
 
