@@ -23,11 +23,11 @@ pub struct GeneralStaticCommittee<S, PUBKEY, PRIVKEY> {
     _priv_key_phantom: PhantomData<PRIVKEY>,
 }
 
-pub type StaticCommittee<S> = GeneralStaticCommittee<S, Ed25519Pub>;
+pub type StaticCommittee<S> = GeneralStaticCommittee<S, Ed25519Pub, Ed25519Priv>;
 
-impl<S, K> GeneralStaticCommittee<S, K> {
+impl<S, PUBKEY, PRIVKEY> GeneralStaticCommittee<S, PUBKEY, PRIVKEY> {
     /// Creates a new dummy elector
-    pub fn new(nodes: Vec<K>) -> Self {
+    pub fn new(nodes: Vec<PUBKEY>) -> Self {
         Self {
             nodes,
             _state_phantom: PhantomData,
@@ -45,13 +45,13 @@ pub struct StaticVoteToken<K> {
     pub_key: K,
 }
 
-impl VoteToken for StaticVoteToken {
+impl<PUBKEY> VoteToken for StaticVoteToken<PUBKEY> {
     fn vote_count(&self) -> NonZeroU64 {
         NonZeroU64::new(1).unwrap()
     }
 }
 
-impl Committable for StaticVoteToken {
+impl<PUBKEY> Committable for StaticVoteToken<PUBKEY> {
     fn commit(&self) -> Commitment<Self> {
         RawCommitmentBuilder::new("StaticVoteToken")
             .var_size_field("signature", &self.signature.0)
@@ -70,7 +70,7 @@ impl<TYPES, PUBKEY, PRIVKEY> Election<TYPES> for GeneralStaticCommittee<TYPES, P
 where
     TYPES: NodeTypes<
         SignatureKey = PUBKEY,
-        VoteTokenType = StaticVoteToken,
+        VoteTokenType = StaticVoteToken<PUBKEY>,
         ElectionConfigType = StaticElectionConfig,
     >,
 {
@@ -96,7 +96,7 @@ where
         &self,
         view_number: TYPES::Time,
         private_key: &PRIVKEY,
-    ) -> std::result::Result<Option<StaticVoteToken>, ElectionError> {
+    ) -> std::result::Result<Option<StaticVoteToken<PUBKEY>>, ElectionError> {
         let mut message: Vec<u8> = vec![];
         message.extend(view_number.to_le_bytes());
         let signature = PUBKEY::sign(private_key, &message);
@@ -109,7 +109,7 @@ where
     fn validate_vote_token(
         &self,
         _view_number: TYPES::Time,
-        _pub_key: Ed25519Pub,
+        _pub_key: PUBKEY,
         token: Checked<TYPES::VoteTokenType>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError> {
         match token {
@@ -122,10 +122,11 @@ where
         StaticElectionConfig {}
     }
 
-    fn create_election(keys: Vec<Ed25519Pub>, _config: TYPES::ElectionConfigType) -> Self {
+    fn create_election(keys: Vec<PUBKEY>, _config: TYPES::ElectionConfigType) -> Self {
         Self {
             nodes: keys,
             _state_phantom: PhantomData,
+            _priv_key_phantom: PhantomData,
         }
     }
 

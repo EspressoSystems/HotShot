@@ -15,7 +15,7 @@ use hotshot::{
         implementations::{MemoryNetwork, MemoryStorage},
         NetworkReliability, NetworkingImplementation,
     },
-    types::ed25519::Ed25519Pub,
+    types::ed25519::{Ed25519Priv, Ed25519Pub},
     HotShotError,
 };
 use hotshot_testing::{
@@ -339,7 +339,7 @@ impl NodeTypes for StaticCommitteeTestTypes {
     type Time = ViewNumber;
     type BlockType = DummyBlock;
     type SignatureKey = Ed25519Pub;
-    type VoteTokenType = StaticVoteToken;
+    type VoteTokenType = StaticVoteToken<Ed25519Pub>;
     type Transaction = DummyTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = DummyState;
@@ -362,7 +362,7 @@ impl NodeTypes for DACommitteeTestTypes {
     type Time = ViewNumber;
     type BlockType = DABlock<DummyBlock>;
     type SignatureKey = VRFPubKey<BLSSignatureScheme<Param381>>;
-    type VoteTokenType = StaticVoteToken;
+    type VoteTokenType = StaticVoteToken<VRFPubKey<BLSSignatureScheme<Param381>>>;
     type Transaction = DATransaction<DummyBlock>;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = DAState<DummyBlock>;

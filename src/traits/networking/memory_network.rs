@@ -557,7 +557,7 @@ mod tests {
         type Time = ViewNumber;
         type BlockType = DEntryBlock;
         type SignatureKey = Ed25519Pub;
-        type VoteTokenType = StaticVoteToken;
+        type VoteTokenType = StaticVoteToken<Ed25519Pub>;
         type Transaction = DEntryTransaction;
         type ElectionConfigType = StaticElectionConfig;
         type StateType = DEntryState;
