@@ -31,22 +31,34 @@ impl WebServerState {
 }
 
 pub trait WebServerDataSource {
-    fn get_proposal(&self, view_number: u128) -> Result<Vec<u8>, Error>;
-    fn put_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error>;
-    fn put_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error>;
+    fn get_proposals(&self, view_number: u128) -> Result<Vec<u8>, Error>;
+    fn get_votes(&self, view_number: u128) -> Result<Vec<Vec<u8>>, Error>;
+    fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error>;
+    fn post_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error>;
 }
 
 impl WebServerDataSource for WebServerState {
-    fn get_proposal(&self, view_number: u128) -> Result<Vec<u8>, Error> {
+    fn get_proposals(&self, view_number: u128) -> Result<Vec<u8>, Error> {
         match self.proposals.get(&view_number) {
-            Some(proposal) => Ok(proposal.clone()),
+            Some(proposals) => Ok(proposals.clone()),
             None => Err(ServerError {
                 status: StatusCode::BadRequest,
                 message: format!("No proposal for view {}", view_number),
             }),
         }
     }
-    fn put_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error> {
+
+    fn get_votes(&self, view_number: u128) -> Result<Vec<Vec<u8>>, Error> {
+        match self.votes.get(&view_number) {
+            Some(votes) => Ok(votes.clone()),
+            None => Err(ServerError {
+                status: StatusCode::BadRequest,
+                message: format!("No votes for view {}", view_number),
+            }),
+        }
+    }
+
+    fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error> {
         // TODO KALEY: security check for votes needed?
         self.votes
             .entry(view_number)
@@ -55,7 +67,7 @@ impl WebServerDataSource for WebServerState {
         Ok(())
     }
 
-    fn put_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error> {
+    fn post_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error> {
         //TODO KALEY: security check for valid proposal from correct node?
         self.proposals.insert(view_number, proposal);
         Ok(())
@@ -90,17 +102,24 @@ where
     api.get("getproposal", |req, state| {
         async move {
             let view_number: u128 = req.integer_param("view_number").unwrap();
-            state.get_proposal(view_number)
+            state.get_proposals(view_number)
         }
         .boxed()
     })?
-    .post("vote", |req, state| {
+    .get("getvotes", |req, state| {
+        async move {
+            let view_number: u128 = req.integer_param("view_number").unwrap();
+            state.get_votes(view_number)
+        }
+        .boxed()
+    })?
+    .post("postvote", |req, state| {
         async move {
             let view_number: u128 = req.integer_param("view_number").unwrap();
             // using body_bytes because we don't want to deserialize.  body_auto or body_json deserailizes
             let vote = req.body_bytes();
             // Add vote to state
-            state.put_vote(view_number, vote.clone())
+            state.post_vote(view_number, vote.clone())
         }
         .boxed()
     })?
@@ -110,7 +129,7 @@ where
             // using body_bytes because we don't want to deserialize.  body_auto or body_json deserailizes
             let proposal = req.body_bytes();
             // Add proposal to state
-            state.put_proposal(view_number, proposal.clone())
+            state.post_proposal(view_number, proposal.clone())
         }
         .boxed()
     })?;
@@ -119,11 +138,6 @@ where
 
 #[async_std::main]
 async fn main() -> () {
-    // let mut app = tide_disco::new();
-    // app.at("/orders/shoes").post(order_shoes);
-    // app.listen("127.0.0.1:8080").await?;
-    // let spec =
-    //     toml::from_slice(&std::fs::read("./centralized_web_server/api.toml").unwrap()).unwrap();
     let options = Options::default();
     let api = define_api(&options).unwrap();
     let mut app = App::<State, Error>::with_state(State::default());

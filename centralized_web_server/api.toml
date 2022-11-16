@@ -21,8 +21,8 @@ Post the proposal for view_number
 """
 
 # POST for replicas to send their votes with view number as argument
-[route.vote]
-PATH = ["vote/:view_number"]
+[route.postvote]
+PATH = ["postvote/:view_number"]
 ":view_number" = "Integer"
 METHOD = "POST"
 DOC = """
@@ -30,6 +30,13 @@ Send a vote`.
 """
 
 # GET for the next leader to receive votes with view number as an argument
+[route.getvotes]
+PATH = ["getvotes/:view_number"]
+":view_number" = "Integer"
+METHOD = "GET"
+DOC = """
+Get all votes for a view number`.
+"""
 
 # TODO transactions
 
