@@ -98,14 +98,10 @@ pub struct ConsensusMetrics {
     pub view_duration: Box<dyn Histogram>,
     /// Number of views that are in-flight since the last committed view
     pub number_of_views_since_last_commit: Box<dyn Gauge>,
-    // /// Number of accepted transactions
-    // accepted_transactions: Box<dyn Counter>,
     /// Number of rejected transactions
     pub rejected_transactions: Box<dyn Counter>,
     /// Number of outstanding transactions
     pub outstanding_transactions: Box<dyn Gauge>,
-    // /// Number of uncommitted views
-    // number_of_uncommitted_views: Box<dyn Gauge>,
     /// Number of views that timed out
     pub number_of_timeouts: Box<dyn Counter>,
     /// Total direct messages this node sent out
@@ -157,12 +153,6 @@ impl ConsensusMetrics {
                 .create_counter(String::from("broadcast_messages_received"), None),
             failed_to_send_messages: metrics
                 .create_counter(String::from("failed_to_send_messages"), None),
-            // committed_block_size: metrics.create_histogram(
-            //     String::from("committed_block_size"),
-            //     Some(String::from("bytes")),
-            // ),
-            // number_of_uncommitted_views: metrics
-            //     .create_gauge(String::from("number_of_uncommitted_branches"), None),
             number_of_timeouts: metrics
                 .create_counter(String::from("number_of_views_timed_out"), None),
         }
