@@ -327,8 +327,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
             consensus
                 .state_map
                 .range((Excluded(consensus.locked_view), Included(self.cur_view)))
-                .collect::<Vec<(&<TYPES as NodeTypes>::Time, &View<TYPES>)>>()
-                .len(),
+                .count(),
         );
         if new_decide_reached {
             consensus
