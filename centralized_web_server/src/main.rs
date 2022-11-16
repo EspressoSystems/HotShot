@@ -212,5 +212,22 @@ mod test {
                 message: String::from("No proposal for view 3")
             })
         );
+
+        // Test votes
+        let vote1 = "vote1";
+        client
+            .post::<()>("api/postvote/1")
+            .body_binary(&vote1)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+        let resp = client
+            .get::<Vec<u8>>("api/getvotes/1")
+            .send()
+            .await
+            .unwrap();
+        let res1: Vec<Vec<u8>> = bincode::deserialize(&resp).unwrap();
+
     }
 }
