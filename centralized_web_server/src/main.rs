@@ -227,7 +227,7 @@ mod test {
             .send()
             .await
             .unwrap();
-        let res1: Vec<Vec<u8>> = bincode::deserialize(&resp).unwrap();
+        let res1: Vec<&str> = bincode::deserialize(&resp).unwrap();
 
     }
 }
