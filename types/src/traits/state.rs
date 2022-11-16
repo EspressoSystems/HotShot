@@ -125,6 +125,10 @@ pub mod dummy {
                 .u64_field("Nonce", self.nonce)
                 .finalize()
         }
+
+        fn tag() -> String {
+            "DUMMYSTATE".to_string()
+        }
     }
 
     impl DummyState {

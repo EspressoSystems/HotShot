@@ -134,6 +134,10 @@ impl Committable for DEntryState {
 
         builder.finalize()
     }
+
+    fn tag() -> String {
+        "DENTRYSTATE".to_string()
+    }
 }
 
 /// initializes the first state on genesis
@@ -188,6 +192,10 @@ impl Committable for DEntryBlock {
             }
         }
     }
+
+    fn tag() -> String {
+        "DENTRYBLOCK".to_string()
+    }
 }
 
 impl Committable for DEntryTransaction {
@@ -198,6 +206,10 @@ impl Committable for DEntryTransaction {
             .constant_str("nonce")
             .u64_field("nonce", self.nonce)
             .finalize()
+    }
+
+    fn tag() -> String {
+        "DENTRYTXN".to_string()
     }
 }
 

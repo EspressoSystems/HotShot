@@ -87,6 +87,10 @@ pub mod dummy {
                 .u64_field("Dummy Field", 0)
                 .finalize()
         }
+
+        fn tag() -> String {
+            "DUMMYTXN".to_string()
+        }
     }
     impl super::Transaction for DummyTransaction {}
 
@@ -128,6 +132,10 @@ pub mod dummy {
             commit::RawCommitmentBuilder::new("Dummy Block Comm")
                 .u64_field("Nonce", self.nonce)
                 .finalize()
+        }
+
+        fn tag() -> String {
+            "DUMMYBLOCK".to_string()
         }
     }
 }

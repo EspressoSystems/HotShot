@@ -53,6 +53,10 @@ impl Committable for StaticVoteToken {
             .var_size_field("pub_key", &self.pub_key.to_bytes().0)
             .finalize()
     }
+
+    fn tag() -> String {
+        "VOTE".to_string()
+    }
 }
 
 /// configuration for static committee. stub for now

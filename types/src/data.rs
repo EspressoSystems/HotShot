@@ -144,6 +144,10 @@ impl<TYPES: NodeTypes> Committable for QuorumCertificate<TYPES> {
 
         builder.u64_field("Genesis", self.genesis.into()).finalize()
     }
+
+    fn tag() -> String {
+        "QC".to_string()
+    }
 }
 
 /// The `Transaction` type associated with a `State`, as a syntactic shortcut
@@ -256,6 +260,10 @@ impl<TYPES: NodeTypes> Committable for Leaf<TYPES> {
             .constant_str("justify_qc signatures")
             .var_size_bytes(&signatures_bytes)
             .finalize()
+    }
+
+    fn tag() -> String {
+        "LEAF".to_string()
     }
 }
 

@@ -373,6 +373,10 @@ mod tests {
                 .u64_field("Nothing", 0)
                 .finalize()
         }
+
+        fn tag() -> String {
+            "TESTBLOCK".to_string()
+        }
     }
 
     impl Block for TestBlock {
@@ -401,6 +405,10 @@ mod tests {
                 .u64_field("Nothing", 0)
                 .finalize()
         }
+
+        fn tag() -> String {
+            "TESTTXN".to_string()
+        }
     }
 
     #[derive(Clone, Default, serde::Serialize, serde::Deserialize, Debug, Hash, Eq, PartialEq)]
@@ -410,6 +418,10 @@ mod tests {
             commit::RawCommitmentBuilder::new("Test Txn Comm")
                 .u64_field("Nothing", 0)
                 .finalize()
+        }
+
+        fn tag() -> String {
+            "TESTSTATE".to_string()
         }
     }
 

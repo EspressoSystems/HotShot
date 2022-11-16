@@ -394,6 +394,10 @@ where
             .var_size_bytes(bincode_opts().serialize(&self.proof).unwrap().as_slice())
             .finalize()
     }
+
+    fn tag() -> String {
+        "VOTE".to_string()
+    }
 }
 
 // KEY is VRFPubKey
