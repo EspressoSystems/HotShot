@@ -95,13 +95,11 @@ pub struct QuorumCertificate<TYPES: NodeTypes> {
     /// This is included for convenience, and is not fundamental to consensus or covered by the
     /// signature. This _must_ be identical to the [`BlockContents`] provided hash of the `item` in
     /// the referenced leaf.
-    #[debug(skip)]
     pub block_commitment: Commitment<TYPES::BlockType>,
 
     /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
     /// This value is covered by the threshold signature.
-    #[debug(skip)]
     pub leaf_commitment: Commitment<Leaf<TYPES>>,
 
     /// The view number this quorum certificate was generated during
@@ -166,14 +164,12 @@ pub struct ProposalLeaf<TYPES: NodeTypes> {
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
-    #[debug(skip)]
     pub parent_commitment: Commitment<Leaf<TYPES>>,
 
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
 
     /// What the state should be after applying `self.deltas`
-    #[debug(skip)]
     pub state_commitment: Commitment<TYPES::StateType>,
 
     /// Transactions that were marked for rejection while collecting deltas
@@ -239,7 +235,7 @@ impl<TYPES: NodeTypes> Committable for Leaf<TYPES> {
         for (k, v) in &self.justify_qc.signatures {
             signatures_bytes.extend(&k.0);
             signatures_bytes.extend(&v.0 .0);
-            signatures_bytes.extend(v.1.commit().as_ref());
+            signatures_bytes.extend::<&[u8]>(v.1.commit().as_ref());
         }
         commit::RawCommitmentBuilder::new("Leaf Comm")
             .constant_str("view_number")

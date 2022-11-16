@@ -32,7 +32,7 @@ async-std = { version = "1.12", optional = true }
 async-trait = "0.1.58"
 # TODO ed: Delete this dependency after https://github.com/EspressoSystems/HotShot/issues/614 is finished
 bincode = "1.3.3"
-commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.0" }
+commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
 custom_debug = "0.5"
 futures = "0.3.25"
 hotshot-types = { path = "../types", default-features = false }
