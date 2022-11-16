@@ -1,11 +1,8 @@
-// use tide_disco::{http::StatusCode, Api, App, Error, RequestError};
-// use std::io;
-
-use std::collections::HashMap;
-
 use async_std::sync::RwLock;
 use clap::Args;
 use futures::FutureExt;
+use std::collections::HashMap;
+use std::io;
 use std::path::PathBuf;
 use tide_disco::api::ApiError;
 use tide_disco::error::ServerError;
@@ -19,35 +16,34 @@ type State = RwLock<WebServerState>;
 type Error = ServerError;
 
 #[derive(Clone, Default)]
+/// State that tracks proposals and votes the server receives
+/// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
 struct WebServerState {
-    proposals: HashMap<u128, Vec<u8>>,
+    proposals: HashMap<u128, Vec<Vec<u8>>>,
     votes: HashMap<u128, Vec<Vec<u8>>>,
 }
 
-impl WebServerState {
-    fn new() -> Self {
-        WebServerState::default()
-    }
-}
-
+/// Trait defining methods needed for the `WebServerState`
 pub trait WebServerDataSource {
-    fn get_proposals(&self, view_number: u128) -> Result<Vec<u8>, Error>;
+    fn get_proposals(&self, view_number: u128) -> Result<Vec<Vec<u8>>, Error>;
     fn get_votes(&self, view_number: u128) -> Result<Vec<Vec<u8>>, Error>;
     fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error>;
     fn post_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error>;
 }
 
 impl WebServerDataSource for WebServerState {
-    fn get_proposals(&self, view_number: u128) -> Result<Vec<u8>, Error> {
+    /// Return all proposals the server has received for a particular view
+    fn get_proposals(&self, view_number: u128) -> Result<Vec<Vec<u8>>, Error> {
         match self.proposals.get(&view_number) {
             Some(proposals) => Ok(proposals.clone()),
             None => Err(ServerError {
                 status: StatusCode::BadRequest,
-                message: format!("No proposal for view {}", view_number),
+                message: format!("No proposals for view {}", view_number),
             }),
         }
     }
 
+    /// Return all votes the server has received for a particular view
     fn get_votes(&self, view_number: u128) -> Result<Vec<Vec<u8>>, Error> {
         match self.votes.get(&view_number) {
             Some(votes) => Ok(votes.clone()),
@@ -58,18 +54,22 @@ impl WebServerDataSource for WebServerState {
         }
     }
 
+    /// Stores a received vote in the `WebServerState`
     fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error> {
         // TODO KALEY: security check for votes needed?
         self.votes
             .entry(view_number)
             .and_modify(|current_votes| current_votes.push(vote.clone()))
-            .or_insert(vec![vote]);
+            .or_insert_with(|| vec![vote]);
         Ok(())
     }
-
+    /// Stores a received proposal in the `WebServerState`
     fn post_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error> {
         //TODO KALEY: security check for valid proposal from correct node?
-        self.proposals.insert(view_number, proposal);
+        self.proposals
+            .entry(view_number)
+            .and_modify(|current_proposals| current_proposals.push(proposal.clone()))
+            .or_insert_with(|| vec![proposal]);
         Ok(())
     }
 }
@@ -83,6 +83,7 @@ pub struct Options {
     pub api_path: Option<PathBuf>,
 }
 
+/// Sets up all API routes
 fn define_api<State>(options: &Options) -> Result<Api<State, Error>, ApiError>
 where
     State: 'static + Send + Sync + ReadState + WriteState,
@@ -116,20 +117,20 @@ where
     .post("postvote", |req, state| {
         async move {
             let view_number: u128 = req.integer_param("view_number").unwrap();
-            // using body_bytes because we don't want to deserialize.  body_auto or body_json deserailizes
+            // Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes
             let vote = req.body_bytes();
             // Add vote to state
-            state.post_vote(view_number, vote.clone())
+            state.post_vote(view_number, vote)
         }
         .boxed()
     })?
     .post("postproposal", |req, state| {
         async move {
             let view_number: u128 = req.integer_param("view_number").unwrap();
-            // using body_bytes because we don't want to deserialize.  body_auto or body_json deserailizes
+            // Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes
             let proposal = req.body_bytes();
             // Add proposal to state
-            state.post_proposal(view_number, proposal.clone())
+            state.post_proposal(view_number, proposal)
         }
         .boxed()
     })?;
@@ -137,14 +138,13 @@ where
 }
 
 #[async_std::main]
-async fn main() -> () {
+async fn main() -> io::Result<()> {
     let options = Options::default();
     let api = define_api(&options).unwrap();
     let mut app = App::<State, Error>::with_state(State::default());
 
     app.register_module("api", api).unwrap();
-    app.serve("http://0.0.0.0:8080").await;
-    ()
+    app.serve("http://0.0.0.0:8080").await
 }
 
 #[cfg(test)]
@@ -166,13 +166,14 @@ mod test {
         let mut app = App::<State, Error>::with_state(State::default());
 
         app.register_module("api", api).unwrap();
-        let handle = spawn(app.serve(base_url.clone()));
+        let _handle = spawn(app.serve(base_url.clone()));
 
         let base_url = format!("http://{base_url}").parse().unwrap();
         let client = surf_disco::Client::<ServerError>::new(base_url);
         assert!(client.connect(None).await);
 
-        let prop1 = "test";
+        // Test posting and getting proposals
+        let prop1 = "prop1";
         client
             .post::<()>("api/postproposal/1")
             .body_binary(&prop1)
@@ -181,14 +182,14 @@ mod test {
             .await
             .unwrap();
         let resp = client
-            .get::<Vec<u8>>("api/getproposal/1")
+            .get::<Vec<Vec<u8>>>("api/getproposal/1")
             .send()
             .await
             .unwrap();
-        let res1: &str = bincode::deserialize(&resp).unwrap();
+        let res1: &str = bincode::deserialize(&resp[0]).unwrap();
         assert_eq!(res1, prop1);
 
-        let prop2 = "test2";
+        let prop2 = "prop2";
         client
             .post::<()>("api/postproposal/2")
             .body_binary(&prop2)
@@ -197,11 +198,12 @@ mod test {
             .await
             .unwrap();
         let resp = client
-            .get::<Vec<u8>>("api/getproposal/2")
+            .get::<Vec<Vec<u8>>>("api/getproposal/2")
             .send()
             .await
             .unwrap();
-        let res2: &str = bincode::deserialize(&resp).unwrap();
+
+        let res2: &str = bincode::deserialize(&resp[0]).unwrap();
         assert_eq!(res2, prop2);
         assert_ne!(res1, res2);
 
@@ -209,11 +211,11 @@ mod test {
             client.get::<Vec<u8>>("api/getproposal/3").send().await,
             Err(ServerError {
                 status: BadRequest,
-                message: String::from("No proposal for view 3")
+                message: String::from("No proposals for view 3")
             })
         );
 
-        // Test votes
+        // Test posting and getting votes
         let vote1 = "vote1";
         client
             .post::<()>("api/postvote/1")
@@ -222,12 +224,30 @@ mod test {
             .send()
             .await
             .unwrap();
-        let resp = client
-            .get::<Vec<u8>>("api/getvotes/1")
+
+        let vote2 = "vote2";
+        client
+            .post::<()>("api/postvote/1")
+            .body_binary(&vote2)
+            .unwrap()
             .send()
             .await
             .unwrap();
-        let res1: Vec<&str> = bincode::deserialize(&resp).unwrap();
+        let resp = client
+            .get::<Vec<Vec<u8>>>("api/getvotes/1")
+            .send()
+            .await
+            .unwrap();
+        // for i in &resp {
+        //     let thing: &str = bincode::deserialize(&i[..]).unwrap();
+        //     print!("{:?}", thing)
+        // }
 
+        let res1: &str = bincode::deserialize(&resp[0]).unwrap();
+        let res2: &str = bincode::deserialize(&resp[1]).unwrap();
+        assert_eq!(vote1, res1);
+        assert_eq!(vote2, res2);
+        // println!("Length is: {}", resp.len());
+        // let res1: Vec<Vec<u8>> = bincode::deserialize(&resp[..]).unwrap();
     }
 }
