@@ -116,7 +116,7 @@ where
         async move {
             let view_number: u128 = req.integer_param("view_number")?;
             // Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes
-            let vote = req.body_bytes(); 
+            let vote = req.body_bytes();
             // Add vote to state
             state.post_vote(view_number, vote)
         }
