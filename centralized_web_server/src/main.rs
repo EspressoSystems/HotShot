@@ -37,7 +37,7 @@ impl WebServerDataSource for WebServerState {
         match self.proposals.get(&view_number) {
             Some(proposals) => Ok(proposals.clone()),
             None => Err(ServerError {
-                status: StatusCode::BadRequest,
+                status: StatusCode::NotFound,
                 message: format!("No proposals for view {}", view_number),
             }),
         }
@@ -48,7 +48,7 @@ impl WebServerDataSource for WebServerState {
         match self.votes.get(&view_number) {
             Some(votes) => Ok(votes.clone()),
             None => Err(ServerError {
-                status: StatusCode::BadRequest,
+                status: StatusCode::NotFound,
                 message: format!("No votes for view {}", view_number),
             }),
         }
@@ -56,7 +56,6 @@ impl WebServerDataSource for WebServerState {
 
     /// Stores a received vote in the `WebServerState`
     fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error> {
-        // TODO KALEY: security check for votes needed?
         self.votes
             .entry(view_number)
             .and_modify(|current_votes| current_votes.push(vote.clone()))
@@ -65,7 +64,6 @@ impl WebServerDataSource for WebServerState {
     }
     /// Stores a received proposal in the `WebServerState`
     fn post_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error> {
-        //TODO KALEY: security check for valid proposal from correct node?
         self.proposals
             .entry(view_number)
             .and_modify(|current_proposals| current_proposals.push(proposal.clone()))
@@ -102,23 +100,23 @@ where
     };
     api.get("getproposal", |req, state| {
         async move {
-            let view_number: u128 = req.integer_param("view_number").unwrap();
+            let view_number: u128 = req.integer_param("view_number")?;
             state.get_proposals(view_number)
         }
         .boxed()
     })?
     .get("getvotes", |req, state| {
         async move {
-            let view_number: u128 = req.integer_param("view_number").unwrap();
+            let view_number: u128 = req.integer_param("view_number")?;
             state.get_votes(view_number)
         }
         .boxed()
     })?
     .post("postvote", |req, state| {
         async move {
-            let view_number: u128 = req.integer_param("view_number").unwrap();
+            let view_number: u128 = req.integer_param("view_number")?;
             // Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes
-            let vote = req.body_bytes();
+            let vote = req.body_bytes(); 
             // Add vote to state
             state.post_vote(view_number, vote)
         }
@@ -126,7 +124,7 @@ where
     })?
     .post("postproposal", |req, state| {
         async move {
-            let view_number: u128 = req.integer_param("view_number").unwrap();
+            let view_number: u128 = req.integer_param("view_number")?;
             // Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes
             let proposal = req.body_bytes();
             // Add proposal to state
@@ -152,7 +150,7 @@ mod test {
     use super::*;
     use async_std::task::spawn;
     use portpicker::pick_unused_port;
-    use tide_disco::StatusCode::BadRequest;
+    use tide_disco::StatusCode;
 
     type State = RwLock<WebServerState>;
     type Error = ServerError;
@@ -175,14 +173,14 @@ mod test {
         // Test posting and getting proposals
         let prop1 = "prop1";
         client
-            .post::<()>("api/postproposal/1")
+            .post::<()>("api/proposal/1")
             .body_binary(&prop1)
             .unwrap()
             .send()
             .await
             .unwrap();
         let resp = client
-            .get::<Vec<Vec<u8>>>("api/getproposal/1")
+            .get::<Vec<Vec<u8>>>("api/proposal/1")
             .send()
             .await
             .unwrap();
@@ -191,14 +189,14 @@ mod test {
 
         let prop2 = "prop2";
         client
-            .post::<()>("api/postproposal/2")
+            .post::<()>("api/proposal/2")
             .body_binary(&prop2)
             .unwrap()
             .send()
             .await
             .unwrap();
         let resp = client
-            .get::<Vec<Vec<u8>>>("api/getproposal/2")
+            .get::<Vec<Vec<u8>>>("api/proposal/2")
             .send()
             .await
             .unwrap();
@@ -208,9 +206,9 @@ mod test {
         assert_ne!(res1, res2);
 
         assert_eq!(
-            client.get::<Vec<u8>>("api/getproposal/3").send().await,
+            client.get::<Vec<u8>>("api/proposal/3").send().await,
             Err(ServerError {
-                status: BadRequest,
+                status: StatusCode::NotFound,
                 message: String::from("No proposals for view 3")
             })
         );
@@ -218,7 +216,7 @@ mod test {
         // Test posting and getting votes
         let vote1 = "vote1";
         client
-            .post::<()>("api/postvote/1")
+            .post::<()>("api/votes/1")
             .body_binary(&vote1)
             .unwrap()
             .send()
@@ -227,27 +225,20 @@ mod test {
 
         let vote2 = "vote2";
         client
-            .post::<()>("api/postvote/1")
+            .post::<()>("api/votes/1")
             .body_binary(&vote2)
             .unwrap()
             .send()
             .await
             .unwrap();
         let resp = client
-            .get::<Vec<Vec<u8>>>("api/getvotes/1")
+            .get::<Vec<Vec<u8>>>("api/votes/1")
             .send()
             .await
             .unwrap();
-        // for i in &resp {
-        //     let thing: &str = bincode::deserialize(&i[..]).unwrap();
-        //     print!("{:?}", thing)
-        // }
-
         let res1: &str = bincode::deserialize(&resp[0]).unwrap();
         let res2: &str = bincode::deserialize(&resp[1]).unwrap();
         assert_eq!(vote1, res1);
         assert_eq!(vote2, res2);
-        // println!("Length is: {}", resp.len());
-        // let res1: Vec<Vec<u8>> = bincode::deserialize(&resp[..]).unwrap();
     }
 }
