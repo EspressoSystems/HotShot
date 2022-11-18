@@ -184,6 +184,16 @@ pub struct ProposalLeaf<TYPES: NodeTypes> {
     pub proposer_id: EncodedPublicKey,
 }
 
+pub struct DAProposal<TYPES: NodeTypes> {
+    /// Block leaf wants to apply
+    pub deltas: TYPES::BlockType,
+    /// TODO is this state? or commitment to state
+    pub state_commitment: Commitment<TYPES::StateType>,
+}
+
+pub struct CommitmentProposal<TYPES: NodeTypes> {
+}
+
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`

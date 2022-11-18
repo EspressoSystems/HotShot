@@ -57,10 +57,40 @@ pub trait ElectionConfig:
 {
 }
 
+pub enum Either<T, U> {
+    Left(T),
+    Right(U)
+}
+
+pub trait Accumulator<T> {
+    fn add_signatures(signature: Vec<_> ) -> Either<Self, T> {
+    }
+}
+
+pub trait SignedCertificate
+    where Self : Send + Sync + Clone {
+        type Accumulator: Accumulator<Self>;
+
+}
+
 /// Describes how `HotShot` chooses committees and leaders
 pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
     /// Data structure describing the currently valid states
     type StakeTable: Send + Sync;
+
+    /// certificate for quorum on consenus
+    type QuorumCertificate: Send + Sync + SignedCertificate;
+
+    /// certificate for data availability
+    type DACertificate: Send + Sync + SignedCertificate;
+
+    fn validate_qc(&self, qc: Self::QuorumCertificate) -> bool {
+    }
+
+    fn is_valid_signature(&self,
+                          ) {
+
+    }
 
     /// generate a default election configuration
     fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType;
