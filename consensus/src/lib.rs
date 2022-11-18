@@ -98,6 +98,14 @@ pub struct ConsensusMetrics {
     pub view_duration: Box<dyn Histogram>,
     /// Number of views that are in-flight since the last committed view
     pub number_of_views_since_last_commit: Box<dyn Gauge>,
+    /// Number of views that are in-flight since the last anchor view
+    pub number_of_views_since_last_anchor: Box<dyn Gauge>,
+    /// Number of that had an invalid QC since last anchor
+    pub invalid_qc_views_since_last_anchor: Box<dyn Gauge>,
+    /// Number of views that were discarded since the last anchor
+    pub discarded_views_since_last_anchor: Box<dyn Gauge>,
+    /// Number of views which have a committed QC since last anchor
+    pub committed_qcs_since_last_anchor: Box<dyn Gauge>,
     /// Number of rejected transactions
     pub rejected_transactions: Box<dyn Counter>,
     /// Number of outstanding transactions
@@ -139,6 +147,14 @@ impl ConsensusMetrics {
                 .create_histogram(String::from("view_duration"), Some(String::from("seconds"))),
             number_of_views_since_last_commit: metrics
                 .create_gauge(String::from("number_of_views_since_last_commit"), None),
+            number_of_views_since_last_anchor: metrics
+                .create_gauge(String::from("number_of_views_since_last_anchor"), None),
+            invalid_qc_views_since_last_anchor: metrics
+                .create_gauge(String::from("invalid_qc_views_since_last_anchor"), None),
+            discarded_views_since_last_anchor: metrics
+                .create_gauge(String::from("discarded_views_since_last_anchor"), None),
+            committed_qcs_since_last_anchor: metrics
+                .create_gauge(String::from("committed_qcs_since_last_anchor"), None),
             rejected_transactions: metrics
                 .create_counter(String::from("rejected_transactions"), None),
             outstanding_transactions: metrics
@@ -247,6 +263,7 @@ impl<TYPES: NodeTypes> Consensus<TYPES> {
                 let _removed = self.saved_leaves.remove(leaf);
             });
         self.state_map = self.state_map.split_off(&new_anchor_view);
+        self.metrics.invalid_qc_views_since_last_anchor.set(0);
     }
 
     /// return a clone of the internal storage of unclaimed transactions

@@ -78,6 +78,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
 
                         // check that the justify_qc is valid
                         if !self.api.validate_qc(&justify_qc) {
+                            consensus.metrics.invalid_qc_views_since_last_anchor.set(1);
                             warn!("Invalid justify_qc in proposal! Skipping proposal.");
                             continue;
                         }
@@ -264,8 +265,9 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
         let mut included_txns = HashSet::new();
         let old_anchor_view = consensus.last_decided_view;
         let parent_view = leaf.justify_qc.view_number;
+        let mut current_chain_length = 0usize;
         if parent_view + 1 == self.cur_view {
-            let mut current_chain_length = 1usize;
+            current_chain_length += 1;
             if let Err(e) = consensus.visit_leaf_ancestors(
                 parent_view,
                 Terminator::Exclusive(old_anchor_view),
@@ -319,6 +321,44 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                 },
             },
         );
+        // update view metrics
+        let views_since_anchor = consensus
+            .state_map
+            .range((
+                Excluded(consensus.last_decided_view),
+                Included(self.cur_view),
+            ))
+            .count();
+        // TODO bfish: this is should eventually work but I don't think we store anything as
+        // failed yet.
+        // consensus
+        //     .metrics
+        //     .discarded_views_since_last_anchor
+        //     .set(
+        //         views_since_anchor.filter(|(_, view)| match view.view_inner {
+        //             ViewInner::Leaf(_) => false,
+        //             ViewInner::Failed => true,
+        //         }),
+        //     );
+
+        consensus
+            .metrics
+            .number_of_views_since_last_anchor
+            .set(views_since_anchor);
+        consensus
+            .metrics
+            .committed_qcs_since_last_anchor
+            .set(current_chain_length);
+
+        // Should this just be (curr_view - anchor_view) - current_chain_length,
+        // i.e any view that was/wasn't(leader never sent proposal/timed out) sent
+        // and is not in the current chain.
+        // The code here should count all veiws we saw that aren't in the current chain (so won't be commited)
+        consensus
+            .metrics
+            .discarded_views_since_last_anchor
+            .set(views_since_anchor - current_chain_length);
+
         consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
         if new_commit_reached {
             consensus.locked_view = new_locked_view;
