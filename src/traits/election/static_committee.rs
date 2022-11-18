@@ -7,7 +7,7 @@ use hotshot_types::traits::{
         EncodedSignature, SignatureKey,
     },
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
 
@@ -36,22 +36,24 @@ impl<S, PUBKEY, PRIVKEY> GeneralStaticCommittee<S, PUBKEY, PRIVKEY> {
     }
 }
 
+pub trait KeyTrait where Self : Serialize+ DeserializeOwned+ Clone+ std::fmt::Debug+ std::hash::Hash+ PartialEq+ Eq + Sync + Send {}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 /// TODO ed - docs
-pub struct StaticVoteToken<K> {
+pub struct StaticVoteToken<K: KeyTrait> {
     /// signature
     signature: EncodedSignature,
     /// public key
     pub_key: K,
 }
 
-impl<PUBKEY> VoteToken for StaticVoteToken<PUBKEY> {
+impl<PUBKEY: KeyTrait> VoteToken for StaticVoteToken<PUBKEY> {
     fn vote_count(&self) -> NonZeroU64 {
         NonZeroU64::new(1).unwrap()
     }
 }
 
-impl<PUBKEY> Committable for StaticVoteToken<PUBKEY> {
+impl<PUBKEY: KeyTrait> Committable for StaticVoteToken<PUBKEY> {
     fn commit(&self) -> Commitment<Self> {
         RawCommitmentBuilder::new("StaticVoteToken")
             .var_size_field("signature", &self.signature.0)
@@ -66,7 +68,7 @@ pub struct StaticElectionConfig {}
 
 impl ElectionConfig for StaticElectionConfig {}
 
-impl<TYPES, PUBKEY, PRIVKEY> Election<TYPES> for GeneralStaticCommittee<TYPES, PUBKEY, PRIVKEY>
+impl<TYPES, PUBKEY: KeyTrait, PRIVKEY: KeyTrait> Election<TYPES> for GeneralStaticCommittee<TYPES, PUBKEY, PRIVKEY>
 where
     TYPES: NodeTypes<
         SignatureKey = PUBKEY,

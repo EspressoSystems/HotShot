@@ -102,6 +102,7 @@ impl<T: Block> Block for DABlock<T> {
         }
     }
 
+    // TODO set to vec
     fn contained_transactions(&self) -> HashSet<commit::Commitment<Self::Transaction>> {
         if let Some(transaction) = &self.transaction {
             vec![transaction.commit()].into_iter().collect()

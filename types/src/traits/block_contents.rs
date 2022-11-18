@@ -38,6 +38,7 @@ pub trait Block:
         -> std::result::Result<Self, Self::Error>;
 
     /// returns hashes of all the transactions in this block
+    /// TODO make this ordered with a vec
     fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>>;
 
     /// Gets a [`Commitment`] to this block
