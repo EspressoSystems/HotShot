@@ -78,7 +78,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
 
                         // check that the justify_qc is valid
                         if !self.api.validate_qc(&justify_qc) {
-                            consensus.metrics.invalid_qc_views_since_last_anchor.set(1);
+                            consensus.metrics.invalid_qc_views.add(1);
                             warn!("Invalid justify_qc in proposal! Skipping proposal.");
                             continue;
                         }
