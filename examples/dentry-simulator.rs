@@ -2,10 +2,7 @@ use clap::Parser;
 use futures::future::join_all;
 use hotshot_types::traits::{
     metrics::NoMetrics,
-    signature_key::{
-        ed25519::{Ed25519Priv, Ed25519Pub},
-        SignatureKey,
-    },
+    signature_key::SignatureKey,
     state::TestableState,
 };
 use hotshot_types::{ExecutionType, HotShotConfig};
@@ -23,7 +20,10 @@ use tracing::{debug, error, instrument};
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::static_committee::{StaticCommittee, StaticElectionConfig},
+        election::{
+            static_committee::{StaticCommittee, StaticElectionConfig},
+            vrf::BlsPubKey,
+        },
         implementations::{MemoryStorage, WNetwork},
     },
     types::{Event, EventType, HotShotHandle},
@@ -95,10 +95,10 @@ async fn main() {
     let mut rng = Xoshiro256StarStar::seed_from_u64(0);
     // Spawn the networking backends and connect them together
     #[allow(clippy::type_complexity)]
-    let mut networkings: Vec<(WNetwork<DEntryTypes>, u16, Ed25519Pub, u64)> = Vec::new();
+    let mut networkings: Vec<(WNetwork<DEntryTypes>, u16, BlsPubKey, u64)> = Vec::new();
     for node_id in 0..nodes as u64 {
-        let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
-        let public_key = Ed25519Pub::from_private(&private_key);
+        let (public_key, _private_key) =
+            <BlsPubKey as SignatureKey>::generated_from_seed_indexed([0_u8; 32], node_id);
         networkings.push(get_networking(public_key, "0.0.0.0", node_id, &mut rng).await);
     }
     // Connect the networking implementations
@@ -106,7 +106,7 @@ async fn main() {
         for (_, port, key, _other_node_id) in networkings[i..].iter() {
             if key != self_key {
                 let socket = format!("localhost:{}", port);
-                n.connect_to(*key, &socket)
+                n.connect_to(key.clone(), &socket)
                     .await
                     .expect("Unable to connect to node");
             }
@@ -288,11 +288,11 @@ async fn main() {
 /// also starts the background task
 #[instrument(skip(rng))]
 async fn get_networking<R: hotshot::rand::Rng>(
-    pub_key: Ed25519Pub,
+    pub_key: BlsPubKey,
     listen_addr: &str,
     node_id: u64,
     rng: &mut R,
-) -> (WNetwork<DEntryTypes>, u16, Ed25519Pub, u64) {
+) -> (WNetwork<DEntryTypes>, u16, BlsPubKey, u64) {
     debug!(?pub_key);
     for attempt in 0..50 {
         let port: u16 = rng.gen_range(10_000..50_000);
@@ -301,7 +301,7 @@ async fn get_networking<R: hotshot::rand::Rng>(
             ?port,
             "Attempting to bind network listener to port"
         );
-        let x = WNetwork::new(pub_key, listen_addr, port, None).await;
+        let x = WNetwork::new(pub_key.clone(), listen_addr, port, None).await;
         if let Ok(x) = x {
             let (c, sync) = futures::channel::oneshot::channel();
             match x.generate_task(c) {
@@ -329,11 +329,7 @@ async fn get_hotshot(
     networking: WNetwork<DEntryTypes>,
 ) -> HotShotHandle<DEntryTypes, Node> {
     let known_nodes: Vec<_> = (0..nodes)
-        .map(|x| {
-            Ed25519Pub::from_private(&Ed25519Priv::generated_from_seed_indexed(
-                [0_u8; 32], x as u64,
-            ))
-        })
+        .map(|x| <BlsPubKey as SignatureKey>::generated_from_seed_indexed([0_u8; 32], x as u64).0)
         .collect();
     let config = HotShotConfig {
         execution_type: ExecutionType::Continuous,
@@ -350,9 +346,7 @@ async fn get_hotshot(
         num_bootstrap: 5,
         election_config: Some(StaticElectionConfig {}),
     };
-    debug!(?config);
-    let private_key = Ed25519Priv::generated_from_seed_indexed([0_u8; 32], node_id);
-    let public_key = Ed25519Pub::from_private(&private_key);
+    let (public_key, private_key) = BlsPubKey::generated_from_seed_indexed([0_u8; 32], node_id);
     let genesis_block = DEntryBlock::genesis();
     let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
     let h = HotShot::<DEntryTypes, Node>::init(

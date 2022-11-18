@@ -45,37 +45,37 @@ async fn libp2p_network() {
 }
 
 /// libp2p network test
-#[cfg_attr(
-    feature = "tokio-executor",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
-#[cfg_attr(feature = "async-std-executor", async_std::test)]
-#[instrument]
-async fn libp2p_network_da() {
-    let description = GeneralTestDescriptionBuilder {
-        round_start_delay: 25,
-        num_bootstrap_nodes: 5,
-        timeout_ratio: (11, 10),
-        total_nodes: 10,
-        start_nodes: 10,
-        num_succeeds: 20,
-        txn_ids: Right(1),
-        next_view_timeout: 10000,
-        start_delay: 120000,
-        ..GeneralTestDescriptionBuilder::default()
-    };
-
-    description
-        .build::<DACommitteeTestTypes, TestNodeImpl<
-            DACommitteeTestTypes,
-            Libp2pNetwork<DACommitteeTestTypes>,
-            MemoryStorage<DACommitteeTestTypes>,
-            StaticCommittee<DACommitteeTestTypes>,
-        >>()
-        .execute()
-        .await
-        .unwrap();
-}
+// #[cfg_attr(
+//     feature = "tokio-executor",
+//     tokio::test(flavor = "multi_thread", worker_threads = 2)
+// )]
+// #[cfg_attr(feature = "async-std-executor", async_std::test)]
+// #[instrument]
+// async fn libp2p_network_da() {
+//     let description = GeneralTestDescriptionBuilder {
+//         round_start_delay: 25,
+//         num_bootstrap_nodes: 5,
+//         timeout_ratio: (11, 10),
+//         total_nodes: 10,
+//         start_nodes: 10,
+//         num_succeeds: 20,
+//         txn_ids: Right(1),
+//         next_view_timeout: 10000,
+//         start_delay: 120000,
+//         ..GeneralTestDescriptionBuilder::default()
+//     };
+//
+//     description
+//         .build::<DACommitteeTestTypes, TestNodeImpl<
+//             DACommitteeTestTypes,
+//             Libp2pNetwork<DACommitteeTestTypes>,
+//             MemoryStorage<DACommitteeTestTypes>,
+//             StaticCommittee<DACommitteeTestTypes>,
+//         >>()
+//         .execute()
+//         .await
+//         .unwrap();
+// }
 
 // stress test for libp2p
 #[cfg_attr(

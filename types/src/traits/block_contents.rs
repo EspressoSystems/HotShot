@@ -4,7 +4,6 @@
 //! expected to have.
 
 use commit::{Commitment, Committable};
-use hotshot_utils::hack::nll_todo;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
@@ -40,9 +39,6 @@ pub trait Block:
     /// returns hashes of all the transactions in this block
     /// TODO make this ordered with a vec
     fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>>;
-
-    /// Gets a [`Commitment`] to this block
-    fn block_commit(&self) -> BlockCommitment<Self>;
 }
 
 /// Commitment to a block, used by data availibity
@@ -73,7 +69,6 @@ pub trait Transaction:
 pub mod dummy {
     #[allow(clippy::wildcard_imports)]
     use super::*;
-    use hotshot_utils::hack::nll_todo;
     use rand::Rng;
     use serde::Deserialize;
 
@@ -138,10 +133,6 @@ pub mod dummy {
 
         fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>> {
             HashSet::new()
-        }
-
-        fn block_commit(&self) -> BlockCommitment<Self> {
-            nll_todo()
         }
     }
 

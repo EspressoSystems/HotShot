@@ -4,11 +4,14 @@ use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::static_committee::{StaticCommittee, StaticElectionConfig},
+        election::{
+            static_committee::{StaticCommittee, StaticElectionConfig},
+            vrf::BlsPubKey,
+        },
         implementations::{Libp2pNetwork, MemoryStorage},
         NetworkError, Storage,
     },
-    types::{ed25519::Ed25519Priv, HotShotHandle},
+    types::HotShotHandle,
     HotShot,
 };
 use hotshot_centralized_server::{
@@ -18,7 +21,7 @@ use hotshot_types::{
     traits::{
         metrics::NoMetrics,
         network::NetworkingImplementation,
-        signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
+        signature_key::{SignatureKey, TestableSignatureKey},
         state::TestableState,
     },
     ExecutionType, HotShotConfig,
@@ -49,8 +52,8 @@ use tokio::net::TcpStream;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
-type FromServer = hotshot_centralized_server::FromServer<Ed25519Pub, StaticElectionConfig>;
-type ToServer = hotshot_centralized_server::ToServer<Ed25519Pub>;
+type FromServer = hotshot_centralized_server::FromServer<BlsPubKey, StaticElectionConfig>;
+type ToServer = hotshot_centralized_server::ToServer<BlsPubKey>;
 
 /// convert node string into multi addr
 /// node string of the form: "$IP:$PORT"
@@ -219,17 +222,19 @@ impl CliOrchestrated {
             FromServer::Config { config, run } => (config, run),
             x => panic!("Expected Libp2pConfig, got {x:?}"),
         };
-        assert_eq!(config.key_type_name, std::any::type_name::<Ed25519Pub>());
+        assert_eq!(config.key_type_name, std::any::type_name::<BlsPubKey>());
         assert_eq!(
             config.election_config_type_name,
             std::any::type_name::<StaticElectionConfig>()
         );
         error!("Received server config: {config:?}");
-        let privkey = Ed25519Priv::generated_from_seed_indexed(config.seed, config.node_index);
-        let pubkey = Ed25519Pub::from_private(&privkey);
+        let (pubkey, privkey) =
+            BlsPubKey::generated_from_seed_indexed(config.seed, config.node_index);
 
         stream
-            .send(ToServer::Identify { key: pubkey })
+            .send(ToServer::Identify {
+                key: pubkey.clone(),
+            })
             .await
             .expect("Could not identify with server");
 
@@ -307,8 +312,7 @@ impl CliStandalone {
     fn init(&self) -> Config {
         let mut seed = [0u8; 32];
         seed[0..16].copy_from_slice(&self.seed.to_le_bytes());
-        let privkey = Ed25519Priv::generated_from_seed_indexed(seed, self.node_idx);
-        let pubkey = Ed25519Pub::from_private(&privkey);
+        let (pubkey, privkey) = BlsPubKey::generated_from_seed_indexed(seed, self.node_idx);
 
         let bootstrap_priv: Vec<_> = BOOTSTRAPS
             .iter()
@@ -366,8 +370,8 @@ type Node = DEntryNode<DEntryTypes, Libp2pNetwork<DEntryTypes>, StaticCommittee<
 
 struct Config {
     run: Run,
-    privkey: Ed25519Priv,
-    pubkey: Ed25519Pub,
+    privkey: <BlsPubKey as SignatureKey>::PrivateKey,
+    pubkey: BlsPubKey,
     bs: Vec<(PeerId, Multiaddr)>,
     node_id: u64,
     node_type: NetworkNodeType,
@@ -402,8 +406,8 @@ impl Config {
         // Create the initial hotshot
         let known_nodes: Vec<_> = (0..self.num_nodes as u64)
             .map(|x| {
-                let priv_key = Ed25519Pub::generate_test_key(x);
-                Ed25519Pub::from_private(&priv_key)
+                let priv_key = BlsPubKey::generate_test_key(x);
+                BlsPubKey::from_private(&priv_key)
             })
             .collect();
 
@@ -424,7 +428,7 @@ impl Config {
         };
         debug!(?config);
         let hotshot = HotShot::init(
-            self.pubkey,
+            self.pubkey.clone(),
             self.privkey.clone(),
             self.node_id as u64,
             config,
@@ -485,7 +489,7 @@ impl Config {
         Libp2pNetwork::new(
             NoMetrics::new(),
             node_config,
-            self.pubkey,
+            self.pubkey.clone(),
             Arc::new(RwLock::new(
                 self.bs
                     .iter()

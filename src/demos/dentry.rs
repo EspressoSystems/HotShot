@@ -7,7 +7,10 @@
 //! production use.
 
 use crate::traits::{
-    election::static_committee::{StaticElectionConfig, StaticVoteToken},
+    election::{
+        static_committee::{StaticElectionConfig, StaticVoteToken},
+        vrf::BlsPubKey,
+    },
     implementations::MemoryStorage,
     Block, NetworkingImplementation, NodeImplementation,
 };
@@ -17,10 +20,9 @@ use hotshot_types::{
     constants::genesis_proposer_id,
     data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
     traits::{
-        block_contents::{BlockCommitment, Transaction},
+        block_contents::Transaction,
         election::Election,
         node_implementation::NodeTypes,
-        signature_key::ed25519::Ed25519Pub,
         state::{ConsensusTime, TestableBlock, TestableState},
         State,
     },
@@ -469,10 +471,6 @@ impl Block for DEntryBlock {
                 .collect(),
         }
     }
-
-    fn block_commit(&self) -> BlockCommitment<Self> {
-        BlockCommitment(self.commit())
-    }
 }
 
 /// Implementation of [`NodeTypes`] for [`DEntryNode`]
@@ -494,8 +492,8 @@ pub struct DEntryTypes;
 impl NodeTypes for DEntryTypes {
     type Time = ViewNumber;
     type BlockType = DEntryBlock;
-    type SignatureKey = Ed25519Pub;
-    type VoteTokenType = StaticVoteToken<Ed25519Pub>;
+    type SignatureKey = BlsPubKey;
+    type VoteTokenType = StaticVoteToken<BlsPubKey>;
     type Transaction = DEntryTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = DEntryState;

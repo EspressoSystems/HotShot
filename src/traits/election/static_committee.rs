@@ -1,59 +1,57 @@
+use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use hotshot_types::traits::{
     election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
     node_implementation::NodeTypes,
-    signature_key::{
-        ed25519::{Ed25519Priv, Ed25519Pub},
-        EncodedSignature, SignatureKey,
-    },
+    signature_key::{EncodedSignature, SignatureKey},
 };
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use jf_primitives::signatures::BLSSignatureScheme;
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
+
+use super::vrf::JfPubKey;
 
 /// Dummy implementation of [`Election`]
 
 #[derive(Clone, Debug)]
-pub struct GeneralStaticCommittee<S, PUBKEY, PRIVKEY> {
+pub struct GeneralStaticCommittee<S, PUBKEY: SignatureKey> {
     /// The nodes participating
     nodes: Vec<PUBKEY>,
     /// State phantom
     _state_phantom: PhantomData<S>,
-    /// private key phantom data
-    _priv_key_phantom: PhantomData<PRIVKEY>,
 }
 
-pub type StaticCommittee<S> = GeneralStaticCommittee<S, Ed25519Pub, Ed25519Priv>;
+/// static committee using a vrf kp
+pub type StaticCommittee<S> = GeneralStaticCommittee<S, JfPubKey<BLSSignatureScheme<Param381>>>;
 
-impl<S, PUBKEY, PRIVKEY> GeneralStaticCommittee<S, PUBKEY, PRIVKEY> {
+impl<S, PUBKEY: SignatureKey> GeneralStaticCommittee<S, PUBKEY> {
     /// Creates a new dummy elector
     pub fn new(nodes: Vec<PUBKEY>) -> Self {
         Self {
             nodes,
             _state_phantom: PhantomData,
-            _priv_key_phantom: PhantomData,
         }
     }
 }
 
-pub trait KeyTrait where Self : Serialize+ DeserializeOwned+ Clone+ std::fmt::Debug+ std::hash::Hash+ PartialEq+ Eq + Sync + Send {}
-
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
+#[serde(bound(deserialize = ""))]
 /// TODO ed - docs
-pub struct StaticVoteToken<K: KeyTrait> {
+pub struct StaticVoteToken<K: SignatureKey> {
     /// signature
     signature: EncodedSignature,
     /// public key
     pub_key: K,
 }
 
-impl<PUBKEY: KeyTrait> VoteToken for StaticVoteToken<PUBKEY> {
+impl<PUBKEY: SignatureKey> VoteToken for StaticVoteToken<PUBKEY> {
     fn vote_count(&self) -> NonZeroU64 {
         NonZeroU64::new(1).unwrap()
     }
 }
 
-impl<PUBKEY: KeyTrait> Committable for StaticVoteToken<PUBKEY> {
+impl<PUBKEY: SignatureKey> Committable for StaticVoteToken<PUBKEY> {
     fn commit(&self) -> Commitment<Self> {
         RawCommitmentBuilder::new("StaticVoteToken")
             .var_size_field("signature", &self.signature.0)
@@ -68,7 +66,8 @@ pub struct StaticElectionConfig {}
 
 impl ElectionConfig for StaticElectionConfig {}
 
-impl<TYPES, PUBKEY: KeyTrait, PRIVKEY: KeyTrait> Election<TYPES> for GeneralStaticCommittee<TYPES, PUBKEY, PRIVKEY>
+impl<TYPES, PUBKEY: SignatureKey + 'static> Election<TYPES>
+    for GeneralStaticCommittee<TYPES, PUBKEY>
 where
     TYPES: NodeTypes<
         SignatureKey = PUBKEY,
@@ -90,14 +89,14 @@ where
     /// Index the vector of public keys with the current view number
     fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {
         let index = (*view_number % self.nodes.len() as u64) as usize;
-        self.nodes[index]
+        self.nodes[index].clone()
     }
 
     /// Simply make the partial signature
     fn make_vote_token(
         &self,
         view_number: TYPES::Time,
-        private_key: &PRIVKEY,
+        private_key: &<PUBKEY as SignatureKey>::PrivateKey,
     ) -> std::result::Result<Option<StaticVoteToken<PUBKEY>>, ElectionError> {
         let mut message: Vec<u8> = vec![];
         message.extend(view_number.to_le_bytes());
@@ -128,7 +127,6 @@ where
         Self {
             nodes: keys,
             _state_phantom: PhantomData,
-            _priv_key_phantom: PhantomData,
         }
     }
 

@@ -88,38 +88,38 @@ async fn centralized_server_network() {
 }
 
 /// Centralized server network test
-#[cfg_attr(
-    feature = "tokio-executor",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
-#[cfg_attr(feature = "async-std-executor", async_std::test)]
-#[instrument]
-async fn centralized_server_da() {
-    let description = GeneralTestDescriptionBuilder {
-        round_start_delay: 25,
-        num_bootstrap_nodes: 5,
-        timeout_ratio: (11, 10),
-        total_nodes: 10,
-        start_nodes: 10,
-        num_succeeds: 20,
-        txn_ids: Right(1),
-        next_view_timeout: 10000,
-        start_delay: 120000,
-        ..GeneralTestDescriptionBuilder::default()
-    };
-
-    description
-        .build::<DACommitteeTestTypes, TestNodeImpl<
-            DACommitteeTestTypes,
-            CentralizedServerNetwork<DACommitteeTestTypes>,
-            MemoryStorage<DACommitteeTestTypes>,
-            StaticCommittee<DACommitteeTestTypes>,
-        >>()
-        .execute()
-        .await
-        .unwrap();
-    shutdown_logging();
-}
+// #[cfg_attr(
+//     feature = "tokio-executor",
+//     tokio::test(flavor = "multi_thread", worker_threads = 2)
+// )]
+// #[cfg_attr(feature = "async-std-executor", async_std::test)]
+// #[instrument]
+// async fn centralized_server_da() {
+//     let description = GeneralTestDescriptionBuilder {
+//         round_start_delay: 25,
+//         num_bootstrap_nodes: 5,
+//         timeout_ratio: (11, 10),
+//         total_nodes: 10,
+//         start_nodes: 10,
+//         num_succeeds: 20,
+//         txn_ids: Right(1),
+//         next_view_timeout: 10000,
+//         start_delay: 120000,
+//         ..GeneralTestDescriptionBuilder::default()
+//     };
+//
+//     description
+//         .build::<DACommitteeTestTypes, TestNodeImpl<
+//             DACommitteeTestTypes,
+//             CentralizedServerNetwork<DACommitteeTestTypes>,
+//             MemoryStorage<DACommitteeTestTypes>,
+//             StaticCommittee<DACommitteeTestTypes>,
+//         >>()
+//         .execute()
+//         .await
+//         .unwrap();
+//     shutdown_logging();
+// }
 
 // stress test for a centralized server
 #[cfg_attr(

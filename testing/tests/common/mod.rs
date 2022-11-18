@@ -5,17 +5,15 @@ use blake3::Hasher;
 use either::Either;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
-    da::{DABlock, DAState, DATransaction},
     traits::{
         dummy::DummyState,
         election::{
             static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
-            vrf::{VRFPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
+            vrf::{JfPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
         },
         implementations::{MemoryNetwork, MemoryStorage},
         NetworkReliability, NetworkingImplementation,
     },
-    types::ed25519::{Ed25519Priv, Ed25519Pub},
     HotShotError,
 };
 use hotshot_testing::{
@@ -314,7 +312,7 @@ pub struct VrfTestTypes;
 impl NodeTypes for VrfTestTypes {
     type Time = ViewNumber;
     type BlockType = DummyBlock;
-    type SignatureKey = VRFPubKey<BLSSignatureScheme<Param381>>;
+    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
     type VoteTokenType = VRFVoteToken<BLSVerKey<Param381>, BLSSignature<Param381>>;
     type Transaction = DummyTransaction;
     type ElectionConfigType = VRFStakeTableConfig;
@@ -338,35 +336,35 @@ pub struct StaticCommitteeTestTypes;
 impl NodeTypes for StaticCommitteeTestTypes {
     type Time = ViewNumber;
     type BlockType = DummyBlock;
-    type SignatureKey = Ed25519Pub;
-    type VoteTokenType = StaticVoteToken<Ed25519Pub>;
+    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
+    type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme<Param381>>>;
     type Transaction = DummyTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = DummyState;
 }
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Hash,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    serde::Serialize,
-    serde::Deserialize,
-)]
-pub struct DACommitteeTestTypes;
-impl NodeTypes for DACommitteeTestTypes {
-    type Time = ViewNumber;
-    type BlockType = DABlock<DummyBlock>;
-    type SignatureKey = VRFPubKey<BLSSignatureScheme<Param381>>;
-    type VoteTokenType = StaticVoteToken<VRFPubKey<BLSSignatureScheme<Param381>>>;
-    type Transaction = DATransaction<DummyBlock>;
-    type ElectionConfigType = StaticElectionConfig;
-    type StateType = DAState<DummyBlock>;
-}
+// #[derive(
+//     Copy,
+//     Clone,
+//     Debug,
+//     Default,
+//     Hash,
+//     PartialEq,
+//     Eq,
+//     PartialOrd,
+//     Ord,
+//     serde::Serialize,
+//     serde::Deserialize,
+// )]
+// pub struct DACommitteeTestTypes;
+// impl NodeTypes for DACommitteeTestTypes {
+//     type Time = ViewNumber;
+//     type BlockType = DABlock<DummyBlock>;
+//     type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
+//     type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme<Param381>>>;
+//     type Transaction = DATransaction<DummyBlock>;
+//     type ElectionConfigType = StaticElectionConfig;
+//     type StateType = DAState<DummyBlock>;
+// }
 
 /// type synonym for vrf committee election
 /// with in-memory network
