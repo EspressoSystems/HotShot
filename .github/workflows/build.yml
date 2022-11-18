@@ -45,7 +45,7 @@ jobs:
 
       - name: Audit
         # TODO remove ignore flag if/when ansiterm cve fixed
-        run: cargo audit --deny warnings  --ignore RUSTSEC-2021-0139
+        run: cargo audit --deny warnings  --ignore RUSTSEC-2021-0139 --ignore RUSTSEC-2022-0044
 
       - name: Check
         run: cargo check --features=full-ci --workspace
