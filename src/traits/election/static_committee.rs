@@ -1,4 +1,5 @@
 use commit::{Commitment, Committable, RawCommitmentBuilder};
+use espresso_systems_common::hotshot::tag;
 use hotshot_types::traits::{
     election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
     node_implementation::NodeTypes,
@@ -55,7 +56,7 @@ impl Committable for StaticVoteToken {
     }
 
     fn tag() -> String {
-        "VOTE".to_string()
+        tag::STATIC_VOTE_TOKEN.to_string()
     }
 }
 

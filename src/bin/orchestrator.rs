@@ -1,4 +1,5 @@
 use clap::Parser;
+use espresso_systems_common::hotshot::tag;
 use hotshot::{
     traits::election::static_committee::StaticElectionConfig,
     types::{
@@ -375,7 +376,7 @@ mod tests {
         }
 
         fn tag() -> String {
-            "TESTBLOCK".to_string()
+            tag::ORCHESTRATOR_BLOCK.to_string()
         }
     }
 
@@ -407,7 +408,7 @@ mod tests {
         }
 
         fn tag() -> String {
-            "TESTTXN".to_string()
+            tag::ORCHESTRATOR_TXN.to_string()
         }
     }
 
@@ -421,7 +422,7 @@ mod tests {
         }
 
         fn tag() -> String {
-            "TESTSTATE".to_string()
+            tag::ORCHESTRATOR_STATE.to_string()
         }
     }
 

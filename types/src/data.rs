@@ -16,6 +16,7 @@ use crate::{
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use commit::{Commitment, Committable};
 use derivative::Derivative;
+use espresso_systems_common::hotshot::tag;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
@@ -146,7 +147,7 @@ impl<TYPES: NodeTypes> Committable for QuorumCertificate<TYPES> {
     }
 
     fn tag() -> String {
-        "QC".to_string()
+        tag::QC.to_string()
     }
 }
 
@@ -263,7 +264,7 @@ impl<TYPES: NodeTypes> Committable for Leaf<TYPES> {
     }
 
     fn tag() -> String {
-        "LEAF".to_string()
+        tag::LEAF.to_string()
     }
 }
 

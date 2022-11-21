@@ -1,5 +1,6 @@
 use ark_bls12_381::Parameters as Param381;
 use clap::Parser;
+use espresso_systems_common::hotshot::tag;
 use hotshot::traits::election::vrf::VRFStakeTableConfig;
 use hotshot::{traits::election::vrf::VRFPubKey, types::SignatureKey};
 use hotshot_centralized_server::{
@@ -374,7 +375,7 @@ mod tests {
         }
 
         fn tag() -> String {
-            "TESTBLOCK".to_string()
+            tag::ORCHESTRATOR_VRF_BLOCK.to_string()
         }
     }
 
@@ -407,7 +408,7 @@ mod tests {
         }
 
         fn tag() -> String {
-            "TESTTXN".to_string()
+            tag::ORCHESTRATOR_VRF_TXN.to_string()
         }
     }
 
@@ -421,7 +422,7 @@ mod tests {
         }
 
         fn tag() -> String {
-            "TESTSTATE".to_string()
+            tag::ORCHESTRATOR_VRF_STATE.to_string()
         }
     }
 

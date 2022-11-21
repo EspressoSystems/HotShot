@@ -13,6 +13,7 @@ use crate::traits::{
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
+use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
     constants::genesis_proposer_id,
     data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
@@ -136,7 +137,7 @@ impl Committable for DEntryState {
     }
 
     fn tag() -> String {
-        "DENTRYSTATE".to_string()
+        tag::DENTRY_STATE.to_string()
     }
 }
 
@@ -194,7 +195,7 @@ impl Committable for DEntryBlock {
     }
 
     fn tag() -> String {
-        "DENTRYBLOCK".to_string()
+        tag::DENTRY_BLOCK.to_string()
     }
 }
 
@@ -209,7 +210,7 @@ impl Committable for DEntryTransaction {
     }
 
     fn tag() -> String {
-        "DENTRYTXN".to_string()
+        tag::DENTRY_TXN.to_string()
     }
 }
 

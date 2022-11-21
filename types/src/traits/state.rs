@@ -5,6 +5,7 @@
 
 use crate::traits::Block;
 use commit::Committable;
+use espresso_systems_common::hotshot::tag;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash, ops, ops::Deref};
 
@@ -127,7 +128,7 @@ pub mod dummy {
         }
 
         fn tag() -> String {
-            "DUMMYSTATE".to_string()
+            tag::DUMMY_STATE.to_string()
         }
     }
 
