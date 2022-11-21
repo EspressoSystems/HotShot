@@ -1041,17 +1041,20 @@ dependencies = [
 
 [[package]]
 name = "commit"
-version = "0.1.0"
-source = "git+https://github.com/EspressoSystems/commit?tag=0.2.0#1744c3d7ebf08d0c9725cb12e073b0153488c263"
+version = "0.2.2"
+source = "git+https://github.com/EspressoSystems/commit?tag=0.2.2#7e938186607f87da5fd642ce36313aaeab0cfaca"
 dependencies = [
  "arbitrary",
  "ark-serialize",
  "bitvec",
+ "derivative",
+ "derive_more",
  "funty",
  "generic-array",
  "hex",
  "serde",
  "sha3",
+ "tagged-base64 0.2.4",
 ]
 
 [[package]]
@@ -1120,6 +1123,12 @@ name = "constant_time_eq"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3ad85c1f65dc7b37604eb0e89748faf0b9653065f2a8ef69f96a687ec1e9279"
+
+[[package]]
+name = "convert_case"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "cookie"
@@ -1526,6 +1535,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive_more"
+version = "0.99.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
+dependencies = [
+ "convert_case",
+ "proc-macro2",
+ "quote",
+ "rustc_version 0.4.0",
+ "syn",
+]
+
+[[package]]
 name = "digest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1669,8 +1691,8 @@ source = "git+https://github.com/espressosystems/espresso-systems-common?tag=0.1
 
 [[package]]
 name = "espresso-systems-common"
-version = "0.2.0"
-source = "git+https://github.com/espressosystems/espresso-systems-common?tag=0.2.0#99b910038e4880a967eb979394e3adcfa526bb26"
+version = "0.3.0"
+source = "git+https://github.com/espressosystems/espresso-systems-common?tag=0.3.0#2064908f64861d2a71fa4383a6dc795cdfc4d4bf"
 
 [[package]]
 name = "event-listener"
@@ -2161,6 +2183,7 @@ dependencies = [
  "derivative",
  "digest 0.10.6",
  "embed-doc-image",
+ "espresso-systems-common 0.3.0",
  "futures",
  "hotshot-centralized-server",
  "hotshot-consensus",
@@ -2266,7 +2289,7 @@ dependencies = [
  "custom_debug",
  "derivative",
  "ed25519-compact",
- "espresso-systems-common 0.2.0",
+ "espresso-systems-common 0.3.0",
  "futures",
  "hex_fmt",
  "hotshot-utils",

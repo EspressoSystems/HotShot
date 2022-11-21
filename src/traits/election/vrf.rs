@@ -3,6 +3,7 @@ use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
 use blake3::Hasher;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
+use espresso_systems_common::hotshot::tag;
 use hotshot_types::traits::{
     election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
     node_implementation::NodeTypes,
@@ -393,6 +394,10 @@ where
             .var_size_bytes(bincode_opts().serialize(&self.pub_key).unwrap().as_slice())
             .var_size_bytes(bincode_opts().serialize(&self.proof).unwrap().as_slice())
             .finalize()
+    }
+
+    fn tag() -> String {
+        tag::VRF_VOTE_TOKEN.to_string()
     }
 }
 

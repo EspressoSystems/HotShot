@@ -5,6 +5,7 @@
 
 use crate::traits::Block;
 use commit::Committable;
+use espresso_systems_common::hotshot::tag;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash, ops, ops::Deref};
 
@@ -124,6 +125,10 @@ pub mod dummy {
             commit::RawCommitmentBuilder::new("Dummy State Comm")
                 .u64_field("Nonce", self.nonce)
                 .finalize()
+        }
+
+        fn tag() -> String {
+            tag::DUMMY_STATE.to_string()
         }
     }
 
