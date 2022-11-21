@@ -49,8 +49,7 @@ pub struct BlockCommitment<T: Block>(pub Commitment<T>);
 
 impl<T: Block> Ord for BlockCommitment<T> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        // FIXME (nm/da-sprint-1): This is sort of hacky, we should investigate better options
-        self.0.as_ref().cmp(other.0.as_ref())
+        self.0.cmp(&other.0)
     }
 }
 
