@@ -4,7 +4,7 @@ use crate::{
     utils::{Terminator, View, ViewInner},
     Consensus, ConsensusApi,
 };
-use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
+use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use commit::Committable;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate},
@@ -45,6 +45,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
         Option<Leaf<TYPES>>,
     ) {
         let lock = self.proposal_collection_chan.lock().await;
+        let mut invalid_qcs = 0;
         let leaf = loop {
             let msg = lock.recv().await;
             info!("recv-ed message {:?}", msg.clone());
@@ -78,7 +79,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
 
                         // check that the justify_qc is valid
                         if !self.api.validate_qc(&justify_qc) {
-                            consensus.metrics.invalid_qc_views.add(1);
+                            invalid_qcs += 1;
                             warn!("Invalid justify_qc in proposal! Skipping proposal.");
                             continue;
                         }
@@ -232,10 +233,17 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
             }
             // fall through logic if we did not receive successfully from channel
             warn!("Replica did not receive successfully from channel. Terminating Replica.");
+            let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+            consensus.invalid_qc += invalid_qcs;
             self.api.send_replica_timeout(self.cur_view).await;
-            return (consensus, None);
+            return (RwLockWriteGuard::downgrade_to_upgradable(consensus), None);
         };
-        (consensus, Some(leaf))
+        let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+        consensus.invalid_qc += invalid_qcs;
+        (
+            RwLockWriteGuard::downgrade_to_upgradable(consensus),
+            Some(leaf),
+        )
     }
 
     /// run one view of replica
@@ -333,42 +341,35 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
         if new_commit_reached {
             consensus.locked_view = new_locked_view;
         }
-
+        #[allow(clippy::cast_precision_loss)]
         if new_decide_reached {
-            // update view metrics
-            if let Ok(num_views_since_last_anchor) =
-                (*self.cur_view - *consensus.last_decided_view).try_into()
-            {
-                let views_seen = consensus
-                    .state_map
-                    .range((
-                        Excluded(consensus.last_decided_view),
-                        Included(self.cur_view),
-                    ))
-                    .count();
-                consensus
-                    .metrics
-                    .discarded_views_with_last_anchor
-                    .set(views_seen - current_chain_length);
-                consensus
-                    .metrics
-                    .number_of_views_with_last_anchor
-                    .set(num_views_since_last_anchor);
-                consensus
-                    .metrics
-                    .committed_qcs_since_last_anchor
-                    .set(current_chain_length);
-                
-
-                // Should this just be (curr_view - anchor_view) - current_chain_length,
-                // i.e any view that was/wasn't(leader never sent proposal/timed out) sent
-                // and is not in the current chain.
-                // The code here should count all veiws we saw that aren't in the current chain (so won't be commited)
-                consensus
-                    .metrics
-                    .discarded_views_with_last_anchor
-                    .set(num_views_since_last_anchor - current_chain_length);
-            }
+            let num_views_since_last_anchor =
+                (*self.cur_view - *consensus.last_decided_view) as f64;
+            let views_seen = consensus
+                .state_map
+                .range((
+                    Excluded(consensus.last_decided_view),
+                    Included(self.cur_view),
+                ))
+                .count();
+            // A count of all veiws we saw that aren't in the current chain (so won't be commited)
+            consensus
+                .metrics
+                .discarded_views_with_last_anchor
+                .add_point((views_seen - current_chain_length) as f64);
+            // An empty view is one we didn't see a leaf for but we moved past that view number
+            consensus
+                .metrics
+                .empty_views_with_last_anchor
+                .add_point((num_views_since_last_anchor - views_seen as f64) as f64);
+            consensus
+                .metrics
+                .number_of_views_with_last_anchor
+                .add_point(num_views_since_last_anchor);
+            consensus
+                .metrics
+                .invalid_qc_views
+                .add_point(consensus.invalid_qc as f64);
             consensus
                 .transactions
                 .modify(|txns| {
@@ -392,6 +393,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                 .collect_garbage(old_anchor_view, new_anchor_view)
                 .await;
             consensus.last_decided_view = new_anchor_view;
+            consensus.invalid_qc = 0;
 
             // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
             if let Err(e) = self.api.store_leaf(old_anchor_view, leaf).await {

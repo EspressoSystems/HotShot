@@ -226,6 +226,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
             metrics: Arc::new(ConsensusMetrics::new(
                 inner.metrics.subgroup("consensus".to_string()),
             )),
+            invalid_qc: 0,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
         let txns = hotstuff.read().await.get_transactions();
