@@ -16,6 +16,7 @@ use hotshot_utils::{
     art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
     broadcast::channel,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
+    subscribable_rwlock::ReadView,
 };
 use std::{
     collections::HashMap,
@@ -292,7 +293,7 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
             consensus: hotshot.hotstuff.clone(),
             high_qc: high_qc.clone(),
             cur_view,
-            transactions: txns,
+            transactions: txns.clone(),
             api: c_api.clone(),
         };
         let leader_handle = async_spawn(async move { leader.run_view().await });
@@ -348,6 +349,10 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
         .metrics
         .view_duration
         .add_point(start.elapsed().as_secs_f64());
+    consensus
+        .metrics
+        .outstanding_transactions
+        .set(txns.cloned().await.len());
     c_api.send_view_finished(consensus.cur_view).await;
 
     info!("Returning from view {:?}!", cur_view);
