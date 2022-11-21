@@ -1,5 +1,6 @@
 use ark_bls12_381::Parameters as Param381;
 use clap::Parser;
+use espresso_systems_common::hotshot::tag;
 use hotshot::traits::election::vrf::VRFStakeTableConfig;
 use hotshot::{traits::election::vrf::JfPubKey, types::SignatureKey};
 use hotshot_centralized_server::{
@@ -372,6 +373,10 @@ mod tests {
                 .u64_field("Nothing", 0)
                 .finalize()
         }
+
+        fn tag() -> String {
+            tag::ORCHESTRATOR_VRF_BLOCK.to_string()
+        }
     }
 
     impl Block for TestBlock {
@@ -401,6 +406,10 @@ mod tests {
                 .u64_field("Nothing", 0)
                 .finalize()
         }
+
+        fn tag() -> String {
+            tag::ORCHESTRATOR_VRF_TXN.to_string()
+        }
     }
 
     #[derive(Clone, Default, serde::Serialize, serde::Deserialize, Debug, Hash, Eq, PartialEq)]
@@ -410,6 +419,10 @@ mod tests {
             commit::RawCommitmentBuilder::new("Test Txn Comm")
                 .u64_field("Nothing", 0)
                 .finalize()
+        }
+
+        fn tag() -> String {
+            tag::ORCHESTRATOR_VRF_STATE.to_string()
         }
     }
 
