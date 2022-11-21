@@ -176,7 +176,7 @@ tracing-unwrap = { version = "0.10.0", features = ["log-location"] }
 async-std = { version = "1.12.0", features = ["attributes"] }
 clap = { version = "4.0", features = ["derive", "env"] }
 rand_xoshiro = "0.6.0"
-serde_json = "1.0.87"
+serde_json = "1.0.88"
 sha2 = { version = "0.10.1" }
 toml = "0.5.8"
 
