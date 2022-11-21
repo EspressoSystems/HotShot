@@ -75,7 +75,11 @@ pub trait NodeTypes:
 
     /// The state type that this hotshot setup is using.
     type StateType: State<BlockType = Self::BlockType, Time = Self::Time>;
+
+    type ApplicationMetadataType: ApplicationMetadata;
 }
+
+pub trait ApplicationMetadata {}
 
 /// testable node implmeentation trait
 pub trait TestableNodeImplementation<TYPES: NodeTypes>: NodeImplementation<TYPES>

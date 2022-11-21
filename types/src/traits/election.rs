@@ -1,8 +1,10 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 use super::node_implementation::NodeTypes;
+use super::signature_key::{EncodedSignature, EncodedPublicKey};
+use crate::data::Leaf;
 use crate::traits::signature_key::SignatureKey;
-use commit::Committable;
+use commit::{Committable, Commitment};
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 use std::fmt::Debug;
@@ -62,35 +64,51 @@ pub enum Either<T, U> {
     Right(U)
 }
 
-pub trait Accumulator<T> {
-    fn add_signatures(signature: Vec<_> ) -> Either<Self, T> {
-    }
+pub trait Accumulator<T, U> : Sized {
+    fn append(val: Vec<T> ) -> Either<Self, U>;
 }
 
-pub trait SignedCertificate
+pub trait SignedCertificate<SIGNATURE: SignatureKey>
     where Self : Send + Sync + Clone {
-        type Accumulator: Accumulator<Self>;
-
+        type Accumulator: Accumulator<SIGNATURE, Self>;
 }
 
 /// Describes how `HotShot` chooses committees and leaders
+/// TODO do we need the static lifetime requirement here?
 pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
     /// Data structure describing the currently valid states
     type StakeTable: Send + Sync;
 
     /// certificate for quorum on consenus
-    type QuorumCertificate: Send + Sync + SignedCertificate;
+    type QuorumCertificate: Send + Sync + SignedCertificate<TYPES::SignatureKey>;
 
     /// certificate for data availability
-    type DACertificate: Send + Sync + SignedCertificate;
+    type DACertificate: Send + Sync + SignedCertificate<TYPES::SignatureKey>;
 
-    fn validate_qc(&self, qc: Self::QuorumCertificate) -> bool {
-    }
+    /// check that the quorum certificate is valid
+    fn is_valid_qc(&self, qc: Self::QuorumCertificate) -> bool;
 
-    fn is_valid_signature(&self,
-                          ) {
+    /// check that the data availability certificate is valid
+    fn is_valid_dac(&self, qc: Self::DACertificate) -> bool;
 
-    }
+    /// confirm that a quorum certificate signature is valid
+    fn is_valid_qc_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        hash: Commitment<Leaf<TYPES>>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool;
+
+    /// confirm that a data availability signature is valid
+    fn is_valid_dac_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool;
 
     /// generate a default election configuration
     fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType;

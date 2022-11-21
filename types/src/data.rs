@@ -184,15 +184,42 @@ pub struct ProposalLeaf<TYPES: NodeTypes> {
     pub proposer_id: EncodedPublicKey,
 }
 
-pub struct DAProposal<TYPES: NodeTypes> {
+pub struct DataDistributionProposal<TYPES: NodeTypes> {
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
     /// TODO is this state? or commitment to state
     pub state_commitment: Commitment<TYPES::StateType>,
 }
 
-pub struct CommitmentProposal<TYPES: NodeTypes> {
+pub struct ConsensusProposal<TYPES: NodeTypes> {
+    /// CurView from leader when proposing leaf
+    pub view_number: TYPES::Time,
+
+    /// Per spec, justification
+    pub justify_qc: QuorumCertificate<TYPES>,
+
+    /// TODO implmeent data availibity certificate and add trait here
+    pub availability_certificate: QuorumCertificate<TYPES>,
+
+    // TODO do we need this? @nyospe says we should delete
+    /// The hash of the parent `Leaf`
+    /// So we can ask if it extends
+    #[debug(skip)]
+    pub parent_commitment: Commitment<Leaf<TYPES>>,
+
+    /// What the state should be after applying `self.deltas`
+    #[debug(skip)]
+    pub state_commitment: Commitment<TYPES::StateType>,
+
+    /// the propser id
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
+    pub proposer_id: EncodedPublicKey,
+
+    pub application_metadata: TYPES::ApplicationMetadataType
 }
+
+
+
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
