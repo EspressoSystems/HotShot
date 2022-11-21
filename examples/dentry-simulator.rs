@@ -1,9 +1,7 @@
 use clap::Parser;
 use futures::future::join_all;
 use hotshot_types::traits::{
-    metrics::NoMetrics,
-    signature_key::SignatureKey,
-    state::TestableState,
+    metrics::NoMetrics, signature_key::SignatureKey, state::TestableState,
 };
 use hotshot_types::{ExecutionType, HotShotConfig};
 use hotshot_utils::{
