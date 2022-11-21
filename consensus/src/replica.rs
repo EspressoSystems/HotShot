@@ -321,55 +321,54 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                 },
             },
         );
-        // update view metrics
-        let views_since_anchor = consensus
-            .state_map
-            .range((
-                Excluded(consensus.last_decided_view),
-                Included(self.cur_view),
-            ))
-            .count();
-        // TODO bfish: this is should eventually work but I don't think we store anything as
-        // failed yet.
-        // consensus
-        //     .metrics
-        //     .discarded_views_since_last_anchor
-        //     .set(
-        //         views_since_anchor.filter(|(_, view)| match view.view_inner {
-        //             ViewInner::Leaf(_) => false,
-        //             ViewInner::Failed => true,
-        //         }),
-        //     );
 
-        consensus
-            .metrics
-            .number_of_views_since_last_anchor
-            .set(views_since_anchor);
-        consensus
-            .metrics
-            .committed_qcs_since_last_anchor
-            .set(current_chain_length);
-
-        // Should this just be (curr_view - anchor_view) - current_chain_length,
-        // i.e any view that was/wasn't(leader never sent proposal/timed out) sent
-        // and is not in the current chain.
-        // The code here should count all veiws we saw that aren't in the current chain (so won't be commited)
-        consensus
-            .metrics
-            .discarded_views_since_last_anchor
-            .set(views_since_anchor - current_chain_length);
-
-        consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
-        if new_commit_reached {
-            consensus.locked_view = new_locked_view;
-        }
         consensus.metrics.number_of_views_since_last_commit.set(
             consensus
                 .state_map
                 .range((Excluded(consensus.locked_view), Included(self.cur_view)))
                 .count(),
         );
+
+        consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
+        if new_commit_reached {
+            consensus.locked_view = new_locked_view;
+        }
+
         if new_decide_reached {
+            // update view metrics
+            if let Ok(num_views_since_last_anchor) =
+                (*self.cur_view - *consensus.last_decided_view).try_into()
+            {
+                let views_seen = consensus
+                    .state_map
+                    .range((
+                        Excluded(consensus.last_decided_view),
+                        Included(self.cur_view),
+                    ))
+                    .count();
+                consensus
+                    .metrics
+                    .discarded_views_with_last_anchor
+                    .set(views_seen - current_chain_length);
+                consensus
+                    .metrics
+                    .number_of_views_with_last_anchor
+                    .set(num_views_since_last_anchor);
+                consensus
+                    .metrics
+                    .committed_qcs_since_last_anchor
+                    .set(current_chain_length);
+                
+
+                // Should this just be (curr_view - anchor_view) - current_chain_length,
+                // i.e any view that was/wasn't(leader never sent proposal/timed out) sent
+                // and is not in the current chain.
+                // The code here should count all veiws we saw that aren't in the current chain (so won't be commited)
+                consensus
+                    .metrics
+                    .discarded_views_with_last_anchor
+                    .set(num_views_since_last_anchor - current_chain_length);
+            }
             consensus
                 .transactions
                 .modify(|txns| {
