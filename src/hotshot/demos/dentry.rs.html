@@ -598,6 +598,19 @@
 <span id="598">598</span>
 <span id="599">599</span>
 <span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Double entry accounting demo
 //!
 //! This module provides an implementation of the `HotShot` suite of traits that implements a
@@ -613,6 +626,7 @@
 };
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>derivative::Derivative;
+<span class="kw">use </span>espresso_systems_common::hotshot::tag;
 <span class="kw">use </span>hotshot_types::{
     constants::genesis_proposer_id,
     data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
@@ -734,6 +748,10 @@
 
         </span>builder.finalize()
     }
+
+    <span class="kw">fn </span>tag() -&gt; String {
+        tag::DENTRY_STATE.to_string()
+    }
 }
 
 <span class="doccomment">/// initializes the first state on genesis
@@ -788,6 +806,10 @@
             }
         }
     }
+
+    <span class="kw">fn </span>tag() -&gt; String {
+        tag::DENTRY_BLOCK.to_string()
+    }
 }
 
 <span class="kw">impl </span>Committable <span class="kw">for </span>DEntryTransaction {
@@ -798,6 +820,10 @@
             .constant_str(<span class="string">&quot;nonce&quot;</span>)
             .u64_field(<span class="string">&quot;nonce&quot;</span>, <span class="self">self</span>.nonce)
             .finalize()
+    }
+
+    <span class="kw">fn </span>tag() -&gt; String {
+        tag::DENTRY_TXN.to_string()
     }
 }
 

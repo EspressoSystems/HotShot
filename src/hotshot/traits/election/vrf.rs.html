@@ -1216,11 +1216,17 @@
 <span id="1216">1216</span>
 <span id="1217">1217</span>
 <span id="1218">1218</span>
+<span id="1219">1219</span>
+<span id="1220">1220</span>
+<span id="1221">1221</span>
+<span id="1222">1222</span>
+<span id="1223">1223</span>
 </pre><pre class="rust"><code><span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>ark_ec::bls12::Bls12Parameters;
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>blake3::Hasher;
 <span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
+<span class="kw">use </span>espresso_systems_common::hotshot::tag;
 <span class="kw">use </span>hotshot_types::traits::{
     election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
     node_implementation::NodeTypes,
@@ -1611,6 +1617,10 @@
             .var_size_bytes(bincode_opts().serialize(<span class="kw-2">&amp;</span><span class="self">self</span>.pub_key).unwrap().as_slice())
             .var_size_bytes(bincode_opts().serialize(<span class="kw-2">&amp;</span><span class="self">self</span>.proof).unwrap().as_slice())
             .finalize()
+    }
+
+    <span class="kw">fn </span>tag() -&gt; String {
+        tag::VRF_VOTE_TOKEN.to_string()
     }
 }
 
