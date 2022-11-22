@@ -1142,7 +1142,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
         // do nothing. We're centralized
     }
 
-    async fn inject_view_number(&self, view_number: ViewNumber) {
+    async fn inject_view_number(&self, view_number: TYPES::Time) {
         // Do nothing
     }
 }

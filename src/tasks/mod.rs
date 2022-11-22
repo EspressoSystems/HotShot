@@ -259,6 +259,9 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
         (cur_view, high_qc, txns)
     };
 
+    // Inject current view number into the networking task
+    hotshot.inner.networking.inject_view_number(cur_view).await;
+
     // notify networking to start worrying about the (`cur_view + LOOK_AHEAD`)th leader ahead of the current view
     if hotshot
         .send_network_lookup

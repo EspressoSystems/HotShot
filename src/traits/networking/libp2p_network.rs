@@ -730,7 +730,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
         }
     }
 
-    async fn inject_view_number(&self, view_number: ViewNumber) {
+    async fn inject_view_number(&self, view_number: TYPES::Time) {
         // Do nothing
     }
 }

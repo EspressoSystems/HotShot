@@ -1,3 +1,4 @@
+use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::{
@@ -23,12 +24,22 @@ use std::{
 
 #[derive(Clone, Debug)]
 pub struct CentralizedWebServerNetwork<TYPES: NodeTypes> {
-    inner: Inner<TYPES>,
+    inner: Arc<Inner<TYPES>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct Inner<TYPES: NodeTypes> {
+
+    // Temporary for the TYPES argument
     phantom: PhantomData<TYPES>,
+
+    // Current view number so we can poll accordingly
+    view_number: RwLock<ViewNumber>,
+
+    // Queue for broadcasted messages (mainly transactions and proposals)
+    broadcast_poll_queue: RwLock<Vec<u8>>,
+    // Queue for direct messages (mainly votes)
+    direct_poll_queue: RwLock<Vec<u8>>
 }
 
 // TODO add async task that continually polls for transactions, votes, and proposals.  Will
@@ -126,7 +137,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
         nll_todo()
     }
 
-    async fn inject_view_number(&self, view_number: ViewNumber) {
+    async fn inject_view_number(&self, view_number: TYPES::Time) {
         nll_todo()
     }
 }

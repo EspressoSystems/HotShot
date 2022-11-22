@@ -4,6 +4,7 @@
 
 #[cfg(feature = "async-std-executor")]
 use async_std::future::TimeoutError;
+use time::Time;
 #[cfg(feature = "tokio-executor")]
 use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
@@ -174,7 +175,7 @@ pub trait NetworkingImplementation<TYPES: NodeTypes>: Clone + Send + Sync + 'sta
         cancelled: Arc<AtomicBool>,
     );
 
-    async fn inject_view_number (&self, view_number: ViewNumber); 
+    async fn inject_view_number (&self, view_number: TYPES::Time); 
 }
 
 /// Describes additional functionality needed by the test network implementation

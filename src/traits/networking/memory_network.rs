@@ -522,7 +522,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
         // do nothing
     }
 
-    async fn inject_view_number(&self, view_number: ViewNumber) {
+    async fn inject_view_number(&self, view_number: TYPES::Time) {
         // Do nothing
     }
 }
