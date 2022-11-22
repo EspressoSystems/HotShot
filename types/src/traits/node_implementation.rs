@@ -3,6 +3,8 @@
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
 
+use serde::{Deserialize, Serialize};
+
 use super::{
     block_contents::Transaction,
     election::{ElectionConfig, VoteToken},
@@ -49,7 +51,7 @@ pub trait NodeTypes:
     + Ord
     + Default
     + serde::Serialize
-    + for<'de> serde::Deserialize<'de>
+    + for<'de> Deserialize<'de>
     + Send
     + Sync
     + 'static
@@ -79,7 +81,12 @@ pub trait NodeTypes:
     type ApplicationMetadataType: ApplicationMetadata;
 }
 
-pub trait ApplicationMetadata {}
+/// application specific metadata
+pub trait ApplicationMetadata
+where
+    Self: Debug + Clone + Serialize + for<'a> Deserialize<'a>,
+{
+}
 
 /// testable node implmeentation trait
 pub trait TestableNodeImplementation<TYPES: NodeTypes>: NodeImplementation<TYPES>

@@ -6,8 +6,9 @@
 use crate::{
     constants::genesis_proposer_id,
     traits::{
+        election::{Accumulator, Election, SignedCertificate},
         node_implementation::NodeTypes,
-        signature_key::{EncodedPublicKey, EncodedSignature},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
         storage::StoredView,
         Block, State,
@@ -16,9 +17,10 @@ use crate::{
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use commit::{Commitment, Committable};
 use derivative::Derivative;
+use hotshot_utils::hack::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
+use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData, num::NonZeroU64, ops::Deref};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -126,6 +128,35 @@ pub struct QuorumCertificate<TYPES: NodeTypes> {
     pub genesis: bool,
 }
 
+pub struct CertificateAccumulator<SIGNATURE, CERT>
+where
+    SIGNATURE: SignatureKey,
+    CERT: SignedCertificate<SIGNATURE>,
+{
+    _pd_0: PhantomData<SIGNATURE>,
+    _pd_1: PhantomData<CERT>,
+    _valid_signatures: Vec<(EncodedSignature, SIGNATURE)>,
+    _threshold: NonZeroU64,
+    // TODO
+}
+
+impl<SIGNATURE, CERT> Accumulator<(EncodedSignature, SIGNATURE), CERT>
+    for CertificateAccumulator<SIGNATURE, CERT>
+where
+    SIGNATURE: SignatureKey,
+    CERT: SignedCertificate<SIGNATURE>,
+{
+    fn append(
+        val: Vec<(EncodedSignature, SIGNATURE)>,
+    ) -> crate::traits::election::Either<Self, CERT> {
+        nll_todo()
+    }
+}
+
+impl<TYPES: NodeTypes> SignedCertificate<TYPES::SignatureKey> for QuorumCertificate<TYPES> {
+    type Accumulator = CertificateAccumulator<TYPES::SignatureKey, QuorumCertificate<TYPES>>;
+}
+
 impl<TYPES: NodeTypes> Eq for QuorumCertificate<TYPES> {}
 
 impl<TYPES: NodeTypes> Committable for QuorumCertificate<TYPES> {
@@ -191,15 +222,20 @@ pub struct DataDistributionProposal<TYPES: NodeTypes> {
     pub state_commitment: Commitment<TYPES::StateType>,
 }
 
-pub struct ConsensusProposal<TYPES: NodeTypes> {
+/// make generic over election
+/// OR move certs out of election and into nodetypes
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone)]
+#[serde(bound(deserialize = ""))]
+pub struct ConsensusProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
+    // pub struct ConsensusProposal<TYPES: NodeTypes> {
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
 
     /// Per spec, justification
-    pub justify_qc: QuorumCertificate<TYPES>,
-
+    pub justify_qc: ELECTION::QuorumCertificate,
+    // pub justify_qc: Box<dyn Send + Sync + SignedCertificate<TYPES::SignatureKey>>,
     /// TODO implmeent data availibity certificate and add trait here
-    pub availability_certificate: QuorumCertificate<TYPES>,
+    pub availability_certificate: ELECTION::DACertificate,
 
     // TODO do we need this? @nyospe says we should delete
     /// The hash of the parent `Leaf`
@@ -212,14 +248,11 @@ pub struct ConsensusProposal<TYPES: NodeTypes> {
     pub state_commitment: Commitment<TYPES::StateType>,
 
     /// the propser id
-    #[derivative(PartialEq = "ignore", Hash = "ignore")]
     pub proposer_id: EncodedPublicKey,
 
-    pub application_metadata: TYPES::ApplicationMetadataType
+    /// application specific metadata
+    pub application_metadata: TYPES::ApplicationMetadataType,
 }
-
-
-
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.

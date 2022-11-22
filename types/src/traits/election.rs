@@ -1,10 +1,11 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 use super::node_implementation::NodeTypes;
-use super::signature_key::{EncodedSignature, EncodedPublicKey};
+use super::signature_key::{EncodedPublicKey, EncodedSignature};
 use crate::data::Leaf;
 use crate::traits::signature_key::SignatureKey;
-use commit::{Committable, Commitment};
+use commit::{Commitment, Committable};
+use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 use std::fmt::Debug;
@@ -61,16 +62,18 @@ pub trait ElectionConfig:
 
 pub enum Either<T, U> {
     Left(T),
-    Right(U)
+    Right(U),
 }
 
-pub trait Accumulator<T, U> : Sized {
-    fn append(val: Vec<T> ) -> Either<Self, U>;
+pub trait Accumulator<T, U>: Sized {
+    fn append(val: Vec<T>) -> Either<Self, U>;
 }
 
 pub trait SignedCertificate<SIGNATURE: SignatureKey>
-    where Self : Send + Sync + Clone {
-        type Accumulator: Accumulator<SIGNATURE, Self>;
+where
+    Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,
+{
+    type Accumulator: Accumulator<(EncodedSignature, SIGNATURE), Self>;
 }
 
 /// Describes how `HotShot` chooses committees and leaders
@@ -80,10 +83,10 @@ pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
     type StakeTable: Send + Sync;
 
     /// certificate for quorum on consenus
-    type QuorumCertificate: Send + Sync + SignedCertificate<TYPES::SignatureKey>;
+    type QuorumCertificate: SignedCertificate<TYPES::SignatureKey>;
 
     /// certificate for data availability
-    type DACertificate: Send + Sync + SignedCertificate<TYPES::SignatureKey>;
+    type DACertificate: SignedCertificate<TYPES::SignatureKey>;
 
     /// check that the quorum certificate is valid
     fn is_valid_qc(&self, qc: Self::QuorumCertificate) -> bool;

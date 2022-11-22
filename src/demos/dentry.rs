@@ -22,7 +22,7 @@ use hotshot_types::{
     traits::{
         block_contents::Transaction,
         election::Election,
-        node_implementation::NodeTypes,
+        node_implementation::{ApplicationMetadata, NodeTypes},
         state::{ConsensusTime, TestableBlock, TestableState},
         State,
     },
@@ -36,6 +36,12 @@ use std::{
     marker::PhantomData,
 };
 use tracing::error;
+
+/// application metadata stub
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DEntryMetaData {}
+
+impl ApplicationMetadata for DEntryMetaData {}
 
 /// The account identifier type used by the demo
 ///
