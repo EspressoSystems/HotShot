@@ -12,9 +12,9 @@ use hotshot_types::{
     traits::{node_implementation::NodeTypes, signature_key::SignatureKey, Block, State},
 };
 use hotshot_utils::channel::UnboundedReceiver;
+use std::ops::Bound::{Excluded, Included};
 use std::{collections::HashSet, sync::Arc};
 use tracing::{error, info, instrument, warn};
-
 /// This view's replica
 #[derive(Debug, Clone)]
 pub struct Replica<A: ConsensusApi<TYPES>, TYPES: NodeTypes> {
@@ -178,7 +178,10 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                                     .await
                                     .is_err()
                                 {
+                                    consensus.metrics.failed_to_send_messages.add(1);
                                     warn!("Failed to send vote to next leader");
+                                } else {
+                                    consensus.metrics.outgoing_direct_messages.add(1);
                                 }
                             }
                         }
@@ -186,6 +189,8 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                     }
                     ConsensusMessage::NextViewInterrupt(_view_number) => {
                         let next_leader = self.api.get_leader(self.cur_view + 1).await;
+
+                        consensus.metrics.number_of_timeouts.add(1);
 
                         let timed_out_msg = ConsensusMessage::TimedOut(TimedOut {
                             current_view: self.cur_view,
@@ -202,11 +207,14 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                             .send_direct_message(next_leader.clone(), timed_out_msg)
                             .await
                         {
+                            consensus.metrics.failed_to_send_messages.add(1);
                             warn!(
                                 ?next_leader,
                                 ?e,
                                 "Could not send time out message to next_leader"
                             );
+                        } else {
+                            consensus.metrics.outgoing_direct_messages.add(1);
                         }
 
                         // exits from entire function
@@ -314,12 +322,16 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
         consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
         if new_commit_reached {
             consensus.locked_view = new_locked_view;
-            // TODO(vko)
-            // consensus
-            //     .metrics
-            //     .number_of_views_since_last_commit
-            //     .set(consensus.count_saved_leaves_descending_from(new_locked_view));
         }
+        consensus.metrics.number_of_views_since_last_commit.set(
+            consensus
+                .state_map
+                .range((
+                    Excluded(consensus.last_decided_view),
+                    Included(self.cur_view),
+                ))
+                .count(),
+        );
         if new_decide_reached {
             consensus
                 .transactions
@@ -330,6 +342,11 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                         .collect();
                 })
                 .await;
+
+            consensus
+                .metrics
+                .rejected_transactions
+                .add(leaf.rejected.len());
 
             let decide_sent = self
                 .api

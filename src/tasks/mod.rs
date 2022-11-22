@@ -307,6 +307,7 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
             vote_collection_chan: recv_next_leader.unwrap(),
             cur_view,
             api: c_api.clone(),
+            metrics,
         };
         let next_leader_handle = async_spawn(async move { next_leader.run_view().await });
         task_handles.push(next_leader_handle);
@@ -463,6 +464,13 @@ pub async fn network_broadcast_task<TYPES: NodeTypes, I: NodeImplementation<TYPE
         incremental_backoff_ms = 10;
         for item in queue {
             trace!(?item, "Processing item");
+            hotshot
+                .hotstuff
+                .read()
+                .await
+                .metrics
+                .broadcast_messages_received
+                .add(1);
             match item.kind {
                 MessageKind::Consensus(msg) => {
                     hotshot
@@ -507,6 +515,8 @@ pub async fn network_direct_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
         // Make sure to reset the backoff time
         incremental_backoff_ms = 10;
         for item in queue {
+            let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
+            metrics.direct_messages_received.add(1);
             trace!(?item, "Processing item");
             match item.kind {
                 MessageKind::Consensus(msg) => {
