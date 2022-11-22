@@ -18,9 +18,12 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
     time::Duration,
 };
+use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
-struct CentralizedWebServerNetwork {}
+pub struct CentralizedWebServerNetwork<TYPES: NodeTypes> {
+    phantom: PhantomData<TYPES>
+}
 
 // TODO add async task that continually polls for transactions, votes, and proposals.  Will
 // need to inject the view number into this async task somehow.  This async task can put the 
@@ -30,7 +33,7 @@ struct CentralizedWebServerNetwork {}
 // to differentiate transactions from proposals.  
 
 #[async_trait]
-impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerNetwork {
+impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerNetwork<TYPES> {
     // TODO Start up async task, ensure we can reach the centralized server
     async fn ready(&self) -> bool {
         nll_todo()
@@ -127,11 +130,11 @@ where
                 expected_node_count: usize,
                 num_bootstrap: usize,
             ) -> Box<dyn Fn(u64) -> Self + 'static> {
-            
+            nll_todo()
         }
 
         // TODO Can be a no-op most likely
         fn in_flight_message_count(&self) -> Option<usize> {
-            
+            nll_todo()
         }
     }

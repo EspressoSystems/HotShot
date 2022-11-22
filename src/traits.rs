@@ -17,6 +17,7 @@ pub mod implementations {
     pub use super::{
         networking::{
             centralized_server_network::CentralizedServerNetwork,
+            centralized_web_server_network::CentralizedWebServerNetwork,
             libp2p_network::{Libp2pNetwork, PeerInfoVec},
             memory_network::{DummyReliability, MasterMap, MemoryNetwork},
         },
