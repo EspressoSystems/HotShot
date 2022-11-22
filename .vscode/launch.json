@@ -347,43 +347,6 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug example 'dentry-simulator'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--example=dentry-simulator",
-                    "--package=hotshot"
-                ],
-                "filter": {
-                    "name": "dentry-simulator",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in example 'dentry-simulator'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--example=dentry-simulator",
-                    "--package=hotshot"
-                ],
-                "filter": {
-                    "name": "dentry-simulator",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
             "name": "Debug example 'multi-machine-libp2p'",
             "cargo": {
                 "args": [
