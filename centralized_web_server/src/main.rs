@@ -21,14 +21,27 @@ type Error = ServerError;
 struct WebServerState {
     proposals: HashMap<u128, Vec<Vec<u8>>>,
     votes: HashMap<u128, Vec<Vec<u8>>>,
+    transactions: HashMap<u128, Vec<u8>>,
+    num_txn: u128,
+}
+
+impl WebServerState {
+    fn new() -> Self {
+        Self {
+            num_txn: 0,
+            ..Default::default()
+        }
+    }
 }
 
 /// Trait defining methods needed for the `WebServerState`
 pub trait WebServerDataSource {
     fn get_proposals(&self, view_number: u128) -> Result<Vec<Vec<u8>>, Error>;
     fn get_votes(&self, view_number: u128) -> Result<Vec<Vec<u8>>, Error>;
+    fn get_transactions(&self, index: u128) -> Result<Vec<Vec<u8>>, Error>;
     fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error>;
     fn post_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error>;
+    fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
 }
 
 impl WebServerDataSource for WebServerState {
@@ -54,6 +67,18 @@ impl WebServerDataSource for WebServerState {
         }
     }
 
+    /// Return all transactions from provided index to most recent
+    fn get_transactions(&self, index: u128) -> Result<Vec<Vec<u8>>, Error> {
+        let mut txns = vec![];
+        for i in index..self.num_txn {
+            println!("getting txn {:?}", i);
+            if let Some(txn) = self.transactions.get(&i) {
+                txns.push(txn.clone())
+            }
+        }
+        Ok(txns)
+    }
+
     /// Stores a received vote in the `WebServerState`
     fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error> {
         self.votes
@@ -68,6 +93,17 @@ impl WebServerDataSource for WebServerState {
             .entry(view_number)
             .and_modify(|current_proposals| current_proposals.push(proposal.clone()))
             .or_insert_with(|| vec![proposal]);
+        Ok(())
+    }
+    /// Stores a received group of transactions in the `WebServerState`
+    fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error> {
+        println!("posting txn {:?}", self.num_txn);
+        self.transactions.insert(self.num_txn, txn);
+        self.num_txn += 1;
+        //TODO: @kaley: we will want to have batch transaction posting (vs one at a time), a la:
+        // let starting_index = self.num_txn + 1;
+        // self.num_txn += txns.len() as u128;
+        // self.transactions.extend((starting_index..self.num_txn).zip(txns));
         Ok(())
     }
 }
@@ -112,6 +148,13 @@ where
         }
         .boxed()
     })?
+    .get("gettransactions", |req, state| {
+        async move {
+            let index: u128 = req.integer_param("index")?;
+            state.get_transactions(index)
+        }
+        .boxed()
+    })?
     .post("postvote", |req, state| {
         async move {
             let view_number: u128 = req.integer_param("view_number")?;
@@ -129,6 +172,15 @@ where
             let proposal = req.body_bytes();
             // Add proposal to state
             state.post_proposal(view_number, proposal)
+        }
+        .boxed()
+    })?
+    .post("posttransaction", |req, state| {
+        async move {
+            // Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes
+            let txns = req.body_bytes();
+            // Add proposal to state
+            state.post_transaction(txns)
         }
         .boxed()
     })?;
@@ -161,7 +213,7 @@ mod test {
         let base_url = format!("0.0.0.0:{port}");
         let options = Options::default();
         let api = define_api(&options).unwrap();
-        let mut app = App::<State, Error>::with_state(State::default());
+        let mut app = App::<State, Error>::with_state(State::new(WebServerState::new()));
 
         app.register_module("api", api).unwrap();
         let _handle = spawn(app.serve(base_url.clone()));
@@ -240,5 +292,33 @@ mod test {
         let res2: &str = bincode::deserialize(&resp[1]).unwrap();
         assert_eq!(vote1, res1);
         assert_eq!(vote2, res2);
+
+        //test posting/getting transactions
+        let txns1 = "abc";
+        let txns2 = "def";
+        client
+            .post::<()>("api/transactions")
+            .body_binary(&txns1)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+        client
+            .post::<()>("api/transactions")
+            .body_binary(&txns2)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+        let resp = client
+            .get::<Vec<Vec<u8>>>("api/transactions/0")
+            .send()
+            .await
+            .unwrap();
+
+        let txn_resp1: &str = bincode::deserialize(&resp[0]).unwrap();
+        let txn_resp2: &str = bincode::deserialize(&resp[1]).unwrap();
+        assert_eq!(txns1, txn_resp1);
+        assert_eq!(txns2, txn_resp2)
     }
 }

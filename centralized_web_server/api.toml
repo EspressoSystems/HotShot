@@ -20,15 +20,6 @@ DOC = """
 Post the proposal for view_number
 """
 
-# POST for replicas to send their votes with view number as argument
-[route.postvote]
-PATH = ["votes/:view_number"]
-":view_number" = "Integer"
-METHOD = "POST"
-DOC = """
-Send a vote`.
-"""
-
 # GET for the next leader to receive votes with view number as an argument
 [route.getvotes]
 PATH = ["votes/:view_number"]
@@ -38,5 +29,31 @@ DOC = """
 Get all votes for a view number`.
 """
 
-# TODO transactions
+# POST for replicas to send their votes with view number as argument
+[route.postvote]
+PATH = ["votes/:view_number"]
+":view_number" = "Integer"
+METHOD = "POST"
+DOC = """
+Send a vote`.
+"""
+
+# GET all of the transactions, starting with :index
+[route.gettransactions]
+PATH = ["transactions/:index"]
+":index" = "Integer"
+METHOD = "GET"
+DOC = """
+Get all transactions since given index`.
+"""
+
+
+# POST to submit transactions
+[route.posttransaction]
+PATH = ["transactions"]
+METHOD = "POST"
+DOC = """
+Send a group of transactions`.
+"""
+
 
