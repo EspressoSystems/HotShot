@@ -856,6 +856,7 @@
 <span id="856">856</span>
 <span id="857">857</span>
 <span id="858">858</span>
+<span id="859">859</span>
 </pre><pre class="rust"><code><span class="attribute">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1086,6 +1087,7 @@
             metrics: Arc::new(ConsensusMetrics::new(
                 inner.metrics.subgroup(<span class="string">&quot;consensus&quot;</span>.to_string()),
             )),
+            invalid_qc: <span class="number">0</span>,
         };
         <span class="kw">let </span>hotstuff = Arc::new(RwLock::new(hotstuff));
         <span class="kw">let </span>txns = hotstuff.read().<span class="kw">await</span>.get_transactions();

@@ -565,6 +565,11 @@
 <span id="565">565</span>
 <span id="566">566</span>
 <span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 </span><span class="kw">use crate</span>::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
@@ -583,6 +588,7 @@
     art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
     broadcast::channel,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
+    subscribable_rwlock::ReadView,
 };
 <span class="kw">use </span>std::{
     collections::HashMap,
@@ -859,7 +865,7 @@
             consensus: hotshot.hotstuff.clone(),
             high_qc: high_qc.clone(),
             cur_view,
-            transactions: txns,
+            transactions: txns.clone(),
             api: c_api.clone(),
         };
         <span class="kw">let </span>leader_handle = async_spawn(<span class="kw">async move </span>{ leader.run_view().<span class="kw">await </span>});
@@ -915,6 +921,10 @@
         .metrics
         .view_duration
         .add_point(start.elapsed().as_secs_f64());
+    consensus
+        .metrics
+        .outstanding_transactions
+        .set(txns.cloned().<span class="kw">await</span>.len());
     c_api.send_view_finished(consensus.cur_view).<span class="kw">await</span>;
 
     <span class="macro">info!</span>(<span class="string">&quot;Returning from view {:?}!&quot;</span>, cur_view);
