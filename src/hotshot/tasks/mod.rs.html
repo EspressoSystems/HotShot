@@ -555,6 +555,16 @@
 <span id="555">555</span>
 <span id="556">556</span>
 <span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 </span><span class="kw">use crate</span>::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
@@ -864,6 +874,7 @@
             </span>vote_collection_chan: recv_next_leader.unwrap(),
             cur_view,
             api: c_api.clone(),
+            metrics,
         };
         <span class="kw">let </span>next_leader_handle = async_spawn(<span class="kw">async move </span>{ next_leader.run_view().<span class="kw">await </span>});
         task_handles.push(next_leader_handle);
@@ -1020,6 +1031,13 @@
         </span>incremental_backoff_ms = <span class="number">10</span>;
         <span class="kw">for </span>item <span class="kw">in </span>queue {
             <span class="macro">trace!</span>(<span class="question-mark">?</span>item, <span class="string">&quot;Processing item&quot;</span>);
+            hotshot
+                .hotstuff
+                .read()
+                .<span class="kw">await
+                </span>.metrics
+                .broadcast_messages_received
+                .add(<span class="number">1</span>);
             <span class="kw">match </span>item.kind {
                 MessageKind::Consensus(msg) =&gt; {
                     hotshot
@@ -1064,6 +1082,8 @@
         <span class="comment">// Make sure to reset the backoff time
         </span>incremental_backoff_ms = <span class="number">10</span>;
         <span class="kw">for </span>item <span class="kw">in </span>queue {
+            <span class="kw">let </span>metrics = Arc::clone(<span class="kw-2">&amp;</span>hotshot.hotstuff.read().<span class="kw">await</span>.metrics);
+            metrics.direct_messages_received.add(<span class="number">1</span>);
             <span class="macro">trace!</span>(<span class="question-mark">?</span>item, <span class="string">&quot;Processing item&quot;</span>);
             <span class="kw">match </span>item.kind {
                 MessageKind::Consensus(msg) =&gt; {
