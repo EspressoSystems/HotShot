@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":[["get_hotshot","Creates a hotshot"],["get_networking","Trys to get a networking implementation with the given id"],["main",""],["prebaked_transactions","Prebaked list of transactions"]],"struct":[["Opt",""]],"type":[["Node",""]]};
