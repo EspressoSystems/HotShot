@@ -44,7 +44,7 @@ pub trait Block:
 
 /// Commitment to a block, used by data availibity
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
-#[serde(bound(deserialize = ""))]
+#[serde(bound(deserialize = ""), transparent)]
 pub struct BlockCommitment<T: Block>(pub Commitment<T>);
 
 /// Abstraction over any type of transaction. Used by [`Block`].
