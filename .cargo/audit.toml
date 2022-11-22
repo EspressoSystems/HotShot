@@ -42,4 +42,13 @@ ignore = [
     # Waiting on a new release of https://github.com/mxinden/if-watch
     # https://rustsec.org/advisories/RUSTSEC-2022-0008
     "RUSTSEC-2022-0008",
+
+    # atty 0.2.14
+    # Dependency of clap -> atty
+    # Dependency of tagged-base64 -> structopt -> clap -> atty
+    # Potential unsound behaviour
+    # Waiting on new release of clap
+    # https://github.com/clap-rs/clap/pull/4249
+    # https://rustsec.org/advisories/RUSTSEC-2021-0145
+    "RUSTSEC-2021-0145",
 ]
