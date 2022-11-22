@@ -85,6 +85,39 @@ impl<TYPES: NodeTypes> QuorumCertificate<TYPES> {
     }
 }
 
+// TODO (da) move this, and QC to separate files
+pub struct DACertificate<TYPES: NodeTypes> {
+    /// Hash of the block refereed to by this Quorum Certificate.
+    ///
+    /// This is included for convenience, and is not fundamental to consensus or covered by the
+    /// signature. This _must_ be identical to the [`BlockContents`] provided hash of the `item` in
+    /// the referenced leaf.
+    #[debug(skip)]
+    pub block_commitment: Commitment<TYPES::BlockType>,
+
+    /// The view number this quorum certificate was generated during
+    ///
+    /// This value is covered by the threshold signature.
+    pub view_number: TYPES::Time,
+
+    /// The list of signatures establishing the validity of this Quorum Certifcate
+    ///
+    /// This is a mapping of the byte encoded public keys provided by the [`NodeImplementation`], to
+    /// the byte encoded signatures provided by those keys.
+    ///
+    /// These formats are deliberatly done as a `Vec` instead of an array to prevent creating the
+    /// assumption that singatures are constant in length
+    pub signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
+
+    /// Temporary bypass for boostrapping
+    ///
+    /// This value indicates that this is a dummy certificate for the genesis block, and thus does
+    /// not have a signature. This value is not covered by the signature, and it is invalid for this
+    /// to be set outside of bootstrap
+    pub genesis: bool,
+
+}
+
 /// The type used for Quorum Certificates
 ///
 /// A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
