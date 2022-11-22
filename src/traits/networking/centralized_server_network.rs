@@ -17,6 +17,7 @@ use hotshot_centralized_server::{
     FromServer, NetworkConfig, Run, RunResults, TcpStreamRecvUtil, TcpStreamSendUtil,
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToServer,
 };
+use hotshot_types::data::ViewNumber;
 use hotshot_types::{
     message::Message,
     traits::{
@@ -1139,6 +1140,10 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
         _cancelled: Arc<AtomicBool>,
     ) {
         // do nothing. We're centralized
+    }
+
+    async fn inject_view_number(&self, view_number: ViewNumber) {
+        // Do nothing
     }
 }
 

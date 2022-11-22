@@ -23,6 +23,7 @@ use async_tungstenite::{
 use bincode::Options;
 use dashmap::DashMap;
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
+use hotshot_types::data::ViewNumber;
 use hotshot_types::{
     message::Message as HotShotMessage,
     traits::{
@@ -1036,6 +1037,10 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
         _is_cancelled: Arc<AtomicBool>,
     ) {
         // do nothing
+    }
+
+    async fn inject_view_number(&self, view_number: ViewNumber) {
+        // Do nothing
     }
 }
 

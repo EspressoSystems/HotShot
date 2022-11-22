@@ -12,6 +12,7 @@ use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
+use hotshot_types::data::ViewNumber;
 use hotshot_types::{
     message::Message,
     traits::{
@@ -519,6 +520,10 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
         _is_cancelled: Arc<AtomicBool>,
     ) {
         // do nothing
+    }
+
+    async fn inject_view_number(&self, view_number: ViewNumber) {
+        // Do nothing
     }
 }
 

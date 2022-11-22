@@ -8,6 +8,7 @@ use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
 use dashmap::DashSet;
+use hotshot_types::data::ViewNumber;
 use hotshot_types::{
     message::Message,
     traits::{
@@ -727,5 +728,9 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
         } else {
             error!("Unable to look up pubkey {:?} ahead of time!", pk);
         }
+    }
+
+    async fn inject_view_number(&self, view_number: ViewNumber) {
+        // Do nothing
     }
 }

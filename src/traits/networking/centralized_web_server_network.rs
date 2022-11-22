@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use hotshot_types::data::ViewNumber;
 use hotshot_types::{
     message::Message,
     traits::{
@@ -14,23 +15,28 @@ use hotshot_types::{
 use hotshot_utils::hack::nll_todo;
 use serde::Deserialize;
 use serde::Serialize;
+use std::marker::PhantomData;
 use std::{
     sync::{atomic::AtomicBool, Arc},
     time::Duration,
 };
-use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
 pub struct CentralizedWebServerNetwork<TYPES: NodeTypes> {
-    phantom: PhantomData<TYPES>
+    inner: Inner<TYPES>,
+}
+
+#[derive(Clone, Debug)]
+struct Inner<TYPES: NodeTypes> {
+    phantom: PhantomData<TYPES>,
 }
 
 // TODO add async task that continually polls for transactions, votes, and proposals.  Will
-// need to inject the view number into this async task somehow.  This async task can put the 
+// need to inject the view number into this async task somehow.  This async task can put the
 // message it receives into either a `broadcast_queue` or `direct_queue` so that the interace
-// is the same as the other networking impls.  Will also need to implement some message 
-// wrapper similar to the other centralized server network that allows the web server 
-// to differentiate transactions from proposals.  
+// is the same as the other networking impls.  Will also need to implement some message
+// wrapper similar to the other centralized server network that allows the web server
+// to differentiate transactions from proposals.
 
 #[async_trait]
 impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerNetwork<TYPES> {
@@ -119,22 +125,27 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     ) {
         nll_todo()
     }
+
+    async fn inject_view_number(&self, view_number: ViewNumber) {
+        nll_todo()
+    }
 }
 
-impl<TYPES: NodeTypes> TestableNetworkingImplementation<TYPES> for CentralizedWebServerNetwork<TYPES>
+impl<TYPES: NodeTypes> TestableNetworkingImplementation<TYPES>
+    for CentralizedWebServerNetwork<TYPES>
 where
     TYPES::SignatureKey: TestableSignatureKey,
-    {
-        // TODO Can do something similar to other centralized server impl
-        fn generator(
-                expected_node_count: usize,
-                num_bootstrap: usize,
-            ) -> Box<dyn Fn(u64) -> Self + 'static> {
-            nll_todo()
-        }
-
-        // TODO Can be a no-op most likely
-        fn in_flight_message_count(&self) -> Option<usize> {
-            nll_todo()
-        }
+{
+    // TODO Can do something similar to other centralized server impl
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        nll_todo()
     }
+
+    // TODO Can be a no-op most likely
+    fn in_flight_message_count(&self) -> Option<usize> {
+        nll_todo()
+    }
+}
