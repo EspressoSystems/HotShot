@@ -2537,7 +2537,7 @@
         <span class="kw">type </span>Time = ViewNumber;
         <span class="kw">type </span>BlockType = DEntryBlock;
         <span class="kw">type </span>SignatureKey = Ed25519Pub;
-        <span class="kw">type </span>VoteTokenType = StaticVoteToken;
+        <span class="kw">type </span>VoteTokenType = StaticVoteToken&lt;Ed25519Pub&gt;;
         <span class="kw">type </span>Transaction = DEntryTransaction;
         <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
         <span class="kw">type </span>StateType = DEntryState;

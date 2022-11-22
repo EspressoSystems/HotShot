@@ -239,26 +239,23 @@
 <span id="239">239</span>
 <span id="240">240</span>
 <span id="241">241</span>
-<span id="242">242</span>
-<span id="243">243</span>
 </pre><pre class="rust"><code><span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot::{
     demos::dentry::<span class="kw-2">*</span>,
     traits::{
-        election::static_committee::{StaticCommittee, StaticElectionConfig},
+        election::{
+            static_committee::{StaticCommittee, StaticElectionConfig},
+            vrf::BlsPubKey,
+        },
         implementations::{CentralizedServerNetwork, MemoryStorage},
         Storage,
     },
-    types::{ed25519::Ed25519Priv, HotShotHandle},
+    types::HotShotHandle,
     HotShot,
 };
 <span class="kw">use </span>hotshot_centralized_server::{NetworkConfig, RunResults};
 <span class="kw">use </span>hotshot_types::{
-    traits::{
-        metrics::NoMetrics,
-        signature_key::{ed25519::Ed25519Pub, SignatureKey},
-        state::TestableState,
-    },
+    traits::{metrics::NoMetrics, signature_key::SignatureKey, state::TestableState},
     HotShotConfig,
 };
 <span class="kw">use </span>hotshot_utils::{
@@ -294,7 +291,7 @@
 </span><span class="comment">// TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
 </span><span class="kw">async fn </span>init_state_and_hotshot(
     networking: CentralizedServerNetwork&lt;DEntryTypes&gt;,
-    config: HotShotConfig&lt;Ed25519Pub, StaticElectionConfig&gt;,
+    config: HotShotConfig&lt;BlsPubKey, StaticElectionConfig&gt;,
     seed: [u8; <span class="number">32</span>],
     node_id: u64,
 ) -&gt; (DEntryState, HotShotHandle&lt;DEntryTypes, Node&gt;) {
@@ -312,8 +309,7 @@
     <span class="kw">let </span>genesis_block = DEntryBlock::genesis_from(accounts);
     <span class="kw">let </span>initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
-    <span class="kw">let </span>priv_key = Ed25519Priv::generated_from_seed_indexed(seed, node_id);
-    <span class="kw">let </span>pub_key = Ed25519Pub::from_private(<span class="kw-2">&amp;</span>priv_key);
+    <span class="kw">let </span>(pub_key, priv_key) = BlsPubKey::generated_from_seed_indexed(seed, node_id);
     <span class="kw">let </span>known_nodes = config.known_nodes.clone();
     <span class="kw">let </span>hotshot = HotShot::init(
         pub_key,
@@ -377,7 +373,7 @@
         key_type_name,
         election_config_type_name,
     } = config;
-    <span class="macro">assert_eq!</span>(key_type_name, std::any::type_name::&lt;Ed25519Pub&gt;());
+    <span class="macro">assert_eq!</span>(key_type_name, std::any::type_name::&lt;BlsPubKey&gt;());
     <span class="macro">assert_eq!</span>(
         election_config_type_name,
         std::any::type_name::&lt;StaticElectionConfig&gt;()

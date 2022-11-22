@@ -311,7 +311,7 @@
 <span class="kw">use </span>hotshot::{
     demos::dentry::<span class="kw-2">*</span>,
     traits::{
-        election::vrf::{VRFPubKey, VRFStakeTableConfig, VrfImpl},
+        election::vrf::{JfPubKey, VRFStakeTableConfig, VrfImpl},
         implementations::{CentralizedServerNetwork, MemoryStorage},
         Storage,
     },
@@ -361,7 +361,7 @@
 <span class="kw">impl </span>NodeTypes <span class="kw">for </span>VrfTypes {
     <span class="kw">type </span>Time = ViewNumber;
     <span class="kw">type </span>BlockType = DEntryBlock;
-    <span class="kw">type </span>SignatureKey = VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;;
+    <span class="kw">type </span>SignatureKey = JfPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;;
     <span class="kw">type </span>VoteTokenType =
         VRFVoteToken&lt;BLSVerKey&lt;ark_bls12_381::Parameters&gt;, BLSSignature&lt;ark_bls12_381::Parameters&gt;&gt;;
     <span class="kw">type </span>Transaction = DEntryTransaction;
@@ -391,7 +391,7 @@
 </span><span class="comment">// TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
 </span><span class="kw">async fn </span>init_state_and_hotshot(
     networking: CentralizedServerNetwork&lt;VrfTypes&gt;,
-    config: HotShotConfig&lt;VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;, VRFStakeTableConfig&gt;,
+    config: HotShotConfig&lt;JfPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;, VRFStakeTableConfig&gt;,
     seed: [u8; <span class="number">32</span>],
     node_id: u64,
 ) -&gt; (DEntryState, HotShotHandle&lt;VrfTypes, Node&gt;) {
@@ -413,7 +413,7 @@
     <span class="comment">// TODO we should make this more general/use different parameters
     </span><span class="attribute">#[allow(clippy::let_unit_value)]
     </span><span class="kw">let </span>vrf_key =
-        VRFPubKey::&lt;BLSSignatureScheme&lt;Param381&gt;&gt;::generated_from_seed_indexed(seed, node_id);
+        JfPubKey::&lt;BLSSignatureScheme&lt;Param381&gt;&gt;::generated_from_seed_indexed(seed, node_id);
     <span class="kw">let </span>priv_key = vrf_key.<span class="number">1</span>;
     <span class="kw">let </span>pub_key = vrf_key.<span class="number">0</span>;
 
@@ -498,7 +498,7 @@
 
     <span class="macro">assert_eq!</span>(
         key_type_name,
-        std::any::type_name::&lt;VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;&gt;()
+        std::any::type_name::&lt;JfPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;&gt;()
     );
     <span class="macro">assert_eq!</span>(
         election_config_type_name,

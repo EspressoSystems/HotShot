@@ -686,7 +686,7 @@
 <span class="kw">use </span>hotshot::{
     demos::dentry::<span class="kw-2">*</span>,
     traits::{
-        election::vrf::{VRFPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
+        election::vrf::{JfPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
         implementations::{Libp2pNetwork, MemoryStorage},
         NetworkError, Storage,
     },
@@ -740,7 +740,7 @@
 <span class="attribute">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
 </span><span class="macro">std::compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
 
-<span class="kw">type </span>Key = VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;;
+<span class="kw">type </span>Key = JfPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;;
 <span class="kw">type </span>FromServer = hotshot_centralized_server::FromServer&lt;Key, VRFStakeTableConfig&gt;;
 <span class="kw">type </span>ToServer = hotshot_centralized_server::ToServer&lt;Key&gt;;
 
@@ -1073,7 +1073,7 @@
 <span class="kw">impl </span>NodeTypes <span class="kw">for </span>VrfTypes {
     <span class="kw">type </span>Time = ViewNumber;
     <span class="kw">type </span>BlockType = DEntryBlock;
-    <span class="kw">type </span>SignatureKey = VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;;
+    <span class="kw">type </span>SignatureKey = JfPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;;
     <span class="kw">type </span>VoteTokenType =
         VRFVoteToken&lt;BLSVerKey&lt;ark_bls12_381::Parameters&gt;, BLSSignature&lt;ark_bls12_381::Parameters&gt;&gt;;
     <span class="kw">type </span>Transaction = DEntryTransaction;

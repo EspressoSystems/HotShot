@@ -611,6 +611,8 @@
 <span id="611">611</span>
 <span id="612">612</span>
 <span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Double entry accounting demo
 //!
 //! This module provides an implementation of the `HotShot` suite of traits that implements a
@@ -620,7 +622,10 @@
 //! production use.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::traits::{
-    election::static_committee::{StaticElectionConfig, StaticVoteToken},
+    election::{
+        static_committee::{StaticElectionConfig, StaticVoteToken},
+        vrf::BlsPubKey,
+    },
     implementations::MemoryStorage,
     Block, NetworkingImplementation, NodeImplementation,
 };
@@ -634,7 +639,6 @@
         block_contents::Transaction,
         election::Election,
         node_implementation::NodeTypes,
-        signature_key::ed25519::Ed25519Pub,
         state::{ConsensusTime, TestableBlock, TestableState},
         State,
     },
@@ -1116,8 +1120,8 @@
 <span class="kw">impl </span>NodeTypes <span class="kw">for </span>DEntryTypes {
     <span class="kw">type </span>Time = ViewNumber;
     <span class="kw">type </span>BlockType = DEntryBlock;
-    <span class="kw">type </span>SignatureKey = Ed25519Pub;
-    <span class="kw">type </span>VoteTokenType = StaticVoteToken;
+    <span class="kw">type </span>SignatureKey = BlsPubKey;
+    <span class="kw">type </span>VoteTokenType = StaticVoteToken&lt;BlsPubKey&gt;;
     <span class="kw">type </span>Transaction = DEntryTransaction;
     <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
     <span class="kw">type </span>StateType = DEntryState;

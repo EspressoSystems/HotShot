@@ -1221,6 +1221,9 @@
 <span id="1221">1221</span>
 <span id="1222">1222</span>
 <span id="1223">1223</span>
+<span id="1224">1224</span>
+<span id="1225">1225</span>
+<span id="1226">1226</span>
 </pre><pre class="rust"><code><span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>ark_ec::bls12::Bls12Parameters;
 <span class="kw">use </span>bincode::Options;
@@ -1292,9 +1295,12 @@
     }
 }
 
+<span class="doccomment">/// concrete type for bls public key
+</span><span class="kw">pub type </span>BlsPubKey = JfPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;;
+
 <span class="doccomment">/// type wrapper for VRF&#39;s public key
 </span><span class="attribute">#[derive(Deserialize, Serialize)]
-</span><span class="kw">pub struct </span>VRFPubKey&lt;SIGSCHEME&gt;
+</span><span class="kw">pub struct </span>JfPubKey&lt;SIGSCHEME&gt;
 <span class="kw">where
     </span>SIGSCHEME: SignatureScheme,
     SIGSCHEME::VerificationKey: Clone,
@@ -1305,7 +1311,7 @@
     </span>_pd_0: PhantomData&lt;SIGSCHEME::SigningKey&gt;,
 }
 
-<span class="kw">impl</span>&lt;SIGSCHEME&gt; TestableSignatureKey <span class="kw">for </span>VRFPubKey&lt;SIGSCHEME&gt;
+<span class="kw">impl</span>&lt;SIGSCHEME&gt; TestableSignatureKey <span class="kw">for </span>JfPubKey&lt;SIGSCHEME&gt;
 <span class="kw">where
     </span>SIGSCHEME: SignatureScheme&lt;PublicParameter = (), MessageUnit = u8&gt; + Sync + Send,
     SIGSCHEME::VerificationKey: Clone + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Sync + Send,
@@ -1319,7 +1325,7 @@
     </span>}
 }
 
-<span class="kw">impl</span>&lt;SIGSCHEME&gt; VRFPubKey&lt;SIGSCHEME&gt;
+<span class="kw">impl</span>&lt;SIGSCHEME&gt; JfPubKey&lt;SIGSCHEME&gt;
 <span class="kw">where
     </span>SIGSCHEME: SignatureScheme,
     SIGSCHEME::VerificationKey: Clone,
@@ -1333,7 +1339,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;SIGSCHEME&gt; Clone <span class="kw">for </span>VRFPubKey&lt;SIGSCHEME&gt;
+<span class="kw">impl</span>&lt;SIGSCHEME&gt; Clone <span class="kw">for </span>JfPubKey&lt;SIGSCHEME&gt;
 <span class="kw">where
     </span>SIGSCHEME: SignatureScheme,
     SIGSCHEME::VerificationKey: Clone,
@@ -1346,7 +1352,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;SIGSCHEME&gt; Debug <span class="kw">for </span>VRFPubKey&lt;SIGSCHEME&gt;
+<span class="kw">impl</span>&lt;SIGSCHEME&gt; Debug <span class="kw">for </span>JfPubKey&lt;SIGSCHEME&gt;
 <span class="kw">where
     </span>SIGSCHEME: SignatureScheme&lt;PublicParameter = (), MessageUnit = u8&gt;,
     SIGSCHEME::VerificationKey: Clone + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Send + Sync,
@@ -1357,7 +1363,7 @@
         f.debug_tuple(<span class="string">&quot;VRFPubKey&quot;</span>).field(<span class="kw-2">&amp;</span><span class="self">self</span>.to_bytes()).finish()
     }
 }
-<span class="kw">impl</span>&lt;SIGSCHEME&gt; PartialEq <span class="kw">for </span>VRFPubKey&lt;SIGSCHEME&gt;
+<span class="kw">impl</span>&lt;SIGSCHEME&gt; PartialEq <span class="kw">for </span>JfPubKey&lt;SIGSCHEME&gt;
 <span class="kw">where
     </span>SIGSCHEME: SignatureScheme&lt;PublicParameter = (), MessageUnit = u8&gt;,
     SIGSCHEME::VerificationKey: Clone + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Send + Sync,
@@ -1368,7 +1374,7 @@
         <span class="self">self</span>.to_bytes() == other.to_bytes()
     }
 }
-<span class="kw">impl</span>&lt;SIGSCHEME&gt; Eq <span class="kw">for </span>VRFPubKey&lt;SIGSCHEME&gt;
+<span class="kw">impl</span>&lt;SIGSCHEME&gt; Eq <span class="kw">for </span>JfPubKey&lt;SIGSCHEME&gt;
 <span class="kw">where
     </span>SIGSCHEME: SignatureScheme&lt;PublicParameter = (), MessageUnit = u8&gt;,
     SIGSCHEME::VerificationKey: Clone + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Send + Sync,
@@ -1376,7 +1382,7 @@
     SIGSCHEME::Signature: Clone + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize,
 {
 }
-<span class="kw">impl</span>&lt;SIGSCHEME&gt; Hash <span class="kw">for </span>VRFPubKey&lt;SIGSCHEME&gt;
+<span class="kw">impl</span>&lt;SIGSCHEME&gt; Hash <span class="kw">for </span>JfPubKey&lt;SIGSCHEME&gt;
 <span class="kw">where
     </span>SIGSCHEME: SignatureScheme&lt;PublicParameter = (), MessageUnit = u8&gt;,
     SIGSCHEME::VerificationKey: Clone + de::DeserializeOwned + Serialize + Send + Sync,
@@ -1387,7 +1393,7 @@
         <span class="self">self</span>.to_bytes().hash(state);
     }
 }
-<span class="kw">impl</span>&lt;SIGSCHEME&gt; SignatureKey <span class="kw">for </span>VRFPubKey&lt;SIGSCHEME&gt;
+<span class="kw">impl</span>&lt;SIGSCHEME&gt; SignatureKey <span class="kw">for </span>JfPubKey&lt;SIGSCHEME&gt;
 <span class="kw">where
     </span>SIGSCHEME: SignatureScheme&lt;PublicParameter = (), MessageUnit = u8&gt;,
     SIGSCHEME::VerificationKey: Clone + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Serialize + Send + Sync,
@@ -1476,7 +1482,7 @@
     <span class="doccomment">/// get total stake
     /// # Panics
     /// If converting non-zero stake into `NonZeroU64` fails
-    </span><span class="kw">pub fn </span>get_stake&lt;SIGSCHEME&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: <span class="kw-2">&amp;</span>VRFPubKey&lt;SIGSCHEME&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;NonZeroU64&gt;
+    </span><span class="kw">pub fn </span>get_stake&lt;SIGSCHEME&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: <span class="kw-2">&amp;</span>JfPubKey&lt;SIGSCHEME&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;NonZeroU64&gt;
     <span class="kw">where
         </span>SIGSCHEME: SignatureScheme&lt;
             VerificationKey = VRF::PublicKey,
@@ -1651,7 +1657,7 @@
     TYPES: NodeTypes&lt;
         VoteTokenType = VRFVoteToken&lt;VRF::PublicKey, VRF::Proof&gt;,
         ElectionConfigType = VRFStakeTableConfig,
-        SignatureKey = VRFPubKey&lt;SIGSCHEME&gt;,
+        SignatureKey = JfPubKey&lt;SIGSCHEME&gt;,
     &gt;,
 {
     <span class="comment">// pubkey -&gt; unit of stake
@@ -1667,7 +1673,7 @@
         <span class="self">self</span>.stake_table.clone()
     }
 
-    <span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; VRFPubKey&lt;SIGSCHEME&gt; {
+    <span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; JfPubKey&lt;SIGSCHEME&gt; {
         <span class="comment">// TODO fst2 (ct) this is round robin, we should make this dependent on
         // the VRF + some source of randomness
 
@@ -1688,7 +1694,7 @@
         view_number: TYPES::Time,
         private_key: <span class="kw-2">&amp;</span>(SIGSCHEME::SigningKey, SIGSCHEME::VerificationKey),
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TYPES::VoteTokenType&gt;, ElectionError&gt; {
-        <span class="kw">let </span>pub_key = VRFPubKey::&lt;SIGSCHEME&gt;::from_native(private_key.<span class="number">1</span>.clone());
+        <span class="kw">let </span>pub_key = JfPubKey::&lt;SIGSCHEME&gt;::from_native(private_key.<span class="number">1</span>.clone());
         <span class="kw">let </span>replicas_stake = <span class="kw">match </span><span class="self">self</span>.stake_table.get_stake(<span class="kw-2">&amp;</span>pub_key) {
             <span class="prelude-val">Some</span>(val) =&gt; val,
             <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
@@ -1735,7 +1741,7 @@
     <span class="kw">fn </span>validate_vote_token(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: TYPES::Time,
-        pub_key: VRFPubKey&lt;SIGSCHEME&gt;,
+        pub_key: JfPubKey&lt;SIGSCHEME&gt;,
         token: Checked&lt;TYPES::VoteTokenType&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Checked&lt;TYPES::VoteTokenType&gt;, ElectionError&gt; {
         <span class="kw">match </span>token {
@@ -1768,7 +1774,7 @@
         }
     }
 
-    <span class="kw">fn </span>create_election(keys: Vec&lt;VRFPubKey&lt;SIGSCHEME&gt;&gt;, config: TYPES::ElectionConfigType) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>create_election(keys: Vec&lt;JfPubKey&lt;SIGSCHEME&gt;&gt;, config: TYPES::ElectionConfigType) -&gt; <span class="self">Self </span>{
         <span class="comment">// This all needs to be refactored. For one thing, having the stake table - even an initial
         // stake table - hardcoded like this is flat-out broken. This is, obviously, an artifact
         </span><span class="kw">let </span>genesis_seed = [<span class="number">0u8</span>; <span class="number">32</span>];
@@ -2065,7 +2071,7 @@
     /// # Panics
     /// TODO
     </span><span class="kw">pub fn </span>with_initial_stake(
-        known_nodes: Vec&lt;VRFPubKey&lt;SIGSCHEME&gt;&gt;,
+        known_nodes: Vec&lt;JfPubKey&lt;SIGSCHEME&gt;&gt;,
         config: <span class="kw-2">&amp;</span>VRFStakeTableConfig,
         genesis_seed: [u8; <span class="number">32</span>],
     ) -&gt; <span class="self">Self </span>{
@@ -2205,7 +2211,7 @@
     ///
     </span><span class="attribute">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub fn </span>check_sortition_proof(
-        public_key: <span class="kw-2">&amp;</span>VRFPubKey&lt;SIGSCHEME&gt;,
+        public_key: <span class="kw-2">&amp;</span>JfPubKey&lt;SIGSCHEME&gt;,
         proof_param: <span class="kw-2">&amp;</span>VRF::PublicParameter,
         proof: <span class="kw-2">&amp;</span>VRF::Proof,
         total_stake: NonZeroU64,
@@ -2239,7 +2245,7 @@
             BLSSignature&lt;ark_bls12_381::Parameters&gt;,
         &gt;,
         ElectionConfigType = VRFStakeTableConfig,
-        SignatureKey = VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;,
+        SignatureKey = JfPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt;,
     &gt;,
 {
     <span class="kw">fn </span>generate_test_vote_token() -&gt; TYPES::VoteTokenType {
@@ -2311,7 +2317,7 @@
     <span class="kw">impl </span>NodeTypes <span class="kw">for </span>TestTypes {
         <span class="kw">type </span>Time = ViewNumber;
         <span class="kw">type </span>BlockType = DummyBlock;
-        <span class="kw">type </span>SignatureKey = VRFPubKey&lt;BLSSignatureScheme&lt;ark_bls12_381::Parameters&gt;&gt;;
+        <span class="kw">type </span>SignatureKey = JfPubKey&lt;BLSSignatureScheme&lt;ark_bls12_381::Parameters&gt;&gt;;
         <span class="kw">type </span>VoteTokenType = VRFVoteToken&lt;
             BLSVerKey&lt;ark_bls12_381::Parameters&gt;,
             BLSSignature&lt;ark_bls12_381::Parameters&gt;,
@@ -2342,7 +2348,7 @@
             </span><span class="kw">let </span>parameters = BLSSignatureScheme::&lt;Param381&gt;::param_gen(<span class="prelude-val">Some</span>(rng)).unwrap();
             <span class="kw">let </span>(sk, pk) = BLSSignatureScheme::&lt;Param381&gt;::key_gen(<span class="kw-2">&amp;</span>parameters, rng).unwrap();
             keys.push((sk.clone(), pk.clone()));
-            known_nodes.push(VRFPubKey::from_native(pk.clone()));
+            known_nodes.push(JfPubKey::from_native(pk.clone()));
             stake_distribution.push(stake_per_node);
         }
         <span class="kw">let </span>stake_table = VrfImpl::with_initial_stake(
@@ -2380,7 +2386,7 @@
                         <span class="kw">let </span>result = vrf_impl
                             .validate_vote_token(
                                 ViewNumber::new(view),
-                                VRFPubKey::from_native(pk.clone()),
+                                JfPubKey::from_native(pk.clone()),
                                 Checked::Unchecked(token),
                             )
                             .unwrap();
@@ -2412,8 +2418,8 @@
         // Note that there is currently an issue with `VRFPubKey` where it can&#39;t be serialized with toml
         // so instead we only test with serde_json
         </span><span class="kw">let </span>key =
-            &lt;VRFPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt; <span class="kw">as </span>TestableSignatureKey&gt;::generate_test_key(<span class="number">1</span>);
-        <span class="kw">let </span>pub_key = VRFPubKey::&lt;BLSSignatureScheme&lt;Param381&gt;&gt;::from_private(<span class="kw-2">&amp;</span>key);
+            &lt;JfPubKey&lt;BLSSignatureScheme&lt;Param381&gt;&gt; <span class="kw">as </span>TestableSignatureKey&gt;::generate_test_key(<span class="number">1</span>);
+        <span class="kw">let </span>pub_key = JfPubKey::&lt;BLSSignatureScheme&lt;Param381&gt;&gt;::from_private(<span class="kw-2">&amp;</span>key);
         <span class="kw">let </span><span class="kw-2">mut </span>config = hotshot_centralized_server::NetworkConfig {
             config: hotshot_types::HotShotConfig {
                 election_config: <span class="prelude-val">Some</span>(<span class="kw">super</span>::VRFStakeTableConfig {

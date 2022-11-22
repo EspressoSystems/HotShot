@@ -626,17 +626,24 @@
 <span id="626">626</span>
 <span id="627">627</span>
 <span id="628">628</span>
+<span id="629">629</span>
+<span id="630">630</span>
+<span id="631">631</span>
+<span id="632">632</span>
 </pre><pre class="rust"><code><span class="comment">// TODO this should really be moved into the utils crate.
 </span><span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot::{
     demos::dentry::<span class="kw-2">*</span>,
     traits::{
-        election::static_committee::{StaticCommittee, StaticElectionConfig},
+        election::{
+            static_committee::{StaticCommittee, StaticElectionConfig},
+            vrf::BlsPubKey,
+        },
         implementations::{Libp2pNetwork, MemoryStorage},
         NetworkError, Storage,
     },
-    types::{ed25519::Ed25519Priv, HotShotHandle},
+    types::HotShotHandle,
     HotShot,
 };
 <span class="kw">use </span>hotshot_centralized_server::{
@@ -646,7 +653,7 @@
     traits::{
         metrics::NoMetrics,
         network::NetworkingImplementation,
-        signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
+        signature_key::{SignatureKey, TestableSignatureKey},
         state::TestableState,
     },
     ExecutionType, HotShotConfig,
@@ -677,8 +684,8 @@
 <span class="attribute">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
 </span><span class="macro">std::compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
 
-<span class="kw">type </span>FromServer = hotshot_centralized_server::FromServer&lt;Ed25519Pub, StaticElectionConfig&gt;;
-<span class="kw">type </span>ToServer = hotshot_centralized_server::ToServer&lt;Ed25519Pub&gt;;
+<span class="kw">type </span>FromServer = hotshot_centralized_server::FromServer&lt;BlsPubKey, StaticElectionConfig&gt;;
+<span class="kw">type </span>ToServer = hotshot_centralized_server::ToServer&lt;BlsPubKey&gt;;
 
 <span class="doccomment">/// convert node string into multi addr
 /// node string of the form: &quot;$IP:$PORT&quot;
@@ -847,17 +854,19 @@
             FromServer::Config { config, run } =&gt; (config, run),
             x =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Expected Libp2pConfig, got {x:?}&quot;</span>),
         };
-        <span class="macro">assert_eq!</span>(config.key_type_name, std::any::type_name::&lt;Ed25519Pub&gt;());
+        <span class="macro">assert_eq!</span>(config.key_type_name, std::any::type_name::&lt;BlsPubKey&gt;());
         <span class="macro">assert_eq!</span>(
             config.election_config_type_name,
             std::any::type_name::&lt;StaticElectionConfig&gt;()
         );
         <span class="macro">error!</span>(<span class="string">&quot;Received server config: {config:?}&quot;</span>);
-        <span class="kw">let </span>privkey = Ed25519Priv::generated_from_seed_indexed(config.seed, config.node_index);
-        <span class="kw">let </span>pubkey = Ed25519Pub::from_private(<span class="kw-2">&amp;</span>privkey);
+        <span class="kw">let </span>(pubkey, privkey) =
+            BlsPubKey::generated_from_seed_indexed(config.seed, config.node_index);
 
         stream
-            .send(ToServer::Identify { key: pubkey })
+            .send(ToServer::Identify {
+                key: pubkey.clone(),
+            })
             .<span class="kw">await
             </span>.expect(<span class="string">&quot;Could not identify with server&quot;</span>);
 
@@ -935,8 +944,7 @@
     <span class="kw">fn </span>init(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Config {
         <span class="kw">let </span><span class="kw-2">mut </span>seed = [<span class="number">0u8</span>; <span class="number">32</span>];
         seed[<span class="number">0</span>..<span class="number">16</span>].copy_from_slice(<span class="kw-2">&amp;</span><span class="self">self</span>.seed.to_le_bytes());
-        <span class="kw">let </span>privkey = Ed25519Priv::generated_from_seed_indexed(seed, <span class="self">self</span>.node_idx);
-        <span class="kw">let </span>pubkey = Ed25519Pub::from_private(<span class="kw-2">&amp;</span>privkey);
+        <span class="kw">let </span>(pubkey, privkey) = BlsPubKey::generated_from_seed_indexed(seed, <span class="self">self</span>.node_idx);
 
         <span class="kw">let </span>bootstrap_priv: Vec&lt;<span class="kw">_</span>&gt; = BOOTSTRAPS
             .iter()
@@ -994,8 +1002,8 @@
 
 <span class="kw">struct </span>Config {
     run: Run,
-    privkey: Ed25519Priv,
-    pubkey: Ed25519Pub,
+    privkey: &lt;BlsPubKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    pubkey: BlsPubKey,
     bs: Vec&lt;(PeerId, Multiaddr)&gt;,
     node_id: u64,
     node_type: NetworkNodeType,
@@ -1030,8 +1038,8 @@
         <span class="comment">// Create the initial hotshot
         </span><span class="kw">let </span>known_nodes: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..<span class="self">self</span>.num_nodes <span class="kw">as </span>u64)
             .map(|x| {
-                <span class="kw">let </span>priv_key = Ed25519Pub::generate_test_key(x);
-                Ed25519Pub::from_private(<span class="kw-2">&amp;</span>priv_key)
+                <span class="kw">let </span>priv_key = BlsPubKey::generate_test_key(x);
+                BlsPubKey::from_private(<span class="kw-2">&amp;</span>priv_key)
             })
             .collect();
 
@@ -1052,7 +1060,7 @@
         };
         <span class="macro">debug!</span>(<span class="question-mark">?</span>config);
         <span class="kw">let </span>hotshot = HotShot::init(
-            <span class="self">self</span>.pubkey,
+            <span class="self">self</span>.pubkey.clone(),
             <span class="self">self</span>.privkey.clone(),
             <span class="self">self</span>.node_id <span class="kw">as </span>u64,
             config,
@@ -1113,7 +1121,7 @@
         Libp2pNetwork::new(
             NoMetrics::new(),
             node_config,
-            <span class="self">self</span>.pubkey,
+            <span class="self">self</span>.pubkey.clone(),
             Arc::new(RwLock::new(
                 <span class="self">self</span>.bs
                     .iter()
