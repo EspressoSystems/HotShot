@@ -355,16 +355,16 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
             // A count of all veiws we saw that aren't in the current chain (so won't be commited)
             consensus
                 .metrics
-                .discarded_views_with_last_anchor
+                .discarded_views_per_decide_event
                 .add_point((views_seen - current_chain_length) as f64);
             // An empty view is one we didn't see a leaf for but we moved past that view number
             consensus
                 .metrics
-                .empty_views_with_last_anchor
+                .empty_views_per_decide_event
                 .add_point((num_views_since_last_anchor - views_seen as f64) as f64);
             consensus
                 .metrics
-                .number_of_views_with_last_anchor
+                .number_of_views_per_decide_event
                 .add_point(num_views_since_last_anchor);
             consensus
                 .metrics

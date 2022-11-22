@@ -103,13 +103,13 @@ pub struct ConsensusMetrics {
     /// Number of views that are in-flight since the last committed view
     pub number_of_views_since_last_commit: Box<dyn Gauge>,
     /// Number of views that are in-flight since the last anchor view
-    pub number_of_views_with_last_anchor: Box<dyn Histogram>,
+    pub number_of_views_per_decide_event: Box<dyn Histogram>,
     /// Number of invalid QCs between anchors
     pub invalid_qc_views: Box<dyn Histogram>,
     /// Number of views that were discarded since from one achor to the next
-    pub discarded_views_with_last_anchor: Box<dyn Histogram>,
+    pub discarded_views_per_decide_event: Box<dyn Histogram>,
     /// Views where no proposal was seen from one anchor to the next
-    pub empty_views_with_last_anchor: Box<dyn Histogram>,
+    pub empty_views_per_decide_event: Box<dyn Histogram>,
     /// Number of rejected transactions
     pub rejected_transactions: Box<dyn Counter>,
     /// Number of outstanding transactions
@@ -151,13 +151,13 @@ impl ConsensusMetrics {
                 .create_histogram(String::from("view_duration"), Some(String::from("seconds"))),
             number_of_views_since_last_commit: metrics
                 .create_gauge(String::from("number_of_views_since_last_commit"), None),
-            number_of_views_with_last_anchor: metrics
-                .create_histogram(String::from("number_of_views_with_last_anchor"), None),
+            number_of_views_per_decide_event: metrics
+                .create_histogram(String::from("number_of_views_per_decide_event"), None),
             invalid_qc_views: metrics.create_histogram(String::from("invalid_qc_views"), None),
-            discarded_views_with_last_anchor: metrics
-                .create_histogram(String::from("discarded_views_with_last_anchor"), None),
-            empty_views_with_last_anchor: metrics
-                .create_histogram(String::from("empty_views_with_last_anchor"), None),
+            discarded_views_per_decide_event: metrics
+                .create_histogram(String::from("discarded_views_per_decide_event"), None),
+            empty_views_per_decide_event: metrics
+                .create_histogram(String::from("empty_views_per_decide_event"), None),
             rejected_transactions: metrics
                 .create_counter(String::from("rejected_transactions"), None),
             outstanding_transactions: metrics
