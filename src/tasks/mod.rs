@@ -469,8 +469,13 @@ pub async fn network_broadcast_task<TYPES: NodeTypes, I: NodeImplementation<TYPE
         incremental_backoff_ms = 10;
         for item in queue {
             trace!(?item, "Processing item");
-            let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
-            metrics.broadcast_messages_received.add(1);
+            hotshot
+                .hotstuff
+                .read()
+                .await
+                .metrics
+                .broadcast_messages_received
+                .add(1);
             match item.kind {
                 MessageKind::Consensus(msg) => {
                     hotshot

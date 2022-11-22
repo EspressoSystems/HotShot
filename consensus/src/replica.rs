@@ -333,7 +333,10 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
         consensus.metrics.number_of_views_since_last_commit.set(
             consensus
                 .state_map
-                .range((Excluded(consensus.locked_view), Included(self.cur_view)))
+                .range((
+                    Excluded(consensus.last_decided_view),
+                    Included(self.cur_view),
+                ))
                 .count(),
         );
 

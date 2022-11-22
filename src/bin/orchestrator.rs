@@ -1,4 +1,5 @@
 use clap::Parser;
+use espresso_systems_common::hotshot::tag;
 use hotshot::{
     traits::election::static_committee::StaticElectionConfig,
     types::{
@@ -373,6 +374,10 @@ mod tests {
                 .u64_field("Nothing", 0)
                 .finalize()
         }
+
+        fn tag() -> String {
+            tag::ORCHESTRATOR_BLOCK.to_string()
+        }
     }
 
     impl Block for TestBlock {
@@ -401,6 +406,10 @@ mod tests {
                 .u64_field("Nothing", 0)
                 .finalize()
         }
+
+        fn tag() -> String {
+            tag::ORCHESTRATOR_TXN.to_string()
+        }
     }
 
     #[derive(Clone, Default, serde::Serialize, serde::Deserialize, Debug, Hash, Eq, PartialEq)]
@@ -410,6 +419,10 @@ mod tests {
             commit::RawCommitmentBuilder::new("Test Txn Comm")
                 .u64_field("Nothing", 0)
                 .finalize()
+        }
+
+        fn tag() -> String {
+            tag::ORCHESTRATOR_STATE.to_string()
         }
     }
 

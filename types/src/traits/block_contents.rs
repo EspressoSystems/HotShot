@@ -4,6 +4,7 @@
 //! expected to have.
 
 use commit::{Commitment, Committable};
+use espresso_systems_common::hotshot::tag;
 use serde::{de::DeserializeOwned, Serialize};
 
 use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
@@ -87,6 +88,10 @@ pub mod dummy {
                 .u64_field("Dummy Field", 0)
                 .finalize()
         }
+
+        fn tag() -> String {
+            tag::DUMMY_TXN.to_string()
+        }
     }
     impl super::Transaction for DummyTransaction {}
 
@@ -128,6 +133,10 @@ pub mod dummy {
             commit::RawCommitmentBuilder::new("Dummy Block Comm")
                 .u64_field("Nonce", self.nonce)
                 .finalize()
+        }
+
+        fn tag() -> String {
+            tag::DUMMY_BLOCK.to_string()
         }
     }
 }
