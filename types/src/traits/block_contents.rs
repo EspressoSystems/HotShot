@@ -43,21 +43,9 @@ pub trait Block:
 }
 
 /// Commitment to a block, used by data availibity
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
 #[serde(bound(deserialize = ""))]
 pub struct BlockCommitment<T: Block>(pub Commitment<T>);
-
-impl<T: Block> Ord for BlockCommitment<T> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.cmp(&other.0)
-    }
-}
-
-impl<T: Block> PartialOrd for BlockCommitment<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
 
 /// Abstraction over any type of transaction. Used by [`Block`].
 pub trait Transaction:
