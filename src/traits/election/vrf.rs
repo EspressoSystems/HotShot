@@ -69,9 +69,12 @@ impl<VRF, VRFHASHER, VRFPARAMS> Clone for VRFStakeTable<VRF, VRFHASHER, VRFPARAM
     }
 }
 
+/// concrete type for bls public key
+pub type BlsPubKey = JfPubKey<BLSSignatureScheme<Param381>>;
+
 /// type wrapper for VRF's public key
 #[derive(Deserialize, Serialize)]
-pub struct VRFPubKey<SIGSCHEME>
+pub struct JfPubKey<SIGSCHEME>
 where
     SIGSCHEME: SignatureScheme,
     SIGSCHEME::VerificationKey: Clone,
@@ -82,7 +85,7 @@ where
     _pd_0: PhantomData<SIGSCHEME::SigningKey>,
 }
 
-impl<SIGSCHEME> TestableSignatureKey for VRFPubKey<SIGSCHEME>
+impl<SIGSCHEME> TestableSignatureKey for JfPubKey<SIGSCHEME>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send,
     SIGSCHEME::VerificationKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
@@ -96,7 +99,7 @@ where
     }
 }
 
-impl<SIGSCHEME> VRFPubKey<SIGSCHEME>
+impl<SIGSCHEME> JfPubKey<SIGSCHEME>
 where
     SIGSCHEME: SignatureScheme,
     SIGSCHEME::VerificationKey: Clone,
@@ -110,7 +113,7 @@ where
     }
 }
 
-impl<SIGSCHEME> Clone for VRFPubKey<SIGSCHEME>
+impl<SIGSCHEME> Clone for JfPubKey<SIGSCHEME>
 where
     SIGSCHEME: SignatureScheme,
     SIGSCHEME::VerificationKey: Clone,
@@ -123,7 +126,7 @@ where
     }
 }
 
-impl<SIGSCHEME> Debug for VRFPubKey<SIGSCHEME>
+impl<SIGSCHEME> Debug for JfPubKey<SIGSCHEME>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8>,
     SIGSCHEME::VerificationKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
@@ -134,7 +137,7 @@ where
         f.debug_tuple("VRFPubKey").field(&self.to_bytes()).finish()
     }
 }
-impl<SIGSCHEME> PartialEq for VRFPubKey<SIGSCHEME>
+impl<SIGSCHEME> PartialEq for JfPubKey<SIGSCHEME>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8>,
     SIGSCHEME::VerificationKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
@@ -145,7 +148,7 @@ where
         self.to_bytes() == other.to_bytes()
     }
 }
-impl<SIGSCHEME> Eq for VRFPubKey<SIGSCHEME>
+impl<SIGSCHEME> Eq for JfPubKey<SIGSCHEME>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8>,
     SIGSCHEME::VerificationKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
@@ -153,7 +156,7 @@ where
     SIGSCHEME::Signature: Clone + for<'a> Deserialize<'a> + Serialize,
 {
 }
-impl<SIGSCHEME> Hash for VRFPubKey<SIGSCHEME>
+impl<SIGSCHEME> Hash for JfPubKey<SIGSCHEME>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8>,
     SIGSCHEME::VerificationKey: Clone + de::DeserializeOwned + Serialize + Send + Sync,
@@ -164,7 +167,7 @@ where
         self.to_bytes().hash(state);
     }
 }
-impl<SIGSCHEME> SignatureKey for VRFPubKey<SIGSCHEME>
+impl<SIGSCHEME> SignatureKey for JfPubKey<SIGSCHEME>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8>,
     SIGSCHEME::VerificationKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
@@ -253,7 +256,7 @@ where
     /// get total stake
     /// # Panics
     /// If converting non-zero stake into `NonZeroU64` fails
-    pub fn get_stake<SIGSCHEME>(&self, pk: &VRFPubKey<SIGSCHEME>) -> Option<NonZeroU64>
+    pub fn get_stake<SIGSCHEME>(&self, pk: &JfPubKey<SIGSCHEME>) -> Option<NonZeroU64>
     where
         SIGSCHEME: SignatureScheme<
             VerificationKey = VRF::PublicKey,
@@ -428,7 +431,7 @@ where
     TYPES: NodeTypes<
         VoteTokenType = VRFVoteToken<VRF::PublicKey, VRF::Proof>,
         ElectionConfigType = VRFStakeTableConfig,
-        SignatureKey = VRFPubKey<SIGSCHEME>,
+        SignatureKey = JfPubKey<SIGSCHEME>,
     >,
 {
     // pubkey -> unit of stake
@@ -444,7 +447,7 @@ where
         self.stake_table.clone()
     }
 
-    fn get_leader(&self, view_number: TYPES::Time) -> VRFPubKey<SIGSCHEME> {
+    fn get_leader(&self, view_number: TYPES::Time) -> JfPubKey<SIGSCHEME> {
         // TODO fst2 (ct) this is round robin, we should make this dependent on
         // the VRF + some source of randomness
 
@@ -465,7 +468,7 @@ where
         view_number: TYPES::Time,
         private_key: &(SIGSCHEME::SigningKey, SIGSCHEME::VerificationKey),
     ) -> Result<Option<TYPES::VoteTokenType>, ElectionError> {
-        let pub_key = VRFPubKey::<SIGSCHEME>::from_native(private_key.1.clone());
+        let pub_key = JfPubKey::<SIGSCHEME>::from_native(private_key.1.clone());
         let replicas_stake = match self.stake_table.get_stake(&pub_key) {
             Some(val) => val,
             None => return Ok(None),
@@ -512,7 +515,7 @@ where
     fn validate_vote_token(
         &self,
         view_number: TYPES::Time,
-        pub_key: VRFPubKey<SIGSCHEME>,
+        pub_key: JfPubKey<SIGSCHEME>,
         token: Checked<TYPES::VoteTokenType>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError> {
         match token {
@@ -545,7 +548,7 @@ where
         }
     }
 
-    fn create_election(keys: Vec<VRFPubKey<SIGSCHEME>>, config: TYPES::ElectionConfigType) -> Self {
+    fn create_election(keys: Vec<JfPubKey<SIGSCHEME>>, config: TYPES::ElectionConfigType) -> Self {
         // This all needs to be refactored. For one thing, having the stake table - even an initial
         // stake table - hardcoded like this is flat-out broken. This is, obviously, an artifact
         let genesis_seed = [0u8; 32];
@@ -842,7 +845,7 @@ where
     /// # Panics
     /// TODO
     pub fn with_initial_stake(
-        known_nodes: Vec<VRFPubKey<SIGSCHEME>>,
+        known_nodes: Vec<JfPubKey<SIGSCHEME>>,
         config: &VRFStakeTableConfig,
         genesis_seed: [u8; 32],
     ) -> Self {
@@ -982,7 +985,7 @@ where
     ///
     #[allow(clippy::too_many_arguments)]
     pub fn check_sortition_proof(
-        public_key: &VRFPubKey<SIGSCHEME>,
+        public_key: &JfPubKey<SIGSCHEME>,
         proof_param: &VRF::PublicParameter,
         proof: &VRF::Proof,
         total_stake: NonZeroU64,
@@ -1016,7 +1019,7 @@ where
             BLSSignature<ark_bls12_381::Parameters>,
         >,
         ElectionConfigType = VRFStakeTableConfig,
-        SignatureKey = VRFPubKey<BLSSignatureScheme<Param381>>,
+        SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>,
     >,
 {
     fn generate_test_vote_token() -> TYPES::VoteTokenType {
@@ -1088,7 +1091,7 @@ mod tests {
     impl NodeTypes for TestTypes {
         type Time = ViewNumber;
         type BlockType = DummyBlock;
-        type SignatureKey = VRFPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>;
+        type SignatureKey = JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>;
         type VoteTokenType = VRFVoteToken<
             BLSVerKey<ark_bls12_381::Parameters>,
             BLSSignature<ark_bls12_381::Parameters>,
@@ -1119,7 +1122,7 @@ mod tests {
             let parameters = BLSSignatureScheme::<Param381>::param_gen(Some(rng)).unwrap();
             let (sk, pk) = BLSSignatureScheme::<Param381>::key_gen(&parameters, rng).unwrap();
             keys.push((sk.clone(), pk.clone()));
-            known_nodes.push(VRFPubKey::from_native(pk.clone()));
+            known_nodes.push(JfPubKey::from_native(pk.clone()));
             stake_distribution.push(stake_per_node);
         }
         let stake_table = VrfImpl::with_initial_stake(
@@ -1157,7 +1160,7 @@ mod tests {
                         let result = vrf_impl
                             .validate_vote_token(
                                 ViewNumber::new(view),
-                                VRFPubKey::from_native(pk.clone()),
+                                JfPubKey::from_native(pk.clone()),
                                 Checked::Unchecked(token),
                             )
                             .unwrap();
@@ -1189,8 +1192,8 @@ mod tests {
         // Note that there is currently an issue with `VRFPubKey` where it can't be serialized with toml
         // so instead we only test with serde_json
         let key =
-            <VRFPubKey<BLSSignatureScheme<Param381>> as TestableSignatureKey>::generate_test_key(1);
-        let pub_key = VRFPubKey::<BLSSignatureScheme<Param381>>::from_private(&key);
+            <JfPubKey<BLSSignatureScheme<Param381>> as TestableSignatureKey>::generate_test_key(1);
+        let pub_key = JfPubKey::<BLSSignatureScheme<Param381>>::from_private(&key);
         let mut config = hotshot_centralized_server::NetworkConfig {
             config: hotshot_types::HotShotConfig {
                 election_config: Some(super::VRFStakeTableConfig {

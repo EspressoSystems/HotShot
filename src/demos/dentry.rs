@@ -7,7 +7,10 @@
 //! production use.
 
 use crate::traits::{
-    election::static_committee::{StaticElectionConfig, StaticVoteToken},
+    election::{
+        static_committee::{StaticElectionConfig, StaticVoteToken},
+        vrf::BlsPubKey,
+    },
     implementations::MemoryStorage,
     Block, NetworkingImplementation, NodeImplementation,
 };
@@ -21,7 +24,6 @@ use hotshot_types::{
         block_contents::Transaction,
         election::Election,
         node_implementation::NodeTypes,
-        signature_key::ed25519::Ed25519Pub,
         state::{ConsensusTime, TestableBlock, TestableState},
         State,
     },
@@ -503,8 +505,8 @@ pub struct DEntryTypes;
 impl NodeTypes for DEntryTypes {
     type Time = ViewNumber;
     type BlockType = DEntryBlock;
-    type SignatureKey = Ed25519Pub;
-    type VoteTokenType = StaticVoteToken;
+    type SignatureKey = BlsPubKey;
+    type VoteTokenType = StaticVoteToken<BlsPubKey>;
     type Transaction = DEntryTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = DEntryState;

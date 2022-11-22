@@ -7,7 +7,7 @@ use hotshot::types::SignatureKey;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::vrf::{VRFPubKey, VRFStakeTableConfig, VrfImpl},
+        election::vrf::{JfPubKey, VRFStakeTableConfig, VrfImpl},
         implementations::{CentralizedServerNetwork, MemoryStorage},
         Storage,
     },
@@ -57,7 +57,7 @@ pub struct VrfTypes;
 impl NodeTypes for VrfTypes {
     type Time = ViewNumber;
     type BlockType = DEntryBlock;
-    type SignatureKey = VRFPubKey<BLSSignatureScheme<Param381>>;
+    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
     type VoteTokenType =
         VRFVoteToken<BLSVerKey<ark_bls12_381::Parameters>, BLSSignature<ark_bls12_381::Parameters>>;
     type Transaction = DEntryTransaction;
@@ -87,7 +87,7 @@ struct NodeOpt {
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
 async fn init_state_and_hotshot(
     networking: CentralizedServerNetwork<VrfTypes>,
-    config: HotShotConfig<VRFPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
+    config: HotShotConfig<JfPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
     seed: [u8; 32],
     node_id: u64,
 ) -> (DEntryState, HotShotHandle<VrfTypes, Node>) {
@@ -109,7 +109,7 @@ async fn init_state_and_hotshot(
     // TODO we should make this more general/use different parameters
     #[allow(clippy::let_unit_value)]
     let vrf_key =
-        VRFPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(seed, node_id);
+        JfPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(seed, node_id);
     let priv_key = vrf_key.1;
     let pub_key = vrf_key.0;
 
@@ -194,7 +194,7 @@ async fn main() {
 
     assert_eq!(
         key_type_name,
-        std::any::type_name::<VRFPubKey<BLSSignatureScheme<Param381>>>()
+        std::any::type_name::<JfPubKey<BLSSignatureScheme<Param381>>>()
     );
     assert_eq!(
         election_config_type_name,
