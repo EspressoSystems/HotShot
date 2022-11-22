@@ -49,6 +49,12 @@ struct Inner<TYPES: NodeTypes> {
 // wrapper similar to the other centralized server network that allows the web server
 // to differentiate transactions from proposals.
 
+impl<TYPES: NodeTypes> CentralizedWebServerNetwork<TYPES> {
+    fn new() -> Self {
+        nll_todo()
+    }
+}
+
 #[async_trait]
 impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerNetwork<TYPES> {
     // TODO Start up async task, ensure we can reach the centralized server
