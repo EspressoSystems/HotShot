@@ -69,6 +69,10 @@ pub trait Accumulator<T, U>: Sized {
     fn append(val: Vec<T>) -> Either<Self, U>;
 }
 
+/// todo associated types for:
+/// - signature key
+/// - encoded things
+/// - 
 pub trait SignedCertificate<SIGNATURE: SignatureKey>
 where
     Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,
@@ -78,8 +82,11 @@ where
 
 /// Describes how `HotShot` chooses committees and leaders
 /// TODO do we need the static lifetime requirement here?
+/// TODO (da) make a separate vote token type for DA and QC
+/// @ny thinks we should make the vote token types be bound to ConsensusType
 pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
     /// Data structure describing the currently valid states
+    /// TODO make this a trait so we can pass in places
     type StakeTable: Send + Sync;
 
     /// certificate for quorum on consenus

@@ -10,7 +10,7 @@ use super::{
     election::{ElectionConfig, VoteToken},
     network::TestableNetworkingImplementation,
     signature_key::TestableSignatureKey,
-    state::{ConsensusTime, TestableBlock, TestableState},
+    state::{ConsensusTime, TestableBlock, TestableState, ConsensusType},
     storage::TestableStorage,
     State,
 };
@@ -58,7 +58,7 @@ pub trait NodeTypes:
 {
 
     /// the type of consensus (seuqencing or validating)
-    type ConsensusType;
+    type ConsensusType : ConsensusType;
     /// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `StateType::Time` is using.

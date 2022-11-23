@@ -6,7 +6,7 @@
 use crate::{
     constants::genesis_proposer_id,
     traits::{
-        election::{Accumulator, Election, SignedCertificate},
+        election::{Accumulator, Election, SignedCertificate, Either},
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
@@ -20,6 +20,7 @@ use derivative::Derivative;
 use hotshot_utils::hack::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use serde_bytes::Deserialize;
 use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData, num::NonZeroU64, ops::Deref};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
@@ -76,7 +77,7 @@ impl<TYPES: NodeTypes> QuorumCertificate<TYPES> {
     /// To be used only for generating the genesis quorum certificate; will fail if used anywhere else
     pub fn genesis() -> Self {
         Self {
-            block_commitment: fake_commitment(),
+            // block_commitment: fake_commitment(),
             leaf_commitment: fake_commitment::<Leaf<TYPES>>(),
             view_number: <TYPES::Time as ConsensusTime>::genesis(),
             signatures: BTreeMap::default(),
@@ -86,10 +87,8 @@ impl<TYPES: NodeTypes> QuorumCertificate<TYPES> {
 }
 
 // TODO (da) move this, and QC to separate files
+#[derive(Clone, Serialize, Deserialize)]
 pub struct DACertificate<TYPES: NodeTypes> {
-    ///  
-    pub block_commitment: Commitment<TYPES::BlockType>,
-
     /// The view number this quorum certificate was generated during
     ///
     /// This value is covered by the threshold signature.
@@ -102,15 +101,10 @@ pub struct DACertificate<TYPES: NodeTypes> {
     ///
     /// These formats are deliberatly done as a `Vec` instead of an array to prevent creating the
     /// assumption that singatures are constant in length
+    /// TODO (da) make a separate vote token type for DA and QC
     pub signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
 
-    /// Temporary bypass for boostrapping
-    ///
-    /// This value indicates that this is a dummy certificate for the genesis block, and thus does
-    /// not have a signature. This value is not covered by the signature, and it is invalid for this
-    /// to be set outside of bootstrap
-    pub genesis: bool,
-
+    // no genesis bc not meaningful
 }
 
 /// The type used for Quorum Certificates
@@ -120,43 +114,19 @@ pub struct DACertificate<TYPES: NodeTypes> {
 #[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct QuorumCertificate<TYPES: NodeTypes> {
-    /// Hash of the block refereed to by this Quorum Certificate.
-    ///
-    /// This is included for convenience, and is not fundamental to consensus or covered by the
-    /// signature. This _must_ be identical to the [`BlockContents`] provided hash of the `item` in
-    /// the referenced leaf.
-    #[debug(skip)]
-    pub block_commitment: Commitment<TYPES::BlockType>,
+    // block commitment is contained within the leaf. Still need to check this
 
     /// TODO (da) we need to check
     ///   - parent QC PROPOSAL
     ///   - somehow make this semantically equivalent to what is currently `Leaf`
     ///
-    /// Hash of the [`Leaf`] referred to by this Quorum Certificate
-    ///
-    /// This value is covered by the threshold signature.
     #[debug(skip)]
     pub leaf_commitment: Commitment<Leaf<TYPES>>,
 
-    /// The view number this quorum certificate was generated during
-    ///
-    /// This value is covered by the threshold signature.
     pub view_number: TYPES::Time,
 
-    /// The list of signatures establishing the validity of this Quorum Certifcate
-    ///
-    /// This is a mapping of the byte encoded public keys provided by the [`NodeImplementation`], to
-    /// the byte encoded signatures provided by those keys.
-    ///
-    /// These formats are deliberatly done as a `Vec` instead of an array to prevent creating the
-    /// assumption that singatures are constant in length
     pub signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
 
-    /// Temporary bypass for boostrapping
-    ///
-    /// This value indicates that this is a dummy certificate for the genesis block, and thus does
-    /// not have a signature. This value is not covered by the signature, and it is invalid for this
-    /// to be set outside of bootstrap
     pub genesis: bool,
 }
 
@@ -216,11 +186,16 @@ pub type Transaction<STATE> = <<STATE as State>::BlockType as Block>::Transactio
 /// `Commitment` to the `Transaction` type associated with a `State`, as a syntactic shortcut
 pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 
+// TODO leafproposal trait for both types of consensus
+
 /// subset of state that we stick into a leaf.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Derivative)]
 #[serde(bound(deserialize = ""))]
 #[derivative(PartialEq, Hash)]
 pub struct ProposalLeaf<TYPES: NodeTypes> {
+    ///  current view's block commitment
+    pub block_commitment: Commitment<TYPES::BlockType>,
+
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
 
@@ -251,8 +226,8 @@ pub struct ProposalLeaf<TYPES: NodeTypes> {
 pub struct DataDistributionProposal<TYPES: NodeTypes> {
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
-    /// TODO is this state? or commitment to state
-    pub state_commitment: Commitment<TYPES::StateType>,
+
+    pub view_number: TYPES::Time,
 }
 
 /// make generic over election
@@ -270,11 +245,7 @@ pub struct ConsensusProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
     /// TODO implmeent data availibity certificate and add trait here
     pub availability_certificate: ELECTION::DACertificate,
 
-    // TODO do we need this? @nyospe says we should delete
-    /// The hash of the parent `Leaf`
-    /// So we can ask if it extends
-    #[debug(skip)]
-    pub parent_commitment: Commitment<Leaf<TYPES>>,
+    /// parent commitment alrady in justify_qqc
 
     /// What the state should be after applying `self.deltas`
     #[debug(skip)]
@@ -308,7 +279,8 @@ pub struct Leaf<TYPES: NodeTypes> {
     pub deltas: TYPES::BlockType,
 
     /// What the state should be AFTER applying `self.deltas`
-    pub state: TYPES::StateType,
+    /// dependent on whether we have the state yet
+    pub state: Either<TYPES::StateType, Commitment<TYPES::StateType>>,
 
     /// Transactions that were marked for rejection while collecting deltas
     pub rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
