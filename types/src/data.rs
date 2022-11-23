@@ -87,12 +87,7 @@ impl<TYPES: NodeTypes> QuorumCertificate<TYPES> {
 
 // TODO (da) move this, and QC to separate files
 pub struct DACertificate<TYPES: NodeTypes> {
-    /// Hash of the block refereed to by this Quorum Certificate.
-    ///
-    /// This is included for convenience, and is not fundamental to consensus or covered by the
-    /// signature. This _must_ be identical to the [`BlockContents`] provided hash of the `item` in
-    /// the referenced leaf.
-    #[debug(skip)]
+    ///  
     pub block_commitment: Commitment<TYPES::BlockType>,
 
     /// The view number this quorum certificate was generated during
@@ -133,6 +128,10 @@ pub struct QuorumCertificate<TYPES: NodeTypes> {
     #[debug(skip)]
     pub block_commitment: Commitment<TYPES::BlockType>,
 
+    /// TODO (da) we need to check
+    ///   - parent QC PROPOSAL
+    ///   - somehow make this semantically equivalent to what is currently `Leaf`
+    ///
     /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
     /// This value is covered by the threshold signature.
@@ -244,7 +243,8 @@ pub struct ProposalLeaf<TYPES: NodeTypes> {
     pub rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
 
     /// the propser id
-    #[derivative(PartialEq = "ignore", Hash = "ignore")]
+    /// TODO (da) why is this not included? in partieq or hash? it really should be
+    /// since we are using this in our validity checks when accepting a proposal
     pub proposer_id: EncodedPublicKey,
 }
 

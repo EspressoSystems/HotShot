@@ -56,6 +56,9 @@ pub trait NodeTypes:
     + Sync
     + 'static
 {
+
+    /// the type of consensus (seuqencing or validating)
+    type ConsensusType;
     /// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `StateType::Time` is using.
@@ -76,7 +79,7 @@ pub trait NodeTypes:
     type ElectionConfigType: ElectionConfig;
 
     /// The state type that this hotshot setup is using.
-    type StateType: State<BlockType = Self::BlockType, Time = Self::Time>;
+    type StateType: State<BlockType = Self::BlockType, Time = Self::Time, ConsensusType = Self::ConsensusType>;
 
     type ApplicationMetadataType: ApplicationMetadata;
 }
