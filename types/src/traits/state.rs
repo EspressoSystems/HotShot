@@ -42,7 +42,7 @@ pub trait State:
     type ConsensusType : ConsensusType;
 
     /// Returns an empty, template next block given this current state
-    fn next_block(&self) -> Self::BlockType where Self::ConsensusType : SelfValidating;
+    fn next_block(&self) -> Self::BlockType where Self::ConsensusType : SelfValidatingConsensusType;
     /// Returns true if and only if the provided block is valid and can extend this state
     fn validate_block(&self, block: &Self::BlockType, view_number: &Self::Time) -> bool;
     /// Appends the given block to this state, returning an new state
@@ -54,14 +54,21 @@ pub trait State:
         &self,
         block: &Self::BlockType,
         view_number: &Self::Time,
-    ) -> Result<Self, Self::Error> where Self::ConsensusType : SelfValidating;
+    ) -> Result<Self, Self::Error> where Self::ConsensusType : SelfValidatingConsensusType;
     /// Gets called to notify the persistence backend that this state has been committed
     fn on_commit(&self);
 }
 
-pub trait SelfSequencing where Self : ConsensusType {}
-pub trait SelfValidating where Self : ConsensusType {}
+pub trait SelfSequencingConsensusType where Self : ConsensusType {}
+pub trait SelfValidatingConsensusType where Self : ConsensusType {}
 pub trait ConsensusType {}
+
+pub struct SelfSequencing;
+impl SelfSequencingConsensusType for SelfSequencing {}
+impl ConsensusType for SelfSequencing {}
+pub struct SelfValidating;
+impl ConsensusType for SelfValidating {}
+impl SelfValidatingConsensusType for SelfValidating {}
 
 /// Trait for time abstraction needed for reward collection
 pub trait ConsensusTime:
