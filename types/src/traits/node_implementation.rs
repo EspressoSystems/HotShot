@@ -14,10 +14,10 @@ use super::{
     storage::TestableStorage,
     State,
 };
-use crate::traits::{
+use crate::{traits::{
     election::Election, network::NetworkingImplementation, signature_key::SignatureKey,
     storage::Storage, Block,
-};
+}, data::{ProposalType, LeafType}};
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -37,6 +37,10 @@ pub trait NodeImplementation<TYPES: NodeTypes>: Send + Sync + Debug + Clone + 's
     /// Time is generic here to allow multiple implementations of election trait for difference
     /// consensus protocols
     type Election: Election<TYPES>;
+
+    type Proposal: ProposalType<NodeTypes = TYPES, Election = Self::Election>;
+
+    type Leaf: LeafType<NodeTypes = TYPES>;
 }
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
@@ -82,6 +86,7 @@ pub trait NodeTypes:
     type StateType: State<BlockType = Self::BlockType, Time = Self::Time, ConsensusType = Self::ConsensusType>;
 
     type ApplicationMetadataType: ApplicationMetadata;
+
 }
 
 /// application specific metadata

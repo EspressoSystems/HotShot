@@ -4,7 +4,7 @@ use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_lock::RwLock;
 use commit::Committable;
 use hotshot_types::{
-    data::{Leaf, ProposalLeaf, QuorumCertificate},
+    data::{ValidatingLeaf, ValidatingProposal, QuorumCertificate},
     message::{ConsensusMessage, Proposal},
     traits::{node_implementation::NodeTypes, signature_key::SignatureKey, Block, State},
 };
@@ -139,7 +139,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
         }
 
         if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
-            let leaf = Leaf {
+            let leaf = ValidatingLeaf {
                 view_number: self.cur_view,
                 justify_qc: self.high_qc.clone(),
                 parent_commitment: original_parent_hash,
@@ -150,7 +150,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
                 proposer_id: pk.to_bytes(),
             };
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
-            let leaf: ProposalLeaf<TYPES> = leaf.into();
+            let leaf: ValidatingProposal<TYPES> = leaf.into();
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
             info!("Sending out proposal {:?}", message);
 

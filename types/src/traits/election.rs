@@ -2,6 +2,7 @@
 
 use super::node_implementation::NodeTypes;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
+use super::state::ConsensusTime;
 use crate::data::Leaf;
 use crate::traits::signature_key::SignatureKey;
 use commit::{Commitment, Committable};
@@ -39,7 +40,7 @@ pub enum Checked<T> {
 }
 
 /// Proof of this entity's right to vote, and of the weight of those votes
-pub trait VoteToken:
+pub trait VoteToken<T>:
     Clone
     + Debug
     + Send
@@ -50,6 +51,20 @@ pub trait VoteToken:
     + Hash
     + Committable
 {
+    type StakeTable;
+    type KeyPair : SignatureKey;
+    type ConsensusTime: ConsensusTime;
+
+
+    /// create the vote
+    fn create_vote(
+        voting_on: &Commitment<T>, election: &Self::StakeTable, view: ViewNumber,
+        signing_key: &<Self::KeyPair as SignatureKey>::PrivateKey,
+        checking_key: &Self::KeyPair::PublicKey) -> Self;
+
+    /// check that the vote is valid
+    fn check_vote(voting_on: &Commitment<T>, election: &Self::StakeTable, view: ViewNumber,
+                  checking_key: &Self::KeyPair::PublicKey) -> bool;
     /// the count, which validation will confirm
     fn vote_count(&self) -> NonZeroU64;
 }
@@ -72,7 +87,7 @@ pub trait Accumulator<T, U>: Sized {
 /// todo associated types for:
 /// - signature key
 /// - encoded things
-/// - 
+/// -
 pub trait SignedCertificate<SIGNATURE: SignatureKey>
 where
     Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,

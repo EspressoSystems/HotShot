@@ -3,7 +3,7 @@
 
 use super::{node_implementation::NodeTypes, signature_key::EncodedPublicKey};
 use crate::{
-    data::{Leaf, QuorumCertificate},
+    data::{ValidatingLeaf, QuorumCertificate},
     traits::Block,
 };
 use async_trait::async_trait;
@@ -115,7 +115,7 @@ pub struct StoredView<TYPES: NodeTypes> {
     /// The view number of this view
     pub view_number: TYPES::Time,
     /// The parent of this view
-    pub parent: Commitment<Leaf<TYPES>>,
+    pub parent: Commitment<ValidatingLeaf<TYPES>>,
     /// The justify QC of this view. See the hotstuff paper for more information on this.
     pub justify_qc: QuorumCertificate<TYPES>,
     /// The state of this view
@@ -143,7 +143,7 @@ where
         qc: QuorumCertificate<TYPES>,
         block: TYPES::BlockType,
         state: TYPES::StateType,
-        parent_commitment: Commitment<Leaf<TYPES>>,
+        parent_commitment: Commitment<ValidatingLeaf<TYPES>>,
         rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
         proposer_id: EncodedPublicKey,
     ) -> Self {

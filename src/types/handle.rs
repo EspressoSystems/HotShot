@@ -6,7 +6,7 @@ use crate::{
     HotShot,
 };
 use hotshot_types::{
-    data::Leaf,
+    data::ValidatingLeaf,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
@@ -122,7 +122,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     /// # Panics
     ///
     /// Panics if internal consensus is in an inconsistent state.
-    pub async fn get_decided_leaf(&self) -> Leaf<TYPES> {
+    pub async fn get_decided_leaf(&self) -> ValidatingLeaf<TYPES> {
         self.hotshot.get_decided_leaf().await
     }
 
@@ -272,7 +272,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     #[cfg(feature = "hotshot-testing")]
     pub fn sign_proposal(
         &self,
-        leaf_commitment: &Commitment<Leaf<TYPES>>,
+        leaf_commitment: &Commitment<ValidatingLeaf<TYPES>>,
         view_number: TYPES::Time,
     ) -> EncodedSignature {
         let api = HotShotConsensusApi {
@@ -285,7 +285,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     #[cfg(feature = "hotshot-testing")]
     pub fn sign_vote(
         &self,
-        leaf_commitment: &Commitment<Leaf<TYPES>>,
+        leaf_commitment: &Commitment<ValidatingLeaf<TYPES>>,
         view_number: TYPES::Time,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let api = HotShotConsensusApi {

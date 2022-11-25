@@ -4,7 +4,7 @@
 //! `HotShot` nodes can send among themselves.
 
 use crate::{
-    data::{Leaf, ProposalLeaf, QuorumCertificate},
+    data::{Leaf, ValidatingProposal, QuorumCertificate},
     traits::{
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature},
@@ -138,7 +138,7 @@ pub struct Proposal<TYPES: NodeTypes> {
     // NOTE: optimization could include view number to help look up parent leaf
     // could even do 16 bit numbers if we want
     /// The leaf being proposed (see pseudocode)
-    pub leaf: ProposalLeaf<TYPES>,
+    pub leaf: ValidatingProposal<TYPES>,
     /// The proposal must be signed by the view leader
     pub signature: EncodedSignature,
 }

@@ -20,7 +20,6 @@ use derivative::Derivative;
 use hotshot_utils::hack::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use serde_bytes::Deserialize;
 use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData, num::NonZeroU64, ops::Deref};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
@@ -187,12 +186,14 @@ pub type Transaction<STATE> = <<STATE as State>::BlockType as Block>::Transactio
 pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 
 // TODO leafproposal trait for both types of consensus
+// TODO rename to match spec
 
 /// subset of state that we stick into a leaf.
+/// original hotstuff proposal
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Derivative)]
 #[serde(bound(deserialize = ""))]
 #[derivative(PartialEq, Hash)]
-pub struct ProposalLeaf<TYPES: NodeTypes> {
+pub struct ValidatingProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
     ///  current view's block commitment
     pub block_commitment: Commitment<TYPES::BlockType>,
 
@@ -221,21 +222,24 @@ pub struct ProposalLeaf<TYPES: NodeTypes> {
     /// TODO (da) why is this not included? in partieq or hash? it really should be
     /// since we are using this in our validity checks when accepting a proposal
     pub proposer_id: EncodedPublicKey,
+
+    pub _pd: PhantomData<ELECTION>,
 }
 
-pub struct DataDistributionProposal<TYPES: NodeTypes> {
+pub struct DAProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
 
     pub view_number: TYPES::Time,
+
+    pub _pd: PhantomData<ELECTION>,
 }
 
 /// make generic over election
 /// OR move certs out of election and into nodetypes
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone)]
 #[serde(bound(deserialize = ""))]
-pub struct ConsensusProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
-    // pub struct ConsensusProposal<TYPES: NodeTypes> {
+pub struct CommitmentProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
 
@@ -256,6 +260,15 @@ pub struct ConsensusProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
 
     /// application specific metadata
     pub application_metadata: TYPES::ApplicationMetadataType,
+}
+
+pub trait ProposalType {
+    type NodeTypes: NodeTypes;
+    type Election: Election<Self::NodeTypes>;
+}
+
+pub trait LeafType {
+    type NodeTypes: NodeTypes;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -338,7 +351,7 @@ impl<TYPES: NodeTypes> Committable for Leaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeTypes> From<Leaf<TYPES>> for ProposalLeaf<TYPES> {
+impl<TYPES: NodeTypes> From<Leaf<TYPES>> for ValidatingProposal<TYPES> {
     fn from(leaf: Leaf<TYPES>) -> Self {
         Self {
             view_number: leaf.view_number,
