@@ -72,12 +72,12 @@ impl std::ops::Deref for ViewNumber {
     }
 }
 
-impl<TYPES: NodeTypes> QuorumCertificate<TYPES> {
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> QuorumCertificate<TYPES, LEAF> {
     /// To be used only for generating the genesis quorum certificate; will fail if used anywhere else
     pub fn genesis() -> Self {
         Self {
             // block_commitment: fake_commitment(),
-            leaf_commitment: fake_commitment::<Leaf<TYPES>>(),
+            leaf_commitment: fake_commitment::<LEAF>(),
             view_number: <TYPES::Time as ConsensusTime>::genesis(),
             signatures: BTreeMap::default(),
             genesis: true,
@@ -112,7 +112,7 @@ pub struct DACertificate<TYPES: NodeTypes> {
 /// metadata, such as the [`Stage`] of consensus the quorum certificate was generated during.
 #[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
-pub struct QuorumCertificate<TYPES: NodeTypes> {
+pub struct QuorumCertificate<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
     // block commitment is contained within the leaf. Still need to check this
 
     /// TODO (da) we need to check
@@ -120,7 +120,7 @@ pub struct QuorumCertificate<TYPES: NodeTypes> {
     ///   - somehow make this semantically equivalent to what is currently `Leaf`
     ///
     #[debug(skip)]
-    pub leaf_commitment: Commitment<Leaf<TYPES>>,
+    pub leaf_commitment: Commitment<LEAF>,
 
     pub view_number: TYPES::Time,
 
@@ -154,13 +154,13 @@ where
     }
 }
 
-impl<TYPES: NodeTypes> SignedCertificate<TYPES::SignatureKey> for QuorumCertificate<TYPES> {
-    type Accumulator = CertificateAccumulator<TYPES::SignatureKey, QuorumCertificate<TYPES>>;
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> SignedCertificate<TYPES::SignatureKey> for QuorumCertificate<TYPES, LEAF> {
+    type Accumulator = CertificateAccumulator<TYPES::SignatureKey, QuorumCertificate<TYPES, LEAF>>;
 }
 
-impl<TYPES: NodeTypes> Eq for QuorumCertificate<TYPES> {}
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES> > Eq for QuorumCertificate<TYPES, LEAF> {}
 
-impl<TYPES: NodeTypes> Committable for QuorumCertificate<TYPES> {
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> Committable for QuorumCertificate<TYPES, LEAF> {
     fn commit(&self) -> Commitment<Self> {
         let mut builder = commit::RawCommitmentBuilder::new("Quorum Certificate Commitment");
 
@@ -201,12 +201,12 @@ pub struct ValidatingProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
     pub view_number: TYPES::Time,
 
     /// Per spec, justification
-    pub justify_qc: QuorumCertificate<TYPES>,
+    pub justify_qc: QuorumCertificate<TYPES, ELECTION>,
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
     #[debug(skip)]
-    pub parent_commitment: Commitment<Leaf<TYPES>>,
+    pub parent_commitment: Commitment<ELECTION::LeafType>,
 
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
@@ -240,6 +240,8 @@ pub struct DAProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone)]
 #[serde(bound(deserialize = ""))]
 pub struct CommitmentProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
+    pub block_commitment: Commitment<TYPES::BlockType>,
+
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
 
@@ -262,13 +264,30 @@ pub struct CommitmentProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
     pub application_metadata: TYPES::ApplicationMetadataType,
 }
 
-pub trait ProposalType {
+impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> ProposalType for CommitmentProposal<TYPES, ELECTION> {
+    type NodeTypes = TYPES;
+    type Election = ELECTION;
+}
+
+impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> ProposalType for DAProposal<TYPES, ELECTION> {
+    type NodeTypes = TYPES;
+    type Election = ELECTION;
+}
+
+impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> ProposalType for ValidatingProposal<TYPES, ELECTION> {
+    type NodeTypes = TYPES;
+    type Election = ELECTION;
+}
+
+// TODO (da) rename NodeTypes to NodeType for consistency
+
+pub trait ProposalType : Debug + Clone + 'static + Committable + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq + Eq{
     type NodeTypes: NodeTypes;
     type Election: Election<Self::NodeTypes>;
 }
 
-pub trait LeafType {
-    type NodeTypes: NodeTypes;
+pub trait LeafType: Debug + Clone + 'static + Committable + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq + Eq {
+    type NodeType: NodeTypes;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -277,16 +296,59 @@ pub trait LeafType {
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative)]
 #[derivative(PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub struct Leaf<TYPES: NodeTypes> {
+pub struct ValidatingLeaf<TYPES: NodeTypes> {
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
 
     /// Per spec, justification
-    pub justify_qc: QuorumCertificate<TYPES>,
+    pub justify_qc: QuorumCertificate<TYPES, Self>,
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
-    pub parent_commitment: Commitment<Leaf<TYPES>>,
+    pub parent_commitment: Commitment<ValidatingLeaf<TYPES>>,
+
+    /// Block leaf wants to apply
+    pub deltas: TYPES::BlockType,
+
+    /// What the state should be AFTER applying `self.deltas`
+    pub state: TYPES::StateType,
+
+    /// Transactions that were marked for rejection while collecting deltas
+    pub rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
+
+    /// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
+    #[derivative(PartialEq = "ignore")]
+    pub timestamp: i128,
+
+    /// the proposer id of the leaf
+    #[derivative(PartialEq = "ignore")]
+    pub proposer_id: EncodedPublicKey,
+}
+
+impl<TYPES: NodeTypes> LeafType for ValidatingLeaf<TYPES> {
+    type NodeType = TYPES;
+}
+
+impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
+    type NodeType = TYPES;
+}
+
+/// This is the consensus-internal analogous concept to a block, and it contains the block proper,
+/// as well as the hash of its parent `Leaf`.
+/// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative)]
+#[derivative(PartialEq)]
+#[serde(bound(deserialize = ""))]
+pub struct DALeaf<TYPES: NodeTypes> {
+    /// CurView from leader when proposing leaf
+    pub view_number: TYPES::Time,
+
+    /// Per spec, justification
+    pub justify_qc: QuorumCertificate<TYPES, Self>,
+
+    /// The hash of the parent `DALeaf`
+    /// So we can ask if it extends
+    pub parent_commitment: Commitment<DALeaf<TYPES>>,
 
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
@@ -321,7 +383,7 @@ pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitm
         .finalize()
 }
 
-impl<TYPES: NodeTypes> Committable for Leaf<TYPES> {
+impl<TYPES: NodeTypes> Committable for ValidatingLeaf<TYPES> {
     fn commit(&self) -> commit::Commitment<Self> {
         let mut signatures_bytes = vec![];
         for (k, v) in &self.justify_qc.signatures {
@@ -351,8 +413,8 @@ impl<TYPES: NodeTypes> Committable for Leaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeTypes> From<Leaf<TYPES>> for ValidatingProposal<TYPES> {
-    fn from(leaf: Leaf<TYPES>) -> Self {
+impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> From<ValidatingLeaf<TYPES>> for ValidatingProposal<TYPES, ELECTION> {
+    fn from(leaf: ValidatingLeaf<TYPES>) -> Self {
         Self {
             view_number: leaf.view_number,
             justify_qc: leaf.justify_qc,
@@ -361,11 +423,13 @@ impl<TYPES: NodeTypes> From<Leaf<TYPES>> for ValidatingProposal<TYPES> {
             state_commitment: leaf.state.commit(),
             rejected: leaf.rejected,
             proposer_id: leaf.proposer_id,
+            block_commitment: nll_todo(),
+            _pd: PhantomData,
         }
     }
 }
 
-impl<TYPES: NodeTypes> Leaf<TYPES> {
+impl<TYPES: NodeTypes> ValidatingLeaf<TYPES> {
     /// Creates a new leaf with the specified block and parent
     ///
     /// # Arguments
@@ -375,14 +439,14 @@ impl<TYPES: NodeTypes> Leaf<TYPES> {
     pub fn new(
         state: TYPES::StateType,
         deltas: TYPES::BlockType,
-        parent_commitment: Commitment<Leaf<TYPES>>,
-        justify_qc: QuorumCertificate<TYPES>,
+        parent_commitment: Commitment<ValidatingLeaf<TYPES>>,
+        justify_qc: QuorumCertificate<TYPES, Self>,
         view_number: TYPES::Time,
         rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
         timestamp: i128,
         proposer_id: EncodedPublicKey,
     ) -> Self {
-        Leaf {
+        ValidatingLeaf {
             view_number,
             justify_qc,
             parent_commitment,
@@ -421,9 +485,9 @@ impl<TYPES: NodeTypes> Leaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeTypes> From<StoredView<TYPES>> for Leaf<TYPES> {
-    fn from(append: StoredView<TYPES>) -> Self {
-        Leaf::new(
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> From<StoredView<TYPES, LEAF>> for ValidatingLeaf<TYPES> {
+    fn from(append: StoredView<TYPES, LEAF>) -> Self {
+        ValidatingLeaf::new(
             append.state,
             append.append.into_deltas(),
             append.parent,
@@ -436,8 +500,8 @@ impl<TYPES: NodeTypes> From<StoredView<TYPES>> for Leaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeTypes> From<Leaf<TYPES>> for StoredView<TYPES> {
-    fn from(val: Leaf<TYPES>) -> Self {
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> From<ValidatingLeaf<TYPES>> for StoredView<TYPES, LEAF> {
+    fn from(val: ValidatingLeaf<TYPES>) -> Self {
         StoredView {
             view_number: val.view_number,
             parent: val.parent_commitment,

@@ -578,7 +578,7 @@ pub fn random_quorum_certificate<TYPES: NodeTypes>(
     rng: &mut dyn rand::RngCore,
 ) -> QuorumCertificate<TYPES> {
     QuorumCertificate {
-        block_commitment: random_commitment(rng),
+        // block_commitment: random_commitment(rng),
         leaf_commitment: random_commitment(rng),
         view_number: TYPES::Time::new(rng.gen()),
         signatures: BTreeMap::default(),

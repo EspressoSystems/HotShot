@@ -3,7 +3,7 @@
 use super::node_implementation::NodeTypes;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
 use super::state::ConsensusTime;
-use crate::data::Leaf;
+use crate::data::{LeafType};
 use crate::traits::signature_key::SignatureKey;
 use commit::{Commitment, Committable};
 use serde::Deserialize;
@@ -40,7 +40,7 @@ pub enum Checked<T> {
 }
 
 /// Proof of this entity's right to vote, and of the weight of those votes
-pub trait VoteToken<T>:
+pub trait VoteToken:
     Clone
     + Debug
     + Send
@@ -56,15 +56,6 @@ pub trait VoteToken<T>:
     type ConsensusTime: ConsensusTime;
 
 
-    /// create the vote
-    fn create_vote(
-        voting_on: &Commitment<T>, election: &Self::StakeTable, view: ViewNumber,
-        signing_key: &<Self::KeyPair as SignatureKey>::PrivateKey,
-        checking_key: &Self::KeyPair::PublicKey) -> Self;
-
-    /// check that the vote is valid
-    fn check_vote(voting_on: &Commitment<T>, election: &Self::StakeTable, view: ViewNumber,
-                  checking_key: &Self::KeyPair::PublicKey) -> bool;
     /// the count, which validation will confirm
     fn vote_count(&self) -> NonZeroU64;
 }
@@ -110,6 +101,8 @@ pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
     /// certificate for data availability
     type DACertificate: SignedCertificate<TYPES::SignatureKey>;
 
+    type LeafType: LeafType<NodeType = TYPES>;
+
     /// check that the quorum certificate is valid
     fn is_valid_qc(&self, qc: Self::QuorumCertificate) -> bool;
 
@@ -121,7 +114,7 @@ pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<Leaf<TYPES>>,
+        hash: Commitment<Self::LeafType>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool;

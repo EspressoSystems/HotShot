@@ -272,7 +272,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     #[cfg(feature = "hotshot-testing")]
     pub fn sign_proposal(
         &self,
-        leaf_commitment: &Commitment<ValidatingLeaf<TYPES>>,
+        leaf_commitment: &Commitment<<I::Election as Election>::LeafType>,
         view_number: TYPES::Time,
     ) -> EncodedSignature {
         let api = HotShotConsensusApi {
@@ -285,7 +285,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     #[cfg(feature = "hotshot-testing")]
     pub fn sign_vote(
         &self,
-        leaf_commitment: &Commitment<ValidatingLeaf<TYPES>>,
+        leaf_commitment: &Commitment<<I::Election as Election>::LeafType>,
         view_number: TYPES::Time,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let api = HotShotConsensusApi {

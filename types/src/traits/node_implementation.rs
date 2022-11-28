@@ -30,17 +30,17 @@ use std::hash::Hash;
 /// store or keep a reference to any value implementing this trait.
 pub trait NodeImplementation<TYPES: NodeTypes>: Send + Sync + Debug + Clone + 'static {
     /// Storage type for this consensus implementation
-    type Storage: Storage<TYPES> + Clone;
+    type Storage: Storage<TYPES, Self::Leaf> + Clone;
     /// Networking type for this consensus implementation
-    type Networking: NetworkingImplementation<TYPES>;
+    type Networking: NetworkingImplementation<TYPES, Self::Leaf>;
     /// Election
     /// Time is generic here to allow multiple implementations of election trait for difference
     /// consensus protocols
-    type Election: Election<TYPES>;
+    type Election: Election<TYPES, LeafType = Self::Leaf>;
 
     type Proposal: ProposalType<NodeTypes = TYPES, Election = Self::Election>;
 
-    type Leaf: LeafType<NodeTypes = TYPES>;
+    type Leaf: LeafType<NodeType= TYPES>;
 }
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
@@ -102,7 +102,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    <Self as NodeImplementation<TYPES>>::Networking: TestableNetworkingImplementation<TYPES>,
-    <Self as NodeImplementation<TYPES>>::Storage: TestableStorage<TYPES>,
+    <Self as NodeImplementation<TYPES>>::Networking: TestableNetworkingImplementation<TYPES, <Self as NodeImplementation<TYPES>>::Leaf>,
+    <Self as NodeImplementation<TYPES>>::Storage: TestableStorage<TYPES, <Self as NodeImplementation<TYPES>>::Leaf>,
 {
 }

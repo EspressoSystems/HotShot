@@ -59,6 +59,8 @@ pub trait State:
     fn on_commit(&self);
 }
 
+// TODO Seuqnecing here means involving DA in consensus
+
 /// may need to make these public
 pub trait SequencingConsensusType where Self : ConsensusType {}
 pub trait ValidatingConsensusType where Self : ConsensusType {}
