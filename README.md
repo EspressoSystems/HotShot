@@ -3,6 +3,10 @@
 HotShot is a BFT consensus protocol based off of HotStuff, with the addition of proof-of-stake and
 VRF committee elections.
 
+## Disclaimer
+
+**DISCLAIMER:** This software is provided "as is" and its security has not been externally audited. Use at your own risk.
+
 # Usage
 
 Please see the rustdoc for API documentation, and the examples directory for usage.
@@ -192,3 +196,8 @@ To bring `lldb` into scope with nix, run `nix develop .#debugShell`.
 # Git Workflow
 
 For espresso developers we have written up a description of our workflow [here](./WORKFLOW.md).
+
+# License
+
+## Copyright
+`HotShot` was developed by Espresso Systems. While we plan to adopt an open source license, we have not yet selected one. As such, all rights are reserved for the time being. Please reach out to us if you have thoughts on licensing.  
