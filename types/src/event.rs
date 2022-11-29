@@ -1,6 +1,6 @@
 //! Events that a `HotShot` instance can emit
 
-use crate::{error::HotShotError, traits::node_implementation::NodeTypes, data::LeafType};
+use crate::{data::LeafType, error::HotShotError, traits::node_implementation::NodeTypes};
 use std::sync::Arc;
 
 /// A status event emitted by a `HotShot` instance

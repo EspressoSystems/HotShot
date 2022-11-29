@@ -3,7 +3,7 @@
 use super::node_implementation::NodeTypes;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
 use super::state::ConsensusTime;
-use crate::data::{LeafType};
+use crate::data::LeafType;
 use crate::traits::signature_key::SignatureKey;
 use commit::{Commitment, Committable};
 use serde::Deserialize;
@@ -52,9 +52,8 @@ pub trait VoteToken:
     + Committable
 {
     type StakeTable;
-    type KeyPair : SignatureKey;
+    type KeyPair: SignatureKey;
     type ConsensusTime: ConsensusTime;
-
 
     /// the count, which validation will confirm
     fn vote_count(&self) -> NonZeroU64;
@@ -90,16 +89,16 @@ where
 /// TODO do we need the static lifetime requirement here?
 /// TODO (da) make a separate vote token type for DA and QC
 /// @ny thinks we should make the vote token types be bound to ConsensusType
-pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
+pub trait Election<TYPES: NodeTypes>: Clone + Eq + PartialEq + Send + Sync + 'static {
     /// Data structure describing the currently valid states
     /// TODO make this a trait so we can pass in places
     type StakeTable: Send + Sync;
 
     /// certificate for quorum on consenus
-    type QuorumCertificate: SignedCertificate<TYPES::SignatureKey>;
+    type QuorumCertificate: SignedCertificate<TYPES::SignatureKey> + Clone + Debug + Eq + PartialEq;
 
     /// certificate for data availability
-    type DACertificate: SignedCertificate<TYPES::SignatureKey>;
+    type DACertificate: SignedCertificate<TYPES::SignatureKey> + Clone + Debug + Eq + PartialEq;
 
     type LeafType: LeafType<NodeType = TYPES>;
 

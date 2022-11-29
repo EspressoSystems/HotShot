@@ -6,7 +6,7 @@
 use crate::{
     constants::genesis_proposer_id,
     traits::{
-        election::{Accumulator, Election, SignedCertificate, Either},
+        election::{Accumulator, Either, Election, SignedCertificate},
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
@@ -102,7 +102,6 @@ pub struct DACertificate<TYPES: NodeTypes> {
     /// assumption that singatures are constant in length
     /// TODO (da) make a separate vote token type for DA and QC
     pub signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
-
     // no genesis bc not meaningful
 }
 
@@ -114,7 +113,6 @@ pub struct DACertificate<TYPES: NodeTypes> {
 #[serde(bound(deserialize = ""))]
 pub struct QuorumCertificate<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
     // block commitment is contained within the leaf. Still need to check this
-
     /// TODO (da) we need to check
     ///   - parent QC PROPOSAL
     ///   - somehow make this semantically equivalent to what is currently `Leaf`
@@ -154,18 +152,21 @@ where
     }
 }
 
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> SignedCertificate<TYPES::SignatureKey> for QuorumCertificate<TYPES, LEAF> {
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> SignedCertificate<TYPES::SignatureKey>
+    for QuorumCertificate<TYPES, LEAF>
+{
     type Accumulator = CertificateAccumulator<TYPES::SignatureKey, QuorumCertificate<TYPES, LEAF>>;
 }
 
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES> > Eq for QuorumCertificate<TYPES, LEAF> {}
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> Eq for QuorumCertificate<TYPES, LEAF> {}
 
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> Committable for QuorumCertificate<TYPES, LEAF> {
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> Committable
+    for QuorumCertificate<TYPES, LEAF>
+{
     fn commit(&self) -> Commitment<Self> {
         let mut builder = commit::RawCommitmentBuilder::new("Quorum Certificate Commitment");
 
         builder = builder
-            .field("Block commitment", self.block_commitment)
             .field("Leaf commitment", self.leaf_commitment)
             .u64_field("View number", *self.view_number.deref());
 
@@ -190,10 +191,13 @@ pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 
 /// subset of state that we stick into a leaf.
 /// original hotstuff proposal
-#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Derivative)]
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Derivative, Eq)]
 #[serde(bound(deserialize = ""))]
 #[derivative(PartialEq, Hash)]
-pub struct ValidatingProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
+pub struct ValidatingProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>>
+where
+    ELECTION::LeafType: Committable,
+{
     ///  current view's block commitment
     pub block_commitment: Commitment<TYPES::BlockType>,
 
@@ -201,7 +205,7 @@ pub struct ValidatingProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
     pub view_number: TYPES::Time,
 
     /// Per spec, justification
-    pub justify_qc: QuorumCertificate<TYPES, ELECTION>,
+    pub justify_qc: QuorumCertificate<TYPES, ELECTION::LeafType>,
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
@@ -226,6 +230,7 @@ pub struct ValidatingProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
     pub _pd: PhantomData<ELECTION>,
 }
 
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct DAProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
@@ -237,7 +242,7 @@ pub struct DAProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
 
 /// make generic over election
 /// OR move certs out of election and into nodetypes
-#[derive(custom_debug::Debug, Serialize, Deserialize, Clone)]
+#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[serde(bound(deserialize = ""))]
 pub struct CommitmentProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
     pub block_commitment: Commitment<TYPES::BlockType>,
@@ -264,7 +269,11 @@ pub struct CommitmentProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
     pub application_metadata: TYPES::ApplicationMetadataType,
 }
 
-impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> ProposalType for CommitmentProposal<TYPES, ELECTION> {
+impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> ProposalType
+    for ValidatingProposal<TYPES, ELECTION>
+where
+    ELECTION::LeafType: Committable,
+{
     type NodeTypes = TYPES;
     type Election = ELECTION;
 }
@@ -274,26 +283,43 @@ impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> ProposalType for DAProposal<TY
     type Election = ELECTION;
 }
 
-impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> ProposalType for ValidatingProposal<TYPES, ELECTION> {
+impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> ProposalType
+    for CommitmentProposal<TYPES, ELECTION>
+where
+    TYPES::ApplicationMetadataType: Send + Sync,
+{
     type NodeTypes = TYPES;
     type Election = ELECTION;
 }
 
 // TODO (da) rename NodeTypes to NodeType for consistency
 
-pub trait ProposalType : Debug + Clone + 'static + Committable + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq + Eq{
+pub trait ProposalType:
+    Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq + Eq
+{
     type NodeTypes: NodeTypes;
     type Election: Election<Self::NodeTypes>;
 }
 
-pub trait LeafType: Debug + Clone + 'static + Committable + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq + Eq {
+pub trait LeafType:
+    Debug
+    + Clone
+    + 'static
+    + Committable
+    + Serialize
+    + for<'a> Deserialize<'a>
+    + Send
+    + Sync
+    + PartialEq
+    + Eq
+{
     type NodeType: NodeTypes;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
-#[derive(Serialize, Deserialize, Clone, Debug, Derivative)]
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
 #[derivative(PartialEq)]
 #[serde(bound(deserialize = ""))]
 pub struct ValidatingLeaf<TYPES: NodeTypes> {
@@ -336,7 +362,7 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
-#[derive(Serialize, Deserialize, Clone, Debug, Derivative)]
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
 #[derivative(PartialEq)]
 #[serde(bound(deserialize = ""))]
 pub struct DALeaf<TYPES: NodeTypes> {
@@ -413,7 +439,15 @@ impl<TYPES: NodeTypes> Committable for ValidatingLeaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> From<ValidatingLeaf<TYPES>> for ValidatingProposal<TYPES, ELECTION> {
+impl<TYPES: NodeTypes> Committable for DALeaf<TYPES> {
+    fn commit(&self) -> commit::Commitment<Self> {
+        nll_todo()
+    }
+}
+
+impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> From<ValidatingLeaf<TYPES>>
+    for ValidatingProposal<TYPES, ELECTION>
+{
     fn from(leaf: ValidatingLeaf<TYPES>) -> Self {
         Self {
             view_number: leaf.view_number,
@@ -485,8 +519,8 @@ impl<TYPES: NodeTypes> ValidatingLeaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> From<StoredView<TYPES, LEAF>> for ValidatingLeaf<TYPES> {
-    fn from(append: StoredView<TYPES, LEAF>) -> Self {
+impl<TYPES: NodeTypes> From<StoredView<TYPES, ValidatingLeaf<TYPES>>> for ValidatingLeaf<TYPES> {
+    fn from(append: StoredView<TYPES, ValidatingLeaf<TYPES>>) -> Self {
         ValidatingLeaf::new(
             append.state,
             append.append.into_deltas(),
@@ -500,7 +534,7 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> From<StoredView<TYPES, 
     }
 }
 
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> From<ValidatingLeaf<TYPES>> for StoredView<TYPES, LEAF> {
+impl<TYPES: NodeTypes> From<ValidatingLeaf<TYPES>> for StoredView<TYPES, ValidatingLeaf<TYPES>> {
     fn from(val: ValidatingLeaf<TYPES>) -> Self {
         StoredView {
             view_number: val.view_number,

@@ -10,14 +10,17 @@ use super::{
     election::{ElectionConfig, VoteToken},
     network::TestableNetworkingImplementation,
     signature_key::TestableSignatureKey,
-    state::{ConsensusTime, TestableBlock, TestableState, ConsensusType},
+    state::{ConsensusTime, ConsensusType, TestableBlock, TestableState},
     storage::TestableStorage,
     State,
 };
-use crate::{traits::{
-    election::Election, network::NetworkingImplementation, signature_key::SignatureKey,
-    storage::Storage, Block,
-}, data::{ProposalType, LeafType}};
+use crate::{
+    data::{LeafType, ProposalType},
+    traits::{
+        election::Election, network::NetworkingImplementation, signature_key::SignatureKey,
+        storage::Storage, Block,
+    },
+};
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -32,7 +35,7 @@ pub trait NodeImplementation<TYPES: NodeTypes>: Send + Sync + Debug + Clone + 's
     /// Storage type for this consensus implementation
     type Storage: Storage<TYPES, Self::Leaf> + Clone;
     /// Networking type for this consensus implementation
-    type Networking: NetworkingImplementation<TYPES, Self::Leaf>;
+    type Networking: NetworkingImplementation<TYPES, Self::Leaf, Self::Proposal>;
     /// Election
     /// Time is generic here to allow multiple implementations of election trait for difference
     /// consensus protocols
@@ -40,7 +43,7 @@ pub trait NodeImplementation<TYPES: NodeTypes>: Send + Sync + Debug + Clone + 's
 
     type Proposal: ProposalType<NodeTypes = TYPES, Election = Self::Election>;
 
-    type Leaf: LeafType<NodeType= TYPES>;
+    type Leaf: LeafType<NodeType = TYPES>;
 }
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
@@ -60,9 +63,8 @@ pub trait NodeTypes:
     + Sync
     + 'static
 {
-
     /// the type of consensus (seuqencing or validating)
-    type ConsensusType : ConsensusType;
+    type ConsensusType: ConsensusType;
     /// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `StateType::Time` is using.
@@ -83,10 +85,13 @@ pub trait NodeTypes:
     type ElectionConfigType: ElectionConfig;
 
     /// The state type that this hotshot setup is using.
-    type StateType: State<BlockType = Self::BlockType, Time = Self::Time, ConsensusType = Self::ConsensusType>;
+    type StateType: State<
+        BlockType = Self::BlockType,
+        Time = Self::Time,
+        ConsensusType = Self::ConsensusType,
+    >;
 
-    type ApplicationMetadataType: ApplicationMetadata;
-
+    type ApplicationMetadataType: ApplicationMetadata + Eq + PartialEq;
 }
 
 /// application specific metadata
@@ -102,7 +107,12 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    <Self as NodeImplementation<TYPES>>::Networking: TestableNetworkingImplementation<TYPES, <Self as NodeImplementation<TYPES>>::Leaf>,
-    <Self as NodeImplementation<TYPES>>::Storage: TestableStorage<TYPES, <Self as NodeImplementation<TYPES>>::Leaf>,
+    <Self as NodeImplementation<TYPES>>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        <Self as NodeImplementation<TYPES>>::Leaf,
+        <Self as NodeImplementation<TYPES>>::Proposal,
+    >,
+    <Self as NodeImplementation<TYPES>>::Storage:
+        TestableStorage<TYPES, <Self as NodeImplementation<TYPES>>::Leaf>,
 {
 }

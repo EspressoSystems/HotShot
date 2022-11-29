@@ -10,7 +10,10 @@ use tokio::time::error::Elapsed as TimeoutError;
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 use super::{node_implementation::NodeTypes, signature_key::SignatureKey};
-use crate::{message::Message, data::LeafType};
+use crate::{
+    data::{LeafType, ProposalType},
+    message::Message,
+};
 use async_trait::async_trait;
 use async_tungstenite::tungstenite::error as werror;
 use serde::{Deserialize, Serialize};
@@ -103,7 +106,12 @@ pub enum NetworkError {
 
 /// Describes, generically, the behaviors a networking implementation must have
 #[async_trait]
-pub trait NetworkingImplementation<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>>: Clone + Send + Sync + 'static {
+pub trait NetworkingImplementation<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+>: Clone + Send + Sync + 'static
+{
     /// Returns true when node is successfully initialized
     /// into the network
     ///
@@ -113,32 +121,35 @@ pub trait NetworkingImplementation<TYPES: NodeTypes, LEAF: LeafType<NodeType = T
     /// Broadcasts a message to the network
     ///
     /// Should provide that the message eventually reach all non-faulty nodes
-    async fn broadcast_message(&self, message: Message<TYPES, LEAF>) -> Result<(), NetworkError>;
+    async fn broadcast_message(
+        &self,
+        message: Message<TYPES, LEAF, PROPOSAL>,
+    ) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
     async fn message_node(
         &self,
-        message: Message<TYPES, LEAF>,
+        message: Message<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError>;
 
     /// Moves out the entire queue of received broadcast messages, should there be any
     ///
     /// Provided as a future to allow the backend to do async locking
-    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES, LEAF>>, NetworkError>;
+    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError>;
 
     /// Provides a future for the next received broadcast
     ///
     /// Will unwrap the underlying `NetworkMessage`
-    async fn next_broadcast(&self) -> Result<Message<TYPES, LEAF>, NetworkError>;
+    async fn next_broadcast(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError>;
 
     /// Moves out the entire queue of received direct messages to this node
-    async fn direct_queue(&self) -> Result<Vec<Message<TYPES, LEAF>>, NetworkError>;
+    async fn direct_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError>;
 
     /// Provides a future for the next received direct message to this node
     ///
     /// Will unwrap the underlying `NetworkMessage`
-    async fn next_direct(&self) -> Result<Message<TYPES, LEAF>, NetworkError>;
+    async fn next_direct(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError>;
 
     /// Node's currently known to the networking implementation
     ///
@@ -178,8 +189,11 @@ pub trait NetworkingImplementation<TYPES: NodeTypes, LEAF: LeafType<NodeType = T
 }
 
 /// Describes additional functionality needed by the test network implementation
-pub trait TestableNetworkingImplementation<TYPES: NodeTypes, LEAF: LeafType>:
-    NetworkingImplementation<TYPES, LEAF>
+pub trait TestableNetworkingImplementation<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+>: NetworkingImplementation<TYPES, LEAF, PROPOSAL>
 {
     /// generates a network given an expected node count
     fn generator(

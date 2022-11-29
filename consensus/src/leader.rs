@@ -4,7 +4,7 @@ use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_lock::RwLock;
 use commit::Committable;
 use hotshot_types::{
-    data::{ValidatingLeaf, ValidatingProposal, QuorumCertificate},
+    data::{QuorumCertificate, ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, Proposal},
     traits::{node_implementation::NodeTypes, signature_key::SignatureKey, Block, State},
 };

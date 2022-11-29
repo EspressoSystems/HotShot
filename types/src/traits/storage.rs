@@ -3,7 +3,7 @@
 
 use super::{node_implementation::NodeTypes, signature_key::EncodedPublicKey};
 use crate::{
-    data::{ValidatingLeaf, QuorumCertificate, LeafType},
+    data::{LeafType, QuorumCertificate, ValidatingLeaf},
     traits::Block,
 };
 use async_trait::async_trait;
@@ -23,7 +23,6 @@ pub enum StorageError {
 /// Result for a storage type
 pub type Result<T = ()> = std::result::Result<T, StorageError>;
 
-
 /// Abstraction over on disk persistence of node state
 ///
 /// This should be a cloneable handle to an underlying storage, with each clone pointing to the same
@@ -34,7 +33,7 @@ pub type Result<T = ()> = std::result::Result<T, StorageError>;
 pub trait Storage<TYPES, LEAF>: Clone + Send + Sync + Sized + 'static
 where
     TYPES: NodeTypes + 'static,
-    LEAF: LeafType<NodeType = TYPES> + 'static
+    LEAF: LeafType<NodeType = TYPES> + 'static,
 {
     /// Append the list of views to this storage
     async fn append(&self, views: Vec<ViewEntry<TYPES, LEAF>>) -> Result;
@@ -62,7 +61,8 @@ where
 
 /// Extra requirements on Storage implementations required for testing
 #[async_trait]
-pub trait TestableStorage<TYPES, LEAF>: Clone + Send + Sync + Storage<TYPES, LEAF>
+pub trait TestableStorage<TYPES, LEAF: LeafType<NodeType = TYPES>>:
+    Clone + Send + Sync + Storage<TYPES, LEAF>
 where
     TYPES: NodeTypes + 'static,
 {
@@ -92,7 +92,7 @@ pub struct StorageState<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
 pub enum ViewEntry<TYPES, LEAF>
 where
     TYPES: NodeTypes,
-    LEAF: LeafType<NodeType = TYPES>
+    LEAF: LeafType<NodeType = TYPES>,
 {
     /// A succeeded view
     Success(StoredView<TYPES, LEAF>),
@@ -105,7 +105,7 @@ where
 impl<TYPES, LEAF> From<StoredView<TYPES, LEAF>> for ViewEntry<TYPES, LEAF>
 where
     TYPES: NodeTypes,
-    LEAF: LeafType<NodeType = TYPES>
+    LEAF: LeafType<NodeType = TYPES>,
 {
     fn from(view: StoredView<TYPES, LEAF>) -> Self {
         Self::Success(view)
@@ -139,7 +139,7 @@ pub struct StoredView<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
 impl<TYPES, LEAF> StoredView<TYPES, LEAF>
 where
     TYPES: NodeTypes,
-    LEAF: LeafType<NodeType = TYPES>
+    LEAF: LeafType<NodeType = TYPES>,
 {
     /// Create a new `StoredView` from the given QC, Block and State.
     ///

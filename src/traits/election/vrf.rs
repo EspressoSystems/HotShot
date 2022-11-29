@@ -389,20 +389,22 @@ where
     }
 
     fn create_vote(
-        voting_on: &Commitment<T>, election: &Self::StakeTable, view: Self::ConsensusTime,
+        voting_on: &Commitment<T>,
+        election: &Self::StakeTable,
+        view: Self::ConsensusTime,
         signing_key: &<Self::KeyPair as SignatureKey>::PrivateKey,
-        checking_key: &Self::KeyPair::PublicKey) -> Self {
-
-
+        checking_key: &Self::KeyPair::PublicKey,
+    ) -> Self {
         voting_on
-
-
-
-
     }
 
     /// check that the vote is valid
-    fn check_vote(voting_on: &Commitment<T>, election: &Self::StakeTable, view: Self::ConsensusTime, checking_key: &Self::KeyPair::PublicKey) -> bool {
+    fn check_vote(
+        voting_on: &Commitment<T>,
+        election: &Self::StakeTable,
+        view: Self::ConsensusTime,
+        checking_key: &Self::KeyPair::PublicKey,
+    ) -> bool {
     }
 }
 
