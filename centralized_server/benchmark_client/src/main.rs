@@ -1,3 +1,7 @@
+use async_compatibility_layer::{
+    art::{async_main, split_stream, AsyncReadExt, AsyncWriteExt, TcpStream},
+    logging::setup_logging,
+};
 use clap::Parser;
 use hotshot_centralized_server::{
     TcpStreamRecvUtil, TcpStreamSendUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend,
@@ -5,10 +9,6 @@ use hotshot_centralized_server::{
 use hotshot_types::traits::signature_key::{
     ed25519::{Ed25519Priv, Ed25519Pub},
     SignatureKey,
-};
-use hotshot_utils::{
-    art::{async_main, split_stream, AsyncReadExt, AsyncWriteExt, TcpStream},
-    test_util::setup_logging,
 };
 use std::{net::ToSocketAddrs, time::Instant};
 use tracing::{error, info};

@@ -1,4 +1,8 @@
 // TODO this should really be moved into the utils crate.
+use async_compatibility_layer::{
+    art::async_main,
+    logging::{setup_backtrace, setup_logging},
+};
 use async_lock::RwLock;
 use clap::Parser;
 use hotshot::{
@@ -25,10 +29,6 @@ use hotshot_types::{
         state::TestableState,
     },
     ExecutionType, HotShotConfig,
-};
-use hotshot_utils::{
-    art::async_main,
-    test_util::{setup_backtrace, setup_logging},
 };
 use libp2p::{
     identity::Keypair,

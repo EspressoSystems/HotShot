@@ -44,6 +44,14 @@ use crate::{
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };
+use async_compatibility_layer::{
+    art::async_spawn,
+    async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
+};
+use async_compatibility_layer::{
+    art::async_spawn_local,
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+};
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
@@ -71,13 +79,6 @@ use hotshot_types::{
     HotShotConfig,
 };
 use hotshot_types::{message::MessageKind, traits::election::VoteToken};
-use hotshot_utils::{
-    art::async_spawn, broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock,
-};
-use hotshot_utils::{
-    art::async_spawn_local,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
-};
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},

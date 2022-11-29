@@ -1,6 +1,11 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
 use crate::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
+use async_compatibility_layer::{
+    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
+    async_primitives::{broadcast::channel, subscribable_rwlock::ReadView},
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+};
 use async_lock::RwLock;
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
@@ -11,12 +16,6 @@ use hotshot_types::{
         node_implementation::{NodeImplementation, NodeTypes},
     },
     ExecutionType,
-};
-use hotshot_utils::{
-    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
-    broadcast::channel,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
-    subscribable_rwlock::ReadView,
 };
 use std::{
     collections::HashMap,

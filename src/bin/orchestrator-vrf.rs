@@ -1,4 +1,6 @@
 use ark_bls12_381::Parameters as Param381;
+use async_compatibility_layer::art::async_main;
+use async_compatibility_layer::logging::setup_logging;
 use clap::Parser;
 use espresso_systems_common::hotshot::tag;
 use hotshot::traits::election::vrf::VRFStakeTableConfig;
@@ -7,8 +9,6 @@ use hotshot_centralized_server::{
     config::{HotShotConfigFile, Libp2pConfigFile, NetworkConfigFile, RoundConfig},
     NetworkConfig, Server,
 };
-use hotshot_utils::art::async_main;
-use hotshot_utils::test_util::setup_logging;
 use jf_primitives::signatures::BLSSignatureScheme;
 use std::{fs, num::NonZeroUsize, time::Duration};
 
@@ -129,6 +129,10 @@ fn load_configs(
 
 #[cfg(test)]
 mod tests {
+    use async_compatibility_layer::{
+        channel::oneshot,
+        logging::{setup_backtrace, setup_logging},
+    };
     use commit::{Commitment, Committable};
     use hotshot::{
         traits::{election::vrf::VRFStakeTableConfig, Block, State},
@@ -141,10 +145,6 @@ mod tests {
             block_contents::Transaction,
             signature_key::{EncodedPublicKey, EncodedSignature},
         },
-    };
-    use hotshot_utils::{
-        channel::oneshot,
-        test_util::{setup_backtrace, setup_logging},
     };
     use std::{collections::HashSet, fmt, net::Ipv4Addr, time::Duration};
     use tracing::instrument;
@@ -162,7 +162,7 @@ mod tests {
     async fn multiple_clients() {
         setup_logging();
         setup_backtrace();
-        use hotshot_utils::art::{async_spawn, async_timeout};
+        use async_compatibility_layer::art::{async_spawn, async_timeout};
         let (shutdown, shutdown_receiver) = oneshot();
         let server = Server::new(Ipv4Addr::LOCALHOST.into(), 0)
             .await

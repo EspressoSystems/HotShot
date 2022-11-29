@@ -1,16 +1,17 @@
 //! Contains the [`Leader`] struct used for the leader step in the hotstuff consensus algorithm.
 
 use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
+use async_compatibility_layer::{
+    art::{async_sleep, async_timeout},
+    async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
+    // subscribable_rwlock::{ReadView, SubscribableRwLock},
+};
 use async_lock::RwLock;
 use commit::Committable;
 use hotshot_types::{
     data::{Leaf, ProposalLeaf, QuorumCertificate},
     message::{ConsensusMessage, Proposal},
     traits::{node_implementation::NodeTypes, signature_key::SignatureKey, Block, State},
-};
-use hotshot_utils::{
-    art::{async_sleep, async_timeout},
-    subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
 use std::{collections::HashSet, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};

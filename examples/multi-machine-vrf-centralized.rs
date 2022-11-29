@@ -1,4 +1,8 @@
 use ark_bls12_381::Parameters as Param381;
+use async_compatibility_layer::{
+    art::{async_main, async_sleep},
+    logging::{setup_backtrace, setup_logging},
+};
 use blake3::Hasher;
 use clap::Parser;
 use commit::Committable;
@@ -20,10 +24,6 @@ use hotshot_types::{
     data::ViewNumber,
     traits::{node_implementation::NodeTypes, state::TestableState},
     HotShotConfig,
-};
-use hotshot_utils::{
-    art::{async_main, async_sleep},
-    test_util::{setup_backtrace, setup_logging},
 };
 use jf_primitives::signatures::bls::{BLSSignature, BLSVerKey};
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};

@@ -40,7 +40,7 @@ use tracing::{error, info, instrument};
 /// the sortition committee size parameter
 pub const SORTITION_PARAMETER: u64 = 100;
 
-// TODO abstraction this function's impl into a trait
+// TODO compatibility this function's impl into a trait
 // TODO do we necessariy want the units of stake to be a u64? or generics
 /// The stake table for VRFs
 #[derive(Serialize, Deserialize, Debug)]
@@ -1056,6 +1056,7 @@ mod tests {
     use super::*;
     use ark_bls12_381::Parameters as Param381;
     use ark_std::test_rng;
+    use async_compatibility_layer::logging::setup_logging;
     use blake3::Hasher;
     use hotshot_types::{
         data::ViewNumber,
@@ -1064,7 +1065,6 @@ mod tests {
             state::{dummy::DummyState, ConsensusTime},
         },
     };
-    use hotshot_utils::test_util::setup_logging;
     use jf_primitives::{
         signatures::{
             bls::{BLSSignature, BLSVerKey},

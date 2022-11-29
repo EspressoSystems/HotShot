@@ -1,6 +1,6 @@
 //! Abstraction over the global state that blocks modify
 //!
-//! This module provides the [`State`] trait, which serves as an abstraction over the current
+//! This module provides the [`State`] trait, which serves as an compatibility over the current
 //! network state, which is modified by the transactions contained within blocks.
 
 use crate::traits::Block;
@@ -37,7 +37,7 @@ pub trait State:
     type Error: Error + Debug + Send + Sync;
     /// The type of block this state is associated with
     type BlockType: Block;
-    /// Time abstraction needed for reward collection
+    /// Time compatibility needed for reward collection
     type Time: ConsensusTime;
 
     /// Returns an empty, template next block given this current state
@@ -58,7 +58,7 @@ pub trait State:
     fn on_commit(&self);
 }
 
-/// Trait for time abstraction needed for reward collection
+/// Trait for time compatibility needed for reward collection
 pub trait ConsensusTime:
     PartialOrd
     + Ord

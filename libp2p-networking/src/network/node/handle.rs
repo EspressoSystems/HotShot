@@ -3,19 +3,19 @@ use crate::network::{
     ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
     NetworkNodeConfigBuilderError,
 };
-use async_lock::Mutex;
-use bincode::Options;
-use futures::{stream::FuturesOrdered, Future, FutureExt};
-use hotshot_types::traits::network::NetworkError as HotShotNetworkError;
-use hotshot_utils::{
+use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_timeout, future::to, stream},
-    bincode::bincode_opts,
+    async_primitives::subscribable_mutex::SubscribableMutex,
     channel::{
         bounded, oneshot, OneShotReceiver, OneShotSender, Receiver, SendError, Sender,
         UnboundedReceiver, UnboundedRecvError, UnboundedSender,
     },
-    subscribable_mutex::SubscribableMutex,
 };
+use async_lock::Mutex;
+use bincode::Options;
+use futures::{stream::FuturesOrdered, Future, FutureExt};
+use hotshot_types::traits::network::NetworkError as HotShotNetworkError;
+use hotshot_utils::bincode::bincode_opts;
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};

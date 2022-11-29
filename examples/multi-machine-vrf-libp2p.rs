@@ -1,5 +1,9 @@
 // TODO this should really be moved into the utils crate.
 use ark_bls12_381::Parameters as Param381;
+use async_compatibility_layer::{
+    art::async_main,
+    logging::{setup_backtrace, setup_logging},
+};
 use async_lock::RwLock;
 use blake3::Hasher;
 use clap::Parser;
@@ -27,10 +31,6 @@ use hotshot_types::{
         state::TestableState,
     },
     ExecutionType, HotShotConfig,
-};
-use hotshot_utils::{
-    art::async_main,
-    test_util::{setup_backtrace, setup_logging},
 };
 use jf_primitives::{
     signatures::{

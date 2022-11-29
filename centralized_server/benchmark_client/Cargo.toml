@@ -13,18 +13,19 @@ full-ci = ["async-std-executor"]
 tokio-executor = [
     "tokio",
     "hotshot-centralized-server/tokio-executor",
-    "hotshot-utils/tokio-executor",
+    "async-compatibility-layer/tokio-executor",
     "hotshot-types/tokio-executor",
 ]
 async-std-executor = [
     "async-std",
     "hotshot-centralized-server/async-std-executor",
-    "hotshot-utils/async-std-executor",
+    "async-compatibility-layer/async-std-executor",
     "hotshot-types/async-std-executor",
 ]
 
 [dependencies]
 async-std = { version = "1.12.0", optional = true }
+async-compatibility-layer = { git = "ssh://git@github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.0.1" }
 tokio = { version = "1", optional = true }
 clap = { version = "4.0", features = ["derive", "env"] }
 futures = "0.3.25"

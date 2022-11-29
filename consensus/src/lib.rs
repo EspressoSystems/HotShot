@@ -23,6 +23,7 @@ mod replica;
 mod traits;
 mod utils;
 
+use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 pub use leader::Leader;
 pub use next_leader::NextLeader;
 pub use replica::Replica;
@@ -39,7 +40,6 @@ use hotshot_types::{
         node_implementation::NodeTypes,
     },
 };
-use hotshot_utils::subscribable_rwlock::SubscribableRwLock;
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
