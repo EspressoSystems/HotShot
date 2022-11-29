@@ -117,17 +117,17 @@ tracing = "0.1.37"
 [target.'cfg(target_os = "linux")'.dependencies]
 ## lossy_network dependencies
 nix = { version = "0.25.0", optional = true }
-rtnetlink = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.9.1", features = [
+rtnetlink = { git = "https://github.com/espressosystems/netlink.git", version = "0.9.1", features = [
     "smol_socket",
 ], default-features = false, optional = true }
-netlink-packet-route = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.11.0", optional = true }
-netlink-packet-utils = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.5.1", optional = true }
-netlink-packet-core = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.4.2", optional = true }
-netlink-proto = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.9.2", optional = true }
-netlink-sys = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.8.2", features = [
+netlink-packet-route = { git = "https://github.com/espressosystems/netlink.git", version = "0.11.0", optional = true }
+netlink-packet-utils = { git = "https://github.com/espressosystems/netlink.git", version = "0.5.1", optional = true }
+netlink-packet-core = { git = "https://github.com/espressosystems/netlink.git", version = "0.4.2", optional = true }
+netlink-proto = { git = "https://github.com/espressosystems/netlink.git", version = "0.9.2", optional = true }
+netlink-sys = { git = "https://github.com/espressosystems/netlink.git", version = "0.8.2", features = [
     "smol_socket",
 ], optional = true }
-netlink-packet-generic = { git = "ssh://git@github.com/EspressoSystems/netlink.git", version = "0.2.0", optional = true }
+netlink-packet-generic = { git = "https://github.com/espressosystems/netlink.git", version = "0.2.0", optional = true }
 
 [dev-dependencies]
 #  TODO should this be here as a dev dep? at least should be optional ...
