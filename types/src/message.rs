@@ -12,6 +12,7 @@ use crate::{
 };
 use commit::Commitment;
 use derivative::Derivative;
+use hotshot_utils::hack::nll_todo;
 use serde::{Deserialize, Serialize};
 
 /// Incoming message

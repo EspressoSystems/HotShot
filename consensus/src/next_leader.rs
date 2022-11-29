@@ -2,6 +2,7 @@
 
 use crate::ConsensusApi;
 use async_lock::Mutex;
+use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
 use hotshot_types::traits::election::Checked::Unchecked;
 use hotshot_types::traits::election::VoteToken;
 use hotshot_types::traits::node_implementation::NodeTypes;
@@ -15,7 +16,7 @@ use tracing::{error, instrument, warn};
 
 /// The next view's leader
 #[derive(Debug, Clone)]
-pub struct NextLeader<A: ConsensusApi<TYPES>, TYPES: NodeTypes> {
+pub struct NextLeader<A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>, TYPES: NodeTypes> {
     /// id of node
     pub id: u64,
     /// generic_qc before starting this

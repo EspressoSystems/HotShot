@@ -6,10 +6,10 @@
 use crate::{
     constants::genesis_proposer_id,
     traits::{
-        election::{Accumulator, Either, Election, SignedCertificate},
+        election::{Accumulator, Election, SignedCertificate},
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        state::ConsensusTime,
+        state::{ConsensusTime, ValidatingConsensusType},
         storage::StoredView,
         Block, State,
     },
@@ -17,6 +17,7 @@ use crate::{
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use commit::{Commitment, Committable};
 use derivative::Derivative;
+use either::Either;
 use hotshot_utils::hack::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -147,7 +148,7 @@ where
 {
     fn append(
         val: Vec<(EncodedSignature, SIGNATURE)>,
-    ) -> crate::traits::election::Either<Self, CERT> {
+    ) -> Either<Self, CERT> {
         nll_todo()
     }
 }
@@ -312,6 +313,7 @@ pub trait LeafType:
     + Sync
     + PartialEq
     + Eq
+    + std::hash::Hash
 {
     type NodeType: NodeTypes;
 }
@@ -319,7 +321,7 @@ pub trait LeafType:
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
-#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq, std::hash::Hash)]
 #[derivative(PartialEq)]
 #[serde(bound(deserialize = ""))]
 pub struct ValidatingLeaf<TYPES: NodeTypes> {
@@ -362,7 +364,7 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
-#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq, std::hash::Hash)]
 #[derivative(PartialEq)]
 #[serde(bound(deserialize = ""))]
 pub struct DALeaf<TYPES: NodeTypes> {
@@ -426,10 +428,6 @@ impl<TYPES: NodeTypes> Committable for ValidatingLeaf<TYPES> {
             .constant_str("justify_qc view number")
             .u64(*self.justify_qc.view_number)
             .field(
-                "justify_qc block commitment",
-                self.justify_qc.block_commitment,
-            )
-            .field(
                 "justify_qc leaf commitment",
                 self.justify_qc.leaf_commitment,
             )
@@ -445,7 +443,7 @@ impl<TYPES: NodeTypes> Committable for DALeaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> From<ValidatingLeaf<TYPES>>
+impl<TYPES: NodeTypes, ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>> From<ValidatingLeaf<TYPES>>
     for ValidatingProposal<TYPES, ELECTION>
 {
     fn from(leaf: ValidatingLeaf<TYPES>) -> Self {
@@ -463,7 +461,9 @@ impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> From<ValidatingLeaf<TYPES>>
     }
 }
 
-impl<TYPES: NodeTypes> ValidatingLeaf<TYPES> {
+impl<TYPES: NodeTypes> ValidatingLeaf<TYPES>
+where TYPES::ConsensusType : ValidatingConsensusType
+{
     /// Creates a new leaf with the specified block and parent
     ///
     /// # Arguments
@@ -519,7 +519,9 @@ impl<TYPES: NodeTypes> ValidatingLeaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeTypes> From<StoredView<TYPES, ValidatingLeaf<TYPES>>> for ValidatingLeaf<TYPES> {
+impl<TYPES: NodeTypes> From<StoredView<TYPES, ValidatingLeaf<TYPES>>> for ValidatingLeaf<TYPES>
+  where TYPES::ConsensusType : ValidatingConsensusType
+{
     fn from(append: StoredView<TYPES, ValidatingLeaf<TYPES>>) -> Self {
         ValidatingLeaf::new(
             append.state,

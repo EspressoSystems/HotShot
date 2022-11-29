@@ -4,7 +4,7 @@ use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_lock::RwLock;
 use commit::Committable;
 use hotshot_types::{
-    data::{QuorumCertificate, ValidatingLeaf, ValidatingProposal},
+    data::{QuorumCertificate, ValidatingLeaf, ValidatingProposal, LeafType},
     message::{ConsensusMessage, Proposal},
     traits::{node_implementation::NodeTypes, signature_key::SignatureKey, Block, State},
 };
@@ -15,15 +15,17 @@ use hotshot_utils::{
 use std::{collections::HashSet, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
 
+// TODO (da) rename this to validatingleader
+
 /// This view's Leader
 #[derive(Debug, Clone)]
-pub struct Leader<A: ConsensusApi<TYPES>, TYPES: NodeTypes> {
+pub struct Leader<A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>, TYPES: NodeTypes> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: Arc<RwLock<Consensus<TYPES, ValidatingLeaf<TYPES>>>>,
     /// The `high_qc` per spec
-    pub high_qc: QuorumCertificate<TYPES>,
+    pub high_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// Lock over the transactions list
@@ -32,10 +34,10 @@ pub struct Leader<A: ConsensusApi<TYPES>, TYPES: NodeTypes> {
     pub api: A,
 }
 
-impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
+impl<A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>, TYPES: NodeTypes> Leader<A, TYPES> {
     /// Run one view of the leader task
-    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<TYPES> {
+    // #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
         let pk = self.api.public_key();
         error!("Leader task started!");
 

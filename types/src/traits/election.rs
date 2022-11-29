@@ -6,6 +6,7 @@ use super::state::ConsensusTime;
 use crate::data::LeafType;
 use crate::traits::signature_key::SignatureKey;
 use commit::{Commitment, Committable};
+use either::Either;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
@@ -51,9 +52,9 @@ pub trait VoteToken:
     + Hash
     + Committable
 {
-    type StakeTable;
-    type KeyPair: SignatureKey;
-    type ConsensusTime: ConsensusTime;
+    // type StakeTable;
+    // type KeyPair: SignatureKey;
+    // type ConsensusTime: ConsensusTime;
 
     /// the count, which validation will confirm
     fn vote_count(&self) -> NonZeroU64;
@@ -63,11 +64,6 @@ pub trait VoteToken:
 pub trait ElectionConfig:
     Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug
 {
-}
-
-pub enum Either<T, U> {
-    Left(T),
-    Right(U),
 }
 
 pub trait Accumulator<T, U>: Sized {

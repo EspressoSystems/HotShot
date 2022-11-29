@@ -31,7 +31,7 @@ pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
 
 use commit::Commitment;
 use hotshot_types::{
-    data::{Leaf, QuorumCertificate},
+    data::{ QuorumCertificate, LeafType},
     error::HotShotError,
     traits::{
         metrics::{Gauge, Histogram, Metrics},
@@ -53,7 +53,7 @@ type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 ///
 /// This will contain the state of all rounds.
 #[derive(custom_debug::Debug)]
-pub struct Consensus<TYPES: NodeTypes> {
+pub struct Consensus<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
     /// The phases that are currently loaded in memory
     // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
     pub state_map: BTreeMap<TYPES::Time, View<TYPES>>,
@@ -70,13 +70,13 @@ pub struct Consensus<TYPES: NodeTypes> {
     /// Map of leaf hash -> leaf
     /// - contains undecided leaves
     /// - includes the MOST RECENT decided leaf
-    pub saved_leaves: CommitmentMap<Leaf<TYPES>>,
+    pub saved_leaves: CommitmentMap<LEAF>,
 
     /// The `locked_qc` view number
     pub locked_view: TYPES::Time,
 
     /// the highqc per spec
-    pub high_qc: QuorumCertificate<TYPES>,
+    pub high_qc: QuorumCertificate<TYPES, LEAF>,
 
     /// A reference to the metrics trait
     #[debug(skip)]
@@ -134,7 +134,7 @@ impl ConsensusMetrics {
     }
 }
 
-impl<TYPES: NodeTypes> Consensus<TYPES> {
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
     /// increment the current view
     /// NOTE may need to do gc here
     pub fn increment_view(&mut self) -> TYPES::Time {
@@ -153,7 +153,7 @@ impl<TYPES: NodeTypes> Consensus<TYPES> {
         mut f: F,
     ) -> Result<(), HotShotError<TYPES>>
     where
-        F: FnMut(&Leaf<TYPES>) -> bool,
+        F: FnMut(&LEAF) -> bool,
     {
         let mut next_leaf = if let Some(view) = self.state_map.get(&start_from) {
             *view
@@ -235,7 +235,7 @@ impl<TYPES: NodeTypes> Consensus<TYPES> {
     /// if the last decided view's state does not exist in the state map
     /// this should never happen.
     #[must_use]
-    pub fn get_decided_leaf(&self) -> Leaf<TYPES> {
+    pub fn get_decided_leaf(&self) -> LEAF {
         let decided_view_num = self.last_decided_view;
         let view = self.state_map.get(&decided_view_num).unwrap();
         let leaf = view

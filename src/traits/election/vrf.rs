@@ -375,7 +375,7 @@ where
     }
 }
 
-impl<PUBKEY, PROOF, T, VRF, VRFHASHER, VRFPARAMS, TIME> VoteToken<T> for VRFVoteToken<PUBKEY, PROOF>
+impl<PUBKEY, PROOF, T, VRF, VRFHASHER, VRFPARAMS, TIME> VoteToken for VRFVoteToken<PUBKEY, PROOF>
 where
     PUBKEY: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static + SignatureKey,
     PROOF: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static,
