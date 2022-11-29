@@ -37,6 +37,11 @@ pub struct CentralizedWebServerNetwork<TYPES: NodeTypes> {
 }
 
 impl<TYPES: NodeTypes> CentralizedWebServerNetwork<TYPES> {
+    fn new() -> Self {
+        //KALEY: maybe new and create should be the same- in the centralized_server_network.rs file,
+        //it's called create() but I think new() makes more sense here. Will change next
+        nll_todo()
+    }
     fn create() -> Self {
         let port = 8000 as u16;
         let base_url = format!("0.0.0.0:{port}");
