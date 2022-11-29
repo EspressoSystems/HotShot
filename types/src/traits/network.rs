@@ -11,7 +11,7 @@ use tokio::time::error::Elapsed as TimeoutError;
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 use super::{node_implementation::NodeTypes, signature_key::SignatureKey};
-use crate::{message::Message, data::ViewNumber};
+use crate::{data::ViewNumber, message::Message};
 use async_trait::async_trait;
 use async_tungstenite::tungstenite::error as werror;
 use serde::{Deserialize, Serialize};
@@ -175,7 +175,7 @@ pub trait NetworkingImplementation<TYPES: NodeTypes>: Clone + Send + Sync + 'sta
         cancelled: Arc<AtomicBool>,
     );
 
-    async fn inject_view_number (&self, view_number: TYPES::Time); 
+    async fn inject_view_number(&self, view_number: TYPES::Time);
 }
 
 /// Describes additional functionality needed by the test network implementation

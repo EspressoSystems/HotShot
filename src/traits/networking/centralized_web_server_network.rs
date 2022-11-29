@@ -1,4 +1,4 @@
-use async_lock::RwLock;
+use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::{
@@ -11,35 +11,79 @@ use hotshot_types::{
         },
         node_implementation::NodeTypes,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
+        state::ConsensusTime,
     },
 };
-use hotshot_utils::hack::nll_todo;
+use hotshot_utils::{
+    art::{async_sleep, async_spawn},
+    hack::nll_todo,
+};
 use serde::Deserialize;
 use serde::Serialize;
 use std::marker::PhantomData;
 use std::{
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     time::Duration,
 };
+use tide_disco::error::ServerError;
+use tracing::error;
 
 #[derive(Clone, Debug)]
 pub struct CentralizedWebServerNetwork<TYPES: NodeTypes> {
     inner: Arc<Inner<TYPES>>,
 }
 
+impl<TYPES: NodeTypes> CentralizedWebServerNetwork<TYPES> {
+    fn create() -> Self {
+        let port = 8000 as u16;
+        let base_url = format!("0.0.0.0:{port}");
+        let base_url = format!("http://{base_url}").parse().unwrap();
+        let client = surf_disco::Client::<ServerError>::new(base_url);
+
+        let inner = Arc::new(Inner {
+            phantom: Default::default(),
+            //KALEY todo: init view number? get from server?
+            view_number: RwLock::from(TYPES::Time::new(0)),
+            broadcast_poll_queue: Default::default(),
+            direct_poll_queue: Default::default(),
+            running: AtomicBool::new(true),
+            connected: AtomicBool::new(false),
+            client,
+        });
+        async_spawn({
+            let inner = Arc::clone(&inner);
+            async move {
+                while inner.running.load(Ordering::Relaxed) {
+                    if let Err(e) = run_background_receive(Arc::clone(&inner)).await {
+                        error!(?e, "background thread exited");
+                    }
+                    inner.connected.store(false, Ordering::Relaxed);
+                }
+            }
+        });
+        Self { inner }
+    }
+}
+
 #[derive(Debug)]
 struct Inner<TYPES: NodeTypes> {
-
     // Temporary for the TYPES argument
     phantom: PhantomData<TYPES>,
 
     // Current view number so we can poll accordingly
-    view_number: RwLock<ViewNumber>,
+    view_number: RwLock<TYPES::Time>,
 
     // Queue for broadcasted messages (mainly transactions and proposals)
     broadcast_poll_queue: RwLock<Vec<u8>>,
     // Queue for direct messages (mainly votes)
-    direct_poll_queue: RwLock<Vec<u8>>
+    direct_poll_queue: RwLock<Vec<u8>>,
+    //KALEY: these may not be necessary
+    running: AtomicBool,
+    connected: AtomicBool,
+    client: surf_disco::Client<ServerError>,
 }
 
 // TODO add async task that continually polls for transactions, votes, and proposals.  Will
@@ -49,11 +93,23 @@ struct Inner<TYPES: NodeTypes> {
 // wrapper similar to the other centralized server network that allows the web server
 // to differentiate transactions from proposals.
 
+async fn run_background_receive<TYPES: NodeTypes>(
+    connection: Arc<Inner<TYPES>>,
+) -> Result<(), ServerError> {
+    //KALEY: poll server for proposal/transaction msgs (broadcast_poll_queue)
+    //poll server for votes (direct_poll_queue)
+    //check for if view_number has changed first?
+    nll_todo::<Result<(), ServerError>>()
+}
+
 #[async_trait]
 impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerNetwork<TYPES> {
     // TODO Start up async task, ensure we can reach the centralized server
     async fn ready(&self) -> bool {
-        nll_todo()
+        while !self.inner.connected.load(Ordering::Relaxed) {
+            async_sleep(Duration::from_secs(1)).await;
+        }
+        true
     }
 
     // TODO send message to the centralized server
@@ -138,7 +194,11 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     }
 
     async fn inject_view_number(&self, view_number: TYPES::Time) {
-        nll_todo()
+        let old_view = self.inner.view_number.upgradable_read().await;
+        if *old_view < view_number {
+            let mut new_view = RwLockUpgradableReadGuard::upgrade(old_view).await;
+            *new_view = view_number;
+        }
     }
 }
 

@@ -13,8 +13,8 @@ use hotshot_utils::test_util::shutdown_logging;
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use tracing::instrument;
 
-// TODO can implement like the other centralized server impl, 
-// which is copied below 
+// TODO can implement like the other centralized server impl,
+// which is copied below
 
 /// Centralized web server network test
 #[cfg_attr(
