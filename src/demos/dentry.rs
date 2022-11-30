@@ -18,12 +18,12 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use hotshot_types::{
     constants::genesis_proposer_id,
-    data::{random_commitment, QuorumCertificate, ViewNumber},
+    data::{random_commitment, QuorumCertificate, ViewNumber, ValidatingProposal, ValidatingLeaf, LeafType},
     traits::{
         block_contents::Transaction,
         election::Election,
         node_implementation::{ApplicationMetadata, NodeTypes},
-        state::{ConsensusTime, TestableBlock, TestableState},
+        state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensusType, ValidatingConsensus},
         State,
     },
 };
@@ -508,41 +508,30 @@ impl NodeTypes for DEntryTypes {
 /// The node implementation for the dentry demo
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
-pub struct DEntryNode<TYPES, NET, ELE>
+pub struct DEntryNode<TYPES, NET, ELE>(PhantomData<TYPES>, PhantomData<NET>, PhantomData<ELE>)
 where
-    TYPES: NodeTypes,
-    NET: NetworkingImplementation<TYPES>,
-    ELE: Election<TYPES>,
-{
-    /// Network phantom
-    _phantom_0: PhantomData<TYPES>,
-    /// Election phantom
-    _phantom_1: PhantomData<NET>,
-    /// Key phantom
-    _phantom_2: PhantomData<ELE>,
-}
+    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+    NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
+    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>;
+
 
 impl<TYPES, NET, ELE> DEntryNode<TYPES, NET, ELE>
 where
-    TYPES: NodeTypes,
-    NET: NetworkingImplementation<TYPES>,
-    ELE: Election<TYPES>,
+    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+    NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
+    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>
 {
     /// Create a new `DEntryNode`
     pub fn new() -> Self {
-        DEntryNode {
-            _phantom_0: PhantomData,
-            _phantom_1: PhantomData,
-            _phantom_2: PhantomData,
-        }
+        DEntryNode(PhantomData, PhantomData, PhantomData)
     }
 }
 
 impl<TYPES, NET, ELE> Debug for DEntryNode<TYPES, NET, ELE>
 where
-    TYPES: NodeTypes,
-    NET: NetworkingImplementation<TYPES>,
-    ELE: Election<TYPES>,
+    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+    NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
+    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DEntryNode")
@@ -553,9 +542,9 @@ where
 
 impl<TYPES, NET, ELE> Default for DEntryNode<TYPES, NET, ELE>
 where
-    TYPES: NodeTypes,
-    NET: NetworkingImplementation<TYPES>,
-    ELE: Election<TYPES>,
+    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+    NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
+    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>
 {
     fn default() -> Self {
         Self::new()
@@ -564,9 +553,9 @@ where
 
 impl<TYPES, NET, ELE> NodeImplementation<TYPES> for DEntryNode<TYPES, NET, ELE>
 where
-    TYPES: NodeTypes,
-    NET: NetworkingImplementation<TYPES>,
-    ELE: Election<TYPES>,
+    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+    NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
+    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>
 {
     type Storage = MemoryStorage<TYPES>;
     type Networking = NET;
@@ -574,9 +563,9 @@ where
 }
 
 /// Provides a random [`QuorumCertificate`]
-pub fn random_quorum_certificate<TYPES: NodeTypes>(
+pub fn random_quorum_certificate<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>>(
     rng: &mut dyn rand::RngCore,
-) -> QuorumCertificate<TYPES> {
+) -> QuorumCertificate<TYPES, LEAF> {
     QuorumCertificate {
         // block_commitment: random_commitment(rng),
         leaf_commitment: random_commitment(rng),
@@ -587,15 +576,16 @@ pub fn random_quorum_certificate<TYPES: NodeTypes>(
 }
 
 /// Provides a random [`Leaf`]
+// TODO rename to random_validating_leaf
 pub fn random_leaf<TYPES: NodeTypes>(
     deltas: TYPES::BlockType,
     rng: &mut dyn rand::RngCore,
-) -> Leaf<TYPES> {
+) -> ValidatingLeaf<TYPES> {
     let justify_qc = random_quorum_certificate(rng);
     let state = TYPES::StateType::default()
         .append(&deltas, &TYPES::Time::new(42))
         .unwrap_or_default();
-    Leaf {
+    ValidatingLeaf {
         view_number: justify_qc.view_number,
         justify_qc,
         parent_commitment: random_commitment(rng),

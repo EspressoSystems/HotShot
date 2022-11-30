@@ -2163,6 +2163,7 @@ dependencies = [
  "dashmap",
  "derivative",
  "digest 0.10.5",
+ "either",
  "embed-doc-image",
  "futures",
  "hotshot-centralized-server",

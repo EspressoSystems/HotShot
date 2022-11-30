@@ -40,19 +40,20 @@ pub mod types;
 mod tasks;
 
 use crate::{
-    data::{LeafType, QuorumCertificate},
+    data::{QuorumCertificate},
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use commit::{Commitment, Committable};
+use either::Either;
 use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, SendToTasks, View, ViewInner, ViewQueue,
 };
 use hotshot_types::{
     constants::genesis_proposer_id,
-    data::{fake_commitment, LeafType},
+    data::{fake_commitment, LeafType, ValidatingLeaf, DALeaf, ProposalType},
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
@@ -121,7 +122,7 @@ pub struct HotShotInner<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     election: I::Election,
 
     /// Sender for [`Event`]s
-    event_sender: RwLock<Option<BroadcastSender<Event<TYPES>>>>,
+    event_sender: RwLock<Option<BroadcastSender<Event<TYPES, I::Leaf>>>>,
 
     /// Senders to the background tasks.
     background_task_handle: tasks::TaskHandle<TYPES>,
@@ -142,13 +143,13 @@ pub struct HotShot<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
         Arc<SubscribableRwLock<HashMap<Commitment<TYPES::Transaction>, TYPES::Transaction>>>,
 
     /// The hotstuff implementation
-    hotstuff: Arc<RwLock<Consensus<TYPES>>>,
+    hotstuff: Arc<RwLock<Consensus<TYPES, I::Leaf>>>,
 
     /// for sending/recv-ing things with the replica task
-    replica_channel_map: Arc<RwLock<SendToTasks<TYPES>>>,
+    replica_channel_map: Arc<RwLock<SendToTasks<TYPES, I::Leaf, I::Proposal>>>,
 
     /// for sending/recv-ing things with the next leader task
-    next_leader_channel_map: Arc<RwLock<SendToTasks<TYPES>>>,
+    next_leader_channel_map: Arc<RwLock<SendToTasks<TYPES, I::Leaf, I::Proposal>>>,
 
     /// for sending messages to network lookup task
     send_network_lookup: UnboundedSender<Option<TYPES::Time>>,
@@ -175,7 +176,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
-        initializer: HotShotInitializer<TYPES>,
+        initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
         info!("Creating a new hotshot");
@@ -262,8 +263,8 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
     pub async fn timeout_view(
         &self,
         current_view: TYPES::Time,
-        send_replica: UnboundedSender<ConsensusMessage<TYPES>>,
-        send_next_leader: Option<UnboundedSender<ConsensusMessage<TYPES>>>,
+        send_replica: UnboundedSender<ConsensusMessage<TYPES, I::Leaf, I::Proposal>>,
+        send_next_leader: Option<UnboundedSender<ConsensusMessage<TYPES, I::Leaf, I::Proposal>>>,
     ) {
         let msg = ConsensusMessage::<TYPES>::NextViewInterrupt(current_view);
         if let Some(chan) = send_next_leader {
@@ -336,7 +337,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
-        initializer: HotShotInitializer<TYPES>,
+        initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<HotShotHandle<TYPES, I>, HotShotError<TYPES>> {
         // Save a clone of the storage for the handle
@@ -366,7 +367,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
     /// Will return any errors that the underlying `broadcast_message` can return.
     pub async fn send_broadcast_message(
         &self,
-        kind: impl Into<MessageKind<TYPES>>,
+        kind: impl Into<MessageKind<TYPES, I::Leaf, I::Proposal>>,
     ) -> std::result::Result<(), NetworkError> {
         let inner = self.inner.clone();
         let pk = self.inner.public_key.clone();
@@ -393,7 +394,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
     /// Will return any errors that the underlying `message_node` can return.
     pub async fn send_direct_message(
         &self,
-        kind: impl Into<MessageKind<TYPES>>,
+        kind: impl Into<MessageKind<TYPES, I::Leaf, I::Proposal>>,
         recipient: TYPES::SignatureKey,
     ) -> std::result::Result<(), NetworkError> {
         self.inner
@@ -416,7 +417,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
     )]
     async fn handle_broadcast_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES>,
+        msg: ConsensusMessage<TYPES, I::Leaf, I::Proposal>,
         sender: TYPES::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
@@ -467,7 +468,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
     )]
     async fn handle_direct_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES>,
+        msg: ConsensusMessage<TYPES, I::Leaf, I::Proposal>,
         _sender: TYPES::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
@@ -514,7 +515,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
     /// Handle an incoming [`DataMessage`] that was broadcasted on the network
     async fn handle_broadcast_data_message(
         &self,
-        msg: DataMessage<TYPES>,
+        msg: DataMessage<TYPES, I::Leaf>,
         _sender: TYPES::SignatureKey,
     ) {
         // TODO validate incoming broadcast message based on sender signature key
@@ -540,7 +541,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
     /// Handle an incoming [`DataMessage`] that directed at this node
     async fn handle_direct_data_message(
         &self,
-        msg: DataMessage<TYPES>,
+        msg: DataMessage<TYPES, I::Leaf>,
         _sender: TYPES::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
@@ -609,9 +610,9 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
 
 /// given a view number and a upgradable read lock on a channel map, inserts entry into map if it
 /// doesn't exist, or creates entry. Then returns a clone of the entry
-pub async fn create_or_obtain_chan_from_read<TYPES: NodeTypes>(
+pub async fn create_or_obtain_chan_from_read<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES>>(
     view_num: TYPES::Time,
-    channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<TYPES>>,
+    channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<TYPES, LEAF, PROPOSAL>>,
 ) -> ViewQueue<TYPES> {
     // check if we have the entry
     // if we don't, insert
@@ -634,9 +635,9 @@ pub async fn create_or_obtain_chan_from_read<TYPES: NodeTypes>(
 
 /// given a view number and a write lock on a channel map, inserts entry into map if it
 /// doesn't exist, or creates entry. Then returns a clone of the entry
-pub async fn create_or_obtain_chan_from_write<TYPES: NodeTypes>(
+pub async fn create_or_obtain_chan_from_write<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES>>(
     view_num: TYPES::Time,
-    mut channel_map: RwLockWriteGuard<'_, SendToTasks<TYPES>>,
+    mut channel_map: RwLockWriteGuard<'_, SendToTasks<TYPES, LEAF, PROPOSAL>>,
 ) -> ViewQueue<TYPES> {
     channel_map.channel_map.entry(view_num).or_default().clone()
 }
@@ -649,8 +650,8 @@ struct HotShotConsensusApi<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = TYPES>>
-    hotshot_consensus::ConsensusApi<TYPES> for HotShotConsensusApi<TYPES, I>
+impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
+    hotshot_consensus::ConsensusApi<TYPES, I::Leaf, I::Proposal> for HotShotConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes
@@ -680,7 +681,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
     fn generate_vote_token(
         &self,
         view_number: TYPES::Time,
-        _next_state: Commitment<LEAF>,
+        _next_state: Commitment<I::Leaf>,
     ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError> {
         self.inner
             .election
@@ -699,7 +700,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
     async fn send_direct_message(
         &self,
         recipient: TYPES::SignatureKey,
-        message: ConsensusMessage<TYPES>,
+        message: ConsensusMessage<TYPES, I::Leaf, I::Proposal>,
     ) -> std::result::Result<(), NetworkError> {
         let inner = self.inner.clone();
         debug!(?message, ?recipient, "send_direct_message");
@@ -720,7 +721,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
 
     async fn send_broadcast_message(
         &self,
-        message: ConsensusMessage<TYPES>,
+        message: ConsensusMessage<TYPES, I::Leaf, I::Proposal>,
     ) -> std::result::Result<(), NetworkError> {
         debug!(?message, "send_broadcast_message");
         self.inner
@@ -732,7 +733,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
             .await
     }
 
-    async fn send_event(&self, event: Event<TYPES>) {
+    async fn send_event(&self, event: Event<TYPES, I::Leaf>) {
         debug!(?event, "send_event");
         let mut event_sender = self.inner.event_sender.write().await;
         if let Some(sender) = &*event_sender {
@@ -752,7 +753,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
     }
 
     #[instrument(skip(self, qc))]
-    fn validate_qc(&self, qc: &QuorumCertificate<TYPES>) -> bool {
+    fn validate_qc(&self, qc: &QuorumCertificate<TYPES, I::Leaf>) -> bool {
         if qc.genesis && qc.view_number == TYPES::Time::genesis() {
             return true;
         }
@@ -782,7 +783,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<LEAF>,
+        hash: Commitment<I::Leaf>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
@@ -809,7 +810,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
     async fn store_leaf(
         &self,
         old_anchor_view: TYPES::Time,
-        leaf: LEAF,
+        leaf: I::Leaf,
     ) -> std::result::Result<(), hotshot_types::traits::storage::StorageError> {
         let view_to_insert = StoredView::from(leaf);
         let storage = &self.inner.storage;
@@ -826,7 +827,7 @@ pub struct HotShotInitializer<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>
     inner: LEAF,
 }
 
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPES, LEAF> {
+impl<TYPES: NodeTypes> HotShotInitializer<TYPES, ValidatingLeaf<TYPES>> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
@@ -840,7 +841,7 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPE
         let justify_qc = QuorumCertificate::<TYPES>::genesis();
 
         Ok(Self {
-            inner: LEAF {
+            inner: ValidatingLeaf {
                 view_number: time,
                 justify_qc,
                 parent_commitment: fake_commitment(),
@@ -854,7 +855,40 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPE
     }
 
     /// reload previous state based on most recent leaf
-    pub fn from_reload(anchor_leaf: Leaf<TYPES>) -> Self {
+    pub fn from_reload(anchor_leaf: ValidatingLeaf<TYPES>) -> Self {
+        Self { inner: anchor_leaf }
+    }
+}
+
+impl<TYPES: NodeTypes> HotShotInitializer<TYPES, DALeaf<TYPES>> {
+    /// initialize from genesis
+    /// # Errors
+    /// If we are unable to apply the genesis block to the default state
+    pub fn from_genesis(genesis_block: TYPES::BlockType) -> Result<Self, HotShotError<TYPES>> {
+        let state = TYPES::StateType::default()
+            .append(&genesis_block, &TYPES::Time::new(0))
+            .map_err(|err| HotShotError::Misc {
+                context: err.to_string(),
+            })?;
+        let time = TYPES::Time::genesis();
+        let justify_qc = QuorumCertificate::<TYPES>::genesis();
+
+        Ok(Self {
+            inner: DALeaf {
+                view_number: time,
+                justify_qc,
+                parent_commitment: fake_commitment(),
+                deltas: genesis_block,
+                state: Either::Left(state),
+                rejected: Vec::new(),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                proposer_id: genesis_proposer_id(),
+            },
+        })
+    }
+
+    /// reload previous state based on most recent leaf
+    pub fn from_reload(anchor_leaf: DALeaf<TYPES>) -> Self {
         Self { inner: anchor_leaf }
     }
 }

@@ -18,7 +18,7 @@ use hotshot_types::{
         },
         node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
-    },
+    }, data::{LeafType, ProposalType},
 };
 use hotshot_utils::{
     art::{async_block_on, async_sleep, async_spawn},
@@ -57,7 +57,7 @@ pub enum Empty {
     Empty,
 }
 
-impl<TYPES: NodeTypes> std::fmt::Debug for Libp2pNetwork<TYPES> {
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES>> std::fmt::Debug for Libp2pNetwork<TYPES, LEAF, PROPOSAL> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Libp2p").field("inner", &"inner").finish()
     }
@@ -67,7 +67,7 @@ impl<TYPES: NodeTypes> std::fmt::Debug for Libp2pNetwork<TYPES> {
 pub type PeerInfoVec = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
 
 /// The underlying state of the libp2p network
-struct Libp2pNetworkInner<TYPES: NodeTypes> {
+struct Libp2pNetworkInner<TYPES: NodeTypes, LEAF: LeafType, PROPOSAL: ProposalType> {
     /// this node's public key
     pk: TYPES::SignatureKey,
     /// handle to control the network
@@ -76,13 +76,13 @@ struct Libp2pNetworkInner<TYPES: NodeTypes> {
     /// to public key provided by libp2p
     pubkey_pid_map: RwLock<BiHashMap<TYPES::SignatureKey, PeerId>>,
     /// map of known replica peer ids to public keys
-    broadcast_recv: UnboundedReceiver<Message<TYPES>>,
+    broadcast_recv: UnboundedReceiver<Message<TYPES, LEAF, PROPOSAL>>,
     /// Sender for broadcast messages
-    broadcast_send: UnboundedSender<Message<TYPES>>,
+    broadcast_send: UnboundedSender<Message<TYPES, LEAF, PROPOSAL>>,
     /// Sender for direct messages (only used for sending messages back to oneself)
-    direct_send: UnboundedSender<Message<TYPES>>,
+    direct_send: UnboundedSender<Message<TYPES, LEAF, PROPOSAL>>,
     /// Receiver for direct messages
-    direct_recv: UnboundedReceiver<Message<TYPES>>,
+    direct_recv: UnboundedReceiver<Message<TYPES, LEAF, PROPOSAL>>,
     /// this is really cheating to enable local tests
     /// hashset of (bootstrap_addr, peer_id)
     bootstrap_addrs: PeerInfoVec,
@@ -104,12 +104,12 @@ struct Libp2pNetworkInner<TYPES: NodeTypes> {
 /// Networking implementation that uses libp2p
 /// generic over `M` which is the message type
 #[derive(Clone)]
-pub struct Libp2pNetwork<TYPES: NodeTypes> {
+pub struct Libp2pNetwork<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES>> {
     /// holds the state of the libp2p network
-    inner: Arc<Libp2pNetworkInner<TYPES>>,
+    inner: Arc<Libp2pNetworkInner<TYPES, LEAF, PROPOSAL>>,
 }
 
-impl<TYPES: NodeTypes> TestableNetworkingImplementation<TYPES> for Libp2pNetwork<TYPES>
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES>> TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL> for Libp2pNetwork<TYPES, LEAF, PROPOSAL>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -200,7 +200,7 @@ where
     }
 }
 
-impl<TYPES: NodeTypes> Libp2pNetwork<TYPES> {
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES>> Libp2pNetwork<TYPES, LEAF, PROPOSAL> {
     /// Returns when network is ready
     pub async fn wait_for_ready(&self) {
         loop {
@@ -383,8 +383,8 @@ impl<TYPES: NodeTypes> Libp2pNetwork<TYPES> {
     /// terminates on shut down of network
     fn spawn_event_generator(
         &self,
-        direct_send: UnboundedSender<Message<TYPES>>,
-        broadcast_send: UnboundedSender<Message<TYPES>>,
+        direct_send: UnboundedSender<Message<TYPES, LEAF, PROPOSAL>>,
+        broadcast_send: UnboundedSender<Message<TYPES, LEAF, PROPOSAL>>,
     ) {
         let handle = self.clone();
         let is_bootstrapped = self.inner.is_bootstrapped.clone();
@@ -437,7 +437,7 @@ impl<TYPES: NodeTypes> Libp2pNetwork<TYPES> {
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> {
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES>> NetworkingImplementation<TYPES, LEAF, PROPOSAL> for Libp2pNetwork<TYPES, PROPOSAL, PROPOSAL> {
     #[instrument(name = "Libp2pNetwork::ready", skip_all)]
     async fn ready(&self) -> bool {
         self.wait_for_ready().await;
@@ -445,7 +445,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
     }
 
     #[instrument(name = "Libp2pNetwork::broadcast_message", skip_all)]
-    async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
+    async fn broadcast_message(&self, message: Message<TYPES, LEAF, PROPOSAL>) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed() {
             return Err(NetworkError::ShutDown);
         }
@@ -481,7 +481,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
     #[instrument(name = "Libp2pNetwork::message_node", skip_all)]
     async fn message_node(
         &self,
-        message: Message<TYPES>,
+        message: Message<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed() {
@@ -540,7 +540,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
     }
 
     #[instrument(name = "Libp2pNetwork::broadcast_queue", skip_all)]
-    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
+    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
         if self.inner.handle.is_killed() {
             Err(NetworkError::ShutDown)
         } else {
@@ -556,7 +556,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
     }
 
     #[instrument(name = "Libp2pNetwork::next_broadcast", skip_all)]
-    async fn next_broadcast(&self) -> Result<Message<TYPES>, NetworkError> {
+    async fn next_broadcast(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
         if self.inner.handle.is_killed() {
             Err(NetworkError::ShutDown)
         } else {

@@ -27,7 +27,7 @@ use hotshot_types::{
         },
         node_implementation::NodeTypes,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
-    },
+    }, data::{LeafType, ProposalType},
 };
 use hotshot_utils::{
     art::{async_block_on, async_sleep, async_spawn, split_stream},
@@ -1043,7 +1043,7 @@ impl From<hotshot_centralized_server::Error> for Error {
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetwork<TYPES> {
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES>> NetworkingImplementation<TYPES, LEAF, PROPOSAL> for CentralizedServerNetwork<TYPES> {
     async fn ready(&self) -> bool {
         while !self.inner.connected.load(Ordering::Relaxed) {
             async_sleep(Duration::from_secs(1)).await;
@@ -1051,7 +1051,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
         true
     }
 
-    async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
+    async fn broadcast_message(&self, message: Message<TYPES, LEAF, PROPOSAL>) -> Result<(), NetworkError> {
         self.inner
             .broadcast(
                 bincode_opts()
@@ -1064,7 +1064,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
 
     async fn message_node(
         &self,
-        message: Message<TYPES>,
+        message: Message<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.inner
@@ -1078,7 +1078,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
         Ok(())
     }
 
-    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
+    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
         self.inner
             .get_broadcasts()
             .await
@@ -1087,11 +1087,11 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
             .context(FailedToDeserializeSnafu)
     }
 
-    async fn next_broadcast(&self) -> Result<Message<TYPES>, NetworkError> {
+    async fn next_broadcast(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
         self.inner.get_next_broadcast().await
     }
 
-    async fn direct_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
+    async fn direct_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
         self.inner
             .get_direct_messages()
             .await
@@ -1100,7 +1100,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
             .context(FailedToDeserializeSnafu)
     }
 
-    async fn next_direct(&self) -> Result<Message<TYPES>, NetworkError> {
+    async fn next_direct(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
         self.inner.get_next_direct_message().await
     }
 
@@ -1142,7 +1142,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
     }
 }
 
-impl<TYPES: NodeTypes> TestableNetworkingImplementation<TYPES> for CentralizedServerNetwork<TYPES>
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES>> TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL> for CentralizedServerNetwork<TYPES>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {

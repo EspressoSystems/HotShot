@@ -380,32 +380,11 @@ where
     PUBKEY: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static + SignatureKey,
     PROOF: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static,
 {
-    type StakeTable = VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>;
-    type KeyPair = PUBKEY;
-    type ConsensusTime = TIME;
 
     fn vote_count(&self) -> NonZeroU64 {
         self.count
     }
 
-    fn create_vote(
-        voting_on: &Commitment<T>,
-        election: &Self::StakeTable,
-        view: Self::ConsensusTime,
-        signing_key: &<Self::KeyPair as SignatureKey>::PrivateKey,
-        checking_key: &Self::KeyPair::PublicKey,
-    ) -> Self {
-        voting_on
-    }
-
-    /// check that the vote is valid
-    fn check_vote(
-        voting_on: &Commitment<T>,
-        election: &Self::StakeTable,
-        view: Self::ConsensusTime,
-        checking_key: &Self::KeyPair::PublicKey,
-    ) -> bool {
-    }
 }
 
 impl<PUBKEY, PROOF> Committable for VRFVoteToken<PUBKEY, PROOF>
