@@ -1,8 +1,8 @@
+use async_compatibility_layer::art::async_sleep;
+use async_compatibility_layer::channel::RecvError;
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use futures::FutureExt;
 use futures::{future::join_all, Future};
-use hotshot_utils::art::async_sleep;
-use hotshot_utils::channel::RecvError;
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{identity::Keypair, Multiaddr, PeerId};
 use libp2p_networking::network::{
     network_node_handle_error::NodeConfigSnafu, NetworkEvent, NetworkNodeConfigBuilder,

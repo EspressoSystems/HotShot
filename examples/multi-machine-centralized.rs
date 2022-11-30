@@ -1,3 +1,7 @@
+use async_compatibility_layer::{
+    art::{async_main, async_sleep},
+    logging::{setup_backtrace, setup_logging},
+};
 use clap::Parser;
 use hotshot::{
     demos::dentry::*,
@@ -16,10 +20,6 @@ use hotshot_centralized_server::{NetworkConfig, RunResults};
 use hotshot_types::{
     traits::{metrics::NoMetrics, signature_key::SignatureKey, state::TestableState},
     HotShotConfig,
-};
-use hotshot_utils::{
-    art::{async_main, async_sleep},
-    test_util::{setup_backtrace, setup_logging},
 };
 use std::{
     cmp,

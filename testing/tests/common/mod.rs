@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use ark_bls12_381::Parameters as Param381;
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use blake3::Hasher;
 use either::Either;
 use futures::{future::LocalBoxFuture, FutureExt};
@@ -33,7 +34,6 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use jf_primitives::{
     signatures::{
         bls::{BLSSignature, BLSVerKey},
@@ -603,9 +603,9 @@ pub fn get_tolerance(num_nodes: u64) -> u64 {
 macro_rules! gen_inner_fn {
     ($TEST_TYPE:ty, $e:expr) => {
         // NOTE we need this since proptest doesn't implement async things
-        hotshot_utils::art::async_block_on(async move {
-            hotshot_utils::test_util::setup_logging();
-            hotshot_utils::test_util::setup_backtrace();
+        async_compatibility_layer::art::async_block_on(async move {
+            async_compatibility_layer::logging::setup_logging();
+            async_compatibility_layer::logging::setup_backtrace();
             let description = $e;
             let built: $TEST_TYPE = description.build();
             built.execute().await.unwrap()
@@ -618,9 +618,9 @@ macro_rules! gen_inner_fn {
 macro_rules! gen_inner_fn_proptest {
     ($TEST_TYPE:ty, $e:expr) => {
         // NOTE we need this since proptest doesn't implement async things
-        hotshot_utils::art::async_block_on_with_runtime(async move {
-            hotshot_utils::test_util::setup_logging();
-            hotshot_utils::test_util::setup_backtrace();
+        async_compatibility_layer::art::async_block_on_with_runtime(async move {
+            async_compatibility_layer::logging::setup_logging();
+            async_compatibility_layer::logging::setup_backtrace();
             let description = $e;
             let built: $TEST_TYPE = description.build();
             built.execute().await.unwrap()

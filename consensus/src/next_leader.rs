@@ -2,12 +2,12 @@
 
 use crate::ConsensusApi;
 use crate::ConsensusMetrics;
+use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
 use hotshot_types::traits::election::Checked::Unchecked;
 use hotshot_types::traits::election::VoteToken;
 use hotshot_types::traits::node_implementation::NodeTypes;
 use hotshot_types::{data::QuorumCertificate, message::ConsensusMessage};
-use hotshot_utils::channel::UnboundedReceiver;
 use std::time::Instant;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},

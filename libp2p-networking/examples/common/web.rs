@@ -1,4 +1,4 @@
-use hotshot_utils::art::async_spawn;
+use async_compatibility_layer::art::async_spawn;
 use libp2p_networking::network::NetworkNodeHandle;
 use std::{net::SocketAddr, sync::Arc};
 use tracing::{debug, error, info};

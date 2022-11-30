@@ -4,6 +4,7 @@ use crate::{
     utils::{Terminator, View, ViewInner},
     Consensus, ConsensusApi,
 };
+use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use commit::Committable;
 use hotshot_types::{
@@ -11,7 +12,6 @@ use hotshot_types::{
     message::{ConsensusMessage, TimedOut, Vote},
     traits::{node_implementation::NodeTypes, signature_key::SignatureKey, Block, State},
 };
-use hotshot_utils::channel::UnboundedReceiver;
 use std::ops::Bound::{Excluded, Included};
 use std::{collections::HashSet, sync::Arc};
 use tracing::{error, info, instrument, warn};

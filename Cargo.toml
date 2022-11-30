@@ -8,7 +8,7 @@ version = "0.3.3"
 rust-version = "1.65.0"
 
 [features]
-default = ["demo", "docs", "doc-images"]
+default = ["demo", "docs", "doc-images", "full-ci"]
 
 # Enable demo/testing logic
 demo = ["dep:blake3", "hotshot-types/demo", "libp2p/rsa", "dep:derivative"]
@@ -35,7 +35,7 @@ tokio-ci = [
         "hotshot-testing",
         "channel-tokio",
 ]
-profiling = ["hotshot-utils/profiling"]
+profiling = ["async-compatibility-layer/profiling"]
 hotshot-testing = []
 
 async-std-executor = [
@@ -44,7 +44,7 @@ async-std-executor = [
         "hotshot-centralized-server/async-std-executor",
         "hotshot-consensus/async-std-executor",
         "hotshot-types/async-std-executor",
-        "hotshot-utils/async-std-executor",
+        "async-compatibility-layer/async-std-executor",
         "libp2p-networking/async-std-executor",
 ]
 tokio-executor = [
@@ -53,7 +53,7 @@ tokio-executor = [
         "hotshot-centralized-server/tokio-executor",
         "hotshot-consensus/tokio-executor",
         "hotshot-types/tokio-executor",
-        "hotshot-utils/tokio-executor",
+        "async-compatibility-layer/tokio-executor",
         "libp2p-networking/tokio-executor",
 ]
 
@@ -61,19 +61,19 @@ channel-flume = [
         "hotshot-centralized-server/channel-flume",
         "hotshot-consensus/channel-flume",
         "hotshot-types/channel-flume",
-        "hotshot-utils/channel-flume",
+        "async-compatibility-layer/channel-flume",
 ]
 channel-tokio = [
         "hotshot-centralized-server/channel-tokio",
         "hotshot-consensus/channel-tokio",
         "hotshot-types/channel-tokio",
-        "hotshot-utils/channel-tokio",
+        "async-compatibility-layer/channel-tokio",
 ]
 channel-async-std = [
         "hotshot-centralized-server/channel-async-std",
         "hotshot-consensus/channel-async-std",
         "hotshot-types/channel-async-std",
-        "hotshot-utils/channel-async-std",
+        "async-compatibility-layer/channel-async-std",
 ]
 
 [[example]]
@@ -93,6 +93,7 @@ ark-ec = { version = "0.3.0" }
 ark-bls12-381 = { version = "0.3.0" }
 ark-serialize = { version = "0.3.0", features = ["derive"] }
 ark-std = { version = "0.3.0" }
+async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.0.1", default-features = false, features = [ "logging-utils" ] }
 async-lock = "2.6"
 async-std = { version = "1.12", optional = true }
 async-trait = "0.1.58"
@@ -113,13 +114,12 @@ futures = "0.3.25"
 hotshot-centralized-server = { version = "0.1.1", path = "centralized_server", default-features = false }
 hotshot-consensus = { path = "./consensus", version = "0.1.0", default-features = false }
 hotshot-types = { path = "./types", version = "0.1.0", default-features = false }
-hotshot-utils = { path = "./utils", version = "0.1.0", default-features = false, features = [
-        "logging-utils",
-] }
+hotshot-utils = { path = "./utils" }
 itertools = "0.10"
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2", features = [
         "std",
 ] }
+libp2p-swarm-derive = { version = "=0.30.1" } 
 libp2p-networking = { path = "./libp2p-networking", version = "0.1.0", default-features = false }
 libp2p = { version = "0.49.0", default-features = false, features = [
         "autonat",
