@@ -810,6 +810,7 @@
 <span class="attribute">#[cfg(all(feature = <span class="string">&quot;lossy_network&quot;</span>, target_os = <span class="string">&quot;linux&quot;</span>))]
 </span><span class="kw">pub mod </span>lossy_network;
 
+<span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 <span class="attribute">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
 </span><span class="kw">use </span>async_std::prelude::StreamExt;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
@@ -817,10 +818,9 @@
 <span class="attribute">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
 </span><span class="macro">std::compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
 
+<span class="kw">use </span>async_compatibility_layer::art::{async_sleep, async_spawn};
+<span class="kw">use </span>async_compatibility_layer::channel::oneshot;
 <span class="kw">use </span>clap::{Args, Parser};
-<span class="kw">use </span>hotshot_utils::art::{async_sleep, async_spawn};
-<span class="kw">use </span>hotshot_utils::channel::oneshot;
-<span class="kw">use </span>hotshot_utils::test_util::{setup_backtrace, setup_logging};
 <span class="kw">use </span>libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
 <span class="kw">use </span>libp2p_networking::network::{
     behaviours::direct_message_codec::DirectMessageResponse, deserialize_msg,

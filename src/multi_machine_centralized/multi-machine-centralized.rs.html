@@ -239,7 +239,11 @@
 <span id="239">239</span>
 <span id="240">240</span>
 <span id="241">241</span>
-</pre><pre class="rust"><code><span class="kw">use </span>clap::Parser;
+</pre><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::{
+    art::{async_main, async_sleep},
+    logging::{setup_backtrace, setup_logging},
+};
+<span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot::{
     demos::dentry::<span class="kw-2">*</span>,
     traits::{
@@ -257,10 +261,6 @@
 <span class="kw">use </span>hotshot_types::{
     traits::{metrics::NoMetrics, signature_key::SignatureKey, state::TestableState},
     HotShotConfig,
-};
-<span class="kw">use </span>hotshot_utils::{
-    art::{async_main, async_sleep},
-    test_util::{setup_backtrace, setup_logging},
 };
 <span class="kw">use </span>std::{
     cmp,

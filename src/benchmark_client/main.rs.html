@@ -153,17 +153,17 @@
 <span id="153">153</span>
 <span id="154">154</span>
 <span id="155">155</span>
-</pre><pre class="rust"><code><span class="kw">use </span>clap::Parser;
+</pre><pre class="rust"><code><span class="kw">use </span>async_compatibility_layer::{
+    art::{async_main, split_stream, AsyncReadExt, AsyncWriteExt, TcpStream},
+    logging::setup_logging,
+};
+<span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot_centralized_server::{
     TcpStreamRecvUtil, TcpStreamSendUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend,
 };
 <span class="kw">use </span>hotshot_types::traits::signature_key::{
     ed25519::{Ed25519Priv, Ed25519Pub},
     SignatureKey,
-};
-<span class="kw">use </span>hotshot_utils::{
-    art::{async_main, split_stream, AsyncReadExt, AsyncWriteExt, TcpStream},
-    test_util::setup_logging,
 };
 <span class="kw">use </span>std::{net::ToSocketAddrs, time::Instant};
 <span class="kw">use </span>tracing::{error, info};

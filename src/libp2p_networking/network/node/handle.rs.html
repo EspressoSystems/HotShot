@@ -682,19 +682,19 @@
     ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
     NetworkNodeConfigBuilderError,
 };
-<span class="kw">use </span>async_lock::Mutex;
-<span class="kw">use </span>bincode::Options;
-<span class="kw">use </span>futures::{stream::FuturesOrdered, Future, FutureExt};
-<span class="kw">use </span>hotshot_types::traits::network::NetworkError <span class="kw">as </span>HotShotNetworkError;
-<span class="kw">use </span>hotshot_utils::{
+<span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_timeout, future::to, stream},
-    bincode::bincode_opts,
+    async_primitives::subscribable_mutex::SubscribableMutex,
     channel::{
         bounded, oneshot, OneShotReceiver, OneShotSender, Receiver, SendError, Sender,
         UnboundedReceiver, UnboundedRecvError, UnboundedSender,
     },
-    subscribable_mutex::SubscribableMutex,
 };
+<span class="kw">use </span>async_lock::Mutex;
+<span class="kw">use </span>bincode::Options;
+<span class="kw">use </span>futures::{stream::FuturesOrdered, Future, FutureExt};
+<span class="kw">use </span>hotshot_types::traits::network::NetworkError <span class="kw">as </span>HotShotNetworkError;
+<span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::{ResultExt, Snafu};

@@ -569,10 +569,14 @@
 <span id="569">569</span>
 <span id="570">570</span>
 <span id="571">571</span>
-<span id="572">572</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 </span><span class="kw">use crate</span>::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
+<span class="kw">use </span>async_compatibility_layer::{
+    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
+    async_primitives::{broadcast::channel, subscribable_rwlock::ReadView},
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 <span class="kw">use </span>hotshot_types::{
@@ -583,12 +587,6 @@
         node_implementation::{NodeImplementation, NodeTypes},
     },
     ExecutionType,
-};
-<span class="kw">use </span>hotshot_utils::{
-    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
-    broadcast::channel,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
-    subscribable_rwlock::ReadView,
 };
 <span class="kw">use </span>std::{
     collections::HashMap,

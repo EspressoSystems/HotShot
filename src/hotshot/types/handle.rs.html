@@ -346,6 +346,7 @@
     types::{Event, HotShotError::NetworkFault},
     HotShot,
 };
+<span class="kw">use </span>async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 <span class="kw">use </span>hotshot_types::{
     data::Leaf,
     error::{HotShotError, RoundTimedoutState},
@@ -355,7 +356,6 @@
         storage::Storage,
     },
 };
-<span class="kw">use </span>hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 <span class="kw">use </span>std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -657,7 +657,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: TYPES::Time,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
-        <span class="kw">use </span>hotshot_utils::channel::UnboundedReceiver;
+        <span class="kw">use </span>async_compatibility_layer::channel::UnboundedReceiver;
 
         <span class="kw">let </span>channel_map = <span class="self">self</span>.hotshot.replica_channel_map.read().<span class="kw">await</span>;
         <span class="kw">let </span>chan = channel_map.channel_map.get(<span class="kw-2">&amp;</span>view_number)<span class="question-mark">?</span>;
@@ -671,7 +671,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_number: TYPES::Time,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
-        <span class="kw">use </span>hotshot_utils::channel::UnboundedReceiver;
+        <span class="kw">use </span>async_compatibility_layer::channel::UnboundedReceiver;
 
         <span class="kw">let </span>channel_map = <span class="self">self</span>.hotshot.next_leader_channel_map.read().<span class="kw">await</span>;
         <span class="kw">let </span>chan = channel_map.channel_map.get(<span class="kw-2">&amp;</span>view_number)<span class="question-mark">?</span>;

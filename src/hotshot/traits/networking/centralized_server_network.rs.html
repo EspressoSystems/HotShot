@@ -1207,6 +1207,10 @@
 <span class="attribute">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
 </span><span class="macro">std::compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
 
+<span class="kw">use </span>async_compatibility_layer::{
+    art::{async_block_on, async_sleep, async_spawn, split_stream},
+    channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
+};
 <span class="kw">use </span>async_lock::{RwLock, RwLockUpgradableReadGuard};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bincode::Options;
@@ -1227,11 +1231,7 @@
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     },
 };
-<span class="kw">use </span>hotshot_utils::{
-    art::{async_block_on, async_sleep, async_spawn, split_stream},
-    bincode::bincode_opts,
-    channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
-};
+<span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>std::{

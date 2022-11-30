@@ -857,6 +857,7 @@
 <span id="857">857</span>
 <span id="858">858</span>
 <span id="859">859</span>
+<span id="860">860</span>
 </pre><pre class="rust"><code><span class="attribute">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -903,6 +904,14 @@
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };
+<span class="kw">use </span>async_compatibility_layer::{
+    art::async_spawn,
+    async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
+};
+<span class="kw">use </span>async_compatibility_layer::{
+    art::async_spawn_local,
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+};
 <span class="kw">use </span>async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>commit::{Commitment, Committable};
@@ -930,13 +939,6 @@
     HotShotConfig,
 };
 <span class="kw">use </span>hotshot_types::{message::MessageKind, traits::election::VoteToken};
-<span class="kw">use </span>hotshot_utils::{
-    art::async_spawn, broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock,
-};
-<span class="kw">use </span>hotshot_utils::{
-    art::async_spawn_local,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
-};
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},

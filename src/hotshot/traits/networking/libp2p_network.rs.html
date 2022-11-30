@@ -734,6 +734,10 @@
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkingMetrics;
+<span class="kw">use </span>async_compatibility_layer::{
+    art::{async_block_on, async_sleep, async_spawn},
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+};
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bimap::BiHashMap;
@@ -751,11 +755,7 @@
         signature_key::{SignatureKey, TestableSignatureKey},
     },
 };
-<span class="kw">use </span>hotshot_utils::{
-    art::{async_block_on, async_sleep, async_spawn},
-    bincode::bincode_opts,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
-};
+<span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>libp2p_networking::{
     network::{
         MeshParams,

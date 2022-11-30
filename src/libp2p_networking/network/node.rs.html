@@ -636,11 +636,11 @@
     },
     def::NUM_REPLICATED_TO_TRUST,
 };
-<span class="kw">use </span>futures::{select, FutureExt, StreamExt};
-<span class="kw">use </span>hotshot_utils::{
+<span class="kw">use </span>async_compatibility_layer::{
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
+<span class="kw">use </span>futures::{select, FutureExt, StreamExt};
 <span class="kw">use </span>libp2p::{
     core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{

@@ -175,12 +175,13 @@
 <span id="175">175</span>
 <span id="176">176</span>
 <span id="177">177</span>
+<span id="178">178</span>
 </pre><pre class="rust"><code><span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>libp2p::{
     gossipsub::IdentTopic <span class="kw">as </span>Topic,
     identify::{Behaviour <span class="kw">as </span>IdentifyBehaviour, Event <span class="kw">as </span>IdentifyEvent},
     request_response::ResponseChannel,
-    Multiaddr, NetworkBehaviour, PeerId,
+    Multiaddr, PeerId,
 };
 <span class="kw">use </span>std::num::NonZeroUsize;
 <span class="kw">use </span>tracing::debug;
@@ -195,6 +196,7 @@
     },
     NetworkEventInternal,
 };
+<span class="kw">use </span>libp2p::NetworkBehaviour;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>NUM_REPLICATED_TO_TRUST: usize = <span class="number">2</span>;
 

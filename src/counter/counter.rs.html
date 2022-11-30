@@ -53,6 +53,7 @@
 <span id="53">53</span>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>common;
 
+<span class="kw">use </span>async_compatibility_layer::art::async_main;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>color_eyre::eyre::Result;
 <span class="attribute">#[cfg(all(feature = <span class="string">&quot;lossy_network&quot;</span>, target_os = <span class="string">&quot;linux&quot;</span>))]
@@ -61,7 +62,6 @@
     ExecutionEnvironment,
 };
 <span class="kw">use </span>common::{start_main, CliOpt};
-<span class="kw">use </span>hotshot_utils::art::async_main;
 <span class="kw">use </span>tracing::instrument;
 
 <span class="attribute">#[async_main]

@@ -1266,7 +1266,7 @@
 </span><span class="doccomment">/// the sortition committee size parameter
 </span><span class="kw">pub const </span>SORTITION_PARAMETER: u64 = <span class="number">100</span>;
 
-<span class="comment">// TODO abstraction this function&#39;s impl into a trait
+<span class="comment">// TODO compatibility this function&#39;s impl into a trait
 // TODO do we necessariy want the units of stake to be a u64? or generics
 </span><span class="doccomment">/// The stake table for VRFs
 </span><span class="attribute">#[derive(Serialize, Deserialize, Debug)]
@@ -2282,6 +2282,7 @@
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
     <span class="kw">use </span>ark_std::test_rng;
+    <span class="kw">use </span>async_compatibility_layer::logging::setup_logging;
     <span class="kw">use </span>blake3::Hasher;
     <span class="kw">use </span>hotshot_types::{
         data::ViewNumber,
@@ -2290,7 +2291,6 @@
             state::{dummy::DummyState, ConsensusTime},
         },
     };
-    <span class="kw">use </span>hotshot_utils::test_util::setup_logging;
     <span class="kw">use </span>jf_primitives::{
         signatures::{
             bls::{BLSSignature, BLSVerKey},

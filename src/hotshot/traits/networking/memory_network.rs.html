@@ -779,6 +779,10 @@
     FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation,
     NetworkingMetrics,
 };
+<span class="kw">use </span>async_compatibility_layer::{
+    art::{async_block_on, async_sleep, async_spawn},
+    channel::{bounded, Receiver, SendError, Sender},
+};
 <span class="kw">use </span>async_lock::{Mutex, RwLock};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bincode::Options;
@@ -793,11 +797,7 @@
         signature_key::{SignatureKey, TestableSignatureKey},
     },
 };
-<span class="kw">use </span>hotshot_utils::{
-    art::{async_block_on, async_sleep, async_spawn},
-    bincode::bincode_opts,
-    channel::{bounded, Receiver, SendError, Sender},
-};
+<span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::ResultExt;
@@ -1302,11 +1302,11 @@
     };
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span>async_compatibility_layer::logging::setup_logging;
     <span class="kw">use </span>hotshot_types::{
         data::ViewNumber,
         traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
     };
-    <span class="kw">use </span>hotshot_utils::test_util::setup_logging;
 
     <span class="attribute">#[derive(
         Copy,
