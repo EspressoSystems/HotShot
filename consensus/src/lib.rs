@@ -31,7 +31,7 @@ pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
 
 use commit::Commitment;
 use hotshot_types::{
-    data::{ QuorumCertificate, LeafType},
+    data::{LeafType, QuorumCertificate},
     error::HotShotError,
     traits::{
         metrics::{Gauge, Histogram, Metrics},
@@ -56,7 +56,7 @@ type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 pub struct Consensus<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
     /// The phases that are currently loaded in memory
     // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
-    pub state_map: BTreeMap<TYPES::Time, View<TYPES>>,
+    pub state_map: BTreeMap<TYPES::Time, View<TYPES, LEAF>>,
 
     /// cur_view from pseudocode
     pub cur_view: TYPES::Time,

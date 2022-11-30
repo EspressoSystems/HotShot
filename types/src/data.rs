@@ -146,9 +146,7 @@ where
     SIGNATURE: SignatureKey,
     CERT: SignedCertificate<SIGNATURE>,
 {
-    fn append(
-        val: Vec<(EncodedSignature, SIGNATURE)>,
-    ) -> Either<Self, CERT> {
+    fn append(val: Vec<(EncodedSignature, SIGNATURE)>) -> Either<Self, CERT> {
         nll_todo()
     }
 }
@@ -443,8 +441,8 @@ impl<TYPES: NodeTypes> Committable for DALeaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeTypes, ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>> From<ValidatingLeaf<TYPES>>
-    for ValidatingProposal<TYPES, ELECTION>
+impl<TYPES: NodeTypes, ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>>
+    From<ValidatingLeaf<TYPES>> for ValidatingProposal<TYPES, ELECTION>
 {
     fn from(leaf: ValidatingLeaf<TYPES>) -> Self {
         Self {
@@ -462,7 +460,8 @@ impl<TYPES: NodeTypes, ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES
 }
 
 impl<TYPES: NodeTypes> ValidatingLeaf<TYPES>
-where TYPES::ConsensusType : ValidatingConsensusType
+where
+    TYPES::ConsensusType: ValidatingConsensusType,
 {
     /// Creates a new leaf with the specified block and parent
     ///
@@ -520,7 +519,8 @@ where TYPES::ConsensusType : ValidatingConsensusType
 }
 
 impl<TYPES: NodeTypes> From<StoredView<TYPES, ValidatingLeaf<TYPES>>> for ValidatingLeaf<TYPES>
-  where TYPES::ConsensusType : ValidatingConsensusType
+where
+    TYPES::ConsensusType: ValidatingConsensusType,
 {
     fn from(append: StoredView<TYPES, ValidatingLeaf<TYPES>>) -> Self {
         ValidatingLeaf::new(

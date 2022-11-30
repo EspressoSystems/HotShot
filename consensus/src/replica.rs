@@ -7,9 +7,12 @@ use crate::{
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use commit::Committable;
 use hotshot_types::{
-    data::{Leaf, QuorumCertificate},
+    data::{LeafType, ProposalType, QuorumCertificate, ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, TimedOut, Vote},
-    traits::{node_implementation::NodeTypes, signature_key::SignatureKey, Block, State},
+    traits::{
+        election::Election, node_implementation::NodeTypes, signature_key::SignatureKey,
+        state::ValidatingConsensus, Block, State,
+    },
 };
 use hotshot_utils::channel::UnboundedReceiver;
 use std::{collections::HashSet, sync::Arc};
@@ -17,32 +20,47 @@ use tracing::{error, info, instrument, warn};
 
 /// This view's replica
 #[derive(Debug, Clone)]
-pub struct Replica<A: ConsensusApi<TYPES>, TYPES: NodeTypes> {
+pub struct Replica<
+    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Replica will require a write lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    pub consensus: Arc<RwLock<Consensus<TYPES, ValidatingLeaf<TYPES>>>>,
     /// channel for accepting leader proposals and timeouts messages
-    pub proposal_collection_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<TYPES>>>>,
+    pub proposal_collection_chan: Arc<
+        Mutex<
+            UnboundedReceiver<
+                ConsensusMessage<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+            >,
+        >,
+    >,
     /// view number this view is executing in
     pub cur_view: TYPES::Time,
     /// genericQC from the pseudocode
-    pub high_qc: QuorumCertificate<TYPES>,
+    pub high_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     /// hotshot consensus api
     pub api: A,
 }
 
-impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
+impl<
+        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+        TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+        ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    > Replica<A, TYPES, ELECTION>
+{
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
     async fn find_valid_msg<'a>(
         &self,
         view_leader_key: TYPES::SignatureKey,
-        consensus: RwLockUpgradableReadGuard<'a, Consensus<TYPES>>,
+        consensus: RwLockUpgradableReadGuard<'a, Consensus<TYPES, ValidatingLeaf<TYPES>>>,
     ) -> (
-        RwLockUpgradableReadGuard<'a, Consensus<TYPES>>,
-        Option<Leaf<TYPES>>,
+        RwLockUpgradableReadGuard<'a, Consensus<TYPES, ValidatingLeaf<TYPES>>>,
+        Option<ValidatingLeaf<TYPES>>,
     ) {
         let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
@@ -56,7 +74,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                 match msg {
                     ConsensusMessage::Proposal(p) => {
                         let parent = if let Some(parent) =
-                            consensus.saved_leaves.get(&p.leaf.parent_commitment)
+                            consensus.saved_leaves.get(&p.parent_commitment)
                         {
                             parent
                         } else {
@@ -64,7 +82,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                             continue;
                         };
 
-                        let justify_qc = p.leaf.justify_qc;
+                        let justify_qc = p.justify_qc;
 
                         // go no further if the parent view number does not
                         // match the justify_qc. We can't accept this
@@ -83,23 +101,22 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                         }
 
                         // check that we can indeed create the state
-                        let leaf = if let Ok(state) =
-                            parent.state.append(&p.leaf.deltas, &self.cur_view)
+                        let leaf = if let Ok(state) = parent.state.append(&p.deltas, &self.cur_view)
                         {
                             // check the commitment
-                            if state.commit() != p.leaf.state_commitment {
+                            if state.commit() != p.state_commitment {
                                 warn!("Rejected proposal! After applying deltas to parent state, resulting commitment did not match proposal's");
                                 continue;
                             }
-                            Leaf::new(
+                            ValidatingLeaf::new(
                                 state,
-                                p.leaf.deltas,
-                                p.leaf.parent_commitment,
+                                p.deltas,
+                                p.parent_commitment,
                                 justify_qc.clone(),
                                 self.cur_view,
                                 Vec::new(),
                                 time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                                p.leaf.proposer_id,
+                                p.proposer_id,
                             )
                         } else {
                             warn!("State of proposal didn't match parent + deltas");
@@ -159,7 +176,11 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                                 let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
 
                                 // Generate and send vote
-                                let vote = ConsensusMessage::<TYPES>::Vote(Vote {
+                                let vote = ConsensusMessage::<
+                                    TYPES,
+                                    ValidatingLeaf<TYPES>,
+                                    ValidatingProposal<TYPES, ELECTION>,
+                                >::Vote(Vote {
                                     block_commitment: leaf.deltas.commit(),
                                     justify_qc_commitment: leaf.justify_qc.commit(),
                                     signature,
@@ -232,7 +253,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
     /// run one view of replica
     /// returns the `high_qc`
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<TYPES> {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
         info!("Replica task started!");
         let consensus = self.consensus.upgradable_read().await;
         let view_leader_key = self.api.get_leader(self.cur_view).await;

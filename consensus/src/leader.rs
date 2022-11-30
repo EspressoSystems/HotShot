@@ -4,22 +4,29 @@ use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_lock::RwLock;
 use commit::Committable;
 use hotshot_types::{
-    data::{QuorumCertificate, ValidatingLeaf, ValidatingProposal, LeafType},
+    data::{LeafType, QuorumCertificate, ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, Proposal},
-    traits::{node_implementation::NodeTypes, signature_key::SignatureKey, Block, State},
+    traits::{
+        election::Election, node_implementation::NodeTypes, signature_key::SignatureKey,
+        state::ValidatingConsensus, Block, State,
+    },
 };
 use hotshot_utils::{
     art::{async_sleep, async_timeout},
     subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
-use std::{collections::HashSet, sync::Arc, time::Instant};
+use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
 
 // TODO (da) rename this to validatingleader
 
 /// This view's Leader
 #[derive(Debug, Clone)]
-pub struct Leader<A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>, TYPES: NodeTypes> {
+pub struct Leader<
+    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+    TYPES: NodeTypes,
+    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
@@ -32,9 +39,16 @@ pub struct Leader<A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingPropos
     pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
     /// Limited access to the consensus protocol
     pub api: A,
+
+    pub _pd: PhantomData<ELECTION>,
 }
 
-impl<A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>, TYPES: NodeTypes> Leader<A, TYPES> {
+impl<
+        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+        TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+        ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    > Leader<A, TYPES, ELECTION>
+{
     /// Run one view of the leader task
     // #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
@@ -152,8 +166,12 @@ impl<A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, Val
                 proposer_id: pk.to_bytes(),
             };
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
-            let leaf: ValidatingProposal<TYPES> = leaf.into();
-            let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
+            let leaf: ValidatingProposal<TYPES, ELECTION> = leaf.into();
+            let message = ConsensusMessage::<
+                TYPES,
+                ValidatingLeaf<TYPES>,
+                ValidatingProposal<TYPES, ELECTION>,
+            >::Proposal(ValidatingProposal::from(leaf));
             info!("Sending out proposal {:?}", message);
 
             if let Err(e) = self.api.send_broadcast_message(message.clone()).await {

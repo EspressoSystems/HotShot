@@ -40,7 +40,7 @@ pub mod types;
 mod tasks;
 
 use crate::{
-    data::{Leaf, QuorumCertificate},
+    data::{LeafType, QuorumCertificate},
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };
@@ -52,7 +52,7 @@ use hotshot_consensus::{
 };
 use hotshot_types::{
     constants::genesis_proposer_id,
-    data::fake_commitment,
+    data::{fake_commitment, LeafType},
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
@@ -160,7 +160,9 @@ pub struct HotShot<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     id: u64,
 }
 
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
+impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = TYPES>>
+    HotShot<TYPES, I>
+{
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_arguments)]
@@ -309,7 +311,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
     /// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_decided_leaf(&self) -> Leaf<TYPES> {
+    pub async fn get_decided_leaf(&self) -> LEAF {
         self.hotstuff.read().await.get_decided_leaf()
     }
 
@@ -647,8 +649,8 @@ struct HotShotConsensusApi<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::ConsensusApi<TYPES>
-    for HotShotConsensusApi<TYPES, I>
+impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = TYPES>>
+    hotshot_consensus::ConsensusApi<TYPES> for HotShotConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes
@@ -678,7 +680,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
     fn generate_vote_token(
         &self,
         view_number: TYPES::Time,
-        _next_state: Commitment<Leaf<TYPES>>,
+        _next_state: Commitment<LEAF>,
     ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError> {
         self.inner
             .election
@@ -780,7 +782,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<Leaf<TYPES>>,
+        hash: Commitment<LEAF>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
@@ -807,7 +809,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
     async fn store_leaf(
         &self,
         old_anchor_view: TYPES::Time,
-        leaf: Leaf<TYPES>,
+        leaf: LEAF,
     ) -> std::result::Result<(), hotshot_types::traits::storage::StorageError> {
         let view_to_insert = StoredView::from(leaf);
         let storage = &self.inner.storage;
@@ -819,12 +821,12 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
 }
 
 /// initializer struct for creating starting block
-pub struct HotShotInitializer<TYPES: NodeTypes> {
+pub struct HotShotInitializer<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
     /// the leaf specified initialization
-    inner: Leaf<TYPES>,
+    inner: LEAF,
 }
 
-impl<TYPES: NodeTypes> HotShotInitializer<TYPES> {
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPES, LEAF> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
@@ -838,7 +840,7 @@ impl<TYPES: NodeTypes> HotShotInitializer<TYPES> {
         let justify_qc = QuorumCertificate::<TYPES>::genesis();
 
         Ok(Self {
-            inner: Leaf {
+            inner: LEAF {
                 view_number: time,
                 justify_qc,
                 parent_commitment: fake_commitment(),
