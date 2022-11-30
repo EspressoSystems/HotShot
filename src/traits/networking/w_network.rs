@@ -66,7 +66,7 @@ pub enum Command<TYPES: NodeTypes> {
     /// A message that was broadcast to all nodes
     Broadcast {
         /// Message being sent
-        inner: HotShotMessage<TYPES>,
+        inner: HotShotMessage<TYPES, LEAF, PROPOSAL>,
         /// Who is sending it
         from: TYPES::SignatureKey,
         /// Message ID
@@ -75,7 +75,7 @@ pub enum Command<TYPES: NodeTypes> {
     /// A message that was sent directly to this node
     Direct {
         /// Message being sent
-        inner: HotShotMessage<TYPES>,
+        inner: HotShotMessage<TYPES, LEAF, PROPOSAL>,
         /// Who is sending it
         from: TYPES::SignatureKey,
         /// Who its being sent to
@@ -145,9 +145,9 @@ struct WNetworkInner<TYPES: NodeTypes> {
     /// The currently pending `Waiters`
     waiters: Waiters,
     /// The inputs to the internal queues
-    inputs: Inputs<HotShotMessage<TYPES>>,
+    inputs: Inputs<HotShotMessage<TYPES, LEAF, PROPOSAL>>,
     /// The outputs to the internal queues
-    outputs: Outputs<HotShotMessage<TYPES>>,
+    outputs: Outputs<HotShotMessage<TYPES, LEAF, PROPOSAL>>,
     /// Keeps track of if the tasks have been started
     tasks_started: AtomicBool,
     /// Holds onto to a TCP socket between binding and task start
@@ -272,7 +272,7 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
     async fn process_command(
         &self,
         command: Command<TYPES>,
-        inputs: &Inputs<HotShotMessage<TYPES>>,
+        inputs: &Inputs<HotShotMessage<TYPES, LEAF, PROPOSAL>>,
     ) -> Result<Option<Command<TYPES>>, NetworkError> {
         trace!("Processing command");
         match command {
@@ -865,7 +865,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     #[instrument(name = "WNetwork::broadcast_message")]
     async fn broadcast_message(
         &self,
-        message: HotShotMessage<TYPES>,
+        message: HotShotMessage<TYPES, LEAF, PROPOSAL>,
     ) -> Result<(), super::NetworkError> {
         debug!(?message, "Broadcasting message");
         // As a stop gap solution to be able to simulate network faults, this method will
@@ -909,7 +909,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     #[instrument(name = "WNetwork::message_node")]
     async fn message_node(
         &self,
-        message: HotShotMessage<TYPES>,
+        message: HotShotMessage<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), super::NetworkError> {
         debug!(?message, "Messaging node");
@@ -947,7 +947,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     }
 
     #[instrument(name = "WNetwork::broadcast_queue")]
-    async fn broadcast_queue(&self) -> Result<Vec<HotShotMessage<TYPES>>, super::NetworkError> {
+    async fn broadcast_queue(&self) -> Result<Vec<HotShotMessage<TYPES, LEAF, PROPOSAL>>, super::NetworkError> {
         self.inner
             .outputs
             .broadcast
@@ -959,7 +959,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     }
 
     #[instrument(name = "WNetwork::next_broadcast")]
-    async fn next_broadcast(&self) -> Result<HotShotMessage<TYPES>, super::NetworkError> {
+    async fn next_broadcast(&self) -> Result<HotShotMessage<TYPES, LEAF, PROPOSAL>, super::NetworkError> {
         self.inner
             .outputs
             .broadcast
@@ -971,7 +971,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     }
 
     #[instrument(name = "WNetwork::direct_queue")]
-    async fn direct_queue(&self) -> Result<Vec<HotShotMessage<TYPES>>, super::NetworkError> {
+    async fn direct_queue(&self) -> Result<Vec<HotShotMessage<TYPES, LEAF, PROPOSAL>>, super::NetworkError> {
         self.inner
             .outputs
             .direct
@@ -983,7 +983,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     }
 
     #[instrument(name = "WNetwork::next_direct")]
-    async fn next_direct(&self) -> Result<HotShotMessage<TYPES>, super::NetworkError> {
+    async fn next_direct(&self) -> Result<HotShotMessage<TYPES, LEAF, PROPOSAL>, super::NetworkError> {
         self.inner
             .outputs
             .direct

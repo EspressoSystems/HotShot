@@ -296,7 +296,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
 
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
     #[cfg(feature = "hotshot-testing")]
-    pub async fn send_broadcast_consensus_message(&self, msg: ConsensusMessage<TYPES>) {
+    pub async fn send_broadcast_consensus_message(&self, msg: ConsensusMessage<TYPES, LEAF, PROPOSAL>) {
         let _result = self.hotshot.send_broadcast_message(msg).await;
     }
 
@@ -304,7 +304,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_direct_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES>,
+        msg: ConsensusMessage<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
     ) {
         let _result = self.hotshot.send_direct_message(msg, recipient).await;

@@ -392,7 +392,7 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<
             while let Ok(msg) = handle.inner.handle.receiver().recv().await {
                 match msg {
                     GossipMsg(msg, _topic) => {
-                        let result: Result<Message<TYPES>, _> = bincode_opts().deserialize(&msg);
+                        let result: Result<Message<TYPES, LEAF, PROPOSAL>, _> = bincode_opts().deserialize(&msg);
                         if let Ok(result) = result {
                             broadcast_send
                                 .send(result)
@@ -401,7 +401,7 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<
                         }
                     }
                     DirectRequest(msg, _pid, chan) => {
-                        let result: Result<Message<TYPES>, _> = bincode_opts()
+                        let result: Result<Message<TYPES, LEAF, PROPOSAL>, _> = bincode_opts()
                             .deserialize(&msg)
                             .context(FailedToSerializeSnafu);
                         if let Ok(result) = result {
@@ -421,7 +421,7 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<
                         };
                     }
                     DirectResponse(msg, _) => {
-                        let _result: Result<Message<TYPES>, _> = bincode_opts()
+                        let _result: Result<Message<TYPES, LEAF, PROPOSAL>, _> = bincode_opts()
                             .deserialize(&msg)
                             .context(FailedToSerializeSnafu);
                     }
@@ -572,7 +572,7 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<
     }
 
     #[instrument(name = "Libp2pNetwork::direct_queue", skip_all)]
-    async fn direct_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
+    async fn direct_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
         if self.inner.handle.is_killed() {
             Err(NetworkError::ShutDown)
         } else {
@@ -588,7 +588,7 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<
     }
 
     #[instrument(name = "Libp2pNetwork::next_direct", skip_all)]
-    async fn next_direct(&self) -> Result<Message<TYPES>, NetworkError> {
+    async fn next_direct(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
         if self.inner.handle.is_killed() {
             Err(NetworkError::ShutDown)
         } else {

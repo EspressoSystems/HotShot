@@ -163,7 +163,7 @@ mod test {
         let dummy_leaf_commit = fake_commitment::<Leaf<DummyTypes>>();
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
-                block_commitment: dummy_block_commit,
+                // block_commitment: dummy_block_commit,
                 genesis: view_number == ViewNumber::genesis(),
                 leaf_commitment: dummy_leaf_commit,
                 signatures: BTreeMap::new(),

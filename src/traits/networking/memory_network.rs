@@ -91,9 +91,9 @@ struct MemoryNetworkInner<TYPES: NodeTypes> {
     /// Input for direct messages
     direct_input: RwLock<Option<Sender<Vec<u8>>>>,
     /// Output for broadcast messages
-    broadcast_output: Mutex<Receiver<Message<TYPES>>>,
+    broadcast_output: Mutex<Receiver<Message<TYPES, LEAF, PROPOSAL>>>,
     /// Output for direct messages
-    direct_output: Mutex<Receiver<Message<TYPES>>>,
+    direct_output: Mutex<Receiver<Message<TYPES, LEAF, PROPOSAL>>>,
     /// The master map
     master_map: Arc<MasterMap<TYPES>>,
 
@@ -338,7 +338,7 @@ where
 #[async_trait]
 impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> {
     #[instrument(name = "MemoryNetwork::broadcast_message")]
-    async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
+    async fn broadcast_message(&self, message: Message<TYPES, LEAF, PROPOSAL>) -> Result<(), NetworkError> {
         debug!(?message, "Broadcasting message");
         // Bincode the message
         let vec = bincode_opts()
@@ -371,7 +371,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
     #[instrument(name = "MemoryNetwork::message_node")]
     async fn message_node(
         &self,
-        message: Message<TYPES>,
+        message: Message<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         debug!(?message, ?recipient, "Sending direct message");
@@ -403,7 +403,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
     }
 
     #[instrument(name = "MemoryNetwork::broadcast_queue")]
-    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
+    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
         let ret = self
             .inner
             .broadcast_output
@@ -420,7 +420,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
     }
 
     #[instrument(name = "MemoryNetwork::next_broadcast")]
-    async fn next_broadcast(&self) -> Result<Message<TYPES>, NetworkError> {
+    async fn next_broadcast(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
         let ret = self
             .inner
             .broadcast_output
@@ -437,7 +437,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
     }
 
     #[instrument(name = "MemoryNetwork::direct_queue")]
-    async fn direct_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
+    async fn direct_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
         let ret = self
             .inner
             .direct_output
@@ -454,7 +454,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
     }
 
     #[instrument(name = "MemoryNetwork::next_direct")]
-    async fn next_direct(&self) -> Result<Message<TYPES>, NetworkError> {
+    async fn next_direct(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
         let ret = self
             .inner
             .direct_output
