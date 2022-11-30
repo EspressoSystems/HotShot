@@ -74,7 +74,7 @@ impl<
                 match msg {
                     ConsensusMessage::Proposal(p) => {
                         let parent = if let Some(parent) =
-                            consensus.saved_leaves.get(&p.parent_commitment)
+                            consensus.saved_leaves.get(&p.leaf.parent_commitment)
                         {
                             parent
                         } else {
@@ -82,7 +82,7 @@ impl<
                             continue;
                         };
 
-                        let justify_qc = p.justify_qc;
+                        let justify_qc = p.leaf.justify_qc;
 
                         // go no further if the parent view number does not
                         // match the justify_qc. We can't accept this
@@ -101,22 +101,23 @@ impl<
                         }
 
                         // check that we can indeed create the state
-                        let leaf = if let Ok(state) = parent.state.append(&p.deltas, &self.cur_view)
+                        let leaf = if let Ok(state) =
+                            parent.state.append(&p.leaf.deltas, &self.cur_view)
                         {
                             // check the commitment
-                            if state.commit() != p.state_commitment {
+                            if state.commit() != p.leaf.state_commitment {
                                 warn!("Rejected proposal! After applying deltas to parent state, resulting commitment did not match proposal's");
                                 continue;
                             }
                             ValidatingLeaf::new(
                                 state,
-                                p.deltas,
-                                p.parent_commitment,
+                                p.leaf.deltas,
+                                p.leaf.parent_commitment,
                                 justify_qc.clone(),
                                 self.cur_view,
                                 Vec::new(),
                                 time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                                p.proposer_id,
+                                p.leaf.proposer_id,
                             )
                         } else {
                             warn!("State of proposal didn't match parent + deltas");

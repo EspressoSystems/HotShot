@@ -172,19 +172,19 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> 
 
         while let Some(leaf) = self.saved_leaves.get(&next_leaf) {
             if let Terminator::Exclusive(stop_before) = terminator {
-                if stop_before == leaf.view_number {
+                if stop_before == leaf.get_view_number() {
                     if ok_when_finished {
                         return Ok(());
                     }
                     break;
                 }
             }
-            next_leaf = leaf.parent_commitment;
+            next_leaf = leaf.get_parent_commitment();
             if !f(leaf) {
                 return Ok(());
             }
             if let Terminator::Inclusive(stop_after) = terminator {
-                if stop_after == leaf.view_number {
+                if stop_after == leaf.get_view_number() {
                     if ok_when_finished {
                         return Ok(());
                     }

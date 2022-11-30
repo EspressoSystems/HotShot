@@ -167,11 +167,15 @@ impl<
             };
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let leaf: ValidatingProposal<TYPES, ELECTION> = leaf.into();
+            let vp = Proposal {
+                leaf: ValidatingProposal::from(leaf),
+                signature,
+            };
             let message = ConsensusMessage::<
                 TYPES,
                 ValidatingLeaf<TYPES>,
                 ValidatingProposal<TYPES, ELECTION>,
-            >::Proposal(ValidatingProposal::from(leaf));
+            >::Proposal(vp);
             info!("Sending out proposal {:?}", message);
 
             if let Err(e) = self.api.send_broadcast_message(message.clone()).await {

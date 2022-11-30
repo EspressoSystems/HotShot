@@ -314,6 +314,10 @@ pub trait LeafType:
     + std::hash::Hash
 {
     type NodeType: NodeTypes;
+
+    fn get_view_number(&self) -> <Self::NodeType as NodeTypes>::Time;
+
+    fn get_parent_commitment(&self) -> Commitment<Self>;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -353,10 +357,26 @@ pub struct ValidatingLeaf<TYPES: NodeTypes> {
 
 impl<TYPES: NodeTypes> LeafType for ValidatingLeaf<TYPES> {
     type NodeType = TYPES;
+
+    fn get_view_number(&self) -> <Self::NodeType as NodeTypes>::Time {
+        self.view_number
+    }
+
+    fn get_parent_commitment(&self) -> Commitment<Self> {
+        self.parent_commitment
+    }
 }
 
 impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
     type NodeType = TYPES;
+
+    fn get_view_number(&self) -> <Self::NodeType as NodeTypes>::Time {
+        self.view_number
+    }
+
+    fn get_parent_commitment(&self) -> Commitment<Self> {
+        self.parent_commitment
+    }
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,

@@ -18,7 +18,7 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use hotshot_types::{
     constants::genesis_proposer_id,
-    data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
+    data::{random_commitment, QuorumCertificate, ViewNumber},
     traits::{
         block_contents::Transaction,
         election::Election,

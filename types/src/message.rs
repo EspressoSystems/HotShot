@@ -75,7 +75,7 @@ pub enum ConsensusMessage<
     PROPOSAL: ProposalType<NodeTypes = TYPES>,
 > {
     /// Leader's proposal
-    Proposal(PROPOSAL),
+    Proposal(Proposal<PROPOSAL>),
     /// Replica timed out
     TimedOut(TimedOut<TYPES, LEAF>),
     /// Replica votes
