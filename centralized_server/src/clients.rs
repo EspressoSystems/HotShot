@@ -1,10 +1,10 @@
 use crate::{FromBackground, Run};
+use async_compatibility_layer::channel::Sender;
 use futures::FutureExt;
 use hotshot_types::traits::{
     election::ElectionConfig,
     signature_key::{EncodedPublicKey, SignatureKey},
 };
-use hotshot_utils::channel::Sender;
 use std::collections::{BTreeMap, BTreeSet};
 use tracing::debug;
 

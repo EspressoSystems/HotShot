@@ -1,6 +1,6 @@
 use crate::{ClientConfig, NetworkConfig, Run, RunResults, ToBackground};
-use hotshot_utils::art::{async_sleep, async_spawn};
-use hotshot_utils::channel::{OneShotSender, Sender};
+use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::channel::{OneShotSender, Sender};
 use libp2p_core::PeerId;
 use std::{
     fmt::Debug,

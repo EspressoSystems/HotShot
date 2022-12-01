@@ -3,12 +3,15 @@
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 
 use super::NetworkingMetrics;
+use async_compatibility_layer::{
+    art::{async_block_on, async_sleep, async_spawn},
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
 use dashmap::DashSet;
-use hotshot_types::data::ViewNumber;
 use hotshot_types::{
     message::Message,
     traits::{
@@ -21,11 +24,7 @@ use hotshot_types::{
         signature_key::{SignatureKey, TestableSignatureKey},
     },
 };
-use hotshot_utils::{
-    art::{async_block_on, async_sleep, async_spawn},
-    bincode::bincode_opts,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
-};
+use hotshot_utils::bincode::bincode_opts;
 use libp2p_networking::{
     network::{
         MeshParams,
@@ -730,7 +729,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
         }
     }
 
-    async fn inject_view_number(&self, view_number: TYPES::Time) {
+    async fn inject_view_number(&self, _view_number: TYPES::Time) {
         // Do nothing
     }
 }

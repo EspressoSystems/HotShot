@@ -1,5 +1,6 @@
 pub mod common;
 
+use async_compatibility_layer::art::async_main;
 use clap::Parser;
 use color_eyre::eyre::Result;
 #[cfg(all(feature = "lossy_network", target_os = "linux"))]
@@ -8,7 +9,6 @@ use common::{
     ExecutionEnvironment,
 };
 use common::{start_main, CliOpt};
-use hotshot_utils::art::async_main;
 use tracing::instrument;
 
 #[async_main]

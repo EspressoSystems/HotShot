@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use ark_bls12_381::Parameters as Param381;
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use blake3::Hasher;
 use either::Either;
 use futures::{future::LocalBoxFuture, FutureExt};
@@ -9,12 +10,11 @@ use hotshot::{
         dummy::DummyState,
         election::{
             static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
-            vrf::{VRFPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
+            vrf::{JfPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
         },
         implementations::{MemoryNetwork, MemoryStorage},
         NetworkReliability, NetworkingImplementation,
     },
-    types::ed25519::Ed25519Pub,
     HotShotError,
 };
 use hotshot_testing::{
@@ -34,7 +34,6 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use jf_primitives::{
     signatures::{
         bls::{BLSSignature, BLSVerKey},
@@ -313,7 +312,7 @@ pub struct VrfTestTypes;
 impl NodeTypes for VrfTestTypes {
     type Time = ViewNumber;
     type BlockType = DummyBlock;
-    type SignatureKey = VRFPubKey<BLSSignatureScheme<Param381>>;
+    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
     type VoteTokenType = VRFVoteToken<BLSVerKey<Param381>, BLSSignature<Param381>>;
     type Transaction = DummyTransaction;
     type ElectionConfigType = VRFStakeTableConfig;
@@ -337,12 +336,36 @@ pub struct StaticCommitteeTestTypes;
 impl NodeTypes for StaticCommitteeTestTypes {
     type Time = ViewNumber;
     type BlockType = DummyBlock;
-    type SignatureKey = Ed25519Pub;
-    type VoteTokenType = StaticVoteToken;
+    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
+    type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme<Param381>>>;
     type Transaction = DummyTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = DummyState;
 }
+// #[derive(
+//     Copy,
+//     Clone,
+//     Debug,
+//     Default,
+//     Hash,
+//     PartialEq,
+//     Eq,
+//     PartialOrd,
+//     Ord,
+//     serde::Serialize,
+//     serde::Deserialize,
+// )]
+// pub struct DACommitteeTestTypes;
+// impl NodeTypes for DACommitteeTestTypes {
+//     type Time = ViewNumber;
+//     type BlockType = DABlock<DummyBlock>;
+//     type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
+//     type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme<Param381>>>;
+//     type Transaction = DATransaction<DummyBlock>;
+//     type ElectionConfigType = StaticElectionConfig;
+//     type StateType = DAState<DummyBlock>;
+// }
+
 /// type synonym for vrf committee election
 /// with in-memory network
 pub type StandardNodeImplType = TestNodeImpl<
@@ -580,9 +603,9 @@ pub fn get_tolerance(num_nodes: u64) -> u64 {
 macro_rules! gen_inner_fn {
     ($TEST_TYPE:ty, $e:expr) => {
         // NOTE we need this since proptest doesn't implement async things
-        hotshot_utils::art::async_block_on(async move {
-            hotshot_utils::test_util::setup_logging();
-            hotshot_utils::test_util::setup_backtrace();
+        async_compatibility_layer::art::async_block_on(async move {
+            async_compatibility_layer::logging::setup_logging();
+            async_compatibility_layer::logging::setup_backtrace();
             let description = $e;
             let built: $TEST_TYPE = description.build();
             built.execute().await.unwrap()
@@ -595,9 +618,9 @@ macro_rules! gen_inner_fn {
 macro_rules! gen_inner_fn_proptest {
     ($TEST_TYPE:ty, $e:expr) => {
         // NOTE we need this since proptest doesn't implement async things
-        hotshot_utils::art::async_block_on_with_runtime(async move {
-            hotshot_utils::test_util::setup_logging();
-            hotshot_utils::test_util::setup_backtrace();
+        async_compatibility_layer::art::async_block_on_with_runtime(async move {
+            async_compatibility_layer::logging::setup_logging();
+            async_compatibility_layer::logging::setup_backtrace();
             let description = $e;
             let built: $TEST_TYPE = description.build();
             built.execute().await.unwrap()

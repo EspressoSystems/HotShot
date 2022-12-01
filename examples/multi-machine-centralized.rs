@@ -1,26 +1,25 @@
+use async_compatibility_layer::{
+    art::{async_main, async_sleep},
+    logging::{setup_backtrace, setup_logging},
+};
 use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::static_committee::{StaticCommittee, StaticElectionConfig},
+        election::{
+            static_committee::{StaticCommittee, StaticElectionConfig},
+            vrf::BlsPubKey,
+        },
         implementations::{CentralizedServerNetwork, MemoryStorage},
         Storage,
     },
-    types::{ed25519::Ed25519Priv, HotShotHandle},
+    types::HotShotHandle,
     HotShot,
 };
 use hotshot_centralized_server::{NetworkConfig, RunResults};
 use hotshot_types::{
-    traits::{
-        metrics::NoMetrics,
-        signature_key::{ed25519::Ed25519Pub, SignatureKey},
-        state::TestableState,
-    },
+    traits::{metrics::NoMetrics, signature_key::SignatureKey, state::TestableState},
     HotShotConfig,
-};
-use hotshot_utils::{
-    art::{async_main, async_sleep},
-    test_util::{setup_backtrace, setup_logging},
 };
 use std::{
     cmp,
@@ -51,7 +50,7 @@ struct NodeOpt {
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
 async fn init_state_and_hotshot(
     networking: CentralizedServerNetwork<DEntryTypes>,
-    config: HotShotConfig<Ed25519Pub, StaticElectionConfig>,
+    config: HotShotConfig<BlsPubKey, StaticElectionConfig>,
     seed: [u8; 32],
     node_id: u64,
 ) -> (DEntryState, HotShotHandle<DEntryTypes, Node>) {
@@ -69,8 +68,7 @@ async fn init_state_and_hotshot(
     let genesis_block = DEntryBlock::genesis_from(accounts);
     let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
-    let priv_key = Ed25519Priv::generated_from_seed_indexed(seed, node_id);
-    let pub_key = Ed25519Pub::from_private(&priv_key);
+    let (pub_key, priv_key) = BlsPubKey::generated_from_seed_indexed(seed, node_id);
     let known_nodes = config.known_nodes.clone();
     let hotshot = HotShot::init(
         pub_key,
@@ -134,7 +132,7 @@ async fn main() {
         key_type_name,
         election_config_type_name,
     } = config;
-    assert_eq!(key_type_name, std::any::type_name::<Ed25519Pub>());
+    assert_eq!(key_type_name, std::any::type_name::<BlsPubKey>());
     assert_eq!(
         election_config_type_name,
         std::any::type_name::<StaticElectionConfig>()

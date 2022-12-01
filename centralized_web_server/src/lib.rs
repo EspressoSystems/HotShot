@@ -1,4 +1,4 @@
-use async_std::sync::RwLock;
+use async_lock::RwLock;
 use clap::Args;
 use futures::FutureExt;
 use std::collections::HashMap;

@@ -4,6 +4,7 @@ pub mod web;
 #[cfg(all(feature = "lossy_network", target_os = "linux"))]
 pub mod lossy_network;
 
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 #[cfg(feature = "async-std-executor")]
 use async_std::prelude::StreamExt;
 #[cfg(feature = "tokio-executor")]
@@ -11,10 +12,9 @@ use tokio_stream::StreamExt;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
+use async_compatibility_layer::art::{async_sleep, async_spawn};
+use async_compatibility_layer::channel::oneshot;
 use clap::{Args, Parser};
-use hotshot_utils::art::{async_sleep, async_spawn};
-use hotshot_utils::channel::oneshot;
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
 use libp2p_networking::network::{
     behaviours::direct_message_codec::DirectMessageResponse, deserialize_msg,

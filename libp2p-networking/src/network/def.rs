@@ -3,7 +3,7 @@ use libp2p::{
     gossipsub::IdentTopic as Topic,
     identify::{Behaviour as IdentifyBehaviour, Event as IdentifyEvent},
     request_response::ResponseChannel,
-    Multiaddr, NetworkBehaviour, PeerId,
+    Multiaddr, PeerId,
 };
 use std::num::NonZeroUsize;
 use tracing::debug;
@@ -18,6 +18,7 @@ use super::{
     },
     NetworkEventInternal,
 };
+use libp2p::NetworkBehaviour;
 
 pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
 

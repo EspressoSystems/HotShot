@@ -1,16 +1,17 @@
 //! Contains the [`Leader`] struct used for the leader step in the hotstuff consensus algorithm.
 
 use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
+use async_compatibility_layer::{
+    art::{async_sleep, async_timeout},
+    async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
+    // subscribable_rwlock::{ReadView, SubscribableRwLock},
+};
 use async_lock::RwLock;
 use commit::Committable;
 use hotshot_types::{
     data::{Leaf, ProposalLeaf, QuorumCertificate},
     message::{ConsensusMessage, Proposal},
     traits::{node_implementation::NodeTypes, signature_key::SignatureKey, Block, State},
-};
-use hotshot_utils::{
-    art::{async_sleep, async_timeout},
-    subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
 use std::{collections::HashSet, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
@@ -138,6 +139,13 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
             break;
         }
 
+        consensus
+            .metrics
+            .proposal_wait_duration
+            .add_point(task_start_time.elapsed().as_secs_f64());
+
+        let proposal_build_start = Instant::now();
+
         if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
             let leaf = Leaf {
                 view_number: self.cur_view,
@@ -152,10 +160,17 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
             let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
             let leaf: ProposalLeaf<TYPES> = leaf.into();
             let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
+            consensus
+                .metrics
+                .proposal_build_duration
+                .add_point(proposal_build_start.elapsed().as_secs_f64());
             info!("Sending out proposal {:?}", message);
 
             if let Err(e) = self.api.send_broadcast_message(message.clone()).await {
+                consensus.metrics.failed_to_send_messages.add(1);
                 warn!(?message, ?e, "Could not broadcast leader proposal");
+            } else {
+                consensus.metrics.outgoing_broadcast_messages.add(1);
             }
         } else {
             error!("Could not append state in high qc for proposal. Failed to send out proposal.");

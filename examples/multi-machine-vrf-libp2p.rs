@@ -1,5 +1,9 @@
 // TODO this should really be moved into the utils crate.
 use ark_bls12_381::Parameters as Param381;
+use async_compatibility_layer::{
+    art::async_main,
+    logging::{setup_backtrace, setup_logging},
+};
 use async_lock::RwLock;
 use blake3::Hasher;
 use clap::Parser;
@@ -7,7 +11,7 @@ use commit::Committable;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::vrf::{VRFPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
+        election::vrf::{JfPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
         implementations::{Libp2pNetwork, MemoryStorage},
         NetworkError, Storage,
     },
@@ -27,10 +31,6 @@ use hotshot_types::{
         state::TestableState,
     },
     ExecutionType, HotShotConfig,
-};
-use hotshot_utils::{
-    art::async_main,
-    test_util::{setup_backtrace, setup_logging},
 };
 use jf_primitives::{
     signatures::{
@@ -61,7 +61,7 @@ use tokio::net::TcpStream;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
-type Key = VRFPubKey<BLSSignatureScheme<Param381>>;
+type Key = JfPubKey<BLSSignatureScheme<Param381>>;
 type FromServer = hotshot_centralized_server::FromServer<Key, VRFStakeTableConfig>;
 type ToServer = hotshot_centralized_server::ToServer<Key>;
 
@@ -394,7 +394,7 @@ pub struct VrfTypes;
 impl NodeTypes for VrfTypes {
     type Time = ViewNumber;
     type BlockType = DEntryBlock;
-    type SignatureKey = VRFPubKey<BLSSignatureScheme<Param381>>;
+    type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
     type VoteTokenType =
         VRFVoteToken<BLSVerKey<ark_bls12_381::Parameters>, BLSSignature<ark_bls12_381::Parameters>>;
     type Transaction = DEntryTransaction;

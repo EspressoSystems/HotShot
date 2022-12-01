@@ -1,13 +1,11 @@
 mod common;
 
 use crate::common::print_connections;
+use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_lock::RwLock;
 use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
-use hotshot_utils::{
-    art::{async_sleep, async_spawn},
-    bincode::bincode_opts,
-};
+use hotshot_utils::bincode::bincode_opts;
 use libp2p_networking::network::{
     get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError,
 };

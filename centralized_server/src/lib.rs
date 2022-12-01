@@ -6,17 +6,17 @@ mod runs;
 
 pub use config::NetworkConfig;
 
+use async_compatibility_layer::{
+    art::{async_spawn, async_timeout},
+    channel::{bounded, OneShotReceiver, OneShotSender, Receiver, Sender},
+};
 use async_trait::async_trait;
 use bincode::Options;
 use clients::Clients;
 use config::ClientConfig;
 use futures::FutureExt as _;
 use hotshot_types::traits::{election::ElectionConfig, signature_key::SignatureKey};
-use hotshot_utils::{
-    art::{async_spawn, async_timeout},
-    bincode::bincode_opts,
-    channel::{bounded, OneShotReceiver, OneShotSender, Receiver, Sender},
-};
+use hotshot_utils::bincode::bincode_opts;
 use runs::RoundConfig;
 use snafu::ResultExt;
 use std::{
@@ -720,7 +720,7 @@ impl Drop for TcpStreamSendUtil {
             #[cfg(feature = "async-std-executor")]
             let _ = self.stream.shutdown(Shutdown::Write);
             #[cfg(feature = "tokio-executor")]
-            let _ = hotshot_utils::art::async_block_on(self.stream.shutdown());
+            let _ = async_compatibility_layer::art::async_block_on(self.stream.shutdown());
             #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
             compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
         }
@@ -760,7 +760,7 @@ impl Drop for TcpStreamUtil {
             #[cfg(feature = "async-std-executor")]
             let _ = self.stream.shutdown(Shutdown::Both);
             #[cfg(feature = "tokio-executor")]
-            let _ = hotshot_utils::art::async_block_on(self.stream.shutdown());
+            let _ = async_compatibility_layer::art::async_block_on(self.stream.shutdown());
             #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
             compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
         }
