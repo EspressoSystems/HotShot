@@ -117,7 +117,7 @@ pub struct ConsensusMetrics {
     pub rejected_transactions: Box<dyn Counter>,
     /// Number of outstanding transactions
     pub outstanding_transactions: Box<dyn Gauge>,
-    /// Memory size of the serialized transactions still outstanding
+    /// Memory size in bytes of the serialized transactions still outstanding
     pub outstanding_transactions_memory_size: Box<dyn Gauge>,
     /// Number of views that timed out
     pub number_of_timeouts: Box<dyn Counter>,
