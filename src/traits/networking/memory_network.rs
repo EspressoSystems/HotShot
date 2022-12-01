@@ -13,6 +13,7 @@ use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
+    data::{LeafType, ProposalType},
     message::Message,
     traits::{
         metrics::{Metrics, NoMetrics},
@@ -55,17 +56,26 @@ impl NetworkReliability for DummyReliability {
 /// This type is responsible for keeping track of the channels to each [`MemoryNetwork`], and is
 /// used to group the [`MemoryNetwork`] instances.
 #[derive(custom_debug::Debug)]
-pub struct MasterMap<TYPES: NodeTypes> {
+pub struct MasterMap<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+> {
     /// The list of `MemoryNetwork`s
     #[debug(skip)]
-    map: DashMap<TYPES::SignatureKey, MemoryNetwork<TYPES>>,
+    map: DashMap<TYPES::SignatureKey, MemoryNetwork<TYPES, LEAF, PROPOSAL>>,
     /// The id of this `MemoryNetwork` cluster
     id: u64,
 }
 
-impl<TYPES: NodeTypes> MasterMap<TYPES> {
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    > MasterMap<TYPES, LEAF, PROPOSAL>
+{
     /// Create a new, empty, `MasterMap`
-    pub fn new() -> Arc<MasterMap<TYPES>> {
+    pub fn new() -> Arc<MasterMap<TYPES, LEAF, PROPOSAL>> {
         Arc::new(MasterMap {
             map: DashMap::new(),
             id: rand::thread_rng().gen(),
@@ -82,7 +92,11 @@ enum Combo<T> {
 }
 
 /// Internal state for a `MemoryNetwork` instance
-struct MemoryNetworkInner<TYPES: NodeTypes> {
+struct MemoryNetworkInner<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+> {
     /// The public key of this node
     #[allow(dead_code)]
     pub_key: TYPES::SignatureKey,
@@ -95,7 +109,7 @@ struct MemoryNetworkInner<TYPES: NodeTypes> {
     /// Output for direct messages
     direct_output: Mutex<Receiver<Message<TYPES, LEAF, PROPOSAL>>>,
     /// The master map
-    master_map: Arc<MasterMap<TYPES>>,
+    master_map: Arc<MasterMap<TYPES, LEAF, PROPOSAL>>,
 
     /// Input for network change messages
     network_changes_input: RwLock<Option<Sender<NetworkChange<TYPES::SignatureKey>>>>,
@@ -117,12 +131,21 @@ struct MemoryNetworkInner<TYPES: NodeTypes> {
 /// Under the hood, this simply maintains mpmc channels to every other `MemoryNetwork` insane of the
 /// same group.
 #[derive(Clone)]
-pub struct MemoryNetwork<TYPES: NodeTypes> {
+pub struct MemoryNetwork<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+> {
     /// The actual internal state
-    inner: Arc<MemoryNetworkInner<TYPES>>,
+    inner: Arc<MemoryNetworkInner<TYPES, LEAF, PROPOSAL>>,
 }
 
-impl<TYPES: NodeTypes> Debug for MemoryNetwork<TYPES> {
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    > Debug for MemoryNetwork<TYPES, LEAF, PROPOSAL>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MemoryNetwork")
             .field("inner", &"inner")
@@ -130,15 +153,20 @@ impl<TYPES: NodeTypes> Debug for MemoryNetwork<TYPES> {
     }
 }
 
-impl<TYPES: NodeTypes> MemoryNetwork<TYPES> {
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    > MemoryNetwork<TYPES, LEAF, PROPOSAL>
+{
     /// Creates a new `MemoryNetwork` and hooks it up to the group through the provided `MasterMap`
     #[instrument(skip(metrics))]
     pub fn new(
         pub_key: TYPES::SignatureKey,
         metrics: Box<dyn Metrics>,
-        master_map: Arc<MasterMap<TYPES>>,
+        master_map: Arc<MasterMap<TYPES, LEAF, PROPOSAL>>,
         reliability_config: Option<Arc<dyn 'static + NetworkReliability>>,
-    ) -> MemoryNetwork<TYPES> {
+    ) -> MemoryNetwork<TYPES, LEAF, PROPOSAL> {
         info!("Attaching new MemoryNetwork");
         let (broadcast_input, broadcast_task_recv) = bounded(128);
         let (direct_input, direct_task_recv) = bounded(128);
@@ -314,7 +342,12 @@ impl<TYPES: NodeTypes> MemoryNetwork<TYPES> {
     }
 }
 
-impl<TYPES: NodeTypes> TestableNetworkingImplementation<TYPES> for MemoryNetwork<TYPES>
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>
+    for MemoryNetwork<TYPES, LEAF, PROPOSAL>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -336,9 +369,17 @@ where
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> {
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    > NetworkingImplementation<TYPES, LEAF, PROPOSAL> for MemoryNetwork<TYPES, LEAF, PROPOSAL>
+{
     #[instrument(name = "MemoryNetwork::broadcast_message")]
-    async fn broadcast_message(&self, message: Message<TYPES, LEAF, PROPOSAL>) -> Result<(), NetworkError> {
+    async fn broadcast_message(
+        &self,
+        message: Message<TYPES, LEAF, PROPOSAL>,
+    ) -> Result<(), NetworkError> {
         debug!(?message, "Broadcasting message");
         // Bincode the message
         let vec = bincode_opts()

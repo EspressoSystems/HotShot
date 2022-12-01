@@ -40,7 +40,7 @@ pub mod types;
 mod tasks;
 
 use crate::{
-    data::{QuorumCertificate},
+    data::QuorumCertificate,
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };
@@ -53,7 +53,7 @@ use hotshot_consensus::{
 };
 use hotshot_types::{
     constants::genesis_proposer_id,
-    data::{fake_commitment, LeafType, ValidatingLeaf, DALeaf, ProposalType},
+    data::{fake_commitment, DALeaf, LeafType, ProposalType, ValidatingLeaf},
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
@@ -65,7 +65,7 @@ use hotshot_types::{
         network::{NetworkChange, NetworkError},
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        state::ConsensusTime,
+        state::{ConsensusTime, ValidatingConsensus},
         storage::{StoredView, ViewEntry},
         State,
     },
@@ -161,9 +161,7 @@ pub struct HotShot<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     id: u64,
 }
 
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = TYPES>>
-    HotShot<TYPES, I>
-{
+impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_arguments)]
@@ -197,14 +195,14 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
         // insert to storage
         inner
             .storage
-            .append(vec![ViewEntry::Success(anchored_leaf.clone().into())])
+            .append(vec![anchored_leaf.clone().into()])
             .await
             .context(StorageSnafu)?;
 
         // insert genesis (or latest block) to state map
         let mut state_map = BTreeMap::default();
         state_map.insert(
-            anchored_leaf.view_number,
+            anchored_leaf.get_view_number(),
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
@@ -215,18 +213,18 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
         let mut saved_leaves = HashMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
 
-        let start_view = anchored_leaf.view_number;
+        let start_view = anchored_leaf.get_view_number();
 
         let hotstuff = Consensus {
             state_map,
             cur_view: start_view,
-            last_decided_view: anchored_leaf.view_number,
+            last_decided_view: anchored_leaf.get_view_number(),
             transactions: Arc::default(),
             saved_leaves,
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
-            locked_view: anchored_leaf.view_number,
-            high_qc: anchored_leaf.justify_qc,
+            locked_view: anchored_leaf.get_view_number(),
+            high_qc: anchored_leaf.get_justify_qc(),
 
             metrics: Arc::new(ConsensusMetrics::new(
                 inner.metrics.subgroup("consensus".to_string()),
@@ -266,7 +264,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
         send_replica: UnboundedSender<ConsensusMessage<TYPES, I::Leaf, I::Proposal>>,
         send_next_leader: Option<UnboundedSender<ConsensusMessage<TYPES, I::Leaf, I::Proposal>>>,
     ) {
-        let msg = ConsensusMessage::<TYPES>::NextViewInterrupt(current_view);
+        let msg = ConsensusMessage::<TYPES, I::Leaf, I::Proposal>::NextViewInterrupt(current_view);
         if let Some(chan) = send_next_leader {
             if chan.send(msg.clone()).await.is_err() {
                 warn!("Error timing out next leader task");
@@ -305,14 +303,14 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
     /// # Panics
     ///
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_state(&self) -> TYPES::StateType {
-        self.hotstuff.read().await.get_decided_leaf().state
+    pub async fn get_state(&self) -> <I::Leaf as LeafType>::StateCommitmentType {
+        self.hotstuff.read().await.get_decided_leaf().get_state()
     }
 
     /// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_decided_leaf(&self) -> LEAF {
+    pub async fn get_decided_leaf(&self) -> I::Leaf {
         self.hotstuff.read().await.get_decided_leaf()
     }
 
@@ -443,7 +441,8 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
                     return;
                 }
 
-                let chan = create_or_obtain_chan_from_read(msg_time, channel_map).await;
+                let chan: ViewQueue<TYPES, I::Leaf, I::Proposal> =
+                    create_or_obtain_chan_from_read(msg_time, channel_map).await;
 
                 if !chan.has_received_proposal.swap(true, Ordering::Relaxed)
                     && chan.sender_chan.send(msg).await.is_err()
@@ -610,17 +609,24 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, LEAF: LeafType<NodeType = T
 
 /// given a view number and a upgradable read lock on a channel map, inserts entry into map if it
 /// doesn't exist, or creates entry. Then returns a clone of the entry
-pub async fn create_or_obtain_chan_from_read<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES>>(
+pub async fn create_or_obtain_chan_from_read<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+>(
     view_num: TYPES::Time,
     channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<TYPES, LEAF, PROPOSAL>>,
-) -> ViewQueue<TYPES> {
+) -> ViewQueue<TYPES, LEAF, PROPOSAL> {
     // check if we have the entry
     // if we don't, insert
     if let Some(vq) = channel_map.channel_map.get(&view_num) {
         vq.clone()
     } else {
         let mut channel_map =
-            RwLockUpgradableReadGuard::<'_, SendToTasks<TYPES>>::upgrade(channel_map).await;
+            RwLockUpgradableReadGuard::<'_, SendToTasks<TYPES, LEAF, PROPOSAL>>::upgrade(
+                channel_map,
+            )
+            .await;
         let new_view_queue = ViewQueue::default();
         let vq = new_view_queue.clone();
         // NOTE: the read lock is held until all other read locks are DROPPED and
@@ -635,10 +641,14 @@ pub async fn create_or_obtain_chan_from_read<TYPES: NodeTypes, LEAF: LeafType<No
 
 /// given a view number and a write lock on a channel map, inserts entry into map if it
 /// doesn't exist, or creates entry. Then returns a clone of the entry
-pub async fn create_or_obtain_chan_from_write<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES>>(
+pub async fn create_or_obtain_chan_from_write<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+>(
     view_num: TYPES::Time,
     mut channel_map: RwLockWriteGuard<'_, SendToTasks<TYPES, LEAF, PROPOSAL>>,
-) -> ViewQueue<TYPES> {
+) -> ViewQueue<TYPES, LEAF, PROPOSAL> {
     channel_map.channel_map.entry(view_num).or_default().clone()
 }
 

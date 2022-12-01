@@ -9,6 +9,7 @@ use hotshot_types::{
     traits::{
         network::NetworkingImplementation,
         node_implementation::{NodeImplementation, NodeTypes},
+        state::ValidatingConsensus,
     },
     ExecutionType,
 };
@@ -274,43 +275,45 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
 
     let mut task_handles = Vec::new();
 
-    // replica always runs? TODO this will change once vrf integration is added
-    let replica = Replica {
-        id: hotshot.id,
-        consensus: hotshot.hotstuff.clone(),
-        proposal_collection_chan: recv_replica,
-        cur_view,
-        high_qc: high_qc.clone(),
-        api: c_api.clone(),
-    };
-    let replica_handle = async_spawn(async move { replica.run_view().await });
-    task_handles.push(replica_handle);
+    // TODO (da) add tasks for either validating participants (replica and consensus leader), or DA
+    // participants (DA committee member and DA leader), depending on the consensus type.
+    // // replica always runs? TODO this will change once vrf integration is added
+    // let replica = Replica {
+    //     id: hotshot.id,
+    //     consensus: hotshot.hotstuff.clone(),
+    //     proposal_collection_chan: recv_replica,
+    //     cur_view,
+    //     high_qc: high_qc.clone(),
+    //     api: c_api.clone(),
+    // };
+    // let replica_handle = async_spawn(async move { replica.run_view().await });
+    // task_handles.push(replica_handle);
 
-    if c_api.is_leader(cur_view).await {
-        let leader = Leader {
-            id: hotshot.id,
-            consensus: hotshot.hotstuff.clone(),
-            high_qc: high_qc.clone(),
-            cur_view,
-            transactions: txns,
-            api: c_api.clone(),
-        };
-        let leader_handle = async_spawn(async move { leader.run_view().await });
-        task_handles.push(leader_handle);
-    }
+    // if c_api.is_leader(cur_view).await {
+    //     let leader = Leader {
+    //         id: hotshot.id,
+    //         consensus: hotshot.hotstuff.clone(),
+    //         high_qc: high_qc.clone(),
+    //         cur_view,
+    //         transactions: txns,
+    //         api: c_api.clone(),
+    //     };
+    //     let leader_handle = async_spawn(async move { leader.run_view().await });
+    //     task_handles.push(leader_handle);
+    // }
 
-    if c_api.is_leader(cur_view + 1).await {
-        let next_leader = NextLeader {
-            id: hotshot.id,
-            generic_qc: high_qc,
-            // should be fine to unwrap here since the view numbers must be the same
-            vote_collection_chan: recv_next_leader.unwrap(),
-            cur_view,
-            api: c_api.clone(),
-        };
-        let next_leader_handle = async_spawn(async move { next_leader.run_view().await });
-        task_handles.push(next_leader_handle);
-    }
+    // if c_api.is_leader(cur_view + 1).await {
+    //     let next_leader = NextLeader {
+    //         id: hotshot.id,
+    //         generic_qc: high_qc,
+    //         // should be fine to unwrap here since the view numbers must be the same
+    //         vote_collection_chan: recv_next_leader.unwrap(),
+    //         cur_view,
+    //         api: c_api.clone(),
+    //     };
+    //     let next_leader_handle = async_spawn(async move { next_leader.run_view().await });
+    //     task_handles.push(next_leader_handle);
+    // }
 
     let children_finished = futures::future::join_all(task_handles);
 

@@ -19,7 +19,7 @@ where
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     pub(super) network: Generator<I::Networking>,
     pub(super) storage: Generator<I::Storage>,
@@ -33,7 +33,7 @@ where
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
@@ -82,7 +82,7 @@ where
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_network(
@@ -157,7 +157,7 @@ where
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///

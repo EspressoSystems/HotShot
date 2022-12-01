@@ -9,6 +9,7 @@ use crate::{
 use async_trait::async_trait;
 use commit::Commitment;
 use derivative::Derivative;
+use either::Either;
 use snafu::Snafu;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -112,6 +113,23 @@ where
     }
 }
 
+impl<TYPES, LEAF> From<LEAF> for ViewEntry<TYPES, LEAF>
+where
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+{
+    fn from(leaf: LEAF) -> Self {
+        Self::Success(StoredView::from_qc_block_and_state(
+            leaf.get_justify_qc(),
+            leaf.get_deltas(),
+            leaf.get_state(),
+            leaf.get_parent_commitment(),
+            leaf.get_rejected(),
+            leaf.get_proposer_id(),
+        ))
+    }
+}
+
 /// A view stored in the [`Storage`]
 #[derive(Clone, Debug, Derivative)]
 #[derivative(PartialEq)]
@@ -119,11 +137,11 @@ pub struct StoredView<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
     /// The view number of this view
     pub view_number: TYPES::Time,
     /// The parent of this view
-    pub parent: Commitment<ValidatingLeaf<TYPES>>,
+    pub parent: Commitment<LEAF>,
     /// The justify QC of this view. See the hotstuff paper for more information on this.
     pub justify_qc: QuorumCertificate<TYPES, LEAF>,
     /// The state of this view
-    pub state: TYPES::StateType,
+    pub state: LEAF::StateCommitmentType,
     /// The history of how this view came to be
     pub append: ViewAppend<TYPES::BlockType>,
     /// transactions rejected in this view
@@ -147,8 +165,8 @@ where
     pub fn from_qc_block_and_state(
         qc: QuorumCertificate<TYPES, LEAF>,
         block: TYPES::BlockType,
-        state: TYPES::StateType,
-        parent_commitment: Commitment<ValidatingLeaf<TYPES>>,
+        state: LEAF::StateCommitmentType,
+        parent_commitment: Commitment<LEAF>,
         rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
         proposer_id: EncodedPublicKey,
     ) -> Self {

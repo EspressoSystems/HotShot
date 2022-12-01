@@ -314,10 +314,22 @@ pub trait LeafType:
     + std::hash::Hash
 {
     type NodeType: NodeTypes;
+    type StateCommitmentType: Debug + PartialEq + Send + Sync;
 
     fn get_view_number(&self) -> <Self::NodeType as NodeTypes>::Time;
 
+    fn get_justify_qc(&self) -> QuorumCertificate<Self::NodeType, Self>;
+
     fn get_parent_commitment(&self) -> Commitment<Self>;
+
+    fn get_deltas(&self) -> <Self::NodeType as NodeTypes>::BlockType;
+
+    fn get_state(&self) -> Self::StateCommitmentType;
+
+    fn get_rejected(&self)
+        -> Vec<<<Self::NodeType as NodeTypes>::BlockType as Block>::Transaction>;
+
+    fn get_proposer_id(&self) -> EncodedPublicKey;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -355,30 +367,6 @@ pub struct ValidatingLeaf<TYPES: NodeTypes> {
     pub proposer_id: EncodedPublicKey,
 }
 
-impl<TYPES: NodeTypes> LeafType for ValidatingLeaf<TYPES> {
-    type NodeType = TYPES;
-
-    fn get_view_number(&self) -> <Self::NodeType as NodeTypes>::Time {
-        self.view_number
-    }
-
-    fn get_parent_commitment(&self) -> Commitment<Self> {
-        self.parent_commitment
-    }
-}
-
-impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
-    type NodeType = TYPES;
-
-    fn get_view_number(&self) -> <Self::NodeType as NodeTypes>::Time {
-        self.view_number
-    }
-
-    fn get_parent_commitment(&self) -> Commitment<Self> {
-        self.parent_commitment
-    }
-}
-
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
@@ -413,6 +401,72 @@ pub struct DALeaf<TYPES: NodeTypes> {
     /// the proposer id of the leaf
     #[derivative(PartialEq = "ignore")]
     pub proposer_id: EncodedPublicKey,
+}
+
+impl<TYPES: NodeTypes> LeafType for ValidatingLeaf<TYPES> {
+    type NodeType = TYPES;
+    type StateCommitmentType = TYPES::StateType;
+
+    fn get_view_number(&self) -> TYPES::Time {
+        self.view_number
+    }
+
+    fn get_justify_qc(&self) -> QuorumCertificate<TYPES, Self> {
+        self.justify_qc.clone()
+    }
+
+    fn get_parent_commitment(&self) -> Commitment<Self> {
+        self.parent_commitment
+    }
+
+    fn get_deltas(&self) -> TYPES::BlockType {
+        self.deltas.clone()
+    }
+
+    fn get_state(&self) -> Self::StateCommitmentType {
+        self.state.clone()
+    }
+
+    fn get_rejected(&self) -> Vec<<TYPES::BlockType as Block>::Transaction> {
+        self.rejected.clone()
+    }
+
+    fn get_proposer_id(&self) -> EncodedPublicKey {
+        self.proposer_id.clone()
+    }
+}
+
+impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
+    type NodeType = TYPES;
+    type StateCommitmentType = Either<TYPES::StateType, Commitment<TYPES::StateType>>;
+
+    fn get_view_number(&self) -> TYPES::Time {
+        self.view_number
+    }
+
+    fn get_justify_qc(&self) -> QuorumCertificate<TYPES, Self> {
+        self.justify_qc.clone()
+    }
+
+    fn get_parent_commitment(&self) -> Commitment<Self> {
+        self.parent_commitment
+    }
+
+    fn get_deltas(&self) -> TYPES::BlockType {
+        self.deltas.clone()
+    }
+
+    fn get_state(&self) -> Self::StateCommitmentType {
+        self.state.clone()
+    }
+
+    fn get_rejected(&self) -> Vec<<TYPES::BlockType as Block>::Transaction> {
+        self.rejected.clone()
+    }
+
+    fn get_proposer_id(&self) -> EncodedPublicKey {
+        self.proposer_id.clone()
+    }
 }
 
 /// Kake the thing a genesis block points to. Needed to avoid infinite recursion

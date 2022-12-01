@@ -114,7 +114,7 @@ where
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     pub general_info: GeneralTestDescriptionBuilder,
 
@@ -131,7 +131,7 @@ where
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<TYPES, I> {
@@ -200,7 +200,7 @@ impl GeneralTestDescriptionBuilder {
         TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
         TYPES::SignatureKey: TestableSignatureKey,
         I::Networking: TestableNetworkingImplementation<TYPES>,
-        I::Storage: TestableStorage<TYPES>,
+        I::Storage: TestableStorage<TYPES, LEAF>,
     {
         DetailedTestDescriptionBuilder {
             general_info: self,
@@ -218,7 +218,7 @@ where
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     pub fn build(self) -> TestDescription<TYPES, I> {
         let timing_config = TimingData {
@@ -258,7 +258,7 @@ where
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     /// TODO unneeded (should be sufficient to have gen runner)
     /// the ronds to run for the test
@@ -388,7 +388,7 @@ pub type StaticNodeImplType = TestNodeImpl<
 pub type AppliedTestRunner<TYPES, ELECTION> =
     TestRunner<TYPES, AppliedTestNodeImpl<TYPES, ELECTION>>;
 pub type AppliedTestNodeImpl<TYPES, ELECTION> =
-    TestNodeImpl<TYPES, MemoryNetwork<TYPES>, MemoryStorage<TYPES>, ELECTION>;
+    TestNodeImpl<TYPES, MemoryNetwork<TYPES, LEAF, PROPOSAL>, MemoryStorage<TYPES, LEAF>, ELECTION>;
 
 // FIXME THIS is why we need to split up metadat and anonymous functions
 impl Default for GeneralTestDescriptionBuilder {
@@ -431,7 +431,7 @@ where
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     // make sure the lengths match so zip doesn't spit out none
     if shut_down_ids.len() < submitter_ids.len() {
@@ -490,7 +490,7 @@ where
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
 
@@ -528,7 +528,7 @@ where
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     /// create rounds of consensus based on the data in `self`
     pub fn default_populate_rounds(&self) -> Vec<Round<TYPES, I>> {

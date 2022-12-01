@@ -4,10 +4,13 @@
 
 use async_lock::RwLock;
 use async_trait::async_trait;
-use hotshot_types::traits::{
-    node_implementation::NodeTypes,
-    storage::{
-        Result, Storage, StorageError, StorageState, StoredView, TestableStorage, ViewEntry,
+use hotshot_types::{
+    data::LeafType,
+    traits::{
+        node_implementation::NodeTypes,
+        storage::{
+            Result, Storage, StorageError, StorageState, StoredView, TestableStorage, ViewEntry,
+        },
     },
 };
 use std::{
@@ -16,22 +19,22 @@ use std::{
 };
 
 /// Internal state for a [`MemoryStorage`]
-struct MemoryStorageInternal<TYPES: NodeTypes> {
+struct MemoryStorageInternal<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
     /// The views that have been stored
-    stored: BTreeMap<TYPES::Time, StoredView<TYPES>>,
+    stored: BTreeMap<TYPES::Time, StoredView<TYPES, LEAF>>,
     /// The views that have failed
     failed: BTreeSet<TYPES::Time>,
 }
 
 /// In memory, ephemeral, storage for a [`HotShot`](crate::HotShot) instance
 #[derive(Clone)]
-pub struct MemoryStorage<TYPES: NodeTypes> {
+pub struct MemoryStorage<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
     /// The inner state of this [`MemoryStorage`]
-    inner: Arc<RwLock<MemoryStorageInternal<TYPES>>>,
+    inner: Arc<RwLock<MemoryStorageInternal<TYPES, LEAF>>>,
 }
 
 #[allow(clippy::new_without_default)]
-impl<TYPES: NodeTypes> MemoryStorage<TYPES> {
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> MemoryStorage<TYPES, LEAF> {
     /// Create a new instance of the memory storage with the given block and state
     /// NOTE: left as `new` because this API is not stable
     /// we may add arguments to new in the future
@@ -47,12 +50,14 @@ impl<TYPES: NodeTypes> MemoryStorage<TYPES> {
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes> TestableStorage<TYPES> for MemoryStorage<TYPES> {
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> TestableStorage<TYPES, LEAF>
+    for MemoryStorage<TYPES, LEAF>
+{
     fn construct_tmp_storage() -> Result<Self> {
         Ok(Self::new())
     }
 
-    async fn get_full_state(&self) -> StorageState<TYPES> {
+    async fn get_full_state(&self) -> StorageState<TYPES, LEAF> {
         let inner = self.inner.read().await;
         StorageState {
             stored: inner.stored.clone(),
@@ -62,8 +67,10 @@ impl<TYPES: NodeTypes> TestableStorage<TYPES> for MemoryStorage<TYPES> {
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes> Storage<TYPES> for MemoryStorage<TYPES> {
-    async fn append(&self, views: Vec<ViewEntry<TYPES>>) -> Result {
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> Storage<TYPES, LEAF>
+    for MemoryStorage<TYPES, LEAF>
+{
+    async fn append(&self, views: Vec<ViewEntry<TYPES, LEAF>>) -> Result {
         let mut inner = self.inner.write().await;
         for view in views {
             match view {
@@ -93,7 +100,7 @@ impl<TYPES: NodeTypes> Storage<TYPES> for MemoryStorage<TYPES> {
         Ok(old_stored.len() + old_failed.len())
     }
 
-    async fn get_anchored_view(&self) -> Result<StoredView<TYPES>> {
+    async fn get_anchored_view(&self) -> Result<StoredView<TYPES, LEAF>> {
         let inner = self.inner.read().await;
         let last = inner
             .stored

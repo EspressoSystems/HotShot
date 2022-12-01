@@ -18,6 +18,7 @@ use hotshot_centralized_server::{
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToServer,
 };
 use hotshot_types::{
+    data::{LeafType, ProposalType},
     message::Message,
     traits::{
         metrics::{Metrics, NoMetrics},
@@ -27,7 +28,7 @@ use hotshot_types::{
         },
         node_implementation::NodeTypes,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
-    }, data::{LeafType, ProposalType},
+    },
 };
 use hotshot_utils::{
     art::{async_block_on, async_sleep, async_spawn, split_stream},
@@ -1043,7 +1044,12 @@ impl From<hotshot_centralized_server::Error> for Error {
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES>> NetworkingImplementation<TYPES, LEAF, PROPOSAL> for CentralizedServerNetwork<TYPES> {
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    > NetworkingImplementation<TYPES, LEAF, PROPOSAL> for CentralizedServerNetwork<TYPES>
+{
     async fn ready(&self) -> bool {
         while !self.inner.connected.load(Ordering::Relaxed) {
             async_sleep(Duration::from_secs(1)).await;
@@ -1051,7 +1057,10 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<
         true
     }
 
-    async fn broadcast_message(&self, message: Message<TYPES, LEAF, PROPOSAL>) -> Result<(), NetworkError> {
+    async fn broadcast_message(
+        &self,
+        message: Message<TYPES, LEAF, PROPOSAL>,
+    ) -> Result<(), NetworkError> {
         self.inner
             .broadcast(
                 bincode_opts()
@@ -1142,7 +1151,11 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<
     }
 }
 
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES>> TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL> for CentralizedServerNetwork<TYPES>
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL> for CentralizedServerNetwork<TYPES>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {

@@ -18,12 +18,15 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use hotshot_types::{
     constants::genesis_proposer_id,
-    data::{random_commitment, QuorumCertificate, ViewNumber, ValidatingProposal, ValidatingLeaf, LeafType},
+    data::{
+        random_commitment, LeafType, QuorumCertificate, ValidatingLeaf, ValidatingProposal,
+        ViewNumber,
+    },
     traits::{
         block_contents::Transaction,
         election::Election,
         node_implementation::{ApplicationMetadata, NodeTypes},
-        state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensusType, ValidatingConsensus},
+        state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
         State,
     },
 };
@@ -514,12 +517,11 @@ where
     NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
     ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>;
 
-
 impl<TYPES, NET, ELE> DEntryNode<TYPES, NET, ELE>
 where
     TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
     NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
-    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>
+    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 {
     /// Create a new `DEntryNode`
     pub fn new() -> Self {
@@ -531,7 +533,7 @@ impl<TYPES, NET, ELE> Debug for DEntryNode<TYPES, NET, ELE>
 where
     TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
     NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
-    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>
+    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DEntryNode")
@@ -544,7 +546,7 @@ impl<TYPES, NET, ELE> Default for DEntryNode<TYPES, NET, ELE>
 where
     TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
     NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
-    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>
+    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 {
     fn default() -> Self {
         Self::new()
@@ -555,11 +557,13 @@ impl<TYPES, NET, ELE> NodeImplementation<TYPES> for DEntryNode<TYPES, NET, ELE>
 where
     TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
     NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
-    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>
+    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 {
-    type Storage = MemoryStorage<TYPES>;
+    type Leaf = ValidatingLeaf<TYPES>;
+    type Storage = MemoryStorage<TYPES, ELE::LeafType>;
     type Networking = NET;
     type Election = ELE;
+    type Proposal = ValidatingProposal<TYPES, ELE>;
 }
 
 /// Provides a random [`QuorumCertificate`]

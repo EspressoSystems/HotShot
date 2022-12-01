@@ -95,7 +95,7 @@ where
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     fn default() -> Self {
         Self {
@@ -132,7 +132,7 @@ where
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
@@ -365,7 +365,7 @@ where
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
@@ -435,7 +435,7 @@ where
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Storage: TestableStorage<TYPES, LEAF>,
 {
     /// Add a random transaction to this runner.
     pub async fn add_random_transaction(
@@ -587,7 +587,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     NETWORK: TestableNetworkingImplementation<TYPES>,
     ELECTION: Election<TYPES>,
-    STORAGE: TestableStorage<TYPES>,
+    STORAGE: TestableStorage<TYPES, LEAF>,
 {
 }
 

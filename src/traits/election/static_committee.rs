@@ -14,7 +14,7 @@ use super::vrf::JfPubKey;
 
 /// Dummy implementation of [`Election`]
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GeneralStaticCommittee<S, PUBKEY: SignatureKey> {
     /// The nodes participating
     nodes: Vec<PUBKEY>,

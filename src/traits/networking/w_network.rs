@@ -24,6 +24,7 @@ use bincode::Options;
 use dashmap::DashMap;
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use hotshot_types::{
+    data::{LeafType, ProposalType},
     message::Message as HotShotMessage,
     traits::{
         network::{NetworkChange, TestableNetworkingImplementation},
@@ -62,7 +63,11 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 #[serde(bound(deserialize = ""))]
 /// Inter-node protocol level message types
-pub enum Command<TYPES: NodeTypes> {
+pub enum Command<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+> {
     /// A message that was broadcast to all nodes
     Broadcast {
         /// Message being sent
@@ -104,7 +109,12 @@ pub enum Command<TYPES: NodeTypes> {
     },
 }
 
-impl<TYPES: NodeTypes> Command<TYPES> {
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    > Command<TYPES, LEAF, PROPOSAL>
+{
     /// Returns the id of this `Command`
     pub fn id(&self) -> u64 {
         match self {
@@ -119,9 +129,13 @@ impl<TYPES: NodeTypes> Command<TYPES> {
 
 /// The handle used for interacting with a [`WNetwork`] connection
 #[derive(Clone)]
-struct Handle<TYPES: NodeTypes> {
+struct Handle<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+> {
     /// Messages to be sent by this node
-    outbound: Sender<Command<TYPES>>,
+    outbound: Sender<Command<TYPES, LEAF, PROPOSAL>>,
     /// The address of the remote
     remote_socket: SocketAddr,
     /// Indicate that the handle should be closed
@@ -131,11 +145,15 @@ struct Handle<TYPES: NodeTypes> {
 }
 
 /// The inner shared state of a [`WNetwork`] instance
-struct WNetworkInner<TYPES: NodeTypes> {
+struct WNetworkInner<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+> {
     /// Whether or not the network is connected
     is_ready: Arc<AtomicBool>,
     /// The handles for each known public [`SignatureKey`]
-    handles: DashMap<TYPES::SignatureKey, Handle<TYPES>>,
+    handles: DashMap<TYPES::SignatureKey, Handle<TYPES, LEAF, PROPOSAL>>,
     /// The public [`SignatureKey`] of this node
     pub_key: TYPES::SignatureKey,
     /// The global message counter
@@ -187,29 +205,46 @@ struct Outputs<T> {
 }
 
 /// Internal enum for combining message and command streams
-enum Combo<TYPES: NodeTypes> {
+enum Combo<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+> {
     /// Inbound message
     Message(Message),
     /// Outbound command
-    Command(Command<TYPES>),
+    Command(Command<TYPES, LEAF, PROPOSAL>),
     /// Error
     Error(WsError),
 }
 
 #[derive(Clone)]
 /// Handle to the underlying networking implementation
-pub struct WNetwork<TYPES: NodeTypes> {
+pub struct WNetwork<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+> {
     /// Pointer to the internal state of this [`WNetwork`]
-    inner: Arc<WNetworkInner<TYPES>>,
+    inner: Arc<WNetworkInner<TYPES, LEAF, PROPOSAL>>,
 }
 
-impl<TYPES: NodeTypes> Debug for WNetwork<TYPES> {
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    > Debug for WNetwork<TYPES, LEAF, PROPOSAL>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WNetwork").field("inner", &"inner").finish()
     }
 }
 
-impl<TYPES: NodeTypes> TestableNetworkingImplementation<TYPES> for WNetwork<TYPES>
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL> for WNetwork<TYPES, LEAF, PROPOSAL>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -266,14 +301,19 @@ where
     }
 }
 
-impl<TYPES: NodeTypes> WNetwork<TYPES> {
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    > WNetwork<TYPES, LEAF, PROPOSAL>
+{
     /// Processes an individual `Command`
     #[instrument(name = "WNetworking::process_command", skip(self, inputs))]
     async fn process_command(
         &self,
-        command: Command<TYPES>,
+        command: Command<TYPES, LEAF, PROPOSAL>,
         inputs: &Inputs<HotShotMessage<TYPES, LEAF, PROPOSAL>>,
-    ) -> Result<Option<Command<TYPES>>, NetworkError> {
+    ) -> Result<Option<Command<TYPES, LEAF, PROPOSAL>>, NetworkError> {
         trace!("Processing command");
         match command {
             Command::Broadcast { inner, .. } => {
@@ -324,7 +364,7 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
         key: Option<TYPES::SignatureKey>,
         mut stream: WebSocketStream<TcpStream>,
         remote_socket: SocketAddr,
-    ) -> Result<(TYPES::SignatureKey, Handle<TYPES>), NetworkError> {
+    ) -> Result<(TYPES::SignatureKey, Handle<TYPES, LEAF, PROPOSAL>), NetworkError> {
         info!("Spawning task to handle connection");
         let (s_outbound, r_outbound) = bounded(128);
         trace!("Opened channels");
@@ -404,7 +444,7 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
                         match m {
                             Message::Binary(vec) => {
                                 trace!(?vec, "Attempting to decode binary message");
-                                let res: Result<Command<TYPES>, _> = bincode_opts().deserialize(&vec);
+                                let res: Result<Command<TYPES,LEAF,PROPOSAL>, _> = bincode_opts().deserialize(&vec);
                                 match res {
                                     Ok(command) => {
                                         match w.process_command(command, &inputs).await {
@@ -584,7 +624,7 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
     async fn send_raw_message(
         &self,
         node: &TYPES::SignatureKey,
-        message: Command<TYPES>,
+        message: Command<TYPES, LEAF, PROPOSAL>,
     ) -> Result<(), NetworkError> {
         let handle = &self.inner.handles.get(node);
         if let Some(handle) = handle {
@@ -711,8 +751,10 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
                             match ws_stream {
                                 Ok(ws_stream) => {
                                     trace!(?addr, "stream accepted");
-                                    let res: Result<(TYPES::SignatureKey, Handle<TYPES>), _> =
-                                        w.spawn_task(None, ws_stream, addr).await;
+                                    let res: Result<
+                                        (TYPES::SignatureKey, Handle<TYPES, LEAF, PROPOSAL>),
+                                        _,
+                                    > = w.spawn_task(None, ws_stream, addr).await;
                                     match res {
                                         Ok((pub_key, handle)) => {
                                             trace!(?addr, "Spawned task for stream");
@@ -813,7 +855,11 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
     }
     /// Pings a remote, removing the remote from the handles table if the ping fails
     #[instrument(skip(self, handle))]
-    async fn ping_remote(&self, remote: TYPES::SignatureKey, handle: Handle<TYPES>) {
+    async fn ping_remote(
+        &self,
+        remote: TYPES::SignatureKey,
+        handle: Handle<TYPES, LEAF, PROPOSAL>,
+    ) {
         let _ = &handle;
         trace!("Packing up ping command");
         let id = self.get_next_message_id();
@@ -853,7 +899,12 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    > NetworkingImplementation<TYPES, LEAF, PROPOSAL> for WNetwork<TYPES, LEAF, PROPOSAL>
+{
     #[instrument(name = "WNetwork::ready")]
     async fn ready(&self) -> bool {
         while !self.inner.is_ready.load(Ordering::Relaxed) {
@@ -947,7 +998,9 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     }
 
     #[instrument(name = "WNetwork::broadcast_queue")]
-    async fn broadcast_queue(&self) -> Result<Vec<HotShotMessage<TYPES, LEAF, PROPOSAL>>, super::NetworkError> {
+    async fn broadcast_queue(
+        &self,
+    ) -> Result<Vec<HotShotMessage<TYPES, LEAF, PROPOSAL>>, super::NetworkError> {
         self.inner
             .outputs
             .broadcast
@@ -959,7 +1012,9 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     }
 
     #[instrument(name = "WNetwork::next_broadcast")]
-    async fn next_broadcast(&self) -> Result<HotShotMessage<TYPES, LEAF, PROPOSAL>, super::NetworkError> {
+    async fn next_broadcast(
+        &self,
+    ) -> Result<HotShotMessage<TYPES, LEAF, PROPOSAL>, super::NetworkError> {
         self.inner
             .outputs
             .broadcast
@@ -971,7 +1026,9 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     }
 
     #[instrument(name = "WNetwork::direct_queue")]
-    async fn direct_queue(&self) -> Result<Vec<HotShotMessage<TYPES, LEAF, PROPOSAL>>, super::NetworkError> {
+    async fn direct_queue(
+        &self,
+    ) -> Result<Vec<HotShotMessage<TYPES, LEAF, PROPOSAL>>, super::NetworkError> {
         self.inner
             .outputs
             .direct
@@ -983,7 +1040,9 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     }
 
     #[instrument(name = "WNetwork::next_direct")]
-    async fn next_direct(&self) -> Result<HotShotMessage<TYPES, LEAF, PROPOSAL>, super::NetworkError> {
+    async fn next_direct(
+        &self,
+    ) -> Result<HotShotMessage<TYPES, LEAF, PROPOSAL>, super::NetworkError> {
         self.inner
             .outputs
             .direct
@@ -1046,12 +1105,17 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
 /// panics if unable to generate tasks
 #[allow(clippy::panic)]
 #[instrument(skip(rng))]
-async fn get_networking<TYPES: NodeTypes, R: rand::Rng>(
+async fn get_networking<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    R: rand::Rng,
+>(
     pub_key: TYPES::SignatureKey,
     listen_addr: &str,
     node_id: u64,
     rng: &mut R,
-) -> (WNetwork<TYPES>, u16, TYPES::SignatureKey) {
+) -> (WNetwork<TYPES, LEAF, PROPOSAL>, u16, TYPES::SignatureKey) {
     debug!(?pub_key);
     for _attempt in 0..50 {
         let port: u16 = rng.gen_range(10_000..50_000);

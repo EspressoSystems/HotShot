@@ -43,11 +43,11 @@ pub struct HotShotHandle<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     ///
     /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
     /// method is needed to generate new receivers for cloning the handle.
-    pub(crate) sender_handle: Arc<BroadcastSender<Event<TYPES>>>,
+    pub(crate) sender_handle: Arc<BroadcastSender<Event<TYPES, I::Leaf>>>,
     /// Internal reference to the underlying [`HotShot`]
     pub(crate) hotshot: HotShot<TYPES, I>,
     /// The [`BroadcastReceiver`] we get the events from
-    pub(crate) stream_output: BroadcastReceiver<Event<TYPES>>,
+    pub(crate) stream_output: BroadcastReceiver<Event<TYPES, I::Leaf>>,
     /// Global to signify the `HotShot` should be closed after completing the next round
     pub(crate) shut_down: Arc<AtomicBool>,
     /// Our copy of the `Storage` view for a hotshot
@@ -84,7 +84,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     /// # Errors
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has shut down
-    pub fn try_next_event(&mut self) -> Result<Option<Event<TYPES>>, HotShotError<TYPES>> {
+    pub fn try_next_event(&mut self) -> Result<Option<Event<TYPES, I::Leaf>>, HotShotError<TYPES>> {
         let result = self.stream_output.try_recv();
         Ok(result)
     }
@@ -95,7 +95,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] instance has been shut
     /// down.
-    pub fn available_events(&mut self) -> Result<Vec<Event<TYPES>>, HotShotError<TYPES>> {
+    pub fn available_events(&mut self) -> Result<Vec<Event<TYPES, I::Leaf>>, HotShotError<TYPES>> {
         let mut output = vec![];
         // Loop to pull out all the outputs
         loop {
@@ -272,7 +272,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     #[cfg(feature = "hotshot-testing")]
     pub fn sign_proposal(
         &self,
-        leaf_commitment: &Commitment<<I::Election as Election>::LeafType>,
+        leaf_commitment: &Commitment<I::Leaf>,
         view_number: TYPES::Time,
     ) -> EncodedSignature {
         let api = HotShotConsensusApi {
@@ -285,7 +285,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     #[cfg(feature = "hotshot-testing")]
     pub fn sign_vote(
         &self,
-        leaf_commitment: &Commitment<<I::Election as Election>::LeafType>,
+        leaf_commitment: &Commitment<I::Leaf>,
         view_number: TYPES::Time,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let api = HotShotConsensusApi {
@@ -296,7 +296,10 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
 
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
     #[cfg(feature = "hotshot-testing")]
-    pub async fn send_broadcast_consensus_message(&self, msg: ConsensusMessage<TYPES, LEAF, PROPOSAL>) {
+    pub async fn send_broadcast_consensus_message(
+        &self,
+        msg: ConsensusMessage<TYPES, I::Leaf, I::Proposal>,
+    ) {
         let _result = self.hotshot.send_broadcast_message(msg).await;
     }
 
@@ -304,7 +307,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_direct_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES, LEAF, PROPOSAL>,
+        msg: ConsensusMessage<TYPES, I::Leaf, I::Proposal>,
         recipient: TYPES::SignatureKey,
     ) {
         let _result = self.hotshot.send_direct_message(msg, recipient).await;

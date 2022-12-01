@@ -3,6 +3,7 @@ use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
 use blake3::Hasher;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
+use derivative::Derivative;
 use hotshot_types::traits::{
     election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
     node_implementation::NodeTypes,
@@ -273,12 +274,15 @@ where
 }
 
 /// the vrf implementation
+#[derive(Derivative)]
+#[derivative(Eq, PartialEq)]
 pub struct VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS> + Sync + Send,
     TYPES: NodeTypes,
 {
     /// the stake table
+    #[derivative(PartialEq = "ignore")]
     stake_table: VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>,
     /// the proof params
     proof_parameters: VRF::PublicParameter,
@@ -375,16 +379,14 @@ where
     }
 }
 
-impl<PUBKEY, PROOF, T, VRF, VRFHASHER, VRFPARAMS, TIME> VoteToken for VRFVoteToken<PUBKEY, PROOF>
+impl<PUBKEY, PROOF> VoteToken for VRFVoteToken<PUBKEY, PROOF>
 where
     PUBKEY: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static + SignatureKey,
     PROOF: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static,
 {
-
     fn vote_count(&self) -> NonZeroU64 {
         self.count
     }
-
 }
 
 impl<PUBKEY, PROOF> Committable for VRFVoteToken<PUBKEY, PROOF>
