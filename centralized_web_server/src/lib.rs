@@ -51,9 +51,9 @@ impl WebServerState {
 
 /// Trait defining methods needed for the `WebServerState`
 pub trait WebServerDataSource {
-    fn get_proposals(&self, view_number: u128) -> Result<Vec<Vec<u8>>, Error>;
-    fn get_votes(&self, view_number: u128) -> Result<Vec<Vec<u8>>, Error>;
-    fn get_transactions(&self, index: u128) -> Result<Vec<Vec<u8>>, Error>;
+    fn get_proposals(&self, view_number: u128) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    fn get_votes(&self, view_number: u128) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    fn get_transactions(&self, index: u128) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error>;
     fn post_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error>;
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
@@ -61,29 +61,23 @@ pub trait WebServerDataSource {
 
 impl WebServerDataSource for WebServerState {
     /// Return all proposals the server has received for a particular view
-    fn get_proposals(&self, view_number: u128) -> Result<Vec<Vec<u8>>, Error> {
+    fn get_proposals(&self, view_number: u128) -> Result<Option<Vec<Vec<u8>>>, Error> {
         match self.proposals.get(&view_number) {
-            Some(proposals) => Ok(proposals.clone()),
-            None => Err(ServerError {
-                status: StatusCode::NotFound,
-                message: format!("No proposals for view {}", view_number),
-            }),
+            Some(proposals) => Ok(Some(proposals.clone())),
+            None => Ok(None),
         }
     }
 
     /// Return all votes the server has received for a particular view
-    fn get_votes(&self, view_number: u128) -> Result<Vec<Vec<u8>>, Error> {
+    fn get_votes(&self, view_number: u128) -> Result<Option<Vec<Vec<u8>>>, Error> {
         match self.votes.get(&view_number) {
-            Some(votes) => Ok(votes.clone()),
-            None => Err(ServerError {
-                status: StatusCode::NotFound,
-                message: format!("No votes for view {}", view_number),
-            }),
+            Some(votes) => Ok(Some(votes.clone())),
+            None => Ok(None),
         }
     }
 
     /// Return all transactions from provided index to most recent
-    fn get_transactions(&self, index: u128) -> Result<Vec<Vec<u8>>, Error> {
+    fn get_transactions(&self, index: u128) -> Result<Option<Vec<Vec<u8>>>, Error> {
         let mut txns = vec![];
         for i in index..self.num_txns {
             println!("getting txn {:?}", i);
@@ -91,7 +85,11 @@ impl WebServerDataSource for WebServerState {
                 txns.push(txn.clone())
             }
         }
-        Ok(txns)
+        if txns.len() > 0 {
+            Ok(Some(txns))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Stores a received vote in the `WebServerState`
