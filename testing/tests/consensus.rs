@@ -1,5 +1,6 @@
 mod common;
 
+use async_std::sync::{Arc, Mutex};
 use commit::Committable;
 use common::{
     AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
@@ -8,7 +9,7 @@ use common::{
 use either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{demos::dentry::random_leaf, types::Vote};
-use hotshot_testing::{ConsensusRoundError, RoundResult};
+use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
 use hotshot_types::{
     message::{ConsensusMessage, Proposal},
     traits::{
@@ -18,6 +19,7 @@ use hotshot_types::{
         state::{ConsensusTime, TestableBlock, TestableState},
     },
 };
+use snafu::ensure;
 use std::time::Duration;
 use std::time::Instant;
 use tracing::{instrument, warn};
@@ -62,6 +64,7 @@ async fn submit_proposal<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
     // Build proposal
     let mut leaf = random_leaf(TYPES::BlockType::genesis(), &mut rng);
     leaf.view_number = view_number;
+    leaf.height = handle.get_decided_leaf().await.height + 1;
     let signature = handle.sign_proposal(&leaf.commit(), leaf.view_number);
     let msg = ConsensusMessage::Proposal(Proposal {
         leaf: leaf.into(),
@@ -636,4 +639,68 @@ async fn test_max_propose() {
     let max_duration = num_rounds as u128 * propose_max_round_time.as_millis();
     // Since we are not submitting enough transactions, we should hit the max timeout every round
     assert!(duration.as_millis() > max_duration);
+}
+
+/// Tests that the chain heights are sequential
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+#[instrument]
+async fn test_chain_height() {
+    let num_rounds = 10;
+
+    // Only start a subset of the nodes, ensuring there will be failed views so that height is
+    // different from view number.
+    let total_nodes = 6;
+    let start_nodes = 4;
+
+    let mut test = GeneralTestDescriptionBuilder {
+        total_nodes,
+        start_nodes,
+        num_succeeds: num_rounds,
+        failure_threshold: num_rounds,
+        ..Default::default()
+    }
+    .build::<StaticCommitteeTestTypes, StaticNodeImplType>();
+
+    let heights = Arc::new(Mutex::new(vec![0; start_nodes]));
+    for i in 0..num_rounds {
+        let heights = heights.clone();
+        test.rounds[i].safety_check_post = Some(Box::new(move |runner, _| {
+            async move {
+                let mut heights = heights.lock().await;
+                for (i, handle) in runner.nodes().enumerate() {
+                    let leaf = handle.get_decided_leaf().await;
+                    if leaf.justify_qc.genesis {
+                        ensure!(
+                            leaf.height == 0,
+                            SafetyFailedSnafu {
+                                description: format!(
+                                    "node {} has non-zero height {} for genesis leaf",
+                                    i, leaf.height
+                                ),
+                            }
+                        );
+                    } else {
+                        ensure!(
+                            leaf.height == heights[i] + 1,
+                            SafetyFailedSnafu {
+                                description: format!(
+                                    "node {} has incorrect height {} for previous height {}",
+                                    i, leaf.height, heights[i]
+                                ),
+                            }
+                        );
+                        heights[i] = leaf.height;
+                    }
+                }
+                Ok(())
+            }
+            .boxed_local()
+        }));
+    }
+
+    test.execute().await.unwrap();
 }

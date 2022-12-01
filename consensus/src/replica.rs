@@ -77,6 +77,15 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                             continue;
                         }
 
+                        // check that the chain height is correct
+                        if p.leaf.height != parent.height + 1 {
+                            warn!(
+                                "Incorrect height in recv-ed proposal. The parent's height, {}, did not follow from the proposal's height, {}",
+                                parent.height, p.leaf.height
+                            );
+                            continue;
+                        }
+
                         // check that the justify_qc is valid
                         if !self.api.validate_qc(&justify_qc) {
                             invalid_qcs += 1;
@@ -99,6 +108,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                                 p.leaf.parent_commitment,
                                 justify_qc.clone(),
                                 self.cur_view,
+                                p.leaf.height,
                                 Vec::new(),
                                 time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                                 p.leaf.proposer_id,

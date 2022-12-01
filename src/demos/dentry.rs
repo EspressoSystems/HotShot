@@ -604,6 +604,7 @@ pub fn random_leaf<TYPES: NodeTypes>(
         .unwrap_or_default();
     Leaf {
         view_number: justify_qc.view_number,
+        height: rng.next_u64(),
         justify_qc,
         parent_commitment: random_commitment(rng),
         deltas,

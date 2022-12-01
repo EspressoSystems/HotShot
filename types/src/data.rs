@@ -164,6 +164,9 @@ pub struct ProposalLeaf<TYPES: NodeTypes> {
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
 
+    /// Height from leader when proposing leaf
+    pub height: u64,
+
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES>,
 
@@ -194,6 +197,9 @@ pub struct ProposalLeaf<TYPES: NodeTypes> {
 pub struct Leaf<TYPES: NodeTypes> {
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
+
+    /// Number of leaves before this one in the chain
+    pub height: u64,
 
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES>,
@@ -243,8 +249,8 @@ impl<TYPES: NodeTypes> Committable for Leaf<TYPES> {
             signatures_bytes.extend::<&[u8]>(v.1.commit().as_ref());
         }
         commit::RawCommitmentBuilder::new("Leaf Comm")
-            .constant_str("view_number")
-            .u64(*self.view_number)
+            .u64_field("view_number", *self.view_number)
+            .u64_field("height", self.height)
             .field("parent Leaf commitment", self.parent_commitment)
             .field("deltas commitment", self.deltas.commit())
             .field("state commitment", self.state.commit())
@@ -272,6 +278,7 @@ impl<TYPES: NodeTypes> From<Leaf<TYPES>> for ProposalLeaf<TYPES> {
     fn from(leaf: Leaf<TYPES>) -> Self {
         Self {
             view_number: leaf.view_number,
+            height: leaf.height,
             justify_qc: leaf.justify_qc,
             parent_commitment: leaf.parent_commitment,
             deltas: leaf.deltas,
@@ -295,12 +302,14 @@ impl<TYPES: NodeTypes> Leaf<TYPES> {
         parent_commitment: Commitment<Leaf<TYPES>>,
         justify_qc: QuorumCertificate<TYPES>,
         view_number: TYPES::Time,
+        height: u64,
         rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
         timestamp: i128,
         proposer_id: EncodedPublicKey,
     ) -> Self {
         Leaf {
             view_number,
+            height,
             justify_qc,
             parent_commitment,
             deltas,
@@ -327,6 +336,7 @@ impl<TYPES: NodeTypes> Leaf<TYPES> {
             .unwrap();
         Self {
             view_number: TYPES::Time::genesis(),
+            height: 0,
             justify_qc: QuorumCertificate::genesis(),
             parent_commitment: fake_commitment(),
             deltas,
@@ -346,6 +356,7 @@ impl<TYPES: NodeTypes> From<StoredView<TYPES>> for Leaf<TYPES> {
             append.parent,
             append.justify_qc,
             append.view_number,
+            append.height,
             Vec::new(),
             append.timestamp,
             append.proposer_id,
@@ -357,6 +368,7 @@ impl<TYPES: NodeTypes> From<Leaf<TYPES>> for StoredView<TYPES> {
     fn from(val: Leaf<TYPES>) -> Self {
         StoredView {
             view_number: val.view_number,
+            height: val.height,
             parent: val.parent_commitment,
             justify_qc: val.justify_qc,
             state: val.state,

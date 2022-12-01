@@ -149,6 +149,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
         if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
             let leaf = Leaf {
                 view_number: self.cur_view,
+                height: parent_leaf.height + 1,
                 justify_qc: self.high_qc.clone(),
                 parent_commitment: original_parent_hash,
                 deltas: block,

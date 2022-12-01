@@ -571,6 +571,12 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
                         qc,
                         block,
                         state,
+                        // We don't have enough information in this message to validate the height
+                        // of the new QC. We would need the full parent leaf, so we can check that
+                        // its commitment matches `qc.leaf_commitment` and extract the height from
+                        // the leaf. But this message is no longer used and the whole catchup
+                        // protocol needs to be redesigned.
+                        0,
                         parent_commitment,
                         rejected,
                         proposer_id,
@@ -842,6 +848,7 @@ impl<TYPES: NodeTypes> HotShotInitializer<TYPES> {
         Ok(Self {
             inner: Leaf {
                 view_number: time,
+                height: 0,
                 justify_qc,
                 parent_commitment: fake_commitment(),
                 deltas: genesis_block,
