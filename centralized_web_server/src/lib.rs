@@ -15,20 +15,35 @@ use tide_disco::StatusCode;
 type State = RwLock<WebServerState>;
 type Error = ServerError;
 
+//how many views to keep in memory
+const MAX_VIEWS: usize = 10;
+//how many transactions to keep in memory
+const MAX_TXNS: usize = 10000;
+
 #[derive(Clone, Default)]
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
 struct WebServerState {
+    //view number -> proposals
     proposals: HashMap<u128, Vec<Vec<u8>>>,
+    //view number -> votes
     votes: HashMap<u128, Vec<Vec<u8>>>,
+    //index -> transaction
     transactions: HashMap<u128, Vec<u8>>,
-    num_txn: u128,
+    //highest txn index
+    num_txns: u128,
+    //view of oldest votes in memory
+    oldest_vote: u128,
+    //view for oldest proposals in memory
+    oldest_proposal: u128,
 }
 
 impl WebServerState {
     fn new() -> Self {
         Self {
-            num_txn: 0,
+            num_txns: 0,
+            oldest_vote: 0,
+            oldest_proposal: 0,
             ..Default::default()
         }
     }
@@ -70,7 +85,7 @@ impl WebServerDataSource for WebServerState {
     /// Return all transactions from provided index to most recent
     fn get_transactions(&self, index: u128) -> Result<Vec<Vec<u8>>, Error> {
         let mut txns = vec![];
-        for i in index..self.num_txn {
+        for i in index..self.num_txns {
             println!("getting txn {:?}", i);
             if let Some(txn) = self.transactions.get(&i) {
                 txns.push(txn.clone())
@@ -81,6 +96,13 @@ impl WebServerDataSource for WebServerState {
 
     /// Stores a received vote in the `WebServerState`
     fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error> {
+        // only keep vote history for MAX_VIEWS number of views
+        if self.votes.len() >= MAX_VIEWS {
+            self.votes.remove(&self.oldest_vote);
+            while !self.votes.contains_key(&self.oldest_vote) {
+                self.oldest_vote += 1;
+            }
+        }
         self.votes
             .entry(view_number)
             .and_modify(|current_votes| current_votes.push(vote.clone()))
@@ -89,6 +111,13 @@ impl WebServerDataSource for WebServerState {
     }
     /// Stores a received proposal in the `WebServerState`
     fn post_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error> {
+        // only keep proposal history for MAX_VIEWS number of view
+        if self.proposals.len() >= MAX_VIEWS {
+            self.proposals.remove(&self.oldest_proposal);
+            while !self.proposals.contains_key(&self.oldest_proposal) {
+                self.oldest_proposal += 1;
+            }
+        }
         self.proposals
             .entry(view_number)
             .and_modify(|current_proposals| current_proposals.push(proposal.clone()))
@@ -97,9 +126,14 @@ impl WebServerDataSource for WebServerState {
     }
     /// Stores a received group of transactions in the `WebServerState`
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error> {
-        println!("posting txn {:?}", self.num_txn);
-        self.transactions.insert(self.num_txn, txn);
-        self.num_txn += 1;
+        println!("posting txn {:?}", self.num_txns);
+        //only keep MAX_TXNS in memory
+        if self.transactions.len() >= MAX_TXNS {
+            self.transactions
+                .remove(&(self.num_txns - MAX_TXNS as u128));
+        }
+        self.transactions.insert(self.num_txns, txn);
+        self.num_txns += 1;
         //TODO: @kaley: we will want to have batch transaction posting (vs one at a time), a la:
         // let starting_index = self.num_txn + 1;
         // self.num_txn += txns.len() as u128;
@@ -191,7 +225,7 @@ where
 // TODO ED: update this function to be more library-like
 // (we need it to be a library to import into the node client)
 // TODO ED: make a bin file that runs the web server similarly
-// to the other centralized server 
+// to the other centralized server
 pub async fn main() -> io::Result<()> {
     let options = Options::default();
     let api = define_api(&options).unwrap();

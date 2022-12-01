@@ -4,14 +4,13 @@
 
 #[cfg(feature = "async-std-executor")]
 use async_std::future::TimeoutError;
-use time::Time;
 #[cfg(feature = "tokio-executor")]
 use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 use super::{node_implementation::NodeTypes, signature_key::SignatureKey};
-use crate::{data::ViewNumber, message::Message};
+use crate::message::Message;
 use async_trait::async_trait;
 use async_tungstenite::tungstenite::error as werror;
 use serde::{Deserialize, Serialize};
@@ -175,6 +174,7 @@ pub trait NetworkingImplementation<TYPES: NodeTypes>: Clone + Send + Sync + 'sta
         cancelled: Arc<AtomicBool>,
     );
 
+    /// inject view number to background polling for centralized web server
     async fn inject_view_number(&self, view_number: TYPES::Time);
 }
 

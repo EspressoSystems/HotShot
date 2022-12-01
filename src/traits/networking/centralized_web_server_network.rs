@@ -130,7 +130,7 @@ async fn run_background_receive<TYPES: NodeTypes>(
             Err(ServerError { status, message }) => println!("Proposal is: {:?}", message),
             Ok(proposal) => println!("Proposal is: {:?}", proposal),
         }
-        // TODO ED: Adjust this parameter once things are working 
+        // TODO ED: Adjust this parameter once things are working
         async_sleep(Duration::from_secs(1)).await;
     }
     // TODO ED: propogate errors from above once we change the way empty responses are received
@@ -183,7 +183,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     // TODO Read from the queue that the async task dumps everything into
     // For now that task can dump transactions and proposals into the same queue
     async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
-        let mut queue = self.inner.broadcast_poll_queue.write().await; 
+        let mut queue = self.inner.broadcast_poll_queue.write().await;
         Ok(queue.drain(..).collect())
         // nll_todo()
     }
@@ -195,7 +195,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
 
     // TODO implemented the same as the broadcast queue
     async fn direct_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
-        let mut queue = self.inner.direct_poll_queue.write().await; 
+        let mut queue = self.inner.direct_poll_queue.write().await;
         Ok(queue.drain(..).collect())
     }
 
@@ -248,13 +248,15 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     }
 
     async fn inject_view_number(&self, view_number: TYPES::Time) {
-        println!("Inject view number called with view: {:?}", view_number.clone());
+        println!(
+            "Inject view number called with view: {:?}",
+            view_number.clone()
+        );
         let old_view = self.inner.view_number.upgradable_read().await;
         if *old_view < view_number {
             let mut new_view = RwLockUpgradableReadGuard::upgrade(old_view).await;
             *new_view = view_number;
             println!("New inject view number is: {:?}", new_view);
-
         }
     }
 }
