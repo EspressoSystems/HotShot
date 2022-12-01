@@ -526,7 +526,10 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
-                self.hotstuff.read().await
+                #[allow(clippy::cast_possible_wrap)]
+                self.hotstuff
+                    .read()
+                    .await
                     .metrics
                     .outstanding_transactions_memory_size
                     .update(bincode_opts().serialized_size(&transaction).unwrap_or(0) as i64);

@@ -375,7 +375,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                 .metrics
                 .invalid_qc_views
                 .add_point(consensus.invalid_qc as f64);
-            #[allow(clippy::cast_possible_truncation)]
+            #[allow(clippy::cast_possible_wrap)]
             let included_txn_size = included_txns_set.iter().fold(0, |total, txn| {
                 total + bincode_opts().serialized_size(&txn).unwrap_or(0)
             }) as i64;

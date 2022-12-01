@@ -85,7 +85,7 @@ pub trait Gauge: Send + Sync {
     /// Set the gauge value
     fn set(&self, amount: usize);
 
-    /// Update the guage value 
+    /// Update the guage value
     fn update(&self, delts: i64);
 }
 
@@ -182,6 +182,8 @@ mod test {
                 .entry(self.prefix.clone())
                 .or_default() = amount;
         }
+        #[allow(clippy::cast_possible_truncation)]
+        #[allow(clippy::cast_sign_loss)]
         fn update(&self, delta: i64) {
             let mut values = self.values.lock().unwrap();
             let value = values.gauges.entry(self.prefix.clone()).or_default();
@@ -236,6 +238,7 @@ mod test {
             let histogram = metrics.create_histogram("baz".to_string(), None);
 
             gauge.set(5);
+            gauge.update(-2);
 
             for i in 0..5 {
                 counter.add(i);
@@ -265,7 +268,7 @@ mod test {
         // The above variables are scoped so they should be dropped at this point
         // One of the rare times we can use `Arc::try_unwrap`!
         let values = Arc::try_unwrap(values).unwrap().into_inner().unwrap();
-        assert_eq!(values.gauges["foo"], 5);
+        assert_eq!(values.gauges["foo"], 3);
         assert_eq!(values.counters["bar"], 10); // 0..5
         assert_eq!(
             values.histograms["baz"],
