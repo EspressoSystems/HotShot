@@ -86,9 +86,6 @@ pub struct Consensus<TYPES: NodeTypes> {
     /// Amount of invalid QCs we've seen since the last commit
     /// Used for metrics.  This resets to 0 on every decide event.
     pub invalid_qc: usize,
-
-    /// Used for metrics, the size of the pending transactions in memory.
-    pub pending_transaction_mem: usize,
 }
 
 /// The metrics being collected for the consensus algorithm

@@ -377,13 +377,12 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                 .add_point(consensus.invalid_qc as f64);
             #[allow(clippy::cast_possible_truncation)]
             let included_txn_size = included_txns_set.iter().fold(0, |total, txn| {
-                total + bincode_opts().serialized_size(&txn).unwrap_or(0) as usize
-            });
-            consensus.pending_transaction_mem -= included_txn_size;
+                total + bincode_opts().serialized_size(&txn).unwrap_or(0)
+            }) as i64;
             consensus
                 .metrics
                 .outstanding_transactions_memory_size
-                .set(consensus.pending_transaction_mem);
+                .update(included_txn_size);
             consensus
                 .transactions
                 .modify(|txns| {

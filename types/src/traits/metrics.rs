@@ -66,6 +66,7 @@ impl Counter for NoMetrics {
 }
 impl Gauge for NoMetrics {
     fn set(&self, _: usize) {}
+    fn update(&self, _: i64) {}
 }
 impl Histogram for NoMetrics {
     fn add_point(&self, _: f64) {}
@@ -83,6 +84,9 @@ pub trait Counter: Send + Sync {
 pub trait Gauge: Send + Sync {
     /// Set the gauge value
     fn set(&self, amount: usize);
+
+    /// Update the guage value 
+    fn update(&self, delts: i64);
 }
 
 /// A histogram which will record a series of points.
@@ -177,6 +181,11 @@ mod test {
                 .gauges
                 .entry(self.prefix.clone())
                 .or_default() = amount;
+        }
+        fn update(&self, delta: i64) {
+            let mut values = self.values.lock().unwrap();
+            let value = values.gauges.entry(self.prefix.clone()).or_default();
+            *value = (*value as i64 + delta) as usize;
         }
     }
 
