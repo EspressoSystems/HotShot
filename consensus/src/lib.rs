@@ -86,6 +86,9 @@ pub struct Consensus<TYPES: NodeTypes> {
     /// Amount of invalid QCs we've seen since the last commit
     /// Used for metrics.  This resets to 0 on every decide event.
     pub invalid_qc: usize,
+
+    /// Used for metrics, the size of the pending transactions in memory.
+    pub pending_transaction_mem: usize,
 }
 
 /// The metrics being collected for the consensus algorithm
@@ -114,6 +117,8 @@ pub struct ConsensusMetrics {
     pub rejected_transactions: Box<dyn Counter>,
     /// Number of outstanding transactions
     pub outstanding_transactions: Box<dyn Gauge>,
+    /// Memory size of the serialized transactions still outstanding
+    pub outstanding_transactions_memory_size: Box<dyn Gauge>,
     /// Number of views that timed out
     pub number_of_timeouts: Box<dyn Counter>,
     /// Total direct messages this node sent out
@@ -162,6 +167,8 @@ impl ConsensusMetrics {
                 .create_counter(String::from("rejected_transactions"), None),
             outstanding_transactions: metrics
                 .create_gauge(String::from("outstanding_transactions"), None),
+            outstanding_transactions_memory_size: metrics
+                .create_gauge(String::from("outstanding_transactions_memory_size"), None),
             outgoing_direct_messages: metrics
                 .create_counter(String::from("outgoing_direct_messages"), None),
             outgoing_broadcast_messages: metrics

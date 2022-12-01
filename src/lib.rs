@@ -54,6 +54,7 @@ use async_compatibility_layer::{
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
+use bincode::Options;
 use commit::{Commitment, Committable};
 use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, SendToTasks, View, ViewInner, ViewQueue,
@@ -79,6 +80,7 @@ use hotshot_types::{
     HotShotConfig,
 };
 use hotshot_types::{message::MessageKind, traits::election::VoteToken};
+use hotshot_utils::bincode::bincode_opts;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -230,6 +232,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
                 inner.metrics.subgroup("consensus".to_string()),
             )),
             invalid_qc: 0,
+            pending_transaction_mem: 0,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
         let txns = hotstuff.read().await.get_transactions();
@@ -524,6 +527,13 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
+                let mut consensus = self.hotstuff.write().await;
+                consensus.pending_transaction_mem +=
+                    bincode_opts().serialized_size(&transaction).unwrap_or(0) as usize;
+                consensus
+                    .metrics
+                    .outstanding_transactions_memory_size
+                    .set(consensus.pending_transaction_mem);
                 self.transactions
                     .modify(|txns| {
                         txns.insert(transaction.commit(), transaction);

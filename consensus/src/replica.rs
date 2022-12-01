@@ -6,12 +6,14 @@ use crate::{
 };
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
+use bincode::Options;
 use commit::Committable;
 use hotshot_types::{
     data::{Leaf, QuorumCertificate},
     message::{ConsensusMessage, TimedOut, Vote},
     traits::{node_implementation::NodeTypes, signature_key::SignatureKey, Block, State},
 };
+use hotshot_utils::bincode::bincode_opts;
 use std::ops::Bound::{Excluded, Included};
 use std::{collections::HashSet, sync::Arc};
 use tracing::{error, info, instrument, warn};
@@ -373,6 +375,14 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                 .metrics
                 .invalid_qc_views
                 .add_point(consensus.invalid_qc as f64);
+            let included_txn_size = included_txns_set.iter().fold(0, |total, txn| {
+                total + bincode_opts().serialized_size(&txn).unwrap_or(0) as usize
+            });
+            consensus.pending_transaction_mem -= included_txn_size;
+            consensus
+                .metrics
+                .outstanding_transactions_memory_size
+                .set(consensus.pending_transaction_mem);
             consensus
                 .transactions
                 .modify(|txns| {
