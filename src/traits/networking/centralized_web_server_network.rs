@@ -84,9 +84,9 @@ struct Inner<TYPES: NodeTypes> {
     view_number: RwLock<TYPES::Time>,
 
     // Queue for broadcasted messages (mainly transactions and proposals)
-    broadcast_poll_queue: RwLock<Vec<u8>>,
+    broadcast_poll_queue: RwLock<Vec<Message<TYPES>>>,
     // Queue for direct messages (mainly votes)
-    direct_poll_queue: RwLock<Vec<u8>>,
+    direct_poll_queue: RwLock<Vec<Message<TYPES>>>,
     //KALEY: these may not be necessary
     running: AtomicBool,
     connected: AtomicBool,
@@ -112,19 +112,26 @@ async fn run_background_receive<TYPES: NodeTypes>(
     // poll each endpoint (potentially split up later)
 
     println!("Run background receive task has started!");
-    let view_number = connection.view_number.read().await;
-
     // Just poll current view for now:
     loop {
-        println!("Polling this endpoint: /api/proposal/{}", view_number.to_string());
-        let possible_proposal: Result<(String), ServerError> =
-            connection.client.get(&format!("/api/proposal/{}", view_number.to_string())).send().await;
+        let view_number = connection.view_number.read().await;
+        println!(
+            "Polling this endpoint: /api/proposal/{}",
+            view_number.to_string()
+        );
+        let possible_proposal: Result<(String), ServerError> = connection
+            .client
+            .get(&format!("/api/proposal/{}", view_number.to_string()))
+            .send()
+            .await;
         match possible_proposal {
             // TODO ED: differentiate between different errors, some errors mean there is nothing in the queue,
             // others could mean an actual error; perhaps nothing should return None instead of an error
             Err(ServerError { status, message }) => println!("Proposal is: {:?}", message),
             Ok(proposal) => println!("Proposal is: {:?}", proposal),
         }
+        // TODO ED: Adjust this parameter once things are working 
+        async_sleep(Duration::from_secs(1)).await;
     }
     // TODO ED: propogate errors from above once we change the way empty responses are received
     Ok(())
@@ -135,6 +142,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     // TODO Start up async task, ensure we can reach the centralized server
     async fn ready(&self) -> bool {
         while !self.inner.connected.load(Ordering::Relaxed) {
+            println!("Sleeping waiting to be ready");
             async_sleep(Duration::from_secs(1)).await;
         }
         true
@@ -144,7 +152,22 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     // Will need some way for centralized server to distinguish between propsoals and transactions,
     // since it treats those differently
     async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
-        nll_todo()
+        match message.kind {
+            hotshot_types::message::MessageKind::Consensus(m) => {
+                // Must be a proposal
+                let sent_proposal: Result<(String), ServerError> = self
+                    .inner
+                    .client
+                    .post(&format!("/api/proposal/{}", m.view_number().to_string()))
+                    .send()
+                    .await;
+                println!("Sent proposal is: {:?}", sent_proposal.unwrap());
+            }
+            hotshot_types::message::MessageKind::Data(_) => nll_todo(),
+        }
+        // TODO: put in our own broadcast queue
+
+        Ok(())
     }
 
     // TODO send message to centralized server (this should only be Vote/Timeout messages for now,
@@ -160,7 +183,9 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     // TODO Read from the queue that the async task dumps everything into
     // For now that task can dump transactions and proposals into the same queue
     async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
-        nll_todo()
+        let mut queue = self.inner.broadcast_poll_queue.write().await; 
+        Ok(queue.drain(..).collect())
+        // nll_todo()
     }
 
     // TODO Get the next message from the broadcast queue
@@ -170,7 +195,8 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
 
     // TODO implemented the same as the broadcast queue
     async fn direct_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
-        nll_todo()
+        let mut queue = self.inner.direct_poll_queue.write().await; 
+        Ok(queue.drain(..).collect())
     }
 
     // TODO implemented the same as the broadcast queue
@@ -222,10 +248,13 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     }
 
     async fn inject_view_number(&self, view_number: TYPES::Time) {
+        println!("Inject view number called with view: {:?}", view_number.clone());
         let old_view = self.inner.view_number.upgradable_read().await;
         if *old_view < view_number {
             let mut new_view = RwLockUpgradableReadGuard::upgrade(old_view).await;
             *new_view = view_number;
+            println!("New inject view number is: {:?}", new_view);
+
         }
     }
 }
