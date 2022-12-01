@@ -111,9 +111,23 @@ async fn run_background_receive<TYPES: NodeTypes>(
     // get lock on queues, poll them, release lock
     // poll each endpoint (potentially split up later)
 
-    let view_number = connection.view_number.read().await;
     println!("Run background receive task has started!");
-    nll_todo::<Result<(), ServerError>>()
+    let view_number = connection.view_number.read().await;
+
+    // Just poll current view for now:
+    loop {
+        println!("Polling this endpoint: /api/proposal/{}", view_number.to_string());
+        let possible_proposal: Result<(String), ServerError> =
+            connection.client.get(&format!("/api/proposal/{}", view_number.to_string())).send().await;
+        match possible_proposal {
+            // TODO ED: differentiate between different errors, some errors mean there is nothing in the queue,
+            // others could mean an actual error; perhaps nothing should return None instead of an error
+            Err(ServerError { status, message }) => println!("Proposal is: {:?}", message),
+            Ok(proposal) => println!("Proposal is: {:?}", proposal),
+        }
+    }
+    // TODO ED: propogate errors from above once we change the way empty responses are received
+    Ok(())
 }
 
 #[async_trait]
@@ -173,7 +187,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     async fn network_changes(
         &self,
     ) -> Result<Vec<NetworkChange<TYPES::SignatureKey>>, NetworkError> {
-        nll_todo()
+        Ok(Vec::new())
     }
 
     // TODO stop async background task
@@ -231,9 +245,7 @@ where
 
         // Start each node's web server client
         // TODO ED: need a shut down signal of some sort
-        Box::new(move |id| {
-            CentralizedWebServerNetwork::create()
-        })
+        Box::new(move |id| CentralizedWebServerNetwork::create())
     }
 
     // TODO Can be a no-op most likely

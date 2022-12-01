@@ -198,7 +198,7 @@ pub async fn main() -> io::Result<()> {
     let mut app = App::<State, Error>::with_state(State::default());
 
     app.register_module("api", api).unwrap();
-    app.serve("http://0.0.0.0:8080").await
+    app.serve("http://0.0.0.0:8000").await
 }
 
 #[cfg(test)]
