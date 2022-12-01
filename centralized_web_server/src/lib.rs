@@ -10,7 +10,6 @@ use tide_disco::method::ReadState;
 use tide_disco::method::WriteState;
 use tide_disco::Api;
 use tide_disco::App;
-use tide_disco::StatusCode;
 
 type State = RwLock<WebServerState>;
 type Error = ServerError;
@@ -268,9 +267,10 @@ mod test {
             .await
             .unwrap();
         let resp = client
-            .get::<Vec<Vec<u8>>>("api/proposal/1")
+            .get::<Option<Vec<Vec<u8>>>>("api/proposal/1")
             .send()
             .await
+            .unwrap()
             .unwrap();
         let res1: &str = bincode::deserialize(&resp[0]).unwrap();
         assert_eq!(res1, prop1);
@@ -284,9 +284,10 @@ mod test {
             .await
             .unwrap();
         let resp = client
-            .get::<Vec<Vec<u8>>>("api/proposal/2")
+            .get::<Option<Vec<Vec<u8>>>>("api/proposal/2")
             .send()
             .await
+            .unwrap()
             .unwrap();
 
         let res2: &str = bincode::deserialize(&resp[0]).unwrap();
@@ -294,11 +295,8 @@ mod test {
         assert_ne!(res1, res2);
 
         assert_eq!(
-            client.get::<Vec<u8>>("api/proposal/3").send().await,
-            Err(ServerError {
-                status: StatusCode::NotFound,
-                message: String::from("No proposals for view 3")
-            })
+            client.get::<Option<Vec<u8>>>("api/proposal/3").send().await,
+            Ok(None)
         );
 
         // Test posting and getting votes
@@ -320,9 +318,10 @@ mod test {
             .await
             .unwrap();
         let resp = client
-            .get::<Vec<Vec<u8>>>("api/votes/1")
+            .get::<Option<Vec<Vec<u8>>>>("api/votes/1")
             .send()
             .await
+            .unwrap()
             .unwrap();
         let res1: &str = bincode::deserialize(&resp[0]).unwrap();
         let res2: &str = bincode::deserialize(&resp[1]).unwrap();
@@ -347,9 +346,10 @@ mod test {
             .await
             .unwrap();
         let resp = client
-            .get::<Vec<Vec<u8>>>("api/transactions/0")
+            .get::<Option<Vec<Vec<u8>>>>("api/transactions/0")
             .send()
             .await
+            .unwrap()
             .unwrap();
 
         let txn_resp1: &str = bincode::deserialize(&resp[0]).unwrap();
