@@ -1,5 +1,6 @@
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
+use hotshot_centralized_web_server;
 use hotshot_types::data::ViewNumber;
 use hotshot_types::{
     message::Message,
@@ -14,6 +15,7 @@ use hotshot_types::{
         state::ConsensusTime,
     },
 };
+use hotshot_utils::art::async_block_on;
 use hotshot_utils::{
     art::{async_sleep, async_spawn},
     hack::nll_todo,
@@ -104,6 +106,13 @@ async fn run_background_receive<TYPES: NodeTypes>(
     //KALEY: poll server for proposal/transaction msgs (broadcast_poll_queue)
     //poll server for votes (direct_poll_queue)
     //check for if view_number has changed first?
+
+    // atomically load view number
+    // get lock on queues, poll them, release lock
+    // poll each endpoint (potentially split up later)
+
+    let view_number = connection.view_number.read().await;
+    println!("Run background receive task has started!");
     nll_todo::<Result<(), ServerError>>()
 }
 
@@ -217,7 +226,14 @@ where
         expected_node_count: usize,
         num_bootstrap: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
-        nll_todo()
+        // Start web server
+        async_spawn(hotshot_centralized_web_server::main());
+
+        // Start each node's web server client
+        // TODO ED: need a shut down signal of some sort
+        Box::new(move |id| {
+            CentralizedWebServerNetwork::create()
+        })
     }
 
     // TODO Can be a no-op most likely

@@ -2295,6 +2295,7 @@ dependencies = [
  "embed-doc-image",
  "futures",
  "hotshot-centralized-server",
+ "hotshot-centralized-web-server",
  "hotshot-consensus",
  "hotshot-types",
  "hotshot-utils",

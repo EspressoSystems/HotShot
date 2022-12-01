@@ -187,8 +187,12 @@ where
     Ok(api)
 }
 
-#[async_std::main]
-async fn main() -> io::Result<()> {
+// #[async_std::main]
+// TODO ED: update this function to be more library-like
+// (we need it to be a library to import into the node client)
+// TODO ED: make a bin file that runs the web server similarly
+// to the other centralized server 
+pub async fn main() -> io::Result<()> {
     let options = Options::default();
     let api = define_api(&options).unwrap();
     let mut app = App::<State, Error>::with_state(State::default());
