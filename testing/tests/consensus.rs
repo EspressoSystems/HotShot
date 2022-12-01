@@ -1,6 +1,6 @@
 mod common;
 
-use async_std::sync::{Arc, Mutex};
+use async_lock::Mutex;
 use commit::Committable;
 use common::{
     AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
@@ -20,6 +20,7 @@ use hotshot_types::{
     },
 };
 use snafu::ensure;
+use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use tracing::{instrument, warn};
