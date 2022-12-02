@@ -35,7 +35,7 @@ use hotshot_types::{
     error::HotShotError,
     traits::{
         metrics::{Gauge, Histogram, Metrics},
-        node_implementation::NodeTypes,
+        node_implementation::{NodeTypes, NodeImplementation},
     },
 };
 use hotshot_utils::subscribable_rwlock::SubscribableRwLock;
@@ -48,6 +48,30 @@ use utils::Terminator;
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 type CommitmentMap<T> = HashMap<Commitment<T>, T>;
+
+// pub trait ConsensusAbstraction {
+//     type SharedConsensusData: Clone + std::fmt::Debug;
+//     type I: NodeImplementation;
+//
+//     fn run_view();
+//
+//     fn handle_direct_data_message() ;
+//
+//     fn handle_broadcast_data_message() ;
+//
+//     fn send_direct_data_message() ;
+//
+//     fn send_broadcast_data_message() ;
+//
+//     fn handle_direct_consensus_message() ;
+//
+//     fn handle_broadcast_consensus_message() ;
+//
+//     fn send_direct_consensus_message() ;
+//
+//     fn send_broadcast_consensus_message() ;
+//
+// }
 
 /// A reference to the consensus algorithm
 ///
