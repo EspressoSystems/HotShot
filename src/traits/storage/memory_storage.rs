@@ -171,6 +171,7 @@ mod test {
             },
             DummyBlock::random(rng),
             DummyState::random(rng),
+            rng.next_u64(),
             dummy_leaf_commit,
             Vec::new(),
             genesis_proposer_id(),
