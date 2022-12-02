@@ -389,23 +389,34 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                 .metrics
                 .invalid_qc_views
                 .add_point(consensus.invalid_qc as f64);
-            #[allow(clippy::cast_possible_wrap)]
-            let included_txn_size = included_txns_set.iter().fold(0, |total, txn| {
-                total + bincode_opts().serialized_size(&txn).unwrap_or(0)
-            }) as i64;
-            consensus
-                .metrics
-                .outstanding_transactions_memory_size
-                .update(-included_txn_size);
+
+            let mut included_txn_size = 0;
             consensus
                 .transactions
                 .modify(|txns| {
                     *txns = txns
                         .drain()
-                        .filter(|(txn_hash, _txn)| !included_txns_set.contains(txn_hash))
+                        .filter(|(txn_hash, txn)| {
+                            #[allow(clippy::cast_possible_wrap)]
+                            if included_txns_set.contains(txn_hash) {
+                                included_txn_size +=
+                                    bincode_opts().serialized_size(txn).unwrap_or_default() as i64;
+                                false
+                            } else {
+                                true
+                            }
+                        })
                         .collect();
                 })
                 .await;
+            consensus
+                .metrics
+                .outstanding_transactions
+                .update(-(included_txns_set.len() as i64));
+            consensus
+                .metrics
+                .outstanding_transactions_memory_size
+                .update(-included_txn_size);
 
             consensus
                 .metrics
