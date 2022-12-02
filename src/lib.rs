@@ -54,6 +54,7 @@ use async_compatibility_layer::{
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
+use bincode::Options;
 use commit::{Commitment, Committable};
 use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, SendToTasks, View, ViewInner, ViewQueue,
@@ -79,6 +80,7 @@ use hotshot_types::{
     HotShotConfig,
 };
 use hotshot_types::{message::MessageKind, traits::election::VoteToken};
+use hotshot_utils::bincode::bincode_opts;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -524,6 +526,13 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
+                #[allow(clippy::cast_possible_wrap)]
+                self.hotstuff
+                    .read()
+                    .await
+                    .metrics
+                    .outstanding_transactions_memory_size
+                    .update(bincode_opts().serialized_size(&transaction).unwrap_or(0) as i64);
                 self.transactions
                     .modify(|txns| {
                         txns.insert(transaction.commit(), transaction);

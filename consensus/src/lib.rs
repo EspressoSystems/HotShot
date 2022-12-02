@@ -114,6 +114,8 @@ pub struct ConsensusMetrics {
     pub rejected_transactions: Box<dyn Counter>,
     /// Number of outstanding transactions
     pub outstanding_transactions: Box<dyn Gauge>,
+    /// Memory size in bytes of the serialized transactions still outstanding
+    pub outstanding_transactions_memory_size: Box<dyn Gauge>,
     /// Number of views that timed out
     pub number_of_timeouts: Box<dyn Counter>,
     /// Total direct messages this node sent out
@@ -162,6 +164,8 @@ impl ConsensusMetrics {
                 .create_counter(String::from("rejected_transactions"), None),
             outstanding_transactions: metrics
                 .create_gauge(String::from("outstanding_transactions"), None),
+            outstanding_transactions_memory_size: metrics
+                .create_gauge(String::from("outstanding_transactions_memory_size"), None),
             outgoing_direct_messages: metrics
                 .create_counter(String::from("outgoing_direct_messages"), None),
             outgoing_broadcast_messages: metrics
