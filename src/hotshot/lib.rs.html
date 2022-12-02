@@ -858,6 +858,13 @@
 <span id="858">858</span>
 <span id="859">859</span>
 <span id="860">860</span>
+<span id="861">861</span>
+<span id="862">862</span>
+<span id="863">863</span>
+<span id="864">864</span>
+<span id="865">865</span>
+<span id="866">866</span>
+<span id="867">867</span>
 </pre><pre class="rust"><code><span class="attribute">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1431,6 +1438,12 @@
                         qc,
                         block,
                         state,
+                        <span class="comment">// We don&#39;t have enough information in this message to validate the height
+                        // of the new QC. We would need the full parent leaf, so we can check that
+                        // its commitment matches `qc.leaf_commitment` and extract the height from
+                        // the leaf. But this message is no longer used and the whole catchup
+                        // protocol needs to be redesigned.
+                        </span><span class="number">0</span>,
                         parent_commitment,
                         rejected,
                         proposer_id,
@@ -1702,6 +1715,7 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             inner: Leaf {
                 view_number: time,
+                height: <span class="number">0</span>,
                 justify_qc,
                 parent_commitment: fake_commitment(),
                 deltas: genesis_block,

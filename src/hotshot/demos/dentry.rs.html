@@ -613,6 +613,7 @@
 <span id="613">613</span>
 <span id="614">614</span>
 <span id="615">615</span>
+<span id="616">616</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Double entry accounting demo
 //!
 //! This module provides an implementation of the `HotShot` suite of traits that implements a
@@ -1219,6 +1220,7 @@
         .unwrap_or_default();
     Leaf {
         view_number: justify_qc.view_number,
+        height: rng.next_u64(),
         justify_qc,
         parent_commitment: random_commitment(rng),
         deltas,
