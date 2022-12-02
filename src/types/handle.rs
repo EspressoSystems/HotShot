@@ -6,7 +6,7 @@ use crate::{
     HotShot,
 };
 use hotshot_types::{
-    data::ValidatingLeaf,
+    data::{LeafType, ValidatingLeaf},
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
@@ -72,7 +72,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     /// # Errors
     ///
     /// Will return [`HotShotError::NetworkFault`] if the underlying [`HotShot`] has been closed.
-    pub async fn next_event(&mut self) -> Result<Event<TYPES>, HotShotError<TYPES>> {
+    pub async fn next_event(&mut self) -> Result<Event<TYPES, I::Leaf>, HotShotError<TYPES>> {
         let result = self.stream_output.recv_async().await;
         match result {
             Ok(result) => Ok(result),
@@ -122,7 +122,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     /// # Panics
     ///
     /// Panics if internal consensus is in an inconsistent state.
-    pub async fn get_decided_leaf(&self) -> ValidatingLeaf<TYPES> {
+    pub async fn get_decided_leaf(&self) -> I::Leaf {
         self.hotshot.get_decided_leaf().await
     }
 
@@ -153,7 +153,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
                 let event = Event {
                     view_number: TYPES::Time::genesis(),
                     event: EventType::Decide {
-                        leaf_chain: Arc::new(vec![anchor_leaf.into()]),
+                        leaf_chain: Arc::new(vec![I::Leaf::from_stored_view(anchor_leaf.into())]),
                     },
                 };
                 if self.sender_handle.send_async(event).await.is_err() {
@@ -206,7 +206,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
                     results = Ok(leaf_chain
                         .iter()
                         .cloned()
-                        .map(|leaf| (leaf.state, leaf.deltas))
+                        .map(|leaf| (leaf.get_state(), leaf.get_deltas()))
                         .unzip());
                 }
                 EventType::ViewFinished { view_number: _ } => return results,

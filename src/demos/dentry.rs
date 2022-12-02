@@ -26,7 +26,7 @@ use hotshot_types::{
         block_contents::Transaction,
         election::Election,
         node_implementation::{ApplicationMetadata, NodeTypes},
-        state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
+        state::{ConsensusTime, ConsensusType, TestableBlock, TestableState, ValidatingConsensus},
         State,
     },
 };
@@ -41,7 +41,7 @@ use std::{
 use tracing::error;
 
 /// application metadata stub
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct DEntryMetaData {}
 
 impl ApplicationMetadata for DEntryMetaData {}
@@ -249,6 +249,8 @@ impl State for DEntryState {
     type BlockType = DEntryBlock;
 
     type Time = ViewNumber;
+
+    type ConsensusType = ValidatingConsensus;
 
     fn next_block(&self) -> Self::BlockType {
         DEntryBlock::Normal(DEntryNormalBlock {
@@ -499,6 +501,8 @@ impl Block for DEntryBlock {
 pub struct DEntryTypes;
 
 impl NodeTypes for DEntryTypes {
+    // TODO (da) is DEntry for validating consensus only?
+    type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = DEntryBlock;
     type SignatureKey = BlsPubKey;
@@ -506,6 +510,7 @@ impl NodeTypes for DEntryTypes {
     type Transaction = DEntryTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = DEntryState;
+    type ApplicationMetadataType = DEntryMetaData;
 }
 
 /// The node implementation for the dentry demo
@@ -580,8 +585,8 @@ pub fn random_quorum_certificate<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYP
 }
 
 /// Provides a random [`Leaf`]
-// TODO rename to random_validating_leaf
-pub fn random_leaf<TYPES: NodeTypes>(
+// TODO (da) rename to random_validating_leaf
+pub fn random_leaf<TYPES: NodeTypes<ConsensusType = ValidatingConsensus>>(
     deltas: TYPES::BlockType,
     rng: &mut dyn rand::RngCore,
 ) -> ValidatingLeaf<TYPES> {

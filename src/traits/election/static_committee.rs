@@ -1,10 +1,15 @@
 use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
-use hotshot_types::traits::{
-    election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
-    node_implementation::NodeTypes,
-    signature_key::{EncodedSignature, SignatureKey},
+use digest::typenum::Le;
+use hotshot_types::{
+    data::{DACertificate, LeafType, QuorumCertificate},
+    traits::{
+        election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
+        node_implementation::NodeTypes,
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+    },
 };
+use hotshot_utils::hack::nll_todo;
 use jf_primitives::signatures::BLSSignatureScheme;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -15,22 +20,28 @@ use super::vrf::JfPubKey;
 /// Dummy implementation of [`Election`]
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct GeneralStaticCommittee<S, PUBKEY: SignatureKey> {
+pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey> {
     /// The nodes participating
     nodes: Vec<PUBKEY>,
-    /// State phantom
-    _state_phantom: PhantomData<S>,
+    /// Node type phantom
+    _type_phantom: PhantomData<T>,
+    /// Leaf phantom
+    _leaf_phantom: PhantomData<LEAF>,
 }
 
 /// static committee using a vrf kp
-pub type StaticCommittee<S> = GeneralStaticCommittee<S, JfPubKey<BLSSignatureScheme<Param381>>>;
+pub type StaticCommittee<T, LEAF> =
+    GeneralStaticCommittee<T, LEAF, JfPubKey<BLSSignatureScheme<Param381>>>;
 
-impl<S, PUBKEY: SignatureKey> GeneralStaticCommittee<S, PUBKEY> {
+impl<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey>
+    GeneralStaticCommittee<T, LEAF, PUBKEY>
+{
     /// Creates a new dummy elector
     pub fn new(nodes: Vec<PUBKEY>) -> Self {
         Self {
             nodes,
-            _state_phantom: PhantomData,
+            _type_phantom: PhantomData,
+            _leaf_phantom: PhantomData,
         }
     }
 }
@@ -66,8 +77,8 @@ pub struct StaticElectionConfig {}
 
 impl ElectionConfig for StaticElectionConfig {}
 
-impl<TYPES, PUBKEY: SignatureKey + 'static> Election<TYPES>
-    for GeneralStaticCommittee<TYPES, PUBKEY>
+impl<TYPES, LEAF: LeafType<NodeType = TYPES>, PUBKEY: SignatureKey + 'static> Election<TYPES>
+    for GeneralStaticCommittee<TYPES, LEAF, PUBKEY>
 where
     TYPES: NodeTypes<
         SignatureKey = PUBKEY,
@@ -77,6 +88,41 @@ where
 {
     /// Just use the vector of public keys for the stake table
     type StakeTable = Vec<PUBKEY>;
+
+    type QuorumCertificate = QuorumCertificate<TYPES, Self::LeafType>;
+
+    type DACertificate = DACertificate<TYPES>;
+
+    type LeafType = LEAF;
+
+    fn is_valid_qc(&self, qc: Self::QuorumCertificate) -> bool {
+        nll_todo()
+    }
+
+    fn is_valid_dac(&self, qc: Self::DACertificate) -> bool {
+        nll_todo()
+    }
+
+    fn is_valid_qc_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        hash: Commitment<Self::LeafType>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        nll_todo()
+    }
+
+    fn is_valid_dac_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        nll_todo()
+    }
 
     /// Clone the static table
     fn get_stake_table(
@@ -126,7 +172,8 @@ where
     fn create_election(keys: Vec<PUBKEY>, _config: TYPES::ElectionConfigType) -> Self {
         Self {
             nodes: keys,
-            _state_phantom: PhantomData,
+            _type_phantom: PhantomData,
+            _leaf_phantom: PhantomData,
         }
     }
 

@@ -3,7 +3,7 @@
 
 use super::{node_implementation::NodeTypes, signature_key::EncodedPublicKey};
 use crate::{
-    data::{LeafType, QuorumCertificate, ValidatingLeaf},
+    data::{LeafType, QuorumCertificate},
     traits::Block,
 };
 use async_trait::async_trait;
@@ -119,14 +119,7 @@ where
     LEAF: LeafType<NodeType = TYPES>,
 {
     fn from(leaf: LEAF) -> Self {
-        Self::Success(StoredView::from_qc_block_and_state(
-            leaf.get_justify_qc(),
-            leaf.get_deltas(),
-            leaf.get_state(),
-            leaf.get_parent_commitment(),
-            leaf.get_rejected(),
-            leaf.get_proposer_id(),
-        ))
+        Self::Success(StoredView::from(leaf))
     }
 }
 

@@ -10,7 +10,7 @@ use crate::{
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::{ConsensusTime, ValidatingConsensusType},
-        storage::StoredView,
+        storage::{StoredView, ViewAppend},
         Block, State,
     },
 };
@@ -21,7 +21,9 @@ use either::Either;
 use hotshot_utils::hack::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData, num::NonZeroU64, ops::Deref};
+use std::{
+    collections::BTreeMap, default, fmt::Debug, marker::PhantomData, num::NonZeroU64, ops::Deref,
+};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -87,7 +89,7 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> QuorumCertificate<TYPES
 }
 
 // TODO (da) move this, and QC to separate files
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DACertificate<TYPES: NodeTypes> {
     /// The view number this quorum certificate was generated during
     ///
@@ -179,6 +181,12 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> Committable
         builder.u64_field("Genesis", self.genesis.into()).finalize()
     }
 }
+
+impl<TYPES: NodeTypes> SignedCertificate<TYPES::SignatureKey> for DACertificate<TYPES> {
+    type Accumulator = CertificateAccumulator<TYPES::SignatureKey, DACertificate<TYPES>>;
+}
+
+impl<TYPES: NodeTypes> Eq for DACertificate<TYPES> {}
 
 /// The `Transaction` type associated with a `State`, as a syntactic shortcut
 pub type Transaction<STATE> = <<STATE as State>::BlockType as Block>::Transaction;
@@ -329,7 +337,11 @@ pub trait LeafType:
     fn get_rejected(&self)
         -> Vec<<<Self::NodeType as NodeTypes>::BlockType as Block>::Transaction>;
 
+    fn get_timestamp(&self) -> i128;
+
     fn get_proposer_id(&self) -> EncodedPublicKey;
+
+    fn from_stored_view(stored_view: StoredView<Self::NodeType, Self>) -> Self;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -431,8 +443,28 @@ impl<TYPES: NodeTypes> LeafType for ValidatingLeaf<TYPES> {
         self.rejected.clone()
     }
 
+    fn get_timestamp(&self) -> i128 {
+        self.timestamp
+    }
+
     fn get_proposer_id(&self) -> EncodedPublicKey {
         self.proposer_id.clone()
+    }
+
+    fn from_stored_view(stored_view: StoredView<Self::NodeType, Self>) -> Self {
+        let deltas = match stored_view.append {
+            ViewAppend::Block { block } => block,
+        };
+        Self {
+            view_number: stored_view.view_number,
+            justify_qc: stored_view.justify_qc,
+            parent_commitment: stored_view.parent,
+            deltas,
+            state: stored_view.state,
+            rejected: stored_view.rejected,
+            timestamp: stored_view.timestamp,
+            proposer_id: stored_view.proposer_id,
+        }
     }
 }
 
@@ -464,8 +496,28 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
         self.rejected.clone()
     }
 
+    fn get_timestamp(&self) -> i128 {
+        self.timestamp
+    }
+
     fn get_proposer_id(&self) -> EncodedPublicKey {
         self.proposer_id.clone()
+    }
+
+    fn from_stored_view(stored_view: StoredView<Self::NodeType, Self>) -> Self {
+        let deltas = match stored_view.append {
+            ViewAppend::Block { block } => block,
+        };
+        Self {
+            view_number: stored_view.view_number,
+            justify_qc: stored_view.justify_qc,
+            parent_commitment: stored_view.parent,
+            deltas,
+            state: stored_view.state,
+            rejected: stored_view.rejected,
+            timestamp: stored_view.timestamp,
+            proposer_id: stored_view.proposer_id,
+        }
     }
 }
 
@@ -576,9 +628,12 @@ where
     /// or if state cannot extend deltas from default()
     pub fn genesis(deltas: TYPES::BlockType) -> Self {
         // if this fails, we're not able to initialize consensus.
-        let state = TYPES::StateType::default()
-            .append(&deltas, &TYPES::Time::genesis())
-            .unwrap();
+        let state = <TYPES as NodeTypes>::StateType::append(
+            &TYPES::StateType::default(),
+            &deltas,
+            &TYPES::Time::genesis(),
+        )
+        .unwrap();
         Self {
             view_number: TYPES::Time::genesis(),
             justify_qc: QuorumCertificate::genesis(),
@@ -610,17 +665,21 @@ where
     }
 }
 
-impl<TYPES: NodeTypes> From<ValidatingLeaf<TYPES>> for StoredView<TYPES, ValidatingLeaf<TYPES>> {
-    fn from(val: ValidatingLeaf<TYPES>) -> Self {
+impl<TYPES, LEAF> From<LEAF> for StoredView<TYPES, LEAF>
+where
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+{
+    fn from(leaf: LEAF) -> Self {
         StoredView {
-            view_number: val.view_number,
-            parent: val.parent_commitment,
-            justify_qc: val.justify_qc,
-            state: val.state,
-            append: val.deltas.into(),
-            rejected: val.rejected,
-            timestamp: val.timestamp,
-            proposer_id: val.proposer_id,
+            view_number: leaf.get_view_number(),
+            parent: leaf.get_parent_commitment(),
+            justify_qc: leaf.get_justify_qc(),
+            state: leaf.get_state(),
+            append: leaf.get_deltas().into(),
+            rejected: leaf.get_rejected(),
+            timestamp: leaf.get_timestamp(),
+            proposer_id: leaf.get_proposer_id(),
         }
     }
 }

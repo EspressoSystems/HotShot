@@ -5,6 +5,7 @@ use async_lock::RwLock;
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
     constants::LOOK_AHEAD,
+    data::QuorumCertificate,
     message::MessageKind,
     traits::{
         network::NetworkingImplementation,
@@ -333,7 +334,10 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
 
     // unwrap is fine since results must have >= 1 item(s)
     #[cfg(feature = "async-std-executor")]
-    let high_qc = results.into_iter().max_by_key(|qc| qc.view_number).unwrap();
+    let high_qc = results
+        .into_iter()
+        .max_by_key(|qc: &QuorumCertificate<TYPES, I::Leaf>| qc.view_number)
+        .unwrap();
     #[cfg(feature = "tokio-executor")]
     let high_qc = results
         .into_iter()

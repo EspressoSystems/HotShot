@@ -260,7 +260,10 @@ where
             let pub_key = TYPES::SignatureKey::from_private(&priv_key);
             let (network, port, _) = {
                 async_block_on(async move {
-                    get_networking::<TYPES, ThreadRng>(pub_key, "0.0.0.0", node_id, &mut rng).await
+                    get_networking::<TYPES, LEAF, PROPOSAL, ThreadRng>(
+                        pub_key, "0.0.0.0", node_id, &mut rng,
+                    )
+                    .await
                 })
             };
 
@@ -389,7 +392,7 @@ impl<
                 warn!("Signaling other waiter for ack");
                 let _ = other_waiter.send(());
             }
-            let command = Command::<TYPES>::Identify {
+            let command = Command::<TYPES, LEAF, PROPOSAL>::Identify {
                 from: w.inner.pub_key.clone(),
                 id: ident_id,
             };
@@ -463,7 +466,7 @@ impl<
                                                     }
                                                     trace!("Acking identify");
                                                     let command =
-                                                        Command::<TYPES>::Ack{
+                                                        Command::<TYPES,LEAF,PROPOSAL>::Ack{
                                                             ack_id: id,
                                                             id: w.get_next_message_id()
                                                         };
@@ -482,7 +485,7 @@ impl<
                                                 Command::Ping { id } => {
                                                     debug!("Received ping, acking");
                                                     let command =
-                                                        Command::<TYPES>::Ack{
+                                                        Command::<TYPES,LEAF,PROPOSAL>::Ack{
                                                             ack_id: id,
                                                             id: w.get_next_message_id()
                                                         };

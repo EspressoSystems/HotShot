@@ -65,7 +65,7 @@ use hotshot_types::{
         network::{NetworkChange, NetworkError},
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        state::{ConsensusTime, ValidatingConsensus},
+        state::{ConsensusTime, SequencingConsensus, ValidatingConsensus},
         storage::{StoredView, ViewEntry},
         State,
     },
@@ -837,7 +837,9 @@ pub struct HotShotInitializer<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>
     inner: LEAF,
 }
 
-impl<TYPES: NodeTypes> HotShotInitializer<TYPES, ValidatingLeaf<TYPES>> {
+impl<TYPES: NodeTypes<ConsensusType = ValidatingConsensus>>
+    HotShotInitializer<TYPES, ValidatingLeaf<TYPES>>
+{
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
@@ -848,7 +850,7 @@ impl<TYPES: NodeTypes> HotShotInitializer<TYPES, ValidatingLeaf<TYPES>> {
                 context: err.to_string(),
             })?;
         let time = TYPES::Time::genesis();
-        let justify_qc = QuorumCertificate::<TYPES>::genesis();
+        let justify_qc = QuorumCertificate::<TYPES, ValidatingLeaf<TYPES>>::genesis();
 
         Ok(Self {
             inner: ValidatingLeaf {
@@ -870,7 +872,9 @@ impl<TYPES: NodeTypes> HotShotInitializer<TYPES, ValidatingLeaf<TYPES>> {
     }
 }
 
-impl<TYPES: NodeTypes> HotShotInitializer<TYPES, DALeaf<TYPES>> {
+impl<TYPES: NodeTypes<ConsensusType = SequencingConsensus>>
+    HotShotInitializer<TYPES, DALeaf<TYPES>>
+{
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
@@ -881,7 +885,7 @@ impl<TYPES: NodeTypes> HotShotInitializer<TYPES, DALeaf<TYPES>> {
                 context: err.to_string(),
             })?;
         let time = TYPES::Time::genesis();
-        let justify_qc = QuorumCertificate::<TYPES>::genesis();
+        let justify_qc = QuorumCertificate::<TYPES, DALeaf<TYPES>>::genesis();
 
         Ok(Self {
             inner: DALeaf {

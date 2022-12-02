@@ -4,12 +4,15 @@ use bincode::Options;
 use blake3::Hasher;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
-use hotshot_types::traits::{
-    election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
-    node_implementation::NodeTypes,
-    signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
+use hotshot_types::{
+    data::{DACertificate, LeafType, QuorumCertificate},
+    traits::{
+        election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
+        node_implementation::NodeTypes,
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
+    },
 };
-use hotshot_utils::bincode::bincode_opts;
+use hotshot_utils::{bincode::bincode_opts, hack::nll_todo};
 use jf_primitives::{
     hash_to_group::SWHashToGroup,
     signatures::{
@@ -273,10 +276,11 @@ where
     }
 }
 
+// TODO (da) is Eq and PartialEq needed here? Many fields have to ignore PartialEq.
 /// the vrf implementation
 #[derive(Derivative)]
 #[derivative(Eq, PartialEq)]
-pub struct VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+pub struct VrfImpl<TYPES, LEAF: LeafType<NodeType = TYPES>, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS> + Sync + Send,
     TYPES: NodeTypes,
@@ -285,31 +289,36 @@ where
     #[derivative(PartialEq = "ignore")]
     stake_table: VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>,
     /// the proof params
+    #[derivative(PartialEq = "ignore")]
     proof_parameters: VRF::PublicParameter,
     /// the rng
+    #[derivative(PartialEq = "ignore")]
     prng: std::sync::Arc<std::sync::Mutex<rand_chacha::ChaChaRng>>,
     /// the committee parameter
     sortition_parameter: NonZeroU64,
     /// the chain commitment seed
     chain_seed: [u8; 32],
     /// pdf cache
+    #[derivative(PartialEq = "ignore")]
     _sortition_cache: std::sync::Arc<std::sync::Mutex<HashMap<BinomialQuery, Ratio<BigUint>>>>,
 
     // TODO (fst2) accessor to stake table
     // stake_table:
     /// phantom data
-    _pd_0: PhantomData<VRFHASHER>,
+    _pd_0: PhantomData<TYPES>,
     /// phantom data
-    _pd_1: PhantomData<VRFPARAMS>,
+    _pd_1: PhantomData<LEAF>,
     /// phantom data
-    _pd_2: PhantomData<TYPES>,
+    _pd_2: PhantomData<SIGSCHEME>,
     /// phantom data
     _pd_3: PhantomData<VRF>,
     /// phantom data
-    _pd_4: PhantomData<SIGSCHEME>,
+    _pd_4: PhantomData<VRFHASHER>,
+    /// phantom data
+    _pd_5: PhantomData<VRFPARAMS>,
 }
-impl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS> Clone
-    for VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+impl<TYPES, LEAF: LeafType<NodeType = TYPES>, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS> Clone
+    for VrfImpl<TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS, PublicParameter = ()> + Sync + Send,
     TYPES: NodeTypes,
@@ -327,6 +336,7 @@ where
             _pd_2: PhantomData,
             _pd_3: PhantomData,
             _pd_4: PhantomData,
+            _pd_5: PhantomData,
         }
     }
 }
@@ -404,8 +414,8 @@ where
 }
 
 // KEY is VRFPubKey
-impl<VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, TYPES> Election<TYPES>
-    for VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+impl<VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, TYPES, LEAF: LeafType<NodeType = TYPES>> Election<TYPES>
+    for VrfImpl<TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send + 'static,
     SIGSCHEME::VerificationKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
@@ -435,6 +445,41 @@ where
 {
     // pubkey -> unit of stake
     type StakeTable = VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>;
+
+    type QuorumCertificate = QuorumCertificate<TYPES, Self::LeafType>;
+
+    type DACertificate = DACertificate<TYPES>;
+
+    type LeafType = LEAF;
+
+    fn is_valid_qc(&self, qc: Self::QuorumCertificate) -> bool {
+        nll_todo()
+    }
+
+    fn is_valid_dac(&self, qc: Self::DACertificate) -> bool {
+        nll_todo()
+    }
+
+    fn is_valid_qc_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        hash: Commitment<Self::LeafType>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        nll_todo()
+    }
+
+    fn is_valid_dac_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        nll_todo()
+    }
 
     // FIXED STAKE
     // just return the state
@@ -816,8 +861,8 @@ fn find_bin_idx(
     }
 }
 
-impl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
-    VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+impl<TYPES, LEAF: LeafType<NodeType = TYPES>, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+    VrfImpl<TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send,
     SIGSCHEME::VerificationKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
@@ -876,6 +921,7 @@ where
             _pd_2: PhantomData,
             _pd_3: PhantomData,
             _pd_4: PhantomData,
+            _pd_5: PhantomData,
             sortition_parameter: config.sortition_parameter,
             _sortition_cache: Arc::default(),
         }
@@ -1009,8 +1055,8 @@ where
     }
 }
 
-impl<TYPES> TestableElection<TYPES>
-    for VrfImpl<TYPES, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>
+impl<TYPES, LEAF: LeafType<NodeType = TYPES>> TestableElection<TYPES>
+    for VrfImpl<TYPES, LEAF, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>
 where
     TYPES: NodeTypes<
         VoteTokenType = VRFVoteToken<

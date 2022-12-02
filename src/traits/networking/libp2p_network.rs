@@ -260,7 +260,7 @@ impl<
         bootstrap_addrs: Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>,
         bootstrap_addrs_len: usize,
         id: usize,
-    ) -> Result<Libp2pNetwork<TYPES>, NetworkError> {
+    ) -> Result<Libp2pNetwork<TYPES, LEAF, PROPOSAL>, NetworkError> {
         assert!(bootstrap_addrs_len > 4, "Need at least 5 bootstrap nodes");
         let network_handle = Arc::new(
             NetworkNodeHandle::<()>::new(config, id)
