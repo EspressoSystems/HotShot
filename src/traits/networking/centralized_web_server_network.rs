@@ -17,8 +17,8 @@ use hotshot_types::{
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     },
 };
-use nll::nll_todo::nll_todo;
 use hotshot_utils::bincode::bincode_opts;
+use nll::nll_todo::nll_todo;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -32,6 +32,8 @@ use std::{
     time::Duration,
 };
 use tide_disco::error::ServerError;
+use surf_disco::error::ClientError;
+use surf_disco::error;
 use tracing::error;
 
 #[derive(Clone, Debug)]
@@ -122,16 +124,30 @@ async fn run_background_receive<TYPES: NodeTypes>(
             "Polling this endpoint: /api/proposal/{}",
             view_number.to_string()
         );
-        let possible_proposal: Result<Option<Vec<Vec<u8>>>, ServerError> = connection
+        // let req = connection
+        // .client
+        // .get(&format!("/api/proposal/{}", view_number.to_string()));
+        let possible_proposal: Result<Option<Vec<Message<TYPES>>>, ClientError> = 
+        connection
             .client
             .get(&format!("/api/proposal/{}", view_number.to_string()))
             .send()
+
             .await;
+
         match possible_proposal {
             // TODO ED: differentiate between different errors, some errors mean there is nothing in the queue,
             // others could mean an actual error; perhaps nothing should return None instead of an error
-            Err(ServerError { status, message }) => println!("Proposal error is: {:?}", message),
-            Ok(proposal) => println!("Proposal is: {:?}", proposal),
+            Err(error) => panic!("Proposal error is: {:?}", error),
+            Ok(Some(proposals)) => {
+                // Add proposal to broadcast queue
+                let mut lock = connection.broadcast_poll_queue.write().await;
+                proposals.iter().for_each(|proposal| {
+                    println!("prop is {:?}", proposal);
+                    // lock.push(proposal.clone()); 
+                });
+            }
+            Ok(None) => println!("Proposal is None"),
         }
         // TODO ED: Adjust this parameter once things are working
         async_sleep(Duration::from_millis(100)).await;
