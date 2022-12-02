@@ -281,6 +281,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
         let mut last_view_number_visited = self.cur_view;
         let mut new_commit_reached: bool = false;
         let mut new_decide_reached = false;
+        let mut new_decide_qc = None;
         let mut leaf_views = Vec::new();
         let mut included_txns = HashSet::new();
         let old_anchor_view = consensus.last_decided_view;
@@ -300,6 +301,9 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                             if current_chain_length == 2 {
                                 new_locked_view = leaf.view_number;
                                 new_commit_reached = true;
+                                // The next leaf in the chain, if there is one, is decided, so this
+                                // leaf's justify_qc would become the QC for the decided chain.
+                                new_decide_qc = Some(leaf.justify_qc.clone());
                             } else if current_chain_length == 3 {
                                 new_anchor_view = leaf.view_number;
                                 new_decide_reached = true;
@@ -408,9 +412,11 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
                 .rejected_transactions
                 .add(leaf.rejected.len());
 
-            let decide_sent = self
-                .api
-                .send_decide(consensus.last_decided_view, leaf_views);
+            let decide_sent = self.api.send_decide(
+                consensus.last_decided_view,
+                leaf_views,
+                new_decide_qc.unwrap(),
+            );
             let old_anchor_view = consensus.last_decided_view;
             consensus
                 .collect_garbage(old_anchor_view, new_anchor_view)

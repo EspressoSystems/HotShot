@@ -7,7 +7,7 @@ use crate::{
 };
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use hotshot_types::{
-    data::Leaf,
+    data::{Leaf, QuorumCertificate},
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
@@ -154,6 +154,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
                     view_number: TYPES::Time::genesis(),
                     event: EventType::Decide {
                         leaf_chain: Arc::new(vec![anchor_leaf.into()]),
+                        qc: Arc::new(QuorumCertificate::genesis()),
                     },
                 };
                 if self.sender_handle.send_async(event).await.is_err() {

@@ -124,11 +124,17 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     }
 
     /// sends a decide event down the channel
-    async fn send_decide(&self, view_number: TYPES::Time, leaf_views: Vec<Leaf<TYPES>>) {
+    async fn send_decide(
+        &self,
+        view_number: TYPES::Time,
+        leaf_views: Vec<Leaf<TYPES>>,
+        decide_qc: QuorumCertificate<TYPES>,
+    ) {
         self.send_event(Event {
             view_number,
             event: EventType::Decide {
                 leaf_chain: Arc::new(leaf_views),
+                qc: Arc::new(decide_qc),
             },
         })
         .await;
