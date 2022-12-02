@@ -2,7 +2,7 @@
 
 use crate::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
 use async_lock::RwLock;
-use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
+use hotshot_consensus::{ConsensusApi, ViewQueue};
 use hotshot_types::{
     constants::LOOK_AHEAD,
     data::QuorumCertificate,
@@ -10,7 +10,6 @@ use hotshot_types::{
     traits::{
         network::NetworkingImplementation,
         node_implementation::{NodeImplementation, NodeTypes},
-        state::ValidatingConsensus,
     },
     ExecutionType,
 };

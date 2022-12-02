@@ -2,7 +2,6 @@
 
 use super::node_implementation::NodeTypes;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
-use super::state::ConsensusTime;
 use crate::data::LeafType;
 use crate::traits::signature_key::SignatureKey;
 use commit::{Commitment, Committable};

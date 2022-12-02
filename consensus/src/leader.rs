@@ -4,7 +4,7 @@ use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_lock::RwLock;
 use commit::Committable;
 use hotshot_types::{
-    data::{LeafType, QuorumCertificate, ValidatingLeaf, ValidatingProposal},
+    data::{QuorumCertificate, ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, Proposal},
     traits::{
         election::Election, node_implementation::NodeTypes, signature_key::SignatureKey,
@@ -16,7 +16,7 @@ use hotshot_utils::{
     subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
 use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Instant};
-use tracing::{error, info, instrument, warn};
+use tracing::{error, info, warn};
 
 // TODO (da) rename this to validatingleader
 

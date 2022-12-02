@@ -26,7 +26,7 @@ use hotshot_types::{
         block_contents::Transaction,
         election::Election,
         node_implementation::{ApplicationMetadata, NodeTypes},
-        state::{ConsensusTime, ConsensusType, TestableBlock, TestableState, ValidatingConsensus},
+        state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
         State,
     },
 };

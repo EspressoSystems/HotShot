@@ -21,9 +21,7 @@ use either::Either;
 use hotshot_utils::hack::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeMap, default, fmt::Debug, marker::PhantomData, num::NonZeroU64, ops::Deref,
-};
+use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData, num::NonZeroU64, ops::Deref};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -322,7 +320,13 @@ pub trait LeafType:
     + std::hash::Hash
 {
     type NodeType: NodeTypes;
-    type StateCommitmentType: Debug + PartialEq + Send + Sync;
+    type StateCommitmentType: Clone
+        + Debug
+        + for<'a> Deserialize<'a>
+        + PartialEq
+        + Send
+        + Serialize
+        + Sync;
 
     fn get_view_number(&self) -> <Self::NodeType as NodeTypes>::Time;
 

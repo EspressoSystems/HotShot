@@ -2,7 +2,7 @@
 
 use crate::ConsensusApi;
 use async_lock::Mutex;
-use hotshot_types::data::{LeafType, ValidatingLeaf, ValidatingProposal};
+use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
 use hotshot_types::traits::election::{Checked::Unchecked, Election, VoteToken};
 use hotshot_types::traits::node_implementation::NodeTypes;
 use hotshot_types::{data::QuorumCertificate, message::ConsensusMessage};

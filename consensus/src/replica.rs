@@ -7,7 +7,7 @@ use crate::{
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use commit::Committable;
 use hotshot_types::{
-    data::{LeafType, ProposalType, QuorumCertificate, ValidatingLeaf, ValidatingProposal},
+    data::{QuorumCertificate, ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, TimedOut, Vote},
     traits::{
         election::Election, node_implementation::NodeTypes, signature_key::SignatureKey,

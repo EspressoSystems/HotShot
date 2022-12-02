@@ -1,6 +1,5 @@
 use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
-use digest::typenum::Le;
 use hotshot_types::{
     data::{DACertificate, LeafType, QuorumCertificate},
     traits::{

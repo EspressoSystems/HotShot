@@ -66,7 +66,7 @@ use hotshot_types::{
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::{ConsensusTime, SequencingConsensus, ValidatingConsensus},
-        storage::{StoredView, ViewEntry},
+        storage::StoredView,
         State,
     },
     HotShotConfig,

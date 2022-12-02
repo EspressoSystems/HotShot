@@ -9,7 +9,6 @@ use crate::{
 use async_trait::async_trait;
 use commit::Commitment;
 use derivative::Derivative;
-use either::Either;
 use snafu::Snafu;
 use std::collections::{BTreeMap, BTreeSet};
 

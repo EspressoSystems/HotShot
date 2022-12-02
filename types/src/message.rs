@@ -133,7 +133,7 @@ pub enum DataMessage<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
         /// The relevant [`State`]
         ///
         /// [`State`]: ../traits/state/trait.State.html
-        state: TYPES::StateType,
+        state: LEAF::StateCommitmentType,
 
         /// The parent leaf's commitment
         parent_commitment: Commitment<LEAF>,

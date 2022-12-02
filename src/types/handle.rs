@@ -6,7 +6,7 @@ use crate::{
     HotShot,
 };
 use hotshot_types::{
-    data::{LeafType, ValidatingLeaf},
+    data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
@@ -114,7 +114,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     /// # Errors
     ///
     /// Returns an error if the underlying `Storage` returns an error
-    pub async fn get_state(&self) -> TYPES::StateType {
+    pub async fn get_state(&self) -> <I::Leaf as LeafType>::StateCommitmentType {
         self.hotshot.get_state().await
     }
 
@@ -184,7 +184,13 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
     /// Panics if the event stream is shut down while this is running
     pub async fn collect_round_events(
         &mut self,
-    ) -> Result<(Vec<TYPES::StateType>, Vec<TYPES::BlockType>), HotShotError<TYPES>> {
+    ) -> Result<
+        (
+            Vec<<I::Leaf as LeafType>::StateCommitmentType>,
+            Vec<TYPES::BlockType>,
+        ),
+        HotShotError<TYPES>,
+    > {
         // TODO we should probably do a view check
         // but we can do that later. It's non-obvious how to get the view number out
         // to check against
