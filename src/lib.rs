@@ -80,6 +80,7 @@ use hotshot_utils::{
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use snafu::ResultExt;
+use tasks::TaskHandler;
 use std::{
     collections::{BTreeMap, HashMap},
     num::{NonZeroU64, NonZeroUsize},
@@ -161,7 +162,9 @@ pub struct HotShot<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     id: u64,
 }
 
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
+impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I>
+where TaskHandler<<TYPES as NodeTypes>::ConsensusType>: tasks::TaskHandlerType<TYPES,I>
+{
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_arguments)]
@@ -176,7 +179,10 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         election: I::Election,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
-    ) -> Result<Self, HotShotError<TYPES>> {
+    ) -> Result<Self, HotShotError<TYPES>>
+
+
+    {
         info!("Creating a new hotshot");
         let inner: Arc<HotShotInner<TYPES, I>> = Arc::new(HotShotInner {
             public_key,
