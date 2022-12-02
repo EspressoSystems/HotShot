@@ -339,6 +339,7 @@
 <span id="339">339</span>
 <span id="340">340</span>
 <span id="341">341</span>
+<span id="342">342</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 </span><span class="kw">use crate</span>::{
@@ -348,7 +349,7 @@
 };
 <span class="kw">use </span>async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 <span class="kw">use </span>hotshot_types::{
-    data::Leaf,
+    data::{Leaf, QuorumCertificate},
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
@@ -495,6 +496,7 @@
                     view_number: TYPES::Time::genesis(),
                     event: EventType::Decide {
                         leaf_chain: Arc::new(<span class="macro">vec!</span>[anchor_leaf.into()]),
+                        qc: Arc::new(QuorumCertificate::genesis()),
                     },
                 };
                 <span class="kw">if </span><span class="self">self</span>.sender_handle.send_async(event).<span class="kw">await</span>.is_err() {

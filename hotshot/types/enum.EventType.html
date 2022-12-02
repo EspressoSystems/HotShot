@@ -5,6 +5,7 @@ pub enum EventType&lt;TYPES&gt;<span class="where fmt-newline">where<br>&nbsp;&n
     },
     Decide {
         leaf_chain: <a class="struct" href="https://doc.rust-lang.org/1.65.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.65.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../data/struct.Leaf.html" title="struct hotshot::data::Leaf">Leaf</a>&lt;TYPES&gt;, <a class="struct" href="https://doc.rust-lang.org/1.65.0/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;&gt;,
+        qc: <a class="struct" href="https://doc.rust-lang.org/1.65.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="../data/struct.QuorumCertificate.html" title="struct hotshot::data::QuorumCertificate">QuorumCertificate</a>&lt;TYPES&gt;&gt;,
     },
     ReplicaViewTimeout {
         view_number: &lt;TYPES as NodeTypes&gt;::Time,
@@ -24,6 +25,9 @@ number, and is thus always returned wrapped in an <a href="struct.Event.html" ti
 <p>This list is sorted in reverse view number order, with the newest (highest view number)
 block first in the list.</p>
 <p>This list may be incomplete if the node is currently performing catchup.</p>
+</div></div><div class="sub-variant-field"><span id="variant.Decide.field.qc" class="variant small-section-header"><a href="#variant.Decide.field.qc" class="anchor field"></a><code>qc:&nbsp;<a class="struct" href="https://doc.rust-lang.org/1.65.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;<a class="struct" href="../data/struct.QuorumCertificate.html" title="struct hotshot::data::QuorumCertificate">QuorumCertificate</a>&lt;TYPES&gt;&gt;</code></span><div class="docblock"><p>The QC signing the most recent leaf in <code>leaf_chain</code>.</p>
+<p>Note that the QC for each additional leaf in the chain can be obtained from the leaf
+before it using <a href="../data/struct.Leaf.html#structfield.justify_qc" title="Leaf::justify_qc">Leaf::justify_qc</a>.</p>
 </div></div></div><div class="docblock"><p>A new decision event was issued</p>
 </div><h3 id="variant.ReplicaViewTimeout" class="variant small-section-header"><a href="#variant.ReplicaViewTimeout" class="anchor field"></a><code>ReplicaViewTimeout</code></h3><div class="sub-variant" id="variant.ReplicaViewTimeout.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ReplicaViewTimeout.field.view_number" class="variant small-section-header"><a href="#variant.ReplicaViewTimeout.field.view_number" class="anchor field"></a><code>view_number:&nbsp;&lt;TYPES as NodeTypes&gt;::Time</code></span><div class="docblock"><p>The view that timed out</p>
 </div></div></div><div class="docblock"><p>A replica task was canceled by a timeout interrupt</p>
