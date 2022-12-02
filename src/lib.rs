@@ -522,20 +522,23 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         // TODO validate incoming broadcast message based on sender signature key
         match msg {
             DataMessage::SubmitTransaction(transaction) => {
+                let consensus = self.hotstuff.read().await;
                 // The API contract requires the hash to be unique
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
-                #[allow(clippy::cast_possible_wrap)]
-                self.hotstuff
-                    .read()
-                    .await
-                    .metrics
-                    .outstanding_transactions_memory_size
-                    .update(bincode_opts().serialized_size(&transaction).unwrap_or(0) as i64);
                 self.transactions
                     .modify(|txns| {
-                        txns.insert(transaction.commit(), transaction);
+                        let size = bincode_opts().serialized_size(&transaction).unwrap_or(0);
+                        if txns.insert(transaction.commit(), transaction).is_none() {
+                            // If this is a new transaction, update metrics.
+                            consensus.metrics.outstanding_transactions.update(1);
+                            #[allow(clippy::cast_possible_wrap)]
+                            consensus
+                                .metrics
+                                .outstanding_transactions_memory_size
+                                .update(size as i64);
+                        }
                     })
                     .await;
             }

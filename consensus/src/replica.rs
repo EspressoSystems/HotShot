@@ -395,6 +395,10 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
             }) as i64;
             consensus
                 .metrics
+                .outstanding_transactions
+                .update(-(included_txns_set.len() as i64));
+            consensus
+                .metrics
                 .outstanding_transactions_memory_size
                 .update(-included_txn_size);
             consensus

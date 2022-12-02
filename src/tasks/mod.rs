@@ -3,7 +3,7 @@
 use crate::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
-    async_primitives::{broadcast::channel, subscribable_rwlock::ReadView},
+    async_primitives::broadcast::channel,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
@@ -348,10 +348,6 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
         .metrics
         .view_duration
         .add_point(start.elapsed().as_secs_f64());
-    consensus
-        .metrics
-        .outstanding_transactions
-        .set(txns.cloned().await.len());
     c_api.send_view_finished(consensus.cur_view).await;
 
     info!("Returning from view {:?}!", cur_view);
