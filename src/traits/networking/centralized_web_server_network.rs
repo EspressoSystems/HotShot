@@ -1,3 +1,4 @@
+use async_compatibility_layer::art::{async_block_on, async_sleep, async_spawn};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
 use bincode::Options;
@@ -16,12 +17,9 @@ use hotshot_types::{
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     },
 };
-use hotshot_utils::art::async_block_on;
+use nll::nll_todo::nll_todo;
 use hotshot_utils::bincode::bincode_opts;
-use hotshot_utils::{
-    art::{async_sleep, async_spawn},
-    hack::nll_todo,
-};
+
 use serde::Deserialize;
 use serde::Serialize;
 use snafu::ResultExt;
@@ -124,7 +122,7 @@ async fn run_background_receive<TYPES: NodeTypes>(
             "Polling this endpoint: /api/proposal/{}",
             view_number.to_string()
         );
-        let possible_proposal: Result<(Vec<Vec<u8>>), ServerError> = connection
+        let possible_proposal: Result<Option<Vec<Vec<u8>>>, ServerError> = connection
             .client
             .get(&format!("/api/proposal/{}", view_number.to_string()))
             .send()
@@ -132,7 +130,7 @@ async fn run_background_receive<TYPES: NodeTypes>(
         match possible_proposal {
             // TODO ED: differentiate between different errors, some errors mean there is nothing in the queue,
             // others could mean an actual error; perhaps nothing should return None instead of an error
-            Err(ServerError { status, message }) => println!("Proposal is: {:?}", message),
+            Err(ServerError { status, message }) => println!("Proposal error is: {:?}", message),
             Ok(proposal) => println!("Proposal is: {:?}", proposal),
         }
         // TODO ED: Adjust this parameter once things are working
@@ -162,7 +160,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
                 // let serialized_message = bincode_opts()
                 //     .serialize(&message)
                 //     .context(FailedToSerializeSnafu)?;
-                // Must be a proposal 
+                // Must be a proposal
                 // let msg = self
                 //     .inner
                 //     .client

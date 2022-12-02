@@ -4,11 +4,12 @@
 //! expected to have.
 
 use commit::{Commitment, Committable};
-use serde::{de::DeserializeOwned, Serialize};
+use espresso_systems_common::hotshot::tag;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
 
-/// Abstraction over the contents of a block
+/// Abstraction over the full contents of a block
 ///
 /// This trait encapsulates the behaviors that a block must have in order to be used by consensus:
 ///   * Must have a predefined error type ([`BlockContents::Error`])
@@ -37,8 +38,14 @@ pub trait Block:
         -> std::result::Result<Self, Self::Error>;
 
     /// returns hashes of all the transactions in this block
+    /// TODO make this ordered with a vec
     fn contained_transactions(&self) -> HashSet<Commitment<Self::Transaction>>;
 }
+
+/// Commitment to a block, used by data availibity
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
+#[serde(bound(deserialize = ""), transparent)]
+pub struct BlockCommitment<T: Block>(pub Commitment<T>);
 
 /// Abstraction over any type of transaction. Used by [`Block`].
 pub trait Transaction:
@@ -87,6 +94,10 @@ pub mod dummy {
                 .u64_field("Dummy Field", 0)
                 .finalize()
         }
+
+        fn tag() -> String {
+            tag::DUMMY_TXN.to_string()
+        }
     }
     impl super::Transaction for DummyTransaction {}
 
@@ -128,6 +139,10 @@ pub mod dummy {
             commit::RawCommitmentBuilder::new("Dummy Block Comm")
                 .u64_field("Nonce", self.nonce)
                 .finalize()
+        }
+
+        fn tag() -> String {
+            tag::DUMMY_BLOCK.to_string()
         }
     }
 }

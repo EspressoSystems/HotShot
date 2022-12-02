@@ -1,4 +1,4 @@
-//! Network access abstraction
+//! Network access compatibility
 //!
 //! This module contains a trait abstracting over network access, as well as implementations of that
 //! trait. Currently this includes

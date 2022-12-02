@@ -7,12 +7,15 @@ use super::{
     FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation,
     NetworkingMetrics,
 };
+use async_compatibility_layer::{
+    art::{async_block_on, async_sleep, async_spawn},
+    channel::{bounded, Receiver, SendError, Sender},
+};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
-use hotshot_types::data::ViewNumber;
 use hotshot_types::{
     message::Message,
     traits::{
@@ -22,11 +25,7 @@ use hotshot_types::{
         signature_key::{SignatureKey, TestableSignatureKey},
     },
 };
-use hotshot_utils::{
-    art::{async_block_on, async_sleep, async_spawn},
-    bincode::bincode_opts,
-    channel::{bounded, Receiver, SendError, Sender},
-};
+use hotshot_utils::bincode::bincode_opts;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
@@ -522,7 +521,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
         // do nothing
     }
 
-    async fn inject_view_number(&self, view_number: TYPES::Time) {
+    async fn inject_view_number(&self, _view_number: TYPES::Time) {
         // Do nothing
     }
 }
@@ -535,11 +534,11 @@ mod tests {
     };
 
     use super::*;
+    use async_compatibility_layer::logging::setup_logging;
     use hotshot_types::{
         data::ViewNumber,
         traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
     };
-    use hotshot_utils::test_util::setup_logging;
 
     #[derive(
         Copy,
@@ -562,7 +561,7 @@ mod tests {
         type Time = ViewNumber;
         type BlockType = DEntryBlock;
         type SignatureKey = Ed25519Pub;
-        type VoteTokenType = StaticVoteToken;
+        type VoteTokenType = StaticVoteToken<Ed25519Pub>;
         type Transaction = DEntryTransaction;
         type ElectionConfigType = StaticElectionConfig;
         type StateType = DEntryState;

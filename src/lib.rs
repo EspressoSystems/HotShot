@@ -26,6 +26,8 @@
 #[cfg(feature = "docs")]
 pub mod documentation;
 
+/// Data availability support
+// pub mod da;
 /// Contains structures and functions for committee election
 pub mod data;
 #[cfg(any(feature = "demo"))]
@@ -41,6 +43,14 @@ use crate::{
     data::{Leaf, QuorumCertificate},
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
+};
+use async_compatibility_layer::{
+    art::async_spawn,
+    async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
+};
+use async_compatibility_layer::{
+    art::async_spawn_local,
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
@@ -69,13 +79,6 @@ use hotshot_types::{
     HotShotConfig,
 };
 use hotshot_types::{message::MessageKind, traits::election::VoteToken};
-use hotshot_utils::{
-    art::async_spawn, broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock,
-};
-use hotshot_utils::{
-    art::async_spawn_local,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
-};
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -226,6 +229,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
             metrics: Arc::new(ConsensusMetrics::new(
                 inner.metrics.subgroup("consensus".to_string()),
             )),
+            invalid_qc: 0,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
         let txns = hotstuff.read().await.get_transactions();

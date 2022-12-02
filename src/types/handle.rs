@@ -5,6 +5,7 @@ use crate::{
     types::{Event, HotShotError::NetworkFault},
     HotShot,
 };
+use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use hotshot_types::{
     data::Leaf,
     error::{HotShotError, RoundTimedoutState},
@@ -14,7 +15,6 @@ use hotshot_types::{
         storage::Storage,
     },
 };
-use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -316,7 +316,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
         &self,
         view_number: TYPES::Time,
     ) -> Option<usize> {
-        use hotshot_utils::channel::UnboundedReceiver;
+        use async_compatibility_layer::channel::UnboundedReceiver;
 
         let channel_map = self.hotshot.replica_channel_map.read().await;
         let chan = channel_map.channel_map.get(&view_number)?;
@@ -330,7 +330,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYP
         &self,
         view_number: TYPES::Time,
     ) -> Option<usize> {
-        use hotshot_utils::channel::UnboundedReceiver;
+        use async_compatibility_layer::channel::UnboundedReceiver;
 
         let channel_map = self.hotshot.next_leader_channel_map.read().await;
         let chan = channel_map.channel_map.get(&view_number)?;

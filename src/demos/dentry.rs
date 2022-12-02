@@ -7,12 +7,16 @@
 //! production use.
 
 use crate::traits::{
-    election::static_committee::{StaticElectionConfig, StaticVoteToken},
+    election::{
+        static_committee::{StaticElectionConfig, StaticVoteToken},
+        vrf::BlsPubKey,
+    },
     implementations::MemoryStorage,
     Block, NetworkingImplementation, NodeImplementation,
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
+use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
     constants::genesis_proposer_id,
     data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
@@ -20,7 +24,6 @@ use hotshot_types::{
         block_contents::Transaction,
         election::Election,
         node_implementation::NodeTypes,
-        signature_key::ed25519::Ed25519Pub,
         state::{ConsensusTime, TestableBlock, TestableState},
         State,
     },
@@ -134,6 +137,10 @@ impl Committable for DEntryState {
 
         builder.finalize()
     }
+
+    fn tag() -> String {
+        tag::DENTRY_STATE.to_string()
+    }
 }
 
 /// initializes the first state on genesis
@@ -188,6 +195,10 @@ impl Committable for DEntryBlock {
             }
         }
     }
+
+    fn tag() -> String {
+        tag::DENTRY_BLOCK.to_string()
+    }
 }
 
 impl Committable for DEntryTransaction {
@@ -198,6 +209,10 @@ impl Committable for DEntryTransaction {
             .constant_str("nonce")
             .u64_field("nonce", self.nonce)
             .finalize()
+    }
+
+    fn tag() -> String {
+        tag::DENTRY_TXN.to_string()
     }
 }
 
@@ -490,8 +505,8 @@ pub struct DEntryTypes;
 impl NodeTypes for DEntryTypes {
     type Time = ViewNumber;
     type BlockType = DEntryBlock;
-    type SignatureKey = Ed25519Pub;
-    type VoteTokenType = StaticVoteToken;
+    type SignatureKey = BlsPubKey;
+    type VoteTokenType = StaticVoteToken<BlsPubKey>;
     type Transaction = DEntryTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = DEntryState;

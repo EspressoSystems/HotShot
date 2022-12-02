@@ -8,35 +8,37 @@ default = []
 full-ci = ["async-std-executor"]
 tokio-ci = ["tokio-executor"]
 async-std-executor = [
-    # "dep:async-std",
+    "dep:async-std",
     "hotshot-types/async-std-executor",
-    "hotshot-utils/async-std-executor",
+    "async-compatibility-layer/async-std-executor",
 ]
 tokio-executor = [
     "dep:tokio",
     "hotshot-types/tokio-executor",
-    "hotshot-utils/tokio-executor",
+    "async-compatibility-layer/tokio-executor",
 ]
-profiling = ["hotshot-utils/profiling"]
-channel-flume = ["hotshot-types/channel-flume", "hotshot-utils/channel-flume"]
-channel-tokio = ["hotshot-types/channel-tokio", "hotshot-utils/channel-tokio"]
+profiling = ["async-compatibility-layer/profiling"]
+channel-flume = ["hotshot-types/channel-flume", "async-compatibility-layer/channel-flume"]
+channel-tokio = ["hotshot-types/channel-tokio", "async-compatibility-layer/channel-tokio"]
 channel-async-std = [
     "hotshot-types/channel-async-std",
-    "hotshot-utils/channel-async-std",
+    "async-compatibility-layer/channel-async-std",
 ]
 
 [dependencies]
+async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.0.1", default-features = false }
 async-lock = "2.6"
-async-std = { version = "1.12", optional = false }
-async-trait = "0.1.58"
+async-std = { version = "1.12", optional = true }
+async-trait = "0.1.59"
 bincode = "1.3.3"
 clap = { version = "4.0", features = ["derive", "env"], optional = false }
 commit = { git = "ssh://github.com/EspressoSystems/commit", tag = "0.2.0" }
 futures = "0.3.25"
 libp2p-core = { version = "0.37.0", default-features = false }
 hotshot-types = { version = "0.1.0", path = "../types", default-features = false }
-hotshot-utils = { path = "../utils", default-features = false }
+hotshot-utils = { path = "../utils"}
 tide-disco = { git = "ssh://git@github.com/EspressoSystems/tide-disco.git", tag = "v0.3.1" }
+nll = { git = "https://github.com/EspressoSystems/nll.git" }
 
 
 tokio = { version = "1", optional = true, features = [

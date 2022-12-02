@@ -1,11 +1,11 @@
 //! Utility functions, type aliases, helper structs and enum definitions.
 
+use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use async_lock::Mutex;
 use commit::Commitment;
 use hotshot_types::{
     data::Leaf, message::ConsensusMessage, traits::node_implementation::NodeTypes,
 };
-use hotshot_utils::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 use std::{
     collections::BTreeMap,
     ops::Deref,

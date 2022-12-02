@@ -16,6 +16,7 @@ use crate::{
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
 use commit::{Commitment, Committable};
 use derivative::Derivative;
+use espresso_systems_common::hotshot::tag;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
@@ -95,13 +96,11 @@ pub struct QuorumCertificate<TYPES: NodeTypes> {
     /// This is included for convenience, and is not fundamental to consensus or covered by the
     /// signature. This _must_ be identical to the [`BlockContents`] provided hash of the `item` in
     /// the referenced leaf.
-    #[debug(skip)]
     pub block_commitment: Commitment<TYPES::BlockType>,
 
     /// Hash of the [`Leaf`] referred to by this Quorum Certificate
     ///
     /// This value is covered by the threshold signature.
-    #[debug(skip)]
     pub leaf_commitment: Commitment<Leaf<TYPES>>,
 
     /// The view number this quorum certificate was generated during
@@ -146,6 +145,10 @@ impl<TYPES: NodeTypes> Committable for QuorumCertificate<TYPES> {
 
         builder.u64_field("Genesis", self.genesis.into()).finalize()
     }
+
+    fn tag() -> String {
+        tag::QC.to_string()
+    }
 }
 
 /// The `Transaction` type associated with a `State`, as a syntactic shortcut
@@ -166,14 +169,12 @@ pub struct ProposalLeaf<TYPES: NodeTypes> {
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
-    #[debug(skip)]
     pub parent_commitment: Commitment<Leaf<TYPES>>,
 
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
 
     /// What the state should be after applying `self.deltas`
-    #[debug(skip)]
     pub state_commitment: Commitment<TYPES::StateType>,
 
     /// Transactions that were marked for rejection while collecting deltas
@@ -239,7 +240,7 @@ impl<TYPES: NodeTypes> Committable for Leaf<TYPES> {
         for (k, v) in &self.justify_qc.signatures {
             signatures_bytes.extend(&k.0);
             signatures_bytes.extend(&v.0 .0);
-            signatures_bytes.extend(v.1.commit().as_ref());
+            signatures_bytes.extend::<&[u8]>(v.1.commit().as_ref());
         }
         commit::RawCommitmentBuilder::new("Leaf Comm")
             .constant_str("view_number")
@@ -260,6 +261,10 @@ impl<TYPES: NodeTypes> Committable for Leaf<TYPES> {
             .constant_str("justify_qc signatures")
             .var_size_bytes(&signatures_bytes)
             .finalize()
+    }
+
+    fn tag() -> String {
+        tag::LEAF.to_string()
     }
 }
 

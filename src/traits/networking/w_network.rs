@@ -13,6 +13,10 @@ use crate::traits::{
     },
     NetworkError,
 };
+use async_compatibility_layer::{
+    art::{async_block_on, async_sleep, async_spawn, async_timeout},
+    channel::{bounded, unbounded, Receiver, Sender, UnboundedReceiver, UnboundedSender},
+};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use async_tungstenite::{
@@ -23,7 +27,6 @@ use async_tungstenite::{
 use bincode::Options;
 use dashmap::DashMap;
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
-use hotshot_types::data::ViewNumber;
 use hotshot_types::{
     message::Message as HotShotMessage,
     traits::{
@@ -32,11 +35,7 @@ use hotshot_types::{
         signature_key::{SignatureKey, TestableSignatureKey},
     },
 };
-use hotshot_utils::{
-    art::{async_block_on, async_sleep, async_spawn, async_timeout},
-    bincode::bincode_opts,
-    channel::{bounded, unbounded, Receiver, Sender, UnboundedReceiver, UnboundedSender},
-};
+use hotshot_utils::bincode::bincode_opts;
 use rand::prelude::ThreadRng;
 use serde::{Deserialize, Serialize};
 use snafu::{OptionExt, ResultExt};
@@ -1039,7 +1038,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
         // do nothing
     }
 
-    async fn inject_view_number(&self, view_number: TYPES::Time) {
+    async fn inject_view_number(&self, _view_number: TYPES::Time) {
         // Do nothing
     }
 }
@@ -1088,11 +1087,11 @@ mod tests {
         demos::dentry::{DEntryBlock, DEntryState, DEntryTransaction},
         traits::election::static_committee::{StaticElectionConfig, StaticVoteToken},
     };
+    use async_compatibility_layer::{art::async_sleep, logging::setup_logging};
     use hotshot_types::{
         data::ViewNumber,
         traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
     };
-    use hotshot_utils::{art::async_sleep, test_util::setup_logging};
     use rand::Rng;
 
     #[derive(
@@ -1115,7 +1114,7 @@ mod tests {
         type Time = ViewNumber;
         type BlockType = DEntryBlock;
         type SignatureKey = Ed25519Pub;
-        type VoteTokenType = StaticVoteToken;
+        type VoteTokenType = StaticVoteToken<Ed25519Pub>;
         type Transaction = DEntryTransaction;
         type ElectionConfigType = StaticElectionConfig;
         type StateType = DEntryState;

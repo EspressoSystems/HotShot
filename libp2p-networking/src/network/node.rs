@@ -25,11 +25,11 @@ use crate::network::{
     },
     def::NUM_REPLICATED_TO_TRUST,
 };
-use futures::{select, FutureExt, StreamExt};
-use hotshot_utils::{
+use async_compatibility_layer::{
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
+use futures::{select, FutureExt, StreamExt};
 use libp2p::{
     core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
