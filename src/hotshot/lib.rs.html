@@ -865,6 +865,15 @@
 <span id="865">865</span>
 <span id="866">866</span>
 <span id="867">867</span>
+<span id="868">868</span>
+<span id="869">869</span>
+<span id="870">870</span>
+<span id="871">871</span>
+<span id="872">872</span>
+<span id="873">873</span>
+<span id="874">874</span>
+<span id="875">875</span>
+<span id="876">876</span>
 </pre><pre class="rust"><code><span class="attribute">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -921,6 +930,7 @@
 };
 <span class="kw">use </span>async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 <span class="kw">use </span>async_trait::async_trait;
+<span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, SendToTasks, View, ViewInner, ViewQueue,
@@ -946,6 +956,7 @@
     HotShotConfig,
 };
 <span class="kw">use </span>hotshot_types::{message::MessageKind, traits::election::VoteToken};
+<span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
@@ -1391,7 +1402,14 @@
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
-                </span><span class="self">self</span>.transactions
+                </span><span class="attribute">#[allow(clippy::cast_possible_wrap)]
+                </span><span class="self">self</span>.hotstuff
+                    .read()
+                    .<span class="kw">await
+                    </span>.metrics
+                    .outstanding_transactions_memory_size
+                    .update(bincode_opts().serialized_size(<span class="kw-2">&amp;</span>transaction).unwrap_or(<span class="number">0</span>) <span class="kw">as </span>i64);
+                <span class="self">self</span>.transactions
                     .modify(|txns| {
                         txns.insert(transaction.commit(), transaction);
                     })
