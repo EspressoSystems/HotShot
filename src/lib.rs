@@ -522,25 +522,29 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         // TODO validate incoming broadcast message based on sender signature key
         match msg {
             DataMessage::SubmitTransaction(transaction) => {
-                let consensus = self.hotstuff.read().await;
+                let size = bincode_opts().serialized_size(&transaction).unwrap_or(0);
+
                 // The API contract requires the hash to be unique
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
+                let mut new = false;
                 self.transactions
                     .modify(|txns| {
-                        let size = bincode_opts().serialized_size(&transaction).unwrap_or(0);
-                        if txns.insert(transaction.commit(), transaction).is_none() {
-                            // If this is a new transaction, update metrics.
-                            consensus.metrics.outstanding_transactions.update(1);
-                            #[allow(clippy::cast_possible_wrap)]
-                            consensus
-                                .metrics
-                                .outstanding_transactions_memory_size
-                                .update(size as i64);
-                        }
+                        new = txns.insert(transaction.commit(), transaction).is_none();
                     })
                     .await;
+
+                if new {
+                    // If this is a new transaction, update metrics.
+                    let consensus = self.hotstuff.read().await;
+                    consensus.metrics.outstanding_transactions.update(1);
+                    #[allow(clippy::cast_possible_wrap)]
+                    consensus
+                        .metrics
+                        .outstanding_transactions_memory_size
+                        .update(size as i64);
+                }
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed
