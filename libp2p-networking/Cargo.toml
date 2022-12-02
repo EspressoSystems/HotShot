@@ -62,8 +62,9 @@ either = { version = "1.8.0" }
 futures = "0.3.25"
 hotshot-types = { path = "../types", version = "0.1.0", default-features = false }
 hotshot-utils = { path = "../utils"}
-libp2p-swarm-derive = { version = "=0.31.0" } 
-libp2p = { version = "0.49", default-features = false, features = [
+libp2p-swarm-derive = { version = "=0.31.0" }
+libp2p = { version = "0.50", default-features = false, features = [
+    "macros",
     "autonat",
     "deflate",
     "dns",

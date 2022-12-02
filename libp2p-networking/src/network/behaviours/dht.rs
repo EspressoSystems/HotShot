@@ -11,14 +11,12 @@ use libp2p::{
     kad::{
         store::MemoryStore, BootstrapError, BootstrapOk, GetClosestPeersOk, GetRecordOk,
         GetRecordResult, Kademlia, KademliaEvent, PutRecordResult, QueryId, QueryResult, Quorum,
-        Record,
+        Record, ProgressStep,
     },
     swarm::{NetworkBehaviour, NetworkBehaviourAction},
     Multiaddr, PeerId,
 };
 use tracing::{error, info, warn};
-pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
-const MAX_DHT_QUERY_SIZE: usize = 5;
 
 use super::exponential_backoff::ExponentialBackoff;
 
@@ -215,7 +213,7 @@ impl DHTBehaviour {
             return;
         }
 
-        let qid = self.kadem.get_record(key.clone().into(), Quorum::N(factor));
+        let qid = self.kadem.get_record(key.clone().into());
         let query = KadGetQuery {
             backoff,
             progress: DHTProgress::InProgress(qid),
@@ -243,55 +241,16 @@ impl DHTBehaviour {
                 return;
             }
             match record_results {
-                Ok(GetRecordOk {
-                    records,
-                    cache_candidates: _,
-                }) => {
-                    let mut results: HashMap<Vec<u8>, usize> = HashMap::new();
-
-                    // count the number of records that agree on each value
-                    for record in &records {
-                        if record.record.key.to_vec() == key {
-                            let value = record.record.value.clone();
-                            let old_val: usize = results.get(&value.clone()).copied().unwrap_or(0);
-                            results.insert(value, old_val + 1);
-                        }
+                Ok(records) => {
+                    match records {
+                        GetRecordOk::FoundRecord(record) => {
+                            if notify.send(record.record.value).is_err() {
+                                warn!("Get DHT: channel closed before get record request result could be sent");
+                            }
+                        },
+                        GetRecordOk::FinishedWithNoAdditionalRecord { .. } => {},
                     }
-                    // agreement on two or more nodes => success
-                    // NOTE case where multiple nodes agree on different
-                    // values is not handles
-                    if let Some((r, _)) = results
-                        .into_iter()
-                        .find(|(_, v)| *v >= NUM_REPLICATED_TO_TRUST)
-                    {
-                        if notify.send(r).is_err() {
-                            warn!("Get DHT: channel closed before get record request result could be sent");
-                        }
-                    }
-                    // lack of replication => error
-                    else if records.len() < NUM_REPLICATED_TO_TRUST {
-                        warn!("Get DHT: Record not replicated enough for {:?}! requerying with more nodes", progress);
-                        self.get_record(key, notify, num_replicas, backoff, retry_count);
-                    }
-                    // many records that don't match => disagreement
-                    else if records.len() > MAX_DHT_QUERY_SIZE {
-                        warn!(
-                            "Get DHT: Record disagreed upon; {:?}! requerying with more nodes",
-                            progress
-                        );
-                        self.get_record(key, notify, num_replicas, backoff, retry_count);
-                    }
-                    // disagreement => query more nodes
-                    else {
-                        // there is some internal disagreement.
-                        // Initiate new query that hits more replicas
-                        let new_factor =
-                            NonZeroUsize::new(num_replicas.get() + 1).unwrap_or(num_replicas);
-
-                        self.get_record(key, notify, new_factor, backoff, retry_count);
-                        warn!("Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes", progress);
-                    }
-                }
+                },
                 Err(_e) => {
                     let mut new_query = KadGetQuery {
                         backoff,
@@ -346,17 +305,20 @@ impl DHTBehaviour {
     #![allow(clippy::too_many_lines)]
     fn dht_handle_event(&mut self, event: KademliaEvent) {
         match event {
-            KademliaEvent::OutboundQueryCompleted {
+            KademliaEvent::OutboundQueryProgressed {
                 result: QueryResult::PutRecord(record_results),
                 id,
+                step: ProgressStep { last: true, .. },
                 ..
             } => {
                 self.handle_put_query(record_results, id);
             }
-            KademliaEvent::OutboundQueryCompleted {
+            KademliaEvent::OutboundQueryProgressed {
                 result: QueryResult::GetClosestPeers(r),
                 id: query_id,
                 stats,
+                step: ProgressStep { last: true, .. },
+                ..
             } => match r {
                 Ok(GetClosestPeersOk { key, peers }) => {
                     if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {
@@ -385,19 +347,21 @@ impl DHTBehaviour {
                     );
                 }
             },
-            KademliaEvent::OutboundQueryCompleted {
+            KademliaEvent::OutboundQueryProgressed {
                 result: QueryResult::GetRecord(record_results),
                 id,
+                step: ProgressStep { last: true, .. },
                 ..
             } => {
                 self.handle_get_query(record_results, id);
             }
-            KademliaEvent::OutboundQueryCompleted {
+            KademliaEvent::OutboundQueryProgressed {
                 result:
                     QueryResult::Bootstrap(Ok(BootstrapOk {
                         peer: _,
                         num_remaining,
                     })),
+                step: ProgressStep { last: true, .. },
                 ..
             } => {
                 if num_remaining == 0 {
@@ -413,7 +377,7 @@ impl DHTBehaviour {
                     );
                 }
             }
-            KademliaEvent::OutboundQueryCompleted {
+            KademliaEvent::OutboundQueryProgressed {
                 result: QueryResult::Bootstrap(Err(e)),
                 ..
             } => {
@@ -453,7 +417,7 @@ impl DHTBehaviour {
                 bucket_range: _,
                 old_peer: _,
             } => {}
-            e @ KademliaEvent::OutboundQueryCompleted { .. } => {
+            e @ KademliaEvent::OutboundQueryProgressed { .. } => {
                 info!("Not handling dht event {:?}", e);
             }
         }
@@ -500,6 +464,11 @@ pub enum DHTProgress {
     /// The query has not been started
     NotStarted,
 }
+
+
+// Diagnostics:
+// 1. use of deprecated associated function `libp2p::libp2p_swarm::NetworkBehaviour::inject_event`: Implement `NetworkBehaviour::on_connection_handler_event` instead. The default implementation of this `inject_*` method delegates to it.
+
 
 impl NetworkBehaviour for DHTBehaviour {
     type ConnectionHandler = <Kademlia<MemoryStore> as NetworkBehaviour>::ConnectionHandler;
@@ -719,5 +688,17 @@ impl NetworkBehaviour for DHTBehaviour {
 
     fn inject_expired_external_addr(&mut self, addr: &libp2p::Multiaddr) {
         self.kadem.inject_expired_external_addr(addr);
+    }
+
+    fn on_swarm_event(&mut self, _event: libp2p::swarm::derive_prelude::FromSwarm<Self::ConnectionHandler>) {}
+
+    fn on_connection_handler_event(
+        &mut self,
+        _peer_id: PeerId,
+        _connection_id: libp2p::swarm::derive_prelude::ConnectionId,
+        _event: <<Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler as
+        libp2p::swarm::ConnectionHandler>::OutEvent,
+    ) {
+        // TODO fill this out
     }
 }

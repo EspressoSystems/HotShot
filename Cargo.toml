@@ -116,12 +116,13 @@ hotshot-consensus = { path = "./consensus", version = "0.1.0", default-features 
 hotshot-types = { path = "./types", version = "0.1.0", default-features = false }
 hotshot-utils = { path = "./utils" }
 itertools = "0.10"
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2", features = [
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2-patch.1", features = [
         "std",
 ] }
-libp2p-swarm-derive = { version = "=0.31.0" } 
+libp2p-swarm-derive = { version = "=0.31.0" }
 libp2p-networking = { path = "./libp2p-networking", version = "0.1.0", default-features = false }
-libp2p = { version = "0.49.0", default-features = false, features = [
+libp2p = { version = "0.50.0", default-features = false, features = [
+        "macros",
         "autonat",
         "deflate",
         "floodsub",
