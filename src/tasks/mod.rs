@@ -2,14 +2,20 @@
 
 use crate::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
 use async_lock::RwLock;
-use hotshot_consensus::{ConsensusApi, ViewQueue};
+use async_trait::async_trait;
+use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
     constants::LOOK_AHEAD,
-    data::QuorumCertificate,
+    data::{QuorumCertificate, ValidatingLeaf, ValidatingProposal},
     message::MessageKind,
     traits::{
+        election::Election,
         network::NetworkingImplementation,
         node_implementation::{NodeImplementation, NodeTypes},
+        state::{
+            ConsensusType, SequencingConsensus, SequencingConsensusType, ValidatingConsensus,
+            ValidatingConsensusType,
+        },
     },
     ExecutionType,
 };
@@ -17,6 +23,7 @@ use hotshot_utils::{
     art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
     broadcast::channel,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
+    hack::nll_todo,
 };
 use std::{
     collections::HashMap,
@@ -203,161 +210,202 @@ pub async fn spawn_all<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
     handle
 }
 
-/// Executes one view of consensus
-#[instrument(skip(hotshot), fields(id = hotshot.id), name = "View Runner Task", level = "error")]
-pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
-    hotshot: HotShot<TYPES, I>,
-) -> Result<(), ()> {
-    let c_api = HotShotConsensusApi {
-        inner: hotshot.inner.clone(),
-    };
-    let start = Instant::now();
-    let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
-
-    // do book keeping on channel map
-    // TODO probably cleaner to separate this into a function
-    // e.g. insert the view and remove the last view
-    let mut send_to_replica = hotshot.replica_channel_map.write().await;
-    let replica_last_view: TYPES::Time = send_to_replica.cur_view;
-    // gc previous view's channel map
-    send_to_replica.channel_map.remove(&replica_last_view);
-    send_to_replica.cur_view += 1;
-    let replica_cur_view = send_to_replica.cur_view;
-    let ViewQueue {
-        sender_chan: send_replica,
-        receiver_chan: recv_replica,
-        has_received_proposal: _,
-    } = create_or_obtain_chan_from_write(replica_cur_view, send_to_replica).await;
-
-    let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
-    let next_leader_last_view = send_to_next_leader.cur_view;
-    // gc previous view's channel map
-    send_to_next_leader
-        .channel_map
-        .remove(&next_leader_last_view);
-    send_to_next_leader.cur_view += 1;
-    let next_leader_cur_view = send_to_next_leader.cur_view;
-    let (send_next_leader, recv_next_leader) = if c_api.is_leader(next_leader_cur_view + 1).await {
-        let vq = create_or_obtain_chan_from_write(next_leader_cur_view, send_to_next_leader).await;
-        (Some(vq.sender_chan), Some(vq.receiver_chan))
-    } else {
-        (None, None)
-    };
-
-    // increment consensus and start tasks
-
-    let (cur_view, high_qc, txns) = {
-        // OBTAIN write lock on consensus
-        let mut consensus = hotshot.hotstuff.write().await;
-        let cur_view = consensus.increment_view();
-        // make sure consistent
-        assert_eq!(cur_view, next_leader_cur_view);
-        assert_eq!(cur_view, replica_cur_view);
-        let high_qc = consensus.high_qc.clone();
-        let txns = consensus.transactions.clone();
-        // DROP write lock on consensus
-        drop(consensus);
-        (cur_view, high_qc, txns)
-    };
-
-    // notify networking to start worrying about the (`cur_view + LOOK_AHEAD`)th leader ahead of the current view
-    if hotshot
-        .send_network_lookup
-        .send(Some(cur_view))
-        .await
-        .is_err()
-    {
-        error!("Failed to initiate network lookup");
-    };
-
-    info!("Starting tasks for View {:?}!", cur_view);
-    metrics.current_view.set(*cur_view as usize);
-
-    let mut task_handles = Vec::new();
-
-    // TODO (da) add tasks for either validating participants (replica and consensus leader), or DA
-    // participants (DA committee member and DA leader), depending on the consensus type.
-    // // replica always runs? TODO this will change once vrf integration is added
-    // let replica = Replica {
-    //     id: hotshot.id,
-    //     consensus: hotshot.hotstuff.clone(),
-    //     proposal_collection_chan: recv_replica,
-    //     cur_view,
-    //     high_qc: high_qc.clone(),
-    //     api: c_api.clone(),
-    // };
-    // let replica_handle = async_spawn(async move { replica.run_view().await });
-    // task_handles.push(replica_handle);
-
-    // if c_api.is_leader(cur_view).await {
-    //     let leader = Leader {
-    //         id: hotshot.id,
-    //         consensus: hotshot.hotstuff.clone(),
-    //         high_qc: high_qc.clone(),
-    //         cur_view,
-    //         transactions: txns,
-    //         api: c_api.clone(),
-    //     };
-    //     let leader_handle = async_spawn(async move { leader.run_view().await });
-    //     task_handles.push(leader_handle);
-    // }
-
-    // if c_api.is_leader(cur_view + 1).await {
-    //     let next_leader = NextLeader {
-    //         id: hotshot.id,
-    //         generic_qc: high_qc,
-    //         // should be fine to unwrap here since the view numbers must be the same
-    //         vote_collection_chan: recv_next_leader.unwrap(),
-    //         cur_view,
-    //         api: c_api.clone(),
-    //     };
-    //     let next_leader_handle = async_spawn(async move { next_leader.run_view().await });
-    //     task_handles.push(next_leader_handle);
-    // }
-
-    let children_finished = futures::future::join_all(task_handles);
-
-    async_spawn({
-        let next_view_timeout = hotshot.inner.config.next_view_timeout;
-        let next_view_timeout = next_view_timeout;
-        let hotshot: HotShot<TYPES, I> = hotshot.clone();
-        async move {
-            async_sleep(Duration::from_millis(next_view_timeout)).await;
-            hotshot
-                .timeout_view(cur_view, send_replica, send_next_leader)
-                .await;
-        }
-    });
-
-    let results = children_finished.await;
-
-    // unwrap is fine since results must have >= 1 item(s)
-    #[cfg(feature = "async-std-executor")]
-    let high_qc = results
-        .into_iter()
-        .max_by_key(|qc: &QuorumCertificate<TYPES, I::Leaf>| qc.view_number)
-        .unwrap();
-    #[cfg(feature = "tokio-executor")]
-    let high_qc = results
-        .into_iter()
-        .filter_map(std::result::Result::ok)
-        .max_by_key(|qc| qc.view_number)
-        .unwrap();
-
-    #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
-    compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
-
-    let mut consensus = hotshot.hotstuff.write().await;
-    consensus.high_qc = high_qc;
-    consensus
-        .metrics
-        .view_duration
-        .add_point(start.elapsed().as_secs_f64());
-    c_api.send_view_finished(consensus.cur_view).await;
-
-    info!("Returning from view {:?}!", cur_view);
-    Ok(())
+struct TaskHandler<CONSENSUS: ConsensusType> {
+    _pd: PhantomData<CONSENSUS>,
 }
+
+#[async_trait]
+trait TaskHandlerType<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+    /// Executes one view of consensus
+    // TODO (da) fix or remove this
+    // #[instrument(skip(hotshot), fields(id = hotshot.id), name = "View Runner Task", level = "error")]
+    async fn run_view(hotshot: HotShot<TYPES, I>) -> Result<(), ()> {
+        nll_todo()
+    }
+}
+
+// TODO (da) add impl for each type
+impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> TaskHandlerType<TYPES, I>
+    for TaskHandler<TYPES::ConsensusType>
+{
+}
+
+// #[async_trait]
+// impl<
+//         TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+//         ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+//         I: NodeImplementation<
+//             TYPES,
+//             Leaf = ValidatingLeaf<TYPES>,
+//             Proposal = ValidatingProposal<TYPES, ELECTION>,
+//         >,
+//     > TaskHandlerType<TYPES, I> for TaskHandler<ValidatingConsensus>
+// {
+//     async fn run_view(hotshot: HotShot<TYPES, I>) -> Result<(), ()> {
+//         let c_api = HotShotConsensusApi {
+//             inner: hotshot.inner.clone(),
+//         };
+//         let start = Instant::now();
+//         let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
+
+//         // do book keeping on channel map
+//         // TODO probably cleaner to separate this into a function
+//         // e.g. insert the view and remove the last view
+//         let mut send_to_replica = hotshot.replica_channel_map.write().await;
+//         let replica_last_view: TYPES::Time = send_to_replica.cur_view;
+//         // gc previous view's channel map
+//         send_to_replica.channel_map.remove(&replica_last_view);
+//         send_to_replica.cur_view += 1;
+//         let replica_cur_view = send_to_replica.cur_view;
+//         let ViewQueue {
+//             sender_chan: send_replica,
+//             receiver_chan: recv_replica,
+//             has_received_proposal: _,
+//         } = create_or_obtain_chan_from_write(replica_cur_view, send_to_replica).await;
+
+//         let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+//         let next_leader_last_view = send_to_next_leader.cur_view;
+//         // gc previous view's channel map
+//         send_to_next_leader
+//             .channel_map
+//             .remove(&next_leader_last_view);
+//         send_to_next_leader.cur_view += 1;
+//         let next_leader_cur_view = send_to_next_leader.cur_view;
+//         let (send_next_leader, recv_next_leader) =
+//             if c_api.is_leader(next_leader_cur_view + 1).await {
+//                 let vq =
+//                     create_or_obtain_chan_from_write(next_leader_cur_view, send_to_next_leader)
+//                         .await;
+//                 (Some(vq.sender_chan), Some(vq.receiver_chan))
+//             } else {
+//                 (None, None)
+//             };
+
+//         // increment consensus and start tasks
+
+//         let (cur_view, high_qc, txns) = {
+//             // OBTAIN write lock on consensus
+//             let mut consensus = hotshot.hotstuff.write().await;
+//             let cur_view = consensus.increment_view();
+//             // make sure consistent
+//             assert_eq!(cur_view, next_leader_cur_view);
+//             assert_eq!(cur_view, replica_cur_view);
+//             let high_qc = consensus.high_qc.clone();
+//             let txns = consensus.transactions.clone();
+//             // DROP write lock on consensus
+//             drop(consensus);
+//             (cur_view, high_qc, txns)
+//         };
+
+//         // notify networking to start worrying about the (`cur_view + LOOK_AHEAD`)th leader ahead of the current view
+//         if hotshot
+//             .send_network_lookup
+//             .send(Some(cur_view))
+//             .await
+//             .is_err()
+//         {
+//             error!("Failed to initiate network lookup");
+//         };
+
+//         info!("Starting tasks for View {:?}!", cur_view);
+//         metrics.current_view.set(*cur_view as usize);
+
+//         let mut task_handles = Vec::new();
+
+//         // replica always runs? TODO this will change once vrf integration is added
+//         let replica = Replica {
+//             id: hotshot.id,
+//             consensus: hotshot.hotstuff.clone(),
+//             proposal_collection_chan: recv_replica,
+//             cur_view,
+//             high_qc: high_qc.clone(),
+//             api: c_api.clone(),
+//         };
+//         let replica_handle = async_spawn(async move { replica.run_view().await });
+//         task_handles.push(replica_handle);
+
+//         if c_api.is_leader(cur_view).await {
+//             let leader = Leader {
+//                 id: hotshot.id,
+//                 consensus: hotshot.hotstuff.clone(),
+//                 high_qc: high_qc.clone(),
+//                 cur_view,
+//                 transactions: txns,
+//                 api: c_api.clone(),
+//                 _pd: PhantomData,
+//             };
+//             let leader_handle = async_spawn(async move { leader.run_view().await });
+//             task_handles.push(leader_handle);
+//         }
+
+//         if c_api.is_leader(cur_view + 1).await {
+//             let next_leader = NextLeader {
+//                 id: hotshot.id,
+//                 generic_qc: high_qc,
+//                 // should be fine to unwrap here since the view numbers must be the same
+//                 vote_collection_chan: recv_next_leader.unwrap(),
+//                 cur_view,
+//                 api: c_api.clone(),
+//             };
+//             let next_leader_handle = async_spawn(async move {
+//                 NextLeader::<HotShotConsensusApi<TYPES, I>, TYPES, _>::run_view(next_leader).await
+//             });
+//             task_handles.push(next_leader_handle);
+//         }
+
+//         let children_finished = futures::future::join_all(task_handles);
+
+//         async_spawn({
+//             let next_view_timeout = hotshot.inner.config.next_view_timeout;
+//             let next_view_timeout = next_view_timeout;
+//             let hotshot: HotShot<TYPES, I> = hotshot.clone();
+//             async move {
+//                 async_sleep(Duration::from_millis(next_view_timeout)).await;
+//                 hotshot
+//                     .timeout_view(cur_view, send_replica, send_next_leader)
+//                     .await;
+//             }
+//         });
+
+//         let results = children_finished.await;
+
+//         // unwrap is fine since results must have >= 1 item(s)
+//         #[cfg(feature = "async-std-executor")]
+//         let high_qc = results
+//             .into_iter()
+//             .max_by_key(|qc: &QuorumCertificate<TYPES, I::Leaf>| qc.view_number)
+//             .unwrap();
+//         #[cfg(feature = "tokio-executor")]
+//         let high_qc = results
+//             .into_iter()
+//             .filter_map(std::result::Result::ok)
+//             .max_by_key(|qc| qc.view_number)
+//             .unwrap();
+
+//         #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+//         compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+
+//         let mut consensus = hotshot.hotstuff.write().await;
+//         consensus.high_qc = high_qc;
+//         consensus
+//             .metrics
+//             .view_duration
+//             .add_point(start.elapsed().as_secs_f64());
+//         c_api.send_view_finished(consensus.cur_view).await;
+
+//         info!("Returning from view {:?}!", cur_view);
+//         Ok(())
+//     }
+// }
+
+// #[async_trait]
+// impl<TYPES: NodeTypes<ConsensusType = SequencingConsensus>, I: NodeImplementation<TYPES>>
+//     TaskHandlerType<TYPES, I> for TaskHandler<SequencingConsensus>
+// {
+//     async fn run_view(hotshot: HotShot<TYPES, I>) -> Result<(), ()> {
+//         nll_todo()
+//     }
+// }
 
 /// main thread driving consensus
 pub async fn view_runner<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
@@ -374,7 +422,10 @@ pub async fn view_runner<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
         if let Some(ref recv) = run_once {
             let _ = recv.recv().await;
         }
-        let _ = run_view(hotshot.clone()).await;
+        let _ = <TaskHandler<TYPES::ConsensusType> as TaskHandlerType<TYPES, I>>::run_view(
+            hotshot.clone(),
+        )
+        .await;
     }
 }
 
