@@ -7,10 +7,14 @@ use common::{
     StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType, VrfTestTypes,
 };
 use either::Right;
-use futures::{future::LocalBoxFuture, FutureExt};
+use futures::{
+    future::{join_all, LocalBoxFuture},
+    FutureExt,
+};
 use hotshot::{demos::dentry::random_leaf, types::Vote};
 use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
 use hotshot_types::{
+    event::EventType,
     message::{ConsensusMessage, Proposal},
     traits::{
         election::{Election, TestableElection},
@@ -19,7 +23,8 @@ use hotshot_types::{
         state::{ConsensusTime, TestableBlock, TestableState},
     },
 };
-use snafu::ensure;
+use snafu::{ensure, OptionExt};
+use std::iter::once;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
@@ -703,5 +708,116 @@ async fn test_chain_height() {
         }));
     }
 
+    test.execute().await.unwrap();
+}
+
+/// Tests that the leaf chains in decide events are always consistent.
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+#[instrument]
+async fn test_decide_leaf_chain() {
+    let mut test = GeneralTestDescriptionBuilder {
+        num_succeeds: 10,
+        failure_threshold: 0,
+        ..Default::default()
+    }
+    .build::<StaticCommitteeTestTypes, StaticNodeImplType>();
+    for round in &mut test.rounds {
+        // Collection of (handle, leaf) pairs collected at the start of the round. The leaf is the
+        // last decided leaf before the round, so that after the round we can check that the new
+        // leaf chain extends from it. The handle must be copied out of the round runner before the
+        // round starts so that it will buffer events emitted during the round.
+        let handles = Arc::new(Mutex::new(vec![]));
+
+        // Initialize `handles` at the start of the round.
+        {
+            let handles = handles.clone();
+            round.safety_check_pre = Some(Box::new(move |runner| {
+                async move {
+                    *handles.lock().await =
+                        join_all(runner.nodes().map(|handle| async {
+                            (handle.clone(), handle.get_decided_leaf().await)
+                        }))
+                        .await;
+                    Ok(())
+                }
+                .boxed_local()
+            }));
+        }
+        round.safety_check_post = Some(Box::new(move |_, _| {
+            async move {
+                for (mut handle, last_leaf) in std::mem::take(&mut *handles.lock().await) {
+                    // Get the decide event from this round.
+                    let (leaf_chain, qc) = loop {
+                        let event = handle
+                            .try_next_event()
+                            .map_err(|_| {
+                                SafetyFailedSnafu {
+                                    description: "HotShot shut down",
+                                }
+                                .build()
+                            })?
+                            .context(SafetyFailedSnafu {
+                                description: "round did not produce a Decide or ViewFinished event",
+                            })?;
+                        match event.event {
+                            EventType::Decide { leaf_chain, qc } => break (leaf_chain, qc),
+                            EventType::ViewFinished { view_number } => {
+                                tracing::warn!(
+                                    "round {:?} did not produce a decide, skipping safety check",
+                                    view_number
+                                );
+                                return Ok(());
+                            }
+                            _ => continue,
+                        }
+                    };
+                    tracing::info!("got decide {:?} {:?}", qc, leaf_chain);
+
+                    // Starting from `qc` and continuing with the `justify_qc` of each leaf in the
+                    // chain, the chain of QCs should justify the chain of leaves.
+                    let qcs = once(&*qc).chain(leaf_chain.iter().map(|leaf| &leaf.justify_qc));
+                    // The new leaf chain should extend from the previously decided leaf.
+                    let leaves = leaf_chain.iter().chain(once(&last_leaf));
+                    for (i, (qc, leaf)) in qcs.zip(leaves).enumerate() {
+                        if qc.genesis {
+                            tracing::warn!("skipping validation of genesis QC");
+                            continue;
+                        }
+                        ensure!(
+                            qc.leaf_commitment == leaf.commit(),
+                            SafetyFailedSnafu {
+                                description: format!(
+                                    "QC {}/{} justifies {}, but the parent leaf is {}",
+                                    i + 1,
+                                    leaf_chain.len() + 1,
+                                    qc.leaf_commitment,
+                                    leaf.commit()
+                                ),
+                            }
+                        );
+                        ensure!(
+                            qc.block_commitment == leaf.deltas.commit(),
+                            SafetyFailedSnafu {
+                                description: format!(
+                                    "QC {}/{} justifies block {}, but parent leaf has block {}",
+                                    i + 1,
+                                    leaf_chain.len() + 1,
+                                    qc.block_commitment,
+                                    leaf.commit()
+                                ),
+                            }
+                        );
+                    }
+                }
+
+                Ok(())
+            }
+            .boxed_local()
+        }));
+    }
     test.execute().await.unwrap();
 }
