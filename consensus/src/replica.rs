@@ -382,7 +382,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
             consensus
                 .metrics
                 .outstanding_transactions_memory_size
-                .update(included_txn_size);
+                .update(-included_txn_size);
             consensus
                 .transactions
                 .modify(|txns| {
