@@ -1,7 +1,9 @@
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
+use bincode::Options;
 use hotshot_centralized_web_server;
 use hotshot_types::data::ViewNumber;
+use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     message::Message,
     traits::{
@@ -12,16 +14,17 @@ use hotshot_types::{
         },
         node_implementation::NodeTypes,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
-        state::ConsensusTime,
     },
 };
 use hotshot_utils::art::async_block_on;
+use hotshot_utils::bincode::bincode_opts;
 use hotshot_utils::{
     art::{async_sleep, async_spawn},
     hack::nll_todo,
 };
 use serde::Deserialize;
 use serde::Serialize;
+use snafu::ResultExt;
 use std::marker::PhantomData;
 use std::{
     sync::{
@@ -60,6 +63,8 @@ impl<TYPES: NodeTypes> CentralizedWebServerNetwork<TYPES> {
             connected: AtomicBool::new(false),
             client,
         });
+        inner.connected.store(true, Ordering::Relaxed);
+
         async_spawn({
             let inner = Arc::clone(&inner);
             async move {
@@ -119,7 +124,7 @@ async fn run_background_receive<TYPES: NodeTypes>(
             "Polling this endpoint: /api/proposal/{}",
             view_number.to_string()
         );
-        let possible_proposal: Result<(String), ServerError> = connection
+        let possible_proposal: Result<(Vec<Vec<u8>>), ServerError> = connection
             .client
             .get(&format!("/api/proposal/{}", view_number.to_string()))
             .send()
@@ -130,8 +135,8 @@ async fn run_background_receive<TYPES: NodeTypes>(
             Err(ServerError { status, message }) => println!("Proposal is: {:?}", message),
             Ok(proposal) => println!("Proposal is: {:?}", proposal),
         }
-        // TODO ED: Adjust this parameter once things are working 
-        async_sleep(Duration::from_secs(1)).await;
+        // TODO ED: Adjust this parameter once things are working
+        async_sleep(Duration::from_millis(100)).await;
     }
     // TODO ED: propogate errors from above once we change the way empty responses are received
     Ok(())
@@ -152,18 +157,34 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     // Will need some way for centralized server to distinguish between propsoals and transactions,
     // since it treats those differently
     async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
-        match message.kind {
+        match message.clone().kind {
             hotshot_types::message::MessageKind::Consensus(m) => {
-                // Must be a proposal
-                let sent_proposal: Result<(String), ServerError> = self
+                // let serialized_message = bincode_opts()
+                //     .serialize(&message)
+                //     .context(FailedToSerializeSnafu)?;
+                // Must be a proposal 
+                // let msg = self
+                //     .inner
+                //     .client
+                //     .post::<String>(&format!("/api/proposal/{}", m.view_number().to_string()))
+                //     .body_binary(&"message")
+                //     .unwrap();
+
+                // let msg = "message";
+
+                let sent_proposal: Result<(), ServerError> = self
                     .inner
                     .client
                     .post(&format!("/api/proposal/{}", m.view_number().to_string()))
+                    .body_binary(&message)
+                    .unwrap()
                     .send()
                     .await;
-                println!("Sent proposal is: {:?}", sent_proposal.unwrap());
+                println!("Sent proposal is: {:?}", sent_proposal);
             }
-            hotshot_types::message::MessageKind::Data(_) => nll_todo(),
+            hotshot_types::message::MessageKind::Data(_) => {
+                println!("Data message being braodcast")
+            }
         }
         // TODO: put in our own broadcast queue
 
@@ -183,7 +204,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     // TODO Read from the queue that the async task dumps everything into
     // For now that task can dump transactions and proposals into the same queue
     async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
-        let mut queue = self.inner.broadcast_poll_queue.write().await; 
+        let mut queue = self.inner.broadcast_poll_queue.write().await;
         Ok(queue.drain(..).collect())
         // nll_todo()
     }
@@ -195,7 +216,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
 
     // TODO implemented the same as the broadcast queue
     async fn direct_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
-        let mut queue = self.inner.direct_poll_queue.write().await; 
+        let mut queue = self.inner.direct_poll_queue.write().await;
         Ok(queue.drain(..).collect())
     }
 
@@ -248,13 +269,15 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     }
 
     async fn inject_view_number(&self, view_number: TYPES::Time) {
-        println!("Inject view number called with view: {:?}", view_number.clone());
+        println!(
+            "Inject view number called with view: {:?}",
+            view_number.clone()
+        );
         let old_view = self.inner.view_number.upgradable_read().await;
         if *old_view < view_number {
             let mut new_view = RwLockUpgradableReadGuard::upgrade(old_view).await;
             *new_view = view_number;
             println!("New inject view number is: {:?}", new_view);
-
         }
     }
 }
