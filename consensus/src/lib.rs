@@ -35,7 +35,7 @@ use hotshot_types::{
     error::HotShotError,
     traits::{
         metrics::{Gauge, Histogram, Metrics},
-        node_implementation::{NodeTypes, NodeImplementation},
+        node_implementation::{NodeImplementation, NodeTypes},
     },
 };
 use hotshot_utils::subscribable_rwlock::SubscribableRwLock;
@@ -48,7 +48,6 @@ use utils::Terminator;
 
 /// A type alias for `HashMap<Commitment<T>, T>`
 type CommitmentMap<T> = HashMap<Commitment<T>, T>;
-
 
 // frame the problem
 // - run_view assumes one type of consensus, but should be agnostic of the consensus type for all types of consensus

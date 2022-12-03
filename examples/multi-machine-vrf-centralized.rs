@@ -3,21 +3,22 @@ use blake3::Hasher;
 use clap::Parser;
 use commit::Committable;
 use hotshot::traits::election::vrf::VRFVoteToken;
+use hotshot::traits::NodeImplementation;
 use hotshot::types::SignatureKey;
 use hotshot::{
     demos::dentry::*,
     traits::{
         election::vrf::{JfPubKey, VRFStakeTableConfig, VrfImpl},
         implementations::{CentralizedServerNetwork, MemoryStorage},
-        Storage,
     },
     types::HotShotHandle,
     HotShot,
 };
 use hotshot_centralized_server::{NetworkConfig, RunResults};
 use hotshot_types::traits::metrics::NoMetrics;
+use hotshot_types::traits::state::{ConsensusType, ValidatingConsensus};
 use hotshot_types::{
-    data::ViewNumber,
+    data::{LeafType, ViewNumber},
     traits::{node_implementation::NodeTypes, state::TestableState},
     HotShotConfig,
 };
@@ -27,6 +28,7 @@ use hotshot_utils::{
 };
 use jf_primitives::signatures::bls::{BLSSignature, BLSVerKey};
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
+use std::marker::PhantomData;
 use std::{
     cmp,
     collections::{BTreeMap, VecDeque},
@@ -37,6 +39,12 @@ use std::{
     time::{Duration, Instant},
 };
 use tracing::{debug, error};
+
+/// application metadata stub
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct VrfMetaData {}
+
+impl ApplicationMetadata for VrfMetaData {}
 
 /// Implementation of [`NodeTypes`] for [`DEntryNode`]
 #[derive(
@@ -52,9 +60,12 @@ use tracing::{debug, error};
     serde::Serialize,
     serde::Deserialize,
 )]
-pub struct VrfTypes;
+pub struct VrfTypes<CONSENSUS: ConsensusType> {
+    pd: PhantomData<LEAF>,
+}
 
-impl NodeTypes for VrfTypes {
+impl<CONSENSUS: ConsensusType> NodeTypes for VrfTypes<CONSENSUS> {
+    type ConsensusType = CONSENSUS;
     type Time = ViewNumber;
     type BlockType = DEntryBlock;
     type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
@@ -63,11 +74,19 @@ impl NodeTypes for VrfTypes {
     type Transaction = DEntryTransaction;
     type ElectionConfigType = VRFStakeTableConfig;
     type StateType = DEntryState;
+    type ApplicationMetadataType = VrfMetaData;
 }
-type Node = DEntryNode<
-    VrfTypes,
-    CentralizedServerNetwork<VrfTypes>,
-    VrfImpl<VrfTypes, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
+type Node<CONSENSUS: ConsensusType, LEAF: LeafType<NodeType = VrfTypes<CONSENSUS>>> = DEntryNode<
+    VrfTypes<CONSENSUS>,
+    CentralizedServerNetwork<VrfTypes<CONSENSUS>>,
+    VrfImpl<
+        VrfTypes<CONSENSUS>,
+        LEAF,
+        BLSSignatureScheme<Param381>,
+        BLSVRFScheme<Param381>,
+        Hasher,
+        Param381,
+    >,
 >;
 
 #[derive(Debug, Parser)]
@@ -85,12 +104,15 @@ struct NodeOpt {
 
 /// Creates the initial state and hotshot for simulation.
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
-async fn init_state_and_hotshot(
-    networking: CentralizedServerNetwork<VrfTypes>,
+async fn init_state_and_hotshot<
+    CONSENSUS: ConsensusType,
+    LEAF: LeafType<NodeType = VrfTypes<CONSENSUS>>,
+>(
+    networking: CentralizedServerNetwork<VrfTypes<CONSENSUS>>,
     config: HotShotConfig<JfPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
     seed: [u8; 32],
     node_id: u64,
-) -> (DEntryState, HotShotHandle<VrfTypes, Node>) {
+) -> (DEntryState, HotShotHandle<VrfTypes<CONSENSUS>, Node<LEAF>>) {
     // Create the initial block
     let accounts: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
@@ -104,7 +126,8 @@ async fn init_state_and_hotshot(
     .collect();
     let genesis_block = DEntryBlock::genesis_from(accounts);
     let genesis_seed = genesis_block.commit();
-    let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
+    let initializer =
+        hotshot::HotShotInitializer::<DEntryTypes, LEAF>::from_genesis(genesis_block).unwrap();
 
     // TODO we should make this more general/use different parameters
     #[allow(clippy::let_unit_value)]
@@ -143,7 +166,7 @@ async fn init_state_and_hotshot(
     .expect("Could not init hotshot");
     debug!("hotshot launched");
 
-    let storage: &MemoryStorage<VrfTypes> = hotshot.storage();
+    let storage: &MemoryStorage<VrfTypes<CONSENSUS>, LEAF> = hotshot.storage();
 
     let state = storage.get_anchored_view().await.unwrap().state;
 
@@ -202,7 +225,10 @@ async fn main() {
     );
 
     // Initialize the state and hotshot
-    let (_own_state, mut hotshot) = init_state_and_hotshot(network, config, seed, node_index).await;
+    let (_own_state, mut hotshot): (
+        DEntryState,
+        HotShotHandle<DEntryTypes, NodeImplementation<DEntryTypes>>,
+    ) = init_state_and_hotshot(network, config, seed, node_index).await;
 
     hotshot.start().await;
 
@@ -286,7 +312,7 @@ async fn main() {
     );
     debug!("All rounds completed");
 
-    let networking: &CentralizedServerNetwork<VrfTypes> = hotshot.networking();
+    let networking: &CentralizedServerNetwork<VrfTypes<CONSENSUS>> = hotshot.networking();
     networking
         .send_results(RunResults {
             run,

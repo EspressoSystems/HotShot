@@ -1,6 +1,7 @@
 use super::{Generator, TestRunner};
 use hotshot::types::SignatureKey;
 use hotshot_types::{
+    data::{LeafType, ProposalType},
     traits::{
         network::TestableNetworkingImplementation,
         node_implementation::{NodeTypes, TestableNodeImplementation},
@@ -13,12 +14,16 @@ use hotshot_types::{
 use std::{num::NonZeroUsize, time::Duration};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
-pub struct TestLauncher<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>>
-where
+pub struct TestLauncher<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    I: TestableNodeImplementation<TYPES>,
+> where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
+    I::Networking: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>,
     I::Storage: TestableStorage<TYPES, LEAF>,
 {
     pub(super) network: Generator<I::Networking>,
@@ -27,12 +32,17 @@ where
     pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 }
 
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        I: TestableNodeImplementation<TYPES>,
+    > TestLauncher<TYPES, LEAF, PROPOSAL, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
+    I::Networking: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>,
     I::Storage: TestableStorage<TYPES, LEAF>,
 {
     /// Create a new launcher.
@@ -76,19 +86,24 @@ where
 
 // TODO make these functions generic over the target networking/storage/other generics
 // so we can hotswap out
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        I: TestableNodeImplementation<TYPES>,
+    > TestLauncher<TYPES, LEAF, PROPOSAL, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
+    I::Networking: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>,
     I::Storage: TestableStorage<TYPES, LEAF>,
 {
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_network(
         self,
         network: impl Fn(u64, TYPES::SignatureKey) -> I::Networking + 'static,
-    ) -> TestLauncher<TYPES, I> {
+    ) -> TestLauncher<TYPES, LEAF, PROPOSAL, I> {
         TestLauncher {
             network: Box::new({
                 move |node_id| {
@@ -110,7 +125,7 @@ where
     pub fn with_storage(
         self,
         storage: impl Fn(u64) -> I::Storage + 'static,
-    ) -> TestLauncher<TYPES, I> {
+    ) -> TestLauncher<TYPES, LEAF, PROPOSAL, I> {
         TestLauncher {
             network: self.network,
             storage: Box::new(storage),
@@ -123,7 +138,7 @@ where
     pub fn with_block(
         self,
         block: impl Fn(u64) -> TYPES::BlockType + 'static,
-    ) -> TestLauncher<TYPES, I> {
+    ) -> TestLauncher<TYPES, LEAF, PROPOSAL, I> {
         TestLauncher {
             network: self.network,
             storage: self.storage,
@@ -151,12 +166,17 @@ where
     }
 }
 
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        I: TestableNodeImplementation<TYPES>,
+    > TestLauncher<TYPES, LEAF, PROPOSAL, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
+    I::Networking: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>,
     I::Storage: TestableStorage<TYPES, LEAF>,
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
@@ -164,7 +184,7 @@ where
     /// - `NETWORK` implements [`NetworkingImplementation`] and [`TestableNetworkingImplementation`]
     /// - `STORAGE` implements [`Storage`]
     /// - `BLOCK` implements [`BlockContents`] and [`TestableBlock`]
-    pub fn launch(self) -> TestRunner<TYPES, I> {
+    pub fn launch(self) -> TestRunner<TYPES, LEAF, PROPOSAL, I> {
         TestRunner::new(self)
     }
 }

@@ -146,8 +146,8 @@ struct TaskHandleInner {
 pub async fn spawn_all<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
     hotshot: &HotShot<TYPES, I>,
 ) -> HotShotHandle<TYPES, I>
-where TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>
-
+where
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     let shut_down = Arc::new(AtomicBool::new(false));
     let started = Arc::new(AtomicBool::new(false));
@@ -223,16 +223,7 @@ pub trait TaskHandlerType<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     // TODO (da) fix or remove this
     // #[instrument(skip(hotshot), fields(id = hotshot.id), name = "View Runner Task", level = "error")]
     async fn run_view(hotshot: HotShot<TYPES, I>) -> Result<(), ()>;
-    // {
-    //     nll_todo()
-    // }
 }
-//
-// // TODO (da) add impl for each type
-// impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> TaskHandlerType<TYPES, I>
-//     for TaskHandler<TYPES::ConsensusType>
-// {
-// }
 
 #[async_trait]
 impl<
@@ -244,7 +235,8 @@ impl<
             Proposal = ValidatingProposal<TYPES, ELECTION>,
         >,
     > TaskHandlerType<TYPES, I> for TaskHandler<ValidatingConsensus>
-where TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>
+where
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     async fn run_view(hotshot: HotShot<TYPES, I>) -> Result<(), ()> {
         let c_api = HotShotConsensusApi {
@@ -418,8 +410,8 @@ pub async fn view_runner<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
     started: Arc<AtomicBool>,
     shut_down: Arc<AtomicBool>,
     run_once: Option<UnboundedReceiver<()>>,
-)
-where TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>
+) where
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     while !shut_down.load(Ordering::Relaxed) && !started.load(Ordering::Relaxed) {
         yield_now().await;
@@ -502,8 +494,8 @@ pub async fn network_lookup_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
 pub async fn network_broadcast_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES, I>,
     shut_down: Arc<AtomicBool>,
-)
-where TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>
+) where
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     info!("Launching broadcast processing task");
     let networking = &hotshot.inner.networking;
@@ -550,8 +542,8 @@ where TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I
 pub async fn network_direct_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES, I>,
     shut_down: Arc<AtomicBool>,
-)
-where TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>
+) where
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     info!("Launching direct processing task");
     let networking = &hotshot.inner.networking;
@@ -595,8 +587,8 @@ where TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I
 pub async fn network_change_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES, I>,
     shut_down: Arc<AtomicBool>,
-)
-where TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>
+) where
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     info!("Launching network change handler task");
     let networking = &hotshot.inner.networking;

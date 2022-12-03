@@ -295,6 +295,12 @@ pub type GenRunner<TYPES, I> =
 pub type TestSetup<TYPES, TRANS, I> =
     Vec<Box<dyn FnOnce(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<Vec<TRANS>>>>;
 
+/// application metadata stub
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct VrfTestMetaData {}
+
+impl ApplicationMetadata for VrfTestMetaData {}
+
 #[derive(
     Copy,
     Clone,
@@ -310,6 +316,8 @@ pub type TestSetup<TYPES, TRANS, I> =
 )]
 pub struct VrfTestTypes;
 impl NodeTypes for VrfTestTypes {
+    // TODO (da) can this be SequencingConsensus?
+    type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = DummyBlock;
     type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
@@ -317,7 +325,14 @@ impl NodeTypes for VrfTestTypes {
     type Transaction = DummyTransaction;
     type ElectionConfigType = VRFStakeTableConfig;
     type StateType = DummyState;
+    type ApplicationMetadataType = VrfTestMetaData;
 }
+
+/// application metadata stub
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct StaticCommitteeMetaData {}
+
+impl ApplicationMetadata for StaticCommitteeMetaData {}
 
 #[derive(
     Copy,
@@ -334,6 +349,8 @@ impl NodeTypes for VrfTestTypes {
 )]
 pub struct StaticCommitteeTestTypes;
 impl NodeTypes for StaticCommitteeTestTypes {
+    // TODO (da) can this be SequencingConsensus?
+    type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = DummyBlock;
     type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
@@ -341,6 +358,7 @@ impl NodeTypes for StaticCommitteeTestTypes {
     type Transaction = DummyTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = DummyState;
+    type ApplicationMetadataType = StaticCommitteeMetaData;
 }
 // #[derive(
 //     Copy,
@@ -357,6 +375,7 @@ impl NodeTypes for StaticCommitteeTestTypes {
 // )]
 // pub struct DACommitteeTestTypes;
 // impl NodeTypes for DACommitteeTestTypes {
+//     type ConsensusType = SequencingConsensus;
 //     type Time = ViewNumber;
 //     type BlockType = DABlock<DummyBlock>;
 //     type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;

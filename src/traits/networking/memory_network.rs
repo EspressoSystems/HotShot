@@ -13,13 +13,14 @@ use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
-    data::{LeafType, ProposalType},
+    data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal},
     message::Message,
     traits::{
         metrics::{Metrics, NoMetrics},
         network::{ChannelDisconnectedSnafu, NetworkChange, TestableNetworkingImplementation},
         node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
+        state::ValidatingConsensus,
     },
 };
 use hotshot_utils::{
@@ -573,9 +574,18 @@ mod tests {
     use super::*;
     use hotshot_types::{
         data::ViewNumber,
-        traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
+        traits::{
+            node_implementation::ApplicationMetadata,
+            signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
+        },
     };
     use hotshot_utils::test_util::setup_logging;
+
+    /// application metadata stub
+    #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+    pub struct TestMetaData {}
+
+    impl ApplicationMetadata for TestMetaData {}
 
     #[derive(
         Copy,
@@ -595,6 +605,8 @@ mod tests {
     }
 
     impl NodeTypes for Test {
+        // TODO (da) can this be SequencingConsensus?
+        type ConsensusType = ValidatingConsensus;
         type Time = ViewNumber;
         type BlockType = DEntryBlock;
         type SignatureKey = Ed25519Pub;
@@ -602,6 +614,7 @@ mod tests {
         type Transaction = DEntryTransaction;
         type ElectionConfigType = StaticElectionConfig;
         type StateType = DEntryState;
+        type ApplicationMetadataType = TestMetaData;
     }
 
     #[instrument]
@@ -619,7 +632,8 @@ mod tests {
     #[instrument]
     async fn spawn_single() {
         setup_logging();
-        let group: Arc<MasterMap<Test>> = MasterMap::new();
+        let group: Arc<MasterMap<Test, ValidatingLeaf<Test>, ValidatingProposal<Test>>> =
+            MasterMap::new();
         trace!(?group);
         let pub_key = get_pubkey();
         let _network = MemoryNetwork::new(pub_key, NoMetrics::new(), group, Option::None);
@@ -634,7 +648,8 @@ mod tests {
     #[instrument]
     async fn spawn_double() {
         setup_logging();
-        let group: Arc<MasterMap<Test>> = MasterMap::new();
+        let group: Arc<MasterMap<Test, ValidatingLeaf<Test>, ValidatingProposal<Test>>> =
+            MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
         let _network_1 =
@@ -655,7 +670,7 @@ mod tests {
     //     // Create some dummy messages
     //     let messages: Vec<Message<Test>> = (0..5).map(|x| ()).collect();
     //     // Make and connect the networking instances
-    //     let group: Arc<MasterMap<Test>> = MasterMap::new();
+    //     let group: Arc<MasterMap<Test,LEAF,PROPOSAL>> = MasterMap::new();
     //     trace!(?group);
     //     let pub_key_1 = get_pubkey();
     //     let network1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
@@ -715,7 +730,7 @@ mod tests {
     //     // Create some dummy messages
     //     let messages: Vec<Test> = (0..5).map(|x| Test { message: x }).collect();
     //     // Make and connect the networking instances
-    //     let group: Arc<MasterMap<Test>> = MasterMap::new();
+    //     let group: Arc<MasterMap<Test,LEAF,PROPOSAL>> = MasterMap::new();
     //     trace!(?group);
     //     let pub_key_1 = get_pubkey();
     //     let network1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);

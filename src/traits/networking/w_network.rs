@@ -30,6 +30,7 @@ use hotshot_types::{
         network::{NetworkChange, TestableNetworkingImplementation},
         node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
+        state::ValidatingConsensus,
     },
 };
 use hotshot_utils::{
@@ -1152,10 +1153,19 @@ mod tests {
     };
     use hotshot_types::{
         data::ViewNumber,
-        traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
+        traits::{
+            node_implementation::ApplicationMetadata,
+            signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
+        },
     };
     use hotshot_utils::{art::async_sleep, test_util::setup_logging};
     use rand::Rng;
+
+    /// application metadata stub
+    #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+    pub struct TestMetaData {}
+
+    impl ApplicationMetadata for TestMetaData {}
 
     #[derive(
         Copy,
@@ -1174,6 +1184,8 @@ mod tests {
         message: u64,
     }
     impl NodeTypes for Test {
+        // TODO (da) can this be SequencingConsensus?
+        type ConsensusType = ValidatingConsensus;
         type Time = ViewNumber;
         type BlockType = DEntryBlock;
         type SignatureKey = Ed25519Pub;
@@ -1181,10 +1193,14 @@ mod tests {
         type Transaction = DEntryTransaction;
         type ElectionConfigType = StaticElectionConfig;
         type StateType = DEntryState;
+        type ApplicationMetadataType = TestMetaData;
     }
 
     #[instrument]
-    async fn get_wnetwork() -> (Ed25519Pub, WNetwork<Test>, u16) {
+    async fn get_wnetwork<
+        LEAF: LeafType<NodeType = Test>,
+        PROPOSAL: ProposalType<NodeTypes = Test>,
+    >() -> (Ed25519Pub, WNetwork<Test, LEAF, PROPOSAL>, u16) {
         let mut rng = rand::thread_rng();
         let nonce: u64 = rng.gen();
         debug!(?nonce, "Generating PubKey with id");
@@ -1203,7 +1219,12 @@ mod tests {
     }
 
     #[instrument]
-    async fn get_wnetwork_timeout(timeout: u64) -> (Ed25519Pub, WNetwork<Test>, u16) {
+    async fn get_wnetwork_timeout<
+        LEAF: LeafType<NodeType = Test>,
+        PROPOSAL: ProposalType<NodeTypes = Test>,
+    >(
+        timeout: u64,
+    ) -> (Ed25519Pub, WNetwork<Test, LEAF, PROPOSAL>, u16) {
         let timeout = Duration::from_millis(timeout);
         let mut rng = rand::thread_rng();
         let nonce: u64 = rng.gen();

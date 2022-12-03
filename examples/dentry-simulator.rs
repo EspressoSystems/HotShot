@@ -1,5 +1,7 @@
 use clap::Parser;
 use futures::future::join_all;
+use hotshot_types::data::{LeafType, ProposalType};
+use hotshot_types::traits::node_implementation::NodeTypes;
 use hotshot_types::traits::{
     metrics::NoMetrics, signature_key::SignatureKey, state::TestableState,
 };
@@ -28,7 +30,8 @@ use hotshot::{
     HotShot,
 };
 
-type Node = DEntryNode<DEntryTypes, WNetwork<DEntryTypes>, StaticCommittee<DEntryTypes>>;
+type Node<LEAF: LeafType<NodeType = DEntryTypes>, PROPOSAL: ProposalType<NodeTypes = DEntryTypes>> =
+    DEntryNode<WNetwork<DEntryTypes, LEAF, PROPOSAL>, StaticCommittee<DEntryTypes, LEAF>>;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -93,7 +96,16 @@ async fn main() {
     let mut rng = Xoshiro256StarStar::seed_from_u64(0);
     // Spawn the networking backends and connect them together
     #[allow(clippy::type_complexity)]
-    let mut networkings: Vec<(WNetwork<DEntryTypes>, u16, BlsPubKey, u64)> = Vec::new();
+    let mut networkings: Vec<(
+        WNetwork<
+            DEntryTypes,
+            LeafType<NodeType = DEntryTypes>,
+            ProposalType<NodeTypes = DEntryTypes>,
+        >,
+        u16,
+        BlsPubKey,
+        u64,
+    )> = Vec::new();
     for node_id in 0..nodes as u64 {
         let (public_key, _private_key) =
             <BlsPubKey as SignatureKey>::generated_from_seed_indexed([0_u8; 32], node_id);
@@ -117,7 +129,12 @@ async fn main() {
         }
     }
     // Create the hotshots
-    let mut hotshots: Vec<HotShotHandle<DEntryTypes, Node>> = join_all(
+    let mut hotshots: Vec<
+        HotShotHandle<
+            DEntryTypes,
+            Node<LeafType<NodeType = DEntryTypes>, ProposalType<NodeTypes = DEntryTypes>>,
+        >,
+    > = join_all(
         networkings
             .into_iter()
             .map(|(network, _, _pk, node_id)| get_hotshot(nodes, node_id, network)),
@@ -151,7 +168,7 @@ async fn main() {
         let mut states: Vec<Vec<DEntryState>> = Vec::new();
         for (node_id, hotshot) in hotshots.iter_mut().enumerate() {
             debug!(?node_id, "Waiting on node to emit decision");
-            let mut event: Event<DEntryTypes> = hotshot
+            let mut event: Event<DEntryTypes, LeafType<NodeType = DEntryTypes>> = hotshot
                 .next_event()
                 .await
                 .expect("HotShot unexpectedly closed");
@@ -321,10 +338,13 @@ async fn get_networking<R: hotshot::rand::Rng>(
 
 /// Creates a hotshot
 // #[instrument(skip(networking))]
-async fn get_hotshot(
+async fn get_hotshot<
+    LEAF: LeafType<NodeType = DEntryTypes>,
+    PROPOSAL: ProposalType<NodeTypes = DEntryTypes>,
+>(
     nodes: usize,
     node_id: u64,
-    networking: WNetwork<DEntryTypes>,
+    networking: WNetwork<DEntryTypes, LEAF, PROPOSAL>,
 ) -> HotShotHandle<DEntryTypes, Node> {
     let known_nodes: Vec<_> = (0..nodes)
         .map(|x| <BlsPubKey as SignatureKey>::generated_from_seed_indexed([0_u8; 32], x as u64).0)

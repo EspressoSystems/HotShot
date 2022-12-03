@@ -18,6 +18,7 @@ use hotshot_centralized_server::{
     Run, RunResults, TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend,
 };
 use hotshot_types::{
+    data::{LeafType, ProposalType},
     traits::{
         metrics::NoMetrics,
         network::NetworkingImplementation,
@@ -366,7 +367,12 @@ impl CliStandalone {
     }
 }
 
-type Node = DEntryNode<DEntryTypes, Libp2pNetwork<DEntryTypes>, StaticCommittee<DEntryTypes>>;
+type Node<LEAF: LeafType<NodeType = DEntryTypes>, PROPOSAL: ProposalType<NodeTypes = DEntryTypes>> =
+    DEntryNode<
+        DEntryTypes,
+        Libp2pNetwork<DEntryTypes, LEAF, PROPOSAL>,
+        StaticCommittee<DEntryTypes, LEAF>,
+    >;
 
 struct Config {
     run: Run,
@@ -395,10 +401,13 @@ struct Config {
 
 impl Config {
     /// Creates the initial state and hotshot for simulation.
-    async fn init_state_and_hotshot(
+    async fn init_state_and_hotshot<
+        LEAF: LeafType<NodeType = DEntryTypes>,
+        PROPOSAL: ProposalType<NodeTypes = DEntryTypes>,
+    >(
         &self,
 
-        networking: Libp2pNetwork<DEntryTypes>,
+        networking: Libp2pNetwork<DEntryTypes, LEAF, PROPOSAL>,
     ) -> (DEntryState, HotShotHandle<DEntryTypes, Node>) {
         let genesis_block = DEntryBlock::genesis();
         let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();

@@ -10,6 +10,7 @@ use hotshot_types::{
         election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
+        state::ValidatingConsensus,
     },
 };
 use hotshot_utils::{bincode::bincode_opts, hack::nll_todo};
@@ -1103,9 +1104,10 @@ mod tests {
     use ark_std::test_rng;
     use blake3::Hasher;
     use hotshot_types::{
-        data::ViewNumber,
+        data::{ValidatingLeaf, ViewNumber},
         traits::{
             block_contents::dummy::{DummyBlock, DummyTransaction},
+            node_implementation::ApplicationMetadata,
             state::{dummy::DummyState, ConsensusTime},
         },
     };
@@ -1118,6 +1120,12 @@ mod tests {
         vrf::blsvrf::BLSVRFScheme,
     };
     use std::{num::NonZeroUsize, time::Duration};
+
+    /// application metadata stub
+    #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+    pub struct TestMetaData {}
+
+    impl ApplicationMetadata for TestMetaData {}
 
     #[derive(
         Copy,
@@ -1134,6 +1142,8 @@ mod tests {
     )]
     struct TestTypes;
     impl NodeTypes for TestTypes {
+        // TODO (da) can this be SequencingConsensus?
+        type ConsensusType = ValidatingConsensus;
         type Time = ViewNumber;
         type BlockType = DummyBlock;
         type SignatureKey = JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>;
@@ -1144,12 +1154,20 @@ mod tests {
         type Transaction = DummyTransaction;
         type ElectionConfigType = VRFStakeTableConfig;
         type StateType = DummyState;
+        type ApplicationMetadataType = TestMetaData;
     }
 
-    fn gen_vrf_impl(
+    fn gen_vrf_impl<LEAF: LeafType<NodeType = TestTypes>>(
         num_nodes: usize,
     ) -> (
-        VrfImpl<TestTypes, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
+        VrfImpl<
+            TestTypes,
+            LEAF,
+            BLSSignatureScheme<Param381>,
+            BLSVRFScheme<Param381>,
+            Hasher,
+            Param381,
+        >,
         Vec<(
             jf_primitives::signatures::bls::BLSSignKey<Param381>,
             jf_primitives::signatures::bls::BLSVerKey<Param381>,
@@ -1191,7 +1209,7 @@ mod tests {
     #[test]
     pub fn test_sortition() {
         setup_logging();
-        let (vrf_impl, keys) = gen_vrf_impl(10);
+        let (vrf_impl, keys) = gen_vrf_impl::<ValidatingLeaf<TestTypes>>(10);
         let views = 100;
 
         for view in 0..views {

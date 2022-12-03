@@ -7,13 +7,14 @@ use hotshot::{
             vrf::BlsPubKey,
         },
         implementations::{CentralizedServerNetwork, MemoryStorage},
-        Storage,
+        NodeImplementation, Storage,
     },
     types::HotShotHandle,
     HotShot,
 };
 use hotshot_centralized_server::{NetworkConfig, RunResults};
 use hotshot_types::{
+    data::LeafType,
     traits::{metrics::NoMetrics, signature_key::SignatureKey, state::TestableState},
     HotShotConfig,
 };
@@ -30,8 +31,11 @@ use std::{
 };
 use tracing::{debug, error};
 
-type Node =
-    DEntryNode<DEntryTypes, CentralizedServerNetwork<DEntryTypes>, StaticCommittee<DEntryTypes>>;
+type Node<LEAF: LeafType<NodeType = DEntryTypes>> = DEntryNode<
+    DEntryTypes,
+    CentralizedServerNetwork<DEntryTypes>,
+    StaticCommittee<DEntryTypes, LEAF>,
+>;
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -48,12 +52,12 @@ struct NodeOpt {
 
 /// Creates the initial state and hotshot for simulation.
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
-async fn init_state_and_hotshot(
+async fn init_state_and_hotshot<LEAF: LeafType<NodeType = DEntryTypes>>(
     networking: CentralizedServerNetwork<DEntryTypes>,
     config: HotShotConfig<BlsPubKey, StaticElectionConfig>,
     seed: [u8; 32],
     node_id: u64,
-) -> (DEntryState, HotShotHandle<DEntryTypes, Node>) {
+) -> (DEntryState, HotShotHandle<DEntryTypes, Node<LEAF>>) {
     // Create the initial block
     let accounts: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
@@ -66,7 +70,8 @@ async fn init_state_and_hotshot(
     .map(|(x, y)| (x.to_string(), y))
     .collect();
     let genesis_block = DEntryBlock::genesis_from(accounts);
-    let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
+    let initializer =
+        hotshot::HotShotInitializer::<DEntryTypes, LEAF>::from_genesis(genesis_block).unwrap();
 
     let (pub_key, priv_key) = BlsPubKey::generated_from_seed_indexed(seed, node_id);
     let known_nodes = config.known_nodes.clone();
@@ -85,7 +90,7 @@ async fn init_state_and_hotshot(
     .expect("Could not init hotshot");
     debug!("hotshot launched");
 
-    let storage: &MemoryStorage<DEntryTypes> = hotshot.storage();
+    let storage: &MemoryStorage<DEntryTypes, LEAF> = hotshot.storage();
 
     let state = storage.get_anchored_view().await.unwrap().state;
 
@@ -139,7 +144,10 @@ async fn main() {
     );
 
     // Initialize the state and hotshot
-    let (_own_state, mut hotshot) = init_state_and_hotshot(network, config, seed, node_index).await;
+    let (_own_state, mut hotshot): (
+        DEntryState,
+        HotShotHandle<DEntryTypes, NodeImplementation<DEntryTypes>>,
+    ) = init_state_and_hotshot(network, config, seed, node_index).await;
 
     hotshot.start().await;
 

@@ -18,13 +18,13 @@ use hotshot_centralized_server::{
     Run, RunResults, TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend,
 };
 use hotshot_types::{
-    data::ViewNumber,
+    data::{LeafType, ProposalType, ViewNumber},
     traits::{
         metrics::NoMetrics,
         network::NetworkingImplementation,
         node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
-        state::TestableState,
+        state::{ConsensusType, TestableState},
     },
     ExecutionType, HotShotConfig,
 };
@@ -375,6 +375,13 @@ impl CliStandalone {
         }
     }
 }
+
+/// application metadata stub
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct VrfMetaData {}
+
+impl ApplicationMetadata for VrfMetaData {}
+
 /// Implementation of [`NodeTypes`] for [`DEntryNode`]
 #[derive(
     Copy,
@@ -389,9 +396,12 @@ impl CliStandalone {
     serde::Serialize,
     serde::Deserialize,
 )]
-pub struct VrfTypes;
+pub struct VrfTypes<CONSENSUS: ConsensusType> {
+    pd: PhantomData<LEAF>,
+}
 
-impl NodeTypes for VrfTypes {
+impl<CONSENSUS: ConsensusType> NodeTypes for VrfTypes<CONSENSUS> {
+    type ConsensusType = CONSENSUS;
     type Time = ViewNumber;
     type BlockType = DEntryBlock;
     type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
@@ -400,11 +410,23 @@ impl NodeTypes for VrfTypes {
     type Transaction = DEntryTransaction;
     type ElectionConfigType = VRFStakeTableConfig;
     type StateType = DEntryState;
+    type ApplicationMetadataType = VrfMetaData;
 }
-type Node = DEntryNode<
-    VrfTypes,
-    Libp2pNetwork<VrfTypes>,
-    VrfImpl<VrfTypes, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
+type Node<
+    CONSENSUS: ConsensusType,
+    LEAF: LeafType<NodeType = VrfTypes<CONSENSUS>>,
+    PROPOSAL: ProposalType<NodeTypes = VrfTypes<CONSENSUS>>,
+> = DEntryNode<
+    VrfTypes<CONSENSUS>,
+    Libp2pNetwork<VrfTypes<CONSENSUS>, LEAF, PROPOSAL>,
+    VrfImpl<
+        VrfTypes<CONSENSUS>,
+        LEAF,
+        BLSSignatureScheme<Param381>,
+        BLSVRFScheme<Param381>,
+        Hasher,
+        Param381,
+    >,
 >;
 struct Config {
     run: Run,
@@ -433,11 +455,15 @@ struct Config {
 
 impl Config {
     /// Creates the initial state and hotshot for simulation.
-    async fn init_state_and_hotshot(
+    async fn init_state_and_hotshot<
+        CONSENSUS: ConsensusType,
+        LEAF: LeafType<NodeType = VrfTypes<CONSENSUS>>,
+        PROPOSAL: ProposalType<NodeTypes = VrfTypes<CONSENSUS>>,
+    >(
         &self,
 
-        networking: Libp2pNetwork<VrfTypes>,
-    ) -> (DEntryState, HotShotHandle<VrfTypes, Node>) {
+        networking: Libp2pNetwork<VrfTypes<CONSENSUS>, LEAF, PROPOSAL>,
+    ) -> (DEntryState, HotShotHandle<VrfTypes<CONSENSUS>, Node>) {
         let genesis_block = DEntryBlock::genesis();
         let genesis_seed = genesis_block.commit();
         let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
@@ -490,14 +516,16 @@ impl Config {
         .expect("Could not init hotshot");
         debug!("hotshot launched");
 
-        let storage: &MemoryStorage<VrfTypes> = hotshot.storage();
+        let storage: &MemoryStorage<VrfTypes<CONSENSUS>> = hotshot.storage();
 
         let state = storage.get_anchored_view().await.unwrap().state;
 
         (state, hotshot)
     }
 
-    async fn new_libp2p_network(&self) -> Result<Libp2pNetwork<VrfTypes>, NetworkError> {
+    async fn new_libp2p_network<CONSENSUS: ConsensusType>(
+        &self,
+    ) -> Result<Libp2pNetwork<VrfTypes<CONSENSUS>>, NetworkError> {
         assert!(self.node_id < self.num_nodes);
         let mut config_builder = NetworkNodeConfigBuilder::default();
         // NOTE we may need to change this as we scale

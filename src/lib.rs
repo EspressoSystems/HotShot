@@ -80,13 +80,13 @@ use hotshot_utils::{
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use snafu::ResultExt;
-use tasks::TaskHandler;
 use std::{
     collections::{BTreeMap, HashMap},
     num::{NonZeroU64, NonZeroUsize},
     sync::{atomic::Ordering, Arc},
     time::Duration,
 };
+use tasks::TaskHandler;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 // -- Rexports
@@ -163,7 +163,8 @@ pub struct HotShot<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
 }
 
 impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I>
-where TaskHandler<<TYPES as NodeTypes>::ConsensusType>: tasks::TaskHandlerType<TYPES,I>
+where
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: tasks::TaskHandlerType<TYPES, I>,
 {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
@@ -179,10 +180,7 @@ where TaskHandler<<TYPES as NodeTypes>::ConsensusType>: tasks::TaskHandlerType<T
         election: I::Election,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
-    ) -> Result<Self, HotShotError<TYPES>>
-
-
-    {
+    ) -> Result<Self, HotShotError<TYPES>> {
         info!("Creating a new hotshot");
         let inner: Arc<HotShotInner<TYPES, I>> = Arc::new(HotShotInner {
             public_key,

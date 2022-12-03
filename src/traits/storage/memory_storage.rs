@@ -123,17 +123,30 @@ mod test {
     use super::*;
     use hotshot_types::constants::genesis_proposer_id;
     use hotshot_types::data::fake_commitment;
-    use hotshot_types::data::Leaf;
     use hotshot_types::data::QuorumCertificate;
-    use hotshot_types::data::ViewNumber;
+    use hotshot_types::data::{LeafType, ValidatingLeaf, ViewNumber};
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
     use hotshot_types::traits::node_implementation::NodeTypes;
     use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
-    use hotshot_types::traits::state::ConsensusTime;
+    use hotshot_types::traits::state::ValidatingConsensus;
     use hotshot_types::traits::Block;
+    use hotshot_types::traits::{
+        node_implementation::ApplicationMetadata,
+        state::{ConsensusTime, ConsensusType},
+    };
+    use serde::{Deserialize, Serialize};
     use std::collections::BTreeMap;
+    use std::fmt::Debug;
+    use std::hash::Hash;
+    use std::marker::PhantomData;
     use tracing::instrument;
+
+    /// application metadata stub
+    #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+    pub struct DummyMetaData {}
+
+    impl ApplicationMetadata for DummyMetaData {}
 
     #[derive(
         Copy,
@@ -151,6 +164,8 @@ mod test {
     struct DummyTypes;
 
     impl NodeTypes for DummyTypes {
+        // TODO (da) can this be SequencingConsensus?
+        type ConsensusType = ValidatingConsensus;
         type Time = ViewNumber;
         type BlockType = DummyBlock;
         type SignatureKey = Ed25519Pub;
@@ -158,16 +173,17 @@ mod test {
         type Transaction = <DummyBlock as Block>::Transaction;
         type ElectionConfigType = StaticElectionConfig;
         type StateType = DummyState;
+        type ApplicationMetadataType = DummyMetaData;
     }
 
     #[instrument(skip(rng))]
     fn random_stored_view(
         rng: &mut dyn rand::RngCore,
         view_number: ViewNumber,
-    ) -> StoredView<DummyTypes> {
+    ) -> StoredView<DummyTypes, ValidatingLeaf<DummyTypes>> {
         // TODO is it okay to be using genesis here?
         let dummy_block_commit = fake_commitment::<DummyBlock>();
-        let dummy_leaf_commit = fake_commitment::<Leaf<DummyTypes>>();
+        let dummy_leaf_commit = fake_commitment::<LeafType>();
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
                 // block_commitment: dummy_block_commit,

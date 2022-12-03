@@ -1,9 +1,10 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 use crate::{
+    tasks::{TaskHandler, TaskHandlerType},
     traits::{NetworkError::ShutDown, NodeImplementation},
     types::{Event, HotShotError::NetworkFault},
-    HotShot, tasks::{TaskHandler, TaskHandlerType},
+    HotShot,
 };
 use hotshot_types::{
     data::LeafType,
@@ -67,8 +68,8 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> Clone for HotShot
 }
 
 impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPES, I>
-where TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES,I>
-
+where
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     /// Will return the next event in the queue
     ///

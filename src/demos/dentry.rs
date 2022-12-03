@@ -501,7 +501,7 @@ impl Block for DEntryBlock {
 pub struct DEntryTypes;
 
 impl NodeTypes for DEntryTypes {
-    // TODO (da) is DEntry for validating consensus only?
+    // TODO (da) can this be SequencingConsensus?
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = DEntryBlock;
