@@ -16,6 +16,7 @@ use hotshot_types::{
     data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal},
     message::Message,
     traits::{
+        election::Election,
         metrics::{Metrics, NoMetrics},
         network::{ChannelDisconnectedSnafu, NetworkChange, TestableNetworkingImplementation},
         node_implementation::NodeTypes,
@@ -31,6 +32,7 @@ use hotshot_utils::{
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
+use std::marker::PhantomData;
 use std::{
     fmt::Debug,
     sync::{
@@ -623,39 +625,46 @@ mod tests {
         Ed25519Pub::from_private(&priv_key)
     }
 
-    // Spawning a single MemoryNetwork should produce no errors
-    #[cfg_attr(
-        feature = "tokio-executor",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    #[instrument]
-    async fn spawn_single() {
-        setup_logging();
-        let group: Arc<MasterMap<Test, ValidatingLeaf<Test>, ValidatingProposal<Test>>> =
-            MasterMap::new();
-        trace!(?group);
-        let pub_key = get_pubkey();
-        let _network = MemoryNetwork::new(pub_key, NoMetrics::new(), group, Option::None);
+    struct MemoryNetworkTask<ELECTION: Election<Test>> {
+        pd: PhantomData<ELECTION>,
     }
 
-    // Spawning a two MemoryNetworks and connecting them should produce no errors
-    #[cfg_attr(
-        feature = "tokio-executor",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    #[instrument]
-    async fn spawn_double() {
-        setup_logging();
-        let group: Arc<MasterMap<Test, ValidatingLeaf<Test>, ValidatingProposal<Test>>> =
-            MasterMap::new();
-        trace!(?group);
-        let pub_key_1 = get_pubkey();
-        let _network_1 =
-            MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
-        let pub_key_2 = get_pubkey();
-        let _network_2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
+    // TODO (da) async-std-executor attribute was moved to fix compiler error.
+    impl<ELECTION: Election<Test>> MemoryNetworkTask<ELECTION> {
+        // Spawning a single MemoryNetwork should produce no errors
+        #[cfg_attr(
+            feature = "tokio-executor",
+            tokio::test(flavor = "multi_thread", worker_threads = 2)
+        )]
+        #[instrument]
+        async fn spawn_single() {
+            setup_logging();
+            let group: Arc<
+                MasterMap<Test, ValidatingLeaf<Test>, ValidatingProposal<Test, ELECTION>>,
+            > = MasterMap::new();
+            trace!(?group);
+            let pub_key = get_pubkey();
+            let _network = MemoryNetwork::new(pub_key, NoMetrics::new(), group, Option::None);
+        }
+
+        // Spawning a two MemoryNetworks and connecting them should produce no errors
+        #[cfg_attr(
+            feature = "tokio-executor",
+            tokio::test(flavor = "multi_thread", worker_threads = 2)
+        )]
+        #[instrument]
+        async fn spawn_double() {
+            setup_logging();
+            let group: Arc<
+                MasterMap<Test, ValidatingLeaf<Test>, ValidatingProposal<Test, ELECTION>>,
+            > = MasterMap::new();
+            trace!(?group);
+            let pub_key_1 = get_pubkey();
+            let _network_1 =
+                MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
+            let pub_key_2 = get_pubkey();
+            let _network_2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
+        }
     }
 
     // Check to make sure direct queue works

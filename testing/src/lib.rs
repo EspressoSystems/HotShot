@@ -62,12 +62,10 @@ pub struct RoundResult<TYPES: NodeTypes> {
 /// Type of function used for checking results after running a view of consensus
 pub type RoundPostSafetyCheck<
     TYPES,
-    LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
     I,
 > = Box<
     dyn FnOnce(
-        &TestRunner<TYPES, LEAF, PROPOSAL, I>,
+        &TestRunner<TYPES, I>,
         RoundResult<TYPES>,
     ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
 >;
@@ -75,21 +73,17 @@ pub type RoundPostSafetyCheck<
 /// Type of function used for configuring a round of consensus
 pub type RoundSetup<
     TYPES,
-    LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
     TRANS,
     I,
-> = Box<dyn FnOnce(&mut TestRunner<TYPES, LEAF, PROPOSAL, I>) -> LocalBoxFuture<Vec<TRANS>>>;
+> = Box<dyn FnOnce(&mut TestRunner<TYPES,  I>) -> LocalBoxFuture<Vec<TRANS>>>;
 
 /// Type of function used for checking safety before beginnning consensus
 pub type RoundPreSafetyCheck<
     TYPES,
-    LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
     I,
 > = Box<
     dyn FnOnce(
-        &TestRunner<TYPES, LEAF, PROPOSAL, I>,
+        &TestRunner<TYPES,  I>,
     ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
 >;
 
@@ -97,36 +91,28 @@ pub type RoundPreSafetyCheck<
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
 pub struct Round<
     TYPES: NodeTypes,
-    LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
     I: NodeImplementation<TYPES>,
 > {
     /// Safety check before round is set up and run
     /// to ensure consistent state
-    pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, LEAF, PROPOSAL, I>>,
+    pub safety_check_post: Option<RoundPostSafetyCheck<TYPES,  I>>,
 
     /// Round set up
-    pub setup_round: Option<RoundSetup<TYPES, LEAF, PROPOSAL, TYPES::Transaction, I>>,
+    pub setup_round: Option<RoundSetup<TYPES, TYPES::Transaction, I>>,
 
     /// Safety check after round is complete
-    pub safety_check_pre: Option<RoundPreSafetyCheck<TYPES, LEAF, PROPOSAL, I>>,
-
-    pub pd_leaf: PhantomData<LEAF>,
-
-    pub pd_proposal: PhantomData<PROPOSAL>,
+    pub safety_check_pre: Option<RoundPreSafetyCheck<TYPES,I>>,
 }
 
 impl<
         TYPES: NodeTypes,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
         I: TestableNodeImplementation<TYPES>,
-    > Default for Round<TYPES, LEAF, PROPOSAL, I>
+    > Default for Round<TYPES,  I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>,
+    I::Networking: TestableNetworkingImplementation<TYPES,I::Leaf,I::Proposal>,
     I::Storage: TestableStorage<TYPES, LEAF>,
 {
     fn default() -> Self {
@@ -142,8 +128,6 @@ where
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<
     TYPES,
-    LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
     I,
 > where
     TYPES: NodeTypes,
@@ -154,7 +138,7 @@ pub struct TestRunner<
     default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     nodes: Vec<Node<TYPES, I>>,
     next_node_id: u64,
-    rounds: Vec<Round<TYPES, LEAF, PROPOSAL, I>>,
+    rounds: Vec<Round<TYPES, I>>,
 }
 
 struct Node<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
@@ -164,15 +148,13 @@ struct Node<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
 
 impl<
         TYPES: NodeTypes,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
         I: TestableNodeImplementation<TYPES>,
-    > TestRunner<TYPES, LEAF, PROPOSAL, I>
+    > TestRunner<TYPES,I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>,
+    I::Networking: TestableNetworkingImplementation<TYPES,I::Leaf,I::Proposal>,
     I::Storage: TestableStorage<TYPES, LEAF>,
 {
     pub(self) fn new(launcher: TestLauncher<TYPES, LEAF, PROPOSAL, I>) -> Self {
@@ -591,15 +573,23 @@ pub enum ConsensusTestError {
 }
 
 /// An implementation to make the trio `NETWORK`, `STORAGE` and `STATE` implement [`NodeImplementation`]
-pub struct TestNodeImpl<TYPES: NodeTypes, NETWORK, STORAGE, ELECTION> {
+pub struct TestNodeImpl<TYPES: NodeTypes, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION> {
     _pd_0: PhantomData<TYPES>,
-    _pd_1: PhantomData<NETWORK>,
-    _pd_2: PhantomData<STORAGE>,
-    _pd_3: PhantomData<ELECTION>,
+    _pd_1: PhantomData<LEAF>,
+    _pd_2: PhantomData<PROPOSAL>,
+    _pd_3: PhantomData<NETWORK>,
+    _pd_4: PhantomData<STORAGE>,
+    _pd_5: PhantomData<ELECTION>,
 }
 
-impl<TYPES: NodeTypes, NETWORK, STORAGE, ELECTION> Clone
-    for TestNodeImpl<TYPES, NETWORK, STORAGE, ELECTION>
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        NETWORK,
+        STORAGE,
+        ELECTION,
+    > Clone for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
 {
     fn clone(&self) -> Self {
         Self {
@@ -618,7 +608,7 @@ impl<
         NETWORK,
         STORAGE,
         ELECTION,
-    > NodeImplementation<TYPES> for TestNodeImpl<TYPES, NETWORK, STORAGE, ELECTION>
+    > NodeImplementation<TYPES> for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
@@ -640,7 +630,8 @@ impl<
         NETWORK,
         STORAGE,
         ELECTION,
-    > TestableNodeImplementation<TYPES> for TestNodeImpl<TYPES, NETWORK, STORAGE, ELECTION>
+    > TestableNodeImplementation<TYPES>
+    for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
 where
     TYPES: NodeTypes,
     TYPES::BlockType: TestableBlock,
@@ -652,8 +643,14 @@ where
 {
 }
 
-impl<TYPES: NodeTypes, NETWORK, STORAGE, ELECTION> fmt::Debug
-    for TestNodeImpl<TYPES, NETWORK, STORAGE, ELECTION>
+impl<
+        TYPES: NodeTypes,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        NETWORK,
+        STORAGE,
+        ELECTION,
+    > fmt::Debug for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("TestNodeImpl")

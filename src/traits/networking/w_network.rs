@@ -24,9 +24,10 @@ use bincode::Options;
 use dashmap::DashMap;
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use hotshot_types::{
-    data::{LeafType, ProposalType},
+    data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal},
     message::Message as HotShotMessage,
     traits::{
+        election::Election,
         network::{NetworkChange, TestableNetworkingImplementation},
         node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -1146,6 +1147,8 @@ async fn get_networking<
 #[cfg(test)]
 #[allow(clippy::panic)]
 mod tests {
+    use std::marker::PhantomData;
+
     use super::*;
     use crate::{
         demos::dentry::{DEntryBlock, DEntryState, DEntryTransaction},
@@ -1243,273 +1246,288 @@ mod tests {
         panic!("Failed to generate a connection");
     }
 
-    // Generating the tasks should once and only once
-    #[cfg_attr(
-        feature = "tokio-executor",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    async fn task_only_once() {
-        setup_logging();
-        let (_key, network, _port) = get_wnetwork().await;
-        let (sync, _r) = oneshot::channel();
-        let x = network.generate_task(sync);
-        let (sync, _r) = oneshot::channel();
-        let y = network.generate_task(sync);
-        assert!(x.is_some());
-        assert!(y.is_none());
+    struct WNetworkTask<ELECTION: Election<Test>> {
+        pd: PhantomData<ELECTION>,
     }
 
-    // Spawning a single WNetwork and starting the task should produce no errors
-    #[cfg_attr(
-        feature = "tokio-executor",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    async fn spawn_single() {
-        setup_logging();
-        let (_key, network, _port) = get_wnetwork().await;
-        let (sync, r) = oneshot::channel();
-        let x = network
-            .generate_task(sync)
-            .expect("Failed to generate task");
-        for x in x {
-            async_spawn(x);
+    // TODO (da) async-std-executor attribute was moved to fix compiler error.
+    impl<ELECTION: Election<Test>> WNetworkTask<ELECTION> {
+        // Generating the tasks should once and only once
+        #[cfg_attr(
+            feature = "tokio-executor",
+            tokio::test(flavor = "multi_thread", worker_threads = 2)
+        )]
+        async fn task_only_once() {
+            setup_logging();
+            let (_key, network, _port) =
+                get_wnetwork::<ValidatingLeaf<Test>, ValidatingProposal<Test, ELECTION>>().await;
+            let (sync, _r) = oneshot::channel();
+            let x = network.generate_task(sync);
+            let (sync, _r) = oneshot::channel();
+            let y = network.generate_task(sync);
+            assert!(x.is_some());
+            assert!(y.is_none());
         }
-        r.await.unwrap();
-    }
 
-    // Spawning two WNetworks and connecting them should produce no errors
-    #[cfg_attr(
-        feature = "tokio-executor",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    async fn spawn_double() {
-        setup_logging();
-        // Spawn first wnetwork
-        let (_key1, network1, _port1) = get_wnetwork().await;
-        let (sync, r) = oneshot::channel();
-        let x = network1
-            .generate_task(sync)
-            .expect("Failed to generate task");
-        for x in x {
-            async_spawn(x);
+        // Spawning a single WNetwork and starting the task should produce no errors
+        #[cfg_attr(
+            feature = "tokio-executor",
+            tokio::test(flavor = "multi_thread", worker_threads = 2)
+        )]
+        async fn spawn_single() {
+            setup_logging();
+            let (_key, network, _port) =
+                get_wnetwork::<ValidatingLeaf<Test>, ValidatingProposal<Test, ELECTION>>().await;
+            let (sync, r) = oneshot::channel();
+            let x = network
+                .generate_task(sync)
+                .expect("Failed to generate task");
+            for x in x {
+                async_spawn(x);
+            }
+            r.await.unwrap();
         }
-        r.await.unwrap();
-        // Spawn second wnetwork
-        let (key2, network2, port2) = get_wnetwork().await;
-        let (sync, r) = oneshot::channel();
-        let x = network2
-            .generate_task(sync)
-            .expect("Failed to generate task");
-        for x in x {
-            async_spawn(x);
+
+        // Spawning two WNetworks and connecting them should produce no errors
+        #[cfg_attr(
+            feature = "tokio-executor",
+            tokio::test(flavor = "multi_thread", worker_threads = 2)
+        )]
+        async fn spawn_double() {
+            setup_logging();
+            // Spawn first wnetwork
+            let (_key1, network1, _port1) =
+                get_wnetwork::<ValidatingLeaf<Test>, ValidatingProposal<Test, ELECTION>>().await;
+            let (sync, r) = oneshot::channel();
+            let x = network1
+                .generate_task(sync)
+                .expect("Failed to generate task");
+            for x in x {
+                async_spawn(x);
+            }
+            r.await.unwrap();
+            // Spawn second wnetwork
+            let (key2, network2, port2) =
+                get_wnetwork::<ValidatingLeaf<Test>, ValidatingProposal<Test, ELECTION>>().await;
+            let (sync, r) = oneshot::channel();
+            let x = network2
+                .generate_task(sync)
+                .expect("Failed to generate task");
+            for x in x {
+                async_spawn(x);
+            }
+            r.await.unwrap();
+            // Connect 1 to 2
+            let addr = format!("localhost:{}", port2);
+            network1
+                .connect_to(key2, &addr)
+                .await
+                .expect("Failed to connect nodes");
         }
-        r.await.unwrap();
-        // Connect 1 to 2
-        let addr = format!("localhost:{}", port2);
-        network1
-            .connect_to(key2, &addr)
-            .await
-            .expect("Failed to connect nodes");
-    }
 
-    // // Check to make sure direct queue works
-    // #[cfg_attr(
-    //     feature = "tokio-executor",
-    //     tokio::test(flavor = "multi_thread", worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    // async fn direct_queue() {
-    //     setup_logging();
-    //     // Create some dummy messages
-    //     let messages: Vec<Test> = (0..5).map(|x| Test { message: x }).collect();
+        // // Check to make sure direct queue works
+        // #[cfg_attr(
+        //     feature = "tokio-executor",
+        //     tokio::test(flavor = "multi_thread", worker_threads = 2)
+        // )]
+        // #[cfg_attr(feature = "async-std-executor" )]
+        // async fn direct_queue() {
+        //     setup_logging();
+        //     // Create some dummy messages
+        //     let messages: Vec<Test> = (0..5).map(|x| Test { message: x }).collect();
 
-    //     // Spawn first wnetwork
-    //     let (key1, network1, _port1) = get_wnetwork().await;
-    //     let (sync, r) = oneshot::channel();
-    //     let x = network1
-    //         .generate_task(sync)
-    //         .expect("Failed to generate task");
-    //     for x in x {
-    //         async_spawn(x);
-    //     }
-    //     r.await.unwrap();
-    //     // Spawn second wnetwork
-    //     let (key2, network2, port2) = get_wnetwork().await;
-    //     let (sync, r) = oneshot::channel();
-    //     let x = network2
-    //         .generate_task(sync)
-    //         .expect("Failed to generate task");
-    //     for x in x {
-    //         async_spawn(x);
-    //     }
-    //     r.await.unwrap();
-    //     // Connect 1 to 2
-    //     let addr = format!("localhost:{}", port2);
-    //     network1
-    //         .connect_to(key2, &addr)
-    //         .await
-    //         .expect("Failed to connect nodes");
+        //     // Spawn first wnetwork
+        //     let (key1, network1, _port1) = get_wnetwork().await;
+        //     let (sync, r) = oneshot::channel();
+        //     let x = network1
+        //         .generate_task(sync)
+        //         .expect("Failed to generate task");
+        //     for x in x {
+        //         async_spawn(x);
+        //     }
+        //     r.await.unwrap();
+        //     // Spawn second wnetwork
+        //     let (key2, network2, port2) = get_wnetwork().await;
+        //     let (sync, r) = oneshot::channel();
+        //     let x = network2
+        //         .generate_task(sync)
+        //         .expect("Failed to generate task");
+        //     for x in x {
+        //         async_spawn(x);
+        //     }
+        //     r.await.unwrap();
+        //     // Connect 1 to 2
+        //     let addr = format!("localhost:{}", port2);
+        //     network1
+        //         .connect_to(key2, &addr)
+        //         .await
+        //         .expect("Failed to connect nodes");
 
-    //     // Test 1 -> 2
-    //     // Send messages
-    //     for message in &messages {
-    //         network1
-    //             .message_node(message.clone(), key2)
-    //             .await
-    //             .expect("Failed to message node");
-    //     }
-    //     let mut output = Vec::new();
-    //     while output.len() < messages.len() {
-    //         let message = network2
-    //             .next_direct()
-    //             .await
-    //             .expect("Failed to receive message");
-    //         output.push(message);
-    //     }
-    //     output.sort();
-    //     // Check for equality
-    //     assert_eq!(output, messages);
+        //     // Test 1 -> 2
+        //     // Send messages
+        //     for message in &messages {
+        //         network1
+        //             .message_node(message.clone(), key2)
+        //             .await
+        //             .expect("Failed to message node");
+        //     }
+        //     let mut output = Vec::new();
+        //     while output.len() < messages.len() {
+        //         let message = network2
+        //             .next_direct()
+        //             .await
+        //             .expect("Failed to receive message");
+        //         output.push(message);
+        //     }
+        //     output.sort();
+        //     // Check for equality
+        //     assert_eq!(output, messages);
 
-    //     // Test 2 -> 1
-    //     // Send messages
-    //     for message in &messages {
-    //         network2
-    //             .message_node(message.clone(), key1)
-    //             .await
-    //             .expect("Failed to message node");
-    //     }
-    //     let mut output = Vec::new();
-    //     while output.len() < messages.len() {
-    //         let message = network1
-    //             .next_direct()
-    //             .await
-    //             .expect("Failed to receive message");
-    //         output.push(message);
-    //     }
-    //     output.sort();
-    //     // Check for equality
-    //     assert_eq!(output, messages);
-    // }
+        //     // Test 2 -> 1
+        //     // Send messages
+        //     for message in &messages {
+        //         network2
+        //             .message_node(message.clone(), key1)
+        //             .await
+        //             .expect("Failed to message node");
+        //     }
+        //     let mut output = Vec::new();
+        //     while output.len() < messages.len() {
+        //         let message = network1
+        //             .next_direct()
+        //             .await
+        //             .expect("Failed to receive message");
+        //         output.push(message);
+        //     }
+        //     output.sort();
+        //     // Check for equality
+        //     assert_eq!(output, messages);
+        // }
 
-    // // Check to make sure broadcast queue works
-    // #[cfg_attr(
-    //     feature = "tokio-executor",
-    //     tokio::test(flavor = "multi_thread", worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    // async fn broadcast_queue() {
-    //     setup_logging();
-    //     // Create some dummy messages
-    //     let messages: Vec<Test> = (0..5).map(|x| Test { message: x }).collect();
+        // // Check to make sure broadcast queue works
+        // #[cfg_attr(
+        //     feature = "tokio-executor",
+        //     tokio::test(flavor = "multi_thread", worker_threads = 2)
+        // )]
+        // #[cfg_attr(feature = "async-std-executor" )]
+        // async fn broadcast_queue() {
+        //     setup_logging();
+        //     // Create some dummy messages
+        //     let messages: Vec<Test> = (0..5).map(|x| Test { message: x }).collect();
 
-    //     // Spawn first wnetwork
-    //     let (_key1, network1, _port1) = get_wnetwork().await;
-    //     let (sync, r) = oneshot::channel();
-    //     let x = network1
-    //         .generate_task(sync)
-    //         .expect("Failed to generate task");
-    //     for x in x {
-    //         async_spawn(x);
-    //     }
-    //     r.await.unwrap();
-    //     // Spawn second wnetwork
-    //     let (key2, network2, port2) = get_wnetwork().await;
-    //     let (sync, r) = oneshot::channel();
-    //     let x = network2
-    //         .generate_task(sync)
-    //         .expect("Failed to generate task");
-    //     for x in x {
-    //         async_spawn(x);
-    //     }
-    //     r.await.unwrap();
-    //     // Connect 1 to 2
-    //     let addr = format!("localhost:{}", port2);
-    //     network1
-    //         .connect_to(key2, &addr)
-    //         .await
-    //         .expect("Failed to connect nodes");
+        //     // Spawn first wnetwork
+        //     let (_key1, network1, _port1) = get_wnetwork().await;
+        //     let (sync, r) = oneshot::channel();
+        //     let x = network1
+        //         .generate_task(sync)
+        //         .expect("Failed to generate task");
+        //     for x in x {
+        //         async_spawn(x);
+        //     }
+        //     r.await.unwrap();
+        //     // Spawn second wnetwork
+        //     let (key2, network2, port2) = get_wnetwork().await;
+        //     let (sync, r) = oneshot::channel();
+        //     let x = network2
+        //         .generate_task(sync)
+        //         .expect("Failed to generate task");
+        //     for x in x {
+        //         async_spawn(x);
+        //     }
+        //     r.await.unwrap();
+        //     // Connect 1 to 2
+        //     let addr = format!("localhost:{}", port2);
+        //     network1
+        //         .connect_to(key2, &addr)
+        //         .await
+        //         .expect("Failed to connect nodes");
 
-    //     // Test 1 -> 2
-    //     // Send messages
-    //     for message in &messages {
-    //         network1
-    //             .broadcast_message(message.clone())
-    //             .await
-    //             .expect("Failed to message node");
-    //     }
-    //     let mut output = Vec::new();
-    //     while output.len() < messages.len() {
-    //         let message = network2
-    //             .next_broadcast()
-    //             .await
-    //             .expect("Failed to receive message");
-    //         output.push(message);
-    //     }
-    //     output.sort();
-    //     // Check for equality
-    //     assert_eq!(output, messages);
+        //     // Test 1 -> 2
+        //     // Send messages
+        //     for message in &messages {
+        //         network1
+        //             .broadcast_message(message.clone())
+        //             .await
+        //             .expect("Failed to message node");
+        //     }
+        //     let mut output = Vec::new();
+        //     while output.len() < messages.len() {
+        //         let message = network2
+        //             .next_broadcast()
+        //             .await
+        //             .expect("Failed to receive message");
+        //         output.push(message);
+        //     }
+        //     output.sort();
+        //     // Check for equality
+        //     assert_eq!(output, messages);
 
-    //     // Test 2 -> 1
-    //     // Send messages
-    //     for message in &messages {
-    //         network2
-    //             .broadcast_message(message.clone())
-    //             .await
-    //             .expect("Failed to message node");
-    //     }
-    //     let mut output = Vec::new();
-    //     while output.len() < messages.len() {
-    //         let message = network1
-    //             .next_broadcast()
-    //             .await
-    //             .expect("Failed to receive message");
-    //         output.push(message);
-    //     }
-    //     output.sort();
-    //     // Check for equality
-    //     assert_eq!(output, messages);
-    // }
+        //     // Test 2 -> 1
+        //     // Send messages
+        //     for message in &messages {
+        //         network2
+        //             .broadcast_message(message.clone())
+        //             .await
+        //             .expect("Failed to message node");
+        //     }
+        //     let mut output = Vec::new();
+        //     while output.len() < messages.len() {
+        //         let message = network1
+        //             .next_broadcast()
+        //             .await
+        //             .expect("Failed to receive message");
+        //         output.push(message);
+        //     }
+        //     output.sort();
+        //     // Check for equality
+        //     assert_eq!(output, messages);
+        // }
 
-    // Check to make sure the patrol task doesn't crash anything
-    #[cfg_attr(
-        feature = "tokio-executor",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    async fn patrol_task() {
-        setup_logging();
-        // Spawn two w_networks with a timeout of 25ms
-        // Spawn first wnetwork
-        let (_key1, network1, _port1) = get_wnetwork_timeout(25).await;
-        let (sync, r) = oneshot::channel();
-        let x = network1
-            .generate_task(sync)
-            .expect("Failed to generate task");
-        for x in x {
-            async_spawn(x);
+        // Check to make sure the patrol task doesn't crash anything
+        #[cfg_attr(
+            feature = "tokio-executor",
+            tokio::test(flavor = "multi_thread", worker_threads = 2)
+        )]
+        async fn patrol_task() {
+            setup_logging();
+            // Spawn two w_networks with a timeout of 25ms
+            // Spawn first wnetwork
+            let (_key1, network1, _port1) = get_wnetwork_timeout::<
+                ValidatingLeaf<Test>,
+                ValidatingProposal<Test, ELECTION>,
+            >(25)
+            .await;
+            let (sync, r) = oneshot::channel();
+            let x = network1
+                .generate_task(sync)
+                .expect("Failed to generate task");
+            for x in x {
+                async_spawn(x);
+            }
+            r.await.unwrap();
+            // Spawn second wnetwork
+            let (key2, network2, port2) = get_wnetwork_timeout::<
+                ValidatingLeaf<Test>,
+                ValidatingProposal<Test, ELECTION>,
+            >(25)
+            .await;
+            let (sync, r) = oneshot::channel();
+            let x = network2
+                .generate_task(sync)
+                .expect("Failed to generate task");
+            for x in x {
+                async_spawn(x);
+            }
+            r.await.unwrap();
+            // Connect 1 to 2
+            let addr = format!("localhost:{}", port2);
+            network1
+                .connect_to(key2, &addr)
+                .await
+                .expect("Failed to connect nodes");
+            // Wait 100ms to make sure that nothing crashes
+            // Currently, the log output needs to be inspected to make sure that nothing bad happened
+            async_sleep(Duration::from_millis(100)).await;
         }
-        r.await.unwrap();
-        // Spawn second wnetwork
-        let (key2, network2, port2) = get_wnetwork_timeout(25).await;
-        let (sync, r) = oneshot::channel();
-        let x = network2
-            .generate_task(sync)
-            .expect("Failed to generate task");
-        for x in x {
-            async_spawn(x);
-        }
-        r.await.unwrap();
-        // Connect 1 to 2
-        let addr = format!("localhost:{}", port2);
-        network1
-            .connect_to(key2, &addr)
-            .await
-            .expect("Failed to connect nodes");
-        // Wait 100ms to make sure that nothing crashes
-        // Currently, the log output needs to be inspected to make sure that nothing bad happened
-        async_sleep(Duration::from_millis(100)).await;
     }
 }

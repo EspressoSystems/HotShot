@@ -18,8 +18,11 @@ use hotshot_centralized_server::{NetworkConfig, RunResults};
 use hotshot_types::traits::metrics::NoMetrics;
 use hotshot_types::traits::state::{ConsensusType, ValidatingConsensus};
 use hotshot_types::{
-    data::{LeafType, ViewNumber},
-    traits::{node_implementation::NodeTypes, state::TestableState},
+    data::{LeafType, ValidatingLeaf, ViewNumber},
+    traits::{
+        node_implementation::{ApplicationMetadata, NodeTypes},
+        state::TestableState,
+    },
     HotShotConfig,
 };
 use hotshot_utils::{
@@ -28,6 +31,7 @@ use hotshot_utils::{
 };
 use jf_primitives::signatures::bls::{BLSSignature, BLSVerKey};
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::{
     cmp,
@@ -60,12 +64,11 @@ impl ApplicationMetadata for VrfMetaData {}
     serde::Serialize,
     serde::Deserialize,
 )]
-pub struct VrfTypes<CONSENSUS: ConsensusType> {
-    pd: PhantomData<LEAF>,
-}
+pub struct VrfTypes;
 
-impl<CONSENSUS: ConsensusType> NodeTypes for VrfTypes<CONSENSUS> {
-    type ConsensusType = CONSENSUS;
+impl NodeTypes for VrfTypes {
+    // TODO (da) can this be SequencingConsensus?
+    type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = DEntryBlock;
     type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
@@ -76,12 +79,12 @@ impl<CONSENSUS: ConsensusType> NodeTypes for VrfTypes<CONSENSUS> {
     type StateType = DEntryState;
     type ApplicationMetadataType = VrfMetaData;
 }
-type Node<CONSENSUS: ConsensusType, LEAF: LeafType<NodeType = VrfTypes<CONSENSUS>>> = DEntryNode<
-    VrfTypes<CONSENSUS>,
-    CentralizedServerNetwork<VrfTypes<CONSENSUS>>,
+type Node = DEntryNode<
+    VrfTypes,
+    CentralizedServerNetwork<VrfTypes>,
     VrfImpl<
-        VrfTypes<CONSENSUS>,
-        LEAF,
+        VrfTypes,
+        ValidatingLeaf<VrfTypes>,
         BLSSignatureScheme<Param381>,
         BLSVRFScheme<Param381>,
         Hasher,
@@ -104,15 +107,12 @@ struct NodeOpt {
 
 /// Creates the initial state and hotshot for simulation.
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
-async fn init_state_and_hotshot<
-    CONSENSUS: ConsensusType,
-    LEAF: LeafType<NodeType = VrfTypes<CONSENSUS>>,
->(
-    networking: CentralizedServerNetwork<VrfTypes<CONSENSUS>>,
+async fn init_state_and_hotshot(
+    networking: CentralizedServerNetwork<VrfTypes>,
     config: HotShotConfig<JfPubKey<BLSSignatureScheme<Param381>>, VRFStakeTableConfig>,
     seed: [u8; 32],
     node_id: u64,
-) -> (DEntryState, HotShotHandle<VrfTypes<CONSENSUS>, Node<LEAF>>) {
+) -> (DEntryState, HotShotHandle<VrfTypes, Node>) {
     // Create the initial block
     let accounts: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
@@ -127,7 +127,10 @@ async fn init_state_and_hotshot<
     let genesis_block = DEntryBlock::genesis_from(accounts);
     let genesis_seed = genesis_block.commit();
     let initializer =
-        hotshot::HotShotInitializer::<DEntryTypes, LEAF>::from_genesis(genesis_block).unwrap();
+        hotshot::HotShotInitializer::<DEntryTypes, ValidatingLeaf<DEntryTypes>>::from_genesis(
+            genesis_block,
+        )
+        .unwrap();
 
     // TODO we should make this more general/use different parameters
     #[allow(clippy::let_unit_value)]
@@ -166,7 +169,7 @@ async fn init_state_and_hotshot<
     .expect("Could not init hotshot");
     debug!("hotshot launched");
 
-    let storage: &MemoryStorage<VrfTypes<CONSENSUS>, LEAF> = hotshot.storage();
+    let storage: &MemoryStorage<VrfTypes, ValidatingLeaf<VrfTypes>> = hotshot.storage();
 
     let state = storage.get_anchored_view().await.unwrap().state;
 
@@ -312,7 +315,7 @@ async fn main() {
     );
     debug!("All rounds completed");
 
-    let networking: &CentralizedServerNetwork<VrfTypes<CONSENSUS>> = hotshot.networking();
+    let networking: &CentralizedServerNetwork<VrfTypes> = hotshot.networking();
     networking
         .send_results(RunResults {
             run,

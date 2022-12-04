@@ -1,9 +1,9 @@
 use clap::Parser;
 use futures::future::join_all;
-use hotshot_types::data::{LeafType, ProposalType};
+use hotshot_types::data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal};
 use hotshot_types::traits::node_implementation::NodeTypes;
 use hotshot_types::traits::{
-    metrics::NoMetrics, signature_key::SignatureKey, state::TestableState,
+    metrics::NoMetrics, signature_key::SignatureKey, state::TestableState,election::Election
 };
 use hotshot_types::{ExecutionType, HotShotConfig};
 use hotshot_utils::{
@@ -30,8 +30,11 @@ use hotshot::{
     HotShot,
 };
 
-type Node<LEAF: LeafType<NodeType = DEntryTypes>, PROPOSAL: ProposalType<NodeTypes = DEntryTypes>> =
-    DEntryNode<WNetwork<DEntryTypes, LEAF, PROPOSAL>, StaticCommittee<DEntryTypes, LEAF>>;
+type Node<ELECTION: Election<DEntryTypes, ValidatingLeaf<DEntryTypes>>> = DEntryNode<
+    WNetwork<DEntryTypes, ValidatingLeaf<DEntryTypes>, ValidatingProposal<DEntryTypes, ELECTION>>,
+    StaticCommittee<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
+    ELECTION,
+>;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -130,10 +133,7 @@ async fn main() {
     }
     // Create the hotshots
     let mut hotshots: Vec<
-        HotShotHandle<
-            DEntryTypes,
-            Node<LeafType<NodeType = DEntryTypes>, ProposalType<NodeTypes = DEntryTypes>>,
-        >,
+        HotShotHandle<DEntryTypes, Node<Election<DEntryTypes, ValidatingLeaf<DEntryTypes>>>>,
     > = join_all(
         networkings
             .into_iter()

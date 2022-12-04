@@ -1,6 +1,6 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use crate::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
+use crate::{types::HotShotHandle, HotShot, HotShotConsensusApi};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
@@ -258,7 +258,11 @@ where
             sender_chan: send_replica,
             receiver_chan: recv_replica,
             has_received_proposal: _,
-        } = create_or_obtain_chan_from_write(replica_cur_view, send_to_replica).await;
+        } = HotShot::<TYPES, I>::create_or_obtain_chan_from_write(
+            replica_cur_view,
+            send_to_replica,
+        )
+        .await;
 
         let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
         let next_leader_last_view = send_to_next_leader.cur_view;
@@ -270,9 +274,11 @@ where
         let next_leader_cur_view = send_to_next_leader.cur_view;
         let (send_next_leader, recv_next_leader) =
             if c_api.is_leader(next_leader_cur_view + 1).await {
-                let vq =
-                    create_or_obtain_chan_from_write(next_leader_cur_view, send_to_next_leader)
-                        .await;
+                let vq = HotShot::<TYPES, I>::create_or_obtain_chan_from_write(
+                    next_leader_cur_view,
+                    send_to_next_leader,
+                )
+                .await;
                 (Some(vq.sender_chan), Some(vq.receiver_chan))
             } else {
                 (None, None)

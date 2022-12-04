@@ -18,13 +18,14 @@ use hotshot_centralized_server::{
     Run, RunResults, TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend,
 };
 use hotshot_types::{
-    data::{LeafType, ProposalType, ViewNumber},
+    data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
+        election::Election,
         metrics::NoMetrics,
         network::NetworkingImplementation,
-        node_implementation::NodeTypes,
+        node_implementation::{ApplicationMetadata, NodeTypes},
         signature_key::{SignatureKey, TestableSignatureKey},
-        state::{ConsensusType, TestableState},
+        state::{ConsensusType, TestableState, ValidatingConsensus,ValidatingConsensusType},
     },
     ExecutionType, HotShotConfig,
 };
@@ -45,6 +46,8 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 use std::{
     collections::HashSet,
     num::{NonZeroU64, NonZeroUsize},
@@ -396,12 +399,11 @@ impl ApplicationMetadata for VrfMetaData {}
     serde::Serialize,
     serde::Deserialize,
 )]
-pub struct VrfTypes<CONSENSUS: ConsensusType> {
-    pd: PhantomData<LEAF>,
-}
+pub struct VrfTypes;
 
-impl<CONSENSUS: ConsensusType> NodeTypes for VrfTypes<CONSENSUS> {
-    type ConsensusType = CONSENSUS;
+impl NodeTypes for VrfTypes {
+    // TODO (da) can this be SequencingConsensus?
+    type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = DEntryBlock;
     type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
@@ -412,16 +414,12 @@ impl<CONSENSUS: ConsensusType> NodeTypes for VrfTypes<CONSENSUS> {
     type StateType = DEntryState;
     type ApplicationMetadataType = VrfMetaData;
 }
-type Node<
-    CONSENSUS: ConsensusType,
-    LEAF: LeafType<NodeType = VrfTypes<CONSENSUS>>,
-    PROPOSAL: ProposalType<NodeTypes = VrfTypes<CONSENSUS>>,
-> = DEntryNode<
-    VrfTypes<CONSENSUS>,
-    Libp2pNetwork<VrfTypes<CONSENSUS>, LEAF, PROPOSAL>,
+type Node<ELECTION: Election<VrfTypes>> = DEntryNode<
+    VrfTypes,
+    Libp2pNetwork<VrfTypes, ValidatingLeaf<VrfTypes>, ValidatingProposal<VrfTypes, ELECTION>>,
     VrfImpl<
-        VrfTypes<CONSENSUS>,
-        LEAF,
+        VrfTypes,
+        ValidatingLeaf<VrfTypes>,
         BLSSignatureScheme<Param381>,
         BLSVRFScheme<Param381>,
         Hasher,
@@ -455,15 +453,14 @@ struct Config {
 
 impl Config {
     /// Creates the initial state and hotshot for simulation.
-    async fn init_state_and_hotshot<
-        CONSENSUS: ConsensusType,
-        LEAF: LeafType<NodeType = VrfTypes<CONSENSUS>>,
-        PROPOSAL: ProposalType<NodeTypes = VrfTypes<CONSENSUS>>,
-    >(
+    async fn init_state_and_hotshot<ELECTION: Election<VrfTypes>>(
         &self,
-
-        networking: Libp2pNetwork<VrfTypes<CONSENSUS>, LEAF, PROPOSAL>,
-    ) -> (DEntryState, HotShotHandle<VrfTypes<CONSENSUS>, Node>) {
+        networking: Libp2pNetwork<
+            VrfTypes,
+            ValidatingLeaf<VrfTypes>,
+            ValidatingProposal<VrfTypes, ELECTION>,
+        >,
+    ) -> (DEntryState, HotShotHandle<VrfTypes, Node>) {
         let genesis_block = DEntryBlock::genesis();
         let genesis_seed = genesis_block.commit();
         let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
@@ -516,16 +513,14 @@ impl Config {
         .expect("Could not init hotshot");
         debug!("hotshot launched");
 
-        let storage: &MemoryStorage<VrfTypes<CONSENSUS>> = hotshot.storage();
+        let storage: &MemoryStorage<VrfTypes> = hotshot.storage();
 
         let state = storage.get_anchored_view().await.unwrap().state;
 
         (state, hotshot)
     }
 
-    async fn new_libp2p_network<CONSENSUS: ConsensusType>(
-        &self,
-    ) -> Result<Libp2pNetwork<VrfTypes<CONSENSUS>>, NetworkError> {
+    async fn new_libp2p_network(&self) -> Result<Libp2pNetwork<VrfTypes>, NetworkError> {
         assert!(self.node_id < self.num_nodes);
         let mut config_builder = NetworkNodeConfigBuilder::default();
         // NOTE we may need to change this as we scale

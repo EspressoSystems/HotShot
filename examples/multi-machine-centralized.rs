@@ -14,7 +14,7 @@ use hotshot::{
 };
 use hotshot_centralized_server::{NetworkConfig, RunResults};
 use hotshot_types::{
-    data::LeafType,
+    data::{LeafType, ValidatingLeaf, ValidatingProposal},
     traits::{metrics::NoMetrics, signature_key::SignatureKey, state::TestableState},
     HotShotConfig,
 };
@@ -52,12 +52,15 @@ struct NodeOpt {
 
 /// Creates the initial state and hotshot for simulation.
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
-async fn init_state_and_hotshot<LEAF: LeafType<NodeType = DEntryTypes>>(
+async fn init_state_and_hotshot(
     networking: CentralizedServerNetwork<DEntryTypes>,
     config: HotShotConfig<BlsPubKey, StaticElectionConfig>,
     seed: [u8; 32],
     node_id: u64,
-) -> (DEntryState, HotShotHandle<DEntryTypes, Node<LEAF>>) {
+) -> (
+    DEntryState,
+    HotShotHandle<DEntryTypes, Node<ValidatingLeaf<DEntryTypes>>>,
+) {
     // Create the initial block
     let accounts: BTreeMap<Account, Balance> = vec![
         ("Joe", 1_000_000),
@@ -71,7 +74,10 @@ async fn init_state_and_hotshot<LEAF: LeafType<NodeType = DEntryTypes>>(
     .collect();
     let genesis_block = DEntryBlock::genesis_from(accounts);
     let initializer =
-        hotshot::HotShotInitializer::<DEntryTypes, LEAF>::from_genesis(genesis_block).unwrap();
+        hotshot::HotShotInitializer::<DEntryTypes, ValidatingLeaf<DEntryTypes>>::from_genesis(
+            genesis_block,
+        )
+        .unwrap();
 
     let (pub_key, priv_key) = BlsPubKey::generated_from_seed_indexed(seed, node_id);
     let known_nodes = config.known_nodes.clone();
@@ -90,7 +96,7 @@ async fn init_state_and_hotshot<LEAF: LeafType<NodeType = DEntryTypes>>(
     .expect("Could not init hotshot");
     debug!("hotshot launched");
 
-    let storage: &MemoryStorage<DEntryTypes, LEAF> = hotshot.storage();
+    let storage: &MemoryStorage<DEntryTypes, ValidatingLeaf<DEntryTypes>> = hotshot.storage();
 
     let state = storage.get_anchored_view().await.unwrap().state;
 

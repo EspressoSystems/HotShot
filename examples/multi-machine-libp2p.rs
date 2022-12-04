@@ -18,10 +18,12 @@ use hotshot_centralized_server::{
     Run, RunResults, TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend,
 };
 use hotshot_types::{
-    data::{LeafType, ProposalType},
+    data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal},
     traits::{
+        election::Election,
         metrics::NoMetrics,
         network::NetworkingImplementation,
+        node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
         state::TestableState,
     },
@@ -401,16 +403,26 @@ struct Config {
 
 impl Config {
     /// Creates the initial state and hotshot for simulation.
-    async fn init_state_and_hotshot<
-        LEAF: LeafType<NodeType = DEntryTypes>,
-        PROPOSAL: ProposalType<NodeTypes = DEntryTypes>,
-    >(
+    async fn init_state_and_hotshot<ELECTION: Election<DEntryTypes>>(
         &self,
-
-        networking: Libp2pNetwork<DEntryTypes, LEAF, PROPOSAL>,
-    ) -> (DEntryState, HotShotHandle<DEntryTypes, Node>) {
+        networking: Libp2pNetwork<
+            DEntryTypes,
+            ValidatingLeaf<DEntryTypes>,
+            ValidatingProposal<DEntryTypes, ELECTION>,
+        >,
+    ) -> (
+        DEntryState,
+        HotShotHandle<
+            DEntryTypes,
+            Node<ValidatingLeaf<DEntryTypes>, ValidatingProposal<DEntryTypes, ELECTION>>,
+        >,
+    ) {
         let genesis_block = DEntryBlock::genesis();
-        let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
+        let initializer =
+            hotshot::HotShotInitializer::<DEntryTypes, ValidatingLeaf<DEntryTypes>>::from_genesis(
+                genesis_block,
+            )
+            .unwrap();
 
         // Create the initial hotshot
         let known_nodes: Vec<_> = (0..self.num_nodes as u64)
@@ -451,14 +463,24 @@ impl Config {
         .expect("Could not init hotshot");
         debug!("hotshot launched");
 
-        let storage: &MemoryStorage<DEntryTypes> = hotshot.storage();
+        let storage: &MemoryStorage<DEntryTypes, ValidatingLeaf<DEntryTypes>> = hotshot.storage();
 
         let state = storage.get_anchored_view().await.unwrap().state;
 
         (state, hotshot)
     }
 
-    async fn new_libp2p_network(&self) -> Result<Libp2pNetwork<DEntryTypes>, NetworkError> {
+    async fn new_libp2p_network<ELECTION: Election<DEntryTypes>>(
+        &self,
+    ) -> Result<
+        Libp2pNetwork<
+            DEntryTypes,
+            ValidatingLeaf<DEntryTypes>,
+            ValidatingProposal<DEntryTypes>,
+            ELECTION,
+        >,
+        NetworkError,
+    > {
         assert!(self.node_id < self.num_nodes);
         let mut config_builder = NetworkNodeConfigBuilder::default();
         // NOTE we may need to change this as we scale
@@ -495,7 +517,12 @@ impl Config {
         let node_config = config_builder.build().unwrap();
         let bs_len = self.bs.len();
 
-        Libp2pNetwork::new(
+        Libp2pNetwork::<
+            DEntryTypes,
+            ValidatingLeaf<DEntryTypes>,
+            ValidatingProposal<DEntryTypes>,
+            ELECTION,
+        >::new(
             NoMetrics::new(),
             node_config,
             self.pubkey.clone(),
@@ -531,7 +558,12 @@ async fn main() {
     let own_id = config.node_id;
     let num_nodes = config.num_nodes;
     error!("Done with keygen");
-    let own_network = config.new_libp2p_network().await.unwrap();
+    let own_network: Libp2pNetwork<
+        DEntryTypes,
+        ValidatingLeaf<DEntryTypes>,
+        ValidatingProposal<DEntryTypes>,
+        _,
+    > = config.new_libp2p_network().await.unwrap();
 
     error!("Done with network creation");
 
