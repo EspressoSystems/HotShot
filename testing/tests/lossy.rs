@@ -23,9 +23,13 @@ use tracing::{error, instrument};
 
 /// checks safety requirement; relatively lax
 /// marked as success if 2f+1 nodes "succeeded" and committed the same thing
-pub fn check_safety<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+pub fn check_safety<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeTypes = TYPES>,
+    ELECTION: Election<TYPES>,
+>(
     runner: &AppliedTestRunner<TYPES, ELECTION>,
-    results: RoundResult<TYPES>,
+    results: RoundResult<TYPES, LEAF>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
     TYPES::SignatureKey: TestableSignatureKey,

@@ -328,6 +328,13 @@ pub trait LeafType:
         + Serialize
         + Sync;
 
+    fn new(
+        view_number: <Self::NodeType as NodeTypes>::Time,
+        justify_qc: QuorumCertificate<Self::NodeType, Self>,
+        deltas: <Self::NodeType as NodeTypes>::BlockType,
+        state: <Self::NodeType as NodeTypes>::StateType,
+    ) -> Self;
+
     fn get_view_number(&self) -> <Self::NodeType as NodeTypes>::Time;
 
     fn get_justify_qc(&self) -> QuorumCertificate<Self::NodeType, Self>;
@@ -423,6 +430,24 @@ impl<TYPES: NodeTypes> LeafType for ValidatingLeaf<TYPES> {
     type NodeType = TYPES;
     type StateCommitmentType = TYPES::StateType;
 
+    fn new(
+        view_number: <Self::NodeType as NodeTypes>::Time,
+        justify_qc: QuorumCertificate<Self::NodeType, Self>,
+        deltas: <Self::NodeType as NodeTypes>::BlockType,
+        state: <Self::NodeType as NodeTypes>::StateType,
+    ) -> Self {
+        Self {
+            view_number,
+            justify_qc,
+            parent_commitment: fake_commitment(),
+            deltas,
+            state,
+            rejected: Vec::new(),
+            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+            proposer_id: genesis_proposer_id(),
+        }
+    }
+
     fn get_view_number(&self) -> TYPES::Time {
         self.view_number
     }
@@ -476,6 +501,24 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
     type NodeType = TYPES;
     type StateCommitmentType = Either<TYPES::StateType, Commitment<TYPES::StateType>>;
 
+    fn new(
+        view_number: <Self::NodeType as NodeTypes>::Time,
+        justify_qc: QuorumCertificate<Self::NodeType, Self>,
+        deltas: <Self::NodeType as NodeTypes>::BlockType,
+        state: <Self::NodeType as NodeTypes>::StateType,
+    ) -> Self {
+        Self {
+            view_number,
+            justify_qc,
+            parent_commitment: fake_commitment(),
+            deltas,
+            state: Either::Left(state),
+            rejected: Vec::new(),
+            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+            proposer_id: genesis_proposer_id(),
+        }
+    }
+
     fn get_view_number(&self) -> TYPES::Time {
         self.view_number
     }
@@ -525,7 +568,7 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
     }
 }
 
-/// Kake the thing a genesis block points to. Needed to avoid infinite recursion
+/// Fake the thing a genesis block points to. Needed to avoid infinite recursion
 pub fn fake_commitment<S: Committable>() -> Commitment<S> {
     commit::RawCommitmentBuilder::new("Dummy commitment for arbitrary genesis").finalize()
 }

@@ -37,7 +37,7 @@ pub mod traits;
 /// Contains types used by the crate
 pub mod types;
 
-mod tasks;
+pub mod tasks;
 
 use crate::{
     data::QuorumCertificate,
@@ -833,9 +833,7 @@ pub struct HotShotInitializer<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>
     inner: LEAF,
 }
 
-impl<TYPES: NodeTypes<ConsensusType = ValidatingConsensus>>
-    HotShotInitializer<TYPES, ValidatingLeaf<TYPES>>
-{
+impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPES, LEAF> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
@@ -846,59 +844,15 @@ impl<TYPES: NodeTypes<ConsensusType = ValidatingConsensus>>
                 context: err.to_string(),
             })?;
         let time = TYPES::Time::genesis();
-        let justify_qc = QuorumCertificate::<TYPES, ValidatingLeaf<TYPES>>::genesis();
+        let justify_qc = QuorumCertificate::<TYPES, LEAF>::genesis();
 
         Ok(Self {
-            inner: ValidatingLeaf {
-                view_number: time,
-                justify_qc,
-                parent_commitment: fake_commitment(),
-                deltas: genesis_block,
-                state,
-                rejected: Vec::new(),
-                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                proposer_id: genesis_proposer_id(),
-            },
+            inner: LEAF::new(time, justify_qc, genesis_block, state),
         })
     }
 
     /// reload previous state based on most recent leaf
-    pub fn from_reload(anchor_leaf: ValidatingLeaf<TYPES>) -> Self {
-        Self { inner: anchor_leaf }
-    }
-}
-
-impl<TYPES: NodeTypes<ConsensusType = SequencingConsensus>>
-    HotShotInitializer<TYPES, DALeaf<TYPES>>
-{
-    /// initialize from genesis
-    /// # Errors
-    /// If we are unable to apply the genesis block to the default state
-    pub fn from_genesis(genesis_block: TYPES::BlockType) -> Result<Self, HotShotError<TYPES>> {
-        let state = TYPES::StateType::default()
-            .append(&genesis_block, &TYPES::Time::new(0))
-            .map_err(|err| HotShotError::Misc {
-                context: err.to_string(),
-            })?;
-        let time = TYPES::Time::genesis();
-        let justify_qc = QuorumCertificate::<TYPES, DALeaf<TYPES>>::genesis();
-
-        Ok(Self {
-            inner: DALeaf {
-                view_number: time,
-                justify_qc,
-                parent_commitment: fake_commitment(),
-                deltas: genesis_block,
-                state: Either::Left(state),
-                rejected: Vec::new(),
-                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                proposer_id: genesis_proposer_id(),
-            },
-        })
-    }
-
-    /// reload previous state based on most recent leaf
-    pub fn from_reload(anchor_leaf: DALeaf<TYPES>) -> Self {
+    pub fn from_reload(anchor_leaf: LEAF) -> Self {
         Self { inner: anchor_leaf }
     }
 }

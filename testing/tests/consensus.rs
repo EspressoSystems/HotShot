@@ -12,6 +12,7 @@ use hotshot_testing::{ConsensusRoundError, RoundResult};
 use hotshot_types::{
     message::{ConsensusMessage, Proposal},
     traits::{
+        data::LeafType,
         election::{Election, TestableElection},
         node_implementation::NodeTypes,
         signature_key::TestableSignatureKey,
@@ -121,9 +122,13 @@ fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
 }
 
 /// Checks that votes are queued correctly for views 1..NUM_VIEWS
-fn test_vote_queueing_post_safety_check<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+fn test_vote_queueing_post_safety_check<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeTypes = TYPES>,
+    ELECTION: Election<TYPES>,
+>(
     runner: &AppliedTestRunner<TYPES, ELECTION>,
-    _results: RoundResult<TYPES>,
+    _results: RoundResult<TYPES, LEAF>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -189,9 +194,13 @@ where
 }
 
 /// Checks views 0..NUM_VIEWS for whether proposal messages are properly queued
-fn test_proposal_queueing_post_safety_check<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+fn test_proposal_queueing_post_safety_check<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeTypes = TYPES>,
+    ELECTION: Election<TYPES>,
+>(
     runner: &AppliedTestRunner<TYPES, ELECTION>,
-    _results: RoundResult<TYPES>,
+    _results: RoundResult<TYPES, LEAF>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -284,9 +293,13 @@ where
 }
 
 /// Checks nodes do not queue bad proposal messages
-fn test_bad_proposal_post_safety_check<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+fn test_bad_proposal_post_safety_check<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeTypes = TYPES>,
+    ELECTION: Election<TYPES>,
+>(
     runner: &AppliedTestRunner<TYPES, ELECTION>,
-    _results: RoundResult<TYPES>,
+    _results: RoundResult<TYPES, LEAF>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -358,9 +371,13 @@ where
 }
 
 /// Checks that non-leaders do not queue votes, and that leaders do not queue more than 1 vote per node
-fn test_bad_vote_post_safety_check<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
+fn test_bad_vote_post_safety_check<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeTypes = TYPES>,
+    ELECTION: Election<TYPES>,
+>(
     runner: &AppliedTestRunner<TYPES, ELECTION>,
-    _results: RoundResult<TYPES>,
+    _results: RoundResult<TYPES, LEAF>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
     TYPES::SignatureKey: TestableSignatureKey,

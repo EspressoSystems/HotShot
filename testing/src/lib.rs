@@ -17,12 +17,13 @@ pub use self::launcher::TestLauncher;
 
 use futures::future::LocalBoxFuture;
 use hotshot::{
+    tasks::{TaskHandler, TaskHandlerType},
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{HotShotHandle, SignatureKey},
     HotShot, HotShotError, HotShotInitializer, H_256,
 };
 use hotshot_types::{
-    data::{LeafType, ProposalType},
+    data::{DALeaf, LeafType, ProposalType, ValidatingLeaf},
     traits::{
         election::Election,
         metrics::NoMetrics,
@@ -50,20 +51,20 @@ pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 /// Result of running a round of consensus
 #[derive(Debug)]
 // TODO do we need static here
-pub struct RoundResult<TYPES: NodeTypes> {
+pub struct RoundResult<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
     /// Transactions that were submitted
     pub txns: Vec<TYPES::Transaction>,
     /// Nodes that committed this round
-    pub results: HashMap<u64, StateAndBlock<TYPES::StateType, TYPES::BlockType>>,
+    pub results: HashMap<u64, StateAndBlock<LEAF::StateCommitmentType, TYPES::BlockType>>,
     /// Nodes that failed to commit this round
     pub failures: HashMap<u64, HotShotError<TYPES>>,
 }
 
 /// Type of function used for checking results after running a view of consensus
-pub type RoundPostSafetyCheck<TYPES, I> = Box<
+pub type RoundPostSafetyCheck<TYPES, I: NodeImplementation<TYPES>> = Box<
     dyn FnOnce(
         &TestRunner<TYPES, I>,
-        RoundResult<TYPES>,
+        RoundResult<TYPES, I::Leaf>,
     ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
 >;
 
@@ -133,6 +134,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    TaskHandler<TYPES::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
@@ -150,7 +152,7 @@ where
         Vec::new()
     }
     /// default safety check
-    pub fn default_safety_check(_runner: &Self, _results: RoundResult<TYPES>) {}
+    pub fn default_safety_check(_runner: &Self, _results: RoundResult<TYPES, I::Leaf>) {}
 
     /// Add `count` nodes to the network. These will be spawned with the default node config and state
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64> {
@@ -276,7 +278,10 @@ where
     /// Internal function that unpauses hotshots and waits for round to complete,
     /// returns a `RoundResult` upon successful completion, indicating what (if anything) was
     /// committed
-    async fn run_one_round(&mut self, txns: Vec<TYPES::Transaction>) -> RoundResult<TYPES> {
+    async fn run_one_round(
+        &mut self,
+        txns: Vec<TYPES::Transaction>,
+    ) -> RoundResult<TYPES, I::Leaf> {
         let mut results = HashMap::new();
 
         info!("EXECUTOR: running one round");
@@ -367,6 +372,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    TaskHandler<TYPES::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
@@ -437,6 +443,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    TaskHandler<TYPES::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     /// Add a random transaction to this runner.
     pub async fn add_random_transaction(
@@ -565,6 +572,8 @@ impl<
             _pd_1: PhantomData,
             _pd_2: PhantomData,
             _pd_3: PhantomData,
+            _pd_4: PhantomData,
+            _pd_5: PhantomData,
         }
     }
 }
@@ -572,7 +581,7 @@ impl<
 impl<
         TYPES: NodeTypes,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>,
         NETWORK,
         STORAGE,
         ELECTION,
@@ -581,23 +590,25 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    ELECTION: Election<TYPES>,
+    ELECTION: Election<TYPES, LeafType = LEAF>,
     NETWORK: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>
         + NetworkingImplementation<TYPES, LEAF, PROPOSAL>,
     STORAGE: Storage<TYPES, LEAF>,
 {
+    type Leaf = LEAF;
     type Networking = NETWORK;
     type Election = ELECTION;
     type Storage = STORAGE;
+    type Proposal = PROPOSAL;
 }
 
 impl<
         TYPES,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>,
         NETWORK,
         STORAGE,
-        ELECTION,
+        ELECTION: Election<TYPES, LeafType = LEAF>,
     > TestableNodeImplementation<TYPES>
     for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
 where
