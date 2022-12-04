@@ -446,7 +446,7 @@ where
                 }
 
                 let chan: ViewQueue<TYPES, I::Leaf, I::Proposal> =
-                    create_or_obtain_chan_from_read(msg_time, channel_map).await;
+                    Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
 
                 if !chan.has_received_proposal.swap(true, Ordering::Relaxed)
                     && chan.sender_chan.send(msg).await.is_err()
@@ -506,7 +506,7 @@ where
                     return;
                 }
 
-                let chan = create_or_obtain_chan_from_read(msg_time, channel_map).await;
+                let chan = Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
 
                 if chan.sender_chan.send(c).await.is_err() {
                     error!("Failed to send to next leader!");
@@ -609,51 +609,43 @@ where
     pub fn get_next_view_timeout(&self) -> u64 {
         self.inner.config.next_view_timeout
     }
-}
 
-/// given a view number and a upgradable read lock on a channel map, inserts entry into map if it
-/// doesn't exist, or creates entry. Then returns a clone of the entry
-pub async fn create_or_obtain_chan_from_read<
-    TYPES: NodeTypes,
-    LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
->(
-    view_num: TYPES::Time,
-    channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<TYPES, LEAF, PROPOSAL>>,
-) -> ViewQueue<TYPES, LEAF, PROPOSAL> {
-    // check if we have the entry
-    // if we don't, insert
-    if let Some(vq) = channel_map.channel_map.get(&view_num) {
-        vq.clone()
-    } else {
-        let mut channel_map =
-            RwLockUpgradableReadGuard::<'_, SendToTasks<TYPES, LEAF, PROPOSAL>>::upgrade(
-                channel_map,
-            )
+    /// given a view number and a upgradable read lock on a channel map, inserts entry into map if it
+    /// doesn't exist, or creates entry. Then returns a clone of the entry
+    pub async fn create_or_obtain_chan_from_read(
+        view_num: TYPES::Time,
+        channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<TYPES, I::Leaf, I::Proposal>>,
+    ) -> ViewQueue<TYPES, I::Leaf, I::Proposal> {
+        // check if we have the entry
+        // if we don't, insert
+        if let Some(vq) = channel_map.channel_map.get(&view_num) {
+            vq.clone()
+        } else {
+            let mut channel_map = RwLockUpgradableReadGuard::<
+                '_,
+                SendToTasks<TYPES, I::Leaf, I::Proposal>,
+            >::upgrade(channel_map)
             .await;
-        let new_view_queue = ViewQueue::default();
-        let vq = new_view_queue.clone();
-        // NOTE: the read lock is held until all other read locks are DROPPED and
-        // the read lock may be turned into a write lock.
-        // This means that the `channel_map` will not change. So we don't need
-        // to check again to see if a channel was added
+            let new_view_queue = ViewQueue::default();
+            let vq = new_view_queue.clone();
+            // NOTE: the read lock is held until all other read locks are DROPPED and
+            // the read lock may be turned into a write lock.
+            // This means that the `channel_map` will not change. So we don't need
+            // to check again to see if a channel was added
 
-        channel_map.channel_map.insert(view_num, new_view_queue);
-        vq
+            channel_map.channel_map.insert(view_num, new_view_queue);
+            vq
+        }
     }
-}
 
-/// given a view number and a write lock on a channel map, inserts entry into map if it
-/// doesn't exist, or creates entry. Then returns a clone of the entry
-pub async fn create_or_obtain_chan_from_write<
-    TYPES: NodeTypes,
-    LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
->(
-    view_num: TYPES::Time,
-    mut channel_map: RwLockWriteGuard<'_, SendToTasks<TYPES, LEAF, PROPOSAL>>,
-) -> ViewQueue<TYPES, LEAF, PROPOSAL> {
-    channel_map.channel_map.entry(view_num).or_default().clone()
+    /// given a view number and a write lock on a channel map, inserts entry into map if it
+    /// doesn't exist, or creates entry. Then returns a clone of the entry
+    pub async fn create_or_obtain_chan_from_write(
+        view_num: TYPES::Time,
+        mut channel_map: RwLockWriteGuard<'_, SendToTasks<TYPES, I::Leaf, I::Proposal>>,
+    ) -> ViewQueue<TYPES, I::Leaf, I::Proposal> {
+        channel_map.channel_map.entry(view_num).or_default().clone()
+    }
 }
 
 /// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]

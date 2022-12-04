@@ -3,7 +3,7 @@ use futures::future::join_all;
 use hotshot_types::data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal};
 use hotshot_types::traits::node_implementation::NodeTypes;
 use hotshot_types::traits::{
-    metrics::NoMetrics, signature_key::SignatureKey, state::TestableState,election::Election
+    election::Election, metrics::NoMetrics, signature_key::SignatureKey, state::TestableState,
 };
 use hotshot_types::{ExecutionType, HotShotConfig};
 use hotshot_utils::{

@@ -25,7 +25,7 @@ use hotshot_types::{
         network::NetworkingImplementation,
         node_implementation::{ApplicationMetadata, NodeTypes},
         signature_key::{SignatureKey, TestableSignatureKey},
-        state::{ConsensusType, TestableState, ValidatingConsensus,ValidatingConsensusType},
+        state::{ConsensusType, TestableState, ValidatingConsensus, ValidatingConsensusType},
     },
     ExecutionType, HotShotConfig,
 };

@@ -60,10 +60,7 @@ pub struct RoundResult<TYPES: NodeTypes> {
 }
 
 /// Type of function used for checking results after running a view of consensus
-pub type RoundPostSafetyCheck<
-    TYPES,
-    I,
-> = Box<
+pub type RoundPostSafetyCheck<TYPES, I> = Box<
     dyn FnOnce(
         &TestRunner<TYPES, I>,
         RoundResult<TYPES>,
@@ -71,49 +68,34 @@ pub type RoundPostSafetyCheck<
 >;
 
 /// Type of function used for configuring a round of consensus
-pub type RoundSetup<
-    TYPES,
-    TRANS,
-    I,
-> = Box<dyn FnOnce(&mut TestRunner<TYPES,  I>) -> LocalBoxFuture<Vec<TRANS>>>;
+pub type RoundSetup<TYPES, TRANS, I> =
+    Box<dyn FnOnce(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<Vec<TRANS>>>;
 
 /// Type of function used for checking safety before beginnning consensus
-pub type RoundPreSafetyCheck<
-    TYPES,
-    I,
-> = Box<
-    dyn FnOnce(
-        &TestRunner<TYPES,  I>,
-    ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
->;
+pub type RoundPreSafetyCheck<TYPES, I> =
+    Box<dyn FnOnce(&TestRunner<TYPES, I>) -> LocalBoxFuture<Result<(), ConsensusRoundError>>>;
 
 /// functions to run a round of consensus
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
-pub struct Round<
-    TYPES: NodeTypes,
-    I: NodeImplementation<TYPES>,
-> {
+pub struct Round<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     /// Safety check before round is set up and run
     /// to ensure consistent state
-    pub safety_check_post: Option<RoundPostSafetyCheck<TYPES,  I>>,
+    pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, I>>,
 
     /// Round set up
     pub setup_round: Option<RoundSetup<TYPES, TYPES::Transaction, I>>,
 
     /// Safety check after round is complete
-    pub safety_check_pre: Option<RoundPreSafetyCheck<TYPES,I>>,
+    pub safety_check_pre: Option<RoundPreSafetyCheck<TYPES, I>>,
 }
 
-impl<
-        TYPES: NodeTypes,
-        I: TestableNodeImplementation<TYPES>,
-    > Default for Round<TYPES,  I>
+impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES,I::Leaf,I::Proposal>,
-    I::Storage: TestableStorage<TYPES, LEAF>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     fn default() -> Self {
         Self {
@@ -126,10 +108,8 @@ where
 
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
-pub struct TestRunner<
-    TYPES,
-    I,
-> where
+pub struct TestRunner<TYPES, I>
+where
     TYPES: NodeTypes,
     I: NodeImplementation<TYPES>,
 {
@@ -146,18 +126,15 @@ struct Node<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     pub handle: HotShotHandle<TYPES, I>,
 }
 
-impl<
-        TYPES: NodeTypes,
-        I: TestableNodeImplementation<TYPES>,
-    > TestRunner<TYPES,I>
+impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES,I::Leaf,I::Proposal>,
-    I::Storage: TestableStorage<TYPES, LEAF>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
-    pub(self) fn new(launcher: TestLauncher<TYPES, LEAF, PROPOSAL, I>) -> Self {
+    pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
             network_generator: launcher.network,
             storage_generator: launcher.storage,
@@ -184,7 +161,8 @@ where
             let storage = (self.storage_generator)(node_id);
             let config = self.default_node_config.clone();
             let initializer =
-                HotShotInitializer::from_genesis(TYPES::BlockType::genesis()).unwrap();
+                HotShotInitializer::<TYPES, I::Leaf>::from_genesis(TYPES::BlockType::genesis())
+                    .unwrap();
             let node_id = self
                 .add_node_with_config(network, storage, initializer, config)
                 .await;
@@ -196,7 +174,7 @@ where
 
     /// replace round list
     #[allow(clippy::type_complexity)]
-    pub fn with_rounds(&mut self, rounds: Vec<Round<TYPES, LEAF, PROPOSAL, I>>) {
+    pub fn with_rounds(&mut self, rounds: Vec<Round<TYPES, I>>) {
         self.rounds = rounds;
         // we call pop, so reverse the array such that first element is on top
         self.rounds.reverse();
@@ -214,7 +192,7 @@ where
         &mut self,
         network: I::Networking,
         storage: I::Storage,
-        initializer: HotShotInitializer<TYPES, LEAF>,
+        initializer: HotShotInitializer<TYPES, I::Leaf>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> u64 {
         let node_id = self.next_node_id;
@@ -382,22 +360,17 @@ where
     }
 }
 
-impl<
-        TYPES: NodeTypes,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
-        I: TestableNodeImplementation<TYPES>,
-    > TestRunner<TYPES, LEAF, PROPOSAL, I>
+impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>,
-    I::Storage: TestableStorage<TYPES, LEAF>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
-        let mut leaves = Vec::<LEAF>::new();
+        let mut leaves = Vec::<I::Leaf>::new();
         for node in self.nodes.iter() {
             let decide_leaf = node.handle.get_decided_leaf().await;
             leaves.push(decide_leaf);
@@ -457,18 +430,13 @@ where
 
 // FIXME make these return some sort of generic error.
 // corresponding issue: <https://github.com/EspressoSystems/hotshot/issues/181>
-impl<
-        TYPES: NodeTypes,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
-        I: TestableNodeImplementation<TYPES>,
-    > TestRunner<TYPES, LEAF, PROPOSAL, I>
+impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>,
-    I::Storage: TestableStorage<TYPES, LEAF>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     /// Add a random transaction to this runner.
     pub async fn add_random_transaction(
