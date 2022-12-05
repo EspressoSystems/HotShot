@@ -7,11 +7,10 @@ use std::{
 
 use futures::channel::oneshot::Sender;
 use libp2p::{
-    core::transport::ListenerId,
     kad::{
         store::MemoryStore, BootstrapError, BootstrapOk, GetClosestPeersOk, GetRecordOk,
-        GetRecordResult, Kademlia, KademliaEvent, PutRecordResult, QueryId, QueryResult, Quorum,
-        Record, ProgressStep,
+        GetRecordResult, Kademlia, KademliaEvent, ProgressStep, PutRecordResult, QueryId,
+        QueryResult, Quorum, Record,
     },
     swarm::{NetworkBehaviour, NetworkBehaviourAction},
     Multiaddr, PeerId,
@@ -235,23 +234,17 @@ impl DHTBehaviour {
 
     /// update state based on recv-ed get query
     fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId, last: bool) {
-
         if let Some(query) = self.in_progress_get_record_queries.get_mut(&id) {
-            match record_results {
-                Ok(GetRecordOk::FoundRecord(record)) => {
-                    match query.records.entry(record.record.key.to_vec()) {
-                        std::collections::hash_map::Entry::Occupied(mut o) => {
-                            let mut num_entries = o.get_mut();
-                            *num_entries += 1;
-                        },
-                        std::collections::hash_map::Entry::Vacant(v) => {
-                            v.insert(1);
-                        },
+            if let Ok(GetRecordOk::FoundRecord(record)) = record_results {
+                match query.records.entry(record.record.key.to_vec()) {
+                    std::collections::hash_map::Entry::Occupied(mut o) => {
+                        let num_entries = o.get_mut();
+                        *num_entries += 1;
                     }
-                },
-                _ => {
-                    // do nothing.
-                },
+                    std::collections::hash_map::Entry::Vacant(v) => {
+                        v.insert(1);
+                    }
+                }
             }
         } else {
             // inactive entry
@@ -276,18 +269,18 @@ impl DHTBehaviour {
                     return;
                 }
 
-                let records_len = records.iter().fold(0, |acc, (k, v)| { acc + v} );
+                let records_len = records.iter().fold(0, |acc, (_k, v)| acc + v);
 
                 // NOTE case where multiple nodes agree on different
                 // values is not handles
                 if let Some((r, _)) = records
                     .into_iter()
-                        .find(|(_, v)| *v >= NUM_REPLICATED_TO_TRUST)
-                        {
-                            if notify.send(r).is_err() {
-                                warn!("Get DHT: channel closed before get record request result could be sent");
-                            }
-                        }
+                    .find(|(_, v)| *v >= NUM_REPLICATED_TO_TRUST)
+                {
+                    if notify.send(r).is_err() {
+                        warn!("Get DHT: channel closed before get record request result could be sent");
+                    }
+                }
                 // lack of replication => error
                 else if records_len < NUM_REPLICATED_TO_TRUST {
                     warn!("Get DHT: Record not replicated enough for {:?}! requerying with more nodes", progress);
@@ -298,7 +291,7 @@ impl DHTBehaviour {
                     warn!(
                         "Get DHT: Record disagreed upon; {:?}! requerying with more nodes",
                         progress
-                        );
+                    );
                     self.get_record(key, notify, num_replicas, backoff, retry_count);
                 }
                 // disagreement => query more nodes
@@ -311,10 +304,8 @@ impl DHTBehaviour {
                     self.get_record(key, notify, new_factor, backoff, retry_count);
                     warn!("Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes", progress);
                 }
-
             }
         }
-
     }
 
     /// Update state based on put query
@@ -488,7 +479,7 @@ pub(crate) struct KadGetQuery {
     /// the number of remaining retries before giving up
     pub(crate) retry_count: u8,
     /// already received records
-    pub(crate) records: HashMap<Vec<u8>, usize>
+    pub(crate) records: HashMap<Vec<u8>, usize>,
 }
 
 /// Metadata holder for get query
@@ -515,10 +506,8 @@ pub enum DHTProgress {
     NotStarted,
 }
 
-
 // Diagnostics:
 // 1. use of deprecated associated function `libp2p::libp2p_swarm::NetworkBehaviour::inject_event`: Implement `NetworkBehaviour::on_connection_handler_event` instead. The default implementation of this `inject_*` method delegates to it.
-
 
 impl NetworkBehaviour for DHTBehaviour {
     type ConnectionHandler = <Kademlia<MemoryStore> as NetworkBehaviour>::ConnectionHandler;
@@ -527,16 +516,6 @@ impl NetworkBehaviour for DHTBehaviour {
 
     fn new_handler(&mut self) -> Self::ConnectionHandler {
         self.kadem.new_handler()
-    }
-
-    fn inject_event(
-        &mut self,
-        peer_id: libp2p::PeerId,
-        connection: libp2p::core::connection::ConnectionId,
-        event: <<Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler as libp2p::swarm::ConnectionHandler>::OutEvent,
-    ) {
-        // pass event GENERATED by handler from swarm to kademlia
-        self.kadem.inject_event(peer_id, connection, event);
     }
 
     fn poll(
@@ -648,107 +627,20 @@ impl NetworkBehaviour for DHTBehaviour {
         self.kadem.addresses_of_peer(pid)
     }
 
-    fn inject_connection_established(
+    fn on_swarm_event(
         &mut self,
-        peer_id: &PeerId,
-        connection_id: &libp2p::core::connection::ConnectionId,
-        endpoint: &libp2p::core::ConnectedPoint,
-        failed_addresses: Option<&Vec<libp2p::Multiaddr>>,
-        other_established: usize,
+        event: libp2p::swarm::derive_prelude::FromSwarm<'_, Self::ConnectionHandler>,
     ) {
-        self.kadem.inject_connection_established(
-            peer_id,
-            connection_id,
-            endpoint,
-            failed_addresses,
-            other_established,
-        );
+        self.kadem.on_swarm_event(event);
     }
-
-    fn inject_connection_closed(
-        &mut self,
-        pid: &PeerId,
-        cid: &libp2p::core::connection::ConnectionId,
-        cp: &libp2p::core::ConnectedPoint,
-        handler: <Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler,
-        remaining_established: usize,
-    ) {
-        self.kadem
-            .inject_connection_closed(pid, cid, cp, handler, remaining_established);
-    }
-
-    fn inject_address_change(
-        &mut self,
-        pid: &PeerId,
-        cid: &libp2p::core::connection::ConnectionId,
-        old: &libp2p::core::ConnectedPoint,
-        new: &libp2p::core::ConnectedPoint,
-    ) {
-        self.kadem.inject_address_change(pid, cid, old, new);
-    }
-
-    fn inject_dial_failure(
-        &mut self,
-        peer_id: Option<PeerId>,
-        handler: Self::ConnectionHandler,
-        error: &libp2p::swarm::DialError,
-    ) {
-        info!(
-            "{:?} dial failure for peer id: {:?} with error {:?}",
-            self.peer_id, peer_id, error
-        );
-        // NOTE if there are no addresses
-        // initiate query searching
-        self.kadem.inject_dial_failure(peer_id, handler, error);
-    }
-
-    fn inject_listen_failure(
-        &mut self,
-        local_addr: &libp2p::Multiaddr,
-        send_back_addr: &libp2p::Multiaddr,
-        handler: Self::ConnectionHandler,
-    ) {
-        self.kadem
-            .inject_listen_failure(local_addr, send_back_addr, handler);
-    }
-
-    fn inject_new_listener(&mut self, id: ListenerId) {
-        self.kadem.inject_new_listener(id);
-    }
-
-    fn inject_new_listen_addr(&mut self, id: ListenerId, addr: &libp2p::Multiaddr) {
-        self.kadem.inject_new_listen_addr(id, addr);
-    }
-
-    fn inject_expired_listen_addr(&mut self, id: ListenerId, addr: &libp2p::Multiaddr) {
-        self.kadem.inject_expired_listen_addr(id, addr);
-    }
-
-    fn inject_listener_error(&mut self, id: ListenerId, err: &(dyn std::error::Error + 'static)) {
-        self.kadem.inject_listener_error(id, err);
-    }
-
-    fn inject_listener_closed(&mut self, id: ListenerId, reason: Result<(), &std::io::Error>) {
-        self.kadem.inject_listener_closed(id, reason);
-    }
-
-    fn inject_new_external_addr(&mut self, addr: &libp2p::Multiaddr) {
-        self.kadem.inject_new_external_addr(addr);
-    }
-
-    fn inject_expired_external_addr(&mut self, addr: &libp2p::Multiaddr) {
-        self.kadem.inject_expired_external_addr(addr);
-    }
-
-    fn on_swarm_event(&mut self, _event: libp2p::swarm::derive_prelude::FromSwarm<'_, Self::ConnectionHandler>) {}
 
     fn on_connection_handler_event(
         &mut self,
-        _peer_id: PeerId,
-        _connection_id: libp2p::swarm::derive_prelude::ConnectionId,
-        _event: <<Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler as
-        libp2p::swarm::ConnectionHandler>::OutEvent,
+        peer_id: PeerId,
+        connection_id: libp2p::swarm::derive_prelude::ConnectionId,
+        event: <<Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler as libp2p::swarm::ConnectionHandler>::OutEvent,
     ) {
-        // TODO fill this out
+        self.kadem
+            .on_connection_handler_event(peer_id, connection_id, event);
     }
 }
