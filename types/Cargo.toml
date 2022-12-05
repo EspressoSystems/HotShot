@@ -40,7 +40,7 @@ blake3 = "1.3.3"
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
 custom_debug = "0.5"
 derivative = "2.2.0"
-ed25519-compact = { version = "2.0.2", optional = true }
+ed25519-compact = { version = "2.0.4", optional = true }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.3.0" }
 futures = "0.3.25"
 hex_fmt = "0.3.0"
