@@ -18,6 +18,9 @@ use libp2p::{
 };
 use tracing::{error, info, warn};
 
+pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;
+const MAX_DHT_QUERY_SIZE: usize = 5;
+
 use super::exponential_backoff::ExponentialBackoff;
 
 /// Behaviour wrapping libp2p's kademlia
@@ -182,11 +185,11 @@ impl DHTBehaviour {
                 // failed try again later
                 query.progress = DHTProgress::NotStarted;
                 query.backoff.start_next(false);
-                warn!("Error publishing to DHT: {e:?} for peer {:?}", self.peer_id);
+                error!("Error publishing to DHT: {e:?} for peer {:?}", self.peer_id);
                 self.queued_put_record_queries.push_back(query);
             }
             Ok(qid) => {
-                info!("Success publishing {:?} to DHT", qid);
+                error!("Success publishing {:?} to DHT", qid);
                 let query = KadPutQuery {
                     progress: DHTProgress::InProgress(qid),
                     ..query
@@ -208,10 +211,12 @@ impl DHTBehaviour {
         backoff: ExponentialBackoff,
         retry_count: u8,
     ) {
+        error!("THING A");
         // noop
         if retry_count == 0 {
             return;
         }
+        error!("THING b");
 
         let qid = self.kadem.get_record(key.clone().into());
         let query = KadGetQuery {
@@ -221,52 +226,95 @@ impl DHTBehaviour {
             num_replicas: factor,
             key,
             retry_count: retry_count - 1,
+            records: HashMap::default(),
         };
+        error!("THING C");
         self.in_progress_get_record_queries.insert(qid, query);
+        error!("THING d");
     }
 
     /// update state based on recv-ed get query
-    fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId) {
-        if let Some(KadGetQuery {
-            backoff,
-            progress,
-            notify,
-            num_replicas,
-            key,
-            retry_count,
-        }) = self.in_progress_get_record_queries.remove(&id)
-        {
-            // if channel has been dropped, cancel request
-            if notify.is_canceled() {
-                return;
-            }
+    fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId, last: bool) {
+
+        if let Some(query) = self.in_progress_get_record_queries.get_mut(&id) {
             match record_results {
-                Ok(records) => {
-                    match records {
-                        GetRecordOk::FoundRecord(record) => {
-                            if notify.send(record.record.value).is_err() {
-                                warn!("Get DHT: channel closed before get record request result could be sent");
-                            }
+                Ok(GetRecordOk::FoundRecord(record)) => {
+                    match query.records.entry(record.record.key.to_vec()) {
+                        std::collections::hash_map::Entry::Occupied(mut o) => {
+                            let mut num_entries = o.get_mut();
+                            *num_entries += 1;
                         },
-                        GetRecordOk::FinishedWithNoAdditionalRecord { .. } => {},
+                        std::collections::hash_map::Entry::Vacant(v) => {
+                            v.insert(1);
+                        },
                     }
                 },
-                Err(_e) => {
-                    let mut new_query = KadGetQuery {
-                        backoff,
-                        progress: DHTProgress::NotStarted,
-                        notify,
-                        num_replicas,
-                        key,
-                        retry_count,
-                    };
-                    new_query.backoff.start_next(false);
-                    self.queued_get_record_queries.push_back(new_query);
-                }
-            };
+                _ => {
+                    // do nothing.
+                },
+            }
         } else {
-            warn!("completed DHT query {:?} that is no longer tracked.", id);
+            // inactive entry
+            return;
         }
+
+        if last {
+            if let Some(KadGetQuery {
+                backoff,
+                progress,
+                notify,
+                num_replicas,
+                key,
+                retry_count,
+                records,
+            }) = self.in_progress_get_record_queries.remove(&id)
+            {
+                error!("ENTERING THE THING!");
+                // if channel has been dropped, cancel request
+                if notify.is_canceled() {
+                    error!("WE ARE CANCELEED?");
+                    return;
+                }
+
+                let records_len = records.iter().fold(0, |acc, (k, v)| { acc + v} );
+
+                // NOTE case where multiple nodes agree on different
+                // values is not handles
+                if let Some((r, _)) = records
+                    .into_iter()
+                        .find(|(_, v)| *v >= NUM_REPLICATED_TO_TRUST)
+                        {
+                            if notify.send(r).is_err() {
+                                warn!("Get DHT: channel closed before get record request result could be sent");
+                            }
+                        }
+                // lack of replication => error
+                else if records_len < NUM_REPLICATED_TO_TRUST {
+                    warn!("Get DHT: Record not replicated enough for {:?}! requerying with more nodes", progress);
+                    self.get_record(key, notify, num_replicas, backoff, retry_count);
+                }
+                // many records that don't match => disagreement
+                else if records_len > MAX_DHT_QUERY_SIZE {
+                    warn!(
+                        "Get DHT: Record disagreed upon; {:?}! requerying with more nodes",
+                        progress
+                        );
+                    self.get_record(key, notify, num_replicas, backoff, retry_count);
+                }
+                // disagreement => query more nodes
+                else {
+                    // there is some internal disagreement.
+                    // Initiate new query that hits more replicas
+                    let new_factor =
+                        NonZeroUsize::new(num_replicas.get() + 1).unwrap_or(num_replicas);
+
+                    self.get_record(key, notify, new_factor, backoff, retry_count);
+                    warn!("Get DHT: Internal disagreement for get dht request {:?}! requerying with more nodes", progress);
+                }
+
+            }
+        }
+
     }
 
     /// Update state based on put query
@@ -280,14 +328,14 @@ impl DHTBehaviour {
             match record_results {
                 Ok(_) => {
                     if query.notify.send(()).is_err() {
-                        warn!("Put DHT: client channel closed before put record request could be sent");
+                        error!("Put DHT: client channel closed before put record request could be sent");
                     }
                 }
                 Err(e) => {
                     query.progress = DHTProgress::NotStarted;
                     query.backoff.start_next(false);
 
-                    warn!(
+                    error!(
                         "Put DHT: error performing put: {:?}. Retrying on pid {:?}.",
                         e, self.peer_id
                     );
@@ -296,7 +344,7 @@ impl DHTBehaviour {
                 }
             }
         } else {
-            warn!("Put DHT: completed DHT query that is no longer tracked.");
+            error!("Put DHT: completed DHT query that is no longer tracked.");
         }
     }
 }
@@ -323,7 +371,7 @@ impl DHTBehaviour {
                 Ok(GetClosestPeersOk { key, peers }) => {
                     if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {
                         if chan.send(()).is_err() {
-                            warn!("DHT: finished query but client no longer interested");
+                            error!("DHT: finished query but client no longer interested");
                         };
                     } else {
                         self.random_walk.state = State::NotStarted;
@@ -341,7 +389,7 @@ impl DHTBehaviour {
                         self.random_walk.state = State::NotStarted;
                         self.random_walk.backoff.start_next(true);
                     }
-                    warn!(
+                    error!(
                         "peer {:?} failed to get closest peers with {:?} and stats {:?}",
                         self.peer_id, e, stats
                     );
@@ -350,10 +398,10 @@ impl DHTBehaviour {
             KademliaEvent::OutboundQueryProgressed {
                 result: QueryResult::GetRecord(record_results),
                 id,
-                step: ProgressStep { last: true, .. },
+                step: ProgressStep { last, .. },
                 ..
             } => {
-                self.handle_get_query(record_results, id);
+                self.handle_get_query(record_results, id, last);
             }
             KademliaEvent::OutboundQueryProgressed {
                 result:
@@ -439,6 +487,8 @@ pub(crate) struct KadGetQuery {
     pub(crate) key: Vec<u8>,
     /// the number of remaining retries before giving up
     pub(crate) retry_count: u8,
+    /// already received records
+    pub(crate) records: HashMap<Vec<u8>, usize>
 }
 
 /// Metadata holder for get query
@@ -690,7 +740,7 @@ impl NetworkBehaviour for DHTBehaviour {
         self.kadem.inject_expired_external_addr(addr);
     }
 
-    fn on_swarm_event(&mut self, _event: libp2p::swarm::derive_prelude::FromSwarm<Self::ConnectionHandler>) {}
+    fn on_swarm_event(&mut self, _event: libp2p::swarm::derive_prelude::FromSwarm<'_, Self::ConnectionHandler>) {}
 
     fn on_connection_handler_event(
         &mut self,

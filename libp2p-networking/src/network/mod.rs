@@ -31,7 +31,8 @@ use libp2p::{
     request_response::ResponseChannel,
     tcp,
     yamux::{WindowUpdateMode, YamuxConfig},
-    InboundUpgradeExt, Multiaddr, OutboundUpgradeExt, PeerId, Transport,
+    InboundUpgradeExt, Multiaddr, OutboundUpgradeExt, PeerId,
+    Transport
 };
 use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
@@ -43,9 +44,9 @@ use libp2p::dns::DnsConfig;
 #[cfg(feature = "tokio-executor")]
 use libp2p::dns::TokioDnsConfig as DnsConfig;
 #[cfg(feature = "async-std-executor")]
-use tcp::TcpTransport;
+use tcp::async_io::Transport as TcpTransport;
 #[cfg(feature = "tokio-executor")]
-use tcp::TokioTcpTransport as TcpTransport;
+use tcp::tokio::Transport as TcpTransport;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
@@ -206,7 +207,7 @@ pub async fn gen_transport(
     identity: Keypair,
 ) -> Result<Boxed<(PeerId, StreamMuxerBox)>, NetworkError> {
     let transport = async move {
-        let dns_tcp = DnsConfig::system(TcpTransport::new(tcp::GenTcpConfig::new().nodelay(true)));
+        let dns_tcp = DnsConfig::system(TcpTransport::new(tcp::Config::new().nodelay(true)));
 
         #[cfg(feature = "async-std-executor")]
         return dns_tcp
