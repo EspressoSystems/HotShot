@@ -210,12 +210,10 @@ impl DHTBehaviour {
         backoff: ExponentialBackoff,
         retry_count: u8,
     ) {
-        error!("THING A");
         // noop
         if retry_count == 0 {
             return;
         }
-        error!("THING b");
 
         let qid = self.kadem.get_record(key.clone().into());
         let query = KadGetQuery {
@@ -227,9 +225,7 @@ impl DHTBehaviour {
             retry_count: retry_count - 1,
             records: HashMap::default(),
         };
-        error!("THING C");
         self.in_progress_get_record_queries.insert(qid, query);
-        error!("THING d");
     }
 
     /// update state based on recv-ed get query
@@ -262,10 +258,8 @@ impl DHTBehaviour {
                 records,
             }) = self.in_progress_get_record_queries.remove(&id)
             {
-                error!("ENTERING THE THING!");
                 // if channel has been dropped, cancel request
                 if notify.is_canceled() {
-                    error!("WE ARE CANCELEED?");
                     return;
                 }
 
@@ -319,14 +313,14 @@ impl DHTBehaviour {
             match record_results {
                 Ok(_) => {
                     if query.notify.send(()).is_err() {
-                        error!("Put DHT: client channel closed before put record request could be sent");
+                        warn!("Put DHT: client channel closed before put record request could be sent");
                     }
                 }
                 Err(e) => {
                     query.progress = DHTProgress::NotStarted;
                     query.backoff.start_next(false);
 
-                    error!(
+                    warn!(
                         "Put DHT: error performing put: {:?}. Retrying on pid {:?}.",
                         e, self.peer_id
                     );
@@ -335,7 +329,7 @@ impl DHTBehaviour {
                 }
             }
         } else {
-            error!("Put DHT: completed DHT query that is no longer tracked.");
+            warn!("Put DHT: completed DHT query that is no longer tracked.");
         }
     }
 }
@@ -362,7 +356,7 @@ impl DHTBehaviour {
                 Ok(GetClosestPeersOk { key, peers }) => {
                     if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {
                         if chan.send(()).is_err() {
-                            error!("DHT: finished query but client no longer interested");
+                            warn!("DHT: finished query but client no longer interested");
                         };
                     } else {
                         self.random_walk.state = State::NotStarted;
@@ -380,7 +374,7 @@ impl DHTBehaviour {
                         self.random_walk.state = State::NotStarted;
                         self.random_walk.backoff.start_next(true);
                     }
-                    error!(
+                    warn!(
                         "peer {:?} failed to get closest peers with {:?} and stats {:?}",
                         self.peer_id, e, stats
                     );
@@ -405,12 +399,12 @@ impl DHTBehaviour {
             } => {
                 if num_remaining == 0 {
                     // if bootstrap is successful, restart.
-                    error!("Finished bootstrap for peer {:?}", self.peer_id);
+                    info!("Finished bootstrap for peer {:?}", self.peer_id);
                     self.bootstrap_state.state = State::Finished;
                     self.event_queue.push(DHTEvent::IsBootstrapped);
                     self.begin_bootstrap = false;
                 } else {
-                    error!(
+                    warn!(
                         "Bootstrap in progress: num remaining nodes to ping {:?}",
                         num_remaining
                     );
@@ -420,7 +414,7 @@ impl DHTBehaviour {
                 result: QueryResult::Bootstrap(Err(e)),
                 ..
             } => {
-                error!("DHT: Bootstrap attempt failed. Retrying shortly.");
+                warn!("DHT: Bootstrap attempt failed. Retrying shortly.");
                 let BootstrapError::Timeout { num_remaining, .. } = e;
                 if num_remaining.is_none() {
                     error!(
