@@ -28,9 +28,9 @@ use hotshot_types::{
         election::Election,
         metrics::NoMetrics,
         network::TestableNetworkingImplementation,
-        node_implementation::{NodeTypes, TestableNodeImplementation},
+        node_implementation::{ApplicationMetadata, NodeTypes, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
-        state::{TestableBlock, TestableState},
+        state::{TestableBlock, TestableState, ValidatingConsensus},
         storage::TestableStorage,
     },
     HotShotConfig,
@@ -61,10 +61,10 @@ pub struct RoundResult<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
 }
 
 /// Type of function used for checking results after running a view of consensus
-pub type RoundPostSafetyCheck<TYPES, I: NodeImplementation<TYPES>> = Box<
+pub type RoundPostSafetyCheck<TYPES, I> = Box<
     dyn FnOnce(
         &TestRunner<TYPES, I>,
-        RoundResult<TYPES, I::Leaf>,
+        RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
     ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
 >;
 
@@ -457,12 +457,12 @@ where
 
         use rand::seq::IteratorRandom;
 
-        // we're assuming all nodes have the same state.
+        // we're assuming all nodes have the same leaf.
         // If they don't match, this is probably fine since
         // it should be caught by an assertion (and the txn will be rejected anyway)
-        let state = self.nodes[0].handle.get_state().await;
+        let leaf = self.nodes[0].handle.get_decided_leaf().await;
 
-        let txn = <TYPES::StateType as TestableState>::create_random_transaction(&state, rng);
+        let txn = leaf.create_random_transaction(rng);
 
         let node = if let Some(node_id) = node_id {
             self.nodes.get(node_id).unwrap()

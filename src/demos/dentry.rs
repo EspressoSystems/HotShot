@@ -516,29 +516,38 @@ impl NodeTypes for DEntryTypes {
 /// The node implementation for the dentry demo
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
-pub struct DEntryNode<TYPES, NET, ELE>(PhantomData<TYPES>, PhantomData<NET>, PhantomData<ELE>)
+pub struct DEntryNode<NET, ELE>(PhantomData<NET>, PhantomData<ELE>)
 where
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
-    NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
-    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>;
+    NET: NetworkingImplementation<
+        DEntryTypes,
+        ValidatingLeaf<DEntryTypes>,
+        ValidatingProposal<DEntryTypes, ELE>,
+    >,
+    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>;
 
-impl<TYPES, NET, ELE> DEntryNode<TYPES, NET, ELE>
+impl<NET, ELE> DEntryNode<NET, ELE>
 where
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
-    NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
-    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    NET: NetworkingImplementation<
+        DEntryTypes,
+        ValidatingLeaf<DEntryTypes>,
+        ValidatingProposal<DEntryTypes, ELE>,
+    >,
+    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
 {
     /// Create a new `DEntryNode`
     pub fn new() -> Self {
-        DEntryNode(PhantomData, PhantomData, PhantomData)
+        DEntryNode(PhantomData, PhantomData)
     }
 }
 
-impl<TYPES, NET, ELE> Debug for DEntryNode<TYPES, NET, ELE>
+impl<NET, ELE> Debug for DEntryNode<NET, ELE>
 where
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
-    NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
-    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    NET: NetworkingImplementation<
+        DEntryTypes,
+        ValidatingLeaf<DEntryTypes>,
+        ValidatingProposal<DEntryTypes, ELE>,
+    >,
+    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DEntryNode")
@@ -547,28 +556,34 @@ where
     }
 }
 
-impl<TYPES, NET, ELE> Default for DEntryNode<TYPES, NET, ELE>
+impl<NET, ELE> Default for DEntryNode<NET, ELE>
 where
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
-    NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
-    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    NET: NetworkingImplementation<
+        DEntryTypes,
+        ValidatingLeaf<DEntryTypes>,
+        ValidatingProposal<DEntryTypes, ELE>,
+    >,
+    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<TYPES, NET, ELE> NodeImplementation<TYPES> for DEntryNode<TYPES, NET, ELE>
+impl<NET, ELE> NodeImplementation<DEntryTypes> for DEntryNode<NET, ELE>
 where
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
-    NET: NetworkingImplementation<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELE>>,
-    ELE: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    NET: NetworkingImplementation<
+        DEntryTypes,
+        ValidatingLeaf<DEntryTypes>,
+        ValidatingProposal<DEntryTypes, ELE>,
+    >,
+    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
 {
-    type Leaf = ValidatingLeaf<TYPES>;
-    type Storage = MemoryStorage<TYPES, ELE::LeafType>;
+    type Leaf = ValidatingLeaf<DEntryTypes>;
+    type Storage = MemoryStorage<DEntryTypes, ELE::LeafType>;
     type Networking = NET;
     type Election = ELE;
-    type Proposal = ValidatingProposal<TYPES, ELE>;
+    type Proposal = ValidatingProposal<DEntryTypes, ELE>;
 }
 
 /// Provides a random [`QuorumCertificate`]
@@ -589,7 +604,11 @@ pub fn random_quorum_certificate<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYP
 pub fn random_leaf<TYPES: NodeTypes<ConsensusType = ValidatingConsensus>>(
     deltas: TYPES::BlockType,
     rng: &mut dyn rand::RngCore,
-) -> ValidatingLeaf<TYPES> {
+) -> ValidatingLeaf<TYPES>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
     let justify_qc = random_quorum_certificate(rng);
     let state = TYPES::StateType::default()
         .append(&deltas, &TYPES::Time::new(42))

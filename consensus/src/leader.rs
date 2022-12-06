@@ -7,8 +7,12 @@ use hotshot_types::{
     data::{QuorumCertificate, ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, Proposal},
     traits::{
-        election::Election, node_implementation::NodeTypes, signature_key::SignatureKey,
-        state::ValidatingConsensus, Block, State,
+        election::Election,
+        node_implementation::NodeTypes,
+        signature_key::SignatureKey,
+        state::ValidatingConsensus,
+        state::{TestableBlock, TestableState},
+        Block, State,
     },
 };
 use hotshot_utils::{
@@ -26,7 +30,10 @@ pub struct Leader<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
     TYPES: NodeTypes,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
-> {
+> where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
@@ -48,6 +55,9 @@ impl<
         TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
         ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
     > Leader<A, TYPES, ELECTION>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
 {
     /// Run one view of the leader task
     // #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]

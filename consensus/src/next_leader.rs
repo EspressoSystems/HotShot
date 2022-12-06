@@ -3,8 +3,11 @@
 use crate::ConsensusApi;
 use async_lock::Mutex;
 use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
-use hotshot_types::traits::election::{Checked::Unchecked, Election, VoteToken};
 use hotshot_types::traits::node_implementation::NodeTypes;
+use hotshot_types::traits::{
+    election::{Checked::Unchecked, Election, VoteToken},
+    state::{TestableBlock, TestableState},
+};
 use hotshot_types::{data::QuorumCertificate, message::ConsensusMessage};
 use hotshot_utils::channel::UnboundedReceiver;
 use std::{
@@ -20,7 +23,10 @@ pub struct NextLeader<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
     TYPES: NodeTypes,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
-> {
+> where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
     /// id of node
     pub id: u64,
     /// generic_qc before starting this
@@ -44,6 +50,9 @@ impl<
         TYPES: NodeTypes,
         ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
     > NextLeader<A, TYPES, ELECTION>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
 {
     /// Run one view of the next leader task
     /// # Panics

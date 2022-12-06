@@ -9,7 +9,7 @@ use crate::{
         election::{Accumulator, Election, SignedCertificate},
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        state::{ConsensusTime, ValidatingConsensusType},
+        state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensusType},
         storage::{StoredView, ViewAppend},
         Block, State,
     },
@@ -353,6 +353,11 @@ pub trait LeafType:
     fn get_proposer_id(&self) -> EncodedPublicKey;
 
     fn from_stored_view(stored_view: StoredView<Self::NodeType, Self>) -> Self;
+
+    fn create_random_transaction(
+        &self,
+        rng: &mut dyn rand::RngCore,
+    ) -> <<Self::NodeType as NodeTypes>::BlockType as Block>::Transaction;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
@@ -361,7 +366,11 @@ pub trait LeafType:
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq, std::hash::Hash)]
 #[derivative(PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub struct ValidatingLeaf<TYPES: NodeTypes> {
+pub struct ValidatingLeaf<TYPES: NodeTypes>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
 
@@ -426,7 +435,11 @@ pub struct DALeaf<TYPES: NodeTypes> {
     pub proposer_id: EncodedPublicKey,
 }
 
-impl<TYPES: NodeTypes> LeafType for ValidatingLeaf<TYPES> {
+impl<TYPES: NodeTypes> LeafType for ValidatingLeaf<TYPES>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
     type NodeType = TYPES;
     type StateCommitmentType = TYPES::StateType;
 
@@ -494,6 +507,13 @@ impl<TYPES: NodeTypes> LeafType for ValidatingLeaf<TYPES> {
             timestamp: stored_view.timestamp,
             proposer_id: stored_view.proposer_id,
         }
+    }
+
+    fn create_random_transaction(
+        &self,
+        rng: &mut dyn rand::RngCore,
+    ) -> <<Self::NodeType as NodeTypes>::BlockType as Block>::Transaction {
+        <TYPES::StateType as TestableState>::create_random_transaction(&self.state, rng)
     }
 }
 
@@ -566,6 +586,13 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
             proposer_id: stored_view.proposer_id,
         }
     }
+
+    fn create_random_transaction(
+        &self,
+        rng: &mut dyn rand::RngCore,
+    ) -> <<Self::NodeType as NodeTypes>::BlockType as Block>::Transaction {
+        nll_todo()
+    }
 }
 
 /// Fake the thing a genesis block points to. Needed to avoid infinite recursion
@@ -582,7 +609,11 @@ pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitm
         .finalize()
 }
 
-impl<TYPES: NodeTypes> Committable for ValidatingLeaf<TYPES> {
+impl<TYPES: NodeTypes> Committable for ValidatingLeaf<TYPES>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
     fn commit(&self) -> commit::Commitment<Self> {
         let mut signatures_bytes = vec![];
         for (k, v) in &self.justify_qc.signatures {
@@ -616,6 +647,9 @@ impl<TYPES: NodeTypes> Committable for DALeaf<TYPES> {
 
 impl<TYPES: NodeTypes, ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>>
     From<ValidatingLeaf<TYPES>> for ValidatingProposal<TYPES, ELECTION>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
 {
     fn from(leaf: ValidatingLeaf<TYPES>) -> Self {
         Self {
@@ -635,6 +669,8 @@ impl<TYPES: NodeTypes, ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES
 impl<TYPES: NodeTypes> ValidatingLeaf<TYPES>
 where
     TYPES::ConsensusType: ValidatingConsensusType,
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
 {
     /// Creates a new leaf with the specified block and parent
     ///
@@ -697,6 +733,8 @@ where
 impl<TYPES: NodeTypes> From<StoredView<TYPES, ValidatingLeaf<TYPES>>> for ValidatingLeaf<TYPES>
 where
     TYPES::ConsensusType: ValidatingConsensusType,
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
 {
     fn from(append: StoredView<TYPES, ValidatingLeaf<TYPES>>) -> Self {
         ValidatingLeaf::new(

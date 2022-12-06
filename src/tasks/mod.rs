@@ -13,8 +13,8 @@ use hotshot_types::{
         network::NetworkingImplementation,
         node_implementation::{NodeImplementation, NodeTypes},
         state::{
-            ConsensusType, SequencingConsensus, SequencingConsensusType, ValidatingConsensus,
-            ValidatingConsensusType,
+            ConsensusType, SequencingConsensus, SequencingConsensusType, TestableBlock,
+            TestableState, ValidatingConsensus, ValidatingConsensusType,
         },
     },
     ExecutionType,
@@ -236,6 +236,8 @@ impl<
         >,
     > TaskHandlerType<TYPES, I> for TaskHandler<ValidatingConsensus>
 where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
     TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     async fn run_view(hotshot: HotShot<TYPES, I>) -> Result<(), ()> {

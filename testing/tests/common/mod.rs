@@ -21,14 +21,14 @@ use hotshot_testing::{
     TestNodeImpl, TestRunner,
 };
 use hotshot_types::{
-    data::ViewNumber,
+    data::{LeafType, ProposalType, ViewNumber},
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
         election::Election,
         network::TestableNetworkingImplementation,
-        node_implementation::{NodeTypes, TestableNodeImplementation},
+        node_implementation::{ApplicationMetadata, NodeTypes, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
-        state::{TestableBlock, TestableState},
+        state::{TestableBlock, TestableState, ValidatingConsensus},
         storage::TestableStorage,
     },
     HotShotConfig,
@@ -41,6 +41,7 @@ use jf_primitives::{
     },
     vrf::blsvrf::BLSVRFScheme,
 };
+use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
 use tracing::{error, info};
@@ -113,8 +114,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES, LEAF>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     pub general_info: GeneralTestDescriptionBuilder,
 
@@ -130,8 +131,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES, LEAF>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<TYPES, I> {
@@ -199,8 +200,8 @@ impl GeneralTestDescriptionBuilder {
         TYPES::BlockType: TestableBlock,
         TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
         TYPES::SignatureKey: TestableSignatureKey,
-        I::Networking: TestableNetworkingImplementation<TYPES>,
-        I::Storage: TestableStorage<TYPES, LEAF>,
+        I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+        I::Storage: TestableStorage<TYPES, I::Leaf>,
     {
         DetailedTestDescriptionBuilder {
             general_info: self,
@@ -217,8 +218,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES, LEAF>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     pub fn build(self) -> TestDescription<TYPES, I> {
         let timing_config = TimingData {
@@ -257,8 +258,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES, LEAF>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     /// TODO unneeded (should be sufficient to have gen runner)
     /// the ronds to run for the test
@@ -406,8 +407,12 @@ pub type StaticNodeImplType = TestNodeImpl<
 /// type alias for the test runner type
 pub type AppliedTestRunner<TYPES, ELECTION> =
     TestRunner<TYPES, AppliedTestNodeImpl<TYPES, ELECTION>>;
-pub type AppliedTestNodeImpl<TYPES, ELECTION> =
-    TestNodeImpl<TYPES, MemoryNetwork<TYPES, LEAF, PROPOSAL>, MemoryStorage<TYPES, LEAF>, ELECTION>;
+pub type AppliedTestNodeImpl<
+    TYPES,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    ELECTION,
+> = TestNodeImpl<TYPES, MemoryNetwork<TYPES, LEAF, PROPOSAL>, MemoryStorage<TYPES, LEAF>, ELECTION>;
 
 // FIXME THIS is why we need to split up metadat and anonymous functions
 impl Default for GeneralTestDescriptionBuilder {
@@ -449,8 +454,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES, LEAF>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     // make sure the lengths match so zip doesn't spit out none
     if shut_down_ids.len() < submitter_ids.len() {
@@ -508,8 +513,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES, LEAF>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
 
@@ -546,8 +551,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES, LEAF>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     /// create rounds of consensus based on the data in `self`
     pub fn default_populate_rounds(&self) -> Vec<Round<TYPES, I>> {

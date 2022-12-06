@@ -10,9 +10,9 @@ use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{demos::dentry::random_leaf, types::Vote};
 use hotshot_testing::{ConsensusRoundError, RoundResult};
 use hotshot_types::{
+    data::LeafType,
     message::{ConsensusMessage, Proposal},
     traits::{
-        data::LeafType,
         election::{Election, TestableElection},
         node_implementation::NodeTypes,
         signature_key::TestableSignatureKey,

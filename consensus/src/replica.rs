@@ -10,8 +10,11 @@ use hotshot_types::{
     data::{QuorumCertificate, ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, TimedOut, Vote},
     traits::{
-        election::Election, node_implementation::NodeTypes, signature_key::SignatureKey,
-        state::ValidatingConsensus, Block, State,
+        election::Election,
+        node_implementation::NodeTypes,
+        signature_key::SignatureKey,
+        state::{TestableBlock, TestableState, ValidatingConsensus},
+        Block, State,
     },
 };
 use hotshot_utils::channel::UnboundedReceiver;
@@ -24,7 +27,10 @@ pub struct Replica<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
     TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
-> {
+> where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
     /// id of node
     pub id: u64,
     /// Reference to consensus. Replica will require a write lock on this.
@@ -50,6 +56,9 @@ impl<
         TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
         ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
     > Replica<A, TYPES, ELECTION>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
 {
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
@@ -254,7 +263,11 @@ impl<
     /// run one view of replica
     /// returns the `high_qc`
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>
+    where
+        TYPES::StateType: TestableState,
+        TYPES::BlockType: TestableBlock,
+    {
         info!("Replica task started!");
         let consensus = self.consensus.upgradable_read().await;
         let view_leader_key = self.api.get_leader(self.cur_view).await;
