@@ -136,7 +136,8 @@ async fn run_background_receive<TYPES: NodeTypes>(
         // let req = connection
         // .client
         // .get(&format!("/api/proposal/{}", view_number.to_string()));
-        let possible_proposal: Result<Option<Vec<Message<TYPES>>>, ClientError> = connection
+        let possible_proposal: Result<Option<Vec<Vec<u8>>>, ClientError> = 
+        connection
             .client
             .get(&format!("/api/proposal/{}", view_number.to_string()))
             .send()
@@ -147,11 +148,13 @@ async fn run_background_receive<TYPES: NodeTypes>(
             // others could mean an actual error; perhaps nothing should return None instead of an error
             Err(error) => panic!("Proposal error is: {:?}", error),
             Ok(Some(proposals)) => {
+                // println!("{:?}", proposals);
                 // Add proposal to broadcast queue
                 let mut lock = connection.broadcast_poll_queue.write().await;
                 proposals.iter().for_each(|proposal| {
-                    println!("prop is {:?}", proposal);
-                    // lock.push(proposal.clone());
+                    let deserialized_proposal = bincode::deserialize::<Message<TYPES>>(proposal).unwrap();
+                    println!("prop is {:?}", deserialized_proposal);
+                    lock.push(deserialized_proposal.clone()); 
                 });
             }
             Ok(None) => println!("Proposal is None"),
