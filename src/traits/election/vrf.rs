@@ -392,7 +392,7 @@ where
 
 impl<PUBKEY, PROOF> VoteToken for VRFVoteToken<PUBKEY, PROOF>
 where
-    PUBKEY: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static + SignatureKey,
+    PUBKEY: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static,
     PROOF: Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync + 'static,
 {
     fn vote_count(&self) -> NonZeroU64 {
@@ -1146,7 +1146,7 @@ mod tests {
         type ConsensusType = ValidatingConsensus;
         type Time = ViewNumber;
         type BlockType = DummyBlock;
-        type SignatureKey = JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>;
+        type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
         type VoteTokenType = VRFVoteToken<
             BLSVerKey<ark_bls12_381::Parameters>,
             BLSSignature<ark_bls12_381::Parameters>,

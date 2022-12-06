@@ -412,7 +412,7 @@ pub type AppliedTestNodeImpl<
     LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeTypes = TYPES>,
     ELECTION,
-> = TestNodeImpl<TYPES, MemoryNetwork<TYPES, LEAF, PROPOSAL>, MemoryStorage<TYPES, LEAF>, ELECTION>;
+> = TestNodeImpl<TYPES, LEAF, PROPOSAL, MemoryNetwork<TYPES, LEAF, PROPOSAL>, MemoryStorage<TYPES, LEAF>, ELECTION>;
 
 // FIXME THIS is why we need to split up metadat and anonymous functions
 impl Default for GeneralTestDescriptionBuilder {

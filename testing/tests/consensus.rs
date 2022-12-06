@@ -124,7 +124,7 @@ fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
 /// Checks that votes are queued correctly for views 1..NUM_VIEWS
 fn test_vote_queueing_post_safety_check<
     TYPES: NodeTypes,
-    LEAF: LeafType<NodeTypes = TYPES>,
+    LEAF: LeafType<NodeType = TYPES>,
     ELECTION: Election<TYPES>,
 >(
     runner: &AppliedTestRunner<TYPES, ELECTION>,
@@ -196,7 +196,7 @@ where
 /// Checks views 0..NUM_VIEWS for whether proposal messages are properly queued
 fn test_proposal_queueing_post_safety_check<
     TYPES: NodeTypes,
-    LEAF: LeafType<NodeTypes = TYPES>,
+    LEAF: LeafType<NodeType = TYPES>,
     ELECTION: Election<TYPES>,
 >(
     runner: &AppliedTestRunner<TYPES, ELECTION>,
@@ -295,7 +295,7 @@ where
 /// Checks nodes do not queue bad proposal messages
 fn test_bad_proposal_post_safety_check<
     TYPES: NodeTypes,
-    LEAF: LeafType<NodeTypes = TYPES>,
+    LEAF: LeafType<NodeType = TYPES>,
     ELECTION: Election<TYPES>,
 >(
     runner: &AppliedTestRunner<TYPES, ELECTION>,
@@ -373,7 +373,7 @@ where
 /// Checks that non-leaders do not queue votes, and that leaders do not queue more than 1 vote per node
 fn test_bad_vote_post_safety_check<
     TYPES: NodeTypes,
-    LEAF: LeafType<NodeTypes = TYPES>,
+    LEAF: LeafType<NodeType = TYPES>,
     ELECTION: Election<TYPES>,
 >(
     runner: &AppliedTestRunner<TYPES, ELECTION>,
