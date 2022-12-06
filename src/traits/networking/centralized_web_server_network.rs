@@ -117,8 +117,7 @@ struct Inner<TYPES: NodeTypes> {
 async fn run_background_receive<TYPES: NodeTypes>(
     connection: Arc<Inner<TYPES>>,
 ) -> Result<(), ServerError> {
-
-    // TODO ED: separate this polling so it is not linear, 
+    // TODO ED: separate this polling so it is not linear,
     // poll future views
 
     println!("Run background receive task has started!");
@@ -126,12 +125,12 @@ async fn run_background_receive<TYPES: NodeTypes>(
     loop {
         let view_number = connection.view_number.read().await;
 
-        // TODO ED: Actually track transaction index 
+        // TODO ED: Actually track transaction index
         let possible_transactions: Result<Option<Vec<Vec<u8>>>, ClientError> = connection
-        .client
-        .get(&format!("/api/transactions/0"))
-        .send()
-        .await;
+            .client
+            .get(&format!("/api/transactions/0"))
+            .send()
+            .await;
 
         match possible_transactions {
             Err(error) => error!("Transaction error is: {:?}", error),
@@ -139,15 +138,15 @@ async fn run_background_receive<TYPES: NodeTypes>(
                 println!("Found a tx!");
                 let mut lock = connection.broadcast_poll_queue.write().await;
                 transactions.iter().for_each(|tx| {
-                    let deserialized_tx =
-                        bincode::deserialize::<Message<TYPES>>(tx).unwrap();
+                    let deserialized_tx = bincode::deserialize::<Message<TYPES>>(tx).unwrap();
                     // println!("prop is {:?}", deserialized_proposal.kind);
                     // WHY causing issues?
                     lock.push(deserialized_tx.clone());
                 });
-
-            }, 
-            Ok(None) => {println!("No transactions")},
+            }
+            Ok(None) => {
+                println!("No transactions")
+            }
         }
 
         let possible_proposal: Result<Option<Vec<Vec<u8>>>, ClientError> = connection
@@ -204,8 +203,6 @@ async fn run_background_receive<TYPES: NodeTypes>(
             Ok(None) => println!("vote is None"),
         }
 
-
-
         // TODO ED: Adjust this parameter once things are working
         async_sleep(Duration::from_millis(300)).await;
     }
@@ -243,13 +240,13 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
             // Most likely a transaction being broadcast
             hotshot_types::message::MessageKind::Data(_) => {
                 let sent_tx: Result<(), ServerError> = self
-                .inner
-                .client
-                .post(&format!("/api/transactions"))
-                .body_binary(&message)
-                .unwrap()
-                .send()
-                .await;
+                    .inner
+                    .client
+                    .post(&format!("/api/transactions"))
+                    .body_binary(&message)
+                    .unwrap()
+                    .send()
+                    .await;
                 println!("Data message being broadcast {:?}", sent_tx);
             }
         }
@@ -359,7 +356,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
         pk: TYPES::SignatureKey,
         cancelled: Arc<AtomicBool>,
     ) {
-        nll_todo()
+        // nll_todo()
     }
 
     async fn inject_view_number(&self, view_number: TYPES::Time) {
