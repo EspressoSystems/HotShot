@@ -14,7 +14,6 @@ use hotshot_testing::{
     ConsensusRoundError, RoundResult,
 };
 use hotshot_types::traits::{
-    data::LeafType,
     election::Election,
     node_implementation::NodeTypes,
     signature_key::TestableSignatureKey,

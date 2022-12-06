@@ -21,7 +21,7 @@ use hotshot_testing::{
     TestNodeImpl, TestRunner,
 };
 use hotshot_types::{
-    data::{LeafType, ProposalType, ViewNumber},
+    data::{LeafType, ProposalType, ViewNumber, ValidatingLeaf, ValidatingProposal},
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
         election::Election,
@@ -390,18 +390,22 @@ impl NodeTypes for StaticCommitteeTestTypes {
 /// with in-memory network
 pub type StandardNodeImplType = TestNodeImpl<
     VrfTestTypes,
-    MemoryNetwork<VrfTestTypes>,
-    MemoryStorage<VrfTestTypes>,
-    VrfImpl<VrfTestTypes, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
+    ValidatingLeaf<VrfTestTypes>,
+    ValidatingProposal<VrfTestTypes, TestElection>,
+    MemoryNetwork<VrfTestTypes, ValidatingLeaf<VrfTestTypes>,ValidatingProposal<VrfTestTypes, TestElection>>,
+    MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+    VrfImpl<VrfTestTypes, ValidatingLeaf<VrfTestTypes>, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
 >;
 
 /// type synonym for static committee
 /// with in-memory network
 pub type StaticNodeImplType = TestNodeImpl<
     StaticCommitteeTestTypes,
-    MemoryNetwork<StaticCommitteeTestTypes>,
-    MemoryStorage<StaticCommitteeTestTypes>,
-    StaticCommittee<StaticCommitteeTestTypes>,
+    ValidatingLeaf<StaticCommitteeTestTypes>,
+    ValidatingProposal<StaticCommitteeTestTypes, TestElection>,
+    MemoryNetwork<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>, ValidatingProposal<StaticCommitteeTestTypes, TestElection>>,
+    MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+    StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
 >;
 
 /// type alias for the test runner type
@@ -847,8 +851,10 @@ macro_rules! cross_tests {
             common::StaticCommitteeTestTypes,
             hotshot_testing::TestNodeImpl<
                 common::StaticCommitteeTestTypes,
-                $NETWORK<common::StaticCommitteeTestTypes>,
-                $STORAGE<common::StaticCommitteeTestTypes>,
+                ValidatingLeaf<common::StaticCommitteeTestTypes>, 
+                ValidatingProposal<common::StaticCommitteeTestTypes, TestElection>,
+                $NETWORK<common::StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>, ValidatingProposal<StaticCommitteeTestTypes, TestElection>>,
+                $STORAGE<common::StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
                 hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes>
             >
         >;
