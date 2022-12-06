@@ -31,9 +31,9 @@ use std::{
     },
     time::Duration,
 };
-use tide_disco::error::ServerError;
-use surf_disco::error::ClientError;
 use surf_disco::error;
+use surf_disco::error::ClientError;
+use tide_disco::error::ServerError;
 use tracing::error;
 
 #[derive(Clone, Debug)]
@@ -127,13 +127,13 @@ async fn run_background_receive<TYPES: NodeTypes>(
         // let req = connection
         // .client
         // .get(&format!("/api/proposal/{}", view_number.to_string()));
-        let possible_proposal: Result<Option<Vec<Vec<u8>>>, ClientError> = 
-        connection
+        let possible_proposal: Result<Option<Vec<Vec<u8>>>, ClientError> = connection
             .client
             .get(&format!("/api/proposal/{}", view_number.to_string()))
             .send()
             .await;
 
+        // TODO ED stop polling once we have a proposal
         match possible_proposal {
             // TODO ED: differentiate between different errors, some errors mean there is nothing in the queue,
             // others could mean an actual error; perhaps nothing should return None instead of an error
@@ -143,15 +143,45 @@ async fn run_background_receive<TYPES: NodeTypes>(
                 // Add proposal to broadcast queue
                 let mut lock = connection.broadcast_poll_queue.write().await;
                 proposals.iter().for_each(|proposal| {
-                    let deserialized_proposal = bincode::deserialize::<Message<TYPES>>(proposal).unwrap();
-                    println!("prop is {:?}", deserialized_proposal);
-                    lock.push(deserialized_proposal.clone()); 
+                    let deserialized_proposal =
+                        bincode::deserialize::<Message<TYPES>>(proposal).unwrap();
+                    // println!("prop is {:?}", deserialized_proposal.kind);
+                    // WHY causing issues?
+                    lock.push(deserialized_proposal.clone());
                 });
             }
             Ok(None) => println!("Proposal is None"),
         }
+
+        let possible_vote: Result<Option<Vec<Vec<u8>>>, ClientError> = connection
+            .client
+            .get(&format!("/api/votes/{}", view_number.to_string()))
+            .send()
+            .await;
+
+        // TODO ED stop polling once we have a proposal
+        match possible_vote {
+            // TODO ED: differentiate between different errors, some errors mean there is nothing in the queue,
+            // others could mean an actual error; perhaps nothing should return None instead of an error
+            Err(error) => panic!("Vote error is: {:?}", error),
+            Ok(Some(votes)) => {
+                // println!("{:?}", proposals);
+                // Add proposal to broadcast queue
+                let mut lock = connection.direct_poll_queue.write().await;
+                votes.iter().for_each(|vote| {
+                    let deserialized_vote = bincode::deserialize::<Message<TYPES>>(vote).unwrap();
+                    println!("voteis {:?}", deserialized_vote.kind);
+                    // WHY causing issues?
+                    lock.push(deserialized_vote.clone());
+                });
+                // Shouldn't need this:
+                drop(lock);
+            }
+
+            Ok(None) => println!("vote is None"),
+        }
         // TODO ED: Adjust this parameter once things are working
-        async_sleep(Duration::from_millis(100)).await;
+        async_sleep(Duration::from_millis(300)).await;
     }
     // TODO ED: propogate errors from above once we change the way empty responses are received
     Ok(())
@@ -174,19 +204,6 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
         match message.clone().kind {
             hotshot_types::message::MessageKind::Consensus(m) => {
-                // let serialized_message = bincode_opts()
-                //     .serialize(&message)
-                //     .context(FailedToSerializeSnafu)?;
-                // Must be a proposal
-                // let msg = self
-                //     .inner
-                //     .client
-                //     .post::<String>(&format!("/api/proposal/{}", m.view_number().to_string()))
-                //     .body_binary(&"message")
-                //     .unwrap();
-
-                // let msg = "message";
-
                 let sent_proposal: Result<(), ServerError> = self
                     .inner
                     .client
@@ -197,8 +214,9 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
                     .await;
                 println!("Sent proposal is: {:?}", sent_proposal);
             }
+            // Most likely a transaction being broadcast
             hotshot_types::message::MessageKind::Data(_) => {
-                println!("Data message being braodcast")
+                println!("Data message being broadcast")
             }
         }
         // TODO: put in our own broadcast queue
@@ -213,14 +231,35 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
         message: Message<TYPES>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        nll_todo()
+        match message.clone().kind {
+            // Vote or timeout message
+            hotshot_types::message::MessageKind::Consensus(m) => {
+                // println!("Consensus Message Is: {:?}", message.clone().kind);
+                let sent_vote: Result<(), ServerError> = self
+                    .inner
+                    .client
+                    .post(&format!("/api/votes/{}", m.view_number().to_string()))
+                    .body_binary(&message)
+                    .unwrap()
+                    .send()
+                    .await;
+                println!("sent vote is: {:?}", sent_vote);
+            }
+            hotshot_types::message::MessageKind::Data(_) => {
+                println!("Data message being sent directly")
+            }
+        }
+        Ok(())
     }
 
     // TODO Read from the queue that the async task dumps everything into
     // For now that task can dump transactions and proposals into the same queue
     async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
         let mut queue = self.inner.broadcast_poll_queue.write().await;
-        Ok(queue.drain(..).collect())
+        println!("Q len is {}", queue.len());
+        let messages = queue.drain(..).collect();
+        println!("message are {:?}", messages);
+        Ok(messages)
         // nll_todo()
     }
 
@@ -231,8 +270,14 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
 
     // TODO implemented the same as the broadcast queue
     async fn direct_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
+        // println!("BEFORE DRAIN DIRECT QUEUE");
         let mut queue = self.inner.direct_poll_queue.write().await;
-        Ok(queue.drain(..).collect())
+        // println!("MIDDLE DRAIN DIRECT QUEUE");
+
+        let messages = queue.drain(..).collect();
+        // println!("AFTER DRAIN DIRECT QUEUE");
+
+        Ok(messages)
     }
 
     // TODO implemented the same as the broadcast queue

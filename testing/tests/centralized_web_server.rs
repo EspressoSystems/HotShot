@@ -32,7 +32,7 @@ async fn centralized_server_network() {
         start_nodes: 1,
         num_succeeds: 5,
         txn_ids: Right(1),
-        next_view_timeout: 30000,
+        next_view_timeout: 3000,
         start_delay: 120000,
         ..GeneralTestDescriptionBuilder::default()
     };
