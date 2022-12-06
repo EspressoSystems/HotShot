@@ -608,7 +608,6 @@
 <span id="608">608</span>
 <span id="609">609</span>
 <span id="610">610</span>
-<span id="611">611</span>
 </pre><pre class="rust"><code><span class="kw">mod </span>config;
 <span class="kw">mod </span>handle;
 
@@ -876,9 +875,8 @@
                 async_spawn(fut);
             });
 
-            SwarmBuilder::new(transport, network, peer_id)
+            SwarmBuilder::with_executor(transport, network, peer_id, executor)
                 .dial_concurrency_factor(std::num::NonZeroU8::new(<span class="number">1</span>).unwrap())
-                .executor(executor)
                 .build()
         };
         <span class="kw">for </span>(peer, addr) <span class="kw">in </span><span class="kw-2">&amp;</span>config.to_connect_addrs {

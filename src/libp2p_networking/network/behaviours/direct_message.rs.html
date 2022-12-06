@@ -262,99 +262,12 @@
 <span id="262">262</span>
 <span id="263">263</span>
 <span id="264">264</span>
-<span id="265">265</span>
-<span id="266">266</span>
-<span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
-<span id="270">270</span>
-<span id="271">271</span>
-<span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
-<span id="276">276</span>
-<span id="277">277</span>
-<span id="278">278</span>
-<span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-<span id="286">286</span>
-<span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
-<span id="315">315</span>
-<span id="316">316</span>
-<span id="317">317</span>
-<span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
-<span id="328">328</span>
-<span id="329">329</span>
-<span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
-<span id="345">345</span>
-<span id="346">346</span>
-<span id="347">347</span>
-<span id="348">348</span>
-<span id="349">349</span>
-<span id="350">350</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, VecDeque},
     task::Poll,
 };
 
 <span class="kw">use </span>libp2p::{
-    core::transport::ListenerId,
     request_response::{
         RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
     },
@@ -475,17 +388,25 @@
 
     <span class="kw">type </span>OutEvent = DMEvent;
 
-    <span class="kw">fn </span>new_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::ConnectionHandler {
-        <span class="self">self</span>.request_response.new_handler()
+    <span class="kw">fn </span>on_swarm_event(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        event: libp2p::swarm::derive_prelude::FromSwarm&lt;<span class="lifetime">&#39;_</span>, <span class="self">Self</span>::ConnectionHandler&gt;,
+    ) {
+        <span class="self">self</span>.request_response.on_swarm_event(event);
     }
 
-    <span class="kw">fn </span>inject_event(
+    <span class="kw">fn </span>on_connection_handler_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        peer_id: libp2p::PeerId,
-        connection: libp2p::core::connection::ConnectionId,
+        peer_id: PeerId,
+        connection_id: libp2p::swarm::derive_prelude::ConnectionId,
         event: &lt;&lt;<span class="self">Self</span>::ConnectionHandler <span class="kw">as </span>libp2p::swarm::IntoConnectionHandler&gt;::Handler <span class="kw">as </span>libp2p::swarm::ConnectionHandler&gt;::OutEvent,
     ) {
-        NetworkBehaviour::inject_event(<span class="kw-2">&amp;mut </span><span class="self">self</span>.request_response, peer_id, connection, event);
+        <span class="self">self</span>.request_response
+            .on_connection_handler_event(peer_id, connection_id, event);
+    }
+
+    <span class="kw">fn </span>new_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::ConnectionHandler {
+        <span class="self">self</span>.request_response.new_handler()
     }
 
     <span class="kw">fn </span>poll(
@@ -551,99 +472,6 @@
 
     <span class="kw">fn </span>addresses_of_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pid: <span class="kw-2">&amp;</span>PeerId) -&gt; Vec&lt;libp2p::Multiaddr&gt; {
         <span class="self">self</span>.request_response.addresses_of_peer(pid)
-    }
-
-    <span class="kw">fn </span>inject_connection_established(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        peer_id: <span class="kw-2">&amp;</span>PeerId,
-        connection_id: <span class="kw-2">&amp;</span>libp2p::core::connection::ConnectionId,
-        endpoint: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
-        failed_addresses: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Vec&lt;libp2p::Multiaddr&gt;&gt;,
-        other_established: usize,
-    ) {
-        <span class="self">self</span>.request_response.inject_connection_established(
-            peer_id,
-            connection_id,
-            endpoint,
-            failed_addresses,
-            other_established,
-        );
-    }
-
-    <span class="kw">fn </span>inject_connection_closed(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        pid: <span class="kw-2">&amp;</span>PeerId,
-        cid: <span class="kw-2">&amp;</span>libp2p::core::connection::ConnectionId,
-        cp: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
-        handler: &lt;<span class="self">Self</span>::ConnectionHandler <span class="kw">as </span>libp2p::swarm::IntoConnectionHandler&gt;::Handler,
-        remaining_established: usize,
-    ) {
-        <span class="self">self</span>.request_response.inject_connection_closed(
-            pid,
-            cid,
-            cp,
-            handler,
-            remaining_established,
-        );
-    }
-
-    <span class="kw">fn </span>inject_address_change(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        pid: <span class="kw-2">&amp;</span>PeerId,
-        cid: <span class="kw-2">&amp;</span>libp2p::core::connection::ConnectionId,
-        old: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
-        new: <span class="kw-2">&amp;</span>libp2p::core::ConnectedPoint,
-    ) {
-        <span class="self">self</span>.request_response
-            .inject_address_change(pid, cid, old, new);
-    }
-
-    <span class="kw">fn </span>inject_dial_failure(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        peer_id: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
-        handler: <span class="self">Self</span>::ConnectionHandler,
-        error: <span class="kw-2">&amp;</span>libp2p::swarm::DialError,
-    ) {
-        <span class="self">self</span>.request_response
-            .inject_dial_failure(peer_id, handler, error);
-    }
-
-    <span class="kw">fn </span>inject_listen_failure(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        local_addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr,
-        send_back_addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr,
-        handler: <span class="self">Self</span>::ConnectionHandler,
-    ) {
-        <span class="self">self</span>.request_response
-            .inject_listen_failure(local_addr, send_back_addr, handler);
-    }
-
-    <span class="kw">fn </span>inject_new_listener(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId) {
-        <span class="self">self</span>.request_response.inject_new_listener(id);
-    }
-
-    <span class="kw">fn </span>inject_new_listen_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
-        <span class="self">self</span>.request_response.inject_new_listen_addr(id, addr);
-    }
-
-    <span class="kw">fn </span>inject_expired_listen_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
-        <span class="self">self</span>.request_response.inject_expired_listen_addr(id, addr);
-    }
-
-    <span class="kw">fn </span>inject_listener_error(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, err: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">&#39;static</span>)) {
-        <span class="self">self</span>.request_response.inject_listener_error(id, err);
-    }
-
-    <span class="kw">fn </span>inject_listener_closed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: ListenerId, reason: <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span>std::io::Error&gt;) {
-        <span class="self">self</span>.request_response.inject_listener_closed(id, reason);
-    }
-
-    <span class="kw">fn </span>inject_new_external_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
-        <span class="self">self</span>.request_response.inject_new_external_addr(addr);
-    }
-
-    <span class="kw">fn </span>inject_expired_external_addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, addr: <span class="kw-2">&amp;</span>libp2p::Multiaddr) {
-        <span class="self">self</span>.request_response.inject_expired_external_addr(addr);
     }
 }
 

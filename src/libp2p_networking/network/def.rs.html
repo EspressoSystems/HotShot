@@ -176,6 +176,7 @@
 <span id="176">176</span>
 <span id="177">177</span>
 <span id="178">178</span>
+<span id="179">179</span>
 </pre><pre class="rust"><code><span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>libp2p::{
     gossipsub::IdentTopic <span class="kw">as </span>Topic,
@@ -196,7 +197,8 @@
     },
     NetworkEventInternal,
 };
-<span class="kw">use </span>libp2p::NetworkBehaviour;
+
+<span class="kw">use </span>libp2p_swarm_derive::NetworkBehaviour;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>NUM_REPLICATED_TO_TRUST: usize = <span class="number">2</span>;
 

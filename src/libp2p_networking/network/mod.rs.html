@@ -321,9 +321,9 @@
 <span class="attribute">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
 </span><span class="kw">use </span>libp2p::dns::TokioDnsConfig <span class="kw">as </span>DnsConfig;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
-</span><span class="kw">use </span>tcp::TcpTransport;
+</span><span class="kw">use </span>tcp::async_io::Transport <span class="kw">as </span>TcpTransport;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;tokio-executor&quot;</span>)]
-</span><span class="kw">use </span>tcp::TokioTcpTransport <span class="kw">as </span>TcpTransport;
+</span><span class="kw">use </span>tcp::tokio::Transport <span class="kw">as </span>TcpTransport;
 <span class="attribute">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
 </span><span class="macro">std::compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
 
@@ -484,7 +484,7 @@
     identity: Keypair,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Boxed&lt;(PeerId, StreamMuxerBox)&gt;, NetworkError&gt; {
     <span class="kw">let </span>transport = <span class="kw">async move </span>{
-        <span class="kw">let </span>dns_tcp = DnsConfig::system(TcpTransport::new(tcp::GenTcpConfig::new().nodelay(<span class="bool-val">true</span>)));
+        <span class="kw">let </span>dns_tcp = DnsConfig::system(TcpTransport::new(tcp::Config::new().nodelay(<span class="bool-val">true</span>)));
 
         <span class="attribute">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
         </span><span class="kw">return </span>dns_tcp
