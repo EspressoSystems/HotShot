@@ -207,7 +207,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
                 println!("Sent proposal is: {:?}", sent_proposal);
             }
             hotshot_types::message::MessageKind::Data(_) => {
-                println!("Data message being braodcast")
+                println!("Data message being broadcast")
             }
         }
         // TODO: put in our own broadcast queue
@@ -263,7 +263,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
 
     // TODO stop async background task
     async fn shut_down(&self) -> () {
-        nll_todo()
+        self.inner.running.store(false, Ordering::Relaxed);
     }
 
     // TODO can return an Error like the other centralized server impl
