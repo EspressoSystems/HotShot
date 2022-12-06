@@ -1,3 +1,4 @@
+use async_compatibility_layer::channel::OneShotReceiver;
 use async_lock::RwLock;
 use clap::Args;
 use futures::FutureExt;
@@ -19,7 +20,7 @@ const MAX_VIEWS: usize = 10;
 //how many transactions to keep in memory
 const MAX_TXNS: usize = 10000;
 
-#[derive(Clone, Default)]
+#[derive(Default)]
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
 struct WebServerState {
@@ -35,6 +36,8 @@ struct WebServerState {
     oldest_vote: u128,
     //view for oldest proposals in memory
     oldest_proposal: u128,
+    //shutdown signal
+    shutdown: Option<OneShotReceiver<()>>,
 }
 
 impl WebServerState {
@@ -43,8 +46,16 @@ impl WebServerState {
             num_txns: 0,
             oldest_vote: 0,
             oldest_proposal: 0,
+            shutdown: None,
             ..Default::default()
         }
+    }
+    pub fn with_shutdown_signal(mut self, shutdown_listener: Option<OneShotReceiver<()>>) -> Self {
+        if self.shutdown.is_some() {
+            panic!("A shutdown signal is already registered and can not be registered twice");
+        }
+        self.shutdown = shutdown_listener;
+        self
     }
 }
 
@@ -223,10 +234,11 @@ where
 // (we need it to be a library to import into the node client)
 // TODO ED: make a bin file that runs the web server similarly
 // to the other centralized server
-pub async fn main() -> io::Result<()> {
+pub async fn run_web_server(shutdown_listener: Option<OneShotReceiver<()>>) -> io::Result<()> {
     let options = Options::default();
     let api = define_api(&options).unwrap();
-    let mut app = App::<State, Error>::with_state(State::default());
+    let state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
+    let mut app = App::<State, Error>::with_state(state);
 
     app.register_module("api", api).unwrap();
     app.serve("http://0.0.0.0:8000").await

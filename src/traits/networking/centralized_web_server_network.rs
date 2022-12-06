@@ -1,4 +1,7 @@
-use async_compatibility_layer::art::{async_block_on, async_sleep, async_spawn};
+use async_compatibility_layer::{
+    art::{async_block_on, async_sleep, async_spawn},
+    channel::{oneshot, OneShotReceiver, OneShotSender},
+};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
 use bincode::Options;
@@ -31,14 +34,17 @@ use std::{
     },
     time::Duration,
 };
-use tide_disco::error::ServerError;
-use surf_disco::error::ClientError;
 use surf_disco::error;
+use surf_disco::error::ClientError;
+use tide_disco::error::ServerError;
 use tracing::error;
 
 #[derive(Clone, Debug)]
 pub struct CentralizedWebServerNetwork<TYPES: NodeTypes> {
+    /// The inner state
     inner: Arc<Inner<TYPES>>,
+    /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
+    server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
 impl<TYPES: NodeTypes> CentralizedWebServerNetwork<TYPES> {
@@ -76,7 +82,10 @@ impl<TYPES: NodeTypes> CentralizedWebServerNetwork<TYPES> {
                 }
             }
         });
-        Self { inner }
+        Self {
+            inner,
+            server_shutdown_signal: None,
+        }
     }
 }
 
@@ -127,12 +136,10 @@ async fn run_background_receive<TYPES: NodeTypes>(
         // let req = connection
         // .client
         // .get(&format!("/api/proposal/{}", view_number.to_string()));
-        let possible_proposal: Result<Option<Vec<Message<TYPES>>>, ClientError> = 
-        connection
+        let possible_proposal: Result<Option<Vec<Message<TYPES>>>, ClientError> = connection
             .client
             .get(&format!("/api/proposal/{}", view_number.to_string()))
             .send()
-
             .await;
 
         match possible_proposal {
@@ -144,7 +151,7 @@ async fn run_background_receive<TYPES: NodeTypes>(
                 let mut lock = connection.broadcast_poll_queue.write().await;
                 proposals.iter().for_each(|proposal| {
                     println!("prop is {:?}", proposal);
-                    // lock.push(proposal.clone()); 
+                    // lock.push(proposal.clone());
                 });
             }
             Ok(None) => println!("Proposal is None"),
@@ -306,12 +313,20 @@ where
         expected_node_count: usize,
         num_bootstrap: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let (server_shutdown_sender, server_shutdown) = oneshot();
+        let sender = Arc::new(server_shutdown_sender);
         // Start web server
-        async_spawn(hotshot_centralized_web_server::main());
+        async_spawn(hotshot_centralized_web_server::run_web_server(Some(
+            server_shutdown,
+        )));
 
         // Start each node's web server client
-        // TODO ED: need a shut down signal of some sort
-        Box::new(move |id| CentralizedWebServerNetwork::create())
+        Box::new(move |id| {
+            let sender = Arc::clone(&sender);
+            let mut network = CentralizedWebServerNetwork::create();
+            network.server_shutdown_signal = Some(sender);
+            network
+        })
     }
 
     // TODO Can be a no-op most likely
