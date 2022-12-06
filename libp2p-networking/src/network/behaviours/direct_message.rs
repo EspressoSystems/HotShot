@@ -4,7 +4,6 @@ use std::{
 };
 
 use libp2p::{
-    core::transport::ListenerId,
     request_response::{
         RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
     },
@@ -125,17 +124,25 @@ impl NetworkBehaviour for DMBehaviour {
 
     type OutEvent = DMEvent;
 
-    fn new_handler(&mut self) -> Self::ConnectionHandler {
-        self.request_response.new_handler()
+    fn on_swarm_event(
+        &mut self,
+        event: libp2p::swarm::derive_prelude::FromSwarm<'_, Self::ConnectionHandler>,
+    ) {
+        self.request_response.on_swarm_event(event);
     }
 
-    fn inject_event(
+    fn on_connection_handler_event(
         &mut self,
-        peer_id: libp2p::PeerId,
-        connection: libp2p::core::connection::ConnectionId,
+        peer_id: PeerId,
+        connection_id: libp2p::swarm::derive_prelude::ConnectionId,
         event: <<Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler as libp2p::swarm::ConnectionHandler>::OutEvent,
     ) {
-        NetworkBehaviour::inject_event(&mut self.request_response, peer_id, connection, event);
+        self.request_response
+            .on_connection_handler_event(peer_id, connection_id, event);
+    }
+
+    fn new_handler(&mut self) -> Self::ConnectionHandler {
+        self.request_response.new_handler()
     }
 
     fn poll(
@@ -201,99 +208,6 @@ impl NetworkBehaviour for DMBehaviour {
 
     fn addresses_of_peer(&mut self, pid: &PeerId) -> Vec<libp2p::Multiaddr> {
         self.request_response.addresses_of_peer(pid)
-    }
-
-    fn inject_connection_established(
-        &mut self,
-        peer_id: &PeerId,
-        connection_id: &libp2p::core::connection::ConnectionId,
-        endpoint: &libp2p::core::ConnectedPoint,
-        failed_addresses: Option<&Vec<libp2p::Multiaddr>>,
-        other_established: usize,
-    ) {
-        self.request_response.inject_connection_established(
-            peer_id,
-            connection_id,
-            endpoint,
-            failed_addresses,
-            other_established,
-        );
-    }
-
-    fn inject_connection_closed(
-        &mut self,
-        pid: &PeerId,
-        cid: &libp2p::core::connection::ConnectionId,
-        cp: &libp2p::core::ConnectedPoint,
-        handler: <Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler,
-        remaining_established: usize,
-    ) {
-        self.request_response.inject_connection_closed(
-            pid,
-            cid,
-            cp,
-            handler,
-            remaining_established,
-        );
-    }
-
-    fn inject_address_change(
-        &mut self,
-        pid: &PeerId,
-        cid: &libp2p::core::connection::ConnectionId,
-        old: &libp2p::core::ConnectedPoint,
-        new: &libp2p::core::ConnectedPoint,
-    ) {
-        self.request_response
-            .inject_address_change(pid, cid, old, new);
-    }
-
-    fn inject_dial_failure(
-        &mut self,
-        peer_id: Option<PeerId>,
-        handler: Self::ConnectionHandler,
-        error: &libp2p::swarm::DialError,
-    ) {
-        self.request_response
-            .inject_dial_failure(peer_id, handler, error);
-    }
-
-    fn inject_listen_failure(
-        &mut self,
-        local_addr: &libp2p::Multiaddr,
-        send_back_addr: &libp2p::Multiaddr,
-        handler: Self::ConnectionHandler,
-    ) {
-        self.request_response
-            .inject_listen_failure(local_addr, send_back_addr, handler);
-    }
-
-    fn inject_new_listener(&mut self, id: ListenerId) {
-        self.request_response.inject_new_listener(id);
-    }
-
-    fn inject_new_listen_addr(&mut self, id: ListenerId, addr: &libp2p::Multiaddr) {
-        self.request_response.inject_new_listen_addr(id, addr);
-    }
-
-    fn inject_expired_listen_addr(&mut self, id: ListenerId, addr: &libp2p::Multiaddr) {
-        self.request_response.inject_expired_listen_addr(id, addr);
-    }
-
-    fn inject_listener_error(&mut self, id: ListenerId, err: &(dyn std::error::Error + 'static)) {
-        self.request_response.inject_listener_error(id, err);
-    }
-
-    fn inject_listener_closed(&mut self, id: ListenerId, reason: Result<(), &std::io::Error>) {
-        self.request_response.inject_listener_closed(id, reason);
-    }
-
-    fn inject_new_external_addr(&mut self, addr: &libp2p::Multiaddr) {
-        self.request_response.inject_new_external_addr(addr);
-    }
-
-    fn inject_expired_external_addr(&mut self, addr: &libp2p::Multiaddr) {
-        self.request_response.inject_expired_external_addr(addr);
     }
 }
 

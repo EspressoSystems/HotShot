@@ -62,7 +62,7 @@ hotshot = { path = "../", features = [
 hotshot-consensus = { path = "../consensus", default-features = false }
 hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }
-jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2", features = [
+jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2-patch.1", features = [
   "std",
 ] }
 rand = "0.8.5"
