@@ -90,7 +90,7 @@ libp2p = { version = "0.49", default-features = false, features = [
 ] }
 parking_lot = "0.12.0"
 rand = "0.8.5"
-serde = { version = "1.0.148", features = ["derive"] }
+serde = { version = "1.0.149", features = ["derive"] }
 serde_json = "1.0.89"
 snafu = "0.7.3"
 tokio = { version = "1", optional = true, features = [
