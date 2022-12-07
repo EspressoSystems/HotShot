@@ -9,6 +9,7 @@ use hotshot::traits::{
     implementations::{CentralizedServerNetwork, MemoryStorage},
 };
 use hotshot_testing::TestNodeImpl;
+use hotshot_types::data::ValidatingLeaf;
 use hotshot_utils::test_util::shutdown_logging;
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use tracing::instrument;
@@ -38,7 +39,7 @@ async fn centralized_server_network_vrf() {
         .build::<VrfTestTypes, TestNodeImpl<
             VrfTestTypes,
             CentralizedServerNetwork<VrfTestTypes>,
-            MemoryStorage<VrfTestTypes>,
+            MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
             VrfImpl<
                 VrfTestTypes,
                 BLSSignatureScheme<Param381>,

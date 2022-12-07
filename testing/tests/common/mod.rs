@@ -409,8 +409,8 @@ pub type StaticNodeImplType = TestNodeImpl<
 >;
 
 /// type alias for the test runner type
-pub type AppliedTestRunner<TYPES, ELECTION> =
-    TestRunner<TYPES, AppliedTestNodeImpl<TYPES, ELECTION>>;
+pub type AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION> =
+    TestRunner<TYPES, AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, ELECTION>>;
 pub type AppliedTestNodeImpl<
     TYPES,
     LEAF: LeafType<NodeType = TYPES>,
@@ -851,11 +851,11 @@ macro_rules! cross_tests {
             common::StaticCommitteeTestTypes,
             hotshot_testing::TestNodeImpl<
                 common::StaticCommitteeTestTypes,
-                ValidatingLeaf<common::StaticCommitteeTestTypes>, 
-                ValidatingProposal<common::StaticCommitteeTestTypes, TestElection>,
-                $NETWORK<common::StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>, ValidatingProposal<StaticCommitteeTestTypes, TestElection>>,
-                $STORAGE<common::StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-                hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes>
+                hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>, 
+                hotshot_types::data::ValidatingProposal<common::StaticCommitteeTestTypes, TestElection>,
+                $NETWORK<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<StaticCommitteeTestTypes>, hotshot_types::data::ValidatingProposal<StaticCommitteeTestTypes, TestElection>>,
+                $STORAGE<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<StaticCommitteeTestTypes>>,
+                hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes, TestElection>
             >
         >;
         cross_test!(TestType, $fn_name, $e, keep: $keep, slow: false, args: $($args)*);
