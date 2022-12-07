@@ -44,8 +44,17 @@ use crate::{
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };
+use async_compatibility_layer::{
+    art::async_spawn,
+    async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
+};
+use async_compatibility_layer::{
+    art::async_spawn_local,
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+};
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
+use bincode::Options;
 use commit::{Commitment, Committable};
 use either::Either;
 use hotshot_consensus::{
@@ -72,13 +81,7 @@ use hotshot_types::{
     HotShotConfig,
 };
 use hotshot_types::{message::MessageKind, traits::election::VoteToken};
-use hotshot_utils::{
-    art::async_spawn, broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock,
-};
-use hotshot_utils::{
-    art::async_spawn_local,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
-};
+use hotshot_utils::bincode::bincode_opts;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -233,6 +236,7 @@ where
             metrics: Arc::new(ConsensusMetrics::new(
                 inner.metrics.subgroup("consensus".to_string()),
             )),
+            invalid_qc: 0,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
         let txns = hotstuff.read().await.get_transactions();
@@ -524,15 +528,29 @@ where
         // TODO validate incoming broadcast message based on sender signature key
         match msg {
             DataMessage::SubmitTransaction(transaction) => {
+                let size = bincode_opts().serialized_size(&transaction).unwrap_or(0);
+
                 // The API contract requires the hash to be unique
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
+                let mut new = false;
                 self.transactions
                     .modify(|txns| {
-                        txns.insert(transaction.commit(), transaction);
+                        new = txns.insert(transaction.commit(), transaction).is_none();
                     })
                     .await;
+
+                if new {
+                    // If this is a new transaction, update metrics.
+                    let consensus = self.hotstuff.read().await;
+                    consensus.metrics.outstanding_transactions.update(1);
+                    #[allow(clippy::cast_possible_wrap)]
+                    consensus
+                        .metrics
+                        .outstanding_transactions_memory_size
+                        .update(size as i64);
+                }
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed
@@ -575,6 +593,12 @@ where
                         qc,
                         block,
                         state,
+                        // We don't have enough information in this message to validate the height
+                        // of the new QC. We would need the full parent leaf, so we can check that
+                        // its commitment matches `qc.leaf_commitment` and extract the height from
+                        // the leaf. But this message is no longer used and the whole catchup
+                        // protocol needs to be redesigned.
+                        0,
                         parent_commitment,
                         rejected,
                         proposer_id,

@@ -18,6 +18,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Serializatio
 use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
+use espresso_systems_common::hotshot::tag;
 use hotshot_utils::hack::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -178,6 +179,10 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> Committable
 
         builder.u64_field("Genesis", self.genesis.into()).finalize()
     }
+
+    fn tag() -> String {
+        tag::QC.to_string()
+    }
 }
 
 impl<TYPES: NodeTypes> SignedCertificate<TYPES::SignatureKey> for DACertificate<TYPES> {
@@ -209,6 +214,9 @@ where
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
 
+    /// Height from leader when proposing leaf
+    pub height: u64,
+
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES, ELECTION::LeafType>,
 
@@ -221,7 +229,6 @@ where
     pub deltas: TYPES::BlockType,
 
     /// What the state should be after applying `self.deltas`
-    #[debug(skip)]
     pub state_commitment: Commitment<TYPES::StateType>,
 
     /// Transactions that were marked for rejection while collecting deltas
@@ -337,6 +344,8 @@ pub trait LeafType:
 
     fn get_view_number(&self) -> <Self::NodeType as NodeTypes>::Time;
 
+    fn get_height(&self) -> u64;
+
     fn get_justify_qc(&self) -> QuorumCertificate<Self::NodeType, Self>;
 
     fn get_parent_commitment(&self) -> Commitment<Self>;
@@ -374,6 +383,9 @@ where
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
 
+    /// Number of leaves before this one in the chain
+    pub height: u64,
+
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES, Self>,
 
@@ -408,6 +420,9 @@ where
 pub struct DALeaf<TYPES: NodeTypes> {
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
+
+    /// Number of leaves before this one in the chain
+    pub height: u64,
 
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES, Self>,
@@ -451,6 +466,7 @@ where
     ) -> Self {
         Self {
             view_number,
+            height: 0,
             justify_qc,
             parent_commitment: fake_commitment(),
             deltas,
@@ -463,6 +479,10 @@ where
 
     fn get_view_number(&self) -> TYPES::Time {
         self.view_number
+    }
+
+    fn get_height(&self) -> u64 {
+        self.height
     }
 
     fn get_justify_qc(&self) -> QuorumCertificate<TYPES, Self> {
@@ -499,6 +519,7 @@ where
         };
         Self {
             view_number: stored_view.view_number,
+            height: 0,
             justify_qc: stored_view.justify_qc,
             parent_commitment: stored_view.parent,
             deltas,
@@ -541,6 +562,10 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
 
     fn get_view_number(&self) -> TYPES::Time {
         self.view_number
+    }
+
+    fn get_height(&self) -> u64 {
+        self.height
     }
 
     fn get_justify_qc(&self) -> QuorumCertificate<TYPES, Self> {
@@ -619,11 +644,11 @@ where
         for (k, v) in &self.justify_qc.signatures {
             signatures_bytes.extend(&k.0);
             signatures_bytes.extend(&v.0 .0);
-            signatures_bytes.extend(v.1.commit().as_ref());
+            signatures_bytes.extend::<&[u8]>(v.1.commit().as_ref());
         }
         commit::RawCommitmentBuilder::new("Leaf Comm")
-            .constant_str("view_number")
-            .u64(*self.view_number)
+            .u64_field("view_number", *self.view_number)
+            .u64_field("height", self.height)
             .field("parent Leaf commitment", self.parent_commitment)
             .field("deltas commitment", self.deltas.commit())
             .field("state commitment", self.state.commit())
@@ -636,6 +661,10 @@ where
             .constant_str("justify_qc signatures")
             .var_size_bytes(&signatures_bytes)
             .finalize()
+    }
+
+    fn tag() -> String {
+        tag::LEAF.to_string()
     }
 }
 
@@ -654,6 +683,7 @@ where
     fn from(leaf: ValidatingLeaf<TYPES>) -> Self {
         Self {
             view_number: leaf.view_number,
+            height: leaf.height,
             justify_qc: leaf.justify_qc,
             parent_commitment: leaf.parent_commitment,
             deltas: leaf.deltas,
@@ -684,12 +714,14 @@ where
         parent_commitment: Commitment<ValidatingLeaf<TYPES>>,
         justify_qc: QuorumCertificate<TYPES, Self>,
         view_number: TYPES::Time,
+        height: u64,
         rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
         timestamp: i128,
         proposer_id: EncodedPublicKey,
     ) -> Self {
         ValidatingLeaf {
             view_number,
+            height,
             justify_qc,
             parent_commitment,
             deltas,
@@ -719,6 +751,7 @@ where
         .unwrap();
         Self {
             view_number: TYPES::Time::genesis(),
+            height: 0,
             justify_qc: QuorumCertificate::genesis(),
             parent_commitment: fake_commitment(),
             deltas,
@@ -743,6 +776,7 @@ where
             append.parent,
             append.justify_qc,
             append.view_number,
+            append.height,
             Vec::new(),
             append.timestamp,
             append.proposer_id,
@@ -758,6 +792,7 @@ where
     fn from(leaf: LEAF) -> Self {
         StoredView {
             view_number: leaf.get_view_number(),
+            height: val.get_height(),
             parent: leaf.get_parent_commitment(),
             justify_qc: leaf.get_justify_qc(),
             state: leaf.get_state(),

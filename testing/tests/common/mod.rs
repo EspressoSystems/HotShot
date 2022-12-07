@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use ark_bls12_381::Parameters as Param381;
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use blake3::Hasher;
 use either::Either;
 use futures::{future::LocalBoxFuture, FutureExt};
@@ -21,7 +22,7 @@ use hotshot_testing::{
     TestNodeImpl, TestRunner,
 };
 use hotshot_types::{
-    data::{LeafType, ProposalType, ViewNumber, ValidatingLeaf, ValidatingProposal},
+    data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
         election::Election,
@@ -33,7 +34,6 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use jf_primitives::{
     signatures::{
         bls::{BLSSignature, BLSVerKey},
@@ -392,9 +392,20 @@ pub type StandardNodeImplType = TestNodeImpl<
     VrfTestTypes,
     ValidatingLeaf<VrfTestTypes>,
     ValidatingProposal<VrfTestTypes, TestElection>,
-    MemoryNetwork<VrfTestTypes, ValidatingLeaf<VrfTestTypes>,ValidatingProposal<VrfTestTypes, TestElection>>,
+    MemoryNetwork<
+        VrfTestTypes,
+        ValidatingLeaf<VrfTestTypes>,
+        ValidatingProposal<VrfTestTypes, TestElection>,
+    >,
     MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-    VrfImpl<VrfTestTypes, ValidatingLeaf<VrfTestTypes>, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
+    VrfImpl<
+        VrfTestTypes,
+        ValidatingLeaf<VrfTestTypes>,
+        BLSSignatureScheme<Param381>,
+        BLSVRFScheme<Param381>,
+        Hasher,
+        Param381,
+    >,
 >;
 
 /// type synonym for static committee
@@ -403,7 +414,11 @@ pub type StaticNodeImplType = TestNodeImpl<
     StaticCommitteeTestTypes,
     ValidatingLeaf<StaticCommitteeTestTypes>,
     ValidatingProposal<StaticCommitteeTestTypes, TestElection>,
-    MemoryNetwork<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>, ValidatingProposal<StaticCommitteeTestTypes, TestElection>>,
+    MemoryNetwork<
+        StaticCommitteeTestTypes,
+        ValidatingLeaf<StaticCommitteeTestTypes>,
+        ValidatingProposal<StaticCommitteeTestTypes, TestElection>,
+    >,
     MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
 >;
@@ -416,7 +431,14 @@ pub type AppliedTestNodeImpl<
     LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeTypes = TYPES>,
     ELECTION,
-> = TestNodeImpl<TYPES, LEAF, PROPOSAL, MemoryNetwork<TYPES, LEAF, PROPOSAL>, MemoryStorage<TYPES, LEAF>, ELECTION>;
+> = TestNodeImpl<
+    TYPES,
+    LEAF,
+    PROPOSAL,
+    MemoryNetwork<TYPES, LEAF, PROPOSAL>,
+    MemoryStorage<TYPES, LEAF>,
+    ELECTION,
+>;
 
 // FIXME THIS is why we need to split up metadat and anonymous functions
 impl Default for GeneralTestDescriptionBuilder {
@@ -631,9 +653,9 @@ pub fn get_tolerance(num_nodes: u64) -> u64 {
 macro_rules! gen_inner_fn {
     ($TEST_TYPE:ty, $e:expr) => {
         // NOTE we need this since proptest doesn't implement async things
-        hotshot_utils::art::async_block_on(async move {
-            hotshot_utils::test_util::setup_logging();
-            hotshot_utils::test_util::setup_backtrace();
+        async_compatibility_layer::art::async_block_on(async move {
+            async_compatibility_layer::logging::setup_logging();
+            async_compatibility_layer::logging::setup_backtrace();
             let description = $e;
             let built: $TEST_TYPE = description.build();
             built.execute().await.unwrap()
@@ -646,9 +668,9 @@ macro_rules! gen_inner_fn {
 macro_rules! gen_inner_fn_proptest {
     ($TEST_TYPE:ty, $e:expr) => {
         // NOTE we need this since proptest doesn't implement async things
-        hotshot_utils::art::async_block_on_with_runtime(async move {
-            hotshot_utils::test_util::setup_logging();
-            hotshot_utils::test_util::setup_backtrace();
+        async_compatibility_layer::art::async_block_on_with_runtime(async move {
+            async_compatibility_layer::logging::setup_logging();
+            async_compatibility_layer::logging::setup_backtrace();
             let description = $e;
             let built: $TEST_TYPE = description.build();
             built.execute().await.unwrap()
@@ -851,7 +873,7 @@ macro_rules! cross_tests {
             common::StaticCommitteeTestTypes,
             hotshot_testing::TestNodeImpl<
                 common::StaticCommitteeTestTypes,
-                ValidatingLeaf<common::StaticCommitteeTestTypes>, 
+                ValidatingLeaf<common::StaticCommitteeTestTypes>,
                 ValidatingProposal<common::StaticCommitteeTestTypes, TestElection>,
                 $NETWORK<common::StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>, ValidatingProposal<StaticCommitteeTestTypes, TestElection>>,
                 $STORAGE<common::StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

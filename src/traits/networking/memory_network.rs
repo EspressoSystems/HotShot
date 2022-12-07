@@ -7,6 +7,10 @@ use super::{
     FailedToSerializeSnafu, NetworkError, NetworkReliability, NetworkingImplementation,
     NetworkingMetrics,
 };
+use async_compatibility_layer::{
+    art::{async_block_on, async_sleep, async_spawn},
+    channel::{bounded, Receiver, SendError, Sender},
+};
 use async_lock::{Mutex, RwLock};
 use async_trait::async_trait;
 use bincode::Options;
@@ -24,11 +28,7 @@ use hotshot_types::{
         state::ValidatingConsensus,
     },
 };
-use hotshot_utils::{
-    art::{async_block_on, async_sleep, async_spawn},
-    bincode::bincode_opts,
-    channel::{bounded, Receiver, SendError, Sender},
-};
+use hotshot_utils::bincode::bincode_opts;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
@@ -574,6 +574,7 @@ mod tests {
     };
 
     use super::*;
+    use async_compatibility_layer::logging::setup_logging;
     use hotshot_types::{
         data::ViewNumber,
         traits::{
@@ -581,7 +582,6 @@ mod tests {
             signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
         },
     };
-    use hotshot_utils::test_util::setup_logging;
 
     /// application metadata stub
     #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]

@@ -6,8 +6,10 @@ use crate::{
     types::{Event, HotShotError::NetworkFault},
     HotShot,
 };
+use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
+use commit::Committable;
 use hotshot_types::{
-    data::LeafType,
+    data::{Leaf, QuorumCertificate},
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
@@ -15,7 +17,6 @@ use hotshot_types::{
         storage::Storage,
     },
 };
-use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -154,10 +155,15 @@ where
         let _anchor = self.storage();
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
             if anchor_leaf.view_number == TYPES::Time::genesis() {
+                let leaf: Leaf<TYPES> = anchor_leaf.into();
+                let mut qc = QuorumCertificate::genesis();
+                qc.leaf_commitment = leaf.commit();
+                qc.block_commitment = leaf.deltas.commit();
                 let event = Event {
                     view_number: TYPES::Time::genesis(),
                     event: EventType::Decide {
                         leaf_chain: Arc::new(vec![I::Leaf::from_stored_view(anchor_leaf.into())]),
+                        qc: Arc::new(qc),
                     },
                 };
                 if self.sender_handle.send_async(event).await.is_err() {
@@ -329,7 +335,7 @@ where
         &self,
         view_number: TYPES::Time,
     ) -> Option<usize> {
-        use hotshot_utils::channel::UnboundedReceiver;
+        use async_compatibility_layer::channel::UnboundedReceiver;
 
         let channel_map = self.hotshot.replica_channel_map.read().await;
         let chan = channel_map.channel_map.get(&view_number)?;
@@ -343,7 +349,7 @@ where
         &self,
         view_number: TYPES::Time,
     ) -> Option<usize> {
-        use hotshot_utils::channel::UnboundedReceiver;
+        use async_compatibility_layer::channel::UnboundedReceiver;
 
         let channel_map = self.hotshot.next_leader_channel_map.read().await;
         let chan = channel_map.channel_map.get(&view_number)?;

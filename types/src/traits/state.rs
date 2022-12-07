@@ -1,10 +1,11 @@
 //! Abstraction over the global state that blocks modify
 //!
-//! This module provides the [`State`] trait, which serves as an abstraction over the current
+//! This module provides the [`State`] trait, which serves as an compatibility over the current
 //! network state, which is modified by the transactions contained within blocks.
 
 use crate::traits::Block;
 use commit::Committable;
+use espresso_systems_common::hotshot::tag;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{error::Error, fmt::Debug, hash::Hash, ops, ops::Deref};
 
@@ -36,7 +37,7 @@ pub trait State:
     type Error: Error + Debug + Send + Sync;
     /// The type of block this state is associated with
     type BlockType: Block;
-    /// Time abstraction needed for reward collection
+    /// Time compatibility needed for reward collection
     type Time: ConsensusTime;
 
     type ConsensusType: ConsensusType;
@@ -81,7 +82,7 @@ pub struct ValidatingConsensus;
 impl ConsensusType for ValidatingConsensus {}
 impl ValidatingConsensusType for ValidatingConsensus {}
 
-/// Trait for time abstraction needed for reward collection
+/// Trait for time compatibility needed for reward collection
 pub trait ConsensusTime:
     PartialOrd
     + Ord
@@ -148,6 +149,10 @@ pub mod dummy {
             commit::RawCommitmentBuilder::new("Dummy State Comm")
                 .u64_field("Nonce", self.nonce)
                 .finalize()
+        }
+
+        fn tag() -> String {
+            tag::DUMMY_STATE.to_string()
         }
     }
 

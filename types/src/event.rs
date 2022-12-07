@@ -1,6 +1,10 @@
 //! Events that a `HotShot` instance can emit
 
-use crate::{data::LeafType, error::HotShotError, traits::node_implementation::NodeTypes};
+use crate::{
+    data::{LeafType, QuorumCertificate},
+    error::HotShotError,
+    traits::node_implementation::NodeTypes,
+};
 use std::sync::Arc;
 
 /// A status event emitted by a `HotShot` instance
@@ -36,6 +40,11 @@ pub enum EventType<TYPES: NodeTypes, LEAF: LeafType> {
         ///
         /// This list may be incomplete if the node is currently performing catchup.
         leaf_chain: Arc<Vec<LEAF>>,
+        /// The QC signing the most recent leaf in `leaf_chain`.
+        ///
+        /// Note that the QC for each additional leaf in the chain can be obtained from the leaf
+        /// before it using [Leaf::justify_qc].
+        qc: Arc<QuorumCertificate<TYPES>>,
     },
     /// A replica task was canceled by a timeout interrupt
     ReplicaViewTimeout {

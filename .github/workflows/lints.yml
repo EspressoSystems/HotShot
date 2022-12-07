@@ -31,24 +31,13 @@ jobs:
       - uses: actions/checkout@v3
         name: Checkout Repository
 
-      - uses: dtolnay/rust-toolchain@1.65.0
-        with:
-          components: clippy, rustfmt
-
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
 
-      - name: Configure Git
-        run: |
-          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf git://github.com/
-          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
-
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
-        with:
-          sharedKey: HotShot163
 
       - name: Format Check
         run: cargo fmt -- --check

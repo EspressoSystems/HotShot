@@ -1,4 +1,4 @@
-//! Network access abstraction
+//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
 
@@ -91,12 +91,12 @@ pub enum NetworkError {
     /// An underlying channel has disconnected
     ChannelDisconnected {
         /// Source of error
-        source: hotshot_utils::channel::RecvError,
+        source: async_compatibility_layer::channel::RecvError,
     },
     /// An underlying unbounded channel has disconnected
     UnboundedChannelDisconnected {
         /// Source of error
-        source: hotshot_utils::channel::UnboundedRecvError,
+        source: async_compatibility_layer::channel::UnboundedRecvError,
     },
     /// The centralized server could not find a specific message.
     NoMessagesInQueue,

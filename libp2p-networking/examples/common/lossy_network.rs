@@ -1,6 +1,6 @@
 use super::ExecutionEnvironment;
+use async_compatibility_layer::art::async_spawn;
 use futures::TryStreamExt;
-use hotshot_utils::art::async_spawn;
 use netlink_packet_route::DecodeError;
 use nix::{
     errno::Errno,

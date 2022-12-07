@@ -128,6 +128,8 @@ where
 pub struct StoredView<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
     /// The view number of this view
     pub view_number: TYPES::Time,
+    /// The index of `parent` in the chain
+    pub height: u64,
     /// The parent of this view
     pub parent: Commitment<LEAF>,
     /// The justify QC of this view. See the hotstuff paper for more information on this.
@@ -158,6 +160,7 @@ where
         qc: QuorumCertificate<TYPES, LEAF>,
         block: TYPES::BlockType,
         state: LEAF::StateCommitmentType,
+        height: u64,
         parent_commitment: Commitment<LEAF>,
         rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
         proposer_id: EncodedPublicKey,
@@ -165,6 +168,7 @@ where
         Self {
             append: ViewAppend::Block { block },
             view_number: qc.view_number,
+            height,
             parent: parent_commitment,
             justify_qc: qc,
             state,

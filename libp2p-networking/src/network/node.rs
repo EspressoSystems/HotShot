@@ -25,11 +25,11 @@ use crate::network::{
     },
     def::NUM_REPLICATED_TO_TRUST,
 };
-use futures::{select, FutureExt, StreamExt};
-use hotshot_utils::{
+use async_compatibility_layer::{
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
+use futures::{select, FutureExt, StreamExt};
 use libp2p::{
     core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
@@ -265,9 +265,8 @@ impl NetworkNode {
                 async_spawn(fut);
             });
 
-            SwarmBuilder::new(transport, network, peer_id)
+            SwarmBuilder::with_executor(transport, network, peer_id, executor)
                 .dial_concurrency_factor(std::num::NonZeroU8::new(1).unwrap())
-                .executor(executor)
                 .build()
         };
         for (peer, addr) in &config.to_connect_addrs {

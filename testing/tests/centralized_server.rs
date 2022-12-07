@@ -1,6 +1,7 @@
 mod common;
 
 use ark_bls12_381::Parameters as Param381;
+use async_compatibility_layer::logging::shutdown_logging;
 use blake3::Hasher;
 use common::*;
 use either::Either::Right;
@@ -9,7 +10,6 @@ use hotshot::traits::{
     implementations::{CentralizedServerNetwork, MemoryStorage},
 };
 use hotshot_testing::TestNodeImpl;
-use hotshot_utils::test_util::shutdown_logging;
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use tracing::instrument;
 
