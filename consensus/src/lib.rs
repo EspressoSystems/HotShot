@@ -31,11 +31,11 @@ pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
 
 use commit::Commitment;
 use hotshot_types::{
-    data::{LeafType, QuorumCertificate},
+    data::{LeafType, QuorumCertificate, ProposalType},
     error::HotShotError,
     traits::{
         metrics::{Gauge, Histogram, Metrics},
-        node_implementation::{NodeImplementation, NodeTypes},
+        node_implementation::{NodeImplementation, NodeTypes}, election::{Election, SignedCertificate},
     },
 };
 use hotshot_utils::subscribable_rwlock::SubscribableRwLock;
@@ -65,30 +65,65 @@ type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 //   - track leader (may need to change if we do leaderless)
 // what is "HotShot" right now = ValidatingConsensus
 // ValidatingConsensus is a consensus implementation of ConsensusAbstraction
+//
+//
+// have two committee traits that are attached to DA consensus that subtraits ConsensusAbstraction
+// VRF attachment is implementation detail
 
-// pub trait ConsensusAbstraction {
-//     type SharedConsensusData: Clone + std::fmt::Debug;
-//     type I: NodeImplementation;
-//
-//     fn run_view();
-//
-//     fn handle_direct_data_message() ;
-//
-//     fn handle_broadcast_data_message() ;
-//
-//     fn send_direct_data_message() ;
-//
-//     fn send_broadcast_data_message() ;
-//
-//     fn handle_direct_consensus_message() ;
-//
-//     fn handle_broadcast_consensus_message() ;
-//
-//     fn send_direct_consensus_message() ;
-//
-//     fn send_broadcast_consensus_message() ;
-//
-// }
+pub trait ConsensusExchange<TYPES: NodeTypes> {
+    pub type Proposal;
+
+    pub type Vote;
+
+    /// vote token type for now
+    pub type VoteAccumulator;
+
+    pub type Certificate;
+    /// this is where election goes
+    pub type Membership;
+}
+
+
+pub trait ValdatingConsensus<TYPES: NodeTypes> : ConsensusAbstraction{
+
+
+    type LeafType: LeafType<NodeType = TYPES>;
+
+    type ConsensusExchangeType: ConsensusExchange<TYPES>;
+}
+
+pub trait DAConsensus<TYPES: NodeTypes> : ConsensusAbstraction {
+
+    type LeafType: LeafType<NodeType = TYPES>;
+
+    type ConsensusExchangeType: ConsensusExchange<TYPES>;
+
+    type DAExchangeType: ConsensusExchange<TYPES>;
+
+}
+
+pub trait ConsensusAbstraction {
+    type UndecidedViewHistory: Clone + std::fmt::Debug;
+
+    fn run_view();
+
+    fn handle_direct_data_message() ;
+
+    fn handle_broadcast_data_message() ;
+
+    fn send_direct_data_message() ;
+
+    fn send_broadcast_data_message() ;
+
+    fn handle_direct_consensus_message() ;
+
+    fn handle_broadcast_consensus_message() ;
+
+    fn send_direct_consensus_message() ;
+
+    fn send_broadcast_consensus_message() ;
+
+}
 
 /// A reference to the consensus algorithm
 ///
