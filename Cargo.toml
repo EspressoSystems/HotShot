@@ -141,6 +141,7 @@ libp2p = { version = "0.50.0", default-features = false, features = [
         "websocket",
         "yamux",
 ] }
+nll = { git = "https://github.com/EspressoSystems/nll.git" }
 num = "0.4.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"

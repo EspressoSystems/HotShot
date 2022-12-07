@@ -4,7 +4,6 @@ use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_compatibility_layer::{
     art::{async_sleep, async_timeout},
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
-    // subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
 use async_lock::RwLock;
 use commit::Committable;
@@ -19,10 +18,6 @@ use hotshot_types::{
         state::{TestableBlock, TestableState},
         Block, State,
     },
-};
-use hotshot_utils::{
-    art::{async_sleep, async_timeout},
-    subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
 use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};

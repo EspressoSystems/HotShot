@@ -2643,6 +2643,7 @@ dependencies = [
  "libp2p",
  "libp2p-networking",
  "libp2p-swarm-derive",
+ "nll",
  "num",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -2749,6 +2750,7 @@ dependencies = [
  "futures",
  "hex_fmt",
  "hotshot-utils",
+ "nll",
  "rand 0.8.5",
  "serde",
  "serde_bytes",
@@ -4504,6 +4506,11 @@ dependencies = [
  "pin-utils",
  "static_assertions",
 ]
+
+[[package]]
+name = "nll"
+version = "1.0.0"
+source = "git+https://github.com/EspressoSystems/nll.git#77c54f67f92dcd0a68d052614ce99ac6edd2ae33"
 
 [[package]]
 name = "nohash-hasher"

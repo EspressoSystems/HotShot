@@ -9,8 +9,8 @@ use hotshot_types::{
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
-use hotshot_utils::hack::nll_todo;
 use jf_primitives::signatures::BLSSignatureScheme;
+use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;

@@ -11,7 +11,7 @@ use hotshot_types::{
         Block, State,
     },
 };
-use hotshot_utils::hack::nll_todo;
+use nll::nll_todo::nll_todo;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::Snafu;
 use tracing::error;

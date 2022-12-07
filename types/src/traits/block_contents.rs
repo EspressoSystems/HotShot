@@ -47,19 +47,6 @@ pub trait Block:
 #[serde(bound(deserialize = ""), transparent)]
 pub struct BlockCommitment<T: Block>(pub Commitment<T>);
 
-impl<T: Block> Ord for BlockCommitment<T> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        // FIXME (nm/da-sprint-1): This is sort of hacky, we should investigate better options
-        self.0.as_ref().cmp(other.0.as_ref())
-    }
-}
-
-impl<T: Block> PartialOrd for BlockCommitment<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
 /// Abstraction over any type of transaction. Used by [`Block`].
 pub trait Transaction:
     Clone + Serialize + DeserializeOwned + Debug + PartialEq + Eq + Sync + Send + Committable + Hash

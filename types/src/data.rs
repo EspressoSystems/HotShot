@@ -19,7 +19,7 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
 use espresso_systems_common::hotshot::tag;
-use hotshot_utils::hack::nll_todo;
+use nll::nll_todo::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData, num::NonZeroU64, ops::Deref};
@@ -550,6 +550,7 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
     ) -> Self {
         Self {
             view_number,
+            height: 0,
             justify_qc,
             parent_commitment: fake_commitment(),
             deltas,
@@ -602,6 +603,7 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
         };
         Self {
             view_number: stored_view.view_number,
+            height: 0,
             justify_qc: stored_view.justify_qc,
             parent_commitment: stored_view.parent,
             deltas,
@@ -792,7 +794,7 @@ where
     fn from(leaf: LEAF) -> Self {
         StoredView {
             view_number: leaf.get_view_number(),
-            height: val.get_height(),
+            height: leaf.get_height(),
             parent: leaf.get_parent_commitment(),
             justify_qc: leaf.get_justify_qc(),
             state: leaf.get_state(),

@@ -14,7 +14,7 @@ use hotshot_types::{
         state::ValidatingConsensus,
     },
 };
-use hotshot_utils::{bincode::bincode_opts, hack::nll_todo};
+use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
     hash_to_group::SWHashToGroup,
     signatures::{
@@ -23,6 +23,7 @@ use jf_primitives::{
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
+use nll::nll_todo::nll_todo;
 use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;

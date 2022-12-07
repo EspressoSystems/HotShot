@@ -9,12 +9,14 @@ use crate::{
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use commit::Committable;
 use hotshot_types::{
-    data::{Leaf, QuorumCertificate},
+    data::{LeafType, QuorumCertificate},
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
-        network::NetworkingImplementation, node_implementation::NodeTypes, state::ConsensusTime,
-        storage::Storage,
+        network::NetworkingImplementation,
+        node_implementation::NodeTypes,
+        state::ConsensusTime,
+        storage::{Storage, StoredView},
     },
 };
 use std::sync::{
@@ -149,20 +151,22 @@ where
     /// Signals to the underlying [`HotShot`] to unpause
     ///
     /// This will cause the background task to start running consensus again.
-    pub async fn start(&self) {
+    pub async fn start(&self)
+    where
+        I::Leaf: From<StoredView<TYPES, I::Leaf>>,
+    {
         self.hotshot.inner.background_task_handle.start().await;
         // if is genesis
         let _anchor = self.storage();
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
             if anchor_leaf.view_number == TYPES::Time::genesis() {
-                let leaf: Leaf<TYPES> = anchor_leaf.into();
+                let leaf: I::Leaf = anchor_leaf.clone().into();
                 let mut qc = QuorumCertificate::genesis();
                 qc.leaf_commitment = leaf.commit();
-                qc.block_commitment = leaf.deltas.commit();
                 let event = Event {
                     view_number: TYPES::Time::genesis(),
                     event: EventType::Decide {
-                        leaf_chain: Arc::new(vec![I::Leaf::from_stored_view(anchor_leaf.into())]),
+                        leaf_chain: Arc::new(vec![I::Leaf::from_stored_view(anchor_leaf)]),
                         qc: Arc::new(qc),
                     },
                 };

@@ -133,7 +133,7 @@ pub trait ConsensusApi<
         &self,
         view_number: TYPES::Time,
         leaf_views: Vec<LEAF>,
-        decide_qc: QuorumCertificate<TYPES>,
+        decide_qc: QuorumCertificate<TYPES, LEAF>,
     ) {
         self.send_event(Event {
             view_number,

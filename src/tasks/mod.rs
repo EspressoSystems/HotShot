@@ -1,6 +1,6 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use crate::{create_or_obtain_chan_from_write, types::HotShotHandle, HotShot, HotShotConsensusApi};
+use crate::{types::HotShotHandle, HotShot, HotShotConsensusApi};
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
     async_primitives::broadcast::channel,
@@ -24,12 +24,7 @@ use hotshot_types::{
     },
     ExecutionType,
 };
-use hotshot_utils::{
-    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
-    broadcast::channel,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
-    hack::nll_todo,
-};
+use nll::nll_todo::nll_todo;
 use std::{
     collections::HashMap,
     marker::PhantomData,
@@ -356,6 +351,7 @@ where
                 vote_collection_chan: recv_next_leader.unwrap(),
                 cur_view,
                 api: c_api.clone(),
+                metrics,
             };
             let next_leader_handle = async_spawn(async move {
                 NextLeader::<HotShotConsensusApi<TYPES, I>, TYPES, _>::run_view(next_leader).await
