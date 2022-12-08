@@ -71,20 +71,29 @@ type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 // VRF attachment is implementation detail
 
 pub trait ConsensusExchange<TYPES: NodeTypes> {
-    pub type Proposal;
+    type Proposal;
 
-    pub type Vote;
+    type Vote;
 
     /// vote token type for now
-    pub type VoteAccumulator;
+    type VoteAccumulator;
 
-    pub type Certificate;
+    type Certificate;
     /// this is where election goes
-    pub type Membership;
+    type Membership;
+}
+
+pub struct ValdatingConsensusImpl {
+    recent_state: Arc<ValidatingConsensusState>,
+}
+
+/// we want this to be threadsafe
+pub struct ValidatingConsensusState {
 }
 
 
 pub trait ValdatingConsensus<TYPES: NodeTypes> : ConsensusAbstraction{
+    type UndecidedViewHistory: Clone + std::fmt::Debug + Send + Sync + 'static;
 
 
     type LeafType: LeafType<NodeType = TYPES>;
@@ -93,6 +102,7 @@ pub trait ValdatingConsensus<TYPES: NodeTypes> : ConsensusAbstraction{
 }
 
 pub trait DAConsensus<TYPES: NodeTypes> : ConsensusAbstraction {
+    type UndecidedViewHistory: Clone + std::fmt::Debug + Send + Sync + 'static;
 
     type LeafType: LeafType<NodeType = TYPES>;
 
@@ -103,7 +113,6 @@ pub trait DAConsensus<TYPES: NodeTypes> : ConsensusAbstraction {
 }
 
 pub trait ConsensusAbstraction {
-    type UndecidedViewHistory: Clone + std::fmt::Debug;
 
     fn run_view();
 
