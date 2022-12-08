@@ -4,7 +4,9 @@ use crate::{
     utils::{Terminator, View, ViewInner},
     Consensus, ConsensusApi,
 };
-use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
+use async_compatibility_layer::channel::UnboundedReceiver;
+use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
+use bincode::Options;
 use commit::Committable;
 use hotshot_types::{
     data::{QuorumCertificate, ValidatingLeaf, ValidatingProposal},
@@ -17,10 +19,10 @@ use hotshot_types::{
         Block, State,
     },
 };
-use hotshot_utils::channel::UnboundedReceiver;
+use hotshot_utils::bincode::bincode_opts;
+use std::ops::Bound::{Excluded, Included};
 use std::{collections::HashSet, sync::Arc};
 use tracing::{error, info, instrument, warn};
-
 /// This view's replica
 #[derive(Debug, Clone)]
 pub struct Replica<
@@ -72,6 +74,7 @@ where
         Option<ValidatingLeaf<TYPES>>,
     ) {
         let lock = self.proposal_collection_chan.lock().await;
+        let mut invalid_qcs = 0;
         let leaf = loop {
             let msg = lock.recv().await;
             info!("recv-ed message {:?}", msg.clone());
@@ -103,8 +106,18 @@ where
                             continue;
                         }
 
+                        // check that the chain height is correct
+                        if p.leaf.height != parent.height + 1 {
+                            warn!(
+                                "Incorrect height in recv-ed proposal. The parent's height, {}, did not follow from the proposal's height, {}",
+                                parent.height, p.leaf.height
+                            );
+                            continue;
+                        }
+
                         // check that the justify_qc is valid
                         if !self.api.validate_qc(&justify_qc) {
+                            invalid_qcs += 1;
                             warn!("Invalid justify_qc in proposal! Skipping proposal.");
                             continue;
                         }
@@ -124,6 +137,7 @@ where
                                 p.leaf.parent_commitment,
                                 justify_qc.clone(),
                                 self.cur_view,
+                                p.leaf.height,
                                 Vec::new(),
                                 time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                                 p.leaf.proposer_id,
@@ -209,7 +223,10 @@ where
                                     .await
                                     .is_err()
                                 {
+                                    consensus.metrics.failed_to_send_messages.add(1);
                                     warn!("Failed to send vote to next leader");
+                                } else {
+                                    consensus.metrics.outgoing_direct_messages.add(1);
                                 }
                             }
                         }
@@ -217,6 +234,8 @@ where
                     }
                     ConsensusMessage::NextViewInterrupt(_view_number) => {
                         let next_leader = self.api.get_leader(self.cur_view + 1).await;
+
+                        consensus.metrics.number_of_timeouts.add(1);
 
                         let timed_out_msg = ConsensusMessage::TimedOut(TimedOut {
                             current_view: self.cur_view,
@@ -233,11 +252,14 @@ where
                             .send_direct_message(next_leader.clone(), timed_out_msg)
                             .await
                         {
+                            consensus.metrics.failed_to_send_messages.add(1);
                             warn!(
                                 ?next_leader,
                                 ?e,
                                 "Could not send time out message to next_leader"
                             );
+                        } else {
+                            consensus.metrics.outgoing_direct_messages.add(1);
                         }
 
                         // exits from entire function
@@ -254,10 +276,17 @@ where
             }
             // fall through logic if we did not receive successfully from channel
             warn!("Replica did not receive successfully from channel. Terminating Replica.");
+            let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+            consensus.invalid_qc += invalid_qcs;
             self.api.send_replica_timeout(self.cur_view).await;
-            return (consensus, None);
+            return (RwLockWriteGuard::downgrade_to_upgradable(consensus), None);
         };
-        (consensus, Some(leaf))
+        let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+        consensus.invalid_qc += invalid_qcs;
+        (
+            RwLockWriteGuard::downgrade_to_upgradable(consensus),
+            Some(leaf),
+        )
     }
 
     /// run one view of replica
@@ -287,12 +316,14 @@ where
         let mut last_view_number_visited = self.cur_view;
         let mut new_commit_reached: bool = false;
         let mut new_decide_reached = false;
+        let mut new_decide_qc = None;
         let mut leaf_views = Vec::new();
         let mut included_txns = HashSet::new();
         let old_anchor_view = consensus.last_decided_view;
         let parent_view = leaf.justify_qc.view_number;
+        let mut current_chain_length = 0usize;
         if parent_view + 1 == self.cur_view {
-            let mut current_chain_length = 1usize;
+            current_chain_length += 1;
             if let Err(e) = consensus.visit_leaf_ancestors(
                 parent_view,
                 Terminator::Exclusive(old_anchor_view),
@@ -305,6 +336,9 @@ where
                             if current_chain_length == 2 {
                                 new_locked_view = leaf.view_number;
                                 new_commit_reached = true;
+                                // The next leaf in the chain, if there is one, is decided, so this
+                                // leaf's justify_qc would become the QC for the decided chain.
+                                new_decide_qc = Some(leaf.justify_qc.clone());
                             } else if current_chain_length == 3 {
                                 new_anchor_view = leaf.view_number;
                                 new_decide_reached = true;
@@ -346,34 +380,95 @@ where
                 },
             },
         );
+
+        consensus.metrics.number_of_views_since_last_commit.set(
+            consensus
+                .state_map
+                .range((
+                    Excluded(consensus.last_decided_view),
+                    Included(self.cur_view),
+                ))
+                .count(),
+        );
+
         consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
         if new_commit_reached {
             consensus.locked_view = new_locked_view;
-            // TODO(vko)
-            // consensus
-            //     .metrics
-            //     .number_of_views_since_last_commit
-            //     .set(consensus.count_saved_leaves_descending_from(new_locked_view));
         }
+        #[allow(clippy::cast_precision_loss)]
         if new_decide_reached {
+            let num_views_since_last_anchor =
+                (*self.cur_view - *consensus.last_decided_view) as f64;
+            let views_seen = consensus
+                .state_map
+                .range((
+                    Excluded(consensus.last_decided_view),
+                    Included(self.cur_view),
+                ))
+                .count();
+            // A count of all veiws we saw that aren't in the current chain (so won't be commited)
+            consensus
+                .metrics
+                .discarded_views_per_decide_event
+                .add_point((views_seen - current_chain_length) as f64);
+            // An empty view is one we didn't see a leaf for but we moved past that view number
+            consensus
+                .metrics
+                .empty_views_per_decide_event
+                .add_point((num_views_since_last_anchor - views_seen as f64) as f64);
+            consensus
+                .metrics
+                .number_of_views_per_decide_event
+                .add_point(num_views_since_last_anchor);
+            consensus
+                .metrics
+                .invalid_qc_views
+                .add_point(consensus.invalid_qc as f64);
+
+            let mut included_txn_size = 0;
             consensus
                 .transactions
                 .modify(|txns| {
                     *txns = txns
                         .drain()
-                        .filter(|(txn_hash, _txn)| !included_txns_set.contains(txn_hash))
+                        .filter(|(txn_hash, txn)| {
+                            #[allow(clippy::cast_possible_wrap)]
+                            if included_txns_set.contains(txn_hash) {
+                                included_txn_size +=
+                                    bincode_opts().serialized_size(txn).unwrap_or_default() as i64;
+                                false
+                            } else {
+                                true
+                            }
+                        })
                         .collect();
                 })
                 .await;
+            consensus
+                .metrics
+                .outstanding_transactions
+                .update(-(included_txns_set.len() as i64));
+            consensus
+                .metrics
+                .outstanding_transactions_memory_size
+                .update(-included_txn_size);
 
-            let decide_sent = self
-                .api
-                .send_decide(consensus.last_decided_view, leaf_views);
+            consensus
+                .metrics
+                .rejected_transactions
+                .add(leaf.rejected.len());
+
+            let decide_sent = self.api.send_decide(
+                consensus.last_decided_view,
+                leaf_views,
+                new_decide_qc.unwrap(),
+            );
             let old_anchor_view = consensus.last_decided_view;
             consensus
                 .collect_garbage(old_anchor_view, new_anchor_view)
                 .await;
             consensus.last_decided_view = new_anchor_view;
+            consensus.invalid_qc = 0;
 
             // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
             if let Err(e) = self.api.store_leaf(old_anchor_view, leaf).await {

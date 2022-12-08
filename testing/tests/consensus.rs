@@ -1,16 +1,21 @@
 mod common;
 
+use async_lock::Mutex;
 use commit::Committable;
 use common::{
     AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
     StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType, VrfTestTypes,
 };
 use either::Right;
-use futures::{future::LocalBoxFuture, FutureExt};
+use futures::{
+    future::{join_all, LocalBoxFuture},
+    FutureExt,
+};
 use hotshot::{demos::dentry::random_leaf, types::Vote};
-use hotshot_testing::{ConsensusRoundError, RoundResult};
+use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
 use hotshot_types::{
     data::LeafType,
+    event::EventType,
     message::{ConsensusMessage, Proposal},
     traits::{
         election::{Election, TestableElection},
@@ -19,6 +24,9 @@ use hotshot_types::{
         state::{ConsensusTime, TestableBlock, TestableState},
     },
 };
+use snafu::{ensure, OptionExt};
+use std::iter::once;
+use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 use tracing::{instrument, warn};
@@ -63,6 +71,7 @@ async fn submit_proposal<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
     // Build proposal
     let mut leaf = random_leaf(TYPES::BlockType::genesis(), &mut rng);
     leaf.view_number = view_number;
+    leaf.height = handle.get_decided_leaf().await.height + 1;
     let signature = handle.sign_proposal(&leaf.commit(), leaf.view_number);
     let msg = ConsensusMessage::Proposal(Proposal {
         leaf: leaf.into(),
@@ -653,4 +662,179 @@ async fn test_max_propose() {
     let max_duration = num_rounds as u128 * propose_max_round_time.as_millis();
     // Since we are not submitting enough transactions, we should hit the max timeout every round
     assert!(duration.as_millis() > max_duration);
+}
+
+/// Tests that the chain heights are sequential
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+#[instrument]
+async fn test_chain_height() {
+    let num_rounds = 10;
+
+    // Only start a subset of the nodes, ensuring there will be failed views so that height is
+    // different from view number.
+    let total_nodes = 6;
+    let start_nodes = 4;
+
+    let mut test = GeneralTestDescriptionBuilder {
+        total_nodes,
+        start_nodes,
+        num_succeeds: num_rounds,
+        failure_threshold: num_rounds,
+        ..Default::default()
+    }
+    .build::<StaticCommitteeTestTypes, StaticNodeImplType>();
+
+    let heights = Arc::new(Mutex::new(vec![0; start_nodes]));
+    for i in 0..num_rounds {
+        let heights = heights.clone();
+        test.rounds[i].safety_check_post = Some(Box::new(move |runner, _| {
+            async move {
+                let mut heights = heights.lock().await;
+                for (i, handle) in runner.nodes().enumerate() {
+                    let leaf = handle.get_decided_leaf().await;
+                    if leaf.justify_qc.genesis {
+                        ensure!(
+                            leaf.height == 0,
+                            SafetyFailedSnafu {
+                                description: format!(
+                                    "node {} has non-zero height {} for genesis leaf",
+                                    i, leaf.height
+                                ),
+                            }
+                        );
+                    } else {
+                        ensure!(
+                            leaf.height == heights[i] + 1,
+                            SafetyFailedSnafu {
+                                description: format!(
+                                    "node {} has incorrect height {} for previous height {}",
+                                    i, leaf.height, heights[i]
+                                ),
+                            }
+                        );
+                        heights[i] = leaf.height;
+                    }
+                }
+                Ok(())
+            }
+            .boxed_local()
+        }));
+    }
+
+    test.execute().await.unwrap();
+}
+
+/// Tests that the leaf chains in decide events are always consistent.
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+#[instrument]
+async fn test_decide_leaf_chain() {
+    let mut test = GeneralTestDescriptionBuilder {
+        num_succeeds: 10,
+        failure_threshold: 0,
+        ..Default::default()
+    }
+    .build::<StaticCommitteeTestTypes, StaticNodeImplType>();
+    for round in &mut test.rounds {
+        // Collection of (handle, leaf) pairs collected at the start of the round. The leaf is the
+        // last decided leaf before the round, so that after the round we can check that the new
+        // leaf chain extends from it. The handle must be copied out of the round runner before the
+        // round starts so that it will buffer events emitted during the round.
+        let handles = Arc::new(Mutex::new(vec![]));
+
+        // Initialize `handles` at the start of the round.
+        {
+            let handles = handles.clone();
+            round.safety_check_pre = Some(Box::new(move |runner| {
+                async move {
+                    *handles.lock().await =
+                        join_all(runner.nodes().map(|handle| async {
+                            (handle.clone(), handle.get_decided_leaf().await)
+                        }))
+                        .await;
+                    Ok(())
+                }
+                .boxed_local()
+            }));
+        }
+        round.safety_check_post = Some(Box::new(move |_, _| {
+            async move {
+                for (mut handle, last_leaf) in std::mem::take(&mut *handles.lock().await) {
+                    // Get the decide event from this round.
+                    let (leaf_chain, qc) = loop {
+                        let event = handle
+                            .try_next_event()
+                            .map_err(|_| {
+                                SafetyFailedSnafu {
+                                    description: "HotShot shut down",
+                                }
+                                .build()
+                            })?
+                            .context(SafetyFailedSnafu {
+                                description: "round did not produce a Decide or ViewFinished event",
+                            })?;
+                        match event.event {
+                            EventType::Decide { leaf_chain, qc } => break (leaf_chain, qc),
+                            EventType::ViewFinished { view_number } => {
+                                tracing::warn!(
+                                    "round {:?} did not produce a decide, skipping safety check",
+                                    view_number
+                                );
+                                return Ok(());
+                            }
+                            _ => continue,
+                        }
+                    };
+                    tracing::info!("got decide {:?} {:?}", qc, leaf_chain);
+
+                    // Starting from `qc` and continuing with the `justify_qc` of each leaf in the
+                    // chain, the chain of QCs should justify the chain of leaves.
+                    let qcs = once(&*qc).chain(leaf_chain.iter().map(|leaf| &leaf.justify_qc));
+                    // The new leaf chain should extend from the previously decided leaf.
+                    let leaves = leaf_chain.iter().chain(once(&last_leaf));
+                    for (i, (qc, leaf)) in qcs.zip(leaves).enumerate() {
+                        if qc.genesis {
+                            tracing::warn!("skipping validation of genesis QC");
+                            continue;
+                        }
+                        ensure!(
+                            qc.leaf_commitment == leaf.commit(),
+                            SafetyFailedSnafu {
+                                description: format!(
+                                    "QC {}/{} justifies {}, but the parent leaf is {}",
+                                    i + 1,
+                                    leaf_chain.len() + 1,
+                                    qc.leaf_commitment,
+                                    leaf.commit()
+                                ),
+                            }
+                        );
+                        ensure!(
+                            qc.block_commitment == leaf.deltas.commit(),
+                            SafetyFailedSnafu {
+                                description: format!(
+                                    "QC {}/{} justifies block {}, but parent leaf has block {}",
+                                    i + 1,
+                                    leaf_chain.len() + 1,
+                                    qc.block_commitment,
+                                    leaf.commit()
+                                ),
+                            }
+                        );
+                    }
+                }
+
+                Ok(())
+            }
+            .boxed_local()
+        }));
+    }
+    test.execute().await.unwrap();
 }

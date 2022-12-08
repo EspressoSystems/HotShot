@@ -16,6 +16,7 @@ use crate::traits::{
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
+use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
     constants::genesis_proposer_id,
     data::{
@@ -145,6 +146,10 @@ impl Committable for DEntryState {
 
         builder.finalize()
     }
+
+    fn tag() -> String {
+        tag::DENTRY_STATE.to_string()
+    }
 }
 
 /// initializes the first state on genesis
@@ -199,6 +204,10 @@ impl Committable for DEntryBlock {
             }
         }
     }
+
+    fn tag() -> String {
+        tag::DENTRY_BLOCK.to_string()
+    }
 }
 
 impl Committable for DEntryTransaction {
@@ -209,6 +218,10 @@ impl Committable for DEntryTransaction {
             .constant_str("nonce")
             .u64_field("nonce", self.nonce)
             .finalize()
+    }
+
+    fn tag() -> String {
+        tag::DENTRY_TXN.to_string()
     }
 }
 
@@ -615,6 +628,7 @@ where
         .unwrap_or_default();
     ValidatingLeaf {
         view_number: justify_qc.view_number,
+        height: rng.next_u64(),
         justify_qc,
         parent_commitment: random_commitment(rng),
         deltas,

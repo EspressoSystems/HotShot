@@ -1,4 +1,4 @@
-//! Minimal abstraction over public key signatures
+//! Minimal compatibility over public key signatures
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 

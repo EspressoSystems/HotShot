@@ -1,5 +1,6 @@
 use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
+use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
     data::{DACertificate, LeafType, QuorumCertificate},
     traits::{
@@ -8,8 +9,8 @@ use hotshot_types::{
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
-use hotshot_utils::hack::nll_todo;
 use jf_primitives::signatures::BLSSignatureScheme;
+use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
@@ -67,6 +68,10 @@ impl<PUBKEY: SignatureKey> Committable for StaticVoteToken<PUBKEY> {
             .var_size_field("signature", &self.signature.0)
             .var_size_field("pub_key", &self.pub_key.to_bytes().0)
             .finalize()
+    }
+
+    fn tag() -> String {
+        tag::STATIC_VOTE_TOKEN.to_string()
     }
 }
 

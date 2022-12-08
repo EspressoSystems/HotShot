@@ -4,6 +4,7 @@
 //! expected to have.
 
 use commit::{Commitment, Committable};
+use espresso_systems_common::hotshot::tag;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
@@ -42,22 +43,9 @@ pub trait Block:
 }
 
 /// Commitment to a block, used by data availibity
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(bound(deserialize = ""))]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord)]
+#[serde(bound(deserialize = ""), transparent)]
 pub struct BlockCommitment<T: Block>(pub Commitment<T>);
-
-impl<T: Block> Ord for BlockCommitment<T> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        // FIXME (nm/da-sprint-1): This is sort of hacky, we should investigate better options
-        self.0.as_ref().cmp(other.0.as_ref())
-    }
-}
-
-impl<T: Block> PartialOrd for BlockCommitment<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
 
 /// Abstraction over any type of transaction. Used by [`Block`].
 pub trait Transaction:
@@ -106,6 +94,10 @@ pub mod dummy {
                 .u64_field("Dummy Field", 0)
                 .finalize()
         }
+
+        fn tag() -> String {
+            tag::DUMMY_TXN.to_string()
+        }
     }
     impl super::Transaction for DummyTransaction {}
 
@@ -147,6 +139,10 @@ pub mod dummy {
             commit::RawCommitmentBuilder::new("Dummy Block Comm")
                 .u64_field("Nonce", self.nonce)
                 .finalize()
+        }
+
+        fn tag() -> String {
+            tag::DUMMY_BLOCK.to_string()
         }
     }
 }

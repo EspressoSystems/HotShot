@@ -1,6 +1,7 @@
 mod common;
 
 use ark_bls12_381::Parameters as Param381;
+use async_compatibility_layer::logging::shutdown_logging;
 use blake3::Hasher;
 use common::*;
 use either::Either::Right;

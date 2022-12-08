@@ -1,6 +1,11 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
 use crate::{types::HotShotHandle, HotShot, HotShotConsensusApi};
+use async_compatibility_layer::{
+    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
+    async_primitives::broadcast::channel,
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
@@ -19,12 +24,7 @@ use hotshot_types::{
     },
     ExecutionType,
 };
-use hotshot_utils::{
-    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
-    broadcast::channel,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
-    hack::nll_todo,
-};
+use nll::nll_todo::nll_todo;
 use std::{
     collections::HashMap,
     marker::PhantomData,
@@ -351,6 +351,7 @@ where
                 vote_collection_chan: recv_next_leader.unwrap(),
                 cur_view,
                 api: c_api.clone(),
+                metrics,
             };
             let next_leader_handle = async_spawn(async move {
                 NextLeader::<HotShotConsensusApi<TYPES, I>, TYPES, _>::run_view(next_leader).await
@@ -529,6 +530,13 @@ pub async fn network_broadcast_task<TYPES: NodeTypes, I: NodeImplementation<TYPE
         incremental_backoff_ms = 10;
         for item in queue {
             trace!(?item, "Processing item");
+            hotshot
+                .hotstuff
+                .read()
+                .await
+                .metrics
+                .broadcast_messages_received
+                .add(1);
             match item.kind {
                 MessageKind::Consensus(msg) => {
                     hotshot
@@ -575,6 +583,8 @@ pub async fn network_direct_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
         // Make sure to reset the backoff time
         incremental_backoff_ms = 10;
         for item in queue {
+            let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
+            metrics.direct_messages_received.add(1);
             trace!(?item, "Processing item");
             match item.kind {
                 MessageKind::Consensus(msg) => {

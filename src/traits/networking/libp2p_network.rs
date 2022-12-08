@@ -3,6 +3,10 @@
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 
 use super::NetworkingMetrics;
+use async_compatibility_layer::{
+    art::{async_block_on, async_sleep, async_spawn},
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
@@ -21,11 +25,7 @@ use hotshot_types::{
         signature_key::{SignatureKey, TestableSignatureKey},
     },
 };
-use hotshot_utils::{
-    art::{async_block_on, async_sleep, async_spawn},
-    bincode::bincode_opts,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
-};
+use hotshot_utils::bincode::bincode_opts;
 use libp2p_networking::{
     network::{
         MeshParams,

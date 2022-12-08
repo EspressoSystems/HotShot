@@ -9,6 +9,10 @@ use tokio::net::TcpStream;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
+use async_compatibility_layer::{
+    art::{async_block_on, async_sleep, async_spawn, split_stream},
+    channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
+};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
 use bincode::Options;
@@ -30,11 +34,7 @@ use hotshot_types::{
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     },
 };
-use hotshot_utils::{
-    art::{async_block_on, async_sleep, async_spawn, split_stream},
-    bincode::bincode_opts,
-    channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
-};
+use hotshot_utils::bincode::bincode_opts;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use std::{
