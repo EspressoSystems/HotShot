@@ -2,17 +2,34 @@
 
 mod common;
 
-#[cfg(feature = "slow-tests")]
+// #[cfg(feature = "slow-tests")]
 use common::{get_tolerance, GeneralTestDescriptionBuilder, TestDescription};
-#[cfg(feature = "slow-tests")]
+// #[cfg(feature = "slow-tests")]
 use either::Either::{Left, Right};
-#[cfg(feature = "slow-tests")]
+// #[cfg(feature = "slow-tests")]
 use hotshot::{
     demos::dentry::DEntryState,
     traits::implementations::{Libp2pNetwork, MemoryNetwork, MemoryStorage}, // AtomicStorage,
 };
-#[cfg(feature = "slow-tests")]
+// #[cfg(feature = "slow-tests")]
 use std::{collections::HashSet, iter::FromIterator};
+
+
+
+cross_all_types!(
+    test_fail_first_node_regression_small,
+    GeneralTestDescriptionBuilder {
+        total_nodes: 10,
+        start_nodes: 10,
+        num_succeeds: 40,
+        txn_ids: Right(30),
+        ids_to_shut_down: vec![vec![0].into_iter().collect::<HashSet<_>>()],
+        failure_threshold: 5,
+        ..GeneralTestDescriptionBuilder::default()
+    },
+    keep: true,
+    slow: false
+);
 
 cross_all_types!(
     test_fifty_nodes_regression,

@@ -238,7 +238,7 @@ where
         for i in 0..(num_success + fail_threshold) {
             if let Err(e) = self.execute_round().await {
                 num_fails += 1;
-                error!("failed {:?} round of consensus with error: {:?}", i, e);
+                error!("failed round {:?} of consensus with error: {:?}", i, e);
                 if num_fails > fail_threshold {
                     error!("returning error");
                     return Err(ConsensusTestError::TooManyFailures);

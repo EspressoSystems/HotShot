@@ -8,8 +8,7 @@
 use super::NetworkingImplementation;
 use crate::traits::{
     networking::{
-        ChannelDisconnectedSnafu, CouldNotDeliverSnafu, ExecutorSnafu, FailedToBindListenerSnafu,
-        NoSocketsSnafu, SocketDecodeSnafu, WebSocketSnafu,
+        CouldNotDeliverSnafu,
     },
     NetworkError,
 };
@@ -30,7 +29,7 @@ use futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use hotshot_types::{
     message::Message as HotShotMessage,
     traits::{
-        network::{NetworkChange, TestableNetworkingImplementation},
+        network::{NetworkChange, TestableNetworkingImplementation, WNetworkError},
         node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
@@ -38,7 +37,7 @@ use hotshot_types::{
 use hotshot_utils::bincode::bincode_opts;
 use rand::prelude::ThreadRng;
 use serde::{Deserialize, Serialize};
-use snafu::{OptionExt, ResultExt};
+use snafu::{OptionExt};
 use std::{
     fmt::Debug,
     sync::{
@@ -359,7 +358,9 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
             if res.is_err() {
                 error!("Failed to ident, closing stream");
                 *shutdown.write().await = true;
-                return Err(NetworkError::IdentityHandshake);
+                return Err(NetworkError::WNetwork {
+                    source: WNetworkError::IdentityHandshake
+                });
             }
             trace!("Ident successful");
             Some(r)
@@ -535,7 +536,9 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
             }
             Ok((pk, handle))
         } else {
-            let pk = pk_r.await.map_err(|_| NetworkError::IdentityHandshake)?;
+            let pk = pk_r.await.map_err(|_| NetworkError::WNetwork {
+                source: WNetworkError::IdentityHandshake
+            })?;
             Ok((pk, handle))
         }
     }
@@ -558,14 +561,18 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
             debug!(?key, "Already have a connection to node");
             Ok(())
         } else {
-            let socket = TcpStream::connect(addr).await.context(ExecutorSnafu)?;
-            let addr = socket.peer_addr().context(SocketDecodeSnafu {
-                input: "connect_to",
-            })?;
+            let socket = TcpStream::connect(addr).await.map_err(|e| NetworkError::WNetwork{ source: WNetworkError::FailedToBind { source: e }})?;
+            let addr = socket.peer_addr().map_err(|e|
+                NetworkError::WNetwork {
+                    source: WNetworkError::SocketDecodeError { input: "connect_to".to_string(), source: e }
+                }
+            )?;
             info!(?addr, "Connecting to remote with decoded address");
             let url = format!("ws://{}", addr);
             trace!(?url);
-            let (web_socket, _) = client_async(url, socket).await.context(WebSocketSnafu)?;
+            let (web_socket, _) = client_async(url, socket).await
+                .map_err(|e|
+                         NetworkError::WNetwork { source: WNetworkError::WebSocket {source: e} })?;
             trace!("Websocket connection created");
             let (pub_key, handle) = self.spawn_task(Some(key), web_socket, addr).await?;
             trace!("Task created");
@@ -616,18 +623,25 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
         trace!("Created queues");
         let s_string = format!("{}:{}", listen_addr, port);
         let s_addr = match s_string.to_socket_addrs().await {
-            Ok(mut x) => x.next().context(NoSocketsSnafu { input: s_string })?,
+            Ok(mut x) => x.next()
+                .ok_or_else(||
+                         NetworkError::WNetwork {
+                             source: WNetworkError::NoSocketsError { input: s_string }
+                         })?,
             Err(e) => {
-                return Err(NetworkError::SocketDecodeError {
-                    input: s_string,
-                    source: e,
-                })
+                return Err(NetworkError::WNetwork {
+                    source: WNetworkError::SocketDecodeError {
+                        input: s_string,
+                        source: e,
+                    }})
             }
         };
         info!(?s_addr, "Binding socket");
         let listener = TcpListener::bind(&s_addr)
             .await
-            .context(FailedToBindListenerSnafu)?;
+            .map_err(|e|
+                     NetworkError::WNetwork { source: WNetworkError::FailedToBind {source: e} }
+                     )?;
         debug!("Successfully bound socket");
 
         let (network_change_input, network_change_output) = unbounded();
@@ -946,18 +960,6 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
         }
     }
 
-    #[instrument(name = "WNetwork::broadcast_queue")]
-    async fn broadcast_queue(&self) -> Result<Vec<HotShotMessage<TYPES>>, super::NetworkError> {
-        self.inner
-            .outputs
-            .broadcast
-            .lock()
-            .await
-            .drain_at_least_one()
-            .await
-            .context(ChannelDisconnectedSnafu)
-    }
-
     #[instrument(name = "WNetwork::next_broadcast")]
     async fn next_broadcast(&self) -> Result<HotShotMessage<TYPES>, super::NetworkError> {
         self.inner
@@ -968,18 +970,6 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
             .recv()
             .await
             .map_err(|_| NetworkError::ShutDown)
-    }
-
-    #[instrument(name = "WNetwork::direct_queue")]
-    async fn direct_queue(&self) -> Result<Vec<HotShotMessage<TYPES>>, super::NetworkError> {
-        self.inner
-            .outputs
-            .direct
-            .lock()
-            .await
-            .drain_at_least_one()
-            .await
-            .context(ChannelDisconnectedSnafu)
     }
 
     #[instrument(name = "WNetwork::next_direct")]
@@ -1006,7 +996,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
             .network_change_output
             .drain_at_least_one()
             .await
-            .context(ChannelDisconnectedSnafu)
+            .map_err(|_| NetworkError::ShutDown)
     }
 
     async fn shut_down(&self) {

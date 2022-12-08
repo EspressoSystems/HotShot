@@ -446,11 +446,10 @@ pub async fn network_broadcast_task<TYPES: NodeTypes, I: NodeImplementation<TYPE
 ) {
     info!("Launching broadcast processing task");
     let networking = &hotshot.inner.networking;
-    let mut incremental_backoff_ms = 10;
 
     while !shut_down.load(Ordering::Relaxed) {
-        let queue = match networking.broadcast_queue().await {
-            Ok(queue) => queue,
+        let network_msg = match networking.next_broadcast().await {
+            Ok(m) => m,
             Err(e) => {
                 if !shut_down.load(Ordering::Relaxed) {
                     error!(?e, "did not shut down gracefully.");
@@ -458,37 +457,27 @@ pub async fn network_broadcast_task<TYPES: NodeTypes, I: NodeImplementation<TYPE
                 return;
             }
         };
-        if queue.is_empty() {
-            trace!("No message, sleeping for {} ms", incremental_backoff_ms);
-            async_sleep(Duration::from_millis(incremental_backoff_ms)).await;
-            incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
-            continue;
-        }
-        // Make sure to reset the backoff time
-        incremental_backoff_ms = 10;
-        for item in queue {
-            trace!(?item, "Processing item");
-            hotshot
-                .hotstuff
-                .read()
-                .await
-                .metrics
-                .broadcast_messages_received
-                .add(1);
-            match item.kind {
-                MessageKind::Consensus(msg) => {
-                    hotshot
-                        .handle_broadcast_consensus_message(msg, item.sender)
-                        .await;
-                }
-                MessageKind::Data(msg) => {
-                    hotshot
-                        .handle_broadcast_data_message(msg, item.sender)
-                        .await;
-                }
+        trace!(?network_msg, "Processing msg from network");
+        hotshot
+            .hotstuff
+            .read()
+            .await
+            .metrics
+            .broadcast_messages_received
+            .add(1);
+        match network_msg.kind {
+            MessageKind::Consensus(msg) => {
+                hotshot
+                    .handle_broadcast_consensus_message(msg, network_msg.sender)
+                    .await;
+            }
+            MessageKind::Data(msg) => {
+                hotshot
+                    .handle_broadcast_data_message(msg, network_msg.sender)
+                    .await;
             }
         }
-        trace!("Items processed, querying for more");
+        trace!("Message processed, querying for next message.");
     }
 }
 
@@ -499,9 +488,8 @@ pub async fn network_direct_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
 ) {
     info!("Launching direct processing task");
     let networking = &hotshot.inner.networking;
-    let mut incremental_backoff_ms = 10;
     while !shut_down.load(Ordering::Relaxed) {
-        let queue = match networking.direct_queue().await {
+        let network_msg = match networking.next_direct().await {
             Ok(queue) => queue,
             Err(e) => {
                 if !shut_down.load(Ordering::Relaxed) {
@@ -510,30 +498,21 @@ pub async fn network_direct_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
                 return;
             }
         };
-        if queue.is_empty() {
-            trace!("No message, sleeping for {} ms", incremental_backoff_ms);
-            async_sleep(Duration::from_millis(incremental_backoff_ms)).await;
-            incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
-            continue;
-        }
         // Make sure to reset the backoff time
-        incremental_backoff_ms = 10;
-        for item in queue {
-            let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
-            metrics.direct_messages_received.add(1);
-            trace!(?item, "Processing item");
-            match item.kind {
-                MessageKind::Consensus(msg) => {
-                    hotshot
-                        .handle_direct_consensus_message(msg, item.sender)
-                        .await;
-                }
-                MessageKind::Data(msg) => {
-                    hotshot.handle_direct_data_message(msg, item.sender).await;
-                }
+        let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
+        metrics.direct_messages_received.add(1);
+        trace!(?network_msg, "Processing item");
+        match network_msg.kind {
+            MessageKind::Consensus(msg) => {
+                hotshot
+                    .handle_direct_consensus_message(msg, network_msg.sender)
+                    .await;
+            }
+            MessageKind::Data(msg) => {
+                hotshot.handle_direct_data_message(msg, network_msg.sender).await;
             }
         }
-        trace!("Items processed, querying for more");
+        trace!("Direct Message processed, querying for another direct message.");
     }
 }
 

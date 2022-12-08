@@ -27,7 +27,7 @@ use hotshot_types::{
         metrics::{Metrics, NoMetrics},
         network::{
             FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
-            NetworkingImplementation, TestableNetworkingImplementation,
+            NetworkingImplementation, TestableNetworkingImplementation, CentralizedServerNetworkError,
         },
         node_implementation::NodeTypes,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
@@ -342,6 +342,7 @@ impl<TYPES: NodeTypes> Inner<TYPES> {
     }
 
     /// Get all the incoming broadcast messages received from the server. Returning 0 messages if nothing was received.
+    #[allow(unused)]
     async fn get_broadcasts<M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static>(
         &self,
     ) -> Vec<Result<M, bincode::Error>> {
@@ -474,13 +475,14 @@ impl<TYPES: NodeTypes> Inner<TYPES> {
             }
         },
         |_, _| {
-            Err(NetworkError::NoMessagesInQueue)
+            Err(NetworkError::CentralizedServer { source: CentralizedServerNetworkError::NoMessagesInQueue })
         },
 )
         .await
     }
 
     /// Get all the incoming direct messages received from the server. Returning 0 messages if nothing was received.
+    #[allow(unused)]
     async fn get_direct_messages<
         M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static,
     >(
@@ -624,7 +626,7 @@ impl<TYPES: NodeTypes> Inner<TYPES> {
             }
         },
         |_, _| {
-            Err(NetworkError::NoMessagesInQueue)
+            Err(NetworkError::CentralizedServer { source: CentralizedServerNetworkError::NoMessagesInQueue })
         })
         .await
     }
@@ -1078,26 +1080,8 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
         Ok(())
     }
 
-    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
-        self.inner
-            .get_broadcasts()
-            .await
-            .into_iter()
-            .collect::<Result<Vec<_>, _>>()
-            .context(FailedToDeserializeSnafu)
-    }
-
     async fn next_broadcast(&self) -> Result<Message<TYPES>, NetworkError> {
         self.inner.get_next_broadcast().await
-    }
-
-    async fn direct_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
-        self.inner
-            .get_direct_messages()
-            .await
-            .into_iter()
-            .collect::<Result<Vec<_>, _>>()
-            .context(FailedToDeserializeSnafu)
     }
 
     async fn next_direct(&self) -> Result<Message<TYPES>, NetworkError> {
@@ -1123,14 +1107,14 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
         _key: impl serde::Serialize + Send + Sync + 'static,
         _value: impl serde::Serialize + Send + Sync + 'static,
     ) -> Result<(), NetworkError> {
-        Err(NetworkError::DHTError)
+        Err(NetworkError::UnimplementedFeature)
     }
 
     async fn get_record<V: for<'a> serde::Deserialize<'a>>(
         &self,
         _key: impl serde::Serialize + Send + Sync + 'static,
     ) -> Result<V, NetworkError> {
-        Err(NetworkError::DHTError)
+        Err(NetworkError::UnimplementedFeature)
     }
 
     async fn notify_of_subsequent_leader(

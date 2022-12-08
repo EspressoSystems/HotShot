@@ -14,7 +14,7 @@ use async_compatibility_layer::{
 use async_lock::Mutex;
 use bincode::Options;
 use futures::{stream::FuturesOrdered, Future, FutureExt};
-use hotshot_types::traits::network::NetworkError as HotShotNetworkError;
+// use hotshot_types::traits::network::NetworkError as HotShotNetworkError;
 use hotshot_utils::bincode::bincode_opts;
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
@@ -606,14 +606,6 @@ impl<S: Clone> NetworkNodeHandle<S> {
     /// Get a clone of the internal state
     pub async fn state(&self) -> S {
         self.state.cloned().await
-    }
-}
-
-impl From<NetworkNodeHandleError> for HotShotNetworkError {
-    fn from(error: NetworkNodeHandleError) -> Self {
-        HotShotNetworkError::Other {
-            inner: Box::new(error),
-        }
     }
 }
 

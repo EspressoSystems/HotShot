@@ -20,7 +20,7 @@ use hotshot_types::{
     message::Message,
     traits::{
         metrics::{Metrics, NoMetrics},
-        network::{ChannelDisconnectedSnafu, NetworkChange, TestableNetworkingImplementation},
+        network::{NetworkChange, TestableNetworkingImplementation},
         node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
@@ -402,23 +402,6 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
         }
     }
 
-    #[instrument(name = "MemoryNetwork::broadcast_queue")]
-    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
-        let ret = self
-            .inner
-            .broadcast_output
-            .lock()
-            .await
-            .drain_at_least_one()
-            .await
-            .context(ChannelDisconnectedSnafu)?;
-        self.inner
-            .in_flight_message_count
-            .fetch_sub(ret.len(), Ordering::Relaxed);
-        self.inner.metrics.incoming_message_count.add(ret.len());
-        Ok(ret)
-    }
-
     #[instrument(name = "MemoryNetwork::next_broadcast")]
     async fn next_broadcast(&self) -> Result<Message<TYPES>, NetworkError> {
         let ret = self
@@ -433,23 +416,6 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
             .in_flight_message_count
             .fetch_sub(1, Ordering::Relaxed);
         self.inner.metrics.incoming_message_count.add(1);
-        Ok(ret)
-    }
-
-    #[instrument(name = "MemoryNetwork::direct_queue")]
-    async fn direct_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
-        let ret = self
-            .inner
-            .direct_output
-            .lock()
-            .await
-            .drain_at_least_one()
-            .await
-            .context(ChannelDisconnectedSnafu)?;
-        self.inner
-            .in_flight_message_count
-            .fetch_sub(ret.len(), Ordering::Relaxed);
-        self.inner.metrics.incoming_message_count.add(ret.len());
         Ok(ret)
     }
 
@@ -489,7 +455,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
             .await
             .drain_at_least_one()
             .await
-            .context(ChannelDisconnectedSnafu)
+            .map_err(|_| NetworkError::ShutDown)
     }
 
     async fn shut_down(&self) {
