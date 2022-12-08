@@ -161,7 +161,7 @@ async fn test_stress_centralized_server_network() {
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
             StaticCommitteeTestTypes,
             ValidatingLeaf<StaticCommitteeTestTypes>,
-            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            ValidatingProposal<StaticCommitteeTestTypes, StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>>,
             CentralizedServerNetwork<StaticCommitteeTestTypes>,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

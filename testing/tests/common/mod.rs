@@ -448,9 +448,9 @@ pub type AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION> =
     TestRunner<TYPES, AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, ELECTION>>;
 pub type AppliedTestNodeImpl<
     TYPES,
-    LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
-    ELECTION: Election<TYPES>,
+    LEAF,
+    PROPOSAL,
+    ELECTION,
 > = TestNodeImpl<
     TYPES,
     LEAF,
