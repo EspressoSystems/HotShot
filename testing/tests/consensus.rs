@@ -14,7 +14,7 @@ use futures::{
 use hotshot::{demos::dentry::random_leaf, types::Vote};
 use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
 use hotshot_types::{
-    data::LeafType,
+    data::{LeafType, ProposalType},
     event::EventType,
     message::{ConsensusMessage, Proposal},
     traits::{
@@ -40,8 +40,8 @@ enum QueuedMessageTense {
 }
 
 /// Returns true if `node_id` is the leader of `view_number`
-async fn is_upcoming_leader<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
-    runner: &AppliedTestRunner<TYPES, ELECTION>,
+async fn is_upcoming_leader<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>, ELECTION: Election<TYPES, LeafType = LEAF>>(
+    runner: &AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION>,
     node_id: u64,
     view_number: TYPES::Time,
 ) -> bool
@@ -56,8 +56,8 @@ where
 }
 
 /// Builds and submits a random proposal for the specified view number
-async fn submit_proposal<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
-    runner: &AppliedTestRunner<TYPES, ELECTION>,
+async fn submit_proposal<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>, ELECTION: Election<TYPES, LeafType = LEAF>>(
+    runner: &AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION>,
     sender_node_id: u64,
     view_number: TYPES::Time,
 ) where
@@ -83,8 +83,8 @@ async fn submit_proposal<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
 }
 
 /// Builds and submits a random vote for the specified view number from the specified node
-async fn submit_vote<TYPES: NodeTypes, ELECTION: TestableElection<TYPES>>(
-    runner: &AppliedTestRunner<TYPES, ELECTION>,
+async fn submit_vote<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>, ELECTION: TestableElection<TYPES, LeafType = LEAF>>(
+    runner: &AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION>,
     sender_node_id: u64,
     view_number: TYPES::Time,
     recipient_node_id: u64,
@@ -134,9 +134,10 @@ fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
 fn test_vote_queueing_post_safety_check<
     TYPES: NodeTypes,
     LEAF: LeafType<NodeType = TYPES>,
-    ELECTION: Election<TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>,
+    ELECTION: Election<TYPES, LeafType = LEAF>,
 >(
-    runner: &AppliedTestRunner<TYPES, ELECTION>,
+    runner: &AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION>,
     _results: RoundResult<TYPES, LEAF>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
@@ -180,8 +181,8 @@ where
 }
 
 /// For 1..NUM_VIEWS submit votes to each node in the network
-fn test_vote_queueing_round_setup<TYPES: NodeTypes, ELECTION: TestableElection<TYPES>>(
-    runner: &mut AppliedTestRunner<TYPES, ELECTION>,
+fn test_vote_queueing_round_setup<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>, ELECTION: TestableElection<TYPES, LeafType = LEAF>> (
+    runner: &mut AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -206,9 +207,10 @@ where
 fn test_proposal_queueing_post_safety_check<
     TYPES: NodeTypes,
     LEAF: LeafType<NodeType = TYPES>,
-    ELECTION: Election<TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>,
+    ELECTION: Election<TYPES, LeafType = LEAF>,
 >(
-    runner: &AppliedTestRunner<TYPES, ELECTION>,
+    runner: &AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION>,
     _results: RoundResult<TYPES, LEAF>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
@@ -254,8 +256,8 @@ where
 }
 
 /// Submits proposals for 0..NUM_VIEWS rounds where `node_id` is the leader
-fn test_proposal_queueing_round_setup<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
-    runner: &mut AppliedTestRunner<TYPES, ELECTION>,
+fn test_proposal_queueing_round_setup<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>, ELECTION: Election<TYPES, LeafType = LEAF>>(
+    runner: &mut AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -277,8 +279,8 @@ where
 }
 
 /// Submits proposals for views where `node_id` is not the leader, and submits multiple proposals for views where `node_id` is the leader
-fn test_bad_proposal_round_setup<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
-    runner: &mut AppliedTestRunner<TYPES, ELECTION>,
+fn test_bad_proposal_round_setup<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>, ELECTION: Election<TYPES, LeafType = LEAF>>(
+    runner: &mut AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -305,9 +307,10 @@ where
 fn test_bad_proposal_post_safety_check<
     TYPES: NodeTypes,
     LEAF: LeafType<NodeType = TYPES>,
-    ELECTION: Election<TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>,
+    ELECTION: Election<TYPES, LeafType = LEAF>,
 >(
-    runner: &AppliedTestRunner<TYPES, ELECTION>,
+    runner: &mut AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION>,
     _results: RoundResult<TYPES, LEAF>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
@@ -359,8 +362,8 @@ where
 }
 
 /// Submits votes to non-leaders and submits too many votes from a singular node
-fn test_bad_vote_round_setup<TYPES: NodeTypes, ELECTION: TestableElection<TYPES>>(
-    runner: &mut AppliedTestRunner<TYPES, ELECTION>,
+fn test_bad_vote_round_setup<TYPES: NodeTypes,  LEAF: LeafType<NodeType = TYPES>, PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>, ELECTION: TestableElection<TYPES, LeafType = LEAF>>(
+    runner: &mut AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -383,9 +386,10 @@ where
 fn test_bad_vote_post_safety_check<
     TYPES: NodeTypes,
     LEAF: LeafType<NodeType = TYPES>,
-    ELECTION: Election<TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>,
+    ELECTION: Election<TYPES, LeafType = LEAF>,
 >(
-    runner: &AppliedTestRunner<TYPES, ELECTION>,
+    runner: &AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION>,
     _results: RoundResult<TYPES, LEAF>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where

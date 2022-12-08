@@ -9,6 +9,7 @@ use hotshot::traits::{
     implementations::{Libp2pNetwork, MemoryStorage},
 };
 use hotshot_testing::TestNodeImpl;
+use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
 use tracing::instrument;
 
 /// libp2p network test
@@ -35,9 +36,11 @@ async fn libp2p_network() {
     description
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
             StaticCommitteeTestTypes,
-            Libp2pNetwork<StaticCommitteeTestTypes>,
-            MemoryStorage<StaticCommitteeTestTypes>,
-            StaticCommittee<StaticCommitteeTestTypes>,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<StaticCommitteeTestTypes, StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>>,
+            Libp2pNetwork<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>, ValidatingProposal<StaticCommitteeTestTypes, StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>>>,
+            MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         >>()
         .execute()
         .await
@@ -102,9 +105,11 @@ async fn test_stress_libp2p_network() {
     description
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
             StaticCommitteeTestTypes,
-            Libp2pNetwork<StaticCommitteeTestTypes>,
-            MemoryStorage<StaticCommitteeTestTypes>,
-            StaticCommittee<StaticCommitteeTestTypes>,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<StaticCommitteeTestTypes, StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>>,
+            Libp2pNetwork<StaticCommitteeTestTypes,  ValidatingLeaf<StaticCommitteeTestTypes>, ValidatingProposal<StaticCommitteeTestTypes, StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>>>,
+            MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         >>()
         .execute()
         .await

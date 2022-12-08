@@ -9,32 +9,39 @@ use common::{
 };
 use either::Either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
+use hotshot::tasks::{TaskHandler, TaskHandlerType};
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
     ConsensusRoundError, RoundResult,
 };
-use hotshot_types::traits::{
+use hotshot_types::{traits::{
     election::Election,
-    node_implementation::NodeTypes,
+    node_implementation::{NodeTypes, TestableNodeImplementation},
     signature_key::TestableSignatureKey,
-    state::{TestableBlock, TestableState},
-};
+    state::{TestableBlock, TestableState}, network::TestableNetworkingImplementation, storage::TestableStorage,
+}, data::ProposalType};
 use tracing::{error, instrument};
+use hotshot_types::data::LeafType;
 
 /// checks safety requirement; relatively lax
 /// marked as success if 2f+1 nodes "succeeded" and committed the same thing
 pub fn check_safety<
     TYPES: NodeTypes,
-    LEAF: LeafType<NodeTypes = TYPES>,
-    ELECTION: Election<TYPES>,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>,
+    ELECTION: Election<TYPES, LeafType = LEAF>,
+    I: TestableNodeImplementation<TYPES>
 >(
-    runner: &AppliedTestRunner<TYPES, ELECTION>,
+    runner: &AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION>,
     results: RoundResult<TYPES, LEAF>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     async move {
         let num_nodes = runner.ids().len();

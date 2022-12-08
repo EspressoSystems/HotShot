@@ -46,6 +46,8 @@ use snafu::Snafu;
 use std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
 use tracing::{error, info};
 use Either::{Left, Right};
+use hotshot::tasks::TaskHandlerType;
+use hotshot::tasks::TaskHandler;
 
 #[derive(Debug, Snafu)]
 enum RoundError<TYPES: NodeTypes> {
@@ -116,6 +118,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     pub general_info: GeneralTestDescriptionBuilder,
 
@@ -133,6 +136,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<TYPES, I> {
@@ -202,6 +206,7 @@ impl GeneralTestDescriptionBuilder {
         TYPES::SignatureKey: TestableSignatureKey,
         I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
         I::Storage: TestableStorage<TYPES, I::Leaf>,
+        TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
     {
         DetailedTestDescriptionBuilder {
             general_info: self,
@@ -220,6 +225,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     pub fn build(self) -> TestDescription<TYPES, I> {
         let timing_config = TimingData {
@@ -391,11 +397,25 @@ impl NodeTypes for StaticCommitteeTestTypes {
 pub type StandardNodeImplType = TestNodeImpl<
     VrfTestTypes,
     ValidatingLeaf<VrfTestTypes>,
-    ValidatingProposal<VrfTestTypes, TestElection>,
+    ValidatingProposal<VrfTestTypes, VrfImpl<
+        VrfTestTypes,
+        ValidatingLeaf<VrfTestTypes>,
+        BLSSignatureScheme<Param381>,
+        BLSVRFScheme<Param381>,
+        Hasher,
+        Param381,
+    >>,
     MemoryNetwork<
         VrfTestTypes,
         ValidatingLeaf<VrfTestTypes>,
-        ValidatingProposal<VrfTestTypes, TestElection>,
+        ValidatingProposal<VrfTestTypes, VrfImpl<
+            VrfTestTypes,
+            ValidatingLeaf<VrfTestTypes>,
+            BLSSignatureScheme<Param381>,
+            BLSVRFScheme<Param381>,
+            Hasher,
+            Param381,
+        >>,
     >,
     MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
     VrfImpl<
@@ -413,11 +433,11 @@ pub type StandardNodeImplType = TestNodeImpl<
 pub type StaticNodeImplType = TestNodeImpl<
     StaticCommitteeTestTypes,
     ValidatingLeaf<StaticCommitteeTestTypes>,
-    ValidatingProposal<StaticCommitteeTestTypes, TestElection>,
+    ValidatingProposal<StaticCommitteeTestTypes, StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>>,
     MemoryNetwork<
         StaticCommitteeTestTypes,
         ValidatingLeaf<StaticCommitteeTestTypes>,
-        ValidatingProposal<StaticCommitteeTestTypes, TestElection>,
+        ValidatingProposal<StaticCommitteeTestTypes, StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>>,
     >,
     MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -430,7 +450,7 @@ pub type AppliedTestNodeImpl<
     TYPES,
     LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeTypes = TYPES>,
-    ELECTION,
+    ELECTION: Election<TYPES>,
 > = TestNodeImpl<
     TYPES,
     LEAF,
@@ -482,6 +502,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     // make sure the lengths match so zip doesn't spit out none
     if shut_down_ids.len() < submitter_ids.len() {
@@ -541,6 +562,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
 
@@ -579,6 +601,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
 {
     /// create rounds of consensus based on the data in `self`
     pub fn default_populate_rounds(&self) -> Vec<Round<TYPES, I>> {
@@ -603,7 +626,7 @@ where
             .map(|setup| {
                 let safety_check_post: RoundPostSafetyCheck<TYPES, I> = Box::new(
                     move |runner: &TestRunner<TYPES, I>,
-                          results: RoundResult<TYPES>|
+                          results: RoundResult<TYPES, I::Leaf>|
                           -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
                         async move {
                             info!(?results);
@@ -873,11 +896,11 @@ macro_rules! cross_tests {
             common::StaticCommitteeTestTypes,
             hotshot_testing::TestNodeImpl<
                 common::StaticCommitteeTestTypes,
-                ValidatingLeaf<common::StaticCommitteeTestTypes>,
-                ValidatingProposal<common::StaticCommitteeTestTypes, TestElection>,
-                $NETWORK<common::StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>, ValidatingProposal<StaticCommitteeTestTypes, TestElection>>,
-                $STORAGE<common::StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-                hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes, TestElection>
+                hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>,
+                hotshot_types::data::ValidatingProposal<common::StaticCommitteeTestTypes, hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>>,
+                $NETWORK<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>, hotshot_types::data::ValidatingProposal<StaticCommitteeTestTypes, hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>>>,
+                $STORAGE<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,
+                hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>
             >
         >;
         cross_test!(TestType, $fn_name, $e, keep: $keep, slow: false, args: $($args)*);
