@@ -4,8 +4,8 @@ mod common;
 use std::sync::Arc;
 
 use common::{
-    AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
-    StaticCommitteeTestTypes, StaticNodeImplType,
+    AppliedTestNodeImpl, AppliedTestRunner, DetailedTestDescriptionBuilder,
+    GeneralTestDescriptionBuilder, StaticCommitteeTestTypes, StaticNodeImplType,
 };
 use either::Either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
@@ -14,26 +14,30 @@ use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
     ConsensusRoundError, RoundResult,
 };
-use hotshot_types::{traits::{
-    election::Election,
-    node_implementation::{NodeTypes, TestableNodeImplementation},
-    signature_key::TestableSignatureKey,
-    state::{TestableBlock, TestableState}, network::TestableNetworkingImplementation, storage::TestableStorage,
-}, data::ProposalType};
-use tracing::{error, instrument};
 use hotshot_types::data::LeafType;
+use hotshot_types::{
+    data::{ProposalType, ValidatingLeaf, ValidatingProposal},
+    traits::{
+        election::Election,
+        network::TestableNetworkingImplementation,
+        node_implementation::{NodeImplementation, NodeTypes, TestableNodeImplementation},
+        signature_key::TestableSignatureKey,
+        state::{TestableBlock, TestableState},
+        storage::TestableStorage,
+    },
+};
+use tracing::{error, instrument};
 
 /// checks safety requirement; relatively lax
 /// marked as success if 2f+1 nodes "succeeded" and committed the same thing
-pub fn check_safety<
-    TYPES: NodeTypes,
-    LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>,
-    ELECTION: Election<TYPES, LeafType = LEAF>,
-    I: TestableNodeImplementation<TYPES>
->(
-    runner: &AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION>,
-    results: RoundResult<TYPES, LEAF>,
+pub fn check_safety<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>>(
+    runner: &AppliedTestRunner<
+        TYPES,
+        <I as NodeImplementation<TYPES>>::Leaf,
+        <I as NodeImplementation<TYPES>>::Proposal,
+        <I as NodeImplementation<TYPES>>::Election,
+    >,
+    results: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -41,7 +45,8 @@ where
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>:
+        TaskHandlerType<TYPES, AppliedTestNodeImpl<TYPES, I::Leaf, I::Proposal, I::Election>>,
 {
     async move {
         let num_nodes = runner.ids().len();
@@ -90,7 +95,9 @@ async fn test_no_loss_network() {
             gen_runner: None,
         };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Box::new(check_safety));
+    test.rounds[0].safety_check_post = Some(Box::new(
+        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
+    ));
     test.execute().await.unwrap();
 }
 
@@ -101,7 +108,10 @@ async fn test_no_loss_network() {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
-async fn test_synchronous_network() {
+async fn test_synchronous_network()
+where
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
+{
     let description =
         DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
             general_info: GeneralTestDescriptionBuilder {
@@ -115,8 +125,12 @@ async fn test_synchronous_network() {
             gen_runner: None,
         };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Box::new(check_safety));
-    test.rounds[1].safety_check_post = Some(Box::new(check_safety));
+    test.rounds[0].safety_check_post = Some(Box::new(
+        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
+    ));
+    test.rounds[1].safety_check_post = Some(Box::new(
+        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
+    ));
     test.execute().await.unwrap();
 }
 
@@ -128,7 +142,10 @@ async fn test_synchronous_network() {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
-async fn test_asynchronous_network() {
+async fn test_asynchronous_network()
+where
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
+{
     let description =
         DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
             general_info: GeneralTestDescriptionBuilder {
@@ -144,8 +161,12 @@ async fn test_asynchronous_network() {
             gen_runner: None,
         };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Box::new(check_safety));
-    test.rounds[1].safety_check_post = Some(Box::new(check_safety));
+    test.rounds[0].safety_check_post = Some(Box::new(
+        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
+    ));
+    test.rounds[1].safety_check_post = Some(Box::new(
+        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
+    ));
     test.execute().await.unwrap();
 }
 
@@ -157,7 +178,10 @@ async fn test_asynchronous_network() {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
-async fn test_partially_synchronous_network() {
+async fn test_partially_synchronous_network()
+where
+    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
+{
     let asn = AsynchronousNetwork::new(90, 100, 0, 0);
     let sn = SynchronousNetwork::new(10, 0);
     let gst = std::time::Duration::new(10, 0);
@@ -176,7 +200,11 @@ async fn test_partially_synchronous_network() {
             gen_runner: None,
         };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Box::new(check_safety));
-    test.rounds[1].safety_check_post = Some(Box::new(check_safety));
+    test.rounds[0].safety_check_post = Some(Box::new(
+        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
+    ));
+    test.rounds[1].safety_check_post = Some(Box::new(
+        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
+    ));
     test.execute().await.unwrap();
 }

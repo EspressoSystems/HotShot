@@ -548,7 +548,14 @@ pub enum ConsensusTestError {
 }
 
 /// An implementation to make the trio `NETWORK`, `STORAGE` and `STATE` implement [`NodeImplementation`]
-pub struct TestNodeImpl<TYPES: NodeTypes, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION> {
+pub struct TestNodeImpl<
+    TYPES: NodeTypes,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>,
+    NETWORK,
+    STORAGE,
+    ELECTION,
+> {
     _pd_0: PhantomData<TYPES>,
     _pd_1: PhantomData<LEAF>,
     _pd_2: PhantomData<PROPOSAL>,
@@ -560,7 +567,7 @@ pub struct TestNodeImpl<TYPES: NodeTypes, LEAF, PROPOSAL, NETWORK, STORAGE, ELEC
 impl<
         TYPES: NodeTypes,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>,
         NETWORK,
         STORAGE,
         ELECTION,
@@ -625,7 +632,7 @@ where
 impl<
         TYPES: NodeTypes,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>,
         NETWORK,
         STORAGE,
         ELECTION,

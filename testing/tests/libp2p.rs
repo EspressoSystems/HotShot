@@ -37,8 +37,21 @@ async fn libp2p_network() {
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
             StaticCommitteeTestTypes,
             ValidatingLeaf<StaticCommitteeTestTypes>,
-            ValidatingProposal<StaticCommitteeTestTypes, StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>>,
-            Libp2pNetwork<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>, ValidatingProposal<StaticCommitteeTestTypes, StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>>>,
+            ValidatingProposal<
+                StaticCommitteeTestTypes,
+                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            >,
+            Libp2pNetwork<
+                StaticCommitteeTestTypes,
+                ValidatingLeaf<StaticCommitteeTestTypes>,
+                ValidatingProposal<
+                    StaticCommitteeTestTypes,
+                    StaticCommittee<
+                        StaticCommitteeTestTypes,
+                        ValidatingLeaf<StaticCommitteeTestTypes>,
+                    >,
+                >,
+            >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         >>()
@@ -106,8 +119,21 @@ async fn test_stress_libp2p_network() {
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
             StaticCommitteeTestTypes,
             ValidatingLeaf<StaticCommitteeTestTypes>,
-            ValidatingProposal<StaticCommitteeTestTypes, StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>>,
-            Libp2pNetwork<StaticCommitteeTestTypes,  ValidatingLeaf<StaticCommitteeTestTypes>, ValidatingProposal<StaticCommitteeTestTypes, StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>>>,
+            ValidatingProposal<
+                StaticCommitteeTestTypes,
+                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            >,
+            Libp2pNetwork<
+                StaticCommitteeTestTypes,
+                ValidatingLeaf<StaticCommitteeTestTypes>,
+                ValidatingProposal<
+                    StaticCommitteeTestTypes,
+                    StaticCommittee<
+                        StaticCommitteeTestTypes,
+                        ValidatingLeaf<StaticCommitteeTestTypes>,
+                    >,
+                >,
+            >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         >>()

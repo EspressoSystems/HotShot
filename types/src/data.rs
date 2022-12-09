@@ -346,6 +346,8 @@ pub trait LeafType:
 
     fn get_height(&self) -> u64;
 
+    fn set_height(&mut self, height: u64);
+
     fn get_justify_qc(&self) -> QuorumCertificate<Self::NodeType, Self>;
 
     fn get_parent_commitment(&self) -> Commitment<Self>;
@@ -485,6 +487,10 @@ where
         self.height
     }
 
+    fn set_height(&mut self, height: u64) {
+        self.height = height;
+    }
+
     fn get_justify_qc(&self) -> QuorumCertificate<TYPES, Self> {
         self.justify_qc.clone()
     }
@@ -567,6 +573,10 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
 
     fn get_height(&self) -> u64 {
         self.height
+    }
+
+    fn set_height(&mut self, height: u64) {
+        self.height = height;
     }
 
     fn get_justify_qc(&self) -> QuorumCertificate<TYPES, Self> {

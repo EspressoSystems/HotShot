@@ -5,6 +5,8 @@ use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use blake3::Hasher;
 use either::Either;
 use futures::{future::LocalBoxFuture, FutureExt};
+use hotshot::tasks::TaskHandler;
+use hotshot::tasks::TaskHandlerType;
 use hotshot::{
     traits::{
         dummy::DummyState,
@@ -15,8 +17,9 @@ use hotshot::{
         implementations::{MemoryNetwork, MemoryStorage},
         NetworkReliability, NetworkingImplementation,
     },
-    HotShotError,
+    HotShot, HotShotError,
 };
+// use nll::nll_todo::nll_todo;use  async_trait::async_trait;
 use hotshot_testing::{
     ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
     TestNodeImpl, TestRunner,
@@ -46,8 +49,6 @@ use snafu::Snafu;
 use std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
 use tracing::{error, info};
 use Either::{Left, Right};
-use hotshot::tasks::TaskHandlerType;
-use hotshot::tasks::TaskHandler;
 
 #[derive(Debug, Snafu)]
 enum RoundError<TYPES: NodeTypes> {
@@ -397,25 +398,31 @@ impl NodeTypes for StaticCommitteeTestTypes {
 pub type StandardNodeImplType = TestNodeImpl<
     VrfTestTypes,
     ValidatingLeaf<VrfTestTypes>,
-    ValidatingProposal<VrfTestTypes, VrfImpl<
+    ValidatingProposal<
         VrfTestTypes,
-        ValidatingLeaf<VrfTestTypes>,
-        BLSSignatureScheme<Param381>,
-        BLSVRFScheme<Param381>,
-        Hasher,
-        Param381,
-    >>,
-    MemoryNetwork<
-        VrfTestTypes,
-        ValidatingLeaf<VrfTestTypes>,
-        ValidatingProposal<VrfTestTypes, VrfImpl<
+        VrfImpl<
             VrfTestTypes,
             ValidatingLeaf<VrfTestTypes>,
             BLSSignatureScheme<Param381>,
             BLSVRFScheme<Param381>,
             Hasher,
             Param381,
-        >>,
+        >,
+    >,
+    MemoryNetwork<
+        VrfTestTypes,
+        ValidatingLeaf<VrfTestTypes>,
+        ValidatingProposal<
+            VrfTestTypes,
+            VrfImpl<
+                VrfTestTypes,
+                ValidatingLeaf<VrfTestTypes>,
+                BLSSignatureScheme<Param381>,
+                BLSVRFScheme<Param381>,
+                Hasher,
+                Param381,
+            >,
+        >,
     >,
     MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
     VrfImpl<
@@ -433,11 +440,17 @@ pub type StandardNodeImplType = TestNodeImpl<
 pub type StaticNodeImplType = TestNodeImpl<
     StaticCommitteeTestTypes,
     ValidatingLeaf<StaticCommitteeTestTypes>,
-    ValidatingProposal<StaticCommitteeTestTypes, StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>>,
+    ValidatingProposal<
+        StaticCommitteeTestTypes,
+        StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+    >,
     MemoryNetwork<
         StaticCommitteeTestTypes,
         ValidatingLeaf<StaticCommitteeTestTypes>,
-        ValidatingProposal<StaticCommitteeTestTypes, StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>>,
+        ValidatingProposal<
+            StaticCommitteeTestTypes,
+            StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+        >,
     >,
     MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -446,12 +459,7 @@ pub type StaticNodeImplType = TestNodeImpl<
 /// type alias for the test runner type
 pub type AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION> =
     TestRunner<TYPES, AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, ELECTION>>;
-pub type AppliedTestNodeImpl<
-    TYPES,
-    LEAF,
-    PROPOSAL,
-    ELECTION,
-> = TestNodeImpl<
+pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, ELECTION> = TestNodeImpl<
     TYPES,
     LEAF,
     PROPOSAL,
