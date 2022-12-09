@@ -412,17 +412,6 @@ impl<TYPES: NodeTypes<ConsensusType = SequencingConsensus>, I: NodeImplementatio
     }
 }
 
-// TODO (da) This impl should be replaced by above impl for the two types of consensus, but with
-// the two impl, there are "overflow evaluating the requirement" errors.
-// #[async_trait]
-// impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>, CONSENSUS: ConsensusType>
-//     TaskHandlerType<TYPES, I> for TaskHandler<CONSENSUS>
-// {
-//     async fn run_view(hotshot: HotShot<TYPES, I>) -> Result<(), ()> {
-//         nll_todo()
-//     }
-// }
-
 /// main thread driving consensus
 pub async fn view_runner<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES, I>,

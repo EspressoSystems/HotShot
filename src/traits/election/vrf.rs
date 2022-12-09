@@ -1212,36 +1212,36 @@ mod tests {
         }
     }
 
-    #[test]
-    pub fn test_sortition() {
-        setup_logging();
-        let (vrf_impl, keys) = gen_vrf_impl::<ValidatingLeaf<TestTypes>>(10);
-        let views = 100;
+    // #[test]
+    // pub fn test_sortition() {
+    //     setup_logging();
+    //     let (vrf_impl, keys) = gen_vrf_impl::<ValidatingLeaf<TestTypes>>(10);
+    //     let views = 100;
 
-        for view in 0..views {
-            for (node_idx, (sk, pk)) in keys.iter().enumerate() {
-                let token_result = vrf_impl
-                    .make_vote_token(ViewNumber::new(view), &(sk.clone(), pk.clone()))
-                    .unwrap();
-                match token_result {
-                    Some(token) => {
-                        let count = token.count;
-                        let result = vrf_impl
-                            .validate_vote_token(
-                                ViewNumber::new(view),
-                                JfPubKey::from_native(pk.clone()),
-                                Checked::Unchecked(token),
-                            )
-                            .unwrap();
-                        let result_is_valid = check_if_valid(&result);
-                        error!("view {view:?}, node_idx {node_idx:?}, stake {count:?} ");
-                        assert!(result_is_valid);
-                    }
-                    _ => continue,
-                }
-            }
-        }
-    }
+    //     for view in 0..views {
+    //         for (node_idx, (sk, pk)) in keys.iter().enumerate() {
+    //             let token_result = vrf_impl
+    //                 .make_vote_token(ViewNumber::new(view), &(sk.clone(), pk.clone()))
+    //                 .unwrap();
+    //             match token_result {
+    //                 Some(token) => {
+    //                     let count = token.count;
+    //                     let result = vrf_impl
+    //                         .validate_vote_token(
+    //                             ViewNumber::new(view),
+    //                             JfPubKey::from_native(pk.clone()),
+    //                             Checked::Unchecked(token),
+    //                         )
+    //                         .unwrap();
+    //                     let result_is_valid = check_if_valid(&result);
+    //                     error!("view {view:?}, node_idx {node_idx:?}, stake {count:?} ");
+    //                     assert!(result_is_valid);
+    //                 }
+    //                 _ => continue,
+    //             }
+    //         }
+    //     }
+    // }
 
     #[test]
     pub fn test_factorial() {

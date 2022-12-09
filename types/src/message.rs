@@ -100,7 +100,7 @@ impl<
             ConsensusMessage::Proposal(p) => {
                 // view of leader in the leaf when proposal
                 // this should match replica upon receipt
-                nll_todo()
+                p.leaf.get_view_number()
             }
             ConsensusMessage::TimedOut(t) => {
                 // view number on which the replica timed out waiting for proposal

@@ -1009,9 +1009,9 @@ async fn test_decide_leaf_chain() {
                                 ),
                             }
                         );
-                        // TODO (da) what field should be chacked?
+                        //TODO (da) what field should be chacked?
                         // ensure!(
-                        // // qc.block_commitment == leaf.deltas.commit(),
+                        //     leaf.block_commitment == leaf.deltas.commit(),
                         //     SafetyFailedSnafu {
                         //         description: format!(
                         //             "QC {}/{} justifies block {}, but parent leaf has block {}",

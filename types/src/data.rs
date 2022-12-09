@@ -288,11 +288,17 @@ where
 {
     type NodeTypes = TYPES;
     type Election = ELECTION;
+    fn get_view_number(&self) -> <Self::NodeTypes as NodeTypes>::Time {
+        self.view_number
+    }
 }
 
 impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> ProposalType for DAProposal<TYPES, ELECTION> {
     type NodeTypes = TYPES;
     type Election = ELECTION;
+    fn get_view_number(&self) -> <Self::NodeTypes as NodeTypes>::Time {
+        self.view_number
+    }
 }
 
 impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> ProposalType
@@ -302,6 +308,9 @@ where
 {
     type NodeTypes = TYPES;
     type Election = ELECTION;
+    fn get_view_number(&self) -> <Self::NodeTypes as NodeTypes>::Time {
+        self.view_number
+    }
 }
 
 // TODO (da) rename NodeTypes to NodeType for consistency
@@ -311,6 +320,7 @@ pub trait ProposalType:
 {
     type NodeTypes: NodeTypes;
     type Election: Election<Self::NodeTypes>;
+    fn get_view_number(&self) -> <Self::NodeTypes as NodeTypes>::Time;
 }
 
 pub trait LeafType:
@@ -698,11 +708,11 @@ where
             height: leaf.height,
             justify_qc: leaf.justify_qc,
             parent_commitment: leaf.parent_commitment,
-            deltas: leaf.deltas,
+            deltas: leaf.deltas.clone(),
             state_commitment: leaf.state.commit(),
             rejected: leaf.rejected,
             proposer_id: leaf.proposer_id,
-            block_commitment: nll_todo(),
+            block_commitment: leaf.deltas.commit(),
             _pd: PhantomData,
         }
     }
