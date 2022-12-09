@@ -1,13 +1,25 @@
 //! Minimal compatibility over public key signatures
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use espresso_systems_common::hotshot::tag;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
+use tagged_base64::tagged;
 
 #[cfg(feature = "demo")]
 pub mod ed25519;
 
 /// Type saftey wrapper for byte encoded keys
+#[tagged(tag::ENCODED_PUB_KEY)]
 #[derive(
-    Clone, custom_debug::Debug, Hash, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord,
+    Clone,
+    custom_debug::Debug,
+    Hash,
+    CanonicalSerialize,
+    CanonicalDeserialize,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
 )]
 pub struct EncodedPublicKey(#[debug(with = "custom_debug::hexbuf")] pub Vec<u8>);
 

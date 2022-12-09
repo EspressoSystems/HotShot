@@ -2077,8 +2077,8 @@ source = "git+https://github.com/espressosystems/espresso-systems-common?tag=0.1
 
 [[package]]
 name = "espresso-systems-common"
-version = "0.4.0"
-source = "git+https://github.com/espressosystems/espresso-systems-common?tag=0.4.0#5abd890f79014a86db31286e1f3a529f161e69de"
+version = "0.4.1"
+source = "git+https://github.com/espressosystems/espresso-systems-common?tag=0.4.1#2e889e878866c2a5cce1daaab947f7c93d5811ae"
 
 [[package]]
 name = "event-listener"
@@ -2628,7 +2628,7 @@ dependencies = [
  "derivative",
  "digest 0.10.6",
  "embed-doc-image",
- "espresso-systems-common 0.4.0",
+ "espresso-systems-common 0.4.1",
  "futures",
  "hotshot-centralized-server",
  "hotshot-consensus",
@@ -2729,6 +2729,7 @@ version = "0.1.0"
 dependencies = [
  "arbitrary",
  "ark-serialize",
+ "ark-std",
  "async-compatibility-layer",
  "async-std",
  "async-trait",
@@ -2740,7 +2741,7 @@ dependencies = [
  "custom_debug",
  "derivative",
  "ed25519-compact",
- "espresso-systems-common 0.4.0",
+ "espresso-systems-common 0.4.1",
  "futures",
  "hex_fmt",
  "hotshot-utils",
