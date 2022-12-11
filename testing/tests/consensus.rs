@@ -1,6 +1,8 @@
 mod common;
 
+use ark_bls12_381::Parameters as Param381;
 use async_lock::Mutex;
+use blake3::Hasher;
 use commit::{Commitment, Committable};
 use common::{
     AppliedTestNodeImpl, AppliedTestRunner, DetailedTestDescriptionBuilder,
@@ -15,7 +17,7 @@ use futures::{
 use hotshot::{
     demos::dentry::random_leaf,
     tasks::{TaskHandler, TaskHandlerType},
-    traits::election::vrf::VRFStakeTableConfig,
+    traits::election::vrf::{VRFStakeTableConfig, VrfImpl},
     types::Vote,
 };
 use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
@@ -30,6 +32,7 @@ use hotshot_types::{
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
     },
 };
+use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use snafu::{ensure, OptionExt};
 use std::iter::once;
 use std::sync::Arc;
@@ -449,7 +452,7 @@ fn test_bad_proposal_post_safety_check<
     TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 >(
-    runner: &mut AppliedTestRunner<
+    runner: &AppliedTestRunner<
         TYPES,
         ValidatingLeaf<TYPES>,
         ValidatingProposal<TYPES, ELECTION>,
@@ -713,8 +716,19 @@ async fn test_bad_proposal() {
 
     for i in 0..num_rounds {
         test.rounds[i].setup_round = Some(Box::new(test_bad_proposal_round_setup));
-        // TODO (da) fix type mismatch error
-        // test.rounds[i].safety_check_post = Some(Box::new(test_bad_proposal_post_safety_check));
+        test.rounds[i].safety_check_post = Some(Box::new(
+            test_bad_proposal_post_safety_check::<
+                VrfTestTypes,
+                VrfImpl<
+                    VrfTestTypes,
+                    ValidatingLeaf<VrfTestTypes>,
+                    BLSSignatureScheme<Param381>,
+                    BLSVRFScheme<Param381>,
+                    Hasher,
+                    Param381,
+                >,
+            >,
+        ));
     }
 
     test.execute().await.unwrap();
