@@ -160,13 +160,13 @@ where
         let _anchor = self.storage();
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
             if anchor_leaf.view_number == TYPES::Time::genesis() {
-                let leaf: I::Leaf = anchor_leaf.clone().into();
+                let leaf: I::Leaf = anchor_leaf.into();
                 let mut qc = QuorumCertificate::genesis();
                 qc.leaf_commitment = leaf.commit();
                 let event = Event {
                     view_number: TYPES::Time::genesis(),
                     event: EventType::Decide {
-                        leaf_chain: Arc::new(vec![I::Leaf::from_stored_view(anchor_leaf)]),
+                        leaf_chain: Arc::new(vec![leaf]),
                         qc: Arc::new(qc),
                     },
                 };

@@ -594,6 +594,8 @@ where
             let is_upcoming_leader = is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await;
             let ref_view_number = TYPES::Time::new(i - 1);
             let is_past = ref_view_number < cur_view;
+            // FIXME (da) `get_next_leader_receiver_channel_len` returns `Some(8)` when `cur_view=2` and
+            // `i=6`. This causes the `len <= runner.ids().len()` assertion to fail since `8 > 4`.
             let len = handle
                 .get_next_leader_receiver_channel_len(ref_view_number)
                 .await;
@@ -606,16 +608,18 @@ where
                 }
                 QueuedMessageTense::Future(Some(len)) => {
                     if !is_upcoming_leader {
-                    result = Err(ConsensusRoundError::SafetyFailed {
-                        description: format!("Non-leader queued invalid vote message for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                            });
+                        result = Err(ConsensusRoundError::SafetyFailed {
+                            description: format!("Non-leader queued invalid vote message for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                           
+                        });
+                    }
+                    else if len > runner.ids().len() {
+                        result = Err(ConsensusRoundError::SafetyFailed {
+                            description: format!("Next leader queued too many vote messages for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                         
+                        });
+                        // Assert here to fail the test without failed rounds
+                        assert!(len <= runner.ids().len());
+                    }
                 }
-                else if len > runner.ids().len() {
-                    result = Err(ConsensusRoundError::SafetyFailed {
-                        description: format!("Next leader queued too many vote messages for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                            });
-                    // Assert here to fail the test without failed rounds
-                    assert!(len <= runner.ids().len());
-                }
-            }
                 _ => {}
             }
         }
@@ -741,7 +745,7 @@ async fn test_bad_proposal() {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
-#[ignore]
+// #[ignore]
 async fn test_bad_vote() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
@@ -1023,9 +1027,10 @@ async fn test_decide_leaf_chain() {
                                 ),
                             }
                         );
-                        //TODO (da) what field should be chacked?
+                        //TODO (da) QC doesn't have block_commitment anymore. Should we check some
+                        // other field?
                         // ensure!(
-                        //     leaf.block_commitment == leaf.deltas.commit(),
+                        //     qc.block_commitment == leaf.deltas.commit(),
                         //     SafetyFailedSnafu {
                         //         description: format!(
                         //             "QC {}/{} justifies block {}, but parent leaf has block {}",
