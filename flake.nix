@@ -57,6 +57,7 @@
           ];
 
         CARGO_TARGET_DIR = "target_dirs/nix_rustc";
+        NVIM_RUST_ENABLED_FEATURE_FLAGS = "full-ci";
 
         rustOverlay = final: prev: {
           rustc = fenixStable;
@@ -186,7 +187,7 @@
           ];
       in {
         devShell = pkgs.mkShell {
-          inherit CARGO_TARGET_DIR;
+          inherit CARGO_TARGET_DIR NVIM_RUST_ENABLED_FEATURE_FLAGS;
           buildInputs = [ fenixStable ] ++ buildDeps;
         };
 
