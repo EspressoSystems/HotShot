@@ -194,7 +194,7 @@
         devShells = {
           # usage: check correctness
           correctnessShell = pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
+            inherit CARGO_TARGET_DIR NVIM_RUST_ENABLED_FEATURE_FLAGS;
             shellHook = ''
               ulimit -n 1024
             '';
@@ -206,7 +206,7 @@
 
           # usage: compile a statically linked musl binary
           staticShell = pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
+            inherit CARGO_TARGET_DIR NVIM_RUST_ENABLED_FEATURE_FLAGS;
             shellHook = ''
               ulimit -n 1024
               export RUSTFLAGS='-C target-feature=+crt-static'
@@ -217,7 +217,7 @@
 
           # usage: link with mold
           moldShell = pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
+            inherit CARGO_TARGET_DIR NVIM_RUST_ENABLED_FEATURE_FLAGS;
             LD_LIBRARY_PATH = "${pkgs.zlib.out}/lib";
             buildInputs = with pkgs; [ zlib.out fd fenixStable ] ++ buildDeps;
             shellHook = ''
@@ -228,7 +228,7 @@
           # usage: setup for tokio with console
           #        with support for opentelemetry
           consoleShell = pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
+            inherit CARGO_TARGET_DIR NVIM_RUST_ENABLED_FEATURE_FLAGS;
             OTEL_BSP_MAX_EXPORT_BATCH_SIZE = 25;
             OTEL_BSP_MAX_QUEUE_SIZE = 32768;
             OTL_ENABLED = "true";
@@ -245,7 +245,7 @@
 
           # usage: evaluate performance (llvm-cov + flamegraph)
           perfShell = pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
+            inherit CARGO_TARGET_DIR NVIM_RUST_ENABLED_FEATURE_FLAGS;
             buildInputs = with pkgs;
               [ cargo-flamegraph fd cargo-llvm-cov fenixStable ripgrep ]
               ++ buildDeps ++ lib.optionals stdenv.isLinux [
@@ -257,7 +257,7 @@
           # usage: brings in debugging tools including:
           # - lldb: a debugger to be used with vscode
           debugShell = pkgs.mkShell {
-            inherit CARGO_TARGET_DIR;
+            inherit CARGO_TARGET_DIR NVIM_RUST_ENABLED_FEATURE_FLAGS;
             buildInputs = with pkgs; [ fenixStable lldb ] ++ buildDeps;
           };
 
