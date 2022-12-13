@@ -20,10 +20,11 @@ DOC = """
 Post the proposal for view_number
 """
 
-# GET for the next leader to receive votes with view number as an argument
+# GET for the next leader to receive votes with view number and last index as arguments
 [route.getvotes]
-PATH = ["votes/:view_number"]
+PATH = ["votes/:view_number/:index"]
 ":view_number" = "Integer"
+":index" = "Integer"
 METHOD = "GET"
 DOC = """
 Get all votes for a view number`.

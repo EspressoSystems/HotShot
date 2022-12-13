@@ -26,16 +26,18 @@ const MAX_TXNS: usize = 10000;
 struct WebServerState {
     //view number -> proposals
     proposals: HashMap<u128, Vec<Vec<u8>>>,
-    //view number -> votes
-    votes: HashMap<u128, Vec<Vec<u8>>>,
+    //view for oldest proposals in memory
+    oldest_proposal: u128,
+    //view number -> Vec(index, vote)
+    votes: HashMap<u128, Vec<(u128, Vec<u8>)>>,
+    //view number -> highest vote index for that view number
+    vote_index: HashMap<u128, u128>,
+    //view number of oldest votes in memory
+    oldest_vote: u128,
     //index -> transaction
     transactions: HashMap<u128, Vec<u8>>,
     //highest txn index
     num_txns: u128,
-    //view of oldest votes in memory
-    oldest_vote: u128,
-    //view for oldest proposals in memory
-    oldest_proposal: u128,
     //shutdown signal
     shutdown: Option<OneShotReceiver<()>>,
 }
@@ -62,7 +64,7 @@ impl WebServerState {
 /// Trait defining methods needed for the `WebServerState`
 pub trait WebServerDataSource {
     fn get_proposals(&self, view_number: u128) -> Result<Option<Vec<Vec<u8>>>, Error>;
-    fn get_votes(&self, view_number: u128) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    fn get_votes(&self, view_number: u128, index: u128) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn get_transactions(&self, index: u128) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error>;
     fn post_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error>;
@@ -78,11 +80,20 @@ impl WebServerDataSource for WebServerState {
         }
     }
 
-    /// Return all votes the server has received for a particular view
-    fn get_votes(&self, view_number: u128) -> Result<Option<Vec<Vec<u8>>>, Error> {
-        match self.votes.get(&view_number) {
-            Some(votes) => Ok(Some(votes.clone())),
-            None => Ok(None),
+    /// Return all votes the server has received for a particular view from provided index to most recent
+    fn get_votes(&self, view_number: u128, index: u128) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        let votes = self.votes.get(&view_number);
+        let mut ret_votes = vec![];
+        if let Some(votes) = votes  {
+            for i in index..*self.vote_index.get(&view_number).unwrap() {
+                println!("getting vote {:?} for view {:?}", i, view_number);
+                ret_votes.push(votes[i as usize].1.clone());
+            }
+        }
+        if ret_votes.len() > 0 {
+            Ok(Some(ret_votes))
+        } else {
+            Ok(None)
         }
     }
 
@@ -111,10 +122,12 @@ impl WebServerDataSource for WebServerState {
                 self.oldest_vote += 1;
             }
         }
+        let highest_index = self.vote_index.entry(view_number).or_insert(0);
         self.votes
             .entry(view_number)
-            .and_modify(|current_votes| current_votes.push(vote.clone()))
-            .or_insert_with(|| vec![vote]);
+            .and_modify(|current_votes| current_votes.push((*highest_index, vote.clone())))
+            .or_insert_with(|| vec![(*highest_index, vote)]);
+        self.vote_index.entry(view_number).and_modify(|index| *index+=1);
         Ok(())
     }
     /// Stores a received proposal in the `WebServerState`
@@ -186,7 +199,8 @@ where
     .get("getvotes", |req, state| {
         async move {
             let view_number: u128 = req.integer_param("view_number")?;
-            state.get_votes(view_number)
+            let index: u128 = req.integer_param("index")?;
+            state.get_votes(view_number, index)
         }
         .boxed()
     })?
@@ -255,6 +269,7 @@ mod test {
     type Error = ServerError;
 
     #[async_std::test]
+    //KALEY TODO: refactor into smaller tests
     async fn test_web_server() {
         let port = pick_unused_port().unwrap();
         let base_url = format!("0.0.0.0:{port}");
@@ -330,7 +345,7 @@ mod test {
             .await
             .unwrap();
         let resp = client
-            .get::<Option<Vec<Vec<u8>>>>("api/votes/1")
+            .get::<Option<Vec<Vec<u8>>>>("api/votes/1/0")
             .send()
             .await
             .unwrap()
@@ -339,6 +354,15 @@ mod test {
         let res2: &str = bincode::deserialize(&resp[1]).unwrap();
         assert_eq!(vote1, res1);
         assert_eq!(vote2, res2);
+        //check for proper indexing
+        let resp = client
+            .get::<Option<Vec<Vec<u8>>>>("api/votes/1/1")
+            .send()
+            .await
+            .unwrap()
+            .unwrap();
+        let res: &str = bincode::deserialize(&resp[0]).unwrap();
+        assert_eq!(vote2, res);
 
         //test posting/getting transactions
         let txns1 = "abc";
