@@ -363,7 +363,9 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
 
     // TODO Get the next message from the broadcast queue
     async fn next_broadcast(&self) -> Result<Message<TYPES>, NetworkError> {
-        nll_todo()
+        let mut queue = self.inner.broadcast_poll_queue.write().await;
+        let message = queue.remove(0);
+        Ok(message)
     }
 
     // TODO implemented the same as the broadcast queue
@@ -380,7 +382,9 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
 
     // TODO implemented the same as the broadcast queue
     async fn next_direct(&self) -> Result<Message<TYPES>, NetworkError> {
-        nll_todo()
+        let mut queue = self.inner.direct_poll_queue.write().await;
+        let message = queue.remove(0);
+        Ok(message)
     }
 
     // TODO Need to see if this is used anywhere, otherwise can be a no-op
