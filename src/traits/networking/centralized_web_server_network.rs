@@ -1,13 +1,18 @@
 use async_compatibility_layer::{
     art::{async_block_on, async_sleep, async_spawn},
+    async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
     channel::{oneshot, OneShotReceiver, OneShotSender},
 };
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
+use async_tungstenite::tungstenite::handshake::server;
 use bincode::Options;
 use hotshot_centralized_web_server;
-use hotshot_types::data::ViewNumber;
 use hotshot_types::traits::state::ConsensusTime;
+use hotshot_types::{
+    data::ViewNumber,
+    message::{self, ConsensusMessage, DataMessage, MessageKind, Proposal, Vote},
+};
 use hotshot_types::{
     message::Message,
     traits::{
@@ -21,12 +26,14 @@ use hotshot_types::{
     },
 };
 use hotshot_utils::bincode::bincode_opts;
+use libp2p::core::Endpoint;
 use nll::nll_todo::nll_todo;
 
+use rand::seq::index;
 use serde::Deserialize;
 use serde::Serialize;
-use snafu::ResultExt;
-use std::marker::PhantomData;
+use snafu::{whatever, ResultExt};
+use std::{marker::PhantomData, string, thread::sleep};
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -37,7 +44,7 @@ use std::{
 use surf_disco::error;
 use surf_disco::error::ClientError;
 use tide_disco::error::ServerError;
-use tracing::error;
+use tracing::{error, metadata::Kind};
 
 #[derive(Clone, Debug)]
 pub struct CentralizedWebServerNetwork<TYPES: NodeTypes> {
@@ -62,7 +69,7 @@ impl<TYPES: NodeTypes> CentralizedWebServerNetwork<TYPES> {
         let inner = Arc::new(Inner {
             phantom: Default::default(),
             //KALEY todo: init view number? get from server?
-            view_number: RwLock::from(TYPES::Time::new(0)),
+            view_number: Arc::new(SubscribableRwLock::new(TYPES::Time::new(0))),
             broadcast_poll_queue: Default::default(),
             direct_poll_queue: Default::default(),
             running: AtomicBool::new(true),
@@ -95,11 +102,12 @@ struct Inner<TYPES: NodeTypes> {
     phantom: PhantomData<TYPES>,
 
     // Current view number so we can poll accordingly
-    view_number: RwLock<TYPES::Time>,
+    view_number: Arc<SubscribableRwLock<TYPES::Time>>,
 
     // Queue for broadcasted messages (mainly transactions and proposals)
     broadcast_poll_queue: RwLock<Vec<Message<TYPES>>>,
     // Queue for direct messages (mainly votes)
+    // TODO make arc
     direct_poll_queue: RwLock<Vec<Message<TYPES>>>,
     //KALEY: these may not be necessary
     running: AtomicBool,
@@ -107,106 +115,169 @@ struct Inner<TYPES: NodeTypes> {
     client: surf_disco::Client<ServerError>,
 }
 
-// TODO add async task that continually polls for transactions, votes, and proposals.  Will
-// need to inject the view number into this async task somehow.  This async task can put the
-// message it receives into either a `broadcast_queue` or `direct_queue` so that the interace
-// is the same as the other networking impls.  Will also need to implement some message
-// wrapper similar to the other centralized server network that allows the web server
-// to differentiate transactions from proposals.
+async fn poll_web_server<TYPES: NodeTypes>(
+    endpoint: String,
+    connection: Arc<Inner<TYPES>>,
+) -> Result<Option<Vec<Message<TYPES>>>, ClientError> {
+    let result: Result<Option<Vec<Vec<u8>>>, ClientError> =
+        connection.client.get(&endpoint).send().await;
+
+    match result {
+        // TODO ED: change this to be more Rust-like?
+        Err(error) => Err(error),
+        Ok(Some(messages)) => {
+            let mut deserialized_messages = Vec::new();
+            messages.iter().for_each(|message| {
+                let deserialized_message = bincode::deserialize::<Message<TYPES>>(message).unwrap();
+                deserialized_messages.push(deserialized_message);
+            });
+            Ok(Some(deserialized_messages))
+        }
+        Ok(None) => Ok(None),
+    }
+}
+
+async fn poll_generic<TYPES: NodeTypes>(
+    connection: Arc<Inner<TYPES>>,
+    kind: MessageType,
+    wait_between_polls: Duration,
+    num_views_ahead: u64,
+) -> Result<(), ServerError> {
+    let mut index: u128 = 0;
+
+    let receiver = connection.view_number.subscribe().await;
+    let mut view_number = connection.view_number.copied().await;
+    view_number += num_views_ahead;
+
+    loop {
+        let mut endpoint = String::new();
+        // TODO ED probably want to export these endpoints from the web server so we aren't hardcoding them here
+        match kind {
+            MessageType::Proposal => {
+                endpoint = format!("/api/proposal/{}", view_number.to_string())
+            }
+            MessageType::VoteTimedOut => {
+                endpoint = format!("/api/votes/{}", view_number.to_string())
+            }
+            MessageType::Transaction => {
+                endpoint = format!("/api/transactions/{}", index.to_string())
+            }
+            _ => nll_todo(),
+        }
+        // TODO ED: Only poll for votes if we are the leader
+        let possible_message = poll_web_server(endpoint.clone(), connection.clone()).await;
+        match possible_message {
+            Err(error) => {
+                error!("{:?}", error);
+                async_sleep(wait_between_polls).await;
+            }
+            Ok(Some(deserialized_messages)) => match kind {
+                MessageType::Proposal => {
+                    // Only pushing the first proposal here since we will soon only be allowing 1 proposal per view
+                    connection
+                        .broadcast_poll_queue
+                        .write()
+                        .await
+                        .push(deserialized_messages[0].clone());
+                    view_number = receiver.recv().await.unwrap();
+                }
+                MessageType::VoteTimedOut => {
+                    let mut direct_poll_queue = connection.direct_poll_queue.write().await;
+                    deserialized_messages.iter().for_each(|vote| {
+                        direct_poll_queue.push(vote.clone());
+                    });
+                }
+                MessageType::Transaction => {
+                    let mut lock = connection.broadcast_poll_queue.write().await;
+                    deserialized_messages.iter().for_each(|tx| {
+                        index += 1;
+                        lock.push(tx.clone());
+                    });
+                }
+                _ => nll_todo(),
+            },
+            Ok(None) => {
+                // TODO ED: Worth it to use recv_timeout?
+                async_sleep(wait_between_polls).await;
+            }
+        }
+
+        // It seems better to only update the view number if it changes,
+        // rather than reading the view each loop
+        let new_view_number = receiver.try_recv();
+        if new_view_number.is_ok() {
+            view_number = new_view_number.unwrap();
+            view_number += num_views_ahead;
+        }
+    }
+
+    Ok(())
+}
+
+enum MessageType {
+    Transaction,
+    VoteTimedOut,
+    Proposal,
+}
 
 async fn run_background_receive<TYPES: NodeTypes>(
     connection: Arc<Inner<TYPES>>,
 ) -> Result<(), ServerError> {
-    // TODO ED: separate this polling so it is not linear,
-    // poll future views
-
     println!("Run background receive task has started!");
-    // Just poll current view for now:
-    loop {
-        let view_number = connection.view_number.read().await;
+    let wait_between_polls = Duration::from_millis(500);
 
-        // TODO ED: Actually track transaction index
-        let possible_transactions: Result<Option<Vec<Vec<u8>>>, ClientError> = connection
-            .client
-            .get(&format!("/api/transactions/0"))
-            .send()
-            .await;
-
-        match possible_transactions {
-            Err(error) => error!("Transaction error is: {:?}", error),
-            Ok(Some(transactions)) => {
-                println!("Found a tx!");
-                let mut lock = connection.broadcast_poll_queue.write().await;
-                transactions.iter().for_each(|tx| {
-                    let deserialized_tx = bincode::deserialize::<Message<TYPES>>(tx).unwrap();
-                    // println!("prop is {:?}", deserialized_proposal.kind);
-                    // WHY causing issues?
-                    lock.push(deserialized_tx.clone());
-                });
-            }
-            Ok(None) => {
-                println!("No transactions")
-            }
+    let proposal_handle = async_spawn({
+        let connection_ref = connection.clone();
+        async move { poll_generic(connection_ref, MessageType::Proposal, wait_between_polls, 0).await }
+    });
+    let vote_handle = async_spawn({
+        let connection_ref = connection.clone();
+        async move {
+            poll_generic(
+                connection_ref,
+                MessageType::VoteTimedOut,
+                wait_between_polls,
+                0,
+            )
+            .await
         }
-
-        let possible_proposal: Result<Option<Vec<Vec<u8>>>, ClientError> = connection
-            .client
-            .get(&format!("/api/proposal/{}", view_number.to_string()))
-            .send()
-            .await;
-
-        // TODO ED stop polling once we have a proposal
-        match possible_proposal {
-            // TODO ED: differentiate between different errors, some errors mean there is nothing in the queue,
-            // others could mean an actual error; perhaps nothing should return None instead of an error
-            Err(error) => panic!("Proposal error is: {:?}", error),
-            Ok(Some(proposals)) => {
-                // println!("{:?}", proposals);
-                // Add proposal to broadcast queue
-                let mut lock = connection.broadcast_poll_queue.write().await;
-                proposals.iter().for_each(|proposal| {
-                    let deserialized_proposal =
-                        bincode::deserialize::<Message<TYPES>>(proposal).unwrap();
-                    // println!("prop is {:?}", deserialized_proposal.kind);
-                    // WHY causing issues?
-                    lock.push(deserialized_proposal.clone());
-                });
-            }
-            Ok(None) => println!("Proposal is None"),
+    });
+    let transaction_handle = async_spawn({
+        let connection_ref = connection.clone();
+        async move {
+            poll_generic(
+                connection_ref,
+                MessageType::Transaction,
+                wait_between_polls,
+                0,
+            )
+            .await
         }
+    });
 
-        let possible_vote: Result<Option<Vec<Vec<u8>>>, ClientError> = connection
-            .client
-            .get(&format!("/api/votes/{}", view_number.to_string()))
-            .send()
-            .await;
-
-        // TODO ED stop polling once we have a proposal
-        match possible_vote {
-            // TODO ED: differentiate between different errors, some errors mean there is nothing in the queue,
-            // others could mean an actual error; perhaps nothing should return None instead of an error
-            Err(error) => panic!("Vote error is: {:?}", error),
-            Ok(Some(votes)) => {
-                // println!("{:?}", proposals);
-                // Add proposal to broadcast queue
-                let mut lock = connection.direct_poll_queue.write().await;
-                votes.iter().for_each(|vote| {
-                    let deserialized_vote = bincode::deserialize::<Message<TYPES>>(vote).unwrap();
-                    println!("voteis {:?}", deserialized_vote.kind);
-                    // WHY causing issues?
-                    lock.push(deserialized_vote.clone());
-                });
-                // Shouldn't need this:
-                drop(lock);
-            }
-
-            Ok(None) => println!("vote is None"),
+    let proposal_handle_plus_one = async_spawn({
+        let connection_ref = connection.clone();
+        async move {
+            poll_generic(
+                connection_ref,
+                MessageType::Proposal,
+                wait_between_polls * 2,
+                1,
+            )
+            .await
         }
+    });
 
-        // TODO ED: Adjust this parameter once things are working
-        async_sleep(Duration::from_millis(300)).await;
-    }
-    // TODO ED: propogate errors from above once we change the way empty responses are received
+    // await them all:
+    let mut task_handles = Vec::new();
+    task_handles.push(proposal_handle);
+    task_handles.push(vote_handle);
+    task_handles.push(transaction_handle);
+    task_handles.push(proposal_handle_plus_one);
+
+    let children_finished = futures::future::join_all(task_handles);
+    let result = children_finished.await;
+
     Ok(())
 }
 
@@ -265,7 +336,6 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
         match message.clone().kind {
             // Vote or timeout message
             hotshot_types::message::MessageKind::Consensus(m) => {
-                // println!("Consensus Message Is: {:?}", message.clone().kind);
                 let sent_vote: Result<(), ServerError> = self
                     .inner
                     .client
@@ -287,11 +357,8 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     // For now that task can dump transactions and proposals into the same queue
     async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
         let mut queue = self.inner.broadcast_poll_queue.write().await;
-        println!("Q len is {}", queue.len());
         let messages = queue.drain(..).collect();
-        println!("message are {:?}", messages);
         Ok(messages)
-        // nll_todo()
     }
 
     // TODO Get the next message from the broadcast queue
@@ -364,12 +431,18 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
             "Inject view number called with view: {:?}",
             view_number.clone()
         );
-        let old_view = self.inner.view_number.upgradable_read().await;
-        if *old_view < view_number {
-            let mut new_view = RwLockUpgradableReadGuard::upgrade(old_view).await;
-            *new_view = view_number;
-            println!("New inject view number is: {:?}", new_view);
-        }
+        self.inner
+            .view_number
+            .modify(|current_view_number| {
+                *current_view_number = view_number;
+            })
+            .await;
+        // let old_view = self.inner.view_number.upgradable_read().await;
+        // if *old_view < view_number {
+        //     let mut new_view = RwLockUpgradableReadGuard::upgrade(old_view).await;
+        //     *new_view = view_number;
+        //     println!("New inject view number is: {:?}", new_view);
+        // }
     }
 }
 
