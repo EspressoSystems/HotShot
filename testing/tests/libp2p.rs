@@ -93,6 +93,7 @@ async fn libp2p_network() {
 //         .unwrap();
 // }
 
+// This test is ignored because it doesn't pass consistently.
 // stress test for libp2p
 #[cfg_attr(
     feature = "tokio-executor",

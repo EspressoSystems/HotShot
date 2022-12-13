@@ -499,15 +499,15 @@ where
                     }
                     QueuedMessageTense::Future(Some(len)) => {
                         if !is_upcoming_leader && ref_view_number != cur_view {
-                        result = Err(ConsensusRoundError::SafetyFailed {
-                            description: format!("Replica queued invalid Proposal message that was not sent from the leader for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
-                    }
-                    else if len > 1 {
-                        result = Err(ConsensusRoundError::SafetyFailed {
-                            description: format!("Replica queued too many Proposal messages for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
+                            result = Err(ConsensusRoundError::SafetyFailed {
+                                description: format!("Replica queued invalid Proposal message that was not sent from the leader for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
+                        }
+                        else if len > 1 {
+                            result = Err(ConsensusRoundError::SafetyFailed {
+                                description: format!("Replica queued too many Proposal messages for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
 
+                        }
                     }
-                }
                     _ => {}
                 }
             }
@@ -733,38 +733,6 @@ async fn test_bad_proposal() {
                 >,
             >,
         ));
-    }
-
-    test.execute().await.unwrap();
-}
-
-/// Tests that next leaders handle bad Votes properly.  We allow `num_rounds` of failures because replicas will not be able to come to consensus with the bad votes we submit to them
-#[cfg_attr(
-    feature = "tokio-executor",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
-#[cfg_attr(feature = "async-std-executor", async_std::test)]
-#[instrument]
-// #[ignore]
-async fn test_bad_vote() {
-    let num_rounds = 10;
-    let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
-        DetailedTestDescriptionBuilder {
-            general_info: GeneralTestDescriptionBuilder {
-                total_nodes: 4,
-                start_nodes: 4,
-                num_succeeds: num_rounds,
-                failure_threshold: num_rounds,
-                ..GeneralTestDescriptionBuilder::default()
-            },
-            rounds: None,
-            gen_runner: None,
-        };
-    let mut test = description.build();
-
-    for i in 0..num_rounds {
-        test.rounds[i].setup_round = Some(Box::new(test_bad_vote_round_setup));
-        test.rounds[i].safety_check_post = Some(Box::new(test_bad_vote_post_safety_check));
     }
 
     test.execute().await.unwrap();

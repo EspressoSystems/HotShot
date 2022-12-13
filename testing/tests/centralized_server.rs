@@ -141,6 +141,7 @@ async fn centralized_server_network() {
 //     shutdown_logging();
 // }
 
+// This test is ignored because it doesn't pass consistently.
 // stress test for a centralized server
 #[cfg_attr(
     feature = "tokio-executor",

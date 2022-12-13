@@ -59,7 +59,7 @@ where
     TYPES::BlockType: TestableBlock,
 {
     /// Run one view of the leader task
-    // #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
+    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
         let pk = self.api.public_key();
         error!("Leader task started!");
