@@ -11,7 +11,6 @@ use hotshot_types::{
         election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
-        state::ValidatingConsensus,
     },
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -1115,7 +1114,7 @@ mod tests {
         traits::{
             block_contents::dummy::{DummyBlock, DummyTransaction},
             node_implementation::ApplicationMetadata,
-            state::{dummy::DummyState, ConsensusTime},
+            state::{dummy::DummyState, ConsensusTime, ValidatingConsensus},
         },
     };
     use jf_primitives::{

@@ -1,4 +1,6 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(missing_docs)]
 
 use super::node_implementation::NodeTypes;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};

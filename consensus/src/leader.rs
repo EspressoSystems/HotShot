@@ -46,6 +46,8 @@ pub struct Leader<
     /// Limited access to the consensus protocol
     pub api: A,
 
+    #[allow(missing_docs)]
+    #[allow(clippy::missing_docs_in_private_items)]
     pub _pd: PhantomData<ELECTION>,
 }
 
@@ -188,10 +190,7 @@ where
                 TYPES,
                 ValidatingLeaf<TYPES>,
                 ValidatingProposal<TYPES, ELECTION>,
-            >::Proposal(Proposal {
-                leaf: ValidatingProposal::from(leaf),
-                signature,
-            });
+            >::Proposal(Proposal { leaf, signature });
             consensus
                 .metrics
                 .proposal_build_duration

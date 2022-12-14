@@ -11,15 +11,14 @@ use async_trait::async_trait;
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
     constants::LOOK_AHEAD,
-    data::{QuorumCertificate, ValidatingLeaf, ValidatingProposal},
+    data::{ValidatingLeaf, ValidatingProposal},
     message::MessageKind,
     traits::{
         election::Election,
         network::NetworkingImplementation,
         node_implementation::{NodeImplementation, NodeTypes},
         state::{
-            ConsensusType, SequencingConsensus, SequencingConsensusType, TestableBlock,
-            TestableState, ValidatingConsensus, ValidatingConsensusType,
+            ConsensusType, SequencingConsensus, TestableBlock, TestableState, ValidatingConsensus,
         },
     },
     ExecutionType,
@@ -34,7 +33,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use tracing::{error, info, info_span, instrument, trace, Instrument};
+use tracing::{error, info, info_span, trace, Instrument};
 
 #[cfg(feature = "async-std-executor")]
 use async_std::task::{yield_now, JoinHandle};

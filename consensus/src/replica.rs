@@ -38,6 +38,7 @@ pub struct Replica<
     /// Reference to consensus. Replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, ValidatingLeaf<TYPES>>>>,
     /// channel for accepting leader proposals and timeouts messages
+    #[allow(clippy::type_complexity)]
     pub proposal_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
@@ -65,6 +66,7 @@ where
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
+    #[allow(clippy::type_complexity)]
     async fn find_valid_msg<'a>(
         &self,
         view_leader_key: TYPES::SignatureKey,

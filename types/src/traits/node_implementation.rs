@@ -2,6 +2,8 @@
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(missing_docs)]
 
 use serde::{Deserialize, Serialize};
 

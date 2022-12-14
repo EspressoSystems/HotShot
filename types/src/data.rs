@@ -4,6 +4,7 @@
 //! `HotShot`'s version of a block, and the [`QuorumCertificate`], representing the threshold
 //! signatures fundamental to consensus.
 #![allow(clippy::missing_docs_in_private_items)]
+#![allow(missing_docs)]
 
 use crate::{
     constants::genesis_proposer_id,
@@ -21,6 +22,7 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
 use espresso_systems_common::hotshot::tag;
+#[allow(deprecated)]
 use nll::nll_todo::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -157,6 +159,7 @@ where
     CERT: SignedCertificate<SIGNATURE>,
 {
     fn append(_val: Vec<(EncodedSignature, SIGNATURE)>) -> Either<Self, CERT> {
+        #[allow(deprecated)]
         nll_todo()
     }
 }
@@ -248,7 +251,7 @@ where
     /// since we are using this in our validity checks when accepting a proposal
     pub proposer_id: EncodedPublicKey,
 
-    #[allow(clippy::missing_docs_in_private_items)]
+    #[allow(missing_docs)]
     pub _pd: PhantomData<ELECTION>,
 }
 
@@ -259,7 +262,6 @@ pub struct DAProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
     /// View this proposal applies to
     pub view_number: TYPES::Time,
 
-    #[allow(clippy::missing_docs_in_private_items)]
     pub _pd: PhantomData<ELECTION>,
 }
 
@@ -268,6 +270,7 @@ pub struct DAProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[serde(bound(deserialize = ""))]
 pub struct CommitmentProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
+    #[allow(clippy::missing_docs_in_private_items)]
     pub block_commitment: Commitment<TYPES::BlockType>,
 
     /// CurView from leader when proposing leaf
@@ -646,6 +649,7 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
         &self,
         _rng: &mut dyn rand::RngCore,
     ) -> <<Self::NodeType as NodeTypes>::BlockType as Block>::Transaction {
+        #[allow(deprecated)]
         nll_todo()
     }
 }
@@ -700,6 +704,7 @@ where
 
 impl<TYPES: NodeTypes> Committable for DALeaf<TYPES> {
     fn commit(&self) -> commit::Commitment<Self> {
+        #[allow(deprecated)]
         nll_todo()
     }
 }

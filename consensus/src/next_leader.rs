@@ -34,6 +34,7 @@ pub struct NextLeader<
     /// generic_qc before starting this
     pub generic_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     /// channel through which the leader collects votes
+    #[allow(clippy::type_complexity)]
     pub vote_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<

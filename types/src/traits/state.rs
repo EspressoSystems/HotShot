@@ -2,6 +2,8 @@
 //!
 //! This module provides the [`State`] trait, which serves as an compatibility over the current
 //! network state, which is modified by the transactions contained within blocks.
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(missing_docs)]
 
 use crate::traits::Block;
 use commit::Committable;

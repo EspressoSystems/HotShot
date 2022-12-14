@@ -17,22 +17,19 @@ use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
-    data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal},
+    data::{LeafType, ProposalType},
     message::Message,
     traits::{
-        election::Election,
         metrics::{Metrics, NoMetrics},
         network::{ChannelDisconnectedSnafu, NetworkChange, TestableNetworkingImplementation},
         node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
-        state::ValidatingConsensus,
     },
 };
 use hotshot_utils::bincode::bincode_opts;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
-use std::marker::PhantomData;
 use std::{
     fmt::Debug,
     sync::{
@@ -570,13 +567,13 @@ impl<
 // used.
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::{
         demos::dentry::{DEntryBlock, DEntryState, DEntryTransaction},
         traits::election::static_committee::{StaticElectionConfig, StaticVoteToken},
     };
-
-    use super::*;
     use async_compatibility_layer::logging::setup_logging;
+    use hotshot_types::traits::state::ValidatingConsensus;
     use hotshot_types::{
         data::ViewNumber,
         traits::{

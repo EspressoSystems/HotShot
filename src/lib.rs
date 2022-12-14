@@ -56,7 +56,6 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
-use either::Either;
 use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, SendToTasks, View, ViewInner, ViewQueue,
 };

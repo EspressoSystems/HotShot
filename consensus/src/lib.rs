@@ -37,7 +37,7 @@ use hotshot_types::{
     error::HotShotError,
     traits::{
         metrics::{Gauge, Histogram, Metrics},
-        node_implementation::{NodeImplementation, NodeTypes},
+        node_implementation::NodeTypes,
     },
 };
 use std::{
