@@ -28,14 +28,12 @@ use bincode::Options;
 use dashmap::DashMap;
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use hotshot_types::{
-    data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal},
+    data::{LeafType, ProposalType},
     message::Message as HotShotMessage,
     traits::{
-        election::Election,
         network::{NetworkChange, TestableNetworkingImplementation},
         node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
-        state::ValidatingConsensus,
     },
 };
 use hotshot_utils::bincode::bincode_opts;

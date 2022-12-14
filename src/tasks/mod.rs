@@ -214,6 +214,7 @@ where
 }
 
 pub struct TaskHandler<CONSENSUS: ConsensusType> {
+    #[allow(clippy::missing_docs_in_private_items)]
     _pd: PhantomData<CONSENSUS>,
 }
 

@@ -14,12 +14,11 @@ use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
     ConsensusRoundError, RoundResult,
 };
-// use hotshot_types::data::LeafType;
 use hotshot_types::traits::{
     network::TestableNetworkingImplementation,
     node_implementation::{NodeImplementation, NodeTypes, TestableNodeImplementation},
     signature_key::TestableSignatureKey,
-    state::{TestableBlock, TestableState, ValidatingConsensus},
+    state::{TestableBlock, TestableState},
     storage::TestableStorage,
 };
 use tracing::{error, instrument};
@@ -105,8 +104,8 @@ async fn test_no_loss_network() {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_synchronous_network()
-where
-    TaskHandler<ValidatingConsensus>: TaskHandlerType<StaticCommitteeTestTypes, StaticNodeImplType>,
+// where
+//     TaskHandler<ValidatingConsensus>: TaskHandlerType<StaticCommitteeTestTypes, StaticNodeImplType>,
 {
     let description =
         DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
@@ -139,8 +138,6 @@ where
 #[instrument]
 #[ignore]
 async fn test_asynchronous_network()
-where
-    TaskHandler<ValidatingConsensus>: TaskHandlerType<StaticCommitteeTestTypes, StaticNodeImplType>,
 {
     let description =
         DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
@@ -175,8 +172,6 @@ where
 #[instrument]
 #[ignore]
 async fn test_partially_synchronous_network()
-where
-    TaskHandler<ValidatingConsensus>: TaskHandlerType<StaticCommitteeTestTypes, StaticNodeImplType>,
 {
     let asn = AsynchronousNetwork::new(90, 100, 0, 0);
     let sn = SynchronousNetwork::new(10, 0);
