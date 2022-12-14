@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
     constants::LOOK_AHEAD,
-    data::{ValidatingLeaf, ValidatingProposal},
+    data::{ValidatingLeaf, ValidatingProposal, QuorumCertificate},
     message::MessageKind,
     traits::{
         election::Election,
