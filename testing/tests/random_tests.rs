@@ -14,8 +14,6 @@ use hotshot::{
 // #[cfg(feature = "slow-tests")]
 use std::{collections::HashSet, iter::FromIterator};
 
-
-
 cross_all_types!(
     test_fail_first_node_regression_small,
     GeneralTestDescriptionBuilder {

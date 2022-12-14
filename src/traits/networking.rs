@@ -13,11 +13,9 @@ pub mod memory_network;
 pub mod w_network;
 
 pub use hotshot_types::traits::network::{
-    ChannelSendSnafu, CouldNotDeliverSnafu,
-    FailedToDeserializeSnafu, FailedToSerializeSnafu,
-    IdentityHandshakeSnafu, NetworkError, NetworkReliability,
-    NetworkingImplementation, NoSocketsSnafu, NoSuchNodeSnafu, ShutDownSnafu,
-    SocketDecodeSnafu, WebSocketSnafu,
+    ChannelSendSnafu, CouldNotDeliverSnafu, FailedToDeserializeSnafu, FailedToSerializeSnafu,
+    IdentityHandshakeSnafu, NetworkError, NetworkReliability, NetworkingImplementation,
+    NoSocketsSnafu, NoSuchNodeSnafu, ShutDownSnafu, SocketDecodeSnafu, WebSocketSnafu,
 };
 
 use hotshot_types::traits::metrics::{Counter, Gauge, Metrics};

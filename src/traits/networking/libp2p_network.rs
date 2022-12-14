@@ -518,7 +518,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
                 Err(e) => {
                     self.inner.metrics.message_failed_to_send.add(1);
                     error!("Failed to message {:?} because could not find recipient peer id for pk {:?}", message, recipient);
-                    return Err(NetworkError::Libp2p { source: e } );
+                    return Err(NetworkError::Libp2p { source: e });
                 }
             }
         };

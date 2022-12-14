@@ -26,8 +26,9 @@ use hotshot_types::{
     traits::{
         metrics::{Metrics, NoMetrics},
         network::{
-            FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
-            NetworkingImplementation, TestableNetworkingImplementation, CentralizedServerNetworkError,
+            CentralizedServerNetworkError, FailedToDeserializeSnafu, FailedToSerializeSnafu,
+            NetworkChange, NetworkError, NetworkingImplementation,
+            TestableNetworkingImplementation,
         },
         node_implementation::NodeTypes,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},

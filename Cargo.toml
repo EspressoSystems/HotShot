@@ -8,7 +8,7 @@ version = "0.3.3"
 rust-version = "1.65.0"
 
 [features]
-default = ["demo", "docs", "doc-images", "full-ci"]
+default = ["demo", "docs", "doc-images"]
 
 # Enable demo/testing logic
 demo = ["dep:blake3", "hotshot-types/demo", "libp2p/rsa", "dep:derivative"]
@@ -119,7 +119,7 @@ itertools = "0.10"
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2", features = [
         "std",
 ] }
-libp2p-swarm-derive = { version = "=0.31.0" } 
+libp2p-swarm-derive = { version = "=0.31.0" }
 libp2p-networking = { path = "./libp2p-networking", version = "0.1.0", default-features = false }
 libp2p = { version = "0.49.0", default-features = false, features = [
         "autonat",

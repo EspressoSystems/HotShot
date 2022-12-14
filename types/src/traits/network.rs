@@ -11,10 +11,10 @@ use tokio::time::error::Elapsed as TimeoutError;
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 use super::{node_implementation::NodeTypes, signature_key::SignatureKey};
-use hotshot_utils::hotshot_task::TaskMessage;
 use crate::message::Message;
 use async_trait::async_trait;
 use async_tungstenite::tungstenite::error as werror;
+use hotshot_utils::hotshot_task::TaskMessage;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use std::{
@@ -22,19 +22,18 @@ use std::{
     time::Duration,
 };
 
-
 impl From<NetworkNodeHandleError> for NetworkError {
     fn from(error: NetworkNodeHandleError) -> Self {
         match error {
-            NetworkNodeHandleError::SerializationError { source } =>
-                NetworkError::FailedToSerialize { source },
-            NetworkNodeHandleError::DeserializationError { source } =>
-                NetworkError::FailedToSerialize { source },
-            NetworkNodeHandleError::TimeoutError { source } => {
-                NetworkError::Timeout { source }
-            },
+            NetworkNodeHandleError::SerializationError { source } => {
+                NetworkError::FailedToSerialize { source }
+            }
+            NetworkNodeHandleError::DeserializationError { source } => {
+                NetworkError::FailedToSerialize { source }
+            }
+            NetworkNodeHandleError::TimeoutError { source } => NetworkError::Timeout { source },
             NetworkNodeHandleError::Killed => NetworkError::ShutDown,
-            source => NetworkError::Libp2p { source }
+            source => NetworkError::Libp2p { source },
         }
     }
 }
@@ -72,7 +71,7 @@ pub enum WNetworkError {
 /// for any errors we decide to add to memory network
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
-pub enum MemoryNetworkError { }
+pub enum MemoryNetworkError {}
 
 /// Centralized server specific errors
 #[derive(Debug, Snafu)]
@@ -96,17 +95,17 @@ pub enum NetworkError {
     WNetwork {
         /// source of error
         #[allow(deprecated)]
-        source: WNetworkError
+        source: WNetworkError,
     },
     /// memory network specific errors
     MemoryNetwork {
         /// source of error
-        source: MemoryNetworkError
+        source: MemoryNetworkError,
     },
     /// Centralized server specific errors
     CentralizedServer {
         /// source of error
-        source: CentralizedServerNetworkError
+        source: CentralizedServerNetworkError,
     },
     /// unimplemented functionality
     UnimplementedFeature,
