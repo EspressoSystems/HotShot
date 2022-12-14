@@ -22,7 +22,7 @@ use hotshot_types::{
         network::TestableNetworkingImplementation,
         node_implementation::{NodeImplementation, NodeTypes, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
-        state::{TestableBlock, TestableState},
+        state::{TestableBlock, ValidatingConsensus,TestableState},
         storage::TestableStorage,
     },
 };
@@ -110,7 +110,7 @@ async fn test_no_loss_network() {
 #[instrument]
 async fn test_synchronous_network()
 where
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
+    TaskHandler<ValidatingConsensus>: TaskHandlerType<StaticCommitteeTestTypes, StaticNodeImplType>,
 {
     let description =
         DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
@@ -144,7 +144,7 @@ where
 #[ignore]
 async fn test_asynchronous_network()
 where
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
+    TaskHandler<ValidatingConsensus>: TaskHandlerType<StaticCommitteeTestTypes, StaticNodeImplType>,
 {
     let description =
         DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
@@ -180,7 +180,7 @@ where
 #[ignore]
 async fn test_partially_synchronous_network()
 where
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
+    TaskHandler<ValidatingConsensus>: TaskHandlerType<StaticCommitteeTestTypes, StaticNodeImplType>,
 {
     let asn = AsynchronousNetwork::new(90, 100, 0, 0);
     let sn = SynchronousNetwork::new(10, 0);
