@@ -65,7 +65,11 @@ pub trait ElectionConfig:
 {
 }
 
+/// Describes any aggreation of signatures or votes.
 pub trait Accumulator<T, U>: Sized {
+    /// accumates the val to the current state.  If
+    /// A threshold is reached we Return U (which could a certificate or similar)
+    /// else we return self and can continue accumulation items.
     fn append(val: Vec<T>) -> Either<Self, U>;
 }
 
@@ -83,7 +87,7 @@ where
 /// Describes how `HotShot` chooses committees and leaders
 /// TODO do we need the static lifetime requirement here?
 /// TODO (da) make a separate vote token type for DA and QC
-/// @ny thinks we should make the vote token types be bound to ConsensusType
+/// @ny thinks we should make the vote token types be bound to `ConsensusType`
 pub trait Election<TYPES: NodeTypes>: Clone + Eq + PartialEq + Send + Sync + 'static {
     /// Data structure describing the currently valid states
     /// TODO make this a trait so we can pass in places

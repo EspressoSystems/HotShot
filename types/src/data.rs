@@ -3,6 +3,8 @@
 //! This module provides types for representing consensus internal state, such as the [`Leaf`],
 //! `HotShot`'s version of a block, and the [`QuorumCertificate`], representing the threshold
 //! signatures fundamental to consensus.
+#![allow(clippy::missing_docs_in_private_items)]
+
 use crate::{
     constants::genesis_proposer_id,
     traits::{
@@ -88,6 +90,9 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> QuorumCertificate<TYPES
 }
 
 // TODO (da) move this, and QC to separate files
+/// A `DACertificate` is a threshold signature that some data is available.  
+/// It is signed by the members of the DA comittee, not the entire network. It is used
+/// to prove that the data will be made available to those outside of the DA committee.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DACertificate<TYPES: NodeTypes> {
     /// The view number this quorum certificate was generated during
@@ -122,13 +127,17 @@ pub struct QuorumCertificate<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>>
     #[debug(skip)]
     pub leaf_commitment: Commitment<LEAF>,
 
+    /// Which view this QC relates to
     pub view_number: TYPES::Time,
-
+    /// Threshold Signature
     pub signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
-
+    /// If this QC is for the genesis block
     pub genesis: bool,
 }
 
+/// `CertificateAccumulator` is describes the process of collecting signatures
+/// to form a QC or a DA certificate.
+#[allow(clippy::missing_docs_in_private_items)]
 pub struct CertificateAccumulator<SIGNATURE, CERT>
 where
     SIGNATURE: SignatureKey,
@@ -147,7 +156,7 @@ where
     SIGNATURE: SignatureKey,
     CERT: SignedCertificate<SIGNATURE>,
 {
-    fn append(val: Vec<(EncodedSignature, SIGNATURE)>) -> Either<Self, CERT> {
+    fn append(_val: Vec<(EncodedSignature, SIGNATURE)>) -> Either<Self, CERT> {
         nll_todo()
     }
 }
@@ -239,6 +248,7 @@ where
     /// since we are using this in our validity checks when accepting a proposal
     pub proposer_id: EncodedPublicKey,
 
+    #[allow(clippy::missing_docs_in_private_items)]
     pub _pd: PhantomData<ELECTION>,
 }
 
@@ -246,9 +256,10 @@ where
 pub struct DAProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
-
+    /// View this proposal applies to
     pub view_number: TYPES::Time,
 
+    #[allow(clippy::missing_docs_in_private_items)]
     pub _pd: PhantomData<ELECTION>,
 }
 
@@ -332,7 +343,6 @@ pub trait LeafType:
     + for<'a> Deserialize<'a>
     + Send
     + Sync
-    + PartialEq
     + Eq
     + std::hash::Hash
 {
@@ -384,8 +394,7 @@ pub trait LeafType:
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
-#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq, std::hash::Hash)]
-#[derivative(PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, std::hash::Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct ValidatingLeaf<TYPES: NodeTypes>
 where
@@ -426,8 +435,7 @@ where
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
-#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq, std::hash::Hash)]
-#[derivative(PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, std::hash::Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct DALeaf<TYPES: NodeTypes> {
     /// CurView from leader when proposing leaf
@@ -636,7 +644,7 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
 
     fn create_random_transaction(
         &self,
-        rng: &mut dyn rand::RngCore,
+        _rng: &mut dyn rand::RngCore,
     ) -> <<Self::NodeType as NodeTypes>::BlockType as Block>::Transaction {
         nll_todo()
     }

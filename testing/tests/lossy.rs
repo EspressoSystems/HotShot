@@ -22,7 +22,7 @@ use hotshot_types::{
         network::TestableNetworkingImplementation,
         node_implementation::{NodeImplementation, NodeTypes, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
-        state::{TestableBlock, ValidatingConsensus,TestableState},
+        state::{TestableBlock, TestableState, ValidatingConsensus},
         storage::TestableStorage,
     },
 };

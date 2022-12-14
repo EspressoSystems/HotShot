@@ -12,7 +12,6 @@ use crate::{
 };
 use commit::Commitment;
 use derivative::Derivative;
-use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 
 /// Incoming message
@@ -159,7 +158,7 @@ pub struct TimedOut<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
     pub justify_qc: QuorumCertificate<TYPES, LEAF>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(bound(deserialize = ""))]
 /// Prepare qc from the leader
 pub struct Proposal<PROPOSAL: ProposalType> {
