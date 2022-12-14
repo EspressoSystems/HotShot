@@ -4,7 +4,7 @@ use hotshot::{
     types::SignatureKey,
 };
 use hotshot_types::{
-    data::{LeafType, ProposalType},
+    data::LeafType,
     traits::{
         network::TestableNetworkingImplementation,
         node_implementation::{NodeTypes, TestableNodeImplementation},

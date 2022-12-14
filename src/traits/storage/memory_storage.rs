@@ -124,22 +124,19 @@ mod test {
     use hotshot_types::constants::genesis_proposer_id;
     use hotshot_types::data::fake_commitment;
     use hotshot_types::data::QuorumCertificate;
-    use hotshot_types::data::{LeafType, ValidatingLeaf, ViewNumber};
+    use hotshot_types::data::{ValidatingLeaf, ViewNumber};
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
     use hotshot_types::traits::node_implementation::NodeTypes;
     use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
     use hotshot_types::traits::state::ValidatingConsensus;
     use hotshot_types::traits::Block;
-    use hotshot_types::traits::{
-        node_implementation::ApplicationMetadata,
-        state::{ConsensusTime, ConsensusType},
-    };
+    use hotshot_types::traits::{node_implementation::ApplicationMetadata, state::ConsensusTime};
     use serde::{Deserialize, Serialize};
     use std::collections::BTreeMap;
     use std::fmt::Debug;
     use std::hash::Hash;
-    use std::marker::PhantomData;
+
     use tracing::instrument;
 
     /// application metadata stub
@@ -182,7 +179,7 @@ mod test {
         view_number: ViewNumber,
     ) -> StoredView<DummyTypes, ValidatingLeaf<DummyTypes>> {
         // TODO is it okay to be using genesis here?
-        let dummy_block_commit = fake_commitment::<DummyBlock>();
+        let _dummy_block_commit = fake_commitment::<DummyBlock>();
         let dummy_leaf_commit = fake_commitment::<ValidatingLeaf<DummyTypes>>();
         StoredView::from_qc_block_and_state(
             QuorumCertificate {

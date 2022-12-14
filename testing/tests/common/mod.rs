@@ -17,7 +17,7 @@ use hotshot::{
         implementations::{MemoryNetwork, MemoryStorage},
         NetworkReliability, NetworkingImplementation,
     },
-    HotShot, HotShotError,
+    HotShotError,
 };
 // use nll::nll_todo::nll_todo;use  async_trait::async_trait;
 use hotshot_testing::{
@@ -25,7 +25,7 @@ use hotshot_testing::{
     TestNodeImpl, TestRunner,
 };
 use hotshot_types::{
-    data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal, ViewNumber},
+    data::{LeafType, ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
         election::Election,

@@ -572,7 +572,7 @@ mod tests {
         demos::dentry::{DEntryBlock, DEntryState, DEntryTransaction},
         traits::election::static_committee::{StaticElectionConfig, StaticVoteToken},
     };
-    use async_compatibility_layer::logging::setup_logging;
+
     use hotshot_types::traits::state::ValidatingConsensus;
     use hotshot_types::{
         data::ViewNumber,

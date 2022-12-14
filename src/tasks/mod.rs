@@ -9,9 +9,10 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
+use hotshot_types::data::QuorumCertificate;
 use hotshot_types::{
     constants::LOOK_AHEAD,
-    data::{ValidatingLeaf, ValidatingProposal, QuorumCertificate},
+    data::{ValidatingLeaf, ValidatingProposal},
     message::MessageKind,
     traits::{
         election::Election,
@@ -406,7 +407,7 @@ where
 impl<TYPES: NodeTypes<ConsensusType = SequencingConsensus>, I: NodeImplementation<TYPES>>
     TaskHandlerType<TYPES, I> for TaskHandler<SequencingConsensus>
 {
-    async fn run_view(hotshot: HotShot<TYPES, I>) -> Result<(), ()> {
+    async fn run_view(_hotshot: HotShot<TYPES, I>) -> Result<(), ()> {
         nll_todo()
     }
 }

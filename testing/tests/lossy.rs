@@ -14,17 +14,13 @@ use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
     ConsensusRoundError, RoundResult,
 };
-use hotshot_types::data::LeafType;
-use hotshot_types::{
-    data::{ProposalType, ValidatingLeaf, ValidatingProposal},
-    traits::{
-        election::Election,
-        network::TestableNetworkingImplementation,
-        node_implementation::{NodeImplementation, NodeTypes, TestableNodeImplementation},
-        signature_key::TestableSignatureKey,
-        state::{TestableBlock, TestableState, ValidatingConsensus},
-        storage::TestableStorage,
-    },
+// use hotshot_types::data::LeafType;
+use hotshot_types::traits::{
+    network::TestableNetworkingImplementation,
+    node_implementation::{NodeImplementation, NodeTypes, TestableNodeImplementation},
+    signature_key::TestableSignatureKey,
+    state::{TestableBlock, TestableState, ValidatingConsensus},
+    storage::TestableStorage,
 };
 use tracing::{error, instrument};
 

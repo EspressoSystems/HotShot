@@ -458,31 +458,31 @@ where
 
     type LeafType = LEAF;
 
-    fn is_valid_qc(&self, qc: Self::QuorumCertificate) -> bool {
+    fn is_valid_qc(&self, _qc: Self::QuorumCertificate) -> bool {
         nll_todo()
     }
 
-    fn is_valid_dac(&self, qc: Self::DACertificate) -> bool {
+    fn is_valid_dac(&self, _qc: Self::DACertificate) -> bool {
         nll_todo()
     }
 
     fn is_valid_qc_signature(
         &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        hash: Commitment<Self::LeafType>,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
+        _encoded_key: &EncodedPublicKey,
+        _encoded_signature: &EncodedSignature,
+        _hash: Commitment<Self::LeafType>,
+        _view_number: TYPES::Time,
+        _vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
         nll_todo()
     }
 
     fn is_valid_dac_signature(
         &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
+        _encoded_key: &EncodedPublicKey,
+        _encoded_signature: &EncodedSignature,
+        _view_number: TYPES::Time,
+        _vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
         nll_todo()
     }
@@ -1107,10 +1107,10 @@ mod tests {
     use super::*;
     use ark_bls12_381::Parameters as Param381;
     use ark_std::test_rng;
-    use async_compatibility_layer::logging::setup_logging;
+
     use blake3::Hasher;
     use hotshot_types::{
-        data::{ValidatingLeaf, ViewNumber},
+        data::ViewNumber,
         traits::{
             block_contents::dummy::{DummyBlock, DummyTransaction},
             node_implementation::ApplicationMetadata,

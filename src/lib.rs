@@ -60,8 +60,7 @@ use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, SendToTasks, View, ViewInner, ViewQueue,
 };
 use hotshot_types::{
-    constants::genesis_proposer_id,
-    data::{fake_commitment, DALeaf, LeafType, ProposalType, ValidatingLeaf},
+    data::{LeafType, ProposalType},
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
@@ -73,7 +72,7 @@ use hotshot_types::{
         network::{NetworkChange, NetworkError},
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        state::{ConsensusTime, SequencingConsensus, ValidatingConsensus},
+        state::ConsensusTime,
         storage::StoredView,
         State,
     },

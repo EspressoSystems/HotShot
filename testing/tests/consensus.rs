@@ -3,7 +3,7 @@ mod common;
 use ark_bls12_381::Parameters as Param381;
 use async_lock::Mutex;
 use blake3::Hasher;
-use commit::{Commitment, Committable};
+use commit::Committable;
 use common::{
     AppliedTestNodeImpl, AppliedTestRunner, DetailedTestDescriptionBuilder,
     GeneralTestDescriptionBuilder, StandardNodeImplType, StaticCommitteeTestTypes,
@@ -17,12 +17,12 @@ use futures::{
 use hotshot::{
     demos::dentry::random_leaf,
     tasks::{TaskHandler, TaskHandlerType},
-    traits::election::vrf::{VRFStakeTableConfig, VrfImpl},
+    traits::election::vrf::VrfImpl,
     types::Vote,
 };
 use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
 use hotshot_types::{
-    data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal},
+    data::{LeafType, ValidatingLeaf, ValidatingProposal},
     event::EventType,
     message::{ConsensusMessage, Proposal},
     traits::{
@@ -512,117 +512,6 @@ where
                 }
             }
     }
-        result
-    }
-    .boxed_local()
-}
-
-// TODO (da) rename to test_bad_validating_ote_round_setup
-/// Submits votes to non-leaders and submits too many votes from a singular node
-fn test_bad_vote_round_setup<
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + TestableElection<TYPES>,
->(
-    runner: &mut AppliedTestRunner<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
-        ELECTION,
-    >,
-) -> LocalBoxFuture<Vec<TYPES::Transaction>>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<
-        TYPES,
-        AppliedTestNodeImpl<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
-            ELECTION,
-        >,
-    >,
-{
-    async move {
-        let node_id = DEFAULT_NODE_ID;
-        for j in runner.ids() {
-            for i in 1..NUM_VIEWS {
-                submit_vote(runner, j, TYPES::Time::new(i - 1), node_id).await;
-            }
-        }
-        Vec::new()
-    }
-    .boxed_local()
-}
-
-// TODO (da) rename to test_bad_validating_vote_post_safety_check
-/// Checks that non-leaders do not queue votes, and that leaders do not queue more than 1 vote per node
-fn test_bad_vote_post_safety_check<
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
->(
-    runner: &AppliedTestRunner<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
-        ELECTION,
-    >,
-    _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<
-        TYPES,
-        AppliedTestNodeImpl<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
-            ELECTION,
-        >,
-    >,
-{
-    async move {
-        let node_id = DEFAULT_NODE_ID;
-        let mut result = Ok(());
-        let handle = runner.get_handle(node_id).unwrap();
-        let cur_view = handle.get_current_view().await;
-
-        for i in 1..NUM_VIEWS {
-            let is_upcoming_leader = is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await;
-            let ref_view_number = TYPES::Time::new(i - 1);
-            let is_past = ref_view_number < cur_view;
-            // FIXME (da) `get_next_leader_receiver_channel_len` returns `Some(8)` when `cur_view=2` and
-            // `i=6`. This causes the `len <= runner.ids().len()` assertion to fail since `8 > 4`.
-            let len = handle
-                .get_next_leader_receiver_channel_len(ref_view_number)
-                .await;
-
-            let state = get_queue_len(is_past, len);
-            match state {
-                QueuedMessageTense::Past(Some(len)) => {
-                    result = Err(ConsensusRoundError::SafetyFailed {
-                        description: format!("Past view's next leader receiver channel still exists for {:?} with {} items in it.  We are currenltly in {:?}", ref_view_number, len, cur_view)});
-                }
-                QueuedMessageTense::Future(Some(len)) => {
-                    if !is_upcoming_leader {
-                        result = Err(ConsensusRoundError::SafetyFailed {
-                            description: format!("Non-leader queued invalid vote message for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                           
-                        });
-                    }
-                    else if len > runner.ids().len() {
-                        result = Err(ConsensusRoundError::SafetyFailed {
-                            description: format!("Next leader queued too many vote messages for {:?}.  We are currently in {:?}", ref_view_number, cur_view)                                         
-                        });
-                        // Assert here to fail the test without failed rounds
-                        assert!(len <= runner.ids().len());
-                    }
-                }
-                _ => {}
-            }
-        }
         result
     }
     .boxed_local()

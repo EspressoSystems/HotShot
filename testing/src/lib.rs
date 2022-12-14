@@ -23,14 +23,14 @@ use hotshot::{
     HotShot, HotShotError, HotShotInitializer, H_256,
 };
 use hotshot_types::{
-    data::{DALeaf, LeafType, ProposalType, ValidatingLeaf},
+    data::{LeafType, ProposalType},
     traits::{
         election::Election,
         metrics::NoMetrics,
         network::TestableNetworkingImplementation,
-        node_implementation::{ApplicationMetadata, NodeTypes, TestableNodeImplementation},
+        node_implementation::{NodeTypes, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
-        state::{TestableBlock, TestableState, ValidatingConsensus},
+        state::{TestableBlock, TestableState},
         storage::TestableStorage,
     },
     HotShotConfig,
