@@ -1,3 +1,5 @@
+pub mod config;
+
 use async_compatibility_layer::channel::OneShotReceiver;
 use async_lock::RwLock;
 use clap::Args;
@@ -260,10 +262,13 @@ pub async fn run_web_server(shutdown_listener: Option<OneShotReceiver<()>>) -> i
 
 #[cfg(test)]
 mod test {
+    use crate::config::{post_proposal_route, get_proposal_route, post_vote_route, get_vote_route, post_transactions_route, get_transactions_route};
+
     use super::*;
     use async_std::task::spawn;
     use portpicker::pick_unused_port;
     use tide_disco::StatusCode;
+    use config;
 
     type State = RwLock<WebServerState>;
     type Error = ServerError;
@@ -287,14 +292,14 @@ mod test {
         // Test posting and getting proposals
         let prop1 = "prop1";
         client
-            .post::<()>("api/proposal/1")
+            .post::<()>(&post_proposal_route(1))
             .body_binary(&prop1)
             .unwrap()
             .send()
             .await
             .unwrap();
         let resp = client
-            .get::<Option<Vec<Vec<u8>>>>("api/proposal/1")
+            .get::<Option<Vec<Vec<u8>>>>(&get_proposal_route(1))
             .send()
             .await
             .unwrap()
@@ -304,14 +309,14 @@ mod test {
 
         let prop2 = "prop2";
         client
-            .post::<()>("api/proposal/2")
+            .post::<()>(&post_proposal_route(2))
             .body_binary(&prop2)
             .unwrap()
             .send()
             .await
             .unwrap();
         let resp = client
-            .get::<Option<Vec<Vec<u8>>>>("api/proposal/2")
+            .get::<Option<Vec<Vec<u8>>>>(&get_proposal_route(2))
             .send()
             .await
             .unwrap()
@@ -322,14 +327,14 @@ mod test {
         assert_ne!(res1, res2);
 
         assert_eq!(
-            client.get::<Option<Vec<u8>>>("api/proposal/3").send().await,
+            client.get::<Option<Vec<u8>>>(&get_proposal_route(3)).send().await,
             Ok(None)
         );
 
         // Test posting and getting votes
         let vote1 = "vote1";
         client
-            .post::<()>("api/votes/1")
+            .post::<()>(&post_vote_route(1))
             .body_binary(&vote1)
             .unwrap()
             .send()
@@ -338,14 +343,14 @@ mod test {
 
         let vote2 = "vote2";
         client
-            .post::<()>("api/votes/1")
+            .post::<()>(&post_vote_route(1))
             .body_binary(&vote2)
             .unwrap()
             .send()
             .await
             .unwrap();
         let resp = client
-            .get::<Option<Vec<Vec<u8>>>>("api/votes/1/0")
+            .get::<Option<Vec<Vec<u8>>>>(&get_vote_route(1, 0))
             .send()
             .await
             .unwrap()
@@ -356,7 +361,7 @@ mod test {
         assert_eq!(vote2, res2);
         //check for proper indexing
         let resp = client
-            .get::<Option<Vec<Vec<u8>>>>("api/votes/1/1")
+            .get::<Option<Vec<Vec<u8>>>>(&get_vote_route(1, 1))
             .send()
             .await
             .unwrap()
@@ -368,21 +373,21 @@ mod test {
         let txns1 = "abc";
         let txns2 = "def";
         client
-            .post::<()>("api/transactions")
+            .post::<()>(&post_transactions_route())
             .body_binary(&txns1)
             .unwrap()
             .send()
             .await
             .unwrap();
         client
-            .post::<()>("api/transactions")
+            .post::<()>(&post_transactions_route())
             .body_binary(&txns2)
             .unwrap()
             .send()
             .await
             .unwrap();
         let resp = client
-            .get::<Option<Vec<Vec<u8>>>>("api/transactions/0")
+            .get::<Option<Vec<Vec<u8>>>>(&get_transactions_route(0))
             .send()
             .await
             .unwrap()
