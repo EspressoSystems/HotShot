@@ -19,13 +19,12 @@ use hotshot::{
     },
     HotShotError,
 };
-// use nll::nll_todo::nll_todo;use  async_trait::async_trait;
 use hotshot_testing::{
     ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
     TestNodeImpl, TestRunner,
 };
 use hotshot_types::{
-    data::{LeafType, ValidatingLeaf, ValidatingProposal, ViewNumber},
+    data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
         election::Election,

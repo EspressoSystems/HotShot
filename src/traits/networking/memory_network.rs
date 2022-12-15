@@ -563,8 +563,7 @@ impl<
     }
 }
 
-// TODO (da) can we remove `mod tests`? Tests have been commented out and helper functions aren't
-// used.
+// Tests have been commented out, so `mod tests` isn't used.
 #[cfg(test)]
 mod tests {
     use super::*;

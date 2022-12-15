@@ -137,8 +137,7 @@ async fn test_synchronous_network()
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
-async fn test_asynchronous_network()
-{
+async fn test_asynchronous_network() {
     let description =
         DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
             general_info: GeneralTestDescriptionBuilder {
@@ -171,8 +170,7 @@ async fn test_asynchronous_network()
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
-async fn test_partially_synchronous_network()
-{
+async fn test_partially_synchronous_network() {
     let asn = AsynchronousNetwork::new(90, 100, 0, 0);
     let sn = SynchronousNetwork::new(10, 0);
     let gst = std::time::Duration::new(10, 0);

@@ -60,7 +60,7 @@ use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, SendToTasks, View, ViewInner, ViewQueue,
 };
 use hotshot_types::{
-    data::{LeafType, ProposalType},
+    data::LeafType,
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{

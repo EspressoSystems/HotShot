@@ -11,6 +11,7 @@ use hotshot_types::{
         Block, State,
     },
 };
+#[allow(deprecated)]
 use nll::nll_todo::nll_todo;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::Snafu;

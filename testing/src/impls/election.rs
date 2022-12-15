@@ -7,7 +7,7 @@ use hotshot_types::{
         signature_key::ed25519::Ed25519Pub,
     },
 };
-use nll::nll_todo::nll_todo;
+#[allow(deprecated)]use nll::nll_todo::nll_todo;
 use tracing::info;
 
 /// A testable interface for the election trait.

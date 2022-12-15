@@ -10,6 +10,7 @@ use hotshot_types::{
     },
 };
 use jf_primitives::signatures::BLSSignatureScheme;
+#[allow(deprecated)]
 use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -100,10 +101,12 @@ where
     type LeafType = LEAF;
 
     fn is_valid_qc(&self, _qc: Self::QuorumCertificate) -> bool {
+        #[allow(deprecated)]
         nll_todo()
     }
 
     fn is_valid_dac(&self, _qc: Self::DACertificate) -> bool {
+        #[allow(deprecated)]
         nll_todo()
     }
 
@@ -115,6 +118,7 @@ where
         _view_number: TYPES::Time,
         _vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
+        #[allow(deprecated)]
         nll_todo()
     }
 
@@ -125,6 +129,7 @@ where
         _view_number: TYPES::Time,
         _vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
+        #[allow(deprecated)]
         nll_todo()
     }
 

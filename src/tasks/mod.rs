@@ -9,6 +9,7 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
+#[cfg(feature = "async-std-executor")]
 use hotshot_types::data::QuorumCertificate;
 use hotshot_types::{
     constants::LOOK_AHEAD,
@@ -24,6 +25,7 @@ use hotshot_types::{
     },
     ExecutionType,
 };
+#[allow(deprecated)]
 use nll::nll_todo::nll_todo;
 use std::{
     collections::HashMap,
@@ -53,6 +55,7 @@ pub struct TaskHandle<TYPES: NodeTypes> {
 }
 impl<TYPES: NodeTypes> TaskHandle<TYPES> {
     /// Start the round runner. This will make it run until `pause` is called
+    #[allow(clippy::missing_panics_doc)]
     pub async fn start(&self) {
         let handle = self.inner.read().await;
         if handle.is_some() {
@@ -63,6 +66,7 @@ impl<TYPES: NodeTypes> TaskHandle<TYPES> {
 
     /// Make the round runner run 1 round.
     /// Does/should not block.
+    #[allow(clippy::missing_panics_doc)]
     pub async fn start_one_round(&self) {
         let handle = self.inner.read().await;
         if handle.is_some() {
@@ -77,6 +81,7 @@ impl<TYPES: NodeTypes> TaskHandle<TYPES> {
     }
 
     /// Wait until all underlying handles are shut down
+    #[allow(clippy::missing_panics_doc)]
     pub async fn wait_shutdown(&self, send_network_lookup: UnboundedSender<Option<TYPES::Time>>) {
         let inner = self.inner.write().await.take().unwrap();
 
@@ -213,11 +218,14 @@ where
     handle
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
+#[allow(missing_docs)]
 pub struct TaskHandler<CONSENSUS: ConsensusType> {
-    #[allow(clippy::missing_docs_in_private_items)]
     _pd: PhantomData<CONSENSUS>,
 }
 
+#[allow(clippy::missing_docs_in_private_items)]
+#[allow(missing_docs)]
 #[async_trait]
 pub trait TaskHandlerType<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     /// Executes one view of consensus
@@ -226,6 +234,7 @@ pub trait TaskHandlerType<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     async fn run_view(hotshot: HotShot<TYPES, I>) -> Result<(), ()>;
 }
 
+#[allow(clippy::too_many_lines)]
 #[async_trait]
 impl<
         TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
@@ -409,6 +418,7 @@ impl<TYPES: NodeTypes<ConsensusType = SequencingConsensus>, I: NodeImplementatio
     TaskHandlerType<TYPES, I> for TaskHandler<SequencingConsensus>
 {
     async fn run_view(_hotshot: HotShot<TYPES, I>) -> Result<(), ()> {
+        #[allow(deprecated)]
         nll_todo()
     }
 }
