@@ -9,7 +9,8 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
 use hotshot_types::{
-    data::{QuorumCertificate, ValidatingLeaf, ValidatingProposal},
+    certificate::QuorumCertificate,
+    data::{ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, TimedOut, Vote},
     traits::{
         election::Election,

@@ -10,7 +10,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_consensus::{ConsensusApi, NextValidatingLeader, Replica, ValidatingLeader, ViewQueue};
 #[cfg(feature = "async-std-executor")]
-use hotshot_types::data::QuorumCertificate;
+use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::{
     constants::LOOK_AHEAD,
     data::{ValidatingLeaf, ValidatingProposal},
@@ -36,7 +36,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use tracing::{error, info, info_span, trace, Instrument};
+use tracing::{error, info, info_span, instrument, trace, Instrument};
 
 #[cfg(feature = "async-std-executor")]
 use async_std::task::{yield_now, JoinHandle};
@@ -218,6 +218,8 @@ where
     handle
 }
 
+// TODO (da) we may be able to get rid of `ViewRunner` and many where clauses by implementing
+// `ViewRunnerType` for `HotShot`.
 #[allow(clippy::missing_docs_in_private_items)]
 #[allow(missing_docs)]
 pub struct ViewRunner<CONSENSUS: ConsensusType> {
@@ -229,8 +231,6 @@ pub struct ViewRunner<CONSENSUS: ConsensusType> {
 #[async_trait]
 pub trait ViewRunnerType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Executes one view of consensus
-    // TODO (da) fix or remove this
-    // #[instrument(skip(hotshot), fields(id = hotshot.id), name = "View Runner Task", level = "error")]
     async fn run_view(hotshot: HotShot<TYPES, I>) -> Result<(), ()>;
 }
 
@@ -249,6 +249,7 @@ where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
 {
+    #[instrument(skip(hotshot), fields(id = hotshot.id), name = "Validating View Runner Task", level = "error")]
     async fn run_view(hotshot: HotShot<TYPES, I>) -> Result<(), ()> {
         let c_api = HotShotConsensusApi {
             inner: hotshot.inner.clone(),
@@ -420,6 +421,7 @@ where
 impl<TYPES: NodeType<ConsensusType = SequencingConsensus>, I: NodeImplementation<TYPES>>
     ViewRunnerType<TYPES, I> for ViewRunner<SequencingConsensus>
 {
+    // #[instrument]
     async fn run_view(_hotshot: HotShot<TYPES, I>) -> Result<(), ()> {
         #[allow(deprecated)]
         nll_todo()

@@ -33,7 +33,8 @@ pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
 use commit::Commitment;
 use hotshot_types::traits::metrics::Counter;
 use hotshot_types::{
-    data::{LeafType, QuorumCertificate},
+    certificate::QuorumCertificate,
+    data::LeafType,
     error::HotShotError,
     traits::{
         metrics::{Gauge, Histogram, Metrics},

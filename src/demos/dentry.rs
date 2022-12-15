@@ -18,11 +18,9 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
+    certificate::QuorumCertificate,
     constants::genesis_proposer_id,
-    data::{
-        random_commitment, LeafType, QuorumCertificate, ValidatingLeaf, ValidatingProposal,
-        ViewNumber,
-    },
+    data::{random_commitment, LeafType, ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::Transaction,
         election::Election,

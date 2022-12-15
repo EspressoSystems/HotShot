@@ -8,7 +8,8 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use commit::Committable;
 use hotshot_types::{
-    data::{QuorumCertificate, ValidatingLeaf, ValidatingProposal},
+    certificate::QuorumCertificate,
+    data::{ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, Proposal},
     traits::{
         election::Election,

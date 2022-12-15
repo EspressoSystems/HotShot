@@ -10,7 +10,7 @@ use hotshot_types::traits::{
     election::{Checked::Unchecked, Election, VoteToken},
     state::{TestableBlock, TestableState},
 };
-use hotshot_types::{data::QuorumCertificate, message::ConsensusMessage};
+use hotshot_types::{certificate::QuorumCertificate, message::ConsensusMessage};
 use std::time::Instant;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},

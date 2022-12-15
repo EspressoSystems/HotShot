@@ -2,7 +2,8 @@
 
 mod common;
 use hotshot::{
-    data::{LeafType, QuorumCertificate},
+    certificate::QuorumCertificate,
+    data::LeafType,
     demos::dentry::{
         random_quorom_certificate, random_transaction, random_validating_leaf, DEntryBlock,
         DEntryState,

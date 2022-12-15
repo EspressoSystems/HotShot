@@ -6,7 +6,8 @@ use commit::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
 use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
-    data::{DACertificate, LeafType, QuorumCertificate},
+    certificate::{DACertificate, QuorumCertificate},
+    data::LeafType,
     traits::{
         election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
         node_implementation::NodeType,
@@ -279,7 +280,6 @@ where
     }
 }
 
-// TODO (da) is Eq and PartialEq needed here? Many fields have to ignore PartialEq.
 /// the vrf implementation
 #[derive(Derivative)]
 #[derivative(Eq, PartialEq)]

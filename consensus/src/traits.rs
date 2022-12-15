@@ -7,7 +7,8 @@ use hotshot_types::traits::election::Checked;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
-    data::{LeafType, ProposalType, QuorumCertificate},
+    certificate::QuorumCertificate,
+    data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
     traits::{

@@ -29,7 +29,7 @@ pub mod documentation;
 /// Data availability support
 // pub mod da;
 /// Contains structures and functions for committee election
-pub mod data;
+pub mod certificate;
 #[cfg(any(feature = "demo"))]
 pub mod demos;
 /// Contains traits consumed by [`HotShot`]
@@ -40,7 +40,7 @@ pub mod types;
 pub mod tasks;
 
 use crate::{
-    data::QuorumCertificate,
+    certificate::QuorumCertificate,
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };

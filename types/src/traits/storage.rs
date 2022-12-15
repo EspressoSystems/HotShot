@@ -2,10 +2,7 @@
 #![allow(missing_docs)]
 
 use super::{node_implementation::NodeType, signature_key::EncodedPublicKey};
-use crate::{
-    data::{LeafType, QuorumCertificate},
-    traits::Block,
-};
+use crate::{certificate::QuorumCertificate, data::LeafType, traits::Block};
 use async_trait::async_trait;
 use commit::Commitment;
 use derivative::Derivative;

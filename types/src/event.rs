@@ -1,8 +1,7 @@
 //! Events that a `HotShot` instance can emit
 
 use crate::{
-    data::{LeafType, QuorumCertificate},
-    error::HotShotError,
+    certificate::QuorumCertificate, data::LeafType, error::HotShotError,
     traits::node_implementation::NodeType,
 };
 use std::sync::Arc;

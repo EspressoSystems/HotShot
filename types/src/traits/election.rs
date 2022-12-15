@@ -87,7 +87,6 @@ where
 }
 
 /// Describes how `HotShot` chooses committees and leaders
-/// TODO do we need the static lifetime requirement here?
 /// TODO (da) make a separate vote token type for DA and QC
 /// @ny thinks we should make the vote token types be bound to `ConsensusType`
 pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'static {

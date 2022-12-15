@@ -9,7 +9,8 @@ use crate::{
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use commit::Committable;
 use hotshot_types::{
-    data::{LeafType, QuorumCertificate},
+    certificate::QuorumCertificate,
+    data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{

@@ -4,7 +4,8 @@
 //! `HotShot` nodes can send among themselves.
 
 use crate::{
-    data::{LeafType, ProposalType, QuorumCertificate},
+    certificate::QuorumCertificate,
+    data::{LeafType, ProposalType},
     traits::{
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature},
