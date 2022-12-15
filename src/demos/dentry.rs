@@ -26,7 +26,7 @@ use hotshot_types::{
     traits::{
         block_contents::Transaction,
         election::Election,
-        node_implementation::{ApplicationMetadata, NodeTypes},
+        node_implementation::{ApplicationMetadata, NodeType},
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
         State,
     },
@@ -497,7 +497,7 @@ impl Block for DEntryBlock {
     }
 }
 
-/// Implementation of [`NodeTypes`] for [`DEntryNode`]
+/// Implementation of [`NodeType`] for [`DEntryNode`]
 #[derive(
     Copy,
     Clone,
@@ -513,7 +513,7 @@ impl Block for DEntryBlock {
 )]
 pub struct DEntryTypes;
 
-impl NodeTypes for DEntryTypes {
+impl NodeType for DEntryTypes {
     // TODO (da) can this be SequencingConsensus?
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
@@ -600,7 +600,7 @@ where
 }
 
 /// Provides a random [`QuorumCertificate`]
-pub fn random_quorum_certificate<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>>(
+pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>(
     rng: &mut dyn rand::RngCore,
 ) -> QuorumCertificate<TYPES, LEAF> {
     QuorumCertificate {
@@ -613,8 +613,7 @@ pub fn random_quorum_certificate<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYP
 }
 
 /// Provides a random [`Leaf`]
-// TODO (da) rename to random_validating_leaf
-pub fn random_leaf<TYPES: NodeTypes<ConsensusType = ValidatingConsensus>>(
+pub fn random_validating_leaf<TYPES: NodeType<ConsensusType = ValidatingConsensus>>(
     deltas: TYPES::BlockType,
     rng: &mut dyn rand::RngCore,
 ) -> ValidatingLeaf<TYPES>

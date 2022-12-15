@@ -32,7 +32,7 @@ use hotshot_types::{
     message::Message as HotShotMessage,
     traits::{
         network::{NetworkChange, TestableNetworkingImplementation},
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
 };
@@ -64,9 +64,9 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 #[serde(bound(deserialize = ""))]
 /// Inter-node protocol level message types
 pub enum Command<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 > {
     /// A message that was broadcast to all nodes
     Broadcast {
@@ -110,9 +110,9 @@ pub enum Command<
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > Command<TYPES, LEAF, PROPOSAL>
 {
     /// Returns the id of this `Command`
@@ -130,9 +130,9 @@ impl<
 /// The handle used for interacting with a [`WNetwork`] connection
 #[derive(Clone)]
 struct Handle<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 > {
     /// Messages to be sent by this node
     outbound: Sender<Command<TYPES, LEAF, PROPOSAL>>,
@@ -146,9 +146,9 @@ struct Handle<
 
 /// The inner shared state of a [`WNetwork`] instance
 struct WNetworkInner<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 > {
     /// Whether or not the network is connected
     is_ready: Arc<AtomicBool>,
@@ -206,9 +206,9 @@ struct Outputs<T> {
 
 /// Internal enum for combining message and command streams
 enum Combo<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 > {
     /// Inbound message
     Message(Message),
@@ -221,18 +221,18 @@ enum Combo<
 #[derive(Clone)]
 /// Handle to the underlying networking implementation
 pub struct WNetwork<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 > {
     /// Pointer to the internal state of this [`WNetwork`]
     inner: Arc<WNetworkInner<TYPES, LEAF, PROPOSAL>>,
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > Debug for WNetwork<TYPES, LEAF, PROPOSAL>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -241,9 +241,9 @@ impl<
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL> for WNetwork<TYPES, LEAF, PROPOSAL>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -305,9 +305,9 @@ where
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > WNetwork<TYPES, LEAF, PROPOSAL>
 {
     /// Processes an individual `Command`
@@ -903,9 +903,9 @@ impl<
 
 #[async_trait]
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > NetworkingImplementation<TYPES, LEAF, PROPOSAL> for WNetwork<TYPES, LEAF, PROPOSAL>
 {
     #[instrument(name = "WNetwork::ready")]
@@ -1109,9 +1109,9 @@ impl<
 #[allow(clippy::panic)]
 #[instrument(skip(rng))]
 async fn get_networking<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
     R: rand::Rng,
 >(
     pub_key: TYPES::SignatureKey,

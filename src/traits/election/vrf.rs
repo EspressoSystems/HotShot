@@ -9,7 +9,7 @@ use hotshot_types::{
     data::{DACertificate, LeafType, QuorumCertificate},
     traits::{
         election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
     },
 };
@@ -286,7 +286,7 @@ where
 pub struct VrfImpl<TYPES, LEAF: LeafType<NodeType = TYPES>, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS> + Sync + Send,
-    TYPES: NodeTypes,
+    TYPES: NodeType,
 {
     /// the stake table
     #[derivative(PartialEq = "ignore")]
@@ -324,7 +324,7 @@ impl<TYPES, LEAF: LeafType<NodeType = TYPES>, SIGSCHEME, VRF, VRFHASHER, VRFPARA
     for VrfImpl<TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS, PublicParameter = ()> + Sync + Send,
-    TYPES: NodeTypes,
+    TYPES: NodeType,
 {
     fn clone(&self) -> Self {
         Self {
@@ -444,7 +444,7 @@ where
     VRFHASHER: digest::Digest + Clone + Sync + Send + 'static,
     VRFPARAMS: Sync + Send + Bls12Parameters,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
-    TYPES: NodeTypes<
+    TYPES: NodeType<
         VoteTokenType = VRFVoteToken<VRF::PublicKey, VRF::Proof>,
         ElectionConfigType = VRFStakeTableConfig,
         SignatureKey = JfPubKey<SIGSCHEME>,
@@ -650,7 +650,7 @@ fn check_bin_idx(
 /// generates the seed from algorand paper
 /// baseed on `view_number` and a constant as of now, but in the future will be other things
 /// this is a stop-gap
-fn generate_view_seed<TYPES: NodeTypes, HASHER: digest::Digest>(
+fn generate_view_seed<TYPES: NodeType, HASHER: digest::Digest>(
     view_number: TYPES::Time,
     vrf_seed: &[u8; 32],
 ) -> [u8; 32] {
@@ -894,7 +894,7 @@ where
     VRFHASHER: digest::Digest + Clone + Sync + Send,
     VRFPARAMS: Sync + Send + Bls12Parameters,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
-    TYPES: NodeTypes,
+    TYPES: NodeType,
 {
     /// create stake table with this initial stake
     /// # Panics
@@ -1069,7 +1069,7 @@ where
 impl<TYPES, LEAF: LeafType<NodeType = TYPES>> TestableElection<TYPES>
     for VrfImpl<TYPES, LEAF, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>
 where
-    TYPES: NodeTypes<
+    TYPES: NodeType<
         VoteTokenType = VRFVoteToken<
             BLSVerKey<ark_bls12_381::Parameters>,
             BLSSignature<ark_bls12_381::Parameters>,
@@ -1152,7 +1152,7 @@ impl ElectionConfig for VRFStakeTableConfig {}
 //         serde::Deserialize,
 //     )]
 //     struct TestTypes;
-//     impl NodeTypes for TestTypes {
+//     impl NodeType for TestTypes {
 //         // TODO (da) can this be SequencingConsensus?
 //         type ConsensusType = ValidatingConsensus;
 //         type Time = ViewNumber;

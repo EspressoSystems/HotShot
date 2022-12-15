@@ -8,7 +8,7 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
-use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
+use hotshot_consensus::{ConsensusApi, NextValidatingLeader, Replica, ValidatingLeader, ViewQueue};
 #[cfg(feature = "async-std-executor")]
 use hotshot_types::data::QuorumCertificate;
 use hotshot_types::{
@@ -18,7 +18,7 @@ use hotshot_types::{
     traits::{
         election::Election,
         network::NetworkingImplementation,
-        node_implementation::{NodeImplementation, NodeTypes},
+        node_implementation::{NodeImplementation, NodeType},
         state::{
             ConsensusType, SequencingConsensus, TestableBlock, TestableState, ValidatingConsensus,
         },
@@ -47,13 +47,13 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 
 /// A handle with senders to send events to the background runners.
 #[derive(Default)]
-pub struct TaskHandle<TYPES: NodeTypes> {
+pub struct TaskHandle<TYPES: NodeType> {
     /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized early on in the [`HotShot`] struct. It should be safe to `unwrap` this.
     inner: RwLock<Option<TaskHandleInner>>,
-    /// Reference to the [`NodeTypes`] used in this configuration
+    /// Reference to the [`NodeType`] used in this configuration
     _types: PhantomData<TYPES>,
 }
-impl<TYPES: NodeTypes> TaskHandle<TYPES> {
+impl<TYPES: NodeType> TaskHandle<TYPES> {
     /// Start the round runner. This will make it run until `pause` is called
     #[allow(clippy::missing_panics_doc)]
     pub async fn start(&self) {
@@ -148,11 +148,11 @@ struct TaskHandleInner {
 /// Spawn all tasks that operate on the given [`HotShot`].
 ///
 /// For a list of which tasks are being spawned, see this module's documentation.
-pub async fn spawn_all<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
+pub async fn spawn_all<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     hotshot: &HotShot<TYPES, I>,
 ) -> HotShotHandle<TYPES, I>
 where
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     let shut_down = Arc::new(AtomicBool::new(false));
     let started = Arc::new(AtomicBool::new(false));
@@ -220,14 +220,14 @@ where
 
 #[allow(clippy::missing_docs_in_private_items)]
 #[allow(missing_docs)]
-pub struct TaskHandler<CONSENSUS: ConsensusType> {
+pub struct ViewRunner<CONSENSUS: ConsensusType> {
     _pd: PhantomData<CONSENSUS>,
 }
 
 #[allow(clippy::missing_docs_in_private_items)]
 #[allow(missing_docs)]
 #[async_trait]
-pub trait TaskHandlerType<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+pub trait ViewRunnerType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Executes one view of consensus
     // TODO (da) fix or remove this
     // #[instrument(skip(hotshot), fields(id = hotshot.id), name = "View Runner Task", level = "error")]
@@ -237,14 +237,14 @@ pub trait TaskHandlerType<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
 #[allow(clippy::too_many_lines)]
 #[async_trait]
 impl<
-        TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
         ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
         I: NodeImplementation<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
             Proposal = ValidatingProposal<TYPES, ELECTION>,
         >,
-    > TaskHandlerType<TYPES, I> for TaskHandler<ValidatingConsensus>
+    > ViewRunnerType<TYPES, I> for ViewRunner<ValidatingConsensus>
 where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -339,7 +339,7 @@ where
         task_handles.push(replica_handle);
 
         if c_api.is_leader(cur_view).await {
-            let leader = Leader {
+            let leader = ValidatingLeader {
                 id: hotshot.id,
                 consensus: hotshot.hotstuff.clone(),
                 high_qc: high_qc.clone(),
@@ -353,7 +353,7 @@ where
         }
 
         if c_api.is_leader(cur_view + 1).await {
-            let next_leader = NextLeader {
+            let next_leader = NextValidatingLeader {
                 id: hotshot.id,
                 generic_qc: high_qc,
                 // should be fine to unwrap here since the view numbers must be the same
@@ -363,7 +363,10 @@ where
                 metrics,
             };
             let next_leader_handle = async_spawn(async move {
-                NextLeader::<HotShotConsensusApi<TYPES, I>, TYPES, _>::run_view(next_leader).await
+                NextValidatingLeader::<HotShotConsensusApi<TYPES, I>, TYPES, _>::run_view(
+                    next_leader,
+                )
+                .await
             });
             task_handles.push(next_leader_handle);
         }
@@ -414,8 +417,8 @@ where
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes<ConsensusType = SequencingConsensus>, I: NodeImplementation<TYPES>>
-    TaskHandlerType<TYPES, I> for TaskHandler<SequencingConsensus>
+impl<TYPES: NodeType<ConsensusType = SequencingConsensus>, I: NodeImplementation<TYPES>>
+    ViewRunnerType<TYPES, I> for ViewRunner<SequencingConsensus>
 {
     async fn run_view(_hotshot: HotShot<TYPES, I>) -> Result<(), ()> {
         #[allow(deprecated)]
@@ -424,13 +427,13 @@ impl<TYPES: NodeTypes<ConsensusType = SequencingConsensus>, I: NodeImplementatio
 }
 
 /// main thread driving consensus
-pub async fn view_runner<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
+pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES, I>,
     started: Arc<AtomicBool>,
     shut_down: Arc<AtomicBool>,
     run_once: Option<UnboundedReceiver<()>>,
 ) where
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     while !shut_down.load(Ordering::Relaxed) && !started.load(Ordering::Relaxed) {
         yield_now().await;
@@ -440,7 +443,7 @@ pub async fn view_runner<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
         if let Some(ref recv) = run_once {
             let _ = recv.recv().await;
         }
-        let _ = <TaskHandler<TYPES::ConsensusType> as TaskHandlerType<TYPES, I>>::run_view(
+        let _ = <ViewRunner<TYPES::ConsensusType> as ViewRunnerType<TYPES, I>>::run_view(
             hotshot.clone(),
         )
         .await;
@@ -448,7 +451,7 @@ pub async fn view_runner<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
 }
 
 /// Task to look up a node in the future as needed
-pub async fn network_lookup_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
+pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES, I>,
     shut_down: Arc<AtomicBool>,
 ) {
@@ -510,11 +513,11 @@ pub async fn network_lookup_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
 }
 
 /// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_broadcast_*_message`.
-pub async fn network_broadcast_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
+pub async fn network_broadcast_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES, I>,
     shut_down: Arc<AtomicBool>,
 ) where
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     info!("Launching broadcast processing task");
     let networking = &hotshot.inner.networking;
@@ -565,11 +568,11 @@ pub async fn network_broadcast_task<TYPES: NodeTypes, I: NodeImplementation<TYPE
 }
 
 /// Continually processes the incoming direct messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_direct_*_message`.
-pub async fn network_direct_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
+pub async fn network_direct_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES, I>,
     shut_down: Arc<AtomicBool>,
 ) where
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     info!("Launching direct processing task");
     let networking = &hotshot.inner.networking;
@@ -612,11 +615,11 @@ pub async fn network_direct_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
 }
 
 /// Runs a task that will call `hotshot.handle_network_change` whenever a change in the network is detected.
-pub async fn network_change_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
+pub async fn network_change_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES, I>,
     shut_down: Arc<AtomicBool>,
 ) where
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     info!("Launching network change handler task");
     let networking = &hotshot.inner.networking;

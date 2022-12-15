@@ -9,14 +9,14 @@ use common::{
 };
 use either::Either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
-use hotshot::tasks::{TaskHandler, TaskHandlerType};
+use hotshot::tasks::{ViewRunner, ViewRunnerType};
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
     ConsensusRoundError, RoundResult,
 };
 use hotshot_types::traits::{
     network::TestableNetworkingImplementation,
-    node_implementation::{NodeImplementation, NodeTypes, TestableNodeImplementation},
+    node_implementation::{NodeImplementation, NodeType, TestableNodeImplementation},
     signature_key::TestableSignatureKey,
     state::{TestableBlock, TestableState},
     storage::TestableStorage,
@@ -25,7 +25,7 @@ use tracing::{error, instrument};
 
 /// checks safety requirement; relatively lax
 /// marked as success if 2f+1 nodes "succeeded" and committed the same thing
-pub fn check_safety<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>>(
+pub fn check_safety<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     runner: &AppliedTestRunner<
         TYPES,
         <I as NodeImplementation<TYPES>>::Leaf,
@@ -40,8 +40,8 @@ where
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>:
-        TaskHandlerType<TYPES, AppliedTestNodeImpl<TYPES, I::Leaf, I::Proposal, I::Election>>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>:
+        ViewRunnerType<TYPES, AppliedTestNodeImpl<TYPES, I::Leaf, I::Proposal, I::Election>>,
 {
     async move {
         let num_nodes = runner.ids().len();
@@ -105,7 +105,7 @@ async fn test_no_loss_network() {
 #[instrument]
 async fn test_synchronous_network()
 // where
-//     TaskHandler<ValidatingConsensus>: TaskHandlerType<StaticCommitteeTestTypes, StaticNodeImplType>,
+//     ViewRunner<ValidatingConsensus>: ViewRunnerType<StaticCommitteeTestTypes, StaticNodeImplType>,
 {
     let description =
         DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {

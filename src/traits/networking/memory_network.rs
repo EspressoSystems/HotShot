@@ -22,7 +22,7 @@ use hotshot_types::{
     traits::{
         metrics::{Metrics, NoMetrics},
         network::{ChannelDisconnectedSnafu, NetworkChange, TestableNetworkingImplementation},
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
 };
@@ -57,9 +57,9 @@ impl NetworkReliability for DummyReliability {
 /// used to group the [`MemoryNetwork`] instances.
 #[derive(custom_debug::Debug)]
 pub struct MasterMap<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 > {
     /// The list of `MemoryNetwork`s
     #[debug(skip)]
@@ -69,9 +69,9 @@ pub struct MasterMap<
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > MasterMap<TYPES, LEAF, PROPOSAL>
 {
     /// Create a new, empty, `MasterMap`
@@ -93,9 +93,9 @@ enum Combo<T> {
 
 /// Internal state for a `MemoryNetwork` instance
 struct MemoryNetworkInner<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 > {
     /// The public key of this node
     #[allow(dead_code)]
@@ -132,18 +132,18 @@ struct MemoryNetworkInner<
 /// same group.
 #[derive(Clone)]
 pub struct MemoryNetwork<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 > {
     /// The actual internal state
     inner: Arc<MemoryNetworkInner<TYPES, LEAF, PROPOSAL>>,
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > Debug for MemoryNetwork<TYPES, LEAF, PROPOSAL>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -154,9 +154,9 @@ impl<
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > MemoryNetwork<TYPES, LEAF, PROPOSAL>
 {
     /// Creates a new `MemoryNetwork` and hooks it up to the group through the provided `MasterMap`
@@ -343,9 +343,9 @@ impl<
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>
     for MemoryNetwork<TYPES, LEAF, PROPOSAL>
 where
@@ -370,9 +370,9 @@ where
 
 #[async_trait]
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > NetworkingImplementation<TYPES, LEAF, PROPOSAL> for MemoryNetwork<TYPES, LEAF, PROPOSAL>
 {
     #[instrument(name = "MemoryNetwork::broadcast_message")]
@@ -604,7 +604,7 @@ mod tests {
         message: u64,
     }
 
-    impl NodeTypes for Test {
+    impl NodeType for Test {
         // TODO (da) can this be SequencingConsensus?
         type ConsensusType = ValidatingConsensus;
         type Time = ViewNumber;

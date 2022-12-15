@@ -13,7 +13,7 @@ use hotshot_types::{
     message::{ConsensusMessage, TimedOut, Vote},
     traits::{
         election::Election,
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         signature_key::SignatureKey,
         state::{TestableBlock, TestableState, ValidatingConsensus},
         Block, State,
@@ -27,7 +27,7 @@ use tracing::{error, info, instrument, warn};
 #[derive(Debug, Clone)]
 pub struct Replica<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 > where
     TYPES::StateType: TestableState,
@@ -56,7 +56,7 @@ pub struct Replica<
 
 impl<
         A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
-        TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
         ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
     > Replica<A, TYPES, ELECTION>
 where

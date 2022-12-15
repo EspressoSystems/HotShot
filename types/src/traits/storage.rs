@@ -1,7 +1,7 @@
 //! Abstraction over on-disk storage of node state
 #![allow(missing_docs)]
 
-use super::{node_implementation::NodeTypes, signature_key::EncodedPublicKey};
+use super::{node_implementation::NodeType, signature_key::EncodedPublicKey};
 use crate::{
     data::{LeafType, QuorumCertificate},
     traits::Block,
@@ -32,7 +32,7 @@ pub type Result<T = ()> = std::result::Result<T, StorageError>;
 #[async_trait]
 pub trait Storage<TYPES, LEAF>: Clone + Send + Sync + Sized + 'static
 where
-    TYPES: NodeTypes + 'static,
+    TYPES: NodeType + 'static,
     LEAF: LeafType<NodeType = TYPES> + 'static,
 {
     /// Append the list of views to this storage
@@ -64,7 +64,7 @@ where
 pub trait TestableStorage<TYPES, LEAF: LeafType<NodeType = TYPES>>:
     Clone + Send + Sync + Storage<TYPES, LEAF>
 where
-    TYPES: NodeTypes + 'static,
+    TYPES: NodeType + 'static,
 {
     /// Create ephemeral storage
     /// Will be deleted/lost immediately after storage is dropped
@@ -80,7 +80,7 @@ where
 ///
 /// This should only be used for testing, never in production code.
 #[derive(Debug, PartialEq)]
-pub struct StorageState<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
+pub struct StorageState<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The views that have been successful
     pub stored: BTreeMap<TYPES::Time, StoredView<TYPES, LEAF>>,
     /// The views that have failed
@@ -91,7 +91,7 @@ pub struct StorageState<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
 #[derive(Debug, PartialEq)]
 pub enum ViewEntry<TYPES, LEAF>
 where
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
 {
     /// A succeeded view
@@ -104,7 +104,7 @@ where
 
 impl<TYPES, LEAF> From<StoredView<TYPES, LEAF>> for ViewEntry<TYPES, LEAF>
 where
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
 {
     fn from(view: StoredView<TYPES, LEAF>) -> Self {
@@ -114,7 +114,7 @@ where
 
 impl<TYPES, LEAF> From<LEAF> for ViewEntry<TYPES, LEAF>
 where
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
 {
     fn from(leaf: LEAF) -> Self {
@@ -125,7 +125,7 @@ where
 /// A view stored in the [`Storage`]
 #[derive(Clone, Debug, Derivative)]
 #[derivative(PartialEq)]
-pub struct StoredView<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
+pub struct StoredView<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The view number of this view
     pub view_number: TYPES::Time,
     /// The index of `parent` in the chain
@@ -150,7 +150,7 @@ pub struct StoredView<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
 
 impl<TYPES, LEAF> StoredView<TYPES, LEAF>
 where
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
 {
     /// Create a new `StoredView` from the given QC, Block and State.

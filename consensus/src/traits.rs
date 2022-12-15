@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use commit::Commitment;
 use hotshot_types::message::ConsensusMessage;
 use hotshot_types::traits::election::Checked;
-use hotshot_types::traits::node_implementation::NodeTypes;
+use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
     data::{LeafType, ProposalType, QuorumCertificate},
@@ -25,9 +25,9 @@ use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 /// [`HotStuff`]: struct.HotStuff.html
 #[async_trait]
 pub trait ConsensusApi<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 >: Send + Sync
 {
     /// Total number of nodes in the network. Also known as `n`.

@@ -5,7 +5,7 @@ use hotshot_types::{
     data::{DACertificate, LeafType, QuorumCertificate},
     traits::{
         election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
@@ -85,7 +85,7 @@ impl ElectionConfig for StaticElectionConfig {}
 impl<TYPES, LEAF: LeafType<NodeType = TYPES>, PUBKEY: SignatureKey + 'static> Election<TYPES>
     for GeneralStaticCommittee<TYPES, LEAF, PUBKEY>
 where
-    TYPES: NodeTypes<
+    TYPES: NodeType<
         SignatureKey = PUBKEY,
         VoteTokenType = StaticVoteToken<PUBKEY>,
         ElectionConfigType = StaticElectionConfig,

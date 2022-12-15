@@ -24,8 +24,8 @@ mod traits;
 mod utils;
 
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
-pub use leader::Leader;
-pub use next_leader::NextLeader;
+pub use leader::ValidatingLeader;
+pub use next_leader::NextValidatingLeader;
 pub use replica::Replica;
 pub use traits::ConsensusApi;
 pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
@@ -37,7 +37,7 @@ use hotshot_types::{
     error::HotShotError,
     traits::{
         metrics::{Gauge, Histogram, Metrics},
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
     },
 };
 use std::{
@@ -95,7 +95,7 @@ type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 ///
 /// This will contain the state of all rounds.
 #[derive(custom_debug::Debug)]
-pub struct Consensus<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
+pub struct Consensus<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The phases that are currently loaded in memory
     // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
     pub state_map: BTreeMap<TYPES::Time, View<TYPES, LEAF>>,
@@ -223,7 +223,7 @@ impl ConsensusMetrics {
     }
 }
 
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
     /// increment the current view
     /// NOTE may need to do gc here
     pub fn increment_view(&mut self) -> TYPES::Time {

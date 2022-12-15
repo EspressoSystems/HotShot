@@ -1,7 +1,7 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 use crate::{
-    tasks::{TaskHandler, TaskHandlerType},
+    tasks::{ViewRunner, ViewRunnerType},
     traits::{NetworkError::ShutDown, NodeImplementation},
     types::{Event, HotShotError::NetworkFault},
     HotShot,
@@ -14,7 +14,7 @@ use hotshot_types::{
     event::EventType,
     traits::{
         network::NetworkingImplementation,
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         state::ConsensusTime,
         storage::{Storage, StoredView},
     },
@@ -42,7 +42,7 @@ use hotshot_types::{
 /// This type provides the means to message and interact with a background [`HotShot`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
-pub struct HotShotHandle<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+pub struct HotShotHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The [sender](BroadcastSender) for the output stream from the background process
     ///
     /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
@@ -58,7 +58,7 @@ pub struct HotShotHandle<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     pub(crate) storage: I::Storage,
 }
 
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> Clone for HotShotHandle<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone for HotShotHandle<TYPES, I> {
     fn clone(&self) -> Self {
         Self {
             sender_handle: self.sender_handle.clone(),
@@ -70,9 +70,9 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> Clone for HotShot
     }
 }
 
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPES, I>
 where
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     /// Will return the next event in the queue
     ///

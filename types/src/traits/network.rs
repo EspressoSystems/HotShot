@@ -9,7 +9,7 @@ use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
-use super::{node_implementation::NodeTypes, signature_key::SignatureKey};
+use super::{node_implementation::NodeType, signature_key::SignatureKey};
 use crate::{
     data::{LeafType, ProposalType},
     message::Message,
@@ -107,9 +107,9 @@ pub enum NetworkError {
 /// Describes, generically, the behaviors a networking implementation must have
 #[async_trait]
 pub trait NetworkingImplementation<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 >: Clone + Send + Sync + 'static
 {
     /// Returns true when node is successfully initialized
@@ -190,9 +190,9 @@ pub trait NetworkingImplementation<
 
 /// Describes additional functionality needed by the test network implementation
 pub trait TestableNetworkingImplementation<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 >: NetworkingImplementation<TYPES, LEAF, PROPOSAL>
 {
     /// generates a network given an expected node count

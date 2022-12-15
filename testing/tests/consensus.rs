@@ -15,8 +15,8 @@ use futures::{
     FutureExt,
 };
 use hotshot::{
-    demos::dentry::random_leaf,
-    tasks::{TaskHandler, TaskHandlerType},
+    demos::dentry::random_validating_leaf,
+    tasks::{ViewRunner, ViewRunnerType},
     traits::election::vrf::VrfImpl,
     types::Vote,
 };
@@ -27,7 +27,7 @@ use hotshot_types::{
     message::{ConsensusMessage, Proposal},
     traits::{
         election::{Election, TestableElection},
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         signature_key::TestableSignatureKey,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
     },
@@ -48,10 +48,9 @@ enum QueuedMessageTense {
     Future(Option<usize>),
 }
 
-// TODO (da) rename to submit_validating_proposal
 /// Returns true if `node_id` is the leader of `view_number`
-async fn is_upcoming_leader<
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+async fn is_upcoming_validating_leader<
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedTestRunner<
@@ -67,7 +66,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
         TYPES,
         AppliedTestNodeImpl<
             TYPES,
@@ -82,10 +81,9 @@ where
     leader == handle.get_public_key()
 }
 
-// TODO (da) rename to submit_validating_proposal
 /// Builds and submits a random proposal for the specified view number
-async fn submit_proposal<
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+async fn submit_validating_proposal<
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedTestRunner<
@@ -100,7 +98,7 @@ async fn submit_proposal<
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
         TYPES,
         AppliedTestNodeImpl<
             TYPES,
@@ -114,7 +112,7 @@ async fn submit_proposal<
     let handle = runner.get_handle(sender_node_id).unwrap();
 
     // Build proposal
-    let mut leaf = random_leaf(TYPES::BlockType::genesis(), &mut rng);
+    let mut leaf = random_validating_leaf(TYPES::BlockType::genesis(), &mut rng);
     leaf.view_number = view_number;
     leaf.set_height(handle.get_decided_leaf().await.get_height() + 1);
     let signature = handle.sign_proposal(&leaf.commit(), leaf.view_number);
@@ -127,10 +125,9 @@ async fn submit_proposal<
     handle.send_broadcast_consensus_message(msg.clone()).await;
 }
 
-// TODO (da) rename to submit_validating_vote
 /// Builds and submits a random vote for the specified view number from the specified node
-async fn submit_vote<
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+async fn submit_validating_vote<
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + TestableElection<TYPES>,
 >(
     runner: &AppliedTestRunner<
@@ -146,7 +143,7 @@ async fn submit_vote<
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
         TYPES,
         AppliedTestNodeImpl<
             TYPES,
@@ -160,7 +157,7 @@ async fn submit_vote<
     let handle = runner.get_handle(sender_node_id).unwrap();
 
     // Build vote
-    let mut leaf = random_leaf(TYPES::BlockType::genesis(), &mut rng);
+    let mut leaf = random_validating_leaf(TYPES::BlockType::genesis(), &mut rng);
     leaf.view_number = view_number;
     let signature = handle.sign_vote(&leaf.commit(), leaf.view_number);
     let msg = ConsensusMessage::Vote(Vote {
@@ -193,10 +190,9 @@ fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
     }
 }
 
-// TODO (da) rename to test_validating_vote_queueing_post_safety_check
 /// Checks that votes are queued correctly for views 1..NUM_VIEWS
-fn test_vote_queueing_post_safety_check<
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+fn test_validating_vote_queueing_post_safety_check<
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedTestRunner<
@@ -211,7 +207,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
         TYPES,
         AppliedTestNodeImpl<
             TYPES,
@@ -230,7 +226,7 @@ where
 
 
         for i in 1..NUM_VIEWS {
-            if is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await {
+            if is_upcoming_validating_leader(runner, node_id, TYPES::Time::new(i)).await {
                 let ref_view_number = TYPES::Time::new(i - 1);
                 let is_past = ref_view_number < cur_view;
                 let len = handle
@@ -245,7 +241,7 @@ where
                     }
                     QueuedMessageTense::Future(None) => {
                         result = Err(ConsensusRoundError::SafetyFailed {
-                            description: format!("Next Leader did not properly queue future vote for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
+                            description: format!("Next ValidatingLeader did not properly queue future vote for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
                     }
                     _ => {}
                 }
@@ -256,10 +252,9 @@ where
     .boxed_local()
 }
 
-// TODO (da) rename to test_validating_vote_queueing_round_setup
 /// For 1..NUM_VIEWS submit votes to each node in the network
-fn test_vote_queueing_round_setup<
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+fn test_validating_vote_queueing_round_setup<
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + TestableElection<TYPES>,
 >(
     runner: &mut AppliedTestRunner<
@@ -273,7 +268,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
         TYPES,
         AppliedTestNodeImpl<
             TYPES,
@@ -287,8 +282,8 @@ where
         let node_id = DEFAULT_NODE_ID;
         for j in runner.ids() {
             for i in 1..NUM_VIEWS {
-                if is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await {
-                    submit_vote(runner, j, TYPES::Time::new(i - 1), node_id).await;
+                if is_upcoming_validating_leader(runner, node_id, TYPES::Time::new(i)).await {
+                    submit_validating_vote(runner, j, TYPES::Time::new(i - 1), node_id).await;
                 }
             }
         }
@@ -297,10 +292,9 @@ where
     .boxed_local()
 }
 
-// TODO (da) rename to test_validaitng_proposal_queueing_post_safety_check
 /// Checks views 0..NUM_VIEWS for whether proposal messages are properly queued
-fn test_proposal_queueing_post_safety_check<
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+fn test_validating_proposal_queueing_post_safety_check<
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedTestRunner<
@@ -315,7 +309,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
         TYPES,
         AppliedTestNodeImpl<
             TYPES,
@@ -335,7 +329,7 @@ where
             let cur_view = handle.get_current_view().await;
 
             for i in 0..NUM_VIEWS {
-                if is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await {
+                if is_upcoming_validating_leader(runner, node_id, TYPES::Time::new(i)).await {
                     let ref_view_number = TYPES::Time::new(i);
                     let is_past = ref_view_number < cur_view;
                     let len = handle
@@ -362,10 +356,9 @@ where
     .boxed_local()
 }
 
-// TODO (da) rename to test_validating_proposal_queueing_round_setup
 /// Submits proposals for 0..NUM_VIEWS rounds where `node_id` is the leader
-fn test_proposal_queueing_round_setup<
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+fn test_validating_proposal_queueing_round_setup<
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 >(
     runner: &mut AppliedTestRunner<
@@ -379,7 +372,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
         TYPES,
         AppliedTestNodeImpl<
             TYPES,
@@ -393,8 +386,8 @@ where
         let node_id = DEFAULT_NODE_ID;
 
         for i in 0..NUM_VIEWS {
-            if is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await {
-                submit_proposal(runner, node_id, TYPES::Time::new(i)).await;
+            if is_upcoming_validating_leader(runner, node_id, TYPES::Time::new(i)).await {
+                submit_validating_proposal(runner, node_id, TYPES::Time::new(i)).await;
             }
         }
 
@@ -403,10 +396,9 @@ where
     .boxed_local()
 }
 
-// TODO (da) rename to test_bad_validating_proposal_round_setup
 /// Submits proposals for views where `node_id` is not the leader, and submits multiple proposals for views where `node_id` is the leader
-fn test_bad_proposal_round_setup<
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+fn test_bad_validating_proposal_round_setup<
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 >(
     runner: &mut AppliedTestRunner<
@@ -420,7 +412,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
         TYPES,
         AppliedTestNodeImpl<
             TYPES,
@@ -433,12 +425,12 @@ where
     async move {
         let node_id = DEFAULT_NODE_ID;
         for i in 0..NUM_VIEWS {
-            if !is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await {
-                submit_proposal(runner, node_id, TYPES::Time::new(i)).await;
+            if !is_upcoming_validating_leader(runner, node_id, TYPES::Time::new(i)).await {
+                submit_validating_proposal(runner, node_id, TYPES::Time::new(i)).await;
             } else {
-                submit_proposal(runner, node_id, TYPES::Time::new(i)).await;
-                submit_proposal(runner, node_id, TYPES::Time::new(i)).await;
-                submit_proposal(runner, node_id, TYPES::Time::new(i)).await;
+                submit_validating_proposal(runner, node_id, TYPES::Time::new(i)).await;
+                submit_validating_proposal(runner, node_id, TYPES::Time::new(i)).await;
+                submit_validating_proposal(runner, node_id, TYPES::Time::new(i)).await;
             }
         }
         Vec::new()
@@ -446,10 +438,9 @@ where
     .boxed_local()
 }
 
-// TODO (da) rename to test_bad_validatingproposal_post_safety_check
 /// Checks nodes do not queue bad proposal messages
-fn test_bad_proposal_post_safety_check<
-    TYPES: NodeTypes<ConsensusType = ValidatingConsensus>,
+fn test_bad_validating_proposal_post_safety_check<
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedTestRunner<
@@ -464,7 +455,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
         TYPES,
         AppliedTestNodeImpl<
             TYPES,
@@ -484,7 +475,7 @@ where
             let cur_view = handle.get_current_view().await;
 
             for i in 0..NUM_VIEWS {
-                let is_upcoming_leader = is_upcoming_leader(runner, node_id, TYPES::Time::new(i)).await;
+                let is_upcoming_validating_leader = is_upcoming_validating_leader(runner, node_id, TYPES::Time::new(i)).await;
                 let ref_view_number = TYPES::Time::new(i);
                 let is_past = ref_view_number < cur_view;
                 let len = handle
@@ -498,7 +489,7 @@ where
                             description: format!("Past view's replica receiver channel still exists for {:?} with {} items in it.  We are currenltly in {:?}", ref_view_number, len, cur_view)});
                     }
                     QueuedMessageTense::Future(Some(len)) => {
-                        if !is_upcoming_leader && ref_view_number != cur_view {
+                        if !is_upcoming_validating_leader && ref_view_number != cur_view {
                             result = Err(ConsensusRoundError::SafetyFailed {
                                 description: format!("Replica queued invalid Proposal message that was not sent from the leader for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
                         }
@@ -517,7 +508,6 @@ where
     .boxed_local()
 }
 
-// TODO (da) rename to test_validating_proposal_queueing
 /// Tests that replicas receive and queue valid Proposal messages properly
 #[cfg_attr(
     feature = "tokio-executor",
@@ -526,7 +516,7 @@ where
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
-async fn test_proposal_queueing() {
+async fn test_validating_proposal_queueing() {
     let num_rounds = 10;
     let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
         DetailedTestDescriptionBuilder {
@@ -543,8 +533,10 @@ async fn test_proposal_queueing() {
     let mut test = description.build();
 
     for i in 0..num_rounds {
-        test.rounds[i].setup_round = Some(Box::new(test_proposal_queueing_round_setup));
-        test.rounds[i].safety_check_post = Some(Box::new(test_proposal_queueing_post_safety_check));
+        test.rounds[i].setup_round = Some(Box::new(test_validating_proposal_queueing_round_setup));
+        test.rounds[i].safety_check_post = Some(Box::new(
+            test_validating_proposal_queueing_post_safety_check,
+        ));
     }
 
     test.execute().await.unwrap();
@@ -576,8 +568,9 @@ async fn test_vote_queueing() {
     let mut test = description.build();
 
     for i in 0..num_rounds {
-        test.rounds[i].setup_round = Some(Box::new(test_vote_queueing_round_setup));
-        test.rounds[i].safety_check_post = Some(Box::new(test_vote_queueing_post_safety_check));
+        test.rounds[i].setup_round = Some(Box::new(test_validating_vote_queueing_round_setup));
+        test.rounds[i].safety_check_post =
+            Some(Box::new(test_validating_vote_queueing_post_safety_check));
     }
 
     test.execute().await.unwrap();
@@ -608,9 +601,9 @@ async fn test_bad_proposal() {
     let mut test = description.build();
 
     for i in 0..num_rounds {
-        test.rounds[i].setup_round = Some(Box::new(test_bad_proposal_round_setup));
+        test.rounds[i].setup_round = Some(Box::new(test_bad_validating_proposal_round_setup));
         test.rounds[i].safety_check_post = Some(Box::new(
-            test_bad_proposal_post_safety_check::<
+            test_bad_validating_proposal_post_safety_check::<
                 VrfTestTypes,
                 VrfImpl<
                     VrfTestTypes,

@@ -1,12 +1,12 @@
 use super::{Generator, TestRunner};
 use hotshot::{
-    tasks::{TaskHandler, TaskHandlerType},
+    tasks::{ViewRunner, ViewRunnerType},
     types::SignatureKey,
 };
 use hotshot_types::{
     traits::{
         network::TestableNetworkingImplementation,
-        node_implementation::{NodeTypes, TestableNodeImplementation},
+        node_implementation::{NodeType, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState},
         storage::TestableStorage,
@@ -16,7 +16,7 @@ use hotshot_types::{
 use std::{num::NonZeroUsize, time::Duration};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
-pub struct TestLauncher<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>>
+pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
@@ -30,7 +30,7 @@ where
     pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 }
 
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
@@ -79,7 +79,7 @@ where
 
 // TODO make these functions generic over the target networking/storage/other generics
 // so we can hotswap out
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
@@ -154,14 +154,14 @@ where
     }
 }
 
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    TaskHandler<TYPES::ConsensusType>: TaskHandlerType<TYPES, I>,
+    ViewRunner<TYPES::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///

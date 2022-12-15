@@ -70,7 +70,7 @@ use hotshot_types::{
         },
         metrics::Metrics,
         network::{NetworkChange, NetworkError},
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
         storage::StoredView,
@@ -87,7 +87,7 @@ use std::{
     sync::{atomic::Ordering, Arc},
     time::Duration,
 };
-use tasks::TaskHandler;
+use tasks::ViewRunner;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 // -- Rexports
@@ -104,7 +104,7 @@ pub const H_512: usize = 64;
 pub const H_256: usize = 32;
 
 /// Holds the state needed to participate in `HotShot` consensus
-pub struct HotShotInner<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The public key of this node
     public_key: TYPES::SignatureKey,
 
@@ -135,7 +135,7 @@ pub struct HotShotInner<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
 
 /// Thread safe, shared view of a `HotShot`
 #[derive(Clone)]
-pub struct HotShot<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+pub struct HotShot<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Handle to internal hotshot implementation
     inner: Arc<HotShotInner<TYPES, I>>,
 
@@ -163,9 +163,9 @@ pub struct HotShot<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     id: u64,
 }
 
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES, I>
 where
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: tasks::TaskHandlerType<TYPES, I>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: tasks::ViewRunnerType<TYPES, I>,
 {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
@@ -672,13 +672,13 @@ where
 
 /// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]
 #[derive(Clone)]
-struct HotShotConsensusApi<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+struct HotShotConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`HotShotInner`]
     inner: Arc<HotShotInner<TYPES, I>>,
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     hotshot_consensus::ConsensusApi<TYPES, I::Leaf, I::Proposal> for HotShotConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
@@ -850,12 +850,12 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
 }
 
 /// initializer struct for creating starting block
-pub struct HotShotInitializer<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
+pub struct HotShotInitializer<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// the leaf specified initialization
     inner: LEAF,
 }
 
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPES, LEAF> {
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPES, LEAF> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state

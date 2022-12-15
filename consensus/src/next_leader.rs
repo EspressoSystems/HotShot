@@ -1,11 +1,11 @@
-//! Contains the [`NextLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
+//! Contains the [`NextValidatingLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
 
 use crate::ConsensusApi;
 use crate::ConsensusMetrics;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
 use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
-use hotshot_types::traits::node_implementation::NodeTypes;
+use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::{
     election::{Checked::Unchecked, Election, VoteToken},
     state::{TestableBlock, TestableState},
@@ -18,12 +18,11 @@ use std::{
 };
 use tracing::{error, instrument, warn};
 
-// TODO (da) rename to NextValidatingLeader
-/// The next view's leader
+/// The next view's validating leader
 #[derive(custom_debug::Debug, Clone)]
-pub struct NextLeader<
+pub struct NextValidatingLeader<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 > where
     TYPES::StateType: TestableState,
@@ -53,9 +52,9 @@ pub struct NextLeader<
 
 impl<
         A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
-    > NextLeader<A, TYPES, ELECTION>
+    > NextValidatingLeader<A, TYPES, ELECTION>
 where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -64,9 +63,9 @@ where
     /// # Panics
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
-    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Leader Task", level = "error")]
+    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Validating ValidatingLeader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
-        error!("Next Leader task started!");
+        error!("Next validating leader task started!");
 
         let vote_collection_start = Instant::now();
 

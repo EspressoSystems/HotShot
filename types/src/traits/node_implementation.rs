@@ -33,7 +33,7 @@ use std::hash::Hash;
 ///
 /// It is recommended you implement this trait on a zero sized type, as `HotShot`does not actually
 /// store or keep a reference to any value implementing this trait.
-pub trait NodeImplementation<TYPES: NodeTypes>: Send + Sync + Debug + Clone + 'static {
+pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'static {
     type Leaf: LeafType<NodeType = TYPES>;
 
     /// Storage type for this consensus implementation
@@ -46,11 +46,11 @@ pub trait NodeImplementation<TYPES: NodeTypes>: Send + Sync + Debug + Clone + 's
     /// consensus protocols
     type Election: Election<TYPES, LeafType = Self::Leaf>;
 
-    type Proposal: ProposalType<NodeTypes = TYPES, Election = Self::Election>;
+    type Proposal: ProposalType<NodeType = TYPES, Election = Self::Election>;
 }
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
-pub trait NodeTypes:
+pub trait NodeType:
     Clone
     + Copy
     + Debug
@@ -105,7 +105,7 @@ where
 }
 
 /// testable node implmeentation trait
-pub trait TestableNodeImplementation<TYPES: NodeTypes>: NodeImplementation<TYPES>
+pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
