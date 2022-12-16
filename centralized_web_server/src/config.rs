@@ -1,7 +1,7 @@
 pub const WEB_SERVER_PORT: u16 = 9000;
 
 pub fn get_proposal_route(view_number: u128) -> String {
-    format!("api/proposal/{}", view_number)
+    format!("api/proposal/{}", view_number.to_string())
 }
 
 pub fn post_proposal_route(view_number: u128) -> String {

@@ -3,6 +3,7 @@ pub mod config;
 use async_compatibility_layer::channel::OneShotReceiver;
 use async_lock::RwLock;
 use clap::Args;
+use config::WEB_SERVER_PORT;
 use futures::FutureExt;
 use std::collections::HashMap;
 use std::io;
@@ -257,7 +258,7 @@ pub async fn run_web_server(shutdown_listener: Option<OneShotReceiver<()>>) -> i
     let mut app = App::<State, Error>::with_state(state);
 
     app.register_module("api", api).unwrap();
-    app.serve("http://0.0.0.0:8000").await
+    app.serve(format!("http://0.0.0.0:{}", WEB_SERVER_PORT)).await
 }
 
 #[cfg(test)]

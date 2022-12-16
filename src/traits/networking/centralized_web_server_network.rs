@@ -1,39 +1,28 @@
 use async_compatibility_layer::{
-    art::{async_block_on, async_sleep, async_spawn},
+    art::{async_sleep, async_spawn},
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
-    channel::{oneshot, OneShotReceiver, OneShotSender},
+    channel::{oneshot, OneShotSender},
 };
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_lock::RwLock;
 use async_trait::async_trait;
-use async_tungstenite::tungstenite::handshake::server;
-use bincode::Options;
-use hotshot_centralized_web_server;
+
+use hotshot_centralized_web_server::{self, config};
 use hotshot_types::traits::state::ConsensusTime;
-use hotshot_types::{
-    data::ViewNumber,
-    message::{self, ConsensusMessage, DataMessage, MessageKind, Proposal, Vote},
-};
 use hotshot_types::{
     message::Message,
     traits::{
-        metrics::{Metrics, NoMetrics},
         network::{
-            FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
-            NetworkingImplementation, TestableNetworkingImplementation,
+            NetworkChange, NetworkError, NetworkingImplementation, TestableNetworkingImplementation,
         },
         node_implementation::NodeTypes,
-        signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
+        signature_key::TestableSignatureKey,
     },
 };
-use hotshot_utils::bincode::bincode_opts;
-use libp2p::core::Endpoint;
+
 use nll::nll_todo::nll_todo;
 
-use rand::seq::index;
 use serde::Deserialize;
 use serde::Serialize;
-use snafu::{whatever, ResultExt};
-use std::{marker::PhantomData, string, thread::sleep};
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -41,10 +30,10 @@ use std::{
     },
     time::Duration,
 };
-use surf_disco::error;
+
 use surf_disco::error::ClientError;
 use tide_disco::error::ServerError;
-use tracing::{error, metadata::Kind};
+use tracing::{error, info};
 
 #[derive(Clone, Debug)]
 pub struct CentralizedWebServerNetwork<TYPES: NodeTypes> {
@@ -55,19 +44,14 @@ pub struct CentralizedWebServerNetwork<TYPES: NodeTypes> {
 }
 
 impl<TYPES: NodeTypes> CentralizedWebServerNetwork<TYPES> {
-    fn new() -> Self {
-        //KALEY: maybe new and create should be the same- in the centralized_server_network.rs file,
-        //it's called create() but I think new() makes more sense here. Will change next
-        nll_todo()
-    }
     fn create() -> Self {
-        let port = 8000 as u16;
+        let port = config::WEB_SERVER_PORT;
+        // TODO add URL is param
         let base_url = format!("0.0.0.0:{port}");
         let base_url = format!("http://{base_url}").parse().unwrap();
         let client = surf_disco::Client::<ServerError>::new(base_url);
 
         let inner = Arc::new(Inner {
-            phantom: Default::default(),
             //KALEY todo: init view number? get from server?
             view_number: Arc::new(SubscribableRwLock::new(TYPES::Time::new(0))),
             broadcast_poll_queue: Default::default(),
@@ -98,17 +82,13 @@ impl<TYPES: NodeTypes> CentralizedWebServerNetwork<TYPES> {
 
 #[derive(Debug)]
 struct Inner<TYPES: NodeTypes> {
-    // Temporary for the TYPES argument
-    phantom: PhantomData<TYPES>,
-
     // Current view number so we can poll accordingly
     view_number: Arc<SubscribableRwLock<TYPES::Time>>,
 
     // Queue for broadcasted messages (mainly transactions and proposals)
-    broadcast_poll_queue: RwLock<Vec<Message<TYPES>>>,
+    broadcast_poll_queue: Arc<RwLock<Vec<Message<TYPES>>>>,
     // Queue for direct messages (mainly votes)
-    // TODO make arc
-    direct_poll_queue: RwLock<Vec<Message<TYPES>>>,
+    direct_poll_queue: Arc<RwLock<Vec<Message<TYPES>>>>,
     //KALEY: these may not be necessary
     running: AtomicBool,
     connected: AtomicBool,
@@ -143,24 +123,26 @@ async fn poll_generic<TYPES: NodeTypes>(
     wait_between_polls: Duration,
     num_views_ahead: u64,
 ) -> Result<(), ServerError> {
-    let mut index: u128 = 0;
+    let mut tx_index: u128 = 0;
 
     let receiver = connection.view_number.subscribe().await;
     let mut view_number = connection.view_number.copied().await;
     view_number += num_views_ahead;
+
+    let mut vote_index: u128 = 0;
 
     loop {
         let mut endpoint = String::new();
         // TODO ED probably want to export these endpoints from the web server so we aren't hardcoding them here
         match kind {
             MessageType::Proposal => {
-                endpoint = format!("/api/proposal/{}", view_number.to_string())
+                endpoint = config::get_proposal_route((*view_number).into());
             }
             MessageType::VoteTimedOut => {
-                endpoint = format!("/api/votes/{}", view_number.to_string())
+                endpoint = config::get_vote_route((*view_number).into(), vote_index);
             }
             MessageType::Transaction => {
-                endpoint = format!("/api/transactions/{}", index.to_string())
+                endpoint = config::get_transactions_route(tx_index);
             }
             _ => nll_todo(),
         }
@@ -184,13 +166,14 @@ async fn poll_generic<TYPES: NodeTypes>(
                 MessageType::VoteTimedOut => {
                     let mut direct_poll_queue = connection.direct_poll_queue.write().await;
                     deserialized_messages.iter().for_each(|vote| {
+                        vote_index += 1;
                         direct_poll_queue.push(vote.clone());
                     });
                 }
                 MessageType::Transaction => {
                     let mut lock = connection.broadcast_poll_queue.write().await;
                     deserialized_messages.iter().for_each(|tx| {
-                        index += 1;
+                        tx_index += 1;
                         lock.push(tx.clone());
                     });
                 }
@@ -208,6 +191,7 @@ async fn poll_generic<TYPES: NodeTypes>(
         if new_view_number.is_ok() {
             view_number = new_view_number.unwrap();
             view_number += num_views_ahead;
+            let vote_index = 0;
         }
     }
 
@@ -223,7 +207,7 @@ enum MessageType {
 async fn run_background_receive<TYPES: NodeTypes>(
     connection: Arc<Inner<TYPES>>,
 ) -> Result<(), ServerError> {
-    println!("Run background receive task has started!");
+    error!("Run background receive task has started!");
     let wait_between_polls = Duration::from_millis(500);
 
     let proposal_handle = async_spawn({
@@ -286,7 +270,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     // TODO Start up async task, ensure we can reach the centralized server
     async fn ready(&self) -> bool {
         while !self.inner.connected.load(Ordering::Relaxed) {
-            println!("Sleeping waiting to be ready");
+            info!("Sleeping waiting to be ready");
             async_sleep(Duration::from_secs(1)).await;
         }
         true
@@ -306,7 +290,6 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
                     .unwrap()
                     .send()
                     .await;
-                println!("Sent proposal is: {:?}", sent_proposal);
             }
             // Most likely a transaction being broadcast
             hotshot_types::message::MessageKind::Data(_) => {
@@ -318,7 +301,6 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
                     .unwrap()
                     .send()
                     .await;
-                println!("Data message being broadcast {:?}", sent_tx);
             }
         }
         // TODO: put in our own broadcast queue
@@ -344,11 +326,8 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
                     .unwrap()
                     .send()
                     .await;
-                println!("sent vote is: {:?}", sent_vote);
             }
-            hotshot_types::message::MessageKind::Data(_) => {
-                println!("Data message being sent directly")
-            }
+            hotshot_types::message::MessageKind::Data(_) => {}
         }
         Ok(())
     }
@@ -370,13 +349,8 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
 
     // TODO implemented the same as the broadcast queue
     async fn direct_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError> {
-        // println!("BEFORE DRAIN DIRECT QUEUE");
         let mut queue = self.inner.direct_poll_queue.write().await;
-        // println!("MIDDLE DRAIN DIRECT QUEUE");
-
         let messages = queue.drain(..).collect();
-        // println!("AFTER DRAIN DIRECT QUEUE");
-
         Ok(messages)
     }
 
@@ -431,22 +405,13 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     }
 
     async fn inject_view_number(&self, view_number: TYPES::Time) {
-        println!(
-            "Inject view number called with view: {:?}",
-            view_number.clone()
-        );
+        info!("Injecting {:?}", view_number.clone());
         self.inner
             .view_number
             .modify(|current_view_number| {
                 *current_view_number = view_number;
             })
             .await;
-        // let old_view = self.inner.view_number.upgradable_read().await;
-        // if *old_view < view_number {
-        //     let mut new_view = RwLockUpgradableReadGuard::upgrade(old_view).await;
-        //     *new_view = view_number;
-        //     println!("New inject view number is: {:?}", new_view);
-        // }
     }
 }
 
