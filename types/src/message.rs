@@ -30,6 +30,8 @@ pub struct Message<
     pub kind: MessageKind<TYPES, LEAF, PROPOSAL>,
 }
 
+// TODO (da) make it more customized to the consensus layer, maybe separating the specific message
+// data from the kind enum.
 /// Enum representation of any message type
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
