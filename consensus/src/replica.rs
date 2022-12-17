@@ -380,7 +380,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Replica<A, TYPES> {
             consensus
                 .metrics
                 .empty_views_per_decide_event
-                .add_point((num_views_since_last_anchor - views_seen as f64) as f64);
+                .add_point(num_views_since_last_anchor - views_seen as f64);
             consensus
                 .metrics
                 .number_of_views_per_decide_event

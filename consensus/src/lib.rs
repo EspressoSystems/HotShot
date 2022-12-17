@@ -208,13 +208,12 @@ impl<TYPES: NodeTypes> Consensus<TYPES> {
                 .get_leaf_commitment()
                 .ok_or_else(|| HotShotError::InvalidState {
                     context: format!(
-                        "Visited failed view {:?} leaf. Expected successfuil leaf",
-                        start_from
+                        "Visited failed view {start_from:?} leaf. Expected successfuil leaf"
                     ),
                 })?
         } else {
             return Err(HotShotError::InvalidState {
-                context: format!("View {:?} leaf does not exist in state map ", start_from),
+                context: format!("View {start_from:?} leaf does not exist in state map "),
             });
         };
 

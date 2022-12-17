@@ -681,7 +681,7 @@ fn calculate_threshold(query: BinomialQuery) -> Option<Ratio<BigUint>> {
     let stake_attempt = query.stake_attempt;
     tracing::info!("Running calculate threshold");
     // TODO (ct) better error handling
-    if stake_attempt as u64 > query.replicas_stake {
+    if stake_attempt > query.replicas_stake {
         error!("j is larger than amount of stake we are allowed");
         return None;
     }

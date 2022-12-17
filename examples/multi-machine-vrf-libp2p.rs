@@ -443,7 +443,7 @@ impl Config {
         let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
         // Create the initial hotshot
-        let known_nodes: Vec<_> = (0..self.num_nodes as u64)
+        let known_nodes: Vec<_> = (0..self.num_nodes)
             .map(|x| {
                 let priv_key = Key::generate_test_key(x);
                 Key::from_private(&priv_key)
@@ -478,7 +478,7 @@ impl Config {
         let hotshot = HotShot::init(
             self.pubkey.clone(),
             self.privkey.clone(),
-            self.node_id as u64,
+            self.node_id,
             config,
             networking,
             MemoryStorage::new(),
