@@ -1907,7 +1907,7 @@
     <span class="kw">let </span>stake_attempt = query.stake_attempt;
     <span class="macro">tracing::info!</span>(<span class="string">&quot;Running calculate threshold&quot;</span>);
     <span class="comment">// TODO (ct) better error handling
-    </span><span class="kw">if </span>stake_attempt <span class="kw">as </span>u64 &gt; query.replicas_stake {
+    </span><span class="kw">if </span>stake_attempt &gt; query.replicas_stake {
         <span class="macro">error!</span>(<span class="string">&quot;j is larger than amount of stake we are allowed&quot;</span>);
         <span class="kw">return </span><span class="prelude-val">None</span>;
     }

@@ -1036,7 +1036,7 @@
         <span class="kw">let </span>initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
         <span class="comment">// Create the initial hotshot
-        </span><span class="kw">let </span>known_nodes: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..<span class="self">self</span>.num_nodes <span class="kw">as </span>u64)
+        </span><span class="kw">let </span>known_nodes: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..<span class="self">self</span>.num_nodes)
             .map(|x| {
                 <span class="kw">let </span>priv_key = BlsPubKey::generate_test_key(x);
                 BlsPubKey::from_private(<span class="kw-2">&amp;</span>priv_key)
@@ -1062,7 +1062,7 @@
         <span class="kw">let </span>hotshot = HotShot::init(
             <span class="self">self</span>.pubkey.clone(),
             <span class="self">self</span>.privkey.clone(),
-            <span class="self">self</span>.node_id <span class="kw">as </span>u64,
+            <span class="self">self</span>.node_id,
             config,
             networking,
             MemoryStorage::new(),

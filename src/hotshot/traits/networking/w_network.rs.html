@@ -1676,7 +1676,7 @@
                             <span class="comment">// periodically check if we have enough information to connect
                             </span>async_sleep(Duration::from_millis(<span class="number">2</span>)).<span class="kw">await</span>;
                         };
-                        <span class="kw">let </span>addr = <span class="macro">format!</span>(<span class="string">&quot;localhost:{}&quot;</span>, port);
+                        <span class="kw">let </span>addr = <span class="macro">format!</span>(<span class="string">&quot;localhost:{port}&quot;</span>);
                         n.connect_to(key2, <span class="kw-2">&amp;</span>addr)
                             .<span class="kw">await
                             </span>.expect(<span class="string">&quot;Failed to connect nodes&quot;</span>);
@@ -1990,7 +1990,7 @@
                 input: <span class="string">&quot;connect_to&quot;</span>,
             })<span class="question-mark">?</span>;
             <span class="macro">info!</span>(<span class="question-mark">?</span>addr, <span class="string">&quot;Connecting to remote with decoded address&quot;</span>);
-            <span class="kw">let </span>url = <span class="macro">format!</span>(<span class="string">&quot;ws://{}&quot;</span>, addr);
+            <span class="kw">let </span>url = <span class="macro">format!</span>(<span class="string">&quot;ws://{addr}&quot;</span>);
             <span class="macro">trace!</span>(<span class="question-mark">?</span>url);
             <span class="kw">let </span>(web_socket, <span class="kw">_</span>) = client_async(url, socket).<span class="kw">await</span>.context(WebSocketSnafu)<span class="question-mark">?</span>;
             <span class="macro">trace!</span>(<span class="string">&quot;Websocket connection created&quot;</span>);
@@ -2041,7 +2041,7 @@
         <span class="kw">let </span>(s_broadcast, r_broadcast) = bounded(<span class="number">128</span>);
         <span class="kw">let </span>keep_alive_duration = keep_alive_duration.unwrap_or_else(|| Duration::from_millis(<span class="number">500</span>));
         <span class="macro">trace!</span>(<span class="string">&quot;Created queues&quot;</span>);
-        <span class="kw">let </span>s_string = <span class="macro">format!</span>(<span class="string">&quot;{}:{}&quot;</span>, listen_addr, port);
+        <span class="kw">let </span>s_string = <span class="macro">format!</span>(<span class="string">&quot;{listen_addr}:{port}&quot;</span>);
         <span class="kw">let </span>s_addr = <span class="kw">match </span>s_string.to_socket_addrs().<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>x) =&gt; x.next().context(NoSocketsSnafu { input: s_string })<span class="question-mark">?</span>,
             <span class="prelude-val">Err</span>(e) =&gt; {
@@ -2647,7 +2647,7 @@
         }
         r.<span class="kw">await</span>.unwrap();
         <span class="comment">// Connect 1 to 2
-        </span><span class="kw">let </span>addr = <span class="macro">format!</span>(<span class="string">&quot;localhost:{}&quot;</span>, port2);
+        </span><span class="kw">let </span>addr = <span class="macro">format!</span>(<span class="string">&quot;localhost:{port2}&quot;</span>);
         network1
             .connect_to(key2, <span class="kw-2">&amp;</span>addr)
             .<span class="kw">await
@@ -2842,7 +2842,7 @@
         }
         r.<span class="kw">await</span>.unwrap();
         <span class="comment">// Connect 1 to 2
-        </span><span class="kw">let </span>addr = <span class="macro">format!</span>(<span class="string">&quot;localhost:{}&quot;</span>, port2);
+        </span><span class="kw">let </span>addr = <span class="macro">format!</span>(<span class="string">&quot;localhost:{port2}&quot;</span>);
         network1
             .connect_to(key2, <span class="kw-2">&amp;</span>addr)
             .<span class="kw">await
