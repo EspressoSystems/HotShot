@@ -51,7 +51,7 @@ nll = { git = "https://github.com/EspressoSystems/nll.git" }
 rand = "0.8.5"
 serde = { version = "1.0.151", features = ["derive"] }
 serde_bytes = "0.11.8"
-snafu = "0.7.3"
+snafu = "0.7.4"
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.2.4" }
 time = "0.3.17"
 tokio = { version = "1", optional = true, features = [

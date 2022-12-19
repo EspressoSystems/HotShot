@@ -146,7 +146,7 @@ num = "0.4.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 serde = { version = "1.0.151", features = ["derive", "rc"] }
-snafu = "0.7.3"
+snafu = "0.7.4"
 tempfile = "3.3.0"
 time = "0.3.17"
 toml = { version = "0.5.10", optional = true }
