@@ -49,7 +49,7 @@ channel-async-std = [
 ark-bls12-381 = { version = "0.3.0" }
 async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.0.1", default-features = false, features = [ "logging-utils"] }
 async-std = { version = "1.12.0", optional = true }
-async-trait = "0.1.59"
+async-trait = "0.1.60"
 # needed for vrf demo
 # so non-optional for now
 blake3 = { version = "1.3.3", features = ["traits-preview"] }
@@ -84,7 +84,7 @@ tokio = { version = "1", optional = true, features = [
   "tracing",
 ] }
 tracing = "0.1.37"
-serde = { version = "1.0.150", features = ["derive"] }
+serde = { version = "1.0.151", features = ["derive"] }
 
 [dev-dependencies]
 async-lock = "2.6"
