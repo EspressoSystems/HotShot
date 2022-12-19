@@ -3,7 +3,7 @@
 //! This module provides [`HotShotError`], which is an enum representing possible faults that can
 //! occur while interacting with this crate.
 
-use crate::traits::{node_implementation::NodeTypes, storage::StorageError};
+use crate::traits::{node_implementation::NodeType, storage::StorageError};
 use snafu::Snafu;
 use std::num::NonZeroU64;
 
@@ -18,7 +18,7 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
-pub enum HotShotError<TYPES: NodeTypes> {
+pub enum HotShotError<TYPES: NodeType> {
     /// Failed to Message the leader in the given stage
     #[snafu(display("Failed to message leader with error: {source}"))]
     FailedToMessageLeader {

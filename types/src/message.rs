@@ -4,9 +4,10 @@
 //! `HotShot` nodes can send among themselves.
 
 use crate::{
-    data::{Leaf, ProposalLeaf, QuorumCertificate},
+    certificate::QuorumCertificate,
+    data::{LeafType, ProposalType},
     traits::{
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature},
     },
 };
@@ -17,32 +18,52 @@ use serde::{Deserialize, Serialize};
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub struct Message<TYPES: NodeTypes> {
+pub struct Message<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+> {
     /// The sender of this message
     pub sender: TYPES::SignatureKey,
 
     /// The message kind
-    pub kind: MessageKind<TYPES>,
+    pub kind: MessageKind<TYPES, LEAF, PROPOSAL>,
 }
 
+// TODO (da) make it more customized to the consensus layer, maybe separating the specific message
+// data from the kind enum.
 /// Enum representation of any message type
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub enum MessageKind<TYPES: NodeTypes> {
+pub enum MessageKind<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+> {
     /// Messages related to the consensus protocol
-    Consensus(ConsensusMessage<TYPES>),
+    Consensus(ConsensusMessage<TYPES, LEAF, PROPOSAL>),
     /// Messages relating to sharing data between nodes
-    Data(DataMessage<TYPES>),
+    Data(DataMessage<TYPES, LEAF>),
 }
 
-impl<TYPES: NodeTypes> From<ConsensusMessage<TYPES>> for MessageKind<TYPES> {
-    fn from(m: ConsensusMessage<TYPES>) -> Self {
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+    > From<ConsensusMessage<TYPES, LEAF, PROPOSAL>> for MessageKind<TYPES, LEAF, PROPOSAL>
+{
+    fn from(m: ConsensusMessage<TYPES, LEAF, PROPOSAL>) -> Self {
         Self::Consensus(m)
     }
 }
 
-impl<TYPES: NodeTypes> From<DataMessage<TYPES>> for MessageKind<TYPES> {
-    fn from(m: DataMessage<TYPES>) -> Self {
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+    > From<DataMessage<TYPES, LEAF>> for MessageKind<TYPES, LEAF, PROPOSAL>
+{
+    fn from(m: DataMessage<TYPES, LEAF>) -> Self {
         Self::Data(m)
     }
 }
@@ -50,13 +71,17 @@ impl<TYPES: NodeTypes> From<DataMessage<TYPES>> for MessageKind<TYPES> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
 /// Messages related to the consensus protocol
-pub enum ConsensusMessage<TYPES: NodeTypes> {
+pub enum ConsensusMessage<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+> {
     /// Leader's proposal
-    Proposal(Proposal<TYPES>),
+    Proposal(Proposal<PROPOSAL>),
     /// Replica timed out
-    TimedOut(TimedOut<TYPES>),
+    TimedOut(TimedOut<TYPES, LEAF>),
     /// Replica votes
-    Vote(Vote<TYPES>),
+    Vote(Vote<TYPES, LEAF>),
     /// Internal ONLY message indicating a NextView interrupt
     /// View number this nextview interrupt was generated for
     /// used so we ignore stale nextview interrupts within a task
@@ -64,7 +89,12 @@ pub enum ConsensusMessage<TYPES: NodeTypes> {
     NextViewInterrupt(TYPES::Time),
 }
 
-impl<TYPES: NodeTypes> ConsensusMessage<TYPES> {
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+    > ConsensusMessage<TYPES, LEAF, PROPOSAL>
+{
     /// The view number of the (leader|replica) when the message was sent
     /// or the view of the timeout
     pub fn view_number(&self) -> TYPES::Time {
@@ -72,7 +102,7 @@ impl<TYPES: NodeTypes> ConsensusMessage<TYPES> {
             ConsensusMessage::Proposal(p) => {
                 // view of leader in the leaf when proposal
                 // this should match replica upon receipt
-                p.leaf.view_number
+                p.leaf.get_view_number()
             }
             ConsensusMessage::TimedOut(t) => {
                 // view number on which the replica timed out waiting for proposal
@@ -91,11 +121,11 @@ impl<TYPES: NodeTypes> ConsensusMessage<TYPES> {
 #[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq)]
 #[serde(bound(deserialize = ""))]
 /// Messages related to sending data between nodes
-pub enum DataMessage<TYPES: NodeTypes> {
+pub enum DataMessage<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The newest entry that a node knows. This is send from existing nodes to a new node when the new node joins the network
     NewestQuorumCertificate {
         /// The newest [`QuorumCertificate`]
-        quorum_certificate: QuorumCertificate<TYPES>,
+        quorum_certificate: QuorumCertificate<TYPES, LEAF>,
 
         /// The relevant [`BlockContents`]
         ///
@@ -105,10 +135,10 @@ pub enum DataMessage<TYPES: NodeTypes> {
         /// The relevant [`State`]
         ///
         /// [`State`]: ../traits/state/trait.State.html
-        state: TYPES::StateType,
+        state: LEAF::StateCommitmentType,
 
         /// The parent leaf's commitment
-        parent_commitment: Commitment<Leaf<TYPES>>,
+        parent_commitment: Commitment<LEAF>,
 
         /// Transactions rejected in this view
         rejected: Vec<TYPES::Transaction>,
@@ -124,21 +154,21 @@ pub enum DataMessage<TYPES: NodeTypes> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(bound(deserialize = ""))]
 /// Signals the start of a new view
-pub struct TimedOut<TYPES: NodeTypes> {
+pub struct TimedOut<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The current view
     pub current_view: TYPES::Time,
     /// The justification qc for this view
-    pub justify_qc: QuorumCertificate<TYPES>,
+    pub justify_qc: QuorumCertificate<TYPES, LEAF>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(bound(deserialize = ""))]
 /// Prepare qc from the leader
-pub struct Proposal<TYPES: NodeTypes> {
+pub struct Proposal<PROPOSAL: ProposalType> {
     // NOTE: optimization could include view number to help look up parent leaf
     // could even do 16 bit numbers if we want
     /// The leaf being proposed (see pseudocode)
-    pub leaf: ProposalLeaf<TYPES>,
+    pub leaf: PROPOSAL,
     /// The proposal must be signed by the view leader
     pub signature: EncodedSignature,
 }
@@ -146,19 +176,19 @@ pub struct Proposal<TYPES: NodeTypes> {
 /// A nodes vote on the prepare field.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub struct Vote<TYPES: NodeTypes> {
+pub struct Vote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// hash of the block being proposed
     /// TODO delete this when we delete block hash from the QC
     pub block_commitment: Commitment<TYPES::BlockType>,
     /// TODO we should remove this
     /// this is correct, but highly inefficient
     /// we should check a cache, and if that fails request the qc
-    pub justify_qc_commitment: Commitment<QuorumCertificate<TYPES>>,
+    pub justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a Vec<u8>
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// Hash of the item being voted on
-    pub leaf_commitment: Commitment<Leaf<TYPES>>,
+    pub leaf_commitment: Commitment<LEAF>,
     /// The view this vote was cast for
     pub current_view: TYPES::Time,
     /// The vote token generated by this replica

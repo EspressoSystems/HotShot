@@ -3,11 +3,16 @@ use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
 use blake3::Hasher;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
+use derivative::Derivative;
 use espresso_systems_common::hotshot::tag;
-use hotshot_types::traits::{
-    election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
-    node_implementation::NodeTypes,
-    signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
+use hotshot_types::{
+    certificate::{DACertificate, QuorumCertificate},
+    data::LeafType,
+    traits::{
+        election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
+        node_implementation::NodeType,
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
+    },
 };
 use hotshot_utils::bincode::bincode_opts;
 use jf_primitives::{
@@ -18,6 +23,8 @@ use jf_primitives::{
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
+#[allow(deprecated)]
+use nll::nll_todo::nll_todo;
 use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
@@ -274,42 +281,50 @@ where
 }
 
 /// the vrf implementation
-pub struct VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+#[derive(Derivative)]
+#[derivative(Eq, PartialEq)]
+pub struct VrfImpl<TYPES, LEAF: LeafType<NodeType = TYPES>, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS> + Sync + Send,
-    TYPES: NodeTypes,
+    TYPES: NodeType,
 {
     /// the stake table
+    #[derivative(PartialEq = "ignore")]
     stake_table: VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>,
     /// the proof params
+    #[derivative(PartialEq = "ignore")]
     proof_parameters: VRF::PublicParameter,
     /// the rng
+    #[derivative(PartialEq = "ignore")]
     prng: std::sync::Arc<std::sync::Mutex<rand_chacha::ChaChaRng>>,
     /// the committee parameter
     sortition_parameter: NonZeroU64,
     /// the chain commitment seed
     chain_seed: [u8; 32],
     /// pdf cache
+    #[derivative(PartialEq = "ignore")]
     _sortition_cache: std::sync::Arc<std::sync::Mutex<HashMap<BinomialQuery, Ratio<BigUint>>>>,
 
     // TODO (fst2) accessor to stake table
     // stake_table:
     /// phantom data
-    _pd_0: PhantomData<VRFHASHER>,
+    _pd_0: PhantomData<TYPES>,
     /// phantom data
-    _pd_1: PhantomData<VRFPARAMS>,
+    _pd_1: PhantomData<LEAF>,
     /// phantom data
-    _pd_2: PhantomData<TYPES>,
+    _pd_2: PhantomData<SIGSCHEME>,
     /// phantom data
     _pd_3: PhantomData<VRF>,
     /// phantom data
-    _pd_4: PhantomData<SIGSCHEME>,
+    _pd_4: PhantomData<VRFHASHER>,
+    /// phantom data
+    _pd_5: PhantomData<VRFPARAMS>,
 }
-impl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS> Clone
-    for VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+impl<TYPES, LEAF: LeafType<NodeType = TYPES>, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS> Clone
+    for VrfImpl<TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS, PublicParameter = ()> + Sync + Send,
-    TYPES: NodeTypes,
+    TYPES: NodeType,
 {
     fn clone(&self) -> Self {
         Self {
@@ -324,6 +339,7 @@ where
             _pd_2: PhantomData,
             _pd_3: PhantomData,
             _pd_4: PhantomData,
+            _pd_5: PhantomData,
         }
     }
 }
@@ -405,8 +421,8 @@ where
 }
 
 // KEY is VRFPubKey
-impl<VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, TYPES> Election<TYPES>
-    for VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+impl<VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, TYPES, LEAF: LeafType<NodeType = TYPES>> Election<TYPES>
+    for VrfImpl<TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send + 'static,
     SIGSCHEME::VerificationKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
@@ -428,7 +444,7 @@ where
     VRFHASHER: digest::Digest + Clone + Sync + Send + 'static,
     VRFPARAMS: Sync + Send + Bls12Parameters,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
-    TYPES: NodeTypes<
+    TYPES: NodeType<
         VoteTokenType = VRFVoteToken<VRF::PublicKey, VRF::Proof>,
         ElectionConfigType = VRFStakeTableConfig,
         SignatureKey = JfPubKey<SIGSCHEME>,
@@ -436,6 +452,45 @@ where
 {
     // pubkey -> unit of stake
     type StakeTable = VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>;
+
+    type QuorumCertificate = QuorumCertificate<TYPES, Self::LeafType>;
+
+    type DACertificate = DACertificate<TYPES>;
+
+    type LeafType = LEAF;
+
+    fn is_valid_qc(&self, _qc: Self::QuorumCertificate) -> bool {
+        #[allow(deprecated)]
+        nll_todo()
+    }
+
+    fn is_valid_dac(&self, _qc: Self::DACertificate) -> bool {
+        #[allow(deprecated)]
+        nll_todo()
+    }
+
+    fn is_valid_qc_signature(
+        &self,
+        _encoded_key: &EncodedPublicKey,
+        _encoded_signature: &EncodedSignature,
+        _hash: Commitment<Self::LeafType>,
+        _view_number: TYPES::Time,
+        _vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        #[allow(deprecated)]
+        nll_todo()
+    }
+
+    fn is_valid_dac_signature(
+        &self,
+        _encoded_key: &EncodedPublicKey,
+        _encoded_signature: &EncodedSignature,
+        _view_number: TYPES::Time,
+        _vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        #[allow(deprecated)]
+        nll_todo()
+    }
 
     // FIXED STAKE
     // just return the state
@@ -595,7 +650,7 @@ fn check_bin_idx(
 /// generates the seed from algorand paper
 /// baseed on `view_number` and a constant as of now, but in the future will be other things
 /// this is a stop-gap
-fn generate_view_seed<TYPES: NodeTypes, HASHER: digest::Digest>(
+fn generate_view_seed<TYPES: NodeType, HASHER: digest::Digest>(
     view_number: TYPES::Time,
     vrf_seed: &[u8; 32],
 ) -> [u8; 32] {
@@ -817,8 +872,8 @@ fn find_bin_idx(
     }
 }
 
-impl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
-    VrfImpl<TYPES, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+impl<TYPES, LEAF: LeafType<NodeType = TYPES>, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+    VrfImpl<TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send,
     SIGSCHEME::VerificationKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
@@ -839,7 +894,7 @@ where
     VRFHASHER: digest::Digest + Clone + Sync + Send,
     VRFPARAMS: Sync + Send + Bls12Parameters,
     <VRFPARAMS as Bls12Parameters>::G1Parameters: SWHashToGroup,
-    TYPES: NodeTypes,
+    TYPES: NodeType,
 {
     /// create stake table with this initial stake
     /// # Panics
@@ -877,6 +932,7 @@ where
             _pd_2: PhantomData,
             _pd_3: PhantomData,
             _pd_4: PhantomData,
+            _pd_5: PhantomData,
             sortition_parameter: config.sortition_parameter,
             _sortition_cache: Arc::default(),
         }
@@ -1010,10 +1066,10 @@ where
     }
 }
 
-impl<TYPES> TestableElection<TYPES>
-    for VrfImpl<TYPES, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>
+impl<TYPES, LEAF: LeafType<NodeType = TYPES>> TestableElection<TYPES>
+    for VrfImpl<TYPES, LEAF, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>
 where
-    TYPES: NodeTypes<
+    TYPES: NodeType<
         VoteTokenType = VRFVoteToken<
             BLSVerKey<ark_bls12_381::Parameters>,
             BLSSignature<ark_bls12_381::Parameters>,
@@ -1051,176 +1107,194 @@ impl Default for VRFStakeTableConfig {
 
 impl ElectionConfig for VRFStakeTableConfig {}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ark_bls12_381::Parameters as Param381;
-    use ark_std::test_rng;
-    use async_compatibility_layer::logging::setup_logging;
-    use blake3::Hasher;
-    use hotshot_types::{
-        data::ViewNumber,
-        traits::{
-            block_contents::dummy::{DummyBlock, DummyTransaction},
-            state::{dummy::DummyState, ConsensusTime},
-        },
-    };
-    use jf_primitives::{
-        signatures::{
-            bls::{BLSSignature, BLSVerKey},
-            BLSSignatureScheme,
-        },
-        vrf::blsvrf::BLSVRFScheme,
-    };
-    use std::{num::NonZeroUsize, time::Duration};
+// Tests have been commented out, so `mod tests` isn't used.
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use ark_bls12_381::Parameters as Param381;
+//     use ark_std::test_rng;
 
-    #[derive(
-        Copy,
-        Clone,
-        Debug,
-        Default,
-        Hash,
-        PartialEq,
-        Eq,
-        PartialOrd,
-        Ord,
-        serde::Serialize,
-        serde::Deserialize,
-    )]
-    struct TestTypes;
-    impl NodeTypes for TestTypes {
-        type Time = ViewNumber;
-        type BlockType = DummyBlock;
-        type SignatureKey = JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>;
-        type VoteTokenType = VRFVoteToken<
-            BLSVerKey<ark_bls12_381::Parameters>,
-            BLSSignature<ark_bls12_381::Parameters>,
-        >;
-        type Transaction = DummyTransaction;
-        type ElectionConfigType = VRFStakeTableConfig;
-        type StateType = DummyState;
-    }
+//     use blake3::Hasher;
+//     use hotshot_types::{
+//         data::ViewNumber,
+//         traits::{
+//             block_contents::dummy::{DummyBlock, DummyTransaction},
+//             node_implementation::ApplicationMetadata,
+//             state::{dummy::DummyState, ValidatingConsensus},
+//         },
+//     };
+//     use jf_primitives::{
+//         signatures::{
+//             bls::{BLSSignature, BLSVerKey},
+//             BLSSignatureScheme,
+//         },
+//         vrf::blsvrf::BLSVRFScheme,
+//     };
+//     use std::{num::NonZeroUsize, time::Duration};
 
-    fn gen_vrf_impl(
-        num_nodes: usize,
-    ) -> (
-        VrfImpl<TestTypes, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
-        Vec<(
-            jf_primitives::signatures::bls::BLSSignKey<Param381>,
-            jf_primitives::signatures::bls::BLSVerKey<Param381>,
-        )>,
-    ) {
-        let mut known_nodes = Vec::new();
-        let mut keys = Vec::new();
-        let rng = &mut test_rng();
-        let mut stake_distribution = Vec::new();
-        let stake_per_node = NonZeroU64::new(100).unwrap();
-        let genesis_seed = [0u8; 32];
-        for _i in 0..num_nodes {
-            // TODO we should make this more general/use different parameters
-            #[allow(clippy::let_unit_value)]
-            let parameters = BLSSignatureScheme::<Param381>::param_gen(Some(rng)).unwrap();
-            let (sk, pk) = BLSSignatureScheme::<Param381>::key_gen(&parameters, rng).unwrap();
-            keys.push((sk.clone(), pk.clone()));
-            known_nodes.push(JfPubKey::from_native(pk.clone()));
-            stake_distribution.push(stake_per_node);
-        }
-        let stake_table = VrfImpl::with_initial_stake(
-            known_nodes,
-            &VRFStakeTableConfig {
-                sortition_parameter: std::num::NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
-                distribution: stake_distribution,
-            },
-            genesis_seed,
-        );
-        (stake_table, keys)
-    }
+//     /// application metadata stub
+//     #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+//     pub struct TestMetaData {}
 
-    pub fn check_if_valid<T>(token: &Checked<T>) -> bool {
-        match token {
-            Checked::Valid(_) => true,
-            Checked::Inval(_) | Checked::Unchecked(_) => false,
-        }
-    }
+//     impl ApplicationMetadata for TestMetaData {}
 
-    #[test]
-    pub fn test_sortition() {
-        setup_logging();
-        let (vrf_impl, keys) = gen_vrf_impl(10);
-        let views = 100;
+//     #[derive(
+//         Copy,
+//         Clone,
+//         Debug,
+//         Default,
+//         Hash,
+//         PartialEq,
+//         Eq,
+//         PartialOrd,
+//         Ord,
+//         serde::Serialize,
+//         serde::Deserialize,
+//     )]
+//     struct TestTypes;
+//     impl NodeType for TestTypes {
+//         // TODO (da) can this be SequencingConsensus?
+//         type ConsensusType = ValidatingConsensus;
+//         type Time = ViewNumber;
+//         type BlockType = DummyBlock;
+//         type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
+//         type VoteTokenType = VRFVoteToken<
+//             BLSVerKey<ark_bls12_381::Parameters>,
+//             BLSSignature<ark_bls12_381::Parameters>,
+//         >;
+//         type Transaction = DummyTransaction;
+//         type ElectionConfigType = VRFStakeTableConfig;
+//         type StateType = DummyState;
+//         type ApplicationMetadataType = TestMetaData;
+//     }
 
-        for view in 0..views {
-            for (node_idx, (sk, pk)) in keys.iter().enumerate() {
-                let token_result = vrf_impl
-                    .make_vote_token(ViewNumber::new(view), &(sk.clone(), pk.clone()))
-                    .unwrap();
-                match token_result {
-                    Some(token) => {
-                        let count = token.count;
-                        let result = vrf_impl
-                            .validate_vote_token(
-                                ViewNumber::new(view),
-                                JfPubKey::from_native(pk.clone()),
-                                Checked::Unchecked(token),
-                            )
-                            .unwrap();
-                        let result_is_valid = check_if_valid(&result);
-                        error!("view {view:?}, node_idx {node_idx:?}, stake {count:?} ");
-                        assert!(result_is_valid);
-                    }
-                    _ => continue,
-                }
-            }
-        }
-    }
+//     fn gen_vrf_impl<LEAF: LeafType<NodeType = TestTypes>>(
+//         num_nodes: usize,
+//     ) -> (
+//         VrfImpl<
+//             TestTypes,
+//             LEAF,
+//             BLSSignatureScheme<Param381>,
+//             BLSVRFScheme<Param381>,
+//             Hasher,
+//             Param381,
+//         >,
+//         Vec<(
+//             jf_primitives::signatures::bls::BLSSignKey<Param381>,
+//             jf_primitives::signatures::bls::BLSVerKey<Param381>,
+//         )>,
+//     ) {
+//         let mut known_nodes = Vec::new();
+//         let mut keys = Vec::new();
+//         let rng = &mut test_rng();
+//         let mut stake_distribution = Vec::new();
+//         let stake_per_node = NonZeroU64::new(100).unwrap();
+//         let genesis_seed = [0u8; 32];
+//         for _i in 0..num_nodes {
+//             // TODO we should make this more general/use different parameters
+//             #[allow(clippy::let_unit_value)]
+//             let parameters = BLSSignatureScheme::<Param381>::param_gen(Some(rng)).unwrap();
+//             let (sk, pk) = BLSSignatureScheme::<Param381>::key_gen(&parameters, rng).unwrap();
+//             keys.push((sk.clone(), pk.clone()));
+//             known_nodes.push(JfPubKey::from_native(pk.clone()));
+//             stake_distribution.push(stake_per_node);
+//         }
+//         let stake_table = VrfImpl::with_initial_stake(
+//             known_nodes,
+//             &VRFStakeTableConfig {
+//                 sortition_parameter: std::num::NonZeroU64::new(SORTITION_PARAMETER).unwrap(),
+//                 distribution: stake_distribution,
+//             },
+//             genesis_seed,
+//         );
+//         (stake_table, keys)
+//     }
 
-    #[test]
-    pub fn test_factorial() {
-        assert_eq!(factorial(0), BigUint::from(1u32));
-        assert_eq!(factorial(1), BigUint::from(1u32));
-        assert_eq!(factorial(2), BigUint::from(2u32));
-        assert_eq!(factorial(3), BigUint::from(6u32));
-        assert_eq!(factorial(4), BigUint::from(24u32));
-        assert_eq!(factorial(5), BigUint::from(120u32));
-    }
+//     pub fn check_if_valid<T>(token: &Checked<T>) -> bool {
+//         match token {
+//             Checked::Valid(_) => true,
+//             Checked::Inval(_) | Checked::Unchecked(_) => false,
+//         }
+//     }
 
-    // TODO add failure case
+//     // #[test]
+//     // pub fn test_sortition() {
+//     //     setup_logging();
+//     //     let (vrf_impl, keys) = gen_vrf_impl::<ValidatingLeaf<TestTypes>>(10);
+//     //     let views = 100;
 
-    #[test]
-    fn network_config_is_serializable() {
-        // validate that `RunResults` can be serialized
-        // Note that there is currently an issue with `VRFPubKey` where it can't be serialized with toml
-        // so instead we only test with serde_json
-        let key =
-            <JfPubKey<BLSSignatureScheme<Param381>> as TestableSignatureKey>::generate_test_key(1);
-        let pub_key = JfPubKey::<BLSSignatureScheme<Param381>>::from_private(&key);
-        let mut config = hotshot_centralized_server::NetworkConfig {
-            config: hotshot_types::HotShotConfig {
-                election_config: Some(super::VRFStakeTableConfig {
-                    distribution: vec![NonZeroU64::new(1).unwrap()],
-                    sortition_parameter: NonZeroU64::new(1).unwrap(),
-                }),
-                known_nodes: vec![pub_key],
-                execution_type: hotshot_types::ExecutionType::Incremental,
-                total_nodes: NonZeroUsize::new(1).unwrap(),
-                min_transactions: 1,
-                max_transactions: NonZeroUsize::new(1).unwrap(),
-                next_view_timeout: 1,
-                timeout_ratio: (1, 1),
-                round_start_delay: 1,
-                start_delay: 1,
-                num_bootstrap: 1,
-                propose_min_round_time: Duration::from_secs(1),
-                propose_max_round_time: Duration::from_secs(1),
-            },
-            ..Default::default()
-        };
-        serde_json::to_string(&config).unwrap();
-        assert!(toml::to_string(&config).is_err());
+//     //     for view in 0..views {
+//     //         for (node_idx, (sk, pk)) in keys.iter().enumerate() {
+//     //             let token_result = vrf_impl
+//     //                 .make_vote_token(ViewNumber::new(view), &(sk.clone(), pk.clone()))
+//     //                 .unwrap();
+//     //             match token_result {
+//     //                 Some(token) => {
+//     //                     let count = token.count;
+//     //                     let result = vrf_impl
+//     //                         .validate_vote_token(
+//     //                             ViewNumber::new(view),
+//     //                             JfPubKey::from_native(pk.clone()),
+//     //                             Checked::Unchecked(token),
+//     //                         )
+//     //                         .unwrap();
+//     //                     let result_is_valid = check_if_valid(&result);
+//     //                     error!("view {view:?}, node_idx {node_idx:?}, stake {count:?} ");
+//     //                     assert!(result_is_valid);
+//     //                 }
+//     //                 _ => continue,
+//     //             }
+//     //         }
+//     //     }
+//     // }
 
-        // validate that this is indeed a `pub_key` issue
-        config.config.known_nodes.clear();
-        serde_json::to_string(&config).unwrap();
-        toml::to_string(&config).unwrap();
-    }
-}
+//     #[test]
+//     pub fn test_factorial() {
+//         assert_eq!(factorial(0), BigUint::from(1u32));
+//         assert_eq!(factorial(1), BigUint::from(1u32));
+//         assert_eq!(factorial(2), BigUint::from(2u32));
+//         assert_eq!(factorial(3), BigUint::from(6u32));
+//         assert_eq!(factorial(4), BigUint::from(24u32));
+//         assert_eq!(factorial(5), BigUint::from(120u32));
+//     }
+
+//     // TODO add failure case
+
+//     #[test]
+//     fn network_config_is_serializable() {
+//         // validate that `RunResults` can be serialized
+//         // Note that there is currently an issue with `VRFPubKey` where it can't be serialized with toml
+//         // so instead we only test with serde_json
+//         let key =
+//             <JfPubKey<BLSSignatureScheme<Param381>> as TestableSignatureKey>::generate_test_key(1);
+//         let pub_key = JfPubKey::<BLSSignatureScheme<Param381>>::from_private(&key);
+//         let mut config = hotshot_centralized_server::NetworkConfig {
+//             config: hotshot_types::HotShotConfig {
+//                 election_config: Some(super::VRFStakeTableConfig {
+//                     distribution: vec![NonZeroU64::new(1).unwrap()],
+//                     sortition_parameter: NonZeroU64::new(1).unwrap(),
+//                 }),
+//                 known_nodes: vec![pub_key],
+//                 execution_type: hotshot_types::ExecutionType::Incremental,
+//                 total_nodes: NonZeroUsize::new(1).unwrap(),
+//                 min_transactions: 1,
+//                 max_transactions: NonZeroUsize::new(1).unwrap(),
+//                 next_view_timeout: 1,
+//                 timeout_ratio: (1, 1),
+//                 round_start_delay: 1,
+//                 start_delay: 1,
+//                 num_bootstrap: 1,
+//                 propose_min_round_time: Duration::from_secs(1),
+//                 propose_max_round_time: Duration::from_secs(1),
+//             },
+//             ..Default::default()
+//         };
+//         serde_json::to_string(&config).unwrap();
+//         assert!(toml::to_string(&config).is_err());
+
+//         // validate that this is indeed a `pub_key` issue
+//         config.config.known_nodes.clear();
+//         serde_json::to_string(&config).unwrap();
+//         toml::to_string(&config).unwrap();
+//     }
+// }

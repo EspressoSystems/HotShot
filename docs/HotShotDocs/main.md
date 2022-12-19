@@ -6,7 +6,7 @@
      1. [Basics](#basics)
         - [View Timeouts](#view-timeouts)
      2. [Sequential HotShot](#sequential)
-        - [Leader](#sequential-leader)
+        - [ValidatingLeader](#sequential-leader)
         - [Replica](#sequential-replica)
      3. [Pipelined HotShot](#pipelined)
   3. [Appendices](#appendices) 

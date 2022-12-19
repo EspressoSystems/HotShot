@@ -64,7 +64,7 @@ pub mod dummy {
     use crate::traits::state::TestableBlock;
 
     /// The dummy block
-    #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
     pub struct DummyBlock {
         /// Some dummy data
         pub nonce: u64,
@@ -82,7 +82,7 @@ pub mod dummy {
     pub struct DummyError;
 
     /// dummy transaction. No functionality
-    #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
+    #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Hash)]
     pub enum DummyTransaction {
         /// the only variant. Dummy.
         Dummy,

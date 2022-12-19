@@ -1,11 +1,8 @@
 //! Abstraction over on-disk storage of node state
 #![allow(missing_docs)]
 
-use super::{node_implementation::NodeTypes, signature_key::EncodedPublicKey};
-use crate::{
-    data::{Leaf, QuorumCertificate},
-    traits::Block,
-};
+use super::{node_implementation::NodeType, signature_key::EncodedPublicKey};
+use crate::{certificate::QuorumCertificate, data::LeafType, traits::Block};
 use async_trait::async_trait;
 use commit::Commitment;
 use derivative::Derivative;
@@ -30,16 +27,17 @@ pub type Result<T = ()> = std::result::Result<T, StorageError>;
 ///
 /// This trait has been constructed for object saftey over convenience.
 #[async_trait]
-pub trait Storage<TYPES>: Clone + Send + Sync + Sized + 'static
+pub trait Storage<TYPES, LEAF>: Clone + Send + Sync + Sized + 'static
 where
-    TYPES: NodeTypes + 'static,
+    TYPES: NodeType + 'static,
+    LEAF: LeafType<NodeType = TYPES> + 'static,
 {
     /// Append the list of views to this storage
-    async fn append(&self, views: Vec<ViewEntry<TYPES>>) -> Result;
+    async fn append(&self, views: Vec<ViewEntry<TYPES, LEAF>>) -> Result;
     /// Cleans up the storage up to the given view. The given view number will still persist in this storage afterwards.
     async fn cleanup_storage_up_to_view(&self, view: TYPES::Time) -> Result<usize>;
     /// Get the latest anchored view
-    async fn get_anchored_view(&self) -> Result<StoredView<TYPES>>;
+    async fn get_anchored_view(&self) -> Result<StoredView<TYPES, LEAF>>;
     /// Commit this storage.
     async fn commit(&self) -> Result;
 
@@ -47,7 +45,7 @@ where
     /// ```rust,ignore
     /// storage.append(vec![ViewEntry::Success(view)]).await
     /// ```
-    async fn append_single_view(&self, view: StoredView<TYPES>) -> Result {
+    async fn append_single_view(&self, view: StoredView<TYPES, LEAF>) -> Result {
         self.append(vec![ViewEntry::Success(view)]).await
     }
     // future improvement:
@@ -60,9 +58,10 @@ where
 
 /// Extra requirements on Storage implementations required for testing
 #[async_trait]
-pub trait TestableStorage<TYPES>: Clone + Send + Sync + Storage<TYPES>
+pub trait TestableStorage<TYPES, LEAF: LeafType<NodeType = TYPES>>:
+    Clone + Send + Sync + Storage<TYPES, LEAF>
 where
-    TYPES: NodeTypes + 'static,
+    TYPES: NodeType + 'static,
 {
     /// Create ephemeral storage
     /// Will be deleted/lost immediately after storage is dropped
@@ -71,57 +70,69 @@ where
     fn construct_tmp_storage() -> Result<Self>;
 
     /// Return the full internal state. This is useful for debugging.
-    async fn get_full_state(&self) -> StorageState<TYPES>;
+    async fn get_full_state(&self) -> StorageState<TYPES, LEAF>;
 }
 
 /// An internal representation of the data stored in a [`Storage`].
 ///
 /// This should only be used for testing, never in production code.
 #[derive(Debug, PartialEq)]
-pub struct StorageState<TYPES: NodeTypes> {
+pub struct StorageState<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The views that have been successful
-    pub stored: BTreeMap<TYPES::Time, StoredView<TYPES>>,
+    pub stored: BTreeMap<TYPES::Time, StoredView<TYPES, LEAF>>,
     /// The views that have failed
     pub failed: BTreeSet<TYPES::Time>,
 }
 
 /// An entry to `Storage::append`. This makes it possible to commit both succeeded and failed views at the same time
 #[derive(Debug, PartialEq)]
-pub enum ViewEntry<TYPES>
+pub enum ViewEntry<TYPES, LEAF>
 where
-    TYPES: NodeTypes,
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
 {
     /// A succeeded view
-    Success(StoredView<TYPES>),
+    Success(StoredView<TYPES, LEAF>),
     /// A failed view
     Failed(TYPES::Time),
     // future improvement:
     // InProgress(InProgressView),
 }
 
-impl<TYPES> From<StoredView<TYPES>> for ViewEntry<TYPES>
+impl<TYPES, LEAF> From<StoredView<TYPES, LEAF>> for ViewEntry<TYPES, LEAF>
 where
-    TYPES: NodeTypes,
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
 {
-    fn from(view: StoredView<TYPES>) -> Self {
+    fn from(view: StoredView<TYPES, LEAF>) -> Self {
         Self::Success(view)
+    }
+}
+
+impl<TYPES, LEAF> From<LEAF> for ViewEntry<TYPES, LEAF>
+where
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+{
+    fn from(leaf: LEAF) -> Self {
+        Self::Success(StoredView::from(leaf))
     }
 }
 
 /// A view stored in the [`Storage`]
 #[derive(Clone, Debug, Derivative)]
 #[derivative(PartialEq)]
-pub struct StoredView<TYPES: NodeTypes> {
+pub struct StoredView<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The view number of this view
     pub view_number: TYPES::Time,
     /// The index of `parent` in the chain
     pub height: u64,
     /// The parent of this view
-    pub parent: Commitment<Leaf<TYPES>>,
+    pub parent: Commitment<LEAF>,
     /// The justify QC of this view. See the hotstuff paper for more information on this.
-    pub justify_qc: QuorumCertificate<TYPES>,
+    pub justify_qc: QuorumCertificate<TYPES, LEAF>,
     /// The state of this view
-    pub state: TYPES::StateType,
+    pub state: LEAF::StateCommitmentType,
     /// The history of how this view came to be
     pub append: ViewAppend<TYPES::BlockType>,
     /// transactions rejected in this view
@@ -134,19 +145,20 @@ pub struct StoredView<TYPES: NodeTypes> {
     pub proposer_id: EncodedPublicKey,
 }
 
-impl<TYPES> StoredView<TYPES>
+impl<TYPES, LEAF> StoredView<TYPES, LEAF>
 where
-    TYPES: NodeTypes,
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
 {
     /// Create a new `StoredView` from the given QC, Block and State.
     ///
     /// Note that this will set the `parent` to `LeafHash::default()`, so this will not have a parent.
     pub fn from_qc_block_and_state(
-        qc: QuorumCertificate<TYPES>,
+        qc: QuorumCertificate<TYPES, LEAF>,
         block: TYPES::BlockType,
-        state: TYPES::StateType,
+        state: LEAF::StateCommitmentType,
         height: u64,
-        parent_commitment: Commitment<Leaf<TYPES>>,
+        parent_commitment: Commitment<LEAF>,
         rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
         proposer_id: EncodedPublicKey,
     ) -> Self {

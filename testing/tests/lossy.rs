@@ -4,33 +4,44 @@ mod common;
 use std::sync::Arc;
 
 use common::{
-    AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
-    StaticCommitteeTestTypes, StaticNodeImplType,
+    AppliedTestNodeImpl, AppliedTestRunner, DetailedTestDescriptionBuilder,
+    GeneralTestDescriptionBuilder, StaticCommitteeTestTypes, StaticNodeImplType,
 };
 use either::Either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
+use hotshot::tasks::{ViewRunner, ViewRunnerType};
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
     ConsensusRoundError, RoundResult,
 };
 use hotshot_types::traits::{
-    election::Election,
-    node_implementation::NodeTypes,
+    network::TestableNetworkingImplementation,
+    node_implementation::{NodeImplementation, NodeType, TestableNodeImplementation},
     signature_key::TestableSignatureKey,
     state::{TestableBlock, TestableState},
+    storage::TestableStorage,
 };
 use tracing::{error, instrument};
 
 /// checks safety requirement; relatively lax
 /// marked as success if 2f+1 nodes "succeeded" and committed the same thing
-pub fn check_safety<TYPES: NodeTypes, ELECTION: Election<TYPES>>(
-    runner: &AppliedTestRunner<TYPES, ELECTION>,
-    results: RoundResult<TYPES>,
+pub fn check_safety<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    runner: &AppliedTestRunner<
+        TYPES,
+        <I as NodeImplementation<TYPES>>::Leaf,
+        <I as NodeImplementation<TYPES>>::Proposal,
+        <I as NodeImplementation<TYPES>>::Election,
+    >,
+    results: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>:
+        ViewRunnerType<TYPES, AppliedTestNodeImpl<TYPES, I::Leaf, I::Proposal, I::Election>>,
 {
     async move {
         let num_nodes = runner.ids().len();
@@ -79,7 +90,9 @@ async fn test_no_loss_network() {
             gen_runner: None,
         };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Box::new(check_safety));
+    test.rounds[0].safety_check_post = Some(Box::new(
+        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
+    ));
     test.execute().await.unwrap();
 }
 
@@ -90,7 +103,10 @@ async fn test_no_loss_network() {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
-async fn test_synchronous_network() {
+async fn test_synchronous_network()
+// where
+//     ViewRunner<ValidatingConsensus>: ViewRunnerType<StaticCommitteeTestTypes, StaticNodeImplType>,
+{
     let description =
         DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
             general_info: GeneralTestDescriptionBuilder {
@@ -104,8 +120,12 @@ async fn test_synchronous_network() {
             gen_runner: None,
         };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Box::new(check_safety));
-    test.rounds[1].safety_check_post = Some(Box::new(check_safety));
+    test.rounds[0].safety_check_post = Some(Box::new(
+        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
+    ));
+    test.rounds[1].safety_check_post = Some(Box::new(
+        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
+    ));
     test.execute().await.unwrap();
 }
 
@@ -133,8 +153,12 @@ async fn test_asynchronous_network() {
             gen_runner: None,
         };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Box::new(check_safety));
-    test.rounds[1].safety_check_post = Some(Box::new(check_safety));
+    test.rounds[0].safety_check_post = Some(Box::new(
+        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
+    ));
+    test.rounds[1].safety_check_post = Some(Box::new(
+        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
+    ));
     test.execute().await.unwrap();
 }
 
@@ -165,7 +189,11 @@ async fn test_partially_synchronous_network() {
             gen_runner: None,
         };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Box::new(check_safety));
-    test.rounds[1].safety_check_post = Some(Box::new(check_safety));
+    test.rounds[0].safety_check_post = Some(Box::new(
+        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
+    ));
+    test.rounds[1].safety_check_post = Some(Box::new(
+        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
+    ));
     test.execute().await.unwrap();
 }

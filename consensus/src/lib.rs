@@ -24,8 +24,8 @@ mod traits;
 mod utils;
 
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
-pub use leader::Leader;
-pub use next_leader::NextLeader;
+pub use leader::ValidatingLeader;
+pub use next_leader::NextValidatingLeader;
 pub use replica::Replica;
 pub use traits::ConsensusApi;
 pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
@@ -33,11 +33,12 @@ pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
 use commit::Commitment;
 use hotshot_types::traits::metrics::Counter;
 use hotshot_types::{
-    data::{Leaf, QuorumCertificate},
+    certificate::QuorumCertificate,
+    data::LeafType,
     error::HotShotError,
     traits::{
         metrics::{Gauge, Histogram, Metrics},
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
     },
 };
 use std::{
@@ -50,14 +51,55 @@ use utils::Terminator;
 /// A type alias for `HashMap<Commitment<T>, T>`
 type CommitmentMap<T> = HashMap<Commitment<T>, T>;
 
+// frame the problem
+// - run_view assumes one type of consensus, but should be agnostic of the consensus type for all types of consensus
+// - avoid copy-pasta task running code
+// what should consensus do?
+// - run views
+// - handle messages
+// - have overarching struct for shared state
+// - what is currently called consensusapi we keep as an interface into consensus
+//   that, regardless of the type of consensus, must do
+//   - take things from the network
+//   - keys
+//   - configuration
+//   - track view number
+//   - track leader (may need to change if we do leaderless)
+// what is "HotShot" right now = ValidatingConsensus
+// ValidatingConsensus is a consensus implementation of ConsensusAbstraction
+
+// pub trait ConsensusAbstraction {
+//     type SharedConsensusData: Clone + std::fmt::Debug;
+//     type I: NodeImplementation;
+//
+//     fn run_view();
+//
+//     fn handle_direct_data_message() ;
+//
+//     fn handle_broadcast_data_message() ;
+//
+//     fn send_direct_data_message() ;
+//
+//     fn send_broadcast_data_message() ;
+//
+//     fn handle_direct_consensus_message() ;
+//
+//     fn handle_broadcast_consensus_message() ;
+//
+//     fn send_direct_consensus_message() ;
+//
+//     fn send_broadcast_consensus_message() ;
+//
+// }
+
 /// A reference to the consensus algorithm
 ///
 /// This will contain the state of all rounds.
 #[derive(custom_debug::Debug)]
-pub struct Consensus<TYPES: NodeTypes> {
+pub struct Consensus<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The phases that are currently loaded in memory
     // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
-    pub state_map: BTreeMap<TYPES::Time, View<TYPES>>,
+    pub state_map: BTreeMap<TYPES::Time, View<TYPES, LEAF>>,
 
     /// cur_view from pseudocode
     pub cur_view: TYPES::Time,
@@ -71,13 +113,13 @@ pub struct Consensus<TYPES: NodeTypes> {
     /// Map of leaf hash -> leaf
     /// - contains undecided leaves
     /// - includes the MOST RECENT decided leaf
-    pub saved_leaves: CommitmentMap<Leaf<TYPES>>,
+    pub saved_leaves: CommitmentMap<LEAF>,
 
     /// The `locked_qc` view number
     pub locked_view: TYPES::Time,
 
     /// the highqc per spec
-    pub high_qc: QuorumCertificate<TYPES>,
+    pub high_qc: QuorumCertificate<TYPES, LEAF>,
 
     /// A reference to the metrics trait
     #[debug(skip)]
@@ -182,7 +224,7 @@ impl ConsensusMetrics {
     }
 }
 
-impl<TYPES: NodeTypes> Consensus<TYPES> {
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
     /// increment the current view
     /// NOTE may need to do gc here
     pub fn increment_view(&mut self) -> TYPES::Time {
@@ -201,7 +243,7 @@ impl<TYPES: NodeTypes> Consensus<TYPES> {
         mut f: F,
     ) -> Result<(), HotShotError<TYPES>>
     where
-        F: FnMut(&Leaf<TYPES>) -> bool,
+        F: FnMut(&LEAF) -> bool,
     {
         let mut next_leaf = if let Some(view) = self.state_map.get(&start_from) {
             *view
@@ -219,19 +261,19 @@ impl<TYPES: NodeTypes> Consensus<TYPES> {
 
         while let Some(leaf) = self.saved_leaves.get(&next_leaf) {
             if let Terminator::Exclusive(stop_before) = terminator {
-                if stop_before == leaf.view_number {
+                if stop_before == leaf.get_view_number() {
                     if ok_when_finished {
                         return Ok(());
                     }
                     break;
                 }
             }
-            next_leaf = leaf.parent_commitment;
+            next_leaf = leaf.get_parent_commitment();
             if !f(leaf) {
                 return Ok(());
             }
             if let Terminator::Inclusive(stop_after) = terminator {
-                if stop_after == leaf.view_number {
+                if stop_after == leaf.get_view_number() {
                     if ok_when_finished {
                         return Ok(());
                     }
@@ -282,7 +324,7 @@ impl<TYPES: NodeTypes> Consensus<TYPES> {
     /// if the last decided view's state does not exist in the state map
     /// this should never happen.
     #[must_use]
-    pub fn get_decided_leaf(&self) -> Leaf<TYPES> {
+    pub fn get_decided_leaf(&self) -> LEAF {
         let decided_view_num = self.last_decided_view;
         let view = self.state_map.get(&decided_view_num).unwrap();
         let leaf = view

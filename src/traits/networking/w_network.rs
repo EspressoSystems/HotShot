@@ -28,10 +28,11 @@ use bincode::Options;
 use dashmap::DashMap;
 use futures::{channel::oneshot, future::BoxFuture, prelude::*};
 use hotshot_types::{
+    data::{LeafType, ProposalType},
     message::Message as HotShotMessage,
     traits::{
         network::{NetworkChange, TestableNetworkingImplementation},
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
 };
@@ -62,11 +63,15 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 #[serde(bound(deserialize = ""))]
 /// Inter-node protocol level message types
-pub enum Command<TYPES: NodeTypes> {
+pub enum Command<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+> {
     /// A message that was broadcast to all nodes
     Broadcast {
         /// Message being sent
-        inner: HotShotMessage<TYPES>,
+        inner: HotShotMessage<TYPES, LEAF, PROPOSAL>,
         /// Who is sending it
         from: TYPES::SignatureKey,
         /// Message ID
@@ -75,7 +80,7 @@ pub enum Command<TYPES: NodeTypes> {
     /// A message that was sent directly to this node
     Direct {
         /// Message being sent
-        inner: HotShotMessage<TYPES>,
+        inner: HotShotMessage<TYPES, LEAF, PROPOSAL>,
         /// Who is sending it
         from: TYPES::SignatureKey,
         /// Who its being sent to
@@ -104,7 +109,12 @@ pub enum Command<TYPES: NodeTypes> {
     },
 }
 
-impl<TYPES: NodeTypes> Command<TYPES> {
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+    > Command<TYPES, LEAF, PROPOSAL>
+{
     /// Returns the id of this `Command`
     pub fn id(&self) -> u64 {
         match self {
@@ -119,9 +129,13 @@ impl<TYPES: NodeTypes> Command<TYPES> {
 
 /// The handle used for interacting with a [`WNetwork`] connection
 #[derive(Clone)]
-struct Handle<TYPES: NodeTypes> {
+struct Handle<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+> {
     /// Messages to be sent by this node
-    outbound: Sender<Command<TYPES>>,
+    outbound: Sender<Command<TYPES, LEAF, PROPOSAL>>,
     /// The address of the remote
     remote_socket: SocketAddr,
     /// Indicate that the handle should be closed
@@ -131,11 +145,15 @@ struct Handle<TYPES: NodeTypes> {
 }
 
 /// The inner shared state of a [`WNetwork`] instance
-struct WNetworkInner<TYPES: NodeTypes> {
+struct WNetworkInner<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+> {
     /// Whether or not the network is connected
     is_ready: Arc<AtomicBool>,
     /// The handles for each known public [`SignatureKey`]
-    handles: DashMap<TYPES::SignatureKey, Handle<TYPES>>,
+    handles: DashMap<TYPES::SignatureKey, Handle<TYPES, LEAF, PROPOSAL>>,
     /// The public [`SignatureKey`] of this node
     pub_key: TYPES::SignatureKey,
     /// The global message counter
@@ -145,9 +163,9 @@ struct WNetworkInner<TYPES: NodeTypes> {
     /// The currently pending `Waiters`
     waiters: Waiters,
     /// The inputs to the internal queues
-    inputs: Inputs<HotShotMessage<TYPES>>,
+    inputs: Inputs<HotShotMessage<TYPES, LEAF, PROPOSAL>>,
     /// The outputs to the internal queues
-    outputs: Outputs<HotShotMessage<TYPES>>,
+    outputs: Outputs<HotShotMessage<TYPES, LEAF, PROPOSAL>>,
     /// Keeps track of if the tasks have been started
     tasks_started: AtomicBool,
     /// Holds onto to a TCP socket between binding and task start
@@ -187,29 +205,46 @@ struct Outputs<T> {
 }
 
 /// Internal enum for combining message and command streams
-enum Combo<TYPES: NodeTypes> {
+enum Combo<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+> {
     /// Inbound message
     Message(Message),
     /// Outbound command
-    Command(Command<TYPES>),
+    Command(Command<TYPES, LEAF, PROPOSAL>),
     /// Error
     Error(WsError),
 }
 
 #[derive(Clone)]
 /// Handle to the underlying networking implementation
-pub struct WNetwork<TYPES: NodeTypes> {
+pub struct WNetwork<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+> {
     /// Pointer to the internal state of this [`WNetwork`]
-    inner: Arc<WNetworkInner<TYPES>>,
+    inner: Arc<WNetworkInner<TYPES, LEAF, PROPOSAL>>,
 }
 
-impl<TYPES: NodeTypes> Debug for WNetwork<TYPES> {
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+    > Debug for WNetwork<TYPES, LEAF, PROPOSAL>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WNetwork").field("inner", &"inner").finish()
     }
 }
 
-impl<TYPES: NodeTypes> TestableNetworkingImplementation<TYPES> for WNetwork<TYPES>
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+    > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL> for WNetwork<TYPES, LEAF, PROPOSAL>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -225,7 +260,10 @@ where
             let pub_key = TYPES::SignatureKey::from_private(&priv_key);
             let (network, port, _) = {
                 async_block_on(async move {
-                    get_networking::<TYPES, ThreadRng>(pub_key, "0.0.0.0", node_id, &mut rng).await
+                    get_networking::<TYPES, LEAF, PROPOSAL, ThreadRng>(
+                        pub_key, "0.0.0.0", node_id, &mut rng,
+                    )
+                    .await
                 })
             };
 
@@ -266,14 +304,19 @@ where
     }
 }
 
-impl<TYPES: NodeTypes> WNetwork<TYPES> {
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+    > WNetwork<TYPES, LEAF, PROPOSAL>
+{
     /// Processes an individual `Command`
     #[instrument(name = "WNetworking::process_command", skip(self, inputs))]
     async fn process_command(
         &self,
-        command: Command<TYPES>,
-        inputs: &Inputs<HotShotMessage<TYPES>>,
-    ) -> Result<Option<Command<TYPES>>, NetworkError> {
+        command: Command<TYPES, LEAF, PROPOSAL>,
+        inputs: &Inputs<HotShotMessage<TYPES, LEAF, PROPOSAL>>,
+    ) -> Result<Option<Command<TYPES, LEAF, PROPOSAL>>, NetworkError> {
         trace!("Processing command");
         match command {
             Command::Broadcast { inner, .. } => {
@@ -324,7 +367,7 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
         key: Option<TYPES::SignatureKey>,
         mut stream: WebSocketStream<TcpStream>,
         remote_socket: SocketAddr,
-    ) -> Result<(TYPES::SignatureKey, Handle<TYPES>), NetworkError> {
+    ) -> Result<(TYPES::SignatureKey, Handle<TYPES, LEAF, PROPOSAL>), NetworkError> {
         info!("Spawning task to handle connection");
         let (s_outbound, r_outbound) = bounded(128);
         trace!("Opened channels");
@@ -349,7 +392,7 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
                 warn!("Signaling other waiter for ack");
                 let _ = other_waiter.send(());
             }
-            let command = Command::<TYPES>::Identify {
+            let command = Command::<TYPES, LEAF, PROPOSAL>::Identify {
                 from: w.inner.pub_key.clone(),
                 id: ident_id,
             };
@@ -404,7 +447,7 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
                         match m {
                             Message::Binary(vec) => {
                                 trace!(?vec, "Attempting to decode binary message");
-                                let res: Result<Command<TYPES>, _> = bincode_opts().deserialize(&vec);
+                                let res: Result<Command<TYPES,LEAF,PROPOSAL>, _> = bincode_opts().deserialize(&vec);
                                 match res {
                                     Ok(command) => {
                                         match w.process_command(command, &inputs).await {
@@ -423,7 +466,7 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
                                                     }
                                                     trace!("Acking identify");
                                                     let command =
-                                                        Command::<TYPES>::Ack{
+                                                        Command::<TYPES,LEAF,PROPOSAL>::Ack{
                                                             ack_id: id,
                                                             id: w.get_next_message_id()
                                                         };
@@ -442,7 +485,7 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
                                                 Command::Ping { id } => {
                                                     debug!("Received ping, acking");
                                                     let command =
-                                                        Command::<TYPES>::Ack{
+                                                        Command::<TYPES,LEAF,PROPOSAL>::Ack{
                                                             ack_id: id,
                                                             id: w.get_next_message_id()
                                                         };
@@ -584,7 +627,7 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
     async fn send_raw_message(
         &self,
         node: &TYPES::SignatureKey,
-        message: Command<TYPES>,
+        message: Command<TYPES, LEAF, PROPOSAL>,
     ) -> Result<(), NetworkError> {
         let handle = &self.inner.handles.get(node);
         if let Some(handle) = handle {
@@ -711,8 +754,10 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
                             match ws_stream {
                                 Ok(ws_stream) => {
                                     trace!(?addr, "stream accepted");
-                                    let res: Result<(TYPES::SignatureKey, Handle<TYPES>), _> =
-                                        w.spawn_task(None, ws_stream, addr).await;
+                                    let res: Result<
+                                        (TYPES::SignatureKey, Handle<TYPES, LEAF, PROPOSAL>),
+                                        _,
+                                    > = w.spawn_task(None, ws_stream, addr).await;
                                     match res {
                                         Ok((pub_key, handle)) => {
                                             trace!(?addr, "Spawned task for stream");
@@ -813,7 +858,11 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
     }
     /// Pings a remote, removing the remote from the handles table if the ping fails
     #[instrument(skip(self, handle))]
-    async fn ping_remote(&self, remote: TYPES::SignatureKey, handle: Handle<TYPES>) {
+    async fn ping_remote(
+        &self,
+        remote: TYPES::SignatureKey,
+        handle: Handle<TYPES, LEAF, PROPOSAL>,
+    ) {
         let _ = &handle;
         trace!("Packing up ping command");
         let id = self.get_next_message_id();
@@ -853,7 +902,12 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+    > NetworkingImplementation<TYPES, LEAF, PROPOSAL> for WNetwork<TYPES, LEAF, PROPOSAL>
+{
     #[instrument(name = "WNetwork::ready")]
     async fn ready(&self) -> bool {
         while !self.inner.is_ready.load(Ordering::Relaxed) {
@@ -865,7 +919,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     #[instrument(name = "WNetwork::broadcast_message")]
     async fn broadcast_message(
         &self,
-        message: HotShotMessage<TYPES>,
+        message: HotShotMessage<TYPES, LEAF, PROPOSAL>,
     ) -> Result<(), super::NetworkError> {
         debug!(?message, "Broadcasting message");
         // As a stop gap solution to be able to simulate network faults, this method will
@@ -909,7 +963,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     #[instrument(name = "WNetwork::message_node")]
     async fn message_node(
         &self,
-        message: HotShotMessage<TYPES>,
+        message: HotShotMessage<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), super::NetworkError> {
         debug!(?message, "Messaging node");
@@ -947,7 +1001,9 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     }
 
     #[instrument(name = "WNetwork::broadcast_queue")]
-    async fn broadcast_queue(&self) -> Result<Vec<HotShotMessage<TYPES>>, super::NetworkError> {
+    async fn broadcast_queue(
+        &self,
+    ) -> Result<Vec<HotShotMessage<TYPES, LEAF, PROPOSAL>>, super::NetworkError> {
         self.inner
             .outputs
             .broadcast
@@ -959,7 +1015,9 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     }
 
     #[instrument(name = "WNetwork::next_broadcast")]
-    async fn next_broadcast(&self) -> Result<HotShotMessage<TYPES>, super::NetworkError> {
+    async fn next_broadcast(
+        &self,
+    ) -> Result<HotShotMessage<TYPES, LEAF, PROPOSAL>, super::NetworkError> {
         self.inner
             .outputs
             .broadcast
@@ -971,7 +1029,9 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     }
 
     #[instrument(name = "WNetwork::direct_queue")]
-    async fn direct_queue(&self) -> Result<Vec<HotShotMessage<TYPES>>, super::NetworkError> {
+    async fn direct_queue(
+        &self,
+    ) -> Result<Vec<HotShotMessage<TYPES, LEAF, PROPOSAL>>, super::NetworkError> {
         self.inner
             .outputs
             .direct
@@ -983,7 +1043,9 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
     }
 
     #[instrument(name = "WNetwork::next_direct")]
-    async fn next_direct(&self) -> Result<HotShotMessage<TYPES>, super::NetworkError> {
+    async fn next_direct(
+        &self,
+    ) -> Result<HotShotMessage<TYPES, LEAF, PROPOSAL>, super::NetworkError> {
         self.inner
             .outputs
             .direct
@@ -1046,12 +1108,17 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for WNetwork<TYPES> {
 /// panics if unable to generate tasks
 #[allow(clippy::panic)]
 #[instrument(skip(rng))]
-async fn get_networking<TYPES: NodeTypes, R: rand::Rng>(
+async fn get_networking<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    R: rand::Rng,
+>(
     pub_key: TYPES::SignatureKey,
     listen_addr: &str,
     node_id: u64,
     rng: &mut R,
-) -> (WNetwork<TYPES>, u16, TYPES::SignatureKey) {
+) -> (WNetwork<TYPES, LEAF, PROPOSAL>, u16, TYPES::SignatureKey) {
     debug!(?pub_key);
     for _attempt in 0..50 {
         let port: u16 = rng.gen_range(10_000..50_000);
@@ -1073,355 +1140,4 @@ async fn get_networking<TYPES: NodeTypes, R: rand::Rng>(
         }
     }
     panic!("Failed to open a port");
-}
-
-#[cfg(test)]
-#[allow(clippy::panic)]
-mod tests {
-    use super::*;
-    use crate::{
-        demos::dentry::{DEntryBlock, DEntryState, DEntryTransaction},
-        traits::election::static_committee::{StaticElectionConfig, StaticVoteToken},
-    };
-    use async_compatibility_layer::{art::async_sleep, logging::setup_logging};
-    use hotshot_types::{
-        data::ViewNumber,
-        traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
-    };
-    use rand::Rng;
-
-    #[derive(
-        Copy,
-        Clone,
-        Debug,
-        Default,
-        Hash,
-        PartialEq,
-        Eq,
-        PartialOrd,
-        Ord,
-        serde::Serialize,
-        serde::Deserialize,
-    )]
-    struct Test {
-        message: u64,
-    }
-    impl NodeTypes for Test {
-        type Time = ViewNumber;
-        type BlockType = DEntryBlock;
-        type SignatureKey = Ed25519Pub;
-        type VoteTokenType = StaticVoteToken<Ed25519Pub>;
-        type Transaction = DEntryTransaction;
-        type ElectionConfigType = StaticElectionConfig;
-        type StateType = DEntryState;
-    }
-
-    #[instrument]
-    async fn get_wnetwork() -> (Ed25519Pub, WNetwork<Test>, u16) {
-        let mut rng = rand::thread_rng();
-        let nonce: u64 = rng.gen();
-        debug!(?nonce, "Generating PubKey with id");
-        let priv_key = Ed25519Priv::generate();
-        let pub_key = Ed25519Pub::from_private(&priv_key);
-        for _ in 0..10 {
-            let port: u16 = rng.gen_range(3000..8000);
-            debug!(?port, "Attempting port");
-            let res = WNetwork::new(pub_key, "localhost", port, None).await;
-            if let Ok(n) = res {
-                return (pub_key, n, port);
-            }
-            warn!(?port, "Port opening failed");
-        }
-        panic!("Failed to generate a connection");
-    }
-
-    #[instrument]
-    async fn get_wnetwork_timeout(timeout: u64) -> (Ed25519Pub, WNetwork<Test>, u16) {
-        let timeout = Duration::from_millis(timeout);
-        let mut rng = rand::thread_rng();
-        let nonce: u64 = rng.gen();
-        debug!(?nonce, "Generating PubKey with id");
-        let priv_key = Ed25519Priv::generate();
-        let pub_key = Ed25519Pub::from_private(&priv_key);
-        for _ in 0..10 {
-            let port: u16 = rng.gen_range(3000..8000);
-            debug!(?port, "Attempting port");
-            let res = WNetwork::new(pub_key, "localhost", port, Some(timeout)).await;
-            if let Ok(n) = res {
-                return (pub_key, n, port);
-            }
-            warn!(?port, "Port opening failed");
-        }
-        panic!("Failed to generate a connection");
-    }
-
-    // Generating the tasks should once and only once
-    #[cfg_attr(
-        feature = "tokio-executor",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    async fn task_only_once() {
-        setup_logging();
-        let (_key, network, _port) = get_wnetwork().await;
-        let (sync, _r) = oneshot::channel();
-        let x = network.generate_task(sync);
-        let (sync, _r) = oneshot::channel();
-        let y = network.generate_task(sync);
-        assert!(x.is_some());
-        assert!(y.is_none());
-    }
-
-    // Spawning a single WNetwork and starting the task should produce no errors
-    #[cfg_attr(
-        feature = "tokio-executor",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    async fn spawn_single() {
-        setup_logging();
-        let (_key, network, _port) = get_wnetwork().await;
-        let (sync, r) = oneshot::channel();
-        let x = network
-            .generate_task(sync)
-            .expect("Failed to generate task");
-        for x in x {
-            async_spawn(x);
-        }
-        r.await.unwrap();
-    }
-
-    // Spawning two WNetworks and connecting them should produce no errors
-    #[cfg_attr(
-        feature = "tokio-executor",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    async fn spawn_double() {
-        setup_logging();
-        // Spawn first wnetwork
-        let (_key1, network1, _port1) = get_wnetwork().await;
-        let (sync, r) = oneshot::channel();
-        let x = network1
-            .generate_task(sync)
-            .expect("Failed to generate task");
-        for x in x {
-            async_spawn(x);
-        }
-        r.await.unwrap();
-        // Spawn second wnetwork
-        let (key2, network2, port2) = get_wnetwork().await;
-        let (sync, r) = oneshot::channel();
-        let x = network2
-            .generate_task(sync)
-            .expect("Failed to generate task");
-        for x in x {
-            async_spawn(x);
-        }
-        r.await.unwrap();
-        // Connect 1 to 2
-        let addr = format!("localhost:{port2}");
-        network1
-            .connect_to(key2, &addr)
-            .await
-            .expect("Failed to connect nodes");
-    }
-
-    // // Check to make sure direct queue works
-    // #[cfg_attr(
-    //     feature = "tokio-executor",
-    //     tokio::test(flavor = "multi_thread", worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    // async fn direct_queue() {
-    //     setup_logging();
-    //     // Create some dummy messages
-    //     let messages: Vec<Test> = (0..5).map(|x| Test { message: x }).collect();
-
-    //     // Spawn first wnetwork
-    //     let (key1, network1, _port1) = get_wnetwork().await;
-    //     let (sync, r) = oneshot::channel();
-    //     let x = network1
-    //         .generate_task(sync)
-    //         .expect("Failed to generate task");
-    //     for x in x {
-    //         async_spawn(x);
-    //     }
-    //     r.await.unwrap();
-    //     // Spawn second wnetwork
-    //     let (key2, network2, port2) = get_wnetwork().await;
-    //     let (sync, r) = oneshot::channel();
-    //     let x = network2
-    //         .generate_task(sync)
-    //         .expect("Failed to generate task");
-    //     for x in x {
-    //         async_spawn(x);
-    //     }
-    //     r.await.unwrap();
-    //     // Connect 1 to 2
-    //     let addr = format!("localhost:{}", port2);
-    //     network1
-    //         .connect_to(key2, &addr)
-    //         .await
-    //         .expect("Failed to connect nodes");
-
-    //     // Test 1 -> 2
-    //     // Send messages
-    //     for message in &messages {
-    //         network1
-    //             .message_node(message.clone(), key2)
-    //             .await
-    //             .expect("Failed to message node");
-    //     }
-    //     let mut output = Vec::new();
-    //     while output.len() < messages.len() {
-    //         let message = network2
-    //             .next_direct()
-    //             .await
-    //             .expect("Failed to receive message");
-    //         output.push(message);
-    //     }
-    //     output.sort();
-    //     // Check for equality
-    //     assert_eq!(output, messages);
-
-    //     // Test 2 -> 1
-    //     // Send messages
-    //     for message in &messages {
-    //         network2
-    //             .message_node(message.clone(), key1)
-    //             .await
-    //             .expect("Failed to message node");
-    //     }
-    //     let mut output = Vec::new();
-    //     while output.len() < messages.len() {
-    //         let message = network1
-    //             .next_direct()
-    //             .await
-    //             .expect("Failed to receive message");
-    //         output.push(message);
-    //     }
-    //     output.sort();
-    //     // Check for equality
-    //     assert_eq!(output, messages);
-    // }
-
-    // // Check to make sure broadcast queue works
-    // #[cfg_attr(
-    //     feature = "tokio-executor",
-    //     tokio::test(flavor = "multi_thread", worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    // async fn broadcast_queue() {
-    //     setup_logging();
-    //     // Create some dummy messages
-    //     let messages: Vec<Test> = (0..5).map(|x| Test { message: x }).collect();
-
-    //     // Spawn first wnetwork
-    //     let (_key1, network1, _port1) = get_wnetwork().await;
-    //     let (sync, r) = oneshot::channel();
-    //     let x = network1
-    //         .generate_task(sync)
-    //         .expect("Failed to generate task");
-    //     for x in x {
-    //         async_spawn(x);
-    //     }
-    //     r.await.unwrap();
-    //     // Spawn second wnetwork
-    //     let (key2, network2, port2) = get_wnetwork().await;
-    //     let (sync, r) = oneshot::channel();
-    //     let x = network2
-    //         .generate_task(sync)
-    //         .expect("Failed to generate task");
-    //     for x in x {
-    //         async_spawn(x);
-    //     }
-    //     r.await.unwrap();
-    //     // Connect 1 to 2
-    //     let addr = format!("localhost:{}", port2);
-    //     network1
-    //         .connect_to(key2, &addr)
-    //         .await
-    //         .expect("Failed to connect nodes");
-
-    //     // Test 1 -> 2
-    //     // Send messages
-    //     for message in &messages {
-    //         network1
-    //             .broadcast_message(message.clone())
-    //             .await
-    //             .expect("Failed to message node");
-    //     }
-    //     let mut output = Vec::new();
-    //     while output.len() < messages.len() {
-    //         let message = network2
-    //             .next_broadcast()
-    //             .await
-    //             .expect("Failed to receive message");
-    //         output.push(message);
-    //     }
-    //     output.sort();
-    //     // Check for equality
-    //     assert_eq!(output, messages);
-
-    //     // Test 2 -> 1
-    //     // Send messages
-    //     for message in &messages {
-    //         network2
-    //             .broadcast_message(message.clone())
-    //             .await
-    //             .expect("Failed to message node");
-    //     }
-    //     let mut output = Vec::new();
-    //     while output.len() < messages.len() {
-    //         let message = network1
-    //             .next_broadcast()
-    //             .await
-    //             .expect("Failed to receive message");
-    //         output.push(message);
-    //     }
-    //     output.sort();
-    //     // Check for equality
-    //     assert_eq!(output, messages);
-    // }
-
-    // Check to make sure the patrol task doesn't crash anything
-    #[cfg_attr(
-        feature = "tokio-executor",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    async fn patrol_task() {
-        setup_logging();
-        // Spawn two w_networks with a timeout of 25ms
-        // Spawn first wnetwork
-        let (_key1, network1, _port1) = get_wnetwork_timeout(25).await;
-        let (sync, r) = oneshot::channel();
-        let x = network1
-            .generate_task(sync)
-            .expect("Failed to generate task");
-        for x in x {
-            async_spawn(x);
-        }
-        r.await.unwrap();
-        // Spawn second wnetwork
-        let (key2, network2, port2) = get_wnetwork_timeout(25).await;
-        let (sync, r) = oneshot::channel();
-        let x = network2
-            .generate_task(sync)
-            .expect("Failed to generate task");
-        for x in x {
-            async_spawn(x);
-        }
-        r.await.unwrap();
-        // Connect 1 to 2
-        let addr = format!("localhost:{port2}");
-        network1
-            .connect_to(key2, &addr)
-            .await
-            .expect("Failed to connect nodes");
-        // Wait 100ms to make sure that nothing crashes
-        // Currently, the log output needs to be inspected to make sure that nothing bad happened
-        async_sleep(Duration::from_millis(100)).await;
-    }
 }

@@ -1,9 +1,12 @@
 use super::{Generator, TestRunner};
-use hotshot::types::SignatureKey;
+use hotshot::{
+    tasks::{ViewRunner, ViewRunnerType},
+    types::SignatureKey,
+};
 use hotshot_types::{
     traits::{
         network::TestableNetworkingImplementation,
-        node_implementation::{NodeTypes, TestableNodeImplementation},
+        node_implementation::{NodeType, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState},
         storage::TestableStorage,
@@ -13,13 +16,13 @@ use hotshot_types::{
 use std::{num::NonZeroUsize, time::Duration};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
-pub struct TestLauncher<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>>
+pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     pub(super) network: Generator<I::Networking>,
     pub(super) storage: Generator<I::Storage>,
@@ -27,13 +30,13 @@ where
     pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 }
 
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
@@ -76,13 +79,13 @@ where
 
 // TODO make these functions generic over the target networking/storage/other generics
 // so we can hotswap out
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_network(
@@ -151,13 +154,14 @@ where
     }
 }
 
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES>,
-    I::Storage: TestableStorage<TYPES>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
+    ViewRunner<TYPES::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///

@@ -4,10 +4,11 @@ use async_trait::async_trait;
 use commit::Commitment;
 use hotshot_types::message::ConsensusMessage;
 use hotshot_types::traits::election::Checked;
-use hotshot_types::traits::node_implementation::NodeTypes;
+use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
-    data::{Leaf, QuorumCertificate},
+    certificate::QuorumCertificate,
+    data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
     traits::{
@@ -24,7 +25,12 @@ use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 ///
 /// [`HotStuff`]: struct.HotStuff.html
 #[async_trait]
-pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
+pub trait ConsensusApi<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+>: Send + Sync
+{
     /// Total number of nodes in the network. Also known as `n`.
     fn total_nodes(&self) -> NonZeroUsize;
 
@@ -42,7 +48,7 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     async fn store_leaf(
         &self,
         old_anchor_view: TYPES::Time,
-        leaf: Leaf<TYPES>,
+        leaf: LEAF,
     ) -> Result<(), StorageError>;
 
     /// Retuns the maximum transactions allowed in a block
@@ -56,7 +62,7 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     fn generate_vote_token(
         &self,
         view_number: TYPES::Time,
-        next_state: Commitment<Leaf<TYPES>>,
+        next_state: Commitment<LEAF>,
     ) -> Result<Option<TYPES::VoteTokenType>, ElectionError>;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
@@ -71,17 +77,17 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     async fn send_direct_message(
         &self,
         recipient: TYPES::SignatureKey,
-        message: ConsensusMessage<TYPES>,
+        message: ConsensusMessage<TYPES, LEAF, PROPOSAL>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Send a broadcast message to the entire network.
     async fn send_broadcast_message(
         &self,
-        message: ConsensusMessage<TYPES>,
+        message: ConsensusMessage<TYPES, LEAF, PROPOSAL>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Notify the system of an event within `hotshot-consensus`.
-    async fn send_event(&self, event: Event<TYPES>);
+    async fn send_event(&self, event: Event<TYPES, LEAF>);
 
     /// Get a reference to the public key.
     fn public_key(&self) -> &TYPES::SignatureKey;
@@ -127,8 +133,8 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     async fn send_decide(
         &self,
         view_number: TYPES::Time,
-        leaf_views: Vec<Leaf<TYPES>>,
-        decide_qc: QuorumCertificate<TYPES>,
+        leaf_views: Vec<LEAF>,
+        decide_qc: QuorumCertificate<TYPES, LEAF>,
     ) {
         self.send_event(Event {
             view_number,
@@ -152,7 +158,7 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     /// Signs a vote
     fn sign_vote(
         &self,
-        leaf_commitment: &Commitment<Leaf<TYPES>>,
+        leaf_commitment: &Commitment<LEAF>,
         _view_number: TYPES::Time,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
@@ -162,7 +168,7 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     /// Signs a proposal
     fn sign_proposal(
         &self,
-        leaf_commitment: &Commitment<Leaf<TYPES>>,
+        leaf_commitment: &Commitment<LEAF>,
         _view_number: TYPES::Time,
     ) -> EncodedSignature {
         let signature = TYPES::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
@@ -171,14 +177,14 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
 
     /// Validate a quorum certificate by checking
     /// signatures
-    fn validate_qc(&self, quorum_certificate: &QuorumCertificate<TYPES>) -> bool;
+    fn validate_qc(&self, quorum_certificate: &QuorumCertificate<TYPES, LEAF>) -> bool;
 
     /// Check if a signature is valid
     fn is_valid_signature(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<Leaf<TYPES>>,
+        hash: Commitment<LEAF>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool;

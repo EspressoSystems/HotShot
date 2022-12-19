@@ -10,6 +10,8 @@ use hotshot::traits::{
     implementations::{CentralizedServerNetwork, MemoryStorage},
 };
 use hotshot_testing::TestNodeImpl;
+use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
+// use hotshot_utils::test_util::shutdown_logging;
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use tracing::instrument;
 
@@ -37,10 +39,23 @@ async fn centralized_server_network_vrf() {
     description
         .build::<VrfTestTypes, TestNodeImpl<
             VrfTestTypes,
+            ValidatingLeaf<VrfTestTypes>,
+            ValidatingProposal<
+                VrfTestTypes,
+                VrfImpl<
+                    VrfTestTypes,
+                    ValidatingLeaf<VrfTestTypes>,
+                    BLSSignatureScheme<Param381>,
+                    BLSVRFScheme<Param381>,
+                    Hasher,
+                    Param381,
+                >,
+            >,
             CentralizedServerNetwork<VrfTestTypes>,
-            MemoryStorage<VrfTestTypes>,
+            MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
             VrfImpl<
                 VrfTestTypes,
+                ValidatingLeaf<VrfTestTypes>,
                 BLSSignatureScheme<Param381>,
                 BLSVRFScheme<Param381>,
                 Hasher,
@@ -77,9 +92,14 @@ async fn centralized_server_network() {
     description
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
             StaticCommitteeTestTypes,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<
+                StaticCommitteeTestTypes,
+                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            >,
             CentralizedServerNetwork<StaticCommitteeTestTypes>,
-            MemoryStorage<StaticCommitteeTestTypes>,
-            StaticCommittee<StaticCommitteeTestTypes>,
+            MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         >>()
         .execute()
         .await
@@ -121,6 +141,7 @@ async fn centralized_server_network() {
 //     shutdown_logging();
 // }
 
+// This test is ignored because it doesn't pass consistently.
 // stress test for a centralized server
 #[cfg_attr(
     feature = "tokio-executor",
@@ -146,9 +167,14 @@ async fn test_stress_centralized_server_network() {
     description
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
             StaticCommitteeTestTypes,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<
+                StaticCommitteeTestTypes,
+                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            >,
             CentralizedServerNetwork<StaticCommitteeTestTypes>,
-            MemoryStorage<StaticCommitteeTestTypes>,
-            StaticCommittee<StaticCommitteeTestTypes>,
+            MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         >>()
         .execute()
         .await

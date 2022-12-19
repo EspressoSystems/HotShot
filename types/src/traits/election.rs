@@ -1,8 +1,14 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(missing_docs)]
 
-use super::node_implementation::NodeTypes;
+use super::node_implementation::NodeType;
+use super::signature_key::{EncodedPublicKey, EncodedSignature};
+use crate::data::LeafType;
 use crate::traits::signature_key::SignatureKey;
-use commit::Committable;
+use commit::{Commitment, Committable};
+use either::Either;
+use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 use std::fmt::Debug;
@@ -47,6 +53,10 @@ pub trait VoteToken:
     + Hash
     + Committable
 {
+    // type StakeTable;
+    // type KeyPair: SignatureKey;
+    // type ConsensusTime: ConsensusTime;
+
     /// the count, which validation will confirm
     fn vote_count(&self) -> NonZeroU64;
 }
@@ -57,10 +67,65 @@ pub trait ElectionConfig:
 {
 }
 
+/// Describes any aggreation of signatures or votes.
+pub trait Accumulator<T, U>: Sized {
+    /// accumates the val to the current state.  If
+    /// A threshold is reached we Return U (which could a certificate or similar)
+    /// else we return self and can continue accumulation items.
+    fn append(val: Vec<T>) -> Either<Self, U>;
+}
+
+/// todo associated types for:
+/// - signature key
+/// - encoded things
+/// -
+pub trait SignedCertificate<SIGNATURE: SignatureKey>
+where
+    Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,
+{
+    type Accumulator: Accumulator<(EncodedSignature, SIGNATURE), Self>;
+}
+
 /// Describes how `HotShot` chooses committees and leaders
-pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
+/// TODO (da) make a separate vote token type for DA and QC
+/// @ny thinks we should make the vote token types be bound to `ConsensusType`
+pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'static {
     /// Data structure describing the currently valid states
+    /// TODO make this a trait so we can pass in places
     type StakeTable: Send + Sync;
+
+    /// certificate for quorum on consenus
+    type QuorumCertificate: SignedCertificate<TYPES::SignatureKey> + Clone + Debug + Eq + PartialEq;
+
+    /// certificate for data availability
+    type DACertificate: SignedCertificate<TYPES::SignatureKey> + Clone + Debug + Eq + PartialEq;
+
+    type LeafType: LeafType<NodeType = TYPES>;
+
+    /// check that the quorum certificate is valid
+    fn is_valid_qc(&self, qc: Self::QuorumCertificate) -> bool;
+
+    /// check that the data availability certificate is valid
+    fn is_valid_dac(&self, qc: Self::DACertificate) -> bool;
+
+    /// confirm that a quorum certificate signature is valid
+    fn is_valid_qc_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        hash: Commitment<Self::LeafType>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool;
+
+    /// confirm that a data availability signature is valid
+    fn is_valid_dac_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool;
 
     /// generate a default election configuration
     fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType;
@@ -106,7 +171,7 @@ pub trait Election<TYPES: NodeTypes>: Send + Sync + 'static {
 }
 
 /// Testable implementation of an [`Election`]. Will expose a method to generate a vote token used for testing.
-pub trait TestableElection<TYPES: NodeTypes>: Election<TYPES> {
+pub trait TestableElection<TYPES: NodeType>: Election<TYPES> {
     /// Generate a vote token used for testing.
     fn generate_test_vote_token() -> TYPES::VoteTokenType;
 }

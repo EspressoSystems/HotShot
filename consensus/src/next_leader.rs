@@ -1,13 +1,16 @@
-//! Contains the [`NextLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
+//! Contains the [`NextValidatingLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
 
 use crate::ConsensusApi;
 use crate::ConsensusMetrics;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
-use hotshot_types::traits::election::Checked::Unchecked;
-use hotshot_types::traits::election::VoteToken;
-use hotshot_types::traits::node_implementation::NodeTypes;
-use hotshot_types::{data::QuorumCertificate, message::ConsensusMessage};
+use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
+use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::{
+    election::{Checked::Unchecked, Election, VoteToken},
+    state::{TestableBlock, TestableState},
+};
+use hotshot_types::{certificate::QuorumCertificate, message::ConsensusMessage};
 use std::time::Instant;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -15,15 +18,29 @@ use std::{
 };
 use tracing::{error, instrument, warn};
 
-/// The next view's leader
+/// The next view's validating leader
 #[derive(custom_debug::Debug, Clone)]
-pub struct NextLeader<A: ConsensusApi<TYPES>, TYPES: NodeTypes> {
+pub struct NextValidatingLeader<
+    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+    TYPES: NodeType,
+    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+> where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
     /// id of node
     pub id: u64,
     /// generic_qc before starting this
-    pub generic_qc: QuorumCertificate<TYPES>,
+    pub generic_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     /// channel through which the leader collects votes
-    pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<TYPES>>>>,
+    #[allow(clippy::type_complexity)]
+    pub vote_collection_chan: Arc<
+        Mutex<
+            UnboundedReceiver<
+                ConsensusMessage<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+            >,
+        >,
+    >,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// Limited access to the consensus protocol
@@ -33,18 +50,26 @@ pub struct NextLeader<A: ConsensusApi<TYPES>, TYPES: NodeTypes> {
     pub metrics: Arc<ConsensusMetrics>,
 }
 
-impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> NextLeader<A, TYPES> {
+impl<
+        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+        TYPES: NodeType,
+        ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    > NextValidatingLeader<A, TYPES, ELECTION>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
     /// Run one view of the next leader task
     /// # Panics
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
-    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Leader Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<TYPES> {
-        error!("Next Leader task started!");
+    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Validating ValidatingLeader Task", level = "error")]
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
+        error!("Next validating leader task started!");
 
         let vote_collection_start = Instant::now();
 
-        let mut qcs = HashSet::<QuorumCertificate<TYPES>>::new();
+        let mut qcs = HashSet::<QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
         let mut vote_outcomes = HashMap::new();
@@ -90,12 +115,11 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> NextLeader<A, TYPES> {
                     stake_casted += u64::from(vote.vote_token.vote_count());
 
                     if stake_casted >= u64::from(threshold) {
-                        let (block_commitment, valid_signatures) =
+                        let (_block_commitment, valid_signatures) =
                             vote_outcomes.remove(&vote.leaf_commitment).unwrap();
 
                         // construct QC
                         let qc = QuorumCertificate {
-                            block_commitment,
                             leaf_commitment: vote.leaf_commitment,
                             view_number: self.cur_view,
                             signatures: valid_signatures,
