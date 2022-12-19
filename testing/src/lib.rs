@@ -17,20 +17,20 @@ pub use self::launcher::TestLauncher;
 
 use futures::future::LocalBoxFuture;
 use hotshot::{
-    tasks::{TaskHandler, TaskHandlerType},
+    tasks::{ViewRunner, ViewRunnerType},
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{HotShotHandle, SignatureKey},
     HotShot, HotShotError, HotShotInitializer, H_256,
 };
 use hotshot_types::{
-    data::{DALeaf, LeafType, ProposalType, ValidatingLeaf},
+    data::{LeafType, ProposalType},
     traits::{
         election::Election,
         metrics::NoMetrics,
         network::TestableNetworkingImplementation,
-        node_implementation::{ApplicationMetadata, NodeTypes, TestableNodeImplementation},
+        node_implementation::{NodeType, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
-        state::{TestableBlock, TestableState, ValidatingConsensus},
+        state::{TestableBlock, TestableState},
         storage::TestableStorage,
     },
     HotShotConfig,
@@ -51,7 +51,7 @@ pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 /// Result of running a round of consensus
 #[derive(Debug)]
 // TODO do we need static here
-pub struct RoundResult<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
+pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Transactions that were submitted
     pub txns: Vec<TYPES::Transaction>,
     /// Nodes that committed this round
@@ -78,7 +78,7 @@ pub type RoundPreSafetyCheck<TYPES, I> =
 
 /// functions to run a round of consensus
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
-pub struct Round<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+pub struct Round<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Safety check before round is set up and run
     /// to ensure consistent state
     pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, I>>,
@@ -90,7 +90,7 @@ pub struct Round<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     pub safety_check_pre: Option<RoundPreSafetyCheck<TYPES, I>>,
 }
 
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
@@ -111,7 +111,7 @@ where
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<TYPES, I>
 where
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     I: NodeImplementation<TYPES>,
 {
     network_generator: Generator<I::Networking>,
@@ -122,19 +122,19 @@ where
     rounds: Vec<Round<TYPES, I>>,
 }
 
-struct Node<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+struct Node<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub node_id: u64,
     pub handle: HotShotHandle<TYPES, I>,
 }
 
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    TaskHandler<TYPES::ConsensusType>: TaskHandlerType<TYPES, I>,
+    ViewRunner<TYPES::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
@@ -365,14 +365,14 @@ where
     }
 }
 
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    TaskHandler<TYPES::ConsensusType>: TaskHandlerType<TYPES, I>,
+    ViewRunner<TYPES::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
@@ -436,14 +436,14 @@ where
 
 // FIXME make these return some sort of generic error.
 // corresponding issue: <https://github.com/EspressoSystems/hotshot/issues/181>
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    TaskHandler<TYPES::ConsensusType>: TaskHandlerType<TYPES, I>,
+    ViewRunner<TYPES::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     /// Add a random transaction to this runner.
     pub async fn add_random_transaction(
@@ -548,7 +548,14 @@ pub enum ConsensusTestError {
 }
 
 /// An implementation to make the trio `NETWORK`, `STORAGE` and `STATE` implement [`NodeImplementation`]
-pub struct TestNodeImpl<TYPES: NodeTypes, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION> {
+pub struct TestNodeImpl<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+    NETWORK,
+    STORAGE,
+    ELECTION,
+> {
     _pd_0: PhantomData<TYPES>,
     _pd_1: PhantomData<LEAF>,
     _pd_2: PhantomData<PROPOSAL>,
@@ -558,9 +565,9 @@ pub struct TestNodeImpl<TYPES: NodeTypes, LEAF, PROPOSAL, NETWORK, STORAGE, ELEC
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
         NETWORK,
         STORAGE,
         ELECTION,
@@ -579,9 +586,9 @@ impl<
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>,
+        PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
         NETWORK,
         STORAGE,
         ELECTION,
@@ -605,14 +612,14 @@ where
 impl<
         TYPES,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES, Election = ELECTION>,
+        PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
         NETWORK,
         STORAGE,
         ELECTION: Election<TYPES, LeafType = LEAF>,
     > TestableNodeImplementation<TYPES>
     for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
 where
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
@@ -623,9 +630,9 @@ where
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
         NETWORK,
         STORAGE,
         ELECTION,

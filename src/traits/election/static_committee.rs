@@ -1,15 +1,18 @@
 use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
+use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
-    data::{DACertificate, LeafType, QuorumCertificate},
+    certificate::{DACertificate, QuorumCertificate},
+    data::LeafType,
     traits::{
         election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
 };
-use hotshot_utils::hack::nll_todo;
 use jf_primitives::signatures::BLSSignatureScheme;
+#[allow(deprecated)]
+use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
@@ -68,6 +71,10 @@ impl<PUBKEY: SignatureKey> Committable for StaticVoteToken<PUBKEY> {
             .var_size_field("pub_key", &self.pub_key.to_bytes().0)
             .finalize()
     }
+
+    fn tag() -> String {
+        tag::STATIC_VOTE_TOKEN.to_string()
+    }
 }
 
 /// configuration for static committee. stub for now
@@ -79,7 +86,7 @@ impl ElectionConfig for StaticElectionConfig {}
 impl<TYPES, LEAF: LeafType<NodeType = TYPES>, PUBKEY: SignatureKey + 'static> Election<TYPES>
     for GeneralStaticCommittee<TYPES, LEAF, PUBKEY>
 where
-    TYPES: NodeTypes<
+    TYPES: NodeType<
         SignatureKey = PUBKEY,
         VoteTokenType = StaticVoteToken<PUBKEY>,
         ElectionConfigType = StaticElectionConfig,
@@ -94,32 +101,36 @@ where
 
     type LeafType = LEAF;
 
-    fn is_valid_qc(&self, qc: Self::QuorumCertificate) -> bool {
+    fn is_valid_qc(&self, _qc: Self::QuorumCertificate) -> bool {
+        #[allow(deprecated)]
         nll_todo()
     }
 
-    fn is_valid_dac(&self, qc: Self::DACertificate) -> bool {
+    fn is_valid_dac(&self, _qc: Self::DACertificate) -> bool {
+        #[allow(deprecated)]
         nll_todo()
     }
 
     fn is_valid_qc_signature(
         &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        hash: Commitment<Self::LeafType>,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
+        _encoded_key: &EncodedPublicKey,
+        _encoded_signature: &EncodedSignature,
+        _hash: Commitment<Self::LeafType>,
+        _view_number: TYPES::Time,
+        _vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
+        #[allow(deprecated)]
         nll_todo()
     }
 
     fn is_valid_dac_signature(
         &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
+        _encoded_key: &EncodedPublicKey,
+        _encoded_signature: &EncodedSignature,
+        _view_number: TYPES::Time,
+        _vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
+        #[allow(deprecated)]
         nll_todo()
     }
 

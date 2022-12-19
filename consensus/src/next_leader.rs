@@ -1,27 +1,28 @@
-//! Contains the [`NextLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
+//! Contains the [`NextValidatingLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
 
 use crate::ConsensusApi;
+use crate::ConsensusMetrics;
+use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
 use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
-use hotshot_types::traits::node_implementation::NodeTypes;
+use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::{
     election::{Checked::Unchecked, Election, VoteToken},
     state::{TestableBlock, TestableState},
 };
-use hotshot_types::{data::QuorumCertificate, message::ConsensusMessage};
-use hotshot_utils::channel::UnboundedReceiver;
+use hotshot_types::{certificate::QuorumCertificate, message::ConsensusMessage};
+use std::time::Instant;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
 use tracing::{error, instrument, warn};
 
-// TODO (da) rename to NextValidatingLeader
-/// The next view's leader
-#[derive(Debug, Clone)]
-pub struct NextLeader<
+/// The next view's validating leader
+#[derive(custom_debug::Debug, Clone)]
+pub struct NextValidatingLeader<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
 > where
     TYPES::StateType: TestableState,
@@ -32,6 +33,7 @@ pub struct NextLeader<
     /// generic_qc before starting this
     pub generic_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     /// channel through which the leader collects votes
+    #[allow(clippy::type_complexity)]
     pub vote_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
@@ -43,13 +45,16 @@ pub struct NextLeader<
     pub cur_view: TYPES::Time,
     /// Limited access to the consensus protocol
     pub api: A,
+    /// Metrics for reporting stats
+    #[debug(skip)]
+    pub metrics: Arc<ConsensusMetrics>,
 }
 
 impl<
         A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
-    > NextLeader<A, TYPES, ELECTION>
+    > NextValidatingLeader<A, TYPES, ELECTION>
 where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -58,9 +63,12 @@ where
     /// # Panics
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
-    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Leader Task", level = "error")]
+    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Validating ValidatingLeader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
-        error!("Next Leader task started!");
+        error!("Next validating leader task started!");
+
+        let vote_collection_start = Instant::now();
+
         let mut qcs = HashSet::<QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
@@ -117,6 +125,9 @@ where
                             signatures: valid_signatures,
                             genesis: false,
                         };
+                        self.metrics
+                            .vote_validate_duration
+                            .add_point(vote_collection_start.elapsed().as_secs_f64());
                         return qc;
                     }
                 }

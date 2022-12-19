@@ -1,14 +1,17 @@
 //! Provides types useful for representing `HotShot`'s data structures
 //!
-//! This module provides types for representing consensus internal state, such as the [`Leaf`],
-//! `HotShot`'s version of a block, and the [`QuorumCertificate`], representing the threshold
-//! signatures fundamental to consensus.
+//! This module provides types for representing consensus internal state, such as leaves,
+//! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(missing_docs)]
+
 use crate::{
+    certificate::QuorumCertificate,
     constants::genesis_proposer_id,
     traits::{
-        election::{Accumulator, Election, SignedCertificate},
-        node_implementation::NodeTypes,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        election::Election,
+        node_implementation::NodeType,
+        signature_key::EncodedPublicKey,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensusType},
         storage::{StoredView, ViewAppend},
         Block, State,
@@ -18,10 +21,12 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Read, Serializatio
 use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
-use hotshot_utils::hack::nll_todo;
+use espresso_systems_common::hotshot::tag;
+#[allow(deprecated)]
+use nll::nll_todo::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData, num::NonZeroU64, ops::Deref};
+use std::{fmt::Debug, marker::PhantomData};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -73,133 +78,17 @@ impl std::ops::Deref for ViewNumber {
     }
 }
 
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> QuorumCertificate<TYPES, LEAF> {
-    /// To be used only for generating the genesis quorum certificate; will fail if used anywhere else
-    pub fn genesis() -> Self {
-        Self {
-            // block_commitment: fake_commitment(),
-            leaf_commitment: fake_commitment::<LEAF>(),
-            view_number: <TYPES::Time as ConsensusTime>::genesis(),
-            signatures: BTreeMap::default(),
-            genesis: true,
-        }
-    }
-}
-
-// TODO (da) move this, and QC to separate files
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct DACertificate<TYPES: NodeTypes> {
-    /// The view number this quorum certificate was generated during
-    ///
-    /// This value is covered by the threshold signature.
-    pub view_number: TYPES::Time,
-
-    /// The list of signatures establishing the validity of this Quorum Certifcate
-    ///
-    /// This is a mapping of the byte encoded public keys provided by the [`NodeImplementation`], to
-    /// the byte encoded signatures provided by those keys.
-    ///
-    /// These formats are deliberatly done as a `Vec` instead of an array to prevent creating the
-    /// assumption that singatures are constant in length
-    /// TODO (da) make a separate vote token type for DA and QC
-    pub signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
-    // no genesis bc not meaningful
-}
-
-/// The type used for Quorum Certificates
-///
-/// A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
-/// metadata, such as the [`Stage`] of consensus the quorum certificate was generated during.
-#[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
-#[serde(bound(deserialize = ""))]
-pub struct QuorumCertificate<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
-    // block commitment is contained within the leaf. Still need to check this
-    /// TODO (da) we need to check
-    ///   - parent QC PROPOSAL
-    ///   - somehow make this semantically equivalent to what is currently `Leaf`
-    ///
-    #[debug(skip)]
-    pub leaf_commitment: Commitment<LEAF>,
-
-    pub view_number: TYPES::Time,
-
-    pub signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
-
-    pub genesis: bool,
-}
-
-pub struct CertificateAccumulator<SIGNATURE, CERT>
-where
-    SIGNATURE: SignatureKey,
-    CERT: SignedCertificate<SIGNATURE>,
-{
-    _pd_0: PhantomData<SIGNATURE>,
-    _pd_1: PhantomData<CERT>,
-    _valid_signatures: Vec<(EncodedSignature, SIGNATURE)>,
-    _threshold: NonZeroU64,
-    // TODO
-}
-
-impl<SIGNATURE, CERT> Accumulator<(EncodedSignature, SIGNATURE), CERT>
-    for CertificateAccumulator<SIGNATURE, CERT>
-where
-    SIGNATURE: SignatureKey,
-    CERT: SignedCertificate<SIGNATURE>,
-{
-    fn append(val: Vec<(EncodedSignature, SIGNATURE)>) -> Either<Self, CERT> {
-        nll_todo()
-    }
-}
-
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> SignedCertificate<TYPES::SignatureKey>
-    for QuorumCertificate<TYPES, LEAF>
-{
-    type Accumulator = CertificateAccumulator<TYPES::SignatureKey, QuorumCertificate<TYPES, LEAF>>;
-}
-
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> Eq for QuorumCertificate<TYPES, LEAF> {}
-
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> Committable
-    for QuorumCertificate<TYPES, LEAF>
-{
-    fn commit(&self) -> Commitment<Self> {
-        let mut builder = commit::RawCommitmentBuilder::new("Quorum Certificate Commitment");
-
-        builder = builder
-            .field("Leaf commitment", self.leaf_commitment)
-            .u64_field("View number", *self.view_number.deref());
-
-        for (idx, (k, v)) in self.signatures.iter().enumerate() {
-            builder = builder
-                .var_size_field(&format!("Signature {idx} public key"), &k.0)
-                .var_size_field(&format!("Signature {idx} signature"), &v.0 .0)
-                .field(&format!("Signature {idx} signature"), v.1.commit());
-        }
-
-        builder.u64_field("Genesis", self.genesis.into()).finalize()
-    }
-}
-
-impl<TYPES: NodeTypes> SignedCertificate<TYPES::SignatureKey> for DACertificate<TYPES> {
-    type Accumulator = CertificateAccumulator<TYPES::SignatureKey, DACertificate<TYPES>>;
-}
-
-impl<TYPES: NodeTypes> Eq for DACertificate<TYPES> {}
-
 /// The `Transaction` type associated with a `State`, as a syntactic shortcut
 pub type Transaction<STATE> = <<STATE as State>::BlockType as Block>::Transaction;
 /// `Commitment` to the `Transaction` type associated with a `State`, as a syntactic shortcut
 pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
-
-// TODO leafproposal trait for both types of consensus
-// TODO rename to match spec
 
 /// subset of state that we stick into a leaf.
 /// original hotstuff proposal
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Derivative, Eq)]
 #[serde(bound(deserialize = ""))]
 #[derivative(PartialEq, Hash)]
-pub struct ValidatingProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>>
+pub struct ValidatingProposal<TYPES: NodeType, ELECTION: Election<TYPES>>
 where
     ELECTION::LeafType: Committable,
 {
@@ -208,6 +97,9 @@ where
 
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
+
+    /// Height from leader when proposing leaf
+    pub height: u64,
 
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES, ELECTION::LeafType>,
@@ -221,35 +113,32 @@ where
     pub deltas: TYPES::BlockType,
 
     /// What the state should be after applying `self.deltas`
-    #[debug(skip)]
     pub state_commitment: Commitment<TYPES::StateType>,
 
     /// Transactions that were marked for rejection while collecting deltas
     pub rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
 
     /// the propser id
-    /// TODO (da) why is this not included? in partieq or hash? it really should be
-    /// since we are using this in our validity checks when accepting a proposal
     pub proposer_id: EncodedPublicKey,
 
+    #[allow(missing_docs)]
     pub _pd: PhantomData<ELECTION>,
 }
 
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
-pub struct DAProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
+pub struct DAProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
-
+    /// View this proposal applies to
     pub view_number: TYPES::Time,
 
     pub _pd: PhantomData<ELECTION>,
 }
 
-/// make generic over election
-/// OR move certs out of election and into nodetypes
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub struct CommitmentProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
+pub struct CommitmentProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
+    #[allow(clippy::missing_docs_in_private_items)]
     pub block_commitment: Commitment<TYPES::BlockType>,
 
     /// CurView from leader when proposing leaf
@@ -257,8 +146,8 @@ pub struct CommitmentProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
 
     /// Per spec, justification
     pub justify_qc: ELECTION::QuorumCertificate,
-    // pub justify_qc: Box<dyn Send + Sync + SignedCertificate<TYPES::SignatureKey>>,
-    /// TODO implmeent data availibity certificate and add trait here
+
+    /// Data availibity certificate
     pub availability_certificate: ELECTION::DACertificate,
 
     /// parent commitment alrady in justify_qqc
@@ -274,36 +163,43 @@ pub struct CommitmentProposal<TYPES: NodeTypes, ELECTION: Election<TYPES>> {
     pub application_metadata: TYPES::ApplicationMetadataType,
 }
 
-impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> ProposalType
+impl<TYPES: NodeType, ELECTION: Election<TYPES>> ProposalType
     for ValidatingProposal<TYPES, ELECTION>
 where
     ELECTION::LeafType: Committable,
 {
-    type NodeTypes = TYPES;
+    type NodeType = TYPES;
     type Election = ELECTION;
+    fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
+        self.view_number
+    }
 }
 
-impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> ProposalType for DAProposal<TYPES, ELECTION> {
-    type NodeTypes = TYPES;
+impl<TYPES: NodeType, ELECTION: Election<TYPES>> ProposalType for DAProposal<TYPES, ELECTION> {
+    type NodeType = TYPES;
     type Election = ELECTION;
+    fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
+        self.view_number
+    }
 }
 
-impl<TYPES: NodeTypes, ELECTION: Election<TYPES>> ProposalType
+impl<TYPES: NodeType, ELECTION: Election<TYPES>> ProposalType
     for CommitmentProposal<TYPES, ELECTION>
 where
     TYPES::ApplicationMetadataType: Send + Sync,
 {
-    type NodeTypes = TYPES;
+    type NodeType = TYPES;
     type Election = ELECTION;
+    fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
+        self.view_number
+    }
 }
-
-// TODO (da) rename NodeTypes to NodeType for consistency
-
 pub trait ProposalType:
     Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq + Eq
 {
-    type NodeTypes: NodeTypes;
-    type Election: Election<Self::NodeTypes>;
+    type NodeType: NodeType;
+    type Election: Election<Self::NodeType>;
+    fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time;
 }
 
 pub trait LeafType:
@@ -315,11 +211,10 @@ pub trait LeafType:
     + for<'a> Deserialize<'a>
     + Send
     + Sync
-    + PartialEq
     + Eq
     + std::hash::Hash
 {
-    type NodeType: NodeTypes;
+    type NodeType: NodeType;
     type StateCommitmentType: Clone
         + Debug
         + for<'a> Deserialize<'a>
@@ -329,24 +224,27 @@ pub trait LeafType:
         + Sync;
 
     fn new(
-        view_number: <Self::NodeType as NodeTypes>::Time,
+        view_number: <Self::NodeType as NodeType>::Time,
         justify_qc: QuorumCertificate<Self::NodeType, Self>,
-        deltas: <Self::NodeType as NodeTypes>::BlockType,
-        state: <Self::NodeType as NodeTypes>::StateType,
+        deltas: <Self::NodeType as NodeType>::BlockType,
+        state: <Self::NodeType as NodeType>::StateType,
     ) -> Self;
 
-    fn get_view_number(&self) -> <Self::NodeType as NodeTypes>::Time;
+    fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time;
+
+    fn get_height(&self) -> u64;
+
+    fn set_height(&mut self, height: u64);
 
     fn get_justify_qc(&self) -> QuorumCertificate<Self::NodeType, Self>;
 
     fn get_parent_commitment(&self) -> Commitment<Self>;
 
-    fn get_deltas(&self) -> <Self::NodeType as NodeTypes>::BlockType;
+    fn get_deltas(&self) -> <Self::NodeType as NodeType>::BlockType;
 
     fn get_state(&self) -> Self::StateCommitmentType;
 
-    fn get_rejected(&self)
-        -> Vec<<<Self::NodeType as NodeTypes>::BlockType as Block>::Transaction>;
+    fn get_rejected(&self) -> Vec<<<Self::NodeType as NodeType>::BlockType as Block>::Transaction>;
 
     fn get_timestamp(&self) -> i128;
 
@@ -357,22 +255,24 @@ pub trait LeafType:
     fn create_random_transaction(
         &self,
         rng: &mut dyn rand::RngCore,
-    ) -> <<Self::NodeType as NodeTypes>::BlockType as Block>::Transaction;
+    ) -> <<Self::NodeType as NodeType>::BlockType as Block>::Transaction;
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
-#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq, std::hash::Hash)]
-#[derivative(PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, std::hash::Hash)]
 #[serde(bound(deserialize = ""))]
-pub struct ValidatingLeaf<TYPES: NodeTypes>
+pub struct ValidatingLeaf<TYPES: NodeType>
 where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
 {
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
+
+    /// Number of leaves before this one in the chain
+    pub height: u64,
 
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES, Self>,
@@ -402,12 +302,14 @@ where
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
-#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq, std::hash::Hash)]
-#[derivative(PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, std::hash::Hash)]
 #[serde(bound(deserialize = ""))]
-pub struct DALeaf<TYPES: NodeTypes> {
+pub struct DALeaf<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
+
+    /// Number of leaves before this one in the chain
+    pub height: u64,
 
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES, Self>,
@@ -435,7 +337,7 @@ pub struct DALeaf<TYPES: NodeTypes> {
     pub proposer_id: EncodedPublicKey,
 }
 
-impl<TYPES: NodeTypes> LeafType for ValidatingLeaf<TYPES>
+impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES>
 where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -444,13 +346,14 @@ where
     type StateCommitmentType = TYPES::StateType;
 
     fn new(
-        view_number: <Self::NodeType as NodeTypes>::Time,
+        view_number: <Self::NodeType as NodeType>::Time,
         justify_qc: QuorumCertificate<Self::NodeType, Self>,
-        deltas: <Self::NodeType as NodeTypes>::BlockType,
-        state: <Self::NodeType as NodeTypes>::StateType,
+        deltas: <Self::NodeType as NodeType>::BlockType,
+        state: <Self::NodeType as NodeType>::StateType,
     ) -> Self {
         Self {
             view_number,
+            height: 0,
             justify_qc,
             parent_commitment: fake_commitment(),
             deltas,
@@ -465,6 +368,14 @@ where
         self.view_number
     }
 
+    fn get_height(&self) -> u64 {
+        self.height
+    }
+
+    fn set_height(&mut self, height: u64) {
+        self.height = height;
+    }
+
     fn get_justify_qc(&self) -> QuorumCertificate<TYPES, Self> {
         self.justify_qc.clone()
     }
@@ -499,6 +410,7 @@ where
         };
         Self {
             view_number: stored_view.view_number,
+            height: 0,
             justify_qc: stored_view.justify_qc,
             parent_commitment: stored_view.parent,
             deltas,
@@ -512,23 +424,24 @@ where
     fn create_random_transaction(
         &self,
         rng: &mut dyn rand::RngCore,
-    ) -> <<Self::NodeType as NodeTypes>::BlockType as Block>::Transaction {
+    ) -> <<Self::NodeType as NodeType>::BlockType as Block>::Transaction {
         <TYPES::StateType as TestableState>::create_random_transaction(&self.state, rng)
     }
 }
 
-impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
+impl<TYPES: NodeType> LeafType for DALeaf<TYPES> {
     type NodeType = TYPES;
     type StateCommitmentType = Either<TYPES::StateType, Commitment<TYPES::StateType>>;
 
     fn new(
-        view_number: <Self::NodeType as NodeTypes>::Time,
+        view_number: <Self::NodeType as NodeType>::Time,
         justify_qc: QuorumCertificate<Self::NodeType, Self>,
-        deltas: <Self::NodeType as NodeTypes>::BlockType,
-        state: <Self::NodeType as NodeTypes>::StateType,
+        deltas: <Self::NodeType as NodeType>::BlockType,
+        state: <Self::NodeType as NodeType>::StateType,
     ) -> Self {
         Self {
             view_number,
+            height: 0,
             justify_qc,
             parent_commitment: fake_commitment(),
             deltas,
@@ -543,6 +456,14 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
         self.view_number
     }
 
+    fn get_height(&self) -> u64 {
+        self.height
+    }
+
+    fn set_height(&mut self, height: u64) {
+        self.height = height;
+    }
+
     fn get_justify_qc(&self) -> QuorumCertificate<TYPES, Self> {
         self.justify_qc.clone()
     }
@@ -577,6 +498,7 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
         };
         Self {
             view_number: stored_view.view_number,
+            height: 0,
             justify_qc: stored_view.justify_qc,
             parent_commitment: stored_view.parent,
             deltas,
@@ -589,8 +511,9 @@ impl<TYPES: NodeTypes> LeafType for DALeaf<TYPES> {
 
     fn create_random_transaction(
         &self,
-        rng: &mut dyn rand::RngCore,
-    ) -> <<Self::NodeType as NodeTypes>::BlockType as Block>::Transaction {
+        _rng: &mut dyn rand::RngCore,
+    ) -> <<Self::NodeType as NodeType>::BlockType as Block>::Transaction {
+        #[allow(deprecated)]
         nll_todo()
     }
 }
@@ -609,7 +532,7 @@ pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitm
         .finalize()
 }
 
-impl<TYPES: NodeTypes> Committable for ValidatingLeaf<TYPES>
+impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES>
 where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -619,11 +542,11 @@ where
         for (k, v) in &self.justify_qc.signatures {
             signatures_bytes.extend(&k.0);
             signatures_bytes.extend(&v.0 .0);
-            signatures_bytes.extend(v.1.commit().as_ref());
+            signatures_bytes.extend::<&[u8]>(v.1.commit().as_ref());
         }
         commit::RawCommitmentBuilder::new("Leaf Comm")
-            .constant_str("view_number")
-            .u64(*self.view_number)
+            .u64_field("view_number", *self.view_number)
+            .u64_field("height", self.height)
             .field("parent Leaf commitment", self.parent_commitment)
             .field("deltas commitment", self.deltas.commit())
             .field("state commitment", self.state.commit())
@@ -637,15 +560,20 @@ where
             .var_size_bytes(&signatures_bytes)
             .finalize()
     }
+
+    fn tag() -> String {
+        tag::LEAF.to_string()
+    }
 }
 
-impl<TYPES: NodeTypes> Committable for DALeaf<TYPES> {
+impl<TYPES: NodeType> Committable for DALeaf<TYPES> {
     fn commit(&self) -> commit::Commitment<Self> {
+        #[allow(deprecated)]
         nll_todo()
     }
 }
 
-impl<TYPES: NodeTypes, ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>>
+impl<TYPES: NodeType, ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>>
     From<ValidatingLeaf<TYPES>> for ValidatingProposal<TYPES, ELECTION>
 where
     TYPES::StateType: TestableState,
@@ -654,19 +582,20 @@ where
     fn from(leaf: ValidatingLeaf<TYPES>) -> Self {
         Self {
             view_number: leaf.view_number,
+            height: leaf.height,
             justify_qc: leaf.justify_qc,
             parent_commitment: leaf.parent_commitment,
-            deltas: leaf.deltas,
+            deltas: leaf.deltas.clone(),
             state_commitment: leaf.state.commit(),
             rejected: leaf.rejected,
             proposer_id: leaf.proposer_id,
-            block_commitment: nll_todo(),
+            block_commitment: leaf.deltas.commit(),
             _pd: PhantomData,
         }
     }
 }
 
-impl<TYPES: NodeTypes> ValidatingLeaf<TYPES>
+impl<TYPES: NodeType> ValidatingLeaf<TYPES>
 where
     TYPES::ConsensusType: ValidatingConsensusType,
     TYPES::StateType: TestableState,
@@ -684,12 +613,14 @@ where
         parent_commitment: Commitment<ValidatingLeaf<TYPES>>,
         justify_qc: QuorumCertificate<TYPES, Self>,
         view_number: TYPES::Time,
+        height: u64,
         rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
         timestamp: i128,
         proposer_id: EncodedPublicKey,
     ) -> Self {
         ValidatingLeaf {
             view_number,
+            height,
             justify_qc,
             parent_commitment,
             deltas,
@@ -711,7 +642,7 @@ where
     /// or if state cannot extend deltas from default()
     pub fn genesis(deltas: TYPES::BlockType) -> Self {
         // if this fails, we're not able to initialize consensus.
-        let state = <TYPES as NodeTypes>::StateType::append(
+        let state = <TYPES as NodeType>::StateType::append(
             &TYPES::StateType::default(),
             &deltas,
             &TYPES::Time::genesis(),
@@ -719,6 +650,7 @@ where
         .unwrap();
         Self {
             view_number: TYPES::Time::genesis(),
+            height: 0,
             justify_qc: QuorumCertificate::genesis(),
             parent_commitment: fake_commitment(),
             deltas,
@@ -730,7 +662,7 @@ where
     }
 }
 
-impl<TYPES: NodeTypes> From<StoredView<TYPES, ValidatingLeaf<TYPES>>> for ValidatingLeaf<TYPES>
+impl<TYPES: NodeType> From<StoredView<TYPES, ValidatingLeaf<TYPES>>> for ValidatingLeaf<TYPES>
 where
     TYPES::ConsensusType: ValidatingConsensusType,
     TYPES::StateType: TestableState,
@@ -743,6 +675,7 @@ where
             append.parent,
             append.justify_qc,
             append.view_number,
+            append.height,
             Vec::new(),
             append.timestamp,
             append.proposer_id,
@@ -752,12 +685,13 @@ where
 
 impl<TYPES, LEAF> From<LEAF> for StoredView<TYPES, LEAF>
 where
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
 {
     fn from(leaf: LEAF) -> Self {
         StoredView {
             view_number: leaf.get_view_number(),
+            height: leaf.get_height(),
             parent: leaf.get_parent_commitment(),
             justify_qc: leaf.get_justify_qc(),
             state: leaf.get_state(),

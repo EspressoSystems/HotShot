@@ -42,4 +42,5 @@ ignore = [
     # Waiting on a new release of https://github.com/mxinden/if-watch
     # https://rustsec.org/advisories/RUSTSEC-2022-0008
     "RUSTSEC-2022-0008",
+
 ]

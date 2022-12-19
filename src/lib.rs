@@ -29,7 +29,7 @@ pub mod documentation;
 /// Data availability support
 // pub mod da;
 /// Contains structures and functions for committee election
-pub mod data;
+pub mod certificate;
 #[cfg(any(feature = "demo"))]
 pub mod demos;
 /// Contains traits consumed by [`HotShot`]
@@ -40,20 +40,27 @@ pub mod types;
 pub mod tasks;
 
 use crate::{
-    data::QuorumCertificate,
+    certificate::QuorumCertificate,
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };
+use async_compatibility_layer::{
+    art::async_spawn,
+    async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
+};
+use async_compatibility_layer::{
+    art::async_spawn_local,
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+};
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
+use bincode::Options;
 use commit::{Commitment, Committable};
-use either::Either;
 use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, SendToTasks, View, ViewInner, ViewQueue,
 };
 use hotshot_types::{
-    constants::genesis_proposer_id,
-    data::{fake_commitment, DALeaf, LeafType, ProposalType, ValidatingLeaf},
+    data::LeafType,
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
@@ -63,22 +70,16 @@ use hotshot_types::{
         },
         metrics::Metrics,
         network::{NetworkChange, NetworkError},
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        state::{ConsensusTime, SequencingConsensus, ValidatingConsensus},
+        state::ConsensusTime,
         storage::StoredView,
         State,
     },
     HotShotConfig,
 };
 use hotshot_types::{message::MessageKind, traits::election::VoteToken};
-use hotshot_utils::{
-    art::async_spawn, broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock,
-};
-use hotshot_utils::{
-    art::async_spawn_local,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
-};
+use hotshot_utils::bincode::bincode_opts;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -86,7 +87,7 @@ use std::{
     sync::{atomic::Ordering, Arc},
     time::Duration,
 };
-use tasks::TaskHandler;
+use tasks::ViewRunner;
 use tracing::{debug, error, info, instrument, trace, warn};
 
 // -- Rexports
@@ -103,7 +104,7 @@ pub const H_512: usize = 64;
 pub const H_256: usize = 32;
 
 /// Holds the state needed to participate in `HotShot` consensus
-pub struct HotShotInner<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The public key of this node
     public_key: TYPES::SignatureKey,
 
@@ -134,7 +135,7 @@ pub struct HotShotInner<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
 
 /// Thread safe, shared view of a `HotShot`
 #[derive(Clone)]
-pub struct HotShot<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+pub struct HotShot<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Handle to internal hotshot implementation
     inner: Arc<HotShotInner<TYPES, I>>,
 
@@ -162,9 +163,9 @@ pub struct HotShot<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     id: u64,
 }
 
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES, I>
 where
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: tasks::TaskHandlerType<TYPES, I>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: tasks::ViewRunnerType<TYPES, I>,
 {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
@@ -233,6 +234,7 @@ where
             metrics: Arc::new(ConsensusMetrics::new(
                 inner.metrics.subgroup("consensus".to_string()),
             )),
+            invalid_qc: 0,
         };
         let hotstuff = Arc::new(RwLock::new(hotstuff));
         let txns = hotstuff.read().await.get_transactions();
@@ -524,15 +526,29 @@ where
         // TODO validate incoming broadcast message based on sender signature key
         match msg {
             DataMessage::SubmitTransaction(transaction) => {
+                let size = bincode_opts().serialized_size(&transaction).unwrap_or(0);
+
                 // The API contract requires the hash to be unique
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
+                let mut new = false;
                 self.transactions
                     .modify(|txns| {
-                        txns.insert(transaction.commit(), transaction);
+                        new = txns.insert(transaction.commit(), transaction).is_none();
                     })
                     .await;
+
+                if new {
+                    // If this is a new transaction, update metrics.
+                    let consensus = self.hotstuff.read().await;
+                    consensus.metrics.outstanding_transactions.update(1);
+                    #[allow(clippy::cast_possible_wrap)]
+                    consensus
+                        .metrics
+                        .outstanding_transactions_memory_size
+                        .update(size as i64);
+                }
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed
@@ -575,6 +591,12 @@ where
                         qc,
                         block,
                         state,
+                        // We don't have enough information in this message to validate the height
+                        // of the new QC. We would need the full parent leaf, so we can check that
+                        // its commitment matches `qc.leaf_commitment` and extract the height from
+                        // the leaf. But this message is no longer used and the whole catchup
+                        // protocol needs to be redesigned.
+                        0,
                         parent_commitment,
                         rejected,
                         proposer_id,
@@ -650,13 +672,13 @@ where
 
 /// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]
 #[derive(Clone)]
-struct HotShotConsensusApi<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+struct HotShotConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`HotShotInner`]
     inner: Arc<HotShotInner<TYPES, I>>,
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     hotshot_consensus::ConsensusApi<TYPES, I::Leaf, I::Proposal> for HotShotConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
@@ -828,12 +850,12 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
 }
 
 /// initializer struct for creating starting block
-pub struct HotShotInitializer<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
+pub struct HotShotInitializer<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// the leaf specified initialization
     inner: LEAF,
 }
 
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPES, LEAF> {
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPES, LEAF> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state

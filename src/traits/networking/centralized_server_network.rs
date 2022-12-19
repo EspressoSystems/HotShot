@@ -9,6 +9,10 @@ use tokio::net::TcpStream;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
+use async_compatibility_layer::{
+    art::{async_block_on, async_sleep, async_spawn, split_stream},
+    channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
+};
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
 use bincode::Options;
@@ -26,15 +30,11 @@ use hotshot_types::{
             FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
             NetworkingImplementation, TestableNetworkingImplementation,
         },
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     },
 };
-use hotshot_utils::{
-    art::{async_block_on, async_sleep, async_spawn, split_stream},
-    bincode::bincode_opts,
-    channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
-};
+use hotshot_utils::bincode::bincode_opts;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::ResultExt;
 use std::{
@@ -54,7 +54,7 @@ use super::NetworkingMetrics;
 
 /// The inner state of the `CentralizedServerNetwork`
 #[derive(custom_debug::Debug)]
-struct Inner<TYPES: NodeTypes> {
+struct Inner<TYPES: NodeType> {
     /// Self-identifying public key
     own_key: TYPES::SignatureKey,
     /// List of all known nodes
@@ -118,7 +118,7 @@ struct MsgStepContext {
     accumulated_stream: Vec<u8>,
 }
 
-impl<TYPES: NodeTypes> Inner<TYPES> {
+impl<TYPES: NodeType> Inner<TYPES> {
     /// Send a broadcast mesasge to the server.
     async fn broadcast(&self, message: Vec<u8>) {
         self.sending
@@ -652,14 +652,14 @@ impl<TYPES: NodeTypes> Inner<TYPES> {
 
 /// Handle for connecting to a centralized server
 #[derive(Clone, Debug)]
-pub struct CentralizedServerNetwork<TYPES: NodeTypes> {
+pub struct CentralizedServerNetwork<TYPES: NodeType> {
     /// The inner state
     inner: Arc<Inner<TYPES>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
-impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
+impl<TYPES: NodeType> CentralizedServerNetwork<TYPES> {
     /// Connect with the server running at `addr` and retrieve the config from the server.
     ///
     /// The config is returned along with the current run index and the running `CentralizedServerNetwork`
@@ -760,7 +760,7 @@ impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
     }
 }
 
-impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
+impl<TYPES: NodeType> CentralizedServerNetwork<TYPES> {
     /// Connect to a given socket address. Will loop and try to connect every 5 seconds if the server is unreachable.
     fn connect_to(addr: SocketAddr) -> BoxFuture<'static, (TcpStreamRecvUtil, TcpStreamSendUtil)> {
         async move {
@@ -868,7 +868,7 @@ impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
 ///
 /// - All messages sent to the sender of `to_background` will be sent to the server.
 /// - All messages received from the TCP stream will be sent to `from_background_sender`.
-async fn run_background<TYPES: NodeTypes>(
+async fn run_background<TYPES: NodeType>(
     recv_stream: TcpStreamRecvUtil,
     mut send_stream: TcpStreamSendUtil,
     key: TYPES::SignatureKey,
@@ -945,7 +945,7 @@ async fn run_background_send<K: SignatureKey>(
 /// Loop on the TCP recv stream.
 ///
 /// - All messages received from the TCP stream will be sent to `from_background_sender`.
-async fn run_background_recv<TYPES: NodeTypes>(
+async fn run_background_recv<TYPES: NodeType>(
     mut stream: TcpStreamRecvUtil,
     from_background_sender: UnboundedSender<(
         FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
@@ -1045,9 +1045,9 @@ impl From<hotshot_centralized_server::Error> for Error {
 
 #[async_trait]
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > NetworkingImplementation<TYPES, LEAF, PROPOSAL> for CentralizedServerNetwork<TYPES>
 {
     async fn ready(&self) -> bool {
@@ -1152,9 +1152,9 @@ impl<
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL> for CentralizedServerNetwork<TYPES>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -1198,7 +1198,7 @@ where
     }
 }
 
-impl<TYPES: NodeTypes> Drop for CentralizedServerNetwork<TYPES> {
+impl<TYPES: NodeType> Drop for CentralizedServerNetwork<TYPES> {
     fn drop(&mut self) {
         if let Some(shutdown) = self.server_shutdown_signal.take() {
             // we try to unwrap this Arc. If we're the last one with a reference to this arc, we'll be able to unwrap this

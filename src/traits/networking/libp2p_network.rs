@@ -3,6 +3,10 @@
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 
 use super::NetworkingMetrics;
+use async_compatibility_layer::{
+    art::{async_block_on, async_sleep, async_spawn},
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+};
 use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
@@ -17,15 +21,11 @@ use hotshot_types::{
             FailedToSerializeSnafu, NetworkChange, NetworkError, NetworkingImplementation,
             TestableNetworkingImplementation, UnboundedChannelDisconnectedSnafu,
         },
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
 };
-use hotshot_utils::{
-    art::{async_block_on, async_sleep, async_spawn},
-    bincode::bincode_opts,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
-};
+use hotshot_utils::bincode::bincode_opts;
 use libp2p_networking::{
     network::{
         MeshParams,
@@ -59,9 +59,9 @@ pub enum Empty {
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > std::fmt::Debug for Libp2pNetwork<TYPES, LEAF, PROPOSAL>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -74,9 +74,9 @@ pub type PeerInfoVec = Arc<RwLock<Vec<(Option<PeerId>, Multiaddr)>>>;
 
 /// The underlying state of the libp2p network
 struct Libp2pNetworkInner<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 > {
     /// this node's public key
     pk: TYPES::SignatureKey,
@@ -115,18 +115,18 @@ struct Libp2pNetworkInner<
 /// generic over `M` which is the message type
 #[derive(Clone)]
 pub struct Libp2pNetwork<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 > {
     /// holds the state of the libp2p network
     inner: Arc<Libp2pNetworkInner<TYPES, LEAF, PROPOSAL>>,
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>
     for Libp2pNetwork<TYPES, LEAF, PROPOSAL>
 where
@@ -221,9 +221,9 @@ where
 }
 
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > Libp2pNetwork<TYPES, LEAF, PROPOSAL>
 {
     /// Returns when network is ready
@@ -464,9 +464,9 @@ impl<
 
 #[async_trait]
 impl<
-        TYPES: NodeTypes,
+        TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeTypes = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
     > NetworkingImplementation<TYPES, LEAF, PROPOSAL> for Libp2pNetwork<TYPES, LEAF, PROPOSAL>
 {
     #[instrument(name = "Libp2pNetwork::ready", skip_all)]

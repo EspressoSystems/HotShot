@@ -26,26 +26,17 @@ jobs:
       - uses: actions/checkout@v3
         name: Checkout Repository
 
-      - uses: dtolnay/rust-toolchain@1.65.0
-
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
 
-      - name: Configure Git
-        run: |
-          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf git://github.com/
-          git config --global url."https://ancient123:${{ secrets.ORG_GITHUB_PAT }}@github.com/".insteadOf ssh://git@github.com/
-
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
-        with:
-          sharedKey: HotShot163
 
       - name: Audit
         # TODO remove ignore flag if/when ansiterm cve fixed
-        run: cargo audit --deny warnings  --ignore RUSTSEC-2021-0139
+        run: cargo audit --ignore RUSTSEC-2021-0139
 
       - name: Check
         run: cargo check --features=full-ci --workspace
@@ -77,44 +68,46 @@ jobs:
         with:
           images: ghcr.io/espressosystems/hotshot/multi-machine-libp2p
 
-      - name: Build and push multi-machine-libp2p docker
-        uses: docker/build-push-action@v3
-        with:
-          context: ./
-          file: ./deploy/Dockerfile
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.multi-machine-libp2p.outputs.tags }}
-          labels: ${{ steps.multi-machine-libp2p.outputs.labels }}
+      # Examples have been removed temporiraly, so the follwing workflows aren't applicable for now.
+      
+      # - name: Build and push multi-machine-libp2p docker
+      #   uses: docker/build-push-action@v3
+      #   with:
+      #     context: ./
+      #     file: ./deploy/Dockerfile
+      #     platforms: linux/amd64
+      #     push: ${{ github.event_name != 'pull_request' }}
+      #     tags: ${{ steps.multi-machine-libp2p.outputs.tags }}
+      #     labels: ${{ steps.multi-machine-libp2p.outputs.labels }}
 
-      - name: Generate docker metadata (centralized)
-        uses: docker/metadata-action@v4
-        id: multi-machine-centralized
-        with:
-          images: ghcr.io/espressosystems/hotshot/multi-machine-centralized
+      # - name: Generate docker metadata (centralized)
+      #   uses: docker/metadata-action@v4
+      #   id: multi-machine-centralized
+      #   with:
+      #     images: ghcr.io/espressosystems/hotshot/multi-machine-centralized
 
-      - name: Build and push multi-machine-centralized docker
-        uses: docker/build-push-action@v3
-        with:
-          context: ./
-          file: ./deploy/multi-machine-centralized.Dockerfile
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.multi-machine-centralized.outputs.tags }}
-          labels: ${{ steps.multi-machine-centralized.outputs.labels }}
+      # - name: Build and push multi-machine-centralized docker
+      #   uses: docker/build-push-action@v3
+      #   with:
+      #     context: ./
+      #     file: ./deploy/multi-machine-centralized.Dockerfile
+      #     platforms: linux/amd64
+      #     push: ${{ github.event_name != 'pull_request' }}
+      #     tags: ${{ steps.multi-machine-centralized.outputs.tags }}
+      #     labels: ${{ steps.multi-machine-centralized.outputs.labels }}
 
-      - name: Generate docker metadata (centralized vrf)
-        uses: docker/metadata-action@v4
-        id: multi-machine-vrf-centralized
-        with:
-          images: ghcr.io/espressosystems/hotshot/multi-machine-vrf-centralized
+      # - name: Generate docker metadata (centralized vrf)
+      #   uses: docker/metadata-action@v4
+      #   id: multi-machine-vrf-centralized
+      #   with:
+      #     images: ghcr.io/espressosystems/hotshot/multi-machine-vrf-centralized
 
-      - name: Build and push multi-machine-vrf-centralized docker
-        uses: docker/build-push-action@v3
-        with:
-          context: ./
-          file: ./deploy/multi-machine-vrf-centralized.Dockerfile
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.multi-machine-vrf-centralized.outputs.tags }}
-          labels: ${{ steps.multi-machine-vrf-centralized.outputs.labels }}
+      # - name: Build and push multi-machine-vrf-centralized docker
+      #   uses: docker/build-push-action@v3
+      #   with:
+      #     context: ./
+      #     file: ./deploy/multi-machine-vrf-centralized.Dockerfile
+      #     platforms: linux/amd64
+      #     push: ${{ github.event_name != 'pull_request' }}
+      #     tags: ${{ steps.multi-machine-vrf-centralized.outputs.tags }}
+      #     labels: ${{ steps.multi-machine-vrf-centralized.outputs.labels }}

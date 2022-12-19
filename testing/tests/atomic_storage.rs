@@ -2,9 +2,11 @@
 
 mod common;
 use hotshot::{
-    data::{Leaf, QuorumCertificate},
+    certificate::QuorumCertificate,
+    data::LeafType,
     demos::dentry::{
-        random_leaf, random_quorom_certificate, random_transaction, DEntryBlock, DEntryState,
+        random_quorom_certificate, random_transaction, random_validating_leaf, DEntryBlock,
+        DEntryState,
     },
     traits::{Block, State, Storage},
 };
@@ -167,7 +169,7 @@ async fn test_happy_path_leaves() {
     // Add some leaves
     let mut leaves = Vec::<Leaf<DEntryBlock, State, H_256>>::new();
     for _ in 0..10 {
-        let leaf = random_leaf(DEntryBlock {
+        let leaf = random_validating_leaf(DEntryBlock {
             previous_block: StateHash::random(),
             ..Default::default()
         });

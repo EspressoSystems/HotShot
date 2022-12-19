@@ -4,10 +4,11 @@ use async_trait::async_trait;
 use commit::Commitment;
 use hotshot_types::message::ConsensusMessage;
 use hotshot_types::traits::election::Checked;
-use hotshot_types::traits::node_implementation::NodeTypes;
+use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
-    data::{LeafType, ProposalType, QuorumCertificate},
+    certificate::QuorumCertificate,
+    data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
     traits::{
@@ -25,9 +26,9 @@ use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 /// [`HotStuff`]: struct.HotStuff.html
 #[async_trait]
 pub trait ConsensusApi<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 >: Send + Sync
 {
     /// Total number of nodes in the network. Also known as `n`.
@@ -129,11 +130,17 @@ pub trait ConsensusApi<
     }
 
     /// sends a decide event down the channel
-    async fn send_decide(&self, view_number: TYPES::Time, leaf_views: Vec<LEAF>) {
+    async fn send_decide(
+        &self,
+        view_number: TYPES::Time,
+        leaf_views: Vec<LEAF>,
+        decide_qc: QuorumCertificate<TYPES, LEAF>,
+    ) {
         self.send_event(Event {
             view_number,
             event: EventType::Decide {
                 leaf_chain: Arc::new(leaf_views),
+                qc: Arc::new(decide_qc),
             },
         })
         .await;

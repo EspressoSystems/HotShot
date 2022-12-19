@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use hotshot_types::{
     data::LeafType,
     traits::{
-        node_implementation::NodeTypes,
+        node_implementation::NodeType,
         storage::{
             Result, Storage, StorageError, StorageState, StoredView, TestableStorage, ViewEntry,
         },
@@ -19,7 +19,7 @@ use std::{
 };
 
 /// Internal state for a [`MemoryStorage`]
-struct MemoryStorageInternal<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
+struct MemoryStorageInternal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The views that have been stored
     stored: BTreeMap<TYPES::Time, StoredView<TYPES, LEAF>>,
     /// The views that have failed
@@ -28,13 +28,13 @@ struct MemoryStorageInternal<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>>
 
 /// In memory, ephemeral, storage for a [`HotShot`](crate::HotShot) instance
 #[derive(Clone)]
-pub struct MemoryStorage<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
+pub struct MemoryStorage<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The inner state of this [`MemoryStorage`]
     inner: Arc<RwLock<MemoryStorageInternal<TYPES, LEAF>>>,
 }
 
 #[allow(clippy::new_without_default)]
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> MemoryStorage<TYPES, LEAF> {
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> MemoryStorage<TYPES, LEAF> {
     /// Create a new instance of the memory storage with the given block and state
     /// NOTE: left as `new` because this API is not stable
     /// we may add arguments to new in the future
@@ -50,7 +50,7 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> MemoryStorage<TYPES, LE
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> TestableStorage<TYPES, LEAF>
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> TestableStorage<TYPES, LEAF>
     for MemoryStorage<TYPES, LEAF>
 {
     fn construct_tmp_storage() -> Result<Self> {
@@ -67,7 +67,7 @@ impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> TestableStorage<TYPES, 
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> Storage<TYPES, LEAF>
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Storage<TYPES, LEAF>
     for MemoryStorage<TYPES, LEAF>
 {
     async fn append(&self, views: Vec<ViewEntry<TYPES, LEAF>>) -> Result {
@@ -121,25 +121,22 @@ mod test {
     use crate::traits::election::static_committee::StaticVoteToken;
 
     use super::*;
+    use hotshot_types::certificate::QuorumCertificate;
     use hotshot_types::constants::genesis_proposer_id;
     use hotshot_types::data::fake_commitment;
-    use hotshot_types::data::QuorumCertificate;
-    use hotshot_types::data::{LeafType, ValidatingLeaf, ViewNumber};
+    use hotshot_types::data::{ValidatingLeaf, ViewNumber};
     #[allow(clippy::wildcard_imports)]
     use hotshot_types::traits::block_contents::dummy::*;
-    use hotshot_types::traits::node_implementation::NodeTypes;
+    use hotshot_types::traits::node_implementation::NodeType;
     use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
     use hotshot_types::traits::state::ValidatingConsensus;
     use hotshot_types::traits::Block;
-    use hotshot_types::traits::{
-        node_implementation::ApplicationMetadata,
-        state::{ConsensusTime, ConsensusType},
-    };
+    use hotshot_types::traits::{node_implementation::ApplicationMetadata, state::ConsensusTime};
     use serde::{Deserialize, Serialize};
     use std::collections::BTreeMap;
     use std::fmt::Debug;
     use std::hash::Hash;
-    use std::marker::PhantomData;
+
     use tracing::instrument;
 
     /// application metadata stub
@@ -163,7 +160,7 @@ mod test {
     )]
     struct DummyTypes;
 
-    impl NodeTypes for DummyTypes {
+    impl NodeType for DummyTypes {
         // TODO (da) can this be SequencingConsensus?
         type ConsensusType = ValidatingConsensus;
         type Time = ViewNumber;
@@ -182,7 +179,7 @@ mod test {
         view_number: ViewNumber,
     ) -> StoredView<DummyTypes, ValidatingLeaf<DummyTypes>> {
         // TODO is it okay to be using genesis here?
-        let dummy_block_commit = fake_commitment::<DummyBlock>();
+        let _dummy_block_commit = fake_commitment::<DummyBlock>();
         let dummy_leaf_commit = fake_commitment::<ValidatingLeaf<DummyTypes>>();
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
@@ -194,6 +191,7 @@ mod test {
             },
             DummyBlock::random(rng),
             DummyState::random(rng),
+            rng.next_u64(),
             dummy_leaf_commit,
             Vec::new(),
             genesis_proposer_id(),

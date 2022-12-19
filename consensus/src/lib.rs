@@ -23,22 +23,24 @@ mod replica;
 mod traits;
 mod utils;
 
-pub use leader::Leader;
-pub use next_leader::NextLeader;
+use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
+pub use leader::ValidatingLeader;
+pub use next_leader::NextValidatingLeader;
 pub use replica::Replica;
 pub use traits::ConsensusApi;
 pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
 
 use commit::Commitment;
+use hotshot_types::traits::metrics::Counter;
 use hotshot_types::{
-    data::{LeafType, QuorumCertificate, ProposalType},
+    certificate::QuorumCertificate,
+    data::LeafType,
     error::HotShotError,
     traits::{
         metrics::{Gauge, Histogram, Metrics},
-        node_implementation::{NodeImplementation, NodeTypes}, election::{Election, SignedCertificate},
+        node_implementation::NodeType,
     },
 };
-use hotshot_utils::subscribable_rwlock::SubscribableRwLock;
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
@@ -138,7 +140,7 @@ pub trait ConsensusAbstraction {
 ///
 /// This will contain the state of all rounds.
 #[derive(custom_debug::Debug)]
-pub struct Consensus<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
+pub struct Consensus<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The phases that are currently loaded in memory
     // TODO(https://github.com/EspressoSystems/hotshot/issues/153): Allow this to be loaded from `Storage`?
     pub state_map: BTreeMap<TYPES::Time, View<TYPES, LEAF>>,
@@ -166,28 +168,52 @@ pub struct Consensus<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> {
     /// A reference to the metrics trait
     #[debug(skip)]
     pub metrics: Arc<ConsensusMetrics>,
+
+    /// Amount of invalid QCs we've seen since the last commit
+    /// Used for metrics.  This resets to 0 on every decide event.
+    pub invalid_qc: usize,
 }
 
 /// The metrics being collected for the consensus algorithm
 pub struct ConsensusMetrics {
     /// The current view
     pub current_view: Box<dyn Gauge>,
+    /// The duration to collect votes in a view (only applies when this insance is the leader)
+    pub vote_validate_duration: Box<dyn Histogram>,
+    /// The duration we waited for txns before building the proposal
+    pub proposal_wait_duration: Box<dyn Histogram>,
+    /// The duration to build the proposal
+    pub proposal_build_duration: Box<dyn Histogram>,
     /// The duration of each view, in seconds
     pub view_duration: Box<dyn Histogram>,
-    // /// Number of views that are in-flight since the last committed view
-    // number_of_views_since_last_commit: Box<dyn Gauge>,
-    // /// Number of accepted transactions
-    // accepted_transactions: Box<dyn Counter>,
-    // /// Number of rejected transactions
-    // rejected_transactions: Box<dyn Counter>,
-    // /// Number of outstanding transactions
-    // outstanding_transactions: Box<dyn Gauge>,
-    // /// History of committed block size, in bytes
-    // committed_block_size: Box<dyn Histogram>,
-    // /// Number of uncommitted views
-    // number_of_uncommitted_views: Box<dyn Gauge>,
-    // /// Number of views that timed out
-    // number_of_timeouts: Box<dyn Counter>,
+    /// Number of views that are in-flight since the last committed view
+    pub number_of_views_since_last_commit: Box<dyn Gauge>,
+    /// Number of views that are in-flight since the last anchor view
+    pub number_of_views_per_decide_event: Box<dyn Histogram>,
+    /// Number of invalid QCs between anchors
+    pub invalid_qc_views: Box<dyn Histogram>,
+    /// Number of views that were discarded since from one achor to the next
+    pub discarded_views_per_decide_event: Box<dyn Histogram>,
+    /// Views where no proposal was seen from one anchor to the next
+    pub empty_views_per_decide_event: Box<dyn Histogram>,
+    /// Number of rejected transactions
+    pub rejected_transactions: Box<dyn Counter>,
+    /// Number of outstanding transactions
+    pub outstanding_transactions: Box<dyn Gauge>,
+    /// Memory size in bytes of the serialized transactions still outstanding
+    pub outstanding_transactions_memory_size: Box<dyn Gauge>,
+    /// Number of views that timed out
+    pub number_of_timeouts: Box<dyn Counter>,
+    /// Total direct messages this node sent out
+    pub outgoing_direct_messages: Box<dyn Counter>,
+    /// Total broadcasts sent
+    pub outgoing_broadcast_messages: Box<dyn Counter>,
+    /// Total messages received
+    pub direct_messages_received: Box<dyn Counter>,
+    /// Total broadcast messages received
+    pub broadcast_messages_received: Box<dyn Counter>,
+    /// Total number of messages which couldn't be sent
+    pub failed_to_send_messages: Box<dyn Counter>,
 }
 
 impl ConsensusMetrics {
@@ -197,29 +223,52 @@ impl ConsensusMetrics {
     pub fn new(metrics: Box<dyn Metrics>) -> Self {
         Self {
             current_view: metrics.create_gauge(String::from("current_view"), None),
+            vote_validate_duration: metrics.create_histogram(
+                String::from("vote_validate_duration"),
+                Some(String::from("seconds")),
+            ),
+            proposal_build_duration: metrics.create_histogram(
+                String::from("proposal_build_duration"),
+                Some(String::from("seconds")),
+            ),
+            proposal_wait_duration: metrics.create_histogram(
+                String::from("proposal_wait_duration"),
+                Some(String::from("seconds")),
+            ),
             view_duration: metrics
                 .create_histogram(String::from("view_duration"), Some(String::from("seconds"))),
-            // number_of_views_since_last_commit: metrics
-            //     .create_gauge(String::from("number_of_views_since_last_commit"), None),
-            // accepted_transactions: metrics
-            //     .create_counter(String::from("accepted_transactions"), None),
-            // rejected_transactions: metrics
-            //     .create_counter(String::from("rejected_transactions"), None),
-            // outstanding_transactions: metrics
-            //     .create_gauge(String::from("outstanding_transactions"), None),
-            // committed_block_size: metrics.create_histogram(
-            //     String::from("committed_block_size"),
-            //     Some(String::from("bytes")),
-            // ),
-            // number_of_uncommitted_views: metrics
-            //     .create_gauge(String::from("number_of_uncommitted_branches"), None),
-            // number_of_timeouts: metrics
-            //     .create_counter(String::from("number_of_uncommitted_counter"), None),
+            number_of_views_since_last_commit: metrics
+                .create_gauge(String::from("number_of_views_since_last_commit"), None),
+            number_of_views_per_decide_event: metrics
+                .create_histogram(String::from("number_of_views_per_decide_event"), None),
+            invalid_qc_views: metrics.create_histogram(String::from("invalid_qc_views"), None),
+            discarded_views_per_decide_event: metrics
+                .create_histogram(String::from("discarded_views_per_decide_event"), None),
+            empty_views_per_decide_event: metrics
+                .create_histogram(String::from("empty_views_per_decide_event"), None),
+            rejected_transactions: metrics
+                .create_counter(String::from("rejected_transactions"), None),
+            outstanding_transactions: metrics
+                .create_gauge(String::from("outstanding_transactions"), None),
+            outstanding_transactions_memory_size: metrics
+                .create_gauge(String::from("outstanding_transactions_memory_size"), None),
+            outgoing_direct_messages: metrics
+                .create_counter(String::from("outgoing_direct_messages"), None),
+            outgoing_broadcast_messages: metrics
+                .create_counter(String::from("outgoing_broadcast_messages"), None),
+            direct_messages_received: metrics
+                .create_counter(String::from("direct_messages_received"), None),
+            broadcast_messages_received: metrics
+                .create_counter(String::from("broadcast_messages_received"), None),
+            failed_to_send_messages: metrics
+                .create_counter(String::from("failed_to_send_messages"), None),
+            number_of_timeouts: metrics
+                .create_counter(String::from("number_of_views_timed_out"), None),
         }
     }
 }
 
-impl<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
     /// increment the current view
     /// NOTE may need to do gc here
     pub fn increment_view(&mut self) -> TYPES::Time {

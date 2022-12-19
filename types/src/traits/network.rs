@@ -1,4 +1,4 @@
-//! Network access abstraction
+//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
 
@@ -9,7 +9,7 @@ use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
-use super::{node_implementation::NodeTypes, signature_key::SignatureKey};
+use super::{node_implementation::NodeType, signature_key::SignatureKey};
 use crate::{
     data::{LeafType, ProposalType},
     message::Message,
@@ -91,12 +91,12 @@ pub enum NetworkError {
     /// An underlying channel has disconnected
     ChannelDisconnected {
         /// Source of error
-        source: hotshot_utils::channel::RecvError,
+        source: async_compatibility_layer::channel::RecvError,
     },
     /// An underlying unbounded channel has disconnected
     UnboundedChannelDisconnected {
         /// Source of error
-        source: hotshot_utils::channel::UnboundedRecvError,
+        source: async_compatibility_layer::channel::UnboundedRecvError,
     },
     /// The centralized server could not find a specific message.
     NoMessagesInQueue,
@@ -107,9 +107,9 @@ pub enum NetworkError {
 /// Describes, generically, the behaviors a networking implementation must have
 #[async_trait]
 pub trait NetworkingImplementation<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 >: Clone + Send + Sync + 'static
 {
     /// Returns true when node is successfully initialized
@@ -190,9 +190,9 @@ pub trait NetworkingImplementation<
 
 /// Describes additional functionality needed by the test network implementation
 pub trait TestableNetworkingImplementation<
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
 >: NetworkingImplementation<TYPES, LEAF, PROPOSAL>
 {
     /// generates a network given an expected node count

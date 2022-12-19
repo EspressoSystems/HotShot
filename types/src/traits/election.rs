@@ -1,6 +1,8 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(missing_docs)]
 
-use super::node_implementation::NodeTypes;
+use super::node_implementation::NodeType;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
 use crate::data::LeafType;
 use crate::traits::signature_key::SignatureKey;
@@ -65,7 +67,11 @@ pub trait ElectionConfig:
 {
 }
 
+/// Describes any aggreation of signatures or votes.
 pub trait Accumulator<T, U>: Sized {
+    /// accumates the val to the current state.  If
+    /// A threshold is reached we Return U (which could a certificate or similar)
+    /// else we return self and can continue accumulation items.
     fn append(val: Vec<T>) -> Either<Self, U>;
 }
 
@@ -83,10 +89,9 @@ where
 }
 
 /// Describes how `HotShot` chooses committees and leaders
-/// TODO do we need the static lifetime requirement here?
 /// TODO (da) make a separate vote token type for DA and QC
-/// @ny thinks we should make the vote token types be bound to ConsensusType
-pub trait Election<TYPES: NodeTypes>: Clone + Eq + PartialEq + Send + Sync + 'static {
+/// @ny thinks we should make the vote token types be bound to `ConsensusType`
+pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'static {
     /// Data structure describing the currently valid states
     /// TODO make this a trait so we can pass in places
     type StakeTable: Send + Sync;
@@ -135,7 +140,7 @@ pub trait Election<TYPES: NodeTypes>: Clone + Eq + PartialEq + Send + Sync + 'st
 }
 
 /// Testable implementation of an [`Election`]. Will expose a method to generate a vote token used for testing.
-pub trait TestableElection<TYPES: NodeTypes>: Election<TYPES> {
+pub trait TestableElection<TYPES: NodeType>: Election<TYPES> {
     /// Generate a vote token used for testing.
     fn generate_test_vote_token() -> TYPES::VoteTokenType;
 }

@@ -1,9 +1,12 @@
 #![allow(dead_code)]
 
 use ark_bls12_381::Parameters as Param381;
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use blake3::Hasher;
 use either::Either;
 use futures::{future::LocalBoxFuture, FutureExt};
+use hotshot::tasks::ViewRunner;
+use hotshot::tasks::ViewRunnerType;
 use hotshot::{
     traits::{
         dummy::DummyState,
@@ -21,19 +24,18 @@ use hotshot_testing::{
     TestNodeImpl, TestRunner,
 };
 use hotshot_types::{
-    data::{LeafType, ProposalType, ViewNumber, ValidatingLeaf, ValidatingProposal},
+    data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
         election::Election,
         network::TestableNetworkingImplementation,
-        node_implementation::{ApplicationMetadata, NodeTypes, TestableNodeImplementation},
+        node_implementation::{ApplicationMetadata, NodeType, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState, ValidatingConsensus},
         storage::TestableStorage,
     },
     HotShotConfig,
 };
-use hotshot_utils::test_util::{setup_backtrace, setup_logging};
 use jf_primitives::{
     signatures::{
         bls::{BLSSignature, BLSVerKey},
@@ -48,7 +50,7 @@ use tracing::{error, info};
 use Either::{Left, Right};
 
 #[derive(Debug, Snafu)]
-enum RoundError<TYPES: NodeTypes> {
+enum RoundError<TYPES: NodeType> {
     HotShot { source: HotShotError<TYPES> },
 }
 
@@ -109,13 +111,14 @@ pub struct GeneralTestDescriptionBuilder {
     pub propose_max_round_time: Duration,
 }
 
-pub struct DetailedTestDescriptionBuilder<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>>
+pub struct DetailedTestDescriptionBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     pub general_info: GeneralTestDescriptionBuilder,
 
@@ -126,13 +129,14 @@ where
     pub gen_runner: GenRunner<TYPES, I>,
 }
 
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>> TestDescription<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<TYPES, I> {
@@ -193,7 +197,7 @@ where
 }
 
 impl GeneralTestDescriptionBuilder {
-    pub fn build<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>>(
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         self,
     ) -> TestDescription<TYPES, I>
     where
@@ -202,6 +206,7 @@ impl GeneralTestDescriptionBuilder {
         TYPES::SignatureKey: TestableSignatureKey,
         I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
         I::Storage: TestableStorage<TYPES, I::Leaf>,
+        ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
     {
         DetailedTestDescriptionBuilder {
             general_info: self,
@@ -212,14 +217,14 @@ impl GeneralTestDescriptionBuilder {
     }
 }
 
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>>
-    DetailedTestDescriptionBuilder<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> DetailedTestDescriptionBuilder<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     pub fn build(self) -> TestDescription<TYPES, I> {
         let timing_config = TimingData {
@@ -253,7 +258,7 @@ where
 }
 
 /// Description of a test. Contains all metadata necessary to execute test
-pub struct TestDescription<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>>
+pub struct TestDescription<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
@@ -316,7 +321,7 @@ impl ApplicationMetadata for VrfTestMetaData {}
     serde::Deserialize,
 )]
 pub struct VrfTestTypes;
-impl NodeTypes for VrfTestTypes {
+impl NodeType for VrfTestTypes {
     // TODO (da) can this be SequencingConsensus?
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
@@ -349,7 +354,7 @@ impl ApplicationMetadata for StaticCommitteeMetaData {}
     serde::Deserialize,
 )]
 pub struct StaticCommitteeTestTypes;
-impl NodeTypes for StaticCommitteeTestTypes {
+impl NodeType for StaticCommitteeTestTypes {
     // TODO (da) can this be SequencingConsensus?
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
@@ -375,7 +380,7 @@ impl NodeTypes for StaticCommitteeTestTypes {
 //     serde::Deserialize,
 // )]
 // pub struct DACommitteeTestTypes;
-// impl NodeTypes for DACommitteeTestTypes {
+// impl NodeType for DACommitteeTestTypes {
 //     type ConsensusType = SequencingConsensus;
 //     type Time = ViewNumber;
 //     type BlockType = DABlock<DummyBlock>;
@@ -391,10 +396,41 @@ impl NodeTypes for StaticCommitteeTestTypes {
 pub type StandardNodeImplType = TestNodeImpl<
     VrfTestTypes,
     ValidatingLeaf<VrfTestTypes>,
-    ValidatingProposal<VrfTestTypes, TestElection>,
-    MemoryNetwork<VrfTestTypes, ValidatingLeaf<VrfTestTypes>,ValidatingProposal<VrfTestTypes, TestElection>>,
+    ValidatingProposal<
+        VrfTestTypes,
+        VrfImpl<
+            VrfTestTypes,
+            ValidatingLeaf<VrfTestTypes>,
+            BLSSignatureScheme<Param381>,
+            BLSVRFScheme<Param381>,
+            Hasher,
+            Param381,
+        >,
+    >,
+    MemoryNetwork<
+        VrfTestTypes,
+        ValidatingLeaf<VrfTestTypes>,
+        ValidatingProposal<
+            VrfTestTypes,
+            VrfImpl<
+                VrfTestTypes,
+                ValidatingLeaf<VrfTestTypes>,
+                BLSSignatureScheme<Param381>,
+                BLSVRFScheme<Param381>,
+                Hasher,
+                Param381,
+            >,
+        >,
+    >,
     MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-    VrfImpl<VrfTestTypes, ValidatingLeaf<VrfTestTypes>, BLSSignatureScheme<Param381>, BLSVRFScheme<Param381>, Hasher, Param381>,
+    VrfImpl<
+        VrfTestTypes,
+        ValidatingLeaf<VrfTestTypes>,
+        BLSSignatureScheme<Param381>,
+        BLSVRFScheme<Param381>,
+        Hasher,
+        Param381,
+    >,
 >;
 
 /// type synonym for static committee
@@ -402,21 +438,33 @@ pub type StandardNodeImplType = TestNodeImpl<
 pub type StaticNodeImplType = TestNodeImpl<
     StaticCommitteeTestTypes,
     ValidatingLeaf<StaticCommitteeTestTypes>,
-    ValidatingProposal<StaticCommitteeTestTypes, TestElection>,
-    MemoryNetwork<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>, ValidatingProposal<StaticCommitteeTestTypes, TestElection>>,
+    ValidatingProposal<
+        StaticCommitteeTestTypes,
+        StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+    >,
+    MemoryNetwork<
+        StaticCommitteeTestTypes,
+        ValidatingLeaf<StaticCommitteeTestTypes>,
+        ValidatingProposal<
+            StaticCommitteeTestTypes,
+            StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+        >,
+    >,
     MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
 >;
 
 /// type alias for the test runner type
-pub type AppliedTestRunner<TYPES, ELECTION> =
-    TestRunner<TYPES, AppliedTestNodeImpl<TYPES, ELECTION>>;
-pub type AppliedTestNodeImpl<
+pub type AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION> =
+    TestRunner<TYPES, AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, ELECTION>>;
+pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, ELECTION> = TestNodeImpl<
     TYPES,
-    LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeTypes = TYPES>,
+    LEAF,
+    PROPOSAL,
+    MemoryNetwork<TYPES, LEAF, PROPOSAL>,
+    MemoryStorage<TYPES, LEAF>,
     ELECTION,
-> = TestNodeImpl<TYPES, LEAF, PROPOSAL, MemoryNetwork<TYPES, LEAF, PROPOSAL>, MemoryStorage<TYPES, LEAF>, ELECTION>;
+>;
 
 // FIXME THIS is why we need to split up metadat and anonymous functions
 impl Default for GeneralTestDescriptionBuilder {
@@ -454,12 +502,13 @@ pub fn default_submitter_id_to_round<TYPES, I: TestableNodeImplementation<TYPES>
     num_rounds: u64,
 ) -> TestSetup<TYPES, TYPES::Transaction, I>
 where
-    TYPES: NodeTypes,
+    TYPES: NodeType,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     // make sure the lengths match so zip doesn't spit out none
     if shut_down_ids.len() < submitter_ids.len() {
@@ -508,7 +557,7 @@ where
 /// * `shut_down_ids`: vec of ids to shut down each round
 /// * `txns_per_round`: number of transactions to submit each round
 /// * `num_rounds`: number of rounds
-pub fn default_randomized_ids_to_round<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>>(
+pub fn default_randomized_ids_to_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     shut_down_ids: Vec<HashSet<u64>>,
     num_rounds: u64,
     txns_per_round: u64,
@@ -519,6 +568,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
 
@@ -549,14 +599,14 @@ where
     rounds
 }
 
-impl<TYPES: NodeTypes, I: TestableNodeImplementation<TYPES>>
-    DetailedTestDescriptionBuilder<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> DetailedTestDescriptionBuilder<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     /// create rounds of consensus based on the data in `self`
     pub fn default_populate_rounds(&self) -> Vec<Round<TYPES, I>> {
@@ -581,7 +631,7 @@ where
             .map(|setup| {
                 let safety_check_post: RoundPostSafetyCheck<TYPES, I> = Box::new(
                     move |runner: &TestRunner<TYPES, I>,
-                          results: RoundResult<TYPES>|
+                          results: RoundResult<TYPES, I::Leaf>|
                           -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
                         async move {
                             info!(?results);
@@ -631,9 +681,9 @@ pub fn get_tolerance(num_nodes: u64) -> u64 {
 macro_rules! gen_inner_fn {
     ($TEST_TYPE:ty, $e:expr) => {
         // NOTE we need this since proptest doesn't implement async things
-        hotshot_utils::art::async_block_on(async move {
-            hotshot_utils::test_util::setup_logging();
-            hotshot_utils::test_util::setup_backtrace();
+        async_compatibility_layer::art::async_block_on(async move {
+            async_compatibility_layer::logging::setup_logging();
+            async_compatibility_layer::logging::setup_backtrace();
             let description = $e;
             let built: $TEST_TYPE = description.build();
             built.execute().await.unwrap()
@@ -646,9 +696,9 @@ macro_rules! gen_inner_fn {
 macro_rules! gen_inner_fn_proptest {
     ($TEST_TYPE:ty, $e:expr) => {
         // NOTE we need this since proptest doesn't implement async things
-        hotshot_utils::art::async_block_on_with_runtime(async move {
-            hotshot_utils::test_util::setup_logging();
-            hotshot_utils::test_util::setup_backtrace();
+        async_compatibility_layer::art::async_block_on_with_runtime(async move {
+            async_compatibility_layer::logging::setup_logging();
+            async_compatibility_layer::logging::setup_backtrace();
             let description = $e;
             let built: $TEST_TYPE = description.build();
             built.execute().await.unwrap()
@@ -851,11 +901,11 @@ macro_rules! cross_tests {
             common::StaticCommitteeTestTypes,
             hotshot_testing::TestNodeImpl<
                 common::StaticCommitteeTestTypes,
-                ValidatingLeaf<common::StaticCommitteeTestTypes>, 
-                ValidatingProposal<common::StaticCommitteeTestTypes, TestElection>,
-                $NETWORK<common::StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>, ValidatingProposal<StaticCommitteeTestTypes, TestElection>>,
-                $STORAGE<common::StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-                hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes>
+                hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>,
+                hotshot_types::data::ValidatingProposal<common::StaticCommitteeTestTypes, hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>>,
+                $NETWORK<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>, hotshot_types::data::ValidatingProposal<StaticCommitteeTestTypes, hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>>>,
+                $STORAGE<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,
+                hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>
             >
         >;
         cross_test!(TestType, $fn_name, $e, keep: $keep, slow: false, args: $($args)*);

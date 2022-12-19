@@ -16,16 +16,15 @@ use crate::traits::{
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
+use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
+    certificate::QuorumCertificate,
     constants::genesis_proposer_id,
-    data::{
-        random_commitment, LeafType, QuorumCertificate, ValidatingLeaf, ValidatingProposal,
-        ViewNumber,
-    },
+    data::{random_commitment, LeafType, ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::Transaction,
         election::Election,
-        node_implementation::{ApplicationMetadata, NodeTypes},
+        node_implementation::{ApplicationMetadata, NodeType},
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
         State,
     },
@@ -145,6 +144,10 @@ impl Committable for DEntryState {
 
         builder.finalize()
     }
+
+    fn tag() -> String {
+        tag::DENTRY_STATE.to_string()
+    }
 }
 
 /// initializes the first state on genesis
@@ -199,6 +202,10 @@ impl Committable for DEntryBlock {
             }
         }
     }
+
+    fn tag() -> String {
+        tag::DENTRY_BLOCK.to_string()
+    }
 }
 
 impl Committable for DEntryTransaction {
@@ -209,6 +216,10 @@ impl Committable for DEntryTransaction {
             .constant_str("nonce")
             .u64_field("nonce", self.nonce)
             .finalize()
+    }
+
+    fn tag() -> String {
+        tag::DENTRY_TXN.to_string()
     }
 }
 
@@ -484,7 +495,7 @@ impl Block for DEntryBlock {
     }
 }
 
-/// Implementation of [`NodeTypes`] for [`DEntryNode`]
+/// Implementation of [`NodeType`] for [`DEntryNode`]
 #[derive(
     Copy,
     Clone,
@@ -500,7 +511,7 @@ impl Block for DEntryBlock {
 )]
 pub struct DEntryTypes;
 
-impl NodeTypes for DEntryTypes {
+impl NodeType for DEntryTypes {
     // TODO (da) can this be SequencingConsensus?
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
@@ -587,7 +598,7 @@ where
 }
 
 /// Provides a random [`QuorumCertificate`]
-pub fn random_quorum_certificate<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYPES>>(
+pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>(
     rng: &mut dyn rand::RngCore,
 ) -> QuorumCertificate<TYPES, LEAF> {
     QuorumCertificate {
@@ -600,8 +611,7 @@ pub fn random_quorum_certificate<TYPES: NodeTypes, LEAF: LeafType<NodeType = TYP
 }
 
 /// Provides a random [`Leaf`]
-// TODO (da) rename to random_validating_leaf
-pub fn random_leaf<TYPES: NodeTypes<ConsensusType = ValidatingConsensus>>(
+pub fn random_validating_leaf<TYPES: NodeType<ConsensusType = ValidatingConsensus>>(
     deltas: TYPES::BlockType,
     rng: &mut dyn rand::RngCore,
 ) -> ValidatingLeaf<TYPES>
@@ -615,6 +625,7 @@ where
         .unwrap_or_default();
     ValidatingLeaf {
         view_number: justify_qc.view_number,
+        height: rng.next_u64(),
         justify_qc,
         parent_commitment: random_commitment(rng),
         deltas,

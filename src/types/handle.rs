@@ -1,21 +1,25 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 use crate::{
-    tasks::{TaskHandler, TaskHandlerType},
+    tasks::{ViewRunner, ViewRunnerType},
     traits::{NetworkError::ShutDown, NodeImplementation},
     types::{Event, HotShotError::NetworkFault},
     HotShot,
 };
+use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
+use commit::Committable;
 use hotshot_types::{
+    certificate::QuorumCertificate,
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
-        network::NetworkingImplementation, node_implementation::NodeTypes, state::ConsensusTime,
-        storage::Storage,
+        network::NetworkingImplementation,
+        node_implementation::NodeType,
+        state::ConsensusTime,
+        storage::{Storage, StoredView},
     },
 };
-use hotshot_utils::broadcast::{BroadcastReceiver, BroadcastSender};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -39,7 +43,7 @@ use hotshot_types::{
 /// This type provides the means to message and interact with a background [`HotShot`] instance,
 /// allowing the ability to receive [`Event`]s from it, send transactions to it, and interact with
 /// the underlying storage.
-pub struct HotShotHandle<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+pub struct HotShotHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The [sender](BroadcastSender) for the output stream from the background process
     ///
     /// This is kept around as an implementation detail, as the [`BroadcastSender::handle_async`]
@@ -55,7 +59,7 @@ pub struct HotShotHandle<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     pub(crate) storage: I::Storage,
 }
 
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> Clone for HotShotHandle<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone for HotShotHandle<TYPES, I> {
     fn clone(&self) -> Self {
         Self {
             sender_handle: self.sender_handle.clone(),
@@ -67,9 +71,9 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> Clone for HotShot
     }
 }
 
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPES, I>
 where
-    TaskHandler<<TYPES as NodeTypes>::ConsensusType>: TaskHandlerType<TYPES, I>,
+    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     /// Will return the next event in the queue
     ///
@@ -148,16 +152,23 @@ where
     /// Signals to the underlying [`HotShot`] to unpause
     ///
     /// This will cause the background task to start running consensus again.
-    pub async fn start(&self) {
+    pub async fn start(&self)
+    where
+        I::Leaf: From<StoredView<TYPES, I::Leaf>>,
+    {
         self.hotshot.inner.background_task_handle.start().await;
         // if is genesis
         let _anchor = self.storage();
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
             if anchor_leaf.view_number == TYPES::Time::genesis() {
+                let leaf: I::Leaf = anchor_leaf.into();
+                let mut qc = QuorumCertificate::genesis();
+                qc.leaf_commitment = leaf.commit();
                 let event = Event {
                     view_number: TYPES::Time::genesis(),
                     event: EventType::Decide {
-                        leaf_chain: Arc::new(vec![I::Leaf::from_stored_view(anchor_leaf.into())]),
+                        leaf_chain: Arc::new(vec![leaf]),
+                        qc: Arc::new(qc),
                     },
                 };
                 if self.sender_handle.send_async(event).await.is_err() {
@@ -329,7 +340,7 @@ where
         &self,
         view_number: TYPES::Time,
     ) -> Option<usize> {
-        use hotshot_utils::channel::UnboundedReceiver;
+        use async_compatibility_layer::channel::UnboundedReceiver;
 
         let channel_map = self.hotshot.replica_channel_map.read().await;
         let chan = channel_map.channel_map.get(&view_number)?;
@@ -343,7 +354,7 @@ where
         &self,
         view_number: TYPES::Time,
     ) -> Option<usize> {
-        use hotshot_utils::channel::UnboundedReceiver;
+        use async_compatibility_layer::channel::UnboundedReceiver;
 
         let channel_map = self.hotshot.next_leader_channel_map.read().await;
         let chan = channel_map.channel_map.get(&view_number)?;
