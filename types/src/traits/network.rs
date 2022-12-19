@@ -38,40 +38,13 @@ impl From<NetworkNodeHandleError> for NetworkError {
     }
 }
 
-#[derive(Debug, Snafu)]
-#[snafu(visibility(pub))]
-#[deprecated]
-pub enum WNetworkError {
-    /// WebSockets specific error
-    WebSocket {
-        /// Originating websockets error
-        source: werror::Error,
-    },
-    /// Failed to decode a socket specification
-    SocketDecodeError {
-        /// Input that was given
-        input: String,
-        /// Originating io error
-        source: std::io::Error,
-    },
-    /// Failed to bind a listener socket
-    FailedToBind {
-        /// originating io error
-        source: std::io::Error,
-    },
-    /// No sockets were open
-    NoSocketsError {
-        /// Input that was given
-        input: String,
-    },
-    /// Could not complete handshake
-    IdentityHandshake,
-}
-
 /// for any errors we decide to add to memory network
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
-pub enum MemoryNetworkError {}
+pub enum MemoryNetworkError {
+    /// stub
+    Stub
+}
 
 /// Centralized server specific errors
 #[derive(Debug, Snafu)]
@@ -89,13 +62,6 @@ pub enum NetworkError {
     Libp2p {
         /// source of error
         source: NetworkNodeHandleError,
-    },
-    /// websocket network specific errors
-    /// NOTE: WNetwork is deprecated
-    WNetwork {
-        /// source of error
-        #[allow(deprecated)]
-        source: WNetworkError,
     },
     /// memory network specific errors
     MemoryNetwork {

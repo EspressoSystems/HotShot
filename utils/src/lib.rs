@@ -13,3 +13,6 @@
 
 /// Provides bincode options
 pub mod bincode;
+
+/// task abstraction for hotshot tasks
+pub mod hotshot_task;

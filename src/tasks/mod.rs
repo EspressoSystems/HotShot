@@ -448,15 +448,15 @@ pub async fn network_broadcast_task<TYPES: NodeTypes, I: NodeImplementation<TYPE
     let networking = &hotshot.inner.networking;
 
     while !shut_down.load(Ordering::Relaxed) {
+        error!("WAITING 1");
         let network_msg = match networking.next_broadcast().await {
             Ok(m) => m,
             Err(e) => {
-                if !shut_down.load(Ordering::Relaxed) {
-                    error!(?e, "did not shut down gracefully.");
-                }
-                return;
+                error!(?e, "Did not recv message gracefully");
+                continue;
             }
         };
+        error!("DONE WAITING 1");
         trace!(?network_msg, "Processing msg from network");
         hotshot
             .hotstuff
@@ -488,16 +488,16 @@ pub async fn network_direct_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
 ) {
     info!("Launching direct processing task");
     let networking = &hotshot.inner.networking;
-    while !shut_down.load(Ordering::Relaxed) {
+    loop {
+        error!("WAITING 1");
         let network_msg = match networking.next_direct().await {
             Ok(queue) => queue,
             Err(e) => {
-                if !shut_down.load(Ordering::Relaxed) {
-                    error!(?e, "did not shut down gracefully.");
-                }
-                return;
+                error!(?e, "Did not recv message gracefully");
+                continue;
             }
         };
+        error!("DONE WAITING 1");
         // Make sure to reset the backoff time
         let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
         metrics.direct_messages_received.add(1);
@@ -509,7 +509,9 @@ pub async fn network_direct_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
                     .await;
             }
             MessageKind::Data(msg) => {
-                hotshot.handle_direct_data_message(msg, network_msg.sender).await;
+                hotshot
+                    .handle_direct_data_message(msg, network_msg.sender)
+                    .await;
             }
         }
         trace!("Direct Message processed, querying for another direct message.");

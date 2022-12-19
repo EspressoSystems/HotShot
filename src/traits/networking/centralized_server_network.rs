@@ -958,6 +958,7 @@ async fn run_background_recv<TYPES: NodeTypes>(
     loop {
         let msg = stream.recv().await?;
         match msg {
+            FromServer::LocalShutdown => return Err(Error::Disconnected),
             x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
                 from_background_sender
                     .send((x, Vec::new()))
@@ -1100,6 +1101,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
     }
 
     async fn shut_down(&self) {
+        error!("SHUTTING DOWN CENTRALIZED SERVER");
         self.inner.running.store(false, Ordering::Relaxed);
     }
 

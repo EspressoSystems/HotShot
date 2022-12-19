@@ -6,12 +6,7 @@
 //! This implementation is useful for testing, due to its simplicity, but is not production grade.
 
 use super::NetworkingImplementation;
-use crate::traits::{
-    networking::{
-        CouldNotDeliverSnafu,
-    },
-    NetworkError,
-};
+use crate::traits::{networking::CouldNotDeliverSnafu, NetworkError};
 use async_compatibility_layer::{
     art::{async_block_on, async_sleep, async_spawn, async_timeout},
     channel::{bounded, unbounded, Receiver, Sender, UnboundedReceiver, UnboundedSender},
@@ -37,7 +32,7 @@ use hotshot_types::{
 use hotshot_utils::bincode::bincode_opts;
 use rand::prelude::ThreadRng;
 use serde::{Deserialize, Serialize};
-use snafu::{OptionExt};
+use snafu::OptionExt;
 use std::{
     fmt::Debug,
     sync::{
@@ -359,7 +354,7 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
                 error!("Failed to ident, closing stream");
                 *shutdown.write().await = true;
                 return Err(NetworkError::WNetwork {
-                    source: WNetworkError::IdentityHandshake
+                    source: WNetworkError::IdentityHandshake,
                 });
             }
             trace!("Ident successful");
@@ -537,7 +532,7 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
             Ok((pk, handle))
         } else {
             let pk = pk_r.await.map_err(|_| NetworkError::WNetwork {
-                source: WNetworkError::IdentityHandshake
+                source: WNetworkError::IdentityHandshake,
             })?;
             Ok((pk, handle))
         }
@@ -561,18 +556,26 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
             debug!(?key, "Already have a connection to node");
             Ok(())
         } else {
-            let socket = TcpStream::connect(addr).await.map_err(|e| NetworkError::WNetwork{ source: WNetworkError::FailedToBind { source: e }})?;
-            let addr = socket.peer_addr().map_err(|e|
-                NetworkError::WNetwork {
-                    source: WNetworkError::SocketDecodeError { input: "connect_to".to_string(), source: e }
-                }
-            )?;
+            let socket = TcpStream::connect(addr)
+                .await
+                .map_err(|e| NetworkError::WNetwork {
+                    source: WNetworkError::FailedToBind { source: e },
+                })?;
+            let addr = socket.peer_addr().map_err(|e| NetworkError::WNetwork {
+                source: WNetworkError::SocketDecodeError {
+                    input: "connect_to".to_string(),
+                    source: e,
+                },
+            })?;
             info!(?addr, "Connecting to remote with decoded address");
             let url = format!("ws://{}", addr);
             trace!(?url);
-            let (web_socket, _) = client_async(url, socket).await
-                .map_err(|e|
-                         NetworkError::WNetwork { source: WNetworkError::WebSocket {source: e} })?;
+            let (web_socket, _) =
+                client_async(url, socket)
+                    .await
+                    .map_err(|e| NetworkError::WNetwork {
+                        source: WNetworkError::WebSocket { source: e },
+                    })?;
             trace!("Websocket connection created");
             let (pub_key, handle) = self.spawn_task(Some(key), web_socket, addr).await?;
             trace!("Task created");
@@ -623,25 +626,24 @@ impl<TYPES: NodeTypes> WNetwork<TYPES> {
         trace!("Created queues");
         let s_string = format!("{}:{}", listen_addr, port);
         let s_addr = match s_string.to_socket_addrs().await {
-            Ok(mut x) => x.next()
-                .ok_or_else(||
-                         NetworkError::WNetwork {
-                             source: WNetworkError::NoSocketsError { input: s_string }
-                         })?,
+            Ok(mut x) => x.next().ok_or_else(|| NetworkError::WNetwork {
+                source: WNetworkError::NoSocketsError { input: s_string },
+            })?,
             Err(e) => {
                 return Err(NetworkError::WNetwork {
                     source: WNetworkError::SocketDecodeError {
                         input: s_string,
                         source: e,
-                    }})
+                    },
+                })
             }
         };
         info!(?s_addr, "Binding socket");
         let listener = TcpListener::bind(&s_addr)
             .await
-            .map_err(|e|
-                     NetworkError::WNetwork { source: WNetworkError::FailedToBind {source: e} }
-                     )?;
+            .map_err(|e| NetworkError::WNetwork {
+                source: WNetworkError::FailedToBind { source: e },
+            })?;
         debug!("Successfully bound socket");
 
         let (network_change_input, network_change_output) = unbounded();
