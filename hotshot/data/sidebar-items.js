@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":[["Leaf","This is the consensus-internal analogous concept to a block, and it contains the block proper, as well as the hash of its parent `Leaf`. NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`"],["QuorumCertificate","The type used for Quorum Certificates"]]};

@@ -1,3 +1,0 @@
-(function() {var implementors = {
-"hotshot":[["impl&lt;TYPES:&nbsp;NodeTypes&gt; TestableStorage&lt;TYPES&gt; for <a class=\"struct\" href=\"hotshot/traits/implementations/struct.MemoryStorage.html\" title=\"struct hotshot::traits::implementations::MemoryStorage\">MemoryStorage</a>&lt;TYPES&gt;"]]
-};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
