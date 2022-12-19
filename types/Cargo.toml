@@ -47,7 +47,7 @@ futures = "0.3.25"
 hex_fmt = "0.3.0"
 hotshot-utils = { path = "../utils" }
 rand = "0.8.5"
-serde = { version = "1.0.150", features = ["derive"] }
+serde = { version = "1.0.151", features = ["derive"] }
 serde_bytes = "0.11.8"
 snafu = "0.7.3"
 tagged-base64 = { git = "https://github.com/EspressoSystems/tagged-base64", tag = "0.2.4" }
