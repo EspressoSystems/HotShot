@@ -336,7 +336,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     /// # Errors
     ///
     /// Will return an error when the storage failed to insert the first `QuorumCertificate`
-    #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     pub async fn init(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
