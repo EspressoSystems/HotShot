@@ -17,10 +17,9 @@ pub use self::launcher::TestLauncher;
 
 use futures::future::LocalBoxFuture;
 use hotshot::{
-    tasks::ViewRunnerType,
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{HotShotHandle, SignatureKey},
-    HotShot, HotShotError, HotShotInitializer, H_256,
+    HotShot, HotShotError, HotShotInitializer, ViewRunner, H_256,
 };
 use hotshot_types::{
     data::{LeafType, ProposalType},
@@ -156,7 +155,7 @@ where
     /// Add `count` nodes to the network. These will be spawned with the default node config and state
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64>
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunnerType<TYPES, I>,
+        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
     {
         let mut results = vec![];
         for _i in 0..count {
@@ -200,7 +199,7 @@ where
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> u64
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunnerType<TYPES, I>,
+        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
     {
         let node_id = self.next_node_id;
         self.next_node_id += 1;

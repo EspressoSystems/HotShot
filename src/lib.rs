@@ -41,7 +41,6 @@ pub mod tasks;
 
 use crate::{
     certificate::QuorumCertificate,
-    tasks::ViewRunnerType,
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };
@@ -350,7 +349,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         metrics: Box<dyn Metrics>,
     ) -> Result<HotShotHandle<TYPES, I>, HotShotError<TYPES>>
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunnerType<TYPES, I>,
+        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
     {
         // Save a clone of the storage for the handle
         let hotshot = Self::new(
@@ -678,6 +677,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     }
 }
 
+/// A view runner implemented by [HotShot] for different types of consensus.
+#[async_trait]
+pub trait ViewRunner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// Executes one view of consensus
+    async fn run_view(hotshot: HotShot<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()>;
+}
+
 #[allow(clippy::too_many_lines)]
 #[async_trait]
 impl<
@@ -688,7 +694,7 @@ impl<
             Leaf = ValidatingLeaf<TYPES>,
             Proposal = ValidatingProposal<TYPES, ELECTION>,
         >,
-    > ViewRunnerType<TYPES, I> for HotShot<ValidatingConsensus, TYPES, I>
+    > ViewRunner<TYPES, I> for HotShot<ValidatingConsensus, TYPES, I>
 where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -864,7 +870,7 @@ where
 
 #[async_trait]
 impl<TYPES: NodeType<ConsensusType = SequencingConsensus>, I: NodeImplementation<TYPES>>
-    ViewRunnerType<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
+    ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
 {
     // #[instrument]
     async fn run_view(_hotshot: HotShot<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()> {

@@ -6,7 +6,6 @@ use blake3::Hasher;
 use either::Either;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
-    tasks::ViewRunnerType,
     traits::{
         dummy::DummyState,
         election::{
@@ -16,7 +15,7 @@ use hotshot::{
         implementations::{MemoryNetwork, MemoryStorage},
         NetworkReliability, NetworkingImplementation,
     },
-    HotShot, HotShotError,
+    HotShot, HotShotError, ViewRunner,
 };
 use hotshot_testing::{
     ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
@@ -165,7 +164,7 @@ where
     /// txn_ids: vec of vec of transaction ids to send each round
     pub async fn execute(self) -> Result<(), ConsensusRoundError>
     where
-        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunnerType<TYPES, I>,
+        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
     {
         setup_logging();
         setup_backtrace();

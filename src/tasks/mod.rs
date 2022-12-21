@@ -1,13 +1,12 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use crate::{types::HotShotHandle, HotShot, HotShotConsensusApi};
+use crate::{types::HotShotHandle, HotShot, HotShotConsensusApi, ViewRunner};
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
     async_primitives::broadcast::channel,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
-use async_trait::async_trait;
 use hotshot_consensus::ConsensusApi;
 use hotshot_types::{
     constants::LOOK_AHEAD,
@@ -143,7 +142,7 @@ pub async fn spawn_all<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     hotshot: &HotShot<TYPES::ConsensusType, TYPES, I>,
 ) -> HotShotHandle<TYPES, I>
 where
-    HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunnerType<TYPES, I>,
+    HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
 {
     let shut_down = Arc::new(AtomicBool::new(false));
     let started = Arc::new(AtomicBool::new(false));
@@ -209,14 +208,6 @@ where
     handle
 }
 
-#[allow(clippy::missing_docs_in_private_items)]
-#[allow(missing_docs)]
-#[async_trait]
-pub trait ViewRunnerType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Executes one view of consensus
-    async fn run_view(hotshot: HotShot<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()>;
-}
-
 /// main thread driving consensus
 pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
@@ -224,7 +215,7 @@ pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     shut_down: Arc<AtomicBool>,
     run_once: Option<UnboundedReceiver<()>>,
 ) where
-    HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunnerType<TYPES, I>,
+    HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
 {
     while !shut_down.load(Ordering::Relaxed) && !started.load(Ordering::Relaxed) {
         yield_now().await;
