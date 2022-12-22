@@ -4,12 +4,11 @@ mod common;
 use std::sync::Arc;
 
 use common::{
-    AppliedTestNodeImpl, AppliedTestRunner, DetailedTestDescriptionBuilder,
-    GeneralTestDescriptionBuilder, StaticCommitteeTestTypes, StaticNodeImplType,
+    AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
+    StaticCommitteeTestTypes, StaticNodeImplType,
 };
 use either::Either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
-use hotshot::tasks::{ViewRunner, ViewRunnerType};
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
     ConsensusRoundError, RoundResult,
@@ -40,8 +39,6 @@ where
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>:
-        ViewRunnerType<TYPES, AppliedTestNodeImpl<TYPES, I::Leaf, I::Proposal, I::Election>>,
 {
     async move {
         let num_nodes = runner.ids().len();
@@ -103,10 +100,7 @@ async fn test_no_loss_network() {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
-async fn test_synchronous_network()
-// where
-//     ViewRunner<ValidatingConsensus>: ViewRunnerType<StaticCommitteeTestTypes, StaticNodeImplType>,
-{
+async fn test_synchronous_network() {
     let description =
         DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
             general_info: GeneralTestDescriptionBuilder {

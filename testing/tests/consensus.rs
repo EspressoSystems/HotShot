@@ -5,21 +5,15 @@ use async_lock::Mutex;
 use blake3::Hasher;
 use commit::Committable;
 use common::{
-    AppliedTestNodeImpl, AppliedTestRunner, DetailedTestDescriptionBuilder,
-    GeneralTestDescriptionBuilder, StandardNodeImplType, StaticCommitteeTestTypes,
-    StaticNodeImplType, VrfTestTypes,
+    AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
+    StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType, VrfTestTypes,
 };
 use either::Right;
 use futures::{
     future::{join_all, LocalBoxFuture},
     FutureExt,
 };
-use hotshot::{
-    demos::dentry::random_validating_leaf,
-    tasks::{ViewRunner, ViewRunnerType},
-    traits::election::vrf::VrfImpl,
-    types::Vote,
-};
+use hotshot::{demos::dentry::random_validating_leaf, traits::election::vrf::VrfImpl, types::Vote};
 use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
@@ -66,15 +60,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
-        TYPES,
-        AppliedTestNodeImpl<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
-            ELECTION,
-        >,
-    >,
 {
     let handle = runner.get_handle(node_id).unwrap();
     let leader = handle.get_leader(view_number).await;
@@ -98,15 +83,6 @@ async fn submit_validating_proposal<
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
-        TYPES,
-        AppliedTestNodeImpl<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
-            ELECTION,
-        >,
-    >,
 {
     let mut rng = rand::thread_rng();
     let handle = runner.get_handle(sender_node_id).unwrap();
@@ -143,15 +119,6 @@ async fn submit_validating_vote<
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
-        TYPES,
-        AppliedTestNodeImpl<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
-            ELECTION,
-        >,
-    >,
 {
     let mut rng = rand::thread_rng();
     let handle = runner.get_handle(sender_node_id).unwrap();
@@ -207,15 +174,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
-        TYPES,
-        AppliedTestNodeImpl<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
-            ELECTION,
-        >,
-    >,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;
@@ -268,15 +226,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
-        TYPES,
-        AppliedTestNodeImpl<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
-            ELECTION,
-        >,
-    >,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;
@@ -309,15 +258,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
-        TYPES,
-        AppliedTestNodeImpl<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
-            ELECTION,
-        >,
-    >,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;
@@ -372,15 +312,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
-        TYPES,
-        AppliedTestNodeImpl<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
-            ELECTION,
-        >,
-    >,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;
@@ -412,15 +343,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
-        TYPES,
-        AppliedTestNodeImpl<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
-            ELECTION,
-        >,
-    >,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;
@@ -455,15 +377,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<
-        TYPES,
-        AppliedTestNodeImpl<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
-            ELECTION,
-        >,
-    >,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;

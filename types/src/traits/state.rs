@@ -75,11 +75,14 @@ where
     Self: ConsensusType,
 {
 }
-pub trait ConsensusType {}
+pub trait ConsensusType: Clone + Send + Sync {}
 
+#[derive(Clone)]
 pub struct SequencingConsensus;
 impl SequencingConsensusType for SequencingConsensus {}
 impl ConsensusType for SequencingConsensus {}
+
+#[derive(Clone)]
 pub struct ValidatingConsensus;
 impl ConsensusType for ValidatingConsensus {}
 impl ValidatingConsensusType for ValidatingConsensus {}
