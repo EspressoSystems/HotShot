@@ -11,9 +11,9 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 
 use async_compatibility_layer::{
     art::{async_block_on, async_sleep, async_spawn, split_stream},
-    channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
+    channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender, OneShotReceiver, OneShotRecvError},
 };
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_lock::{RwLock, RwLockUpgradableReadGuard, Mutex, MutexGuardArc, MutexGuard};
 use async_trait::async_trait;
 use bincode::Options;
 use futures::{future::BoxFuture, FutureExt};
@@ -46,7 +46,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::Duration,
+    time::Duration, pin::Pin,
 };
 use tracing::error;
 
@@ -93,6 +93,11 @@ struct Inner<TYPES: NodeTypes> {
     #[debug(skip)]
     /// The networking metrics we're keeping track of
     metrics: NetworkingMetrics,
+    /// this will be RELEASED when shut down
+    /// used to notify async tasks.
+    kill_lock: Arc<Mutex<()>>,
+    /// the acquired locked. Owned for the duration of the network's run
+    kill_guard: Mutex<Option<MutexGuardArc<()>>>
 }
 
 /// Internal implementation detail; effectively allows interleaved streams to each behave as a state machine
@@ -814,7 +819,11 @@ impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
         let (from_background_sender, from_background) = unbounded();
         let receiving_loopback = from_background_sender.clone();
 
+        let kill_lock = Arc::new(Mutex::new(()));
+        let kill_guard = kill_lock.try_lock_arc().unwrap();
+
         let inner = Arc::new(Inner {
+
             own_key: key.clone(),
             connected: AtomicBool::new(false),
             running: AtomicBool::new(true),
@@ -826,6 +835,8 @@ impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
             request_client_count_sender: RwLock::default(),
             run_ready: AtomicBool::new(false),
             metrics: NetworkingMetrics::new(metrics),
+            kill_lock: kill_lock.clone(),
+            kill_guard: Mutex::new(Some(kill_guard)),
         });
         async_spawn({
             let inner = Arc::clone(&inner);
@@ -840,6 +851,7 @@ impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
                         &mut to_background,
                         from_background_sender.clone(),
                         Arc::clone(&inner),
+                        kill_lock.clone()
                     )
                     .await
                     {
@@ -883,9 +895,8 @@ async fn run_background<TYPES: NodeTypes>(
         Vec<u8>,
     )>,
     connection: Arc<Inner<TYPES>>,
+    kill_lock: Arc<Mutex<()>>
 ) -> Result<(), Error> {
-    // let mut stream = TcpStreamUtil::new(TcpStream::connect(addr).await.context(StreamSnafu)?);
-
     // send identify
     send_stream
         .send(ToServer::Identify { key: key.clone() })
@@ -904,8 +915,8 @@ async fn run_background<TYPES: NodeTypes>(
             .await?;
     }
 
-    let send_handle = run_background_send(send_stream, to_background);
-    let recv_handle = run_background_recv(recv_stream, from_background_sender, connection);
+    let send_handle = run_background_send(send_stream, to_background, kill_lock.clone());
+    let recv_handle = run_background_recv(recv_stream, from_background_sender, connection, kill_lock.clone());
 
     futures::future::try_join(send_handle, recv_handle)
         .await
@@ -918,28 +929,36 @@ async fn run_background<TYPES: NodeTypes>(
 async fn run_background_send<K: SignatureKey>(
     mut stream: TcpStreamSendUtil,
     to_background: &mut UnboundedReceiver<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
-) -> Result<(), Error> {
+    kill_lock: Arc<Mutex<()>>
+    ) -> Result<(), Error> {
+    let mut fut = kill_lock.lock().boxed().fuse();
     loop {
-        let result = to_background.recv().await;
-        let (msg, confirm) = result.map_err(|_| Error::FailedToSend)?;
-        let (header, payload) = msg;
-        let expect_payload = &header.payload_len();
-        if let Some(payload_expected_len) = *expect_payload {
-            if payload.len() != <NonZeroUsize as Into<usize>>::into(payload_expected_len) {
-                tracing::warn!(
-                    ?header,
-                    "expected payload of {payload_expected_len} bytes, got {} bytes",
-                    payload.len(),
-                );
+        futures::select! {
+            _quit = fut => {
+                return Err(Error::Disconnected)
             }
-        }
-        stream.send(header).await?;
-        if !payload.is_empty() {
-            stream.send_raw(&payload, payload.len()).await?;
-        }
+            result = to_background.recv().fuse() => {
+                let (msg, confirm) = result.map_err(|_| Error::FailedToSend)?;
+                let (header, payload) = msg;
+                let expect_payload = &header.payload_len();
+                if let Some(payload_expected_len) = *expect_payload {
+                    if payload.len() != <NonZeroUsize as Into<usize>>::into(payload_expected_len) {
+                        tracing::warn!(
+                            ?header,
+                            "expected payload of {payload_expected_len} bytes, got {} bytes",
+                            payload.len(),
+                            );
+                    }
+                }
+                stream.send(header).await?;
+                if !payload.is_empty() {
+                    stream.send_raw(&payload, payload.len()).await?;
+                }
 
-        if let Some(confirm) = confirm {
-            confirm.send(());
+                if let Some(confirm) = confirm {
+                    confirm.send(());
+                }
+            }
         }
     }
 }
@@ -954,57 +973,70 @@ async fn run_background_recv<TYPES: NodeTypes>(
         Vec<u8>,
     )>,
     connection: Arc<Inner<TYPES>>,
+    kill_lock: Arc<Mutex<()>>,
 ) -> Result<(), Error> {
+    let mut fut = kill_lock.lock().boxed().fuse();
     loop {
-        let msg = stream.recv().await?;
-        match msg {
-            FromServer::LocalShutdown => return Err(Error::Disconnected),
-            x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
-                from_background_sender
-                    .send((x, Vec::new()))
-                    .await
-                    .map_err(|_| Error::FailedToReceive)?;
+        futures::select! {
+            _quit = fut => {
+                return Err(Error::Disconnected)
             }
+            msg = stream.recv().fuse() => {
+                if let Ok(msg) = msg {
+                    match msg {
+                        FromServer::LocalShutdown => return Err(Error::Disconnected),
+                        x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
+                            from_background_sender
+                                .send((x, Vec::new()))
+                                .await
+                                .map_err(|_| Error::FailedToReceive)?;
+                        }
 
-            x @ (FromServer::Broadcast { .. } | FromServer::Direct { .. }) => {
-                let payload = if let Some(payload_len) = x.payload_len() {
-                    stream.recv_raw_all(payload_len.into()).await?
+                        x @ (FromServer::Broadcast { .. } | FromServer::Direct { .. }) => {
+                            let payload = if let Some(payload_len) = x.payload_len() {
+                                stream.recv_raw_all(payload_len.into()).await?
+                            } else {
+                                Vec::new()
+                            };
+                            from_background_sender
+                                .send((x, payload))
+                                .await
+                                .map_err(|_| Error::FailedToReceive)?;
+                        }
+
+                        x @ (FromServer::BroadcastPayload { .. } | FromServer::DirectPayload { .. }) => {
+                            let payload = if let Some(payload_len) = x.payload_len() {
+                                stream.recv_raw_all(payload_len.into()).await?
+                            } else {
+                                Vec::new()
+                            };
+                            from_background_sender
+                                .send((x, payload))
+                                .await
+                                .map_err(|_| Error::FailedToReceive)?;
+                        }
+
+                        FromServer::ClientCount(count) => {
+                            let senders =
+                                std::mem::take(&mut *connection.request_client_count_sender.write().await);
+                            connection.metrics.connected_peers.set(count as _);
+                            for sender in senders {
+                                sender.send(count);
+                            }
+                        }
+
+                        FromServer::Config { .. } => {
+                            tracing::warn!("Received config from server but we're already running",);
+                        }
+
+                        FromServer::Start => {
+                            connection.run_ready.store(true, Ordering::Relaxed);
+                        }
+                    }
                 } else {
-                    Vec::new()
-                };
-                from_background_sender
-                    .send((x, payload))
-                    .await
-                    .map_err(|_| Error::FailedToReceive)?;
-            }
-
-            x @ (FromServer::BroadcastPayload { .. } | FromServer::DirectPayload { .. }) => {
-                let payload = if let Some(payload_len) = x.payload_len() {
-                    stream.recv_raw_all(payload_len.into()).await?
-                } else {
-                    Vec::new()
-                };
-                from_background_sender
-                    .send((x, payload))
-                    .await
-                    .map_err(|_| Error::FailedToReceive)?;
-            }
-
-            FromServer::ClientCount(count) => {
-                let senders =
-                    std::mem::take(&mut *connection.request_client_count_sender.write().await);
-                connection.metrics.connected_peers.set(count as _);
-                for sender in senders {
-                    sender.send(count);
+                    continue
                 }
-            }
 
-            FromServer::Config { .. } => {
-                tracing::warn!("Received config from server but we're already running",);
-            }
-
-            FromServer::Start => {
-                connection.run_ready.store(true, Ordering::Relaxed);
             }
         }
     }
@@ -1103,6 +1135,14 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
     async fn shut_down(&self) {
         error!("SHUTTING DOWN CENTRALIZED SERVER");
         self.inner.running.store(false, Ordering::Relaxed);
+        match self.inner.kill_guard.lock().await.take() {
+            None => {
+                error!("Shutting down centralized server, but tasks already shut down.");
+            },
+            Some(guard) => {
+                drop(guard)
+            }
+        }
     }
 
     async fn put_record(

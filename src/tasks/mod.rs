@@ -12,7 +12,7 @@ use hotshot_types::{
     constants::LOOK_AHEAD,
     message::MessageKind,
     traits::{
-        network::NetworkingImplementation,
+        network::{NetworkingImplementation, NetworkError},
         node_implementation::{NodeImplementation, NodeTypes},
     },
     ExecutionType,
@@ -489,15 +489,21 @@ pub async fn network_direct_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
     info!("Launching direct processing task");
     let networking = &hotshot.inner.networking;
     loop {
-        error!("WAITING 1");
+        error!("WAITING 1 FOR DIRECT MSG");
         let network_msg = match networking.next_direct().await {
             Ok(queue) => queue,
             Err(e) => {
-                error!(?e, "Did not recv message gracefully");
-                continue;
+                match e {
+                    NetworkError::ShutDown => return,
+                    _ => {
+                        error!(?e, "Did not recv message gracefully");
+                        continue;
+                    }
+
+                }
             }
         };
-        error!("DONE WAITING 1");
+        error!("DONE WAITING 1 FOR DIRECT MSG");
         // Make sure to reset the backoff time
         let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
         metrics.direct_messages_received.add(1);
