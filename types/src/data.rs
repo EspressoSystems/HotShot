@@ -6,7 +6,7 @@
 #![allow(missing_docs)]
 
 use crate::{
-    certificate::QuorumCertificate,
+    certificate::{DACertificate, QuorumCertificate},
     constants::genesis_proposer_id,
     traits::{
         election::Election,
@@ -126,18 +126,16 @@ where
 }
 
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
-pub struct DAProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
+pub struct DAProposal<TYPES: NodeType> {
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
     /// View this proposal applies to
     pub view_number: TYPES::Time,
-
-    pub _pd: PhantomData<ELECTION>,
 }
 
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub struct CommitmentProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
+pub struct CommitmentProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     #[allow(clippy::missing_docs_in_private_items)]
     pub block_commitment: Commitment<TYPES::BlockType>,
 
@@ -145,10 +143,10 @@ pub struct CommitmentProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
     pub view_number: TYPES::Time,
 
     /// Per spec, justification
-    pub justify_qc: ELECTION::QuorumCertificate,
+    pub justify_qc: QuorumCertificate<TYPES, LEAF>,
 
     /// Data availibity certificate
-    pub availability_certificate: ELECTION::DACertificate,
+    pub availability_certificate: DACertificate<TYPES>,
 
     /// parent commitment alrady in justify_qqc
 
@@ -165,31 +163,26 @@ pub struct CommitmentProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
 
 impl<TYPES: NodeType, ELECTION: Election<TYPES>> ProposalType
     for ValidatingProposal<TYPES, ELECTION>
-where
-    ELECTION::LeafType: Committable,
 {
     type NodeType = TYPES;
-    type Election = ELECTION;
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
         self.view_number
     }
 }
 
-impl<TYPES: NodeType, ELECTION: Election<TYPES>> ProposalType for DAProposal<TYPES, ELECTION> {
+impl<TYPES: NodeType> ProposalType for DAProposal<TYPES> {
     type NodeType = TYPES;
-    type Election = ELECTION;
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
         self.view_number
     }
 }
 
-impl<TYPES: NodeType, ELECTION: Election<TYPES>> ProposalType
-    for CommitmentProposal<TYPES, ELECTION>
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
+    for CommitmentProposal<TYPES, LEAF>
 where
     TYPES::ApplicationMetadataType: Send + Sync,
 {
     type NodeType = TYPES;
-    type Election = ELECTION;
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
         self.view_number
     }
@@ -198,7 +191,6 @@ pub trait ProposalType:
     Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq + Eq
 {
     type NodeType: NodeType;
-    type Election: Election<Self::NodeType>;
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time;
 }
 

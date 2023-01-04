@@ -553,7 +553,7 @@ pub enum ConsensusTestError {
 pub struct TestNodeImpl<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
     NETWORK,
     STORAGE,
     ELECTION,
@@ -569,7 +569,7 @@ pub struct TestNodeImpl<
 impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
         NETWORK,
         STORAGE,
         ELECTION,
@@ -590,7 +590,7 @@ impl<
 impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
         NETWORK,
         STORAGE,
         ELECTION,
@@ -614,7 +614,7 @@ where
 impl<
         TYPES,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
         NETWORK,
         STORAGE,
         ELECTION: Election<TYPES, LeafType = LEAF>,
@@ -634,7 +634,7 @@ where
 impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
         NETWORK,
         STORAGE,
         ELECTION,

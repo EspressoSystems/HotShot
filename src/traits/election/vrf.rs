@@ -457,13 +457,9 @@ where
     // pubkey -> unit of stake
     type StakeTable = VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>;
 
-    type QuorumCertificate = QuorumCertificate<TYPES, Self::LeafType>;
-
-    type DACertificate = DACertificate<TYPES>;
-
     type LeafType = LEAF;
 
-    fn is_valid_qc(&self, qc: &Self::QuorumCertificate) -> bool {
+    fn is_valid_qc(&self, qc: &QuorumCertificate<TYPES, LEAF>) -> bool {
         if qc.genesis && qc.view_number == TYPES::Time::genesis() {
             return true;
         }
@@ -489,7 +485,7 @@ where
         false
     }
 
-    fn is_valid_dac(&self, _qc: Self::DACertificate) -> bool {
+    fn is_valid_dac(&self, _qc: DACertificate<TYPES>) -> bool {
         #[allow(deprecated)]
         nll_todo()
     }

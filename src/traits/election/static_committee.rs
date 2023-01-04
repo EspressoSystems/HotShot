@@ -95,18 +95,14 @@ where
     /// Just use the vector of public keys for the stake table
     type StakeTable = Vec<PUBKEY>;
 
-    type QuorumCertificate = QuorumCertificate<TYPES, Self::LeafType>;
-
-    type DACertificate = DACertificate<TYPES>;
-
     type LeafType = LEAF;
 
-    fn is_valid_qc(&self, _qc: &Self::QuorumCertificate) -> bool {
+    fn is_valid_qc(&self, _qc: &QuorumCertificate<TYPES, LEAF>) -> bool {
         #[allow(deprecated)]
         nll_todo()
     }
 
-    fn is_valid_dac(&self, _qc: Self::DACertificate) -> bool {
+    fn is_valid_dac(&self, _qc: DACertificate<TYPES>) -> bool {
         #[allow(deprecated)]
         nll_todo()
     }
