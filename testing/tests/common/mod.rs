@@ -5,8 +5,6 @@ use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use blake3::Hasher;
 use either::Either;
 use futures::{future::LocalBoxFuture, FutureExt};
-use hotshot::tasks::ViewRunner;
-use hotshot::tasks::ViewRunnerType;
 use hotshot::{
     traits::{
         dummy::DummyState,
@@ -17,7 +15,7 @@ use hotshot::{
         implementations::{MemoryNetwork, MemoryStorage},
         NetworkReliability, NetworkingImplementation,
     },
-    HotShotError,
+    HotShot, HotShotError, ViewRunner,
 };
 use hotshot_testing::{
     ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
@@ -118,7 +116,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     pub general_info: GeneralTestDescriptionBuilder,
 
@@ -136,7 +133,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<TYPES, I> {
@@ -166,7 +162,10 @@ where
     /// execute a consensus test based on `Self`
     /// total_nodes: num nodes to run with
     /// txn_ids: vec of vec of transaction ids to send each round
-    pub async fn execute(self) -> Result<(), ConsensusRoundError> {
+    pub async fn execute(self) -> Result<(), ConsensusRoundError>
+    where
+        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+    {
         setup_logging();
         setup_backtrace();
 
@@ -206,7 +205,6 @@ impl GeneralTestDescriptionBuilder {
         TYPES::SignatureKey: TestableSignatureKey,
         I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
         I::Storage: TestableStorage<TYPES, I::Leaf>,
-        ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
     {
         DetailedTestDescriptionBuilder {
             general_info: self,
@@ -224,7 +222,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     pub fn build(self) -> TestDescription<TYPES, I> {
         let timing_config = TimingData {
@@ -508,7 +505,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     // make sure the lengths match so zip doesn't spit out none
     if shut_down_ids.len() < submitter_ids.len() {
@@ -568,7 +564,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
 
@@ -606,7 +601,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     /// create rounds of consensus based on the data in `self`
     pub fn default_populate_rounds(&self) -> Vec<Round<TYPES, I>> {

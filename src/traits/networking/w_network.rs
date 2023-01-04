@@ -287,7 +287,7 @@ where
                             // periodically check if we have enough information to connect
                             async_sleep(Duration::from_millis(2)).await;
                         };
-                        let addr = format!("localhost:{}", port);
+                        let addr = format!("localhost:{port}");
                         n.connect_to(key2, &addr)
                             .await
                             .expect("Failed to connect nodes");
@@ -606,7 +606,7 @@ impl<
                 input: "connect_to",
             })?;
             info!(?addr, "Connecting to remote with decoded address");
-            let url = format!("ws://{}", addr);
+            let url = format!("ws://{addr}");
             trace!(?url);
             let (web_socket, _) = client_async(url, socket).await.context(WebSocketSnafu)?;
             trace!("Websocket connection created");
@@ -657,7 +657,7 @@ impl<
         let (s_broadcast, r_broadcast) = bounded(128);
         let keep_alive_duration = keep_alive_duration.unwrap_or_else(|| Duration::from_millis(500));
         trace!("Created queues");
-        let s_string = format!("{}:{}", listen_addr, port);
+        let s_string = format!("{listen_addr}:{port}");
         let s_addr = match s_string.to_socket_addrs().await {
             Ok(mut x) => x.next().context(NoSocketsSnafu { input: s_string })?,
             Err(e) => {

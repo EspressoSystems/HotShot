@@ -1,8 +1,5 @@
 use super::{Generator, TestRunner};
-use hotshot::{
-    tasks::{ViewRunner, ViewRunnerType},
-    types::SignatureKey,
-};
+use hotshot::types::SignatureKey;
 use hotshot_types::{
     traits::{
         network::TestableNetworkingImplementation,
@@ -161,7 +158,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    ViewRunner<TYPES::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///

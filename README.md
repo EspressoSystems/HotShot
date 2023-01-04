@@ -197,6 +197,31 @@ To bring `lldb` into scope with nix, run `nix develop .#debugShell`.
 
 For espresso developers we have written up a description of our workflow [here](./WORKFLOW.md).
 
+# Extra Editor Configuration
+
+## Neovim
+
+Copy `.nvim/example.env.lua` to `.nvim/env.lua`. The purpose of this file is to return to neovim the requisite feature flags.
+
+Then load this file when configuring `rust-tools`:
+
+```lua
+rust_tools.setup(
+  {server =
+    {settings =
+      {
+        ["rust-analyzer"] =
+          {cargo =
+            {features =
+              loadfile(".nvim/env.lua") and { loadfile(".nvim/env.lua")() } or "all"
+            }
+          }
+      }
+    }
+  }
+)
+```
+
 # License
 
 ## Copyright

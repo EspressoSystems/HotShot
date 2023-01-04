@@ -117,7 +117,7 @@ mod test {
             let prefix = if self.prefix.is_empty() {
                 name
             } else {
-                format!("{}-{}", self.prefix, name)
+                format!("{}-{name}", self.prefix)
             };
             Self {
                 prefix,

@@ -17,10 +17,9 @@ pub use self::launcher::TestLauncher;
 
 use futures::future::LocalBoxFuture;
 use hotshot::{
-    tasks::{ViewRunner, ViewRunnerType},
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{HotShotHandle, SignatureKey},
-    HotShot, HotShotError, HotShotInitializer, H_256,
+    HotShot, HotShotError, HotShotInitializer, ViewRunner, H_256,
 };
 use hotshot_types::{
     data::{LeafType, ProposalType},
@@ -134,7 +133,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    ViewRunner<TYPES::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
@@ -155,7 +153,10 @@ where
     pub fn default_safety_check(_runner: &Self, _results: RoundResult<TYPES, I::Leaf>) {}
 
     /// Add `count` nodes to the network. These will be spawned with the default node config and state
-    pub async fn add_nodes(&mut self, count: usize) -> Vec<u64> {
+    pub async fn add_nodes(&mut self, count: usize) -> Vec<u64>
+    where
+        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+    {
         let mut results = vec![];
         for _i in 0..count {
             let node_id = self.next_node_id;
@@ -196,7 +197,10 @@ where
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    ) -> u64 {
+    ) -> u64
+    where
+        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+    {
         let node_id = self.next_node_id;
         self.next_node_id += 1;
 
@@ -372,7 +376,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    ViewRunner<TYPES::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
@@ -443,7 +446,6 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
-    ViewRunner<TYPES::ConsensusType>: ViewRunnerType<TYPES, I>,
 {
     /// Add a random transaction to this runner.
     pub async fn add_random_transaction(

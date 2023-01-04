@@ -1,7 +1,6 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 use crate::{
-    tasks::{ViewRunner, ViewRunnerType},
     traits::{NetworkError::ShutDown, NodeImplementation},
     types::{Event, HotShotError::NetworkFault},
     HotShot,
@@ -50,7 +49,7 @@ pub struct HotShotHandle<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// method is needed to generate new receivers for cloning the handle.
     pub(crate) sender_handle: Arc<BroadcastSender<Event<TYPES, I::Leaf>>>,
     /// Internal reference to the underlying [`HotShot`]
-    pub(crate) hotshot: HotShot<TYPES, I>,
+    pub(crate) hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
     /// The [`BroadcastReceiver`] we get the events from
     pub(crate) stream_output: BroadcastReceiver<Event<TYPES, I::Leaf>>,
     /// Global to signify the `HotShot` should be closed after completing the next round
@@ -71,10 +70,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone for HotShotH
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPES, I>
-where
-    ViewRunner<<TYPES as NodeType>::ConsensusType>: ViewRunnerType<TYPES, I>,
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPES, I> {
     /// Will return the next event in the queue
     ///
     /// # Errors
