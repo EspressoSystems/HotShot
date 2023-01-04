@@ -46,7 +46,7 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     /// consensus protocols
     type Election: Election<TYPES, LeafType = Self::Leaf>;
 
-    type Proposal: ProposalType<NodeType = TYPES>;
+    type Proposal: ProposalType<NodeType = TYPES, Election = Self::Election>;
 }
 
 /// Trait with all the type definitions that are used in the current hotshot setup.

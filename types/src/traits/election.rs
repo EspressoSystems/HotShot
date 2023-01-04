@@ -4,11 +4,8 @@
 
 use super::node_implementation::NodeType;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
+use crate::data::LeafType;
 use crate::traits::signature_key::SignatureKey;
-use crate::{
-    certificate::{DACertificate, QuorumCertificate},
-    data::LeafType,
-};
 use commit::{Commitment, Committable};
 use either::Either;
 use serde::Deserialize;
@@ -97,13 +94,19 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
     /// TODO make this a trait so we can pass in places
     type StakeTable: Send + Sync;
 
+    /// certificate for quorum on consenus
+    type QuorumCertificate: SignedCertificate<TYPES::SignatureKey> + Clone + Debug + Eq + PartialEq;
+
+    /// certificate for data availability
+    type DACertificate: SignedCertificate<TYPES::SignatureKey> + Clone + Debug + Eq + PartialEq;
+
     type LeafType: LeafType<NodeType = TYPES>;
 
     /// check that the quorum certificate is valid
-    fn is_valid_qc(&self, qc: &QuorumCertificate<TYPES, Self::LeafType>) -> bool;
+    fn is_valid_qc(&self, qc: &Self::QuorumCertificate) -> bool;
 
     /// check that the data availability certificate is valid
-    fn is_valid_dac(&self, qc: DACertificate<TYPES>) -> bool;
+    fn is_valid_dac(&self, qc: Self::DACertificate) -> bool;
 
     /// confirm that a quorum certificate signature is valid
     fn is_valid_qc_signature(

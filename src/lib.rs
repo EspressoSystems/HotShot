@@ -57,7 +57,6 @@ use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, NextValidatingLeader, Replica, SendToTasks,
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
-use hotshot_types::message::MessageKind;
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
@@ -80,6 +79,7 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
+use hotshot_types::{message::MessageKind};
 use hotshot_utils::bincode::bincode_opts;
 #[allow(deprecated)]
 use nll::nll_todo::nll_todo;
