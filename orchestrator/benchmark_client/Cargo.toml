@@ -1,0 +1,35 @@
+[package]
+name = "benchmark_client"
+version = "0.1.0"
+edition = "2021"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = []
+
+tokio-ci = ["tokio-executor"]
+full-ci = ["async-std-executor"]
+
+tokio-executor = [
+    "tokio",
+    "hotshot-centralized-server/tokio-executor",
+    "async-compatibility-layer/tokio-executor",
+    "hotshot-types/tokio-executor",
+]
+async-std-executor = [
+    "async-std",
+    "hotshot-centralized-server/async-std-executor",
+    "async-compatibility-layer/async-std-executor",
+    "hotshot-types/async-std-executor",
+]
+
+[dependencies]
+async-std = { version = "1.12.0", optional = true }
+async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.0.1" }
+tokio = { version = "1", optional = true }
+clap = { version = "4.0", features = ["derive", "env"] }
+futures = "0.3.25"
+hotshot-centralized-server = { path = ".." }
+hotshot-utils = { path = "../../utils" }
+hotshot-types = { path = "../../types" }
+tracing = "0.1.37"
