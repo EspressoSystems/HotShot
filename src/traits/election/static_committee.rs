@@ -101,7 +101,7 @@ where
 
     type LeafType = LEAF;
 
-    fn is_valid_qc(&self, _qc: Self::QuorumCertificate) -> bool {
+    fn is_valid_qc(&self, _qc: &Self::QuorumCertificate) -> bool {
         #[allow(deprecated)]
         nll_todo()
     }
