@@ -6,7 +6,7 @@
 #![allow(missing_docs)]
 
 use crate::{
-    certificate::QuorumCertificate,
+    certificate::{DACertificate, QuorumCertificate},
     constants::genesis_proposer_id,
     traits::{
         election::{Election, SignedCertificate},
@@ -231,6 +231,15 @@ pub trait LeafType:
         + Eq
         + PartialEq
         + Send;
+    type DACertificate: SignedCertificate<
+            <Self::NodeType as NodeType>::SignatureKey,
+            <Self::NodeType as NodeType>::Time,
+            <Self::NodeType as NodeType>::VoteTokenType,
+            Self,
+        > + Debug
+        + Eq
+        + PartialEq
+        + Send;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
@@ -354,6 +363,7 @@ where
     type NodeType = TYPES;
     type StateCommitmentType = TYPES::StateType;
     type QuorumCertificate = QuorumCertificate<Self::NodeType, Self>;
+    type DACertificate = DACertificate<Self::NodeType>;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
@@ -443,6 +453,7 @@ impl<TYPES: NodeType> LeafType for DALeaf<TYPES> {
     type NodeType = TYPES;
     type StateCommitmentType = Either<TYPES::StateType, Commitment<TYPES::StateType>>;
     type QuorumCertificate = QuorumCertificate<Self::NodeType, Self>;
+    type DACertificate = DACertificate<Self::NodeType>;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,

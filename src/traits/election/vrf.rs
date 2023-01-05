@@ -6,17 +6,14 @@ use commit::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
 use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
-    certificate::DACertificate,
     data::LeafType,
     traits::{
         election::{
-            Checked::{self, Inval, Unchecked, Valid},
-            Election, ElectionConfig, ElectionError, SignedCertificate, TestableElection,
-            VoteToken,
+            Checked::{self},
+            Election, ElectionConfig, ElectionError, TestableElection, VoteToken,
         },
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
-        state::ConsensusTime,
     },
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -460,34 +457,13 @@ where
 
     type QuorumCertificate = LEAF::QuorumCertificate;
 
-    type DACertificate = DACertificate<TYPES>;
+    type DACertificate = LEAF::DACertificate;
 
     type LeafType = LEAF;
 
-    fn is_valid_qc(&self, qc: &Self::QuorumCertificate) -> bool {
-        if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
-            return true;
-        }
-        let hash = qc.leaf_commitment();
-
-        let stake = qc
-            .signatures()
-            .iter()
-            .filter(|signature| {
-                self.is_valid_qc_signature(
-                    signature.0,
-                    &signature.1 .0,
-                    hash,
-                    qc.view_number(),
-                    Unchecked(signature.1 .1.clone()),
-                )
-            })
-            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
-
-        if stake >= u64::from(self.get_threshold()) {
-            return true;
-        }
-        false
+    fn is_valid_qc(&self, _qc: &Self::QuorumCertificate) -> bool {
+        #[allow(deprecated)]
+        nll_todo()
     }
 
     fn is_valid_dac(&self, _qc: Self::DACertificate) -> bool {
@@ -497,27 +473,14 @@ where
 
     fn is_valid_qc_signature(
         &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        hash: Commitment<Self::LeafType>,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
+        _encoded_key: &EncodedPublicKey,
+        _encoded_signature: &EncodedSignature,
+        _hash: Commitment<Self::LeafType>,
+        _view_number: TYPES::Time,
+        _vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
-        let mut is_valid_vote_token = false;
-        let mut is_valid_signature = false;
-        if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
-            is_valid_signature = key.validate(encoded_signature, hash.as_ref());
-            let valid_vote_token = self.validate_vote_token(view_number, key, vote_token);
-            is_valid_vote_token = match valid_vote_token {
-                Err(_) => {
-                    error!("Vote token was invalid");
-                    false
-                }
-                Ok(Valid(_)) => true,
-                Ok(Inval(_) | Unchecked(_)) => false,
-            };
-        }
-        is_valid_signature && is_valid_vote_token
+        #[allow(deprecated)]
+        nll_todo()
     }
 
     fn is_valid_dac_signature(

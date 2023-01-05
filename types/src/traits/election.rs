@@ -136,7 +136,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
     fn is_valid_qc(&self, qc: &<Self::LeafType as LeafType>::QuorumCertificate) -> bool;
 
     /// check that the data availability certificate is valid
-    fn is_valid_dac(&self, qc: Self::DACertificate) -> bool;
+    fn is_valid_dac(&self, qc: <Self::LeafType as LeafType>::DACertificate) -> bool;
 
     /// confirm that a quorum certificate signature is valid
     fn is_valid_qc_signature(

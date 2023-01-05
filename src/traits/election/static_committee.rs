@@ -2,7 +2,6 @@ use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
-    certificate::DACertificate,
     data::LeafType,
     traits::{
         election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
@@ -97,7 +96,7 @@ where
 
     type QuorumCertificate = LEAF::QuorumCertificate;
 
-    type DACertificate = DACertificate<TYPES>;
+    type DACertificate = LEAF::DACertificate;
 
     type LeafType = LEAF;
 
