@@ -6,12 +6,13 @@ use commit::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
 use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate},
+    certificate::DACertificate,
     data::LeafType,
     traits::{
         election::{
             Checked::{self, Inval, Unchecked, Valid},
-            Election, ElectionConfig, ElectionError, TestableElection, VoteToken,
+            Election, ElectionConfig, ElectionError, SignedCertificate, TestableElection,
+            VoteToken,
         },
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
@@ -457,27 +458,27 @@ where
     // pubkey -> unit of stake
     type StakeTable = VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>;
 
-    type QuorumCertificate = QuorumCertificate<TYPES, Self::LeafType>;
+    type QuorumCertificate = LEAF::QuorumCertificate;
 
     type DACertificate = DACertificate<TYPES>;
 
     type LeafType = LEAF;
 
     fn is_valid_qc(&self, qc: &Self::QuorumCertificate) -> bool {
-        if qc.genesis && qc.view_number == TYPES::Time::genesis() {
+        if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
             return true;
         }
-        let hash = qc.leaf_commitment;
+        let hash = qc.leaf_commitment();
 
         let stake = qc
-            .signatures
+            .signatures()
             .iter()
             .filter(|signature| {
                 self.is_valid_qc_signature(
                     signature.0,
                     &signature.1 .0,
                     hash,
-                    qc.view_number,
+                    qc.view_number(),
                     Unchecked(signature.1 .1.clone()),
                 )
             })

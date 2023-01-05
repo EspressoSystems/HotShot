@@ -33,7 +33,6 @@ pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
 use commit::Commitment;
 use hotshot_types::traits::metrics::Counter;
 use hotshot_types::{
-    certificate::QuorumCertificate,
     data::LeafType,
     error::HotShotError,
     traits::{
@@ -119,7 +118,7 @@ pub struct Consensus<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub locked_view: TYPES::Time,
 
     /// the highqc per spec
-    pub high_qc: QuorumCertificate<TYPES, LEAF>,
+    pub high_qc: LEAF::QuorumCertificate,
 
     /// A reference to the metrics trait
     #[debug(skip)]

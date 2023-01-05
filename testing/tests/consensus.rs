@@ -779,13 +779,12 @@ async fn test_decide_leaf_chain() {
                             continue;
                         }
                         ensure!(
-                            qc.leaf_commitment == leaf.commit(),
-                            SafetyFailedSnafu {
+                            qc.set_leaf_commitment(leaf.commit());                            SafetyFailedSnafu {
                                 description: format!(
                                     "QC {}/{} justifies {}, but the parent leaf is {}",
                                     i + 1,
                                     leaf_chain.len() + 1,
-                                    qc.leaf_commitment,
+                                    qc.leaf_commitment(),
                                     leaf.commit()
                                 ),
                             }

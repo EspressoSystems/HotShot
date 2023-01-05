@@ -125,7 +125,7 @@ pub enum DataMessage<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The newest entry that a node knows. This is send from existing nodes to a new node when the new node joins the network
     NewestQuorumCertificate {
         /// The newest [`QuorumCertificate`]
-        quorum_certificate: QuorumCertificate<TYPES, LEAF>,
+        quorum_certificate: LEAF::QuorumCertificate,
 
         /// The relevant [`BlockContents`]
         ///

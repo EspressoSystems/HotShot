@@ -9,7 +9,7 @@ use crate::{
     certificate::QuorumCertificate,
     constants::genesis_proposer_id,
     traits::{
-        election::Election,
+        election::{Election, SignedCertificate},
         node_implementation::NodeType,
         signature_key::EncodedPublicKey,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensusType},
@@ -222,10 +222,19 @@ pub trait LeafType:
         + Send
         + Serialize
         + Sync;
+    type QuorumCertificate: SignedCertificate<
+            <Self::NodeType as NodeType>::SignatureKey,
+            <Self::NodeType as NodeType>::Time,
+            <Self::NodeType as NodeType>::VoteTokenType,
+            Self,
+        > + Debug
+        + Eq
+        + PartialEq
+        + Send;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
-        justify_qc: QuorumCertificate<Self::NodeType, Self>,
+        justify_qc: Self::QuorumCertificate,
         deltas: <Self::NodeType as NodeType>::BlockType,
         state: <Self::NodeType as NodeType>::StateType,
     ) -> Self;
@@ -236,7 +245,7 @@ pub trait LeafType:
 
     fn set_height(&mut self, height: u64);
 
-    fn get_justify_qc(&self) -> QuorumCertificate<Self::NodeType, Self>;
+    fn get_justify_qc(&self) -> Self::QuorumCertificate;
 
     fn get_parent_commitment(&self) -> Commitment<Self>;
 
@@ -344,6 +353,7 @@ where
 {
     type NodeType = TYPES;
     type StateCommitmentType = TYPES::StateType;
+    type QuorumCertificate = QuorumCertificate<Self::NodeType, Self>;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
@@ -432,6 +442,7 @@ where
 impl<TYPES: NodeType> LeafType for DALeaf<TYPES> {
     type NodeType = TYPES;
     type StateCommitmentType = Either<TYPES::StateType, Commitment<TYPES::StateType>>;
+    type QuorumCertificate = QuorumCertificate<Self::NodeType, Self>;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
@@ -554,7 +565,7 @@ where
             .u64(*self.justify_qc.view_number)
             .field(
                 "justify_qc leaf commitment",
-                self.justify_qc.leaf_commitment,
+                self.justify_qc.leaf_commitment(),
             )
             .constant_str("justify_qc signatures")
             .var_size_bytes(&signatures_bytes)

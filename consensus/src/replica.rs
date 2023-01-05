@@ -29,7 +29,11 @@ use tracing::{error, info, instrument, warn};
 pub struct Replica<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    ELECTION: Election<
+        TYPES,
+        LeafType = ValidatingLeaf<TYPES>,
+        QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+    >,
 > where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -50,7 +54,7 @@ pub struct Replica<
     /// view number this view is executing in
     pub cur_view: TYPES::Time,
     /// genericQC from the pseudocode
-    pub high_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+    pub high_qc: ELECTION::QuorumCertificate,
     /// hotshot consensus api
     pub api: A,
 }
@@ -58,7 +62,11 @@ pub struct Replica<
 impl<
         A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+        ELECTION: Election<
+            TYPES,
+            LeafType = ValidatingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        >,
     > Replica<A, TYPES, ELECTION>
 where
     TYPES::StateType: TestableState,
@@ -295,7 +303,7 @@ where
     /// run one view of replica
     /// returns the `high_qc`
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>
+    pub async fn run_view(self) -> ELECTION::QuorumCertificate
     where
         TYPES::StateType: TestableState,
         TYPES::BlockType: TestableBlock,
