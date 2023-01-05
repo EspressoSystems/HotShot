@@ -13,7 +13,7 @@ use async_compatibility_layer::{
     art::{async_block_on, async_sleep, async_spawn, split_stream},
     channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
 };
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_lock::{Mutex, MutexGuardArc, RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
 use bincode::Options;
 use futures::{future::BoxFuture, FutureExt};
@@ -27,8 +27,9 @@ use hotshot_types::{
     traits::{
         metrics::{Metrics, NoMetrics},
         network::{
-            FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkChange, NetworkError,
-            NetworkingImplementation, TestableNetworkingImplementation,
+            CentralizedServerNetworkError, FailedToDeserializeSnafu, FailedToSerializeSnafu,
+            NetworkChange, NetworkError, NetworkingImplementation,
+            TestableNetworkingImplementation, TransmitType,
         },
         node_implementation::NodeType,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
@@ -48,7 +49,7 @@ use std::{
     },
     time::Duration,
 };
-use tracing::error;
+use tracing::{error, instrument};
 
 use super::NetworkingMetrics;
 
@@ -343,6 +344,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
     }
 
     /// Get all the incoming broadcast messages received from the server. Returning 0 messages if nothing was received.
+    #[allow(unused)]
     async fn get_broadcasts<M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static>(
         &self,
     ) -> Vec<Result<M, bincode::Error>> {
@@ -475,13 +477,14 @@ impl<TYPES: NodeType> Inner<TYPES> {
             }
         },
         |_, _| {
-            Err(NetworkError::NoMessagesInQueue)
+            Err(NetworkError::CentralizedServer { source: CentralizedServerNetworkError::NoMessagesInQueue })
         },
 )
         .await
     }
 
     /// Get all the incoming direct messages received from the server. Returning 0 messages if nothing was received.
+    #[allow(unused)]
     async fn get_direct_messages<
         M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static,
     >(
@@ -530,18 +533,18 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             context.get_mut().accumulated_stream.append(&mut payload.clone());
                             match context.get().accumulated_stream.len().cmp(&(context.get().message_len as usize)) {
                                 cmp::Ordering::Less => {
-                                MsgStepOutcome::Continue
+                                    MsgStepOutcome::Continue
                                 }
                                 cmp::Ordering::Greater => {
-                                tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b",context.get().message_len, context.get().accumulated_stream.len());
-                                context.remove_entry();
-                                MsgStepOutcome::Skip
+                                    tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b",context.get().message_len, context.get().accumulated_stream.len());
+                                    context.remove_entry();
+                                    MsgStepOutcome::Skip
                                 }
                                 cmp::Ordering::Equal => {
-                            let (_, context) = context.remove_entry();
-                                MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream))
+                                    let (_, context) = context.remove_entry();
+                                    MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream))
+                                }
                             }
-                        }
                         }
                     } else {
                         tracing::error!("FromServer::BroadcastPayload found, but no incomplete FromServer::Broadcast exists");
@@ -603,18 +606,18 @@ impl<TYPES: NodeType> Inner<TYPES> {
                             context.get_mut().accumulated_stream.append(&mut payload.clone());
                             match context.get().accumulated_stream.len().cmp(&(context.get().message_len as usize)) {
                                 cmp::Ordering::Less => {
-                                MsgStepOutcome::Continue
+                                    MsgStepOutcome::Continue
                                 }
                                 cmp::Ordering::Greater => {
-                                let (_, context) = context.remove_entry();
-                                tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b", context.message_len, context.accumulated_stream.len());
-                                MsgStepOutcome::Skip
+                                    let (_, context) = context.remove_entry();
+                                    tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b", context.message_len, context.accumulated_stream.len());
+                                    MsgStepOutcome::Skip
                                 }
                                 cmp::Ordering::Equal => {
-                                let (_, context) = context.remove_entry();
-                                MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream).context(FailedToDeserializeSnafu))
+                                    let (_, context) = context.remove_entry();
+                                    MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream).context(FailedToDeserializeSnafu))
+                                }
                             }
-                        }
                         }
                     } else {
                         tracing::error!("FromServer::BroadcastPayload found, but no incomplete FromServer::Broadcast exists");
@@ -625,7 +628,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
             }
         },
         |_, _| {
-            Err(NetworkError::NoMessagesInQueue)
+            Err(NetworkError::CentralizedServer { source: CentralizedServerNetworkError::NoMessagesInQueue })
         })
         .await
     }
@@ -882,8 +885,6 @@ async fn run_background<TYPES: NodeType>(
     )>,
     connection: Arc<Inner<TYPES>>,
 ) -> Result<(), Error> {
-    // let mut stream = TcpStreamUtil::new(TcpStream::connect(addr).await.context(StreamSnafu)?);
-
     // send identify
     send_stream
         .send(ToServer::Identify { key: key.clone() })
@@ -903,7 +904,11 @@ async fn run_background<TYPES: NodeType>(
     }
 
     let send_handle = run_background_send(send_stream, to_background);
-    let recv_handle = run_background_recv(recv_stream, from_background_sender, connection);
+    let recv_handle = run_background_recv(
+        recv_stream,
+        from_background_sender,
+        connection,
+    );
 
     futures::future::try_join(send_handle, recv_handle)
         .await
@@ -928,7 +933,7 @@ async fn run_background_send<K: SignatureKey>(
                     ?header,
                     "expected payload of {payload_expected_len} bytes, got {} bytes",
                     payload.len(),
-                );
+                    );
             }
         }
         stream.send(header).await?;
@@ -940,6 +945,7 @@ async fn run_background_send<K: SignatureKey>(
             confirm.send(());
         }
     }
+
 }
 
 /// Loop on the TCP recv stream.
@@ -954,57 +960,64 @@ async fn run_background_recv<TYPES: NodeType>(
     connection: Arc<Inner<TYPES>>,
 ) -> Result<(), Error> {
     loop {
-        let msg = stream.recv().await?;
-        match msg {
-            x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
-                from_background_sender
-                    .send((x, Vec::new()))
-                    .await
-                    .map_err(|_| Error::FailedToReceive)?;
-            }
+        let    msg = stream.recv().await;
+        if let Ok(msg) = msg {
+            match msg {
+                FromServer::LocalShutdown => return Err(Error::Disconnected),
+                x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
+                    from_background_sender
+                        .send((x, Vec::new()))
+                        .await
+                        .map_err(|_| Error::FailedToReceive)?;
+                }
 
-            x @ (FromServer::Broadcast { .. } | FromServer::Direct { .. }) => {
-                let payload = if let Some(payload_len) = x.payload_len() {
-                    stream.recv_raw_all(payload_len.into()).await?
-                } else {
-                    Vec::new()
-                };
-                from_background_sender
-                    .send((x, payload))
-                    .await
-                    .map_err(|_| Error::FailedToReceive)?;
-            }
+                x @ (FromServer::Broadcast { .. } | FromServer::Direct { .. }) => {
+                    let payload = if let Some(payload_len) = x.payload_len() {
+                        stream.recv_raw_all(payload_len.into()).await?
+                    } else {
+                        Vec::new()
+                    };
+                    from_background_sender
+                        .send((x, payload))
+                        .await
+                        .map_err(|_| Error::FailedToReceive)?;
+                }
 
-            x @ (FromServer::BroadcastPayload { .. } | FromServer::DirectPayload { .. }) => {
-                let payload = if let Some(payload_len) = x.payload_len() {
-                    stream.recv_raw_all(payload_len.into()).await?
-                } else {
-                    Vec::new()
-                };
-                from_background_sender
-                    .send((x, payload))
-                    .await
-                    .map_err(|_| Error::FailedToReceive)?;
-            }
+                x @ (FromServer::BroadcastPayload { .. } | FromServer::DirectPayload { .. }) => {
+                    let payload = if let Some(payload_len) = x.payload_len() {
+                        stream.recv_raw_all(payload_len.into()).await?
+                    } else {
+                        Vec::new()
+                    };
+                    from_background_sender
+                        .send((x, payload))
+                        .await
+                        .map_err(|_| Error::FailedToReceive)?;
+                }
 
-            FromServer::ClientCount(count) => {
-                let senders =
-                    std::mem::take(&mut *connection.request_client_count_sender.write().await);
-                connection.metrics.connected_peers.set(count as _);
-                for sender in senders {
-                    sender.send(count);
+                FromServer::ClientCount(count) => {
+                    let senders =
+                        std::mem::take(&mut *connection.request_client_count_sender.write().await);
+                    connection.metrics.connected_peers.set(count as _);
+                    for sender in senders {
+                        sender.send(count);
+                    }
+                }
+
+                FromServer::Config { .. } => {
+                    tracing::warn!("Received config from server but we're already running",);
+                }
+
+                FromServer::Start => {
+                    connection.run_ready.store(true, Ordering::Relaxed);
                 }
             }
-
-            FromServer::Config { .. } => {
-                tracing::warn!("Received config from server but we're already running",);
-            }
-
-            FromServer::Start => {
-                connection.run_ready.store(true, Ordering::Relaxed);
-            }
+        } else {
+            continue
         }
+
     }
+
 }
 
 /// Inner error type for the `run_background` function.
@@ -1050,6 +1063,7 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
     > NetworkingImplementation<TYPES, LEAF, PROPOSAL> for CentralizedServerNetwork<TYPES>
 {
+    #[instrument(name = "CentralizedServer::ready", skip_all)]
     async fn ready(&self) -> bool {
         while !self.inner.connected.load(Ordering::Relaxed) {
             async_sleep(Duration::from_secs(1)).await;
@@ -1057,10 +1071,39 @@ impl<
         true
     }
 
-    async fn broadcast_message(
+    #[instrument(name = "CentralizedServer::next_msg", skip_all)]
+    async fn recv_msg(&self, transmit_type: TransmitType) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
+        match transmit_type {
+            TransmitType::Direct => self.inner.get_next_direct_message().await,
+            TransmitType::Broadcast => self.inner.get_next_broadcast().await,
+        }
+    }
+
+    #[instrument(name = "CentralizedServer::next_msgs", skip_all)]
+    async fn recv_msgs(
         &self,
-        message: Message<TYPES, LEAF, PROPOSAL>,
-    ) -> Result<(), NetworkError> {
+        transmit_type: TransmitType,
+    ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
+        match transmit_type {
+            TransmitType::Direct => self
+                .inner
+                .get_direct_messages()
+                .await
+                .into_iter()
+                .collect::<Result<Vec<_>, _>>()
+                .context(FailedToDeserializeSnafu),
+            TransmitType::Broadcast => self
+                .inner
+                .get_broadcasts()
+                .await
+                .into_iter()
+                .collect::<Result<Vec<_>, _>>()
+                .context(FailedToDeserializeSnafu),
+        }
+    }
+
+    #[instrument(name = "CentralizedServer::broadcast_message", skip_all)]
+    async fn broadcast_message(&self, message: Message<TYPES, LEAF, PROPOSAL>) -> Result<(), NetworkError> {
         self.inner
             .broadcast(
                 bincode_opts()
@@ -1071,6 +1114,7 @@ impl<
         Ok(())
     }
 
+    #[instrument(name = "CentralizedServer::message_node", skip_all)]
     async fn message_node(
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
@@ -1087,61 +1131,42 @@ impl<
         Ok(())
     }
 
-    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
-        self.inner
-            .get_broadcasts()
-            .await
-            .into_iter()
-            .collect::<Result<Vec<_>, _>>()
-            .context(FailedToDeserializeSnafu)
-    }
-
-    async fn next_broadcast(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
-        self.inner.get_next_broadcast().await
-    }
-
-    async fn direct_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
-        self.inner
-            .get_direct_messages()
-            .await
-            .into_iter()
-            .collect::<Result<Vec<_>, _>>()
-            .context(FailedToDeserializeSnafu)
-    }
-
-    async fn next_direct(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
-        self.inner.get_next_direct_message().await
-    }
-
+    #[instrument(name = "CentralizedServer::known_nodes", skip_all)]
     async fn known_nodes(&self) -> Vec<TYPES::SignatureKey> {
         self.inner.known_nodes.clone()
     }
 
+    #[instrument(name = "CentralizedServer::network_changes", skip_all)]
     async fn network_changes(
         &self,
     ) -> Result<Vec<NetworkChange<TYPES::SignatureKey>>, NetworkError> {
         Ok(self.inner.get_network_changes().await)
     }
 
+    #[instrument(name = "CentralizedServer::shut_down", skip_all)]
     async fn shut_down(&self) {
+        error!("SHUTTING DOWN CENTRALIZED SERVER");
         self.inner.running.store(false, Ordering::Relaxed);
     }
 
+    #[instrument(name = "CentralizedServer::put_record", skip_all)]
     async fn put_record(
         &self,
         _key: impl serde::Serialize + Send + Sync + 'static,
         _value: impl serde::Serialize + Send + Sync + 'static,
     ) -> Result<(), NetworkError> {
-        Err(NetworkError::DHTError)
+        Err(NetworkError::UnimplementedFeature)
     }
 
+    #[instrument(name = "CentralizedServer::get_record", skip_all)]
     async fn get_record<V: for<'a> serde::Deserialize<'a>>(
         &self,
         _key: impl serde::Serialize + Send + Sync + 'static,
     ) -> Result<V, NetworkError> {
-        Err(NetworkError::DHTError)
+        Err(NetworkError::UnimplementedFeature)
     }
 
+    #[instrument(name = "CentralizedServer::notify_of_subsequent_leader", skip_all)]
     async fn notify_of_subsequent_leader(
         &self,
         _pk: TYPES::SignatureKey,

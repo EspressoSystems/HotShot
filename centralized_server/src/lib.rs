@@ -156,11 +156,13 @@ pub enum FromServer<K, E> {
     },
     ClientCount(u32),
     Start,
+    LocalShutdown,
 }
 
 impl<K, E> FromServer<K, E> {
     pub fn payload_len(&self) -> Option<NonZeroUsize> {
         match self {
+            Self::LocalShutdown => unreachable!(),
             Self::Config { .. }
             | Self::NodeConnected { .. }
             | Self::NodeDisconnected { .. }

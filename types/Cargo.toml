@@ -16,16 +16,27 @@ async-std-executor = [
     "dep:async-std",
     "async-tungstenite/async-std-runtime",
     "async-compatibility-layer/async-std-executor",
+    "libp2p-networking/async-std-executor",
 ]
 tokio-executor = [
     "dep:tokio",
     "async-tungstenite/tokio-runtime",
     "async-compatibility-layer/tokio-executor",
+    "libp2p-networking/tokio-executor",
 ]
 demo = ["ed25519-compact"]
-channel-flume = ["async-compatibility-layer/channel-flume"]
-channel-tokio = ["async-compatibility-layer/channel-tokio"]
-channel-async-std = ["async-compatibility-layer/channel-async-std"]
+channel-flume = [
+    "async-compatibility-layer/channel-flume",
+    "libp2p-networking/channel-flume",
+]
+channel-tokio = [
+    "async-compatibility-layer/channel-tokio",
+    "libp2p-networking/channel-tokio",
+]
+channel-async-std = [
+    "async-compatibility-layer/channel-async-std",
+    "libp2p-networking/channel-async-std",
+]
 
 [dependencies]
 arbitrary = { version = "1.2", features = ["derive"] }
@@ -48,6 +59,7 @@ futures = "0.3.25"
 hex_fmt = "0.3.0"
 hotshot-utils = { path = "../utils" }
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
+libp2p-networking = { path = "../libp2p-networking", version = "0.1.0", default-features = false }
 rand = "0.8.5"
 serde = { version = "1.0.152", features = ["derive"] }
 serde_bytes = "0.11.8"

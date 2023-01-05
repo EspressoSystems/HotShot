@@ -1,10 +1,6 @@
 //! configurable constants for hotshot
-use std::num::NonZeroUsize;
 
 use crate::traits::signature_key::EncodedPublicKey;
-
-/// replication factor for p
-pub const DEFAULT_REPLICATION_FACTOR: Option<NonZeroUsize> = NonZeroUsize::new(20);
 
 /// the number of views to gather information for ahead of time
 pub const LOOK_AHEAD: u64 = 5;

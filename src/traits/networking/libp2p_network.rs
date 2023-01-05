@@ -19,7 +19,7 @@ use hotshot_types::{
         metrics::{Metrics, NoMetrics},
         network::{
             FailedToSerializeSnafu, NetworkChange, NetworkError, NetworkingImplementation,
-            TestableNetworkingImplementation, UnboundedChannelDisconnectedSnafu,
+            TestableNetworkingImplementation, TransmitType,
         },
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -469,6 +469,63 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
     > NetworkingImplementation<TYPES, LEAF, PROPOSAL> for Libp2pNetwork<TYPES, LEAF, PROPOSAL>
 {
+    #[instrument(name = "Libp2pNetwork::next_msg", skip_all)]
+    async fn recv_msg(&self, transmit_type: TransmitType) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
+        if self.inner.handle.is_killed() {
+            Err(NetworkError::ShutDown)
+        } else {
+            let msgs = match transmit_type {
+                TransmitType::Direct => self
+                    .inner
+                    .direct_recv
+                    .recv()
+                    .await
+                    .map_err(|_| NetworkError::ShutDown)?,
+                TransmitType::Broadcast => self
+                    .inner
+                    .broadcast_recv
+                    .recv()
+                    .await
+                    .map_err(|_| NetworkError::ShutDown)?,
+            };
+            self.inner.metrics.incoming_message_count.add(1);
+            Ok(msgs)
+        }
+    }
+
+    #[instrument(name = "Libp2pNetwork::next_msgs", skip_all)]
+    async fn recv_msgs(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
+        if self.inner.handle.is_killed() {
+            Err(NetworkError::ShutDown)
+        } else {
+            match transmit_type {
+                TransmitType::Direct => {
+                    let result = self
+                        .inner
+                        .direct_recv
+                        .drain_at_least_one()
+                        .await
+                        .map_err(|_x| NetworkError::ShutDown)?;
+                    self.inner.metrics.incoming_message_count.add(result.len());
+                    Ok(result)
+                }
+                TransmitType::Broadcast => {
+                    let result = self
+                        .inner
+                        .broadcast_recv
+                        .drain_at_least_one()
+                        .await
+                        .map_err(|_x| NetworkError::ShutDown)?;
+                    self.inner.metrics.incoming_message_count.add(result.len());
+                    Ok(result)
+                }
+            }
+        }
+    }
+
     #[instrument(name = "Libp2pNetwork::ready", skip_all)]
     async fn ready(&self) -> bool {
         self.wait_for_ready().await;
@@ -549,10 +606,10 @@ impl<
                 .await
             {
                 Ok(r) => r,
-                Err(_e) => {
+                Err(e) => {
                     self.inner.metrics.message_failed_to_send.add(1);
                     error!("Failed to message {:?} because could not find recipient peer id for pk {:?}", message, recipient);
-                    return Err(NetworkError::DHTError);
+                    return Err(NetworkError::Libp2p { source: e });
                 }
             }
         };
@@ -570,70 +627,6 @@ impl<
                 self.inner.metrics.message_failed_to_send.add(1);
                 Err(e.into())
             }
-        }
-    }
-
-    #[instrument(name = "Libp2pNetwork::broadcast_queue", skip_all)]
-    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
-        if self.inner.handle.is_killed() {
-            Err(NetworkError::ShutDown)
-        } else {
-            let result = self
-                .inner
-                .broadcast_recv
-                .drain_at_least_one()
-                .await
-                .context(UnboundedChannelDisconnectedSnafu)?;
-            self.inner.metrics.incoming_message_count.add(result.len());
-            Ok(result)
-        }
-    }
-
-    #[instrument(name = "Libp2pNetwork::next_broadcast", skip_all)]
-    async fn next_broadcast(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
-        if self.inner.handle.is_killed() {
-            Err(NetworkError::ShutDown)
-        } else {
-            let result = self
-                .inner
-                .broadcast_recv
-                .recv()
-                .await
-                .map_err(|_| NetworkError::ShutDown)?;
-            self.inner.metrics.incoming_message_count.add(1);
-            Ok(result)
-        }
-    }
-
-    #[instrument(name = "Libp2pNetwork::direct_queue", skip_all)]
-    async fn direct_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
-        if self.inner.handle.is_killed() {
-            Err(NetworkError::ShutDown)
-        } else {
-            let result = self
-                .inner
-                .direct_recv
-                .drain_at_least_one()
-                .await
-                .context(UnboundedChannelDisconnectedSnafu)?;
-            self.inner.metrics.incoming_message_count.add(result.len());
-            Ok(result)
-        }
-    }
-
-    #[instrument(name = "Libp2pNetwork::next_direct", skip_all)]
-    async fn next_direct(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
-        if self.inner.handle.is_killed() {
-            Err(NetworkError::ShutDown)
-        } else {
-            let result = self
-                .inner
-                .direct_recv
-                .recv()
-                .await
-                .map_err(|_| NetworkError::ShutDown)?;
-            self.inner.metrics.incoming_message_count.add(1);
-            Ok(result)
         }
     }
 

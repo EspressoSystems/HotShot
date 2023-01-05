@@ -4,6 +4,7 @@
 
 #[cfg(feature = "async-std-executor")]
 use async_std::future::TimeoutError;
+use libp2p_networking::network::NetworkNodeHandleError;
 #[cfg(feature = "tokio-executor")]
 use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
@@ -15,7 +16,6 @@ use crate::{
     message::Message,
 };
 use async_trait::async_trait;
-use async_tungstenite::tungstenite::error as werror;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use std::{
@@ -23,83 +23,92 @@ use std::{
     time::Duration,
 };
 
+impl From<NetworkNodeHandleError> for NetworkError {
+    fn from(error: NetworkNodeHandleError) -> Self {
+        match error {
+            NetworkNodeHandleError::SerializationError { source } => {
+                NetworkError::FailedToSerialize { source }
+            }
+            NetworkNodeHandleError::DeserializationError { source } => {
+                NetworkError::FailedToDeserialize { source }
+            }
+            NetworkNodeHandleError::TimeoutError { source } => NetworkError::Timeout { source },
+            NetworkNodeHandleError::Killed => NetworkError::ShutDown,
+            source => NetworkError::Libp2p { source },
+        }
+    }
+}
+
+/// for any errors we decide to add to memory network
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
+pub enum MemoryNetworkError {
+    /// stub
+    Stub,
+}
+
+/// Centralized server specific errors
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
+pub enum CentralizedServerNetworkError {
+    /// The centralized server could not find a specific message.
+    NoMessagesInQueue,
+}
+
+/// the type of transmission
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum TransmitType {
+    /// directly transmit
+    Direct,
+    /// broadcast the message to all
+    Broadcast,
+}
+
 /// Error type for networking
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum NetworkError {
-    /// DHT error
-    DHTError,
-    /// A Listener failed to send a message
-    ListenerSend,
+    /// Libp2p specific errors
+    Libp2p {
+        /// source of error
+        source: NetworkNodeHandleError,
+    },
+    /// memory network specific errors
+    MemoryNetwork {
+        /// source of error
+        source: MemoryNetworkError,
+    },
+    /// Centralized server specific errors
+    CentralizedServer {
+        /// source of error
+        source: CentralizedServerNetworkError,
+    },
+    /// unimplemented functionality
+    UnimplementedFeature,
     /// Could not deliver a message to a specified recipient
     CouldNotDeliver,
     /// Attempted to deliver a message to an unknown node
     NoSuchNode,
-    /// Failed to serialize a message
+    /// Failed to serialize a network message
     FailedToSerialize {
         /// Originating bincode error
         source: bincode::Error,
     },
-    /// Failed to deserealize a message
+    /// Failed to deserealize a network message
     FailedToDeserialize {
         /// originating bincode error
         source: bincode::Error,
-    },
-    /// WebSockets specific error
-    WebSocket {
-        /// Originating websockets error
-        source: werror::Error,
-    },
-    /// Error orginiating from within the executor
-    ExecutorError {
-        /// Originating async_std error
-        source: std::io::Error,
-    },
-    /// Failed to decode a socket specification
-    SocketDecodeError {
-        /// Input that was given
-        input: String,
-        /// Originating io error
-        source: std::io::Error,
-    },
-    /// Failed to bind a listener socket
-    FailedToBindListener {
-        /// originating io error
-        source: std::io::Error,
-    },
-    /// No sockets were open
-    NoSocketsError {
-        /// Input that was given
-        input: String,
-    },
-    /// Generic error type for compatibility if needed
-    Other {
-        /// Originating error
-        inner: Box<dyn std::error::Error + Send + Sync>,
     },
     /// A timeout occurred
     Timeout {
         /// Source of error
         source: TimeoutError,
     },
-    /// Channel error
+    /// Error sending output to consumer of NetworkingImplementation
+    /// TODO this should have more information
     ChannelSend,
-    /// Could not complete handshake
-    IdentityHandshake,
     /// The underlying connection has been shut down
     ShutDown,
-    /// An underlying channel has disconnected
-    ChannelDisconnected {
-        /// Source of error
-        source: async_compatibility_layer::channel::RecvError,
-    },
-    /// An underlying unbounded channel has disconnected
-    UnboundedChannelDisconnected {
-        /// Source of error
-        source: async_compatibility_layer::channel::UnboundedRecvError,
-    },
-    /// The centralized server could not find a specific message.
-    NoMessagesInQueue,
 }
 
 // TODO (da) make message anything that implements serializable
@@ -133,23 +142,25 @@ pub trait NetworkingImplementation<
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError>;
 
-    /// Moves out the entire queue of received broadcast messages, should there be any
-    ///
-    /// Provided as a future to allow the backend to do async locking
-    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError>;
-
-    /// Provides a future for the next received broadcast
+    /// Provides a future for the next received message of `transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
-    async fn next_broadcast(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError>;
+    /// NOTE:
+    /// Deprecated because using this function on the centralized server implementation
+    /// of `NetworkingImplementation` will result in dropped messages. This is due to
+    /// an requirement of the implementation to block
+    /// until a single message is received or the channel is closed.
+    /// Use `recv_msgs` instead does not block and will return no messages.
+    #[deprecated]
+    async fn recv_msg(&self, transmit_type: TransmitType) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError>;
 
-    /// Moves out the entire queue of received direct messages to this node
-    async fn direct_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError>;
-
-    /// Provides a future for the next received direct message to this node
+    /// Moves out the entire queue of received messages of 'transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
-    async fn next_direct(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError>;
+    async fn recv_msgs(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError>;
 
     /// Node's currently known to the networking implementation
     ///
