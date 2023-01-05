@@ -128,7 +128,6 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
 
     fn genesis() -> Self {
         Self {
-            // block_commitment: fake_commitment(),
             leaf_commitment: fake_commitment::<LEAF>(),
             view_number: <TYPES::Time as ConsensusTime>::genesis(),
             signatures: BTreeMap::default(),
