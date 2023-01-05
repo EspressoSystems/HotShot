@@ -193,8 +193,6 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
 
     fn set_leaf_commitment(&mut self, _commitment: Commitment<LEAF>) {
         // This function is only useful for QC. Will be removed after we have separated cert traits.
-        #[allow(deprecated)]
-        nll_todo()
     }
 
     fn is_genesis(&self) -> bool {

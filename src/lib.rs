@@ -854,7 +854,7 @@ where
         let high_qc = results
             .into_iter()
             .filter_map(std::result::Result::ok)
-            .max_by_key(|qc| qc.view_number())
+            .max_by_key(|qc| qc.view_number)
             .unwrap();
 
         #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
