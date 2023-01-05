@@ -20,7 +20,7 @@ use hotshot_types::{
     event::EventType,
     message::{ConsensusMessage, Proposal},
     traits::{
-        election::{Election, TestableElection},
+        election::{Election, SignedCertificate, TestableElection},
         node_implementation::NodeType,
         signature_key::TestableSignatureKey,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
@@ -28,6 +28,7 @@ use hotshot_types::{
 };
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use snafu::{ensure, OptionExt};
+use std::fmt::Debug;
 use std::iter::once;
 use std::sync::Arc;
 use std::time::Duration;
@@ -45,7 +46,7 @@ enum QueuedMessageTense {
 /// Returns true if `node_id` is the leader of `view_number`
 async fn is_upcoming_validating_leader<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + Debug,
 >(
     runner: &AppliedTestRunner<
         TYPES,
@@ -69,7 +70,7 @@ where
 /// Builds and submits a random proposal for the specified view number
 async fn submit_validating_proposal<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + Debug,
 >(
     runner: &AppliedTestRunner<
         TYPES,
@@ -104,7 +105,7 @@ async fn submit_validating_proposal<
 /// Builds and submits a random vote for the specified view number from the specified node
 async fn submit_validating_vote<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + TestableElection<TYPES>,
+    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + TestableElection<TYPES> + Debug,
 >(
     runner: &AppliedTestRunner<
         TYPES,
@@ -160,7 +161,7 @@ fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
 /// Checks that votes are queued correctly for views 1..NUM_VIEWS
 fn test_validating_vote_queueing_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + Debug,
 >(
     runner: &AppliedTestRunner<
         TYPES,
@@ -213,7 +214,7 @@ where
 /// For 1..NUM_VIEWS submit votes to each node in the network
 fn test_validating_vote_queueing_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + TestableElection<TYPES>,
+    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + TestableElection<TYPES> + Debug,
 >(
     runner: &mut AppliedTestRunner<
         TYPES,
@@ -244,7 +245,7 @@ where
 /// Checks views 0..NUM_VIEWS for whether proposal messages are properly queued
 fn test_validating_proposal_queueing_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + Debug,
 >(
     runner: &AppliedTestRunner<
         TYPES,
@@ -299,7 +300,7 @@ where
 /// Submits proposals for 0..NUM_VIEWS rounds where `node_id` is the leader
 fn test_validating_proposal_queueing_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + Debug,
 >(
     runner: &mut AppliedTestRunner<
         TYPES,
@@ -330,7 +331,7 @@ where
 /// Submits proposals for views where `node_id` is not the leader, and submits multiple proposals for views where `node_id` is the leader
 fn test_bad_validating_proposal_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + Debug,
 >(
     runner: &mut AppliedTestRunner<
         TYPES,
@@ -363,7 +364,7 @@ where
 /// Checks nodes do not queue bad proposal messages
 fn test_bad_validating_proposal_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + Debug,
 >(
     runner: &AppliedTestRunner<
         TYPES,
@@ -667,7 +668,7 @@ async fn test_chain_height() {
                 let mut heights = heights.lock().await;
                 for (i, handle) in runner.nodes().enumerate() {
                     let leaf = handle.get_decided_leaf().await;
-                    if leaf.justify_qc.genesis {
+                    if leaf.justify_qc.is_genesis() {
                         ensure!(
                             leaf.get_height() == 0,
                             SafetyFailedSnafu {
@@ -774,12 +775,13 @@ async fn test_decide_leaf_chain() {
                     // The new leaf chain should extend from the previously decided leaf.
                     let leaves = leaf_chain.iter().chain(once(&last_leaf));
                     for (i, (qc, leaf)) in qcs.zip(leaves).enumerate() {
-                        if qc.genesis {
+                        if qc.is_genesis() {
                             tracing::warn!("skipping validation of genesis QC");
                             continue;
                         }
                         ensure!(
-                            qc.set_leaf_commitment(leaf.commit());                            SafetyFailedSnafu {
+                            qc.leaf_commitment() == leaf.commit(),
+                            SafetyFailedSnafu {
                                 description: format!(
                                     "QC {}/{} justifies {}, but the parent leaf is {}",
                                     i + 1,

@@ -287,17 +287,17 @@ where
 
 /// the vrf implementation
 #[derive(Derivative)]
-#[derivative(Eq, PartialEq)]
+#[derivative(Debug, Eq, PartialEq)]
 pub struct VrfImpl<TYPES, LEAF: LeafType<NodeType = TYPES>, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS> + Sync + Send,
     TYPES: NodeType,
 {
     /// the stake table
-    #[derivative(PartialEq = "ignore")]
+    #[derivative(Debug = "ignore", PartialEq = "ignore")]
     stake_table: VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>,
     /// the proof params
-    #[derivative(PartialEq = "ignore")]
+    #[derivative(Debug = "ignore", PartialEq = "ignore")]
     proof_parameters: VRF::PublicParameter,
     /// the rng
     #[derivative(PartialEq = "ignore")]
