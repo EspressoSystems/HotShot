@@ -848,7 +848,7 @@ where
         #[cfg(feature = "async-std-executor")]
         let high_qc = results
             .into_iter()
-            .max_by_key(|qc: &ELECTION::QuorumCertificate| qc.view_number())
+            .max_by_key(|qc: &ELECTION::QuorumCertificate| qc.view_number)
             .unwrap();
         #[cfg(feature = "tokio-executor")]
         let high_qc = results
