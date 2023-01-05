@@ -874,6 +874,9 @@ impl<TYPES: NodeType<ConsensusType = SequencingConsensus>, I: NodeImplementation
 {
     // #[instrument]
     async fn run_view(_hotshot: HotShot<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()> {
+        let da_leader = {};
+        let da_next_leader = {};
+        let da_replica = {};
         #[allow(deprecated)]
         nll_todo()
     }
