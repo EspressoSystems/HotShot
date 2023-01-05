@@ -10,9 +10,8 @@ use async_lock::RwLock;
 use hotshot_consensus::{ConsensusApi, Leader, NextLeader, Replica, ViewQueue};
 use hotshot_types::{
     constants::LOOK_AHEAD,
-    message::MessageKind,
     traits::{
-        network::{NetworkingImplementation, NetworkError},
+        network::{NetworkingImplementation, TransmitType},
         node_implementation::{NodeImplementation, NodeTypes},
     },
     ExecutionType,
@@ -92,10 +91,6 @@ impl<TYPES: NodeTypes> TaskHandle<TYPES> {
                 inner.network_direct_task_handle,
                 "network_direct_task_handle",
             ),
-            (
-                inner.network_change_task_handle,
-                "network_change_task_handle",
-            ),
             (inner.consensus_task_handle, "network_change_task_handle"),
         ] {
             assert!(
@@ -112,14 +107,12 @@ struct TaskHandleInner {
     /// only Some in Continuous exeuction mode
     /// otherwise None
     pub run_view_channels: Option<UnboundedSender<()>>,
+
     /// Join handle for `network_broadcast_task`
     pub network_broadcast_task_handle: JoinHandle<()>,
 
     /// Join handle for `network_direct_task`
     pub network_direct_task_handle: JoinHandle<()>,
-
-    /// Join handle for `network_change_task`
-    pub network_change_task_handle: JoinHandle<()>,
 
     /// Join handle for `consensus_task`
     pub consensus_task_handle: JoinHandle<()>,
@@ -142,16 +135,12 @@ pub async fn spawn_all<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
     let started = Arc::new(AtomicBool::new(false));
 
     let network_broadcast_task_handle = async_spawn(
-        network_broadcast_task(hotshot.clone(), shut_down.clone())
+        network_task(hotshot.clone(), shut_down.clone(), TransmitType::Broadcast)
             .instrument(info_span!("HotShot Broadcast Task",)),
     );
     let network_direct_task_handle = async_spawn(
-        network_direct_task(hotshot.clone(), shut_down.clone())
+        network_task(hotshot.clone(), shut_down.clone(), TransmitType::Direct)
             .instrument(info_span!("HotShot Direct Task",)),
-    );
-    let network_change_task_handle = async_spawn(
-        network_change_task(hotshot.clone(), shut_down.clone())
-            .instrument(info_span!("HotShot network change listener task",)),
     );
 
     async_spawn(
@@ -192,7 +181,6 @@ pub async fn spawn_all<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
     *background_task_handle = Some(TaskHandleInner {
         network_broadcast_task_handle,
         network_direct_task_handle,
-        network_change_task_handle,
         consensus_task_handle,
         shutdown_timeout: Duration::from_millis(hotshot.inner.config.next_view_timeout),
         run_view_channels: handle_channels,
@@ -274,7 +262,6 @@ pub async fn run_view<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
 
     let mut task_handles = Vec::new();
 
-    // replica always runs? TODO this will change once vrf integration is added
     let replica = Replica {
         id: hotshot.id,
         consensus: hotshot.hotstuff.clone(),
@@ -439,101 +426,20 @@ pub async fn network_lookup_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
     }
 }
 
-/// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_broadcast_*_message`.
-pub async fn network_broadcast_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
+/// Spawn a networking task for receiving `trasnmit_type` of messages
+pub async fn network_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES, I>,
     shut_down: Arc<AtomicBool>,
+    transmit_type: TransmitType,
 ) {
-    info!("Launching broadcast processing task");
-    let networking = &hotshot.inner.networking;
-
-    while !shut_down.load(Ordering::Relaxed) {
-        error!("WAITING 1");
-        let network_msg = match networking.next_broadcast().await {
-            Ok(m) => m,
-            Err(e) => {
-                error!(?e, "Did not recv message gracefully");
-                continue;
-            }
-        };
-        error!("DONE WAITING 1");
-        trace!(?network_msg, "Processing msg from network");
-        hotshot
-            .hotstuff
-            .read()
-            .await
-            .metrics
-            .broadcast_messages_received
-            .add(1);
-        match network_msg.kind {
-            MessageKind::Consensus(msg) => {
-                hotshot
-                    .handle_broadcast_consensus_message(msg, network_msg.sender)
-                    .await;
-            }
-            MessageKind::Data(msg) => {
-                hotshot
-                    .handle_broadcast_data_message(msg, network_msg.sender)
-                    .await;
-            }
-        }
-        trace!("Message processed, querying for next message.");
-    }
-}
-
-/// Continually processes the incoming direct messages received on `hotshot.inner.networking`, redirecting them to `hotshot.handle_direct_*_message`.
-pub async fn network_direct_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
-    hotshot: HotShot<TYPES, I>,
-    shut_down: Arc<AtomicBool>,
-) {
-    info!("Launching direct processing task");
-    let networking = &hotshot.inner.networking;
-    loop {
-        error!("WAITING 1 FOR DIRECT MSG");
-        let network_msg = match networking.next_direct().await {
-            Ok(queue) => queue,
-            Err(e) => {
-                match e {
-                    NetworkError::ShutDown => return,
-                    _ => {
-                        error!(?e, "Did not recv message gracefully");
-                        continue;
-                    }
-
-                }
-            }
-        };
-        error!("DONE WAITING 1 FOR DIRECT MSG");
-        // Make sure to reset the backoff time
-        let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
-        metrics.direct_messages_received.add(1);
-        trace!(?network_msg, "Processing item");
-        match network_msg.kind {
-            MessageKind::Consensus(msg) => {
-                hotshot
-                    .handle_direct_consensus_message(msg, network_msg.sender)
-                    .await;
-            }
-            MessageKind::Data(msg) => {
-                hotshot
-                    .handle_direct_data_message(msg, network_msg.sender)
-                    .await;
-            }
-        }
-        trace!("Direct Message processed, querying for another direct message.");
-    }
-}
-
-/// Runs a task that will call `hotshot.handle_network_change` whenever a change in the network is detected.
-pub async fn network_change_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>(
-    hotshot: HotShot<TYPES, I>,
-    shut_down: Arc<AtomicBool>,
-) {
-    info!("Launching network change handler task");
+    info!(
+        "Launching network processing task for {:?} messages",
+        transmit_type
+    );
     let networking = &hotshot.inner.networking;
     let mut incremental_backoff_ms = 10;
     while !shut_down.load(Ordering::Relaxed) {
-        let queue = match networking.network_changes().await {
+        let queue = match networking.recv_msgs(transmit_type).await {
             Ok(queue) => queue,
             Err(e) => {
                 if !shut_down.load(Ordering::Relaxed) {
@@ -550,9 +456,18 @@ pub async fn network_change_task<TYPES: NodeTypes, I: NodeImplementation<TYPES>>
         }
         // Make sure to reset the backoff time
         incremental_backoff_ms = 10;
-
-        for node in queue {
-            hotshot.handle_network_change(node).await;
+        for item in queue {
+            let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
+            metrics.direct_messages_received.add(1);
+            trace!(?item, "Processing item");
+            hotshot.handle_message(item, transmit_type).await;
         }
+        trace!(
+            "Items processed in network {:?} task, querying for more",
+            transmit_type
+        );
     }
 }
+
+// TODOs
+//       -> network_change is this even needed anymore? probably not IMO

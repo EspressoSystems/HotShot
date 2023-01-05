@@ -2,16 +2,16 @@
 
 mod common;
 
-// #[cfg(feature = "slow-tests")]
+#[cfg(feature = "slow-tests")]
 use common::{get_tolerance, GeneralTestDescriptionBuilder, TestDescription};
-// #[cfg(feature = "slow-tests")]
+#[cfg(feature = "slow-tests")]
 use either::Either::{Left, Right};
-// #[cfg(feature = "slow-tests")]
+#[cfg(feature = "slow-tests")]
 use hotshot::{
     demos::dentry::DEntryState,
     traits::implementations::{Libp2pNetwork, MemoryNetwork, MemoryStorage}, // AtomicStorage,
 };
-// #[cfg(feature = "slow-tests")]
+#[cfg(feature = "slow-tests")]
 use std::{collections::HashSet, iter::FromIterator};
 
 cross_all_types!(
@@ -26,7 +26,7 @@ cross_all_types!(
         ..GeneralTestDescriptionBuilder::default()
     },
     keep: true,
-    slow: false
+    slow: true
 );
 
 cross_all_types!(

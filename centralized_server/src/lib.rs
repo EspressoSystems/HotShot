@@ -156,7 +156,7 @@ pub enum FromServer<K, E> {
     },
     ClientCount(u32),
     Start,
-    LocalShutdown
+    LocalShutdown,
 }
 
 impl<K, E> FromServer<K, E> {

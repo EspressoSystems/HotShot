@@ -4,7 +4,7 @@
 
 #[cfg(feature = "async-std-executor")]
 use async_std::future::TimeoutError;
-use libp2p_networking::network::{NetworkNodeHandle, NetworkNodeHandleError};
+use libp2p_networking::network::NetworkNodeHandleError;
 #[cfg(feature = "tokio-executor")]
 use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
@@ -13,8 +13,6 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 use super::{node_implementation::NodeTypes, signature_key::SignatureKey};
 use crate::message::Message;
 use async_trait::async_trait;
-use async_tungstenite::tungstenite::error as werror;
-use hotshot_utils::hotshot_task::TaskMessage;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use std::{
@@ -29,7 +27,7 @@ impl From<NetworkNodeHandleError> for NetworkError {
                 NetworkError::FailedToSerialize { source }
             }
             NetworkNodeHandleError::DeserializationError { source } => {
-                NetworkError::FailedToSerialize { source }
+                NetworkError::FailedToDeserialize { source }
             }
             NetworkNodeHandleError::TimeoutError { source } => NetworkError::Timeout { source },
             NetworkNodeHandleError::Killed => NetworkError::ShutDown,
@@ -43,7 +41,7 @@ impl From<NetworkNodeHandleError> for NetworkError {
 #[snafu(visibility(pub))]
 pub enum MemoryNetworkError {
     /// stub
-    Stub
+    Stub,
 }
 
 /// Centralized server specific errors
@@ -52,6 +50,15 @@ pub enum MemoryNetworkError {
 pub enum CentralizedServerNetworkError {
     /// The centralized server could not find a specific message.
     NoMessagesInQueue,
+}
+
+/// the type of transmission
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum TransmitType {
+    /// directly transmit
+    Direct,
+    /// broadcast the message to all
+    Broadcast,
 }
 
 /// Error type for networking
@@ -125,12 +132,14 @@ pub trait NetworkingImplementation<TYPES: NodeTypes>: Clone + Send + Sync + 'sta
     /// Provides a future for the next received broadcast
     ///
     /// Will unwrap the underlying `NetworkMessage`
-    async fn next_broadcast(&self) -> Result<Message<TYPES>, NetworkError>;
+    #[deprecated]
+    async fn recv_msg(&self, transmit_type: TransmitType) -> Result<Message<TYPES>, NetworkError>;
 
-    /// Provides a future for the next received direct message to this node
-    ///
-    /// Will unwrap the underlying `NetworkMessage`
-    async fn next_direct(&self) -> Result<Message<TYPES>, NetworkError>;
+    /// Moves out the entire queue of received direct messages to this node
+    async fn recv_msgs(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Vec<Message<TYPES>>, NetworkError>;
 
     /// Node's currently known to the networking implementation
     ///

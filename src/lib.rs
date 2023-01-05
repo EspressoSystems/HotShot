@@ -69,7 +69,7 @@ use hotshot_types::{
             Election, ElectionError,
         },
         metrics::Metrics,
-        network::{NetworkChange, NetworkError},
+        network::{NetworkError, TransmitType},
         node_implementation::NodeTypes,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
@@ -459,6 +459,25 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         };
     }
 
+    /// decide which handler to call based on the message variant and `transmit_type`
+    async fn handle_message(&self, item: Message<TYPES>, transmit_type: TransmitType) {
+        match (item.kind, transmit_type) {
+            (MessageKind::Consensus(msg), TransmitType::Broadcast) => {
+                self.handle_broadcast_consensus_message(msg, item.sender)
+                    .await;
+            }
+            (MessageKind::Consensus(msg), TransmitType::Direct) => {
+                self.handle_direct_consensus_message(msg, item.sender).await;
+            }
+            (MessageKind::Data(msg), TransmitType::Broadcast) => {
+                self.handle_broadcast_data_message(msg, item.sender).await;
+            }
+            (MessageKind::Data(msg), TransmitType::Direct) => {
+                self.handle_direct_data_message(msg, item.sender).await;
+            }
+        };
+    }
+
     /// Handle an incoming [`ConsensusMessage`] directed at this node.
     #[instrument(
         skip(self, _sender),
@@ -585,18 +604,6 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
             DataMessage::SubmitTransaction(_) => {
                 // Log exceptional situation and proceed
                 warn!(?msg, "Broadcast message received over direct channel");
-            }
-        }
-    }
-
-    /// Handle a change in the network
-    async fn handle_network_change(&self, node: NetworkChange<TYPES::SignatureKey>) {
-        match node {
-            NetworkChange::NodeConnected(peer) => {
-                info!("Connected to node {:?}", peer);
-            }
-            NetworkChange::NodeDisconnected(peer) => {
-                info!("Lost connection to node {:?}", peer);
             }
         }
     }

@@ -20,7 +20,7 @@ use hotshot_types::{
     message::Message,
     traits::{
         metrics::{Metrics, NoMetrics},
-        network::{NetworkChange, TestableNetworkingImplementation},
+        network::{NetworkChange, TestableNetworkingImplementation, TransmitType},
         node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
@@ -337,6 +337,81 @@ where
 
 #[async_trait]
 impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> {
+    #[instrument(name = "Libp2pNetwork::next_msg", skip_all)]
+    async fn recv_msg(&self, transmit_type: TransmitType) -> Result<Message<TYPES>, NetworkError> {
+        match transmit_type {
+            TransmitType::Direct => {
+                let ret = self
+                    .inner
+                    .direct_output
+                    .lock()
+                    .await
+                    .recv()
+                    .await
+                    .map_err(|_| NetworkError::ShutDown)?;
+                self.inner
+                    .in_flight_message_count
+                    .fetch_sub(1, Ordering::Relaxed);
+                self.inner.metrics.incoming_message_count.add(1);
+                Ok(ret)
+            }
+            TransmitType::Broadcast => {
+                let ret = self
+                    .inner
+                    .broadcast_output
+                    .lock()
+                    .await
+                    .recv()
+                    .await
+                    .map_err(|_| NetworkError::ShutDown)?;
+                self.inner
+                    .in_flight_message_count
+                    .fetch_sub(1, Ordering::Relaxed);
+                self.inner.metrics.incoming_message_count.add(1);
+                Ok(ret)
+            }
+        }
+    }
+
+    #[instrument(name = "Libp2pNetwork::next_msgs", skip_all)]
+    async fn recv_msgs(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Vec<Message<TYPES>>, NetworkError> {
+        match transmit_type {
+            TransmitType::Direct => {
+                let ret = self
+                    .inner
+                    .direct_output
+                    .lock()
+                    .await
+                    .drain_at_least_one()
+                    .await
+                    .map_err(|_x| NetworkError::ShutDown)?;
+                self.inner
+                    .in_flight_message_count
+                    .fetch_sub(ret.len(), Ordering::Relaxed);
+                self.inner.metrics.incoming_message_count.add(ret.len());
+                Ok(ret)
+            }
+            TransmitType::Broadcast => {
+                let ret = self
+                    .inner
+                    .broadcast_output
+                    .lock()
+                    .await
+                    .drain_at_least_one()
+                    .await
+                    .map_err(|_x| NetworkError::ShutDown)?;
+                self.inner
+                    .in_flight_message_count
+                    .fetch_sub(ret.len(), Ordering::Relaxed);
+                self.inner.metrics.incoming_message_count.add(ret.len());
+                Ok(ret)
+            }
+        }
+    }
+
     #[instrument(name = "MemoryNetwork::broadcast_message")]
     async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
         debug!(?message, "Broadcasting message");
@@ -402,40 +477,6 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
         }
     }
 
-    #[instrument(name = "MemoryNetwork::next_broadcast")]
-    async fn next_broadcast(&self) -> Result<Message<TYPES>, NetworkError> {
-        let ret = self
-            .inner
-            .broadcast_output
-            .lock()
-            .await
-            .recv()
-            .await
-            .map_err(|_| NetworkError::ShutDown)?;
-        self.inner
-            .in_flight_message_count
-            .fetch_sub(1, Ordering::Relaxed);
-        self.inner.metrics.incoming_message_count.add(1);
-        Ok(ret)
-    }
-
-    #[instrument(name = "MemoryNetwork::next_direct")]
-    async fn next_direct(&self) -> Result<Message<TYPES>, NetworkError> {
-        let ret = self
-            .inner
-            .direct_output
-            .lock()
-            .await
-            .recv()
-            .await
-            .map_err(|_| NetworkError::ShutDown)?;
-        self.inner
-            .in_flight_message_count
-            .fetch_sub(1, Ordering::Relaxed);
-        self.inner.metrics.incoming_message_count.add(1);
-        Ok(ret)
-    }
-
     async fn known_nodes(&self) -> Vec<TYPES::SignatureKey> {
         self.inner
             .master_map
@@ -489,6 +530,8 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for MemoryNetwork<TYPES> 
 }
 
 #[cfg(test)]
+// panic in tests
+#[allow(clippy::panic)]
 mod tests {
     use crate::{
         demos::dentry::{Addition, DEntryBlock, DEntryState, DEntryTransaction, Subtraction},
@@ -540,7 +583,7 @@ mod tests {
                 assert_eq!(d_1, d_2);
             }
         } else {
-            assert!(false);
+            panic!("Got unexpected message type in memory test!");
         }
     }
 
@@ -612,6 +655,7 @@ mod tests {
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    #[allow(deprecated)]
     #[instrument]
     async fn direct_queue() {
         setup_logging();
@@ -635,7 +679,7 @@ mod tests {
                 .await
                 .expect("Failed to message node");
             let recv_message = network2
-                .next_direct()
+                .recv_msg(TransmitType::Direct)
                 .await
                 .expect("Failed to receive message");
             fake_message_eq(sent_message, recv_message);
@@ -651,7 +695,7 @@ mod tests {
                 .await
                 .expect("Failed to message node");
             let recv_message = network1
-                .next_direct()
+                .recv_msg(TransmitType::Direct)
                 .await
                 .expect("Failed to receive message");
             fake_message_eq(sent_message, recv_message);
@@ -664,6 +708,7 @@ mod tests {
         tokio::test(flavor = "multi_thread", worker_threads = 2)
     )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    #[allow(deprecated)]
     #[instrument]
     async fn broadcast_queue() {
         setup_logging();
@@ -685,12 +730,12 @@ mod tests {
                 .await
                 .expect("Failed to message node");
             let recv_message = network2
-                .next_broadcast()
+                .recv_msg(TransmitType::Broadcast)
                 .await
                 .expect("Failed to receive message");
             fake_message_eq(sent_message.clone(), recv_message);
             let recv_message = network1
-                .next_broadcast()
+                .recv_msg(TransmitType::Broadcast)
                 .await
                 .expect("Failed to receive message");
             fake_message_eq(sent_message, recv_message);
@@ -706,12 +751,12 @@ mod tests {
                 .await
                 .expect("Failed to message node");
             let recv_message = network1
-                .next_broadcast()
+                .recv_msg(TransmitType::Broadcast)
                 .await
                 .expect("Failed to receive message");
             fake_message_eq(sent_message.clone(), recv_message);
             let recv_message = network2
-                .next_broadcast()
+                .recv_msg(TransmitType::Broadcast)
                 .await
                 .expect("Failed to receive message");
             fake_message_eq(sent_message.clone(), recv_message);
@@ -723,6 +768,7 @@ mod tests {
     )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     #[instrument]
+    #[allow(deprecated)]
     async fn test_in_flight_message_count() {
         setup_logging();
 
@@ -756,11 +802,11 @@ mod tests {
         }
 
         for count in (0..messages.len()).rev() {
-            network1.next_broadcast().await.unwrap();
+            network1.recv_msg(TransmitType::Broadcast).await.unwrap();
             assert_eq!(network1.in_flight_message_count(), Some(count));
 
-            network2.next_broadcast().await.unwrap();
-            network2.next_direct().await.unwrap();
+            network2.recv_msg(TransmitType::Broadcast).await.unwrap();
+            network2.recv_msg(TransmitType::Direct).await.unwrap();
             assert_eq!(network2.in_flight_message_count(), Some(count * 2));
         }
 

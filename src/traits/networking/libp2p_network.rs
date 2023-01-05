@@ -18,7 +18,7 @@ use hotshot_types::{
         metrics::{Metrics, NoMetrics},
         network::{
             FailedToSerializeSnafu, NetworkChange, NetworkError, NetworkingImplementation,
-            TestableNetworkingImplementation,
+            TestableNetworkingImplementation, TransmitType,
         },
         node_implementation::NodeTypes,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -438,6 +438,63 @@ impl<TYPES: NodeTypes> Libp2pNetwork<TYPES> {
 
 #[async_trait]
 impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> {
+    #[instrument(name = "Libp2pNetwork::next_msg", skip_all)]
+    async fn recv_msg(&self, transmit_type: TransmitType) -> Result<Message<TYPES>, NetworkError> {
+        if self.inner.handle.is_killed() {
+            Err(NetworkError::ShutDown)
+        } else {
+            let msgs = match transmit_type {
+                TransmitType::Direct => self
+                    .inner
+                    .direct_recv
+                    .recv()
+                    .await
+                    .map_err(|_| NetworkError::ShutDown)?,
+                TransmitType::Broadcast => self
+                    .inner
+                    .broadcast_recv
+                    .recv()
+                    .await
+                    .map_err(|_| NetworkError::ShutDown)?,
+            };
+            self.inner.metrics.incoming_message_count.add(1);
+            Ok(msgs)
+        }
+    }
+
+    #[instrument(name = "Libp2pNetwork::next_msgs", skip_all)]
+    async fn recv_msgs(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Vec<Message<TYPES>>, NetworkError> {
+        if self.inner.handle.is_killed() {
+            Err(NetworkError::ShutDown)
+        } else {
+            match transmit_type {
+                TransmitType::Direct => {
+                    let result = self
+                        .inner
+                        .direct_recv
+                        .drain_at_least_one()
+                        .await
+                        .map_err(|_x| NetworkError::ShutDown)?;
+                    self.inner.metrics.incoming_message_count.add(result.len());
+                    Ok(result)
+                }
+                TransmitType::Broadcast => {
+                    let result = self
+                        .inner
+                        .broadcast_recv
+                        .drain_at_least_one()
+                        .await
+                        .map_err(|_x| NetworkError::ShutDown)?;
+                    self.inner.metrics.incoming_message_count.add(result.len());
+                    Ok(result)
+                }
+            }
+        }
+    }
+
     #[instrument(name = "Libp2pNetwork::ready", skip_all)]
     async fn ready(&self) -> bool {
         self.wait_for_ready().await;
@@ -536,38 +593,6 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for Libp2pNetwork<TYPES> 
                 self.inner.metrics.message_failed_to_send.add(1);
                 Err(e.into())
             }
-        }
-    }
-
-    #[instrument(name = "Libp2pNetwork::next_broadcast", skip_all)]
-    async fn next_broadcast(&self) -> Result<Message<TYPES>, NetworkError> {
-        if self.inner.handle.is_killed() {
-            Err(NetworkError::ShutDown)
-        } else {
-            let result = self
-                .inner
-                .broadcast_recv
-                .recv()
-                .await
-                .map_err(|_| NetworkError::ShutDown)?;
-            self.inner.metrics.incoming_message_count.add(1);
-            Ok(result)
-        }
-    }
-
-    #[instrument(name = "Libp2pNetwork::next_direct", skip_all)]
-    async fn next_direct(&self) -> Result<Message<TYPES>, NetworkError> {
-        if self.inner.handle.is_killed() {
-            Err(NetworkError::ShutDown)
-        } else {
-            let result = self
-                .inner
-                .direct_recv
-                .recv()
-                .await
-                .map_err(|_| NetworkError::ShutDown)?;
-            self.inner.metrics.incoming_message_count.add(1);
-            Ok(result)
         }
     }
 

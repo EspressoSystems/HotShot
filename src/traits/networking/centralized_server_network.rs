@@ -11,9 +11,9 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 
 use async_compatibility_layer::{
     art::{async_block_on, async_sleep, async_spawn, split_stream},
-    channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender, OneShotReceiver, OneShotRecvError},
+    channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
 };
-use async_lock::{RwLock, RwLockUpgradableReadGuard, Mutex, MutexGuardArc, MutexGuard};
+use async_lock::{Mutex, MutexGuardArc, RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
 use bincode::Options;
 use futures::{future::BoxFuture, FutureExt};
@@ -28,7 +28,7 @@ use hotshot_types::{
         network::{
             CentralizedServerNetworkError, FailedToDeserializeSnafu, FailedToSerializeSnafu,
             NetworkChange, NetworkError, NetworkingImplementation,
-            TestableNetworkingImplementation,
+            TestableNetworkingImplementation, TransmitType,
         },
         node_implementation::NodeTypes,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
@@ -46,9 +46,9 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    time::Duration, pin::Pin,
+    time::Duration,
 };
-use tracing::error;
+use tracing::{error, instrument};
 
 use super::NetworkingMetrics;
 
@@ -97,7 +97,7 @@ struct Inner<TYPES: NodeTypes> {
     /// used to notify async tasks.
     kill_lock: Arc<Mutex<()>>,
     /// the acquired locked. Owned for the duration of the network's run
-    kill_guard: Mutex<Option<MutexGuardArc<()>>>
+    kill_guard: Mutex<Option<MutexGuardArc<()>>>,
 }
 
 /// Internal implementation detail; effectively allows interleaved streams to each behave as a state machine
@@ -537,18 +537,18 @@ impl<TYPES: NodeTypes> Inner<TYPES> {
                             context.get_mut().accumulated_stream.append(&mut payload.clone());
                             match context.get().accumulated_stream.len().cmp(&(context.get().message_len as usize)) {
                                 cmp::Ordering::Less => {
-                                MsgStepOutcome::Continue
+                                    MsgStepOutcome::Continue
                                 }
                                 cmp::Ordering::Greater => {
-                                tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b",context.get().message_len, context.get().accumulated_stream.len());
-                                context.remove_entry();
-                                MsgStepOutcome::Skip
+                                    tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b",context.get().message_len, context.get().accumulated_stream.len());
+                                    context.remove_entry();
+                                    MsgStepOutcome::Skip
                                 }
                                 cmp::Ordering::Equal => {
-                            let (_, context) = context.remove_entry();
-                                MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream))
+                                    let (_, context) = context.remove_entry();
+                                    MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream))
+                                }
                             }
-                        }
                         }
                     } else {
                         tracing::error!("FromServer::BroadcastPayload found, but no incomplete FromServer::Broadcast exists");
@@ -610,18 +610,18 @@ impl<TYPES: NodeTypes> Inner<TYPES> {
                             context.get_mut().accumulated_stream.append(&mut payload.clone());
                             match context.get().accumulated_stream.len().cmp(&(context.get().message_len as usize)) {
                                 cmp::Ordering::Less => {
-                                MsgStepOutcome::Continue
+                                    MsgStepOutcome::Continue
                                 }
                                 cmp::Ordering::Greater => {
-                                let (_, context) = context.remove_entry();
-                                tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b", context.message_len, context.accumulated_stream.len());
-                                MsgStepOutcome::Skip
+                                    let (_, context) = context.remove_entry();
+                                    tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b", context.message_len, context.accumulated_stream.len());
+                                    MsgStepOutcome::Skip
                                 }
                                 cmp::Ordering::Equal => {
-                                let (_, context) = context.remove_entry();
-                                MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream).context(FailedToDeserializeSnafu))
+                                    let (_, context) = context.remove_entry();
+                                    MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream).context(FailedToDeserializeSnafu))
+                                }
                             }
-                        }
                         }
                     } else {
                         tracing::error!("FromServer::BroadcastPayload found, but no incomplete FromServer::Broadcast exists");
@@ -823,7 +823,6 @@ impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
         let kill_guard = kill_lock.try_lock_arc().unwrap();
 
         let inner = Arc::new(Inner {
-
             own_key: key.clone(),
             connected: AtomicBool::new(false),
             running: AtomicBool::new(true),
@@ -851,7 +850,7 @@ impl<TYPES: NodeTypes> CentralizedServerNetwork<TYPES> {
                         &mut to_background,
                         from_background_sender.clone(),
                         Arc::clone(&inner),
-                        kill_lock.clone()
+                        kill_lock.clone(),
                     )
                     .await
                     {
@@ -895,7 +894,7 @@ async fn run_background<TYPES: NodeTypes>(
         Vec<u8>,
     )>,
     connection: Arc<Inner<TYPES>>,
-    kill_lock: Arc<Mutex<()>>
+    kill_lock: Arc<Mutex<()>>,
 ) -> Result<(), Error> {
     // send identify
     send_stream
@@ -916,7 +915,12 @@ async fn run_background<TYPES: NodeTypes>(
     }
 
     let send_handle = run_background_send(send_stream, to_background, kill_lock.clone());
-    let recv_handle = run_background_recv(recv_stream, from_background_sender, connection, kill_lock.clone());
+    let recv_handle = run_background_recv(
+        recv_stream,
+        from_background_sender,
+        connection,
+        kill_lock.clone(),
+    );
 
     futures::future::try_join(send_handle, recv_handle)
         .await
@@ -929,8 +933,8 @@ async fn run_background<TYPES: NodeTypes>(
 async fn run_background_send<K: SignatureKey>(
     mut stream: TcpStreamSendUtil,
     to_background: &mut UnboundedReceiver<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
-    kill_lock: Arc<Mutex<()>>
-    ) -> Result<(), Error> {
+    kill_lock: Arc<Mutex<()>>,
+) -> Result<(), Error> {
     let mut fut = kill_lock.lock().boxed().fuse();
     loop {
         futures::select! {
@@ -1080,6 +1084,7 @@ impl From<hotshot_centralized_server::Error> for Error {
 
 #[async_trait]
 impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetwork<TYPES> {
+    #[instrument(name = "CentralizedServer::ready", skip_all)]
     async fn ready(&self) -> bool {
         while !self.inner.connected.load(Ordering::Relaxed) {
             async_sleep(Duration::from_secs(1)).await;
@@ -1087,6 +1092,38 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
         true
     }
 
+    #[instrument(name = "CentralizedServer::next_msg", skip_all)]
+    async fn recv_msg(&self, transmit_type: TransmitType) -> Result<Message<TYPES>, NetworkError> {
+        match transmit_type {
+            TransmitType::Direct => self.inner.get_next_direct_message().await,
+            TransmitType::Broadcast => self.inner.get_next_broadcast().await,
+        }
+    }
+
+    #[instrument(name = "CentralizedServer::next_msgs", skip_all)]
+    async fn recv_msgs(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Vec<Message<TYPES>>, NetworkError> {
+        match transmit_type {
+            TransmitType::Direct => self
+                .inner
+                .get_direct_messages()
+                .await
+                .into_iter()
+                .collect::<Result<Vec<_>, _>>()
+                .context(FailedToDeserializeSnafu),
+            TransmitType::Broadcast => self
+                .inner
+                .get_broadcasts()
+                .await
+                .into_iter()
+                .collect::<Result<Vec<_>, _>>()
+                .context(FailedToDeserializeSnafu),
+        }
+    }
+
+    #[instrument(name = "CentralizedServer::broadcast_message", skip_all)]
     async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
         self.inner
             .broadcast(
@@ -1098,6 +1135,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
         Ok(())
     }
 
+    #[instrument(name = "CentralizedServer::message_node", skip_all)]
     async fn message_node(
         &self,
         message: Message<TYPES>,
@@ -1114,37 +1152,31 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
         Ok(())
     }
 
-    async fn next_broadcast(&self) -> Result<Message<TYPES>, NetworkError> {
-        self.inner.get_next_broadcast().await
-    }
-
-    async fn next_direct(&self) -> Result<Message<TYPES>, NetworkError> {
-        self.inner.get_next_direct_message().await
-    }
-
+    #[instrument(name = "CentralizedServer::known_nodes", skip_all)]
     async fn known_nodes(&self) -> Vec<TYPES::SignatureKey> {
         self.inner.known_nodes.clone()
     }
 
+    #[instrument(name = "CentralizedServer::network_changes", skip_all)]
     async fn network_changes(
         &self,
     ) -> Result<Vec<NetworkChange<TYPES::SignatureKey>>, NetworkError> {
         Ok(self.inner.get_network_changes().await)
     }
 
+    #[instrument(name = "CentralizedServer::shut_down", skip_all)]
     async fn shut_down(&self) {
         error!("SHUTTING DOWN CENTRALIZED SERVER");
         self.inner.running.store(false, Ordering::Relaxed);
         match self.inner.kill_guard.lock().await.take() {
             None => {
                 error!("Shutting down centralized server, but tasks already shut down.");
-            },
-            Some(guard) => {
-                drop(guard)
             }
+            Some(guard) => drop(guard),
         }
     }
 
+    #[instrument(name = "CentralizedServer::put_record", skip_all)]
     async fn put_record(
         &self,
         _key: impl serde::Serialize + Send + Sync + 'static,
@@ -1153,6 +1185,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
         Err(NetworkError::UnimplementedFeature)
     }
 
+    #[instrument(name = "CentralizedServer::get_record", skip_all)]
     async fn get_record<V: for<'a> serde::Deserialize<'a>>(
         &self,
         _key: impl serde::Serialize + Send + Sync + 'static,
@@ -1160,6 +1193,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedServerNetw
         Err(NetworkError::UnimplementedFeature)
     }
 
+    #[instrument(name = "CentralizedServer::notify_of_subsequent_leader", skip_all)]
     async fn notify_of_subsequent_leader(
         &self,
         _pk: TYPES::SignatureKey,
