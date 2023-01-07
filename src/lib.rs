@@ -43,7 +43,7 @@ use crate::{
     certificate::QuorumCertificate,
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
-    Checked::{Inval, Unchecked, Valid},
+    Checked::Unchecked,
 };
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
@@ -995,30 +995,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     }
 
     #[instrument(skip(self, qc))]
-    fn validate_qc(&self, qc: &<I::Leaf as LeafType>::QuorumCertificate) -> bool {
-        if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
-            return true;
-        }
-        let hash = qc.leaf_commitment();
-
-        let stake = qc
-            .signatures()
-            .iter()
-            .filter(|signature| {
-                self.is_valid_signature(
-                    signature.0,
-                    &signature.1 .0,
-                    hash,
-                    qc.view_number(),
-                    Unchecked(signature.1 .1.clone()),
-                )
-            })
-            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
-
-        if stake >= u64::from(self.threshold()) {
-            return true;
-        }
-        false
+    fn is_valid_qc(&self, qc: &<I::Leaf as LeafType>::QuorumCertificate) -> bool {
+        self.inner.election.is_valid_qc(qc)
     }
 
     fn is_valid_signature(
@@ -1029,24 +1007,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
-        let mut is_valid_vote_token = false;
-        let mut is_valid_signature = false;
-        if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
-            is_valid_signature = key.validate(encoded_signature, hash.as_ref());
-            let valid_vote_token =
-                self.inner
-                    .election
-                    .validate_vote_token(view_number, key, vote_token);
-            is_valid_vote_token = match valid_vote_token {
-                Err(_) => {
-                    error!("Vote token was invalid");
-                    false
-                }
-                Ok(Valid(_)) => true,
-                Ok(Inval(_) | Unchecked(_)) => false,
-            };
-        }
-        is_valid_signature && is_valid_vote_token
+        self.inner.election.is_valid_signature(
+            encoded_key,
+            encoded_signature,
+            hash,
+            view_number,
+            vote_token,
+        )
     }
 
     async fn store_leaf(

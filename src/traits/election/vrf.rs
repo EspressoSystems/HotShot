@@ -461,39 +461,6 @@ where
 
     type LeafType = LEAF;
 
-    fn is_valid_qc(&self, _qc: &Self::QuorumCertificate) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
-    fn is_valid_dac(&self, _qc: Self::DACertificate) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
-    fn is_valid_qc_signature(
-        &self,
-        _encoded_key: &EncodedPublicKey,
-        _encoded_signature: &EncodedSignature,
-        _hash: Commitment<Self::LeafType>,
-        _view_number: TYPES::Time,
-        _vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
-    fn is_valid_dac_signature(
-        &self,
-        _encoded_key: &EncodedPublicKey,
-        _encoded_signature: &EncodedSignature,
-        _view_number: TYPES::Time,
-        _vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
     // FIXED STAKE
     // just return the state
     fn get_stake_table(

@@ -148,7 +148,7 @@ pub struct CommitmentProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
     pub justify_qc: ELECTION::QuorumCertificate,
 
     /// Data availibity certificate
-    pub availability_certificate: ELECTION::DACertificate,
+    pub dac: ELECTION::DACertificate,
 
     /// parent commitment alrady in justify_qqc
 

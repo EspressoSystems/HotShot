@@ -127,7 +127,7 @@ where
                         }
 
                         // check that the justify_qc is valid
-                        if !self.api.validate_qc(&justify_qc) {
+                        if !self.api.is_valid_qc(&justify_qc) {
                             invalid_qcs += 1;
                             warn!("Invalid justify_qc in proposal! Skipping proposal.");
                             continue;

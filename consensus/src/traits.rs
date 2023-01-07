@@ -173,9 +173,11 @@ pub trait ConsensusApi<
         signature
     }
 
-    /// Validate a quorum certificate by checking
-    /// signatures
-    fn validate_qc(&self, quorum_certificate: &LEAF::QuorumCertificate) -> bool;
+    /// Validate a quorum certificate by checking signatures.
+    fn is_valid_qc(&self, quorum_certificate: &LEAF::QuorumCertificate) -> bool;
+
+    /// Validate a data availability certificate by checking signatures.
+    fn is_valid_dac(&self, quorum_certificate: &LEAF::DACertificate) -> bool;
 
     /// Check if a signature is valid
     fn is_valid_signature(

@@ -4,8 +4,13 @@
 
 use super::node_implementation::NodeType;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
-use crate::data::LeafType;
-use crate::traits::signature_key::SignatureKey;
+use crate::{
+    data::LeafType,
+    traits::{
+        election::Checked::{Inval, Unchecked, Valid},
+        signature_key::SignatureKey,
+    },
+};
 use commit::{Commitment, Committable};
 use either::Either;
 use serde::Deserialize;
@@ -15,6 +20,7 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::num::NonZeroU64;
+use tracing::error;
 
 /// Error for election problems
 #[derive(Snafu, Debug)]
@@ -133,29 +139,60 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
     type LeafType: LeafType<NodeType = TYPES, QuorumCertificate = Self::QuorumCertificate>;
 
     /// check that the quorum certificate is valid
-    fn is_valid_qc(&self, qc: &<Self::LeafType as LeafType>::QuorumCertificate) -> bool;
+    fn is_valid_qc(&self, qc: &<Self::LeafType as LeafType>::QuorumCertificate) -> bool {
+        if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
+            return true;
+        }
+        let hash = qc.leaf_commitment();
+
+        let stake = qc
+            .signatures()
+            .iter()
+            .filter(|signature| {
+                self.is_valid_signature(
+                    signature.0,
+                    &signature.1 .0,
+                    hash,
+                    qc.view_number(),
+                    Unchecked(signature.1 .1.clone()),
+                )
+            })
+            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
+
+        if stake >= u64::from(self.threshold()) {
+            return true;
+        }
+        false
+    }
 
     /// check that the data availability certificate is valid
     fn is_valid_dac(&self, qc: <Self::LeafType as LeafType>::DACertificate) -> bool;
 
-    /// confirm that a quorum certificate signature is valid
-    fn is_valid_qc_signature(
+    /// Confirm that a signature, for QC or DAC, is valid.
+    fn is_valid_signature(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
         hash: Commitment<Self::LeafType>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool;
-
-    /// confirm that a data availability signature is valid
-    fn is_valid_dac_signature(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool;
+    ) -> bool {
+        let mut is_valid_vote_token = false;
+        let mut is_valid_signature = false;
+        if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
+            is_valid_signature = key.validate(encoded_signature, hash.as_ref());
+            let valid_vote_token = self.validate_vote_token(view_number, key, vote_token);
+            is_valid_vote_token = match valid_vote_token {
+                Err(_) => {
+                    error!("Vote token was invalid");
+                    false
+                }
+                Ok(Valid(_)) => true,
+                Ok(Inval(_) | Unchecked(_)) => false,
+            };
+        }
+        is_valid_signature && is_valid_vote_token
+    }
 
     /// generate a default election configuration
     fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType;
@@ -197,7 +234,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError>;
 
     /// Returns the threshold for a specific `Election` implementation
-    fn get_threshold(&self) -> NonZeroU64;
+    fn threshold(&self) -> NonZeroU64;
 }
 
 /// Testable implementation of an [`Election`]. Will expose a method to generate a vote token used for testing.
