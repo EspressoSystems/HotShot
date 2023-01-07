@@ -9,6 +9,7 @@ use crate::{
     traits::{
         election::Checked::{Inval, Unchecked, Valid},
         signature_key::SignatureKey,
+        state::ConsensusTime,
     },
 };
 use commit::{Commitment, Committable};
@@ -150,7 +151,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             .signatures()
             .iter()
             .filter(|signature| {
-                self.is_valid_signature(
+                self.is_valid_qc_signature(
                     signature.0,
                     &signature.1 .0,
                     hash,
@@ -167,10 +168,33 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
     }
 
     /// check that the data availability certificate is valid
-    fn is_valid_dac(&self, qc: <Self::LeafType as LeafType>::DACertificate) -> bool;
+    fn is_valid_dac(
+        &self,
+        dac: &<Self::LeafType as LeafType>::DACertificate,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> bool {
+        let stake = dac
+            .signatures()
+            .iter()
+            .filter(|signature| {
+                self.is_valid_dac_signature(
+                    signature.0,
+                    &signature.1 .0,
+                    block_commitment,
+                    dac.view_number(),
+                    Unchecked(signature.1 .1.clone()),
+                )
+            })
+            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
 
-    /// Confirm that a signature, for QC or DAC, is valid.
-    fn is_valid_signature(
+        if stake >= u64::from(self.threshold()) {
+            return true;
+        }
+        false
+    }
+
+    /// Confirm that a signature for QC and its vote token are valid.
+    fn is_valid_qc_signature(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
@@ -185,7 +209,33 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             let valid_vote_token = self.validate_vote_token(view_number, key, vote_token);
             is_valid_vote_token = match valid_vote_token {
                 Err(_) => {
-                    error!("Vote token was invalid");
+                    error!("Vote token for QC was invalid");
+                    false
+                }
+                Ok(Valid(_)) => true,
+                Ok(Inval(_) | Unchecked(_)) => false,
+            };
+        }
+        is_valid_signature && is_valid_vote_token
+    }
+
+    /// Confirm that a signature for DAC and its vote token are valid.
+    fn is_valid_dac_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        hash: Commitment<TYPES::BlockType>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        let mut is_valid_vote_token = false;
+        let mut is_valid_signature = false;
+        if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
+            is_valid_signature = key.validate(encoded_signature, hash.as_ref());
+            let valid_vote_token = self.validate_vote_token(view_number, key, vote_token);
+            is_valid_vote_token = match valid_vote_token {
+                Err(_) => {
+                    error!("Vote token for DAC was invalid");
                     false
                 }
                 Ok(Valid(_)) => true,

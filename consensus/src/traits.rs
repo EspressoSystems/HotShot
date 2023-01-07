@@ -174,17 +174,31 @@ pub trait ConsensusApi<
     }
 
     /// Validate a quorum certificate by checking signatures.
-    fn is_valid_qc(&self, quorum_certificate: &LEAF::QuorumCertificate) -> bool;
+    fn is_valid_qc(&self, qc: &LEAF::QuorumCertificate) -> bool;
 
     /// Validate a data availability certificate by checking signatures.
-    fn is_valid_dac(&self, quorum_certificate: &LEAF::DACertificate) -> bool;
+    fn is_valid_dac(
+        &self,
+        dac: &LEAF::DACertificate,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> bool;
 
-    /// Check if a signature is valid
-    fn is_valid_signature(
+    /// Check if a signature for QC is valid.
+    fn is_valid_qc_signature(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
         hash: Commitment<LEAF>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool;
+
+    /// Check if signature for DAC is valid.
+    fn is_valid_dac_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        hash: Commitment<TYPES::BlockType>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool;

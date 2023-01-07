@@ -99,7 +99,7 @@ where
                     // assume it's sent by byzantine node
                     // and ignore
 
-                    if !self.api.is_valid_signature(
+                    if !self.api.is_valid_qc_signature(
                         &vote.signature.0,
                         &vote.signature.1,
                         vote.leaf_commitment,

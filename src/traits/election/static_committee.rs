@@ -11,7 +11,6 @@ use hotshot_types::{
 };
 use jf_primitives::signatures::BLSSignatureScheme;
 #[allow(deprecated)]
-use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
@@ -153,7 +152,7 @@ where
         }
     }
 
-    fn get_threshold(&self) -> NonZeroU64 {
+    fn threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((self.nodes.len() as u64 * 2) / 3) + 1).unwrap()
     }
 }

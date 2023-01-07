@@ -26,7 +26,6 @@ use jf_primitives::{
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
 #[allow(deprecated)]
-use nll::nll_todo::nll_todo;
 use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
@@ -591,7 +590,7 @@ where
         }
     }
 
-    fn get_threshold(&self) -> NonZeroU64 {
+    fn threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((u64::from(self.sortition_parameter) * 2) / 3) + 1).unwrap()
     }
 }

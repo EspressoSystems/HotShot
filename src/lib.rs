@@ -43,7 +43,6 @@ use crate::{
     certificate::QuorumCertificate,
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
-    Checked::Unchecked,
 };
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
@@ -66,7 +65,7 @@ use hotshot_types::{
     traits::{
         election::{
             Checked::{self},
-            Election, ElectionError, SignedCertificate, VoteToken,
+            Election, ElectionError, SignedCertificate,
         },
         metrics::Metrics,
         network::{NetworkChange, NetworkError},
@@ -900,7 +899,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     }
 
     fn threshold(&self) -> NonZeroU64 {
-        self.inner.election.get_threshold()
+        self.inner.election.threshold()
     }
 
     fn propose_min_round_time(&self) -> Duration {
@@ -999,7 +998,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         self.inner.election.is_valid_qc(qc)
     }
 
-    fn is_valid_signature(
+    fn is_valid_dac(
+        &self,
+        dac: &<I::Leaf as LeafType>::DACertificate,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> bool {
+        self.inner.election.is_valid_dac(dac, block_commitment)
+    }
+
+    fn is_valid_qc_signature(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
@@ -1007,7 +1014,24 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
-        self.inner.election.is_valid_signature(
+        self.inner.election.is_valid_qc_signature(
+            encoded_key,
+            encoded_signature,
+            hash,
+            view_number,
+            vote_token,
+        )
+    }
+
+    fn is_valid_dac_signature(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        hash: Commitment<TYPES::BlockType>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        self.inner.election.is_valid_dac_signature(
             encoded_key,
             encoded_signature,
             hash,
