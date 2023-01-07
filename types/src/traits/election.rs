@@ -121,6 +121,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         + Clone
         + Debug
         + Eq
+        + Hash
         + PartialEq;
 
     /// certificate for data availability

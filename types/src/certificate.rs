@@ -50,7 +50,6 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     /// TODO (da) we need to check
     ///   - parent QC PROPOSAL
     ///   - somehow make this semantically equivalent to what is currently `Leaf`
-    /// Is this needed, given the proposal also contain this?
     #[debug(skip)]
     pub leaf_commitment: Commitment<LEAF>,
 

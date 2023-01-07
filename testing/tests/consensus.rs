@@ -13,7 +13,10 @@ use futures::{
     future::{join_all, LocalBoxFuture},
     FutureExt,
 };
-use hotshot::{demos::dentry::random_validating_leaf, traits::election::vrf::VrfImpl, types::Vote};
+use hotshot::{
+    certificate::QuorumCertificate, demos::dentry::random_validating_leaf,
+    traits::election::vrf::VrfImpl, types::Vote,
+};
 use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
@@ -70,7 +73,11 @@ where
 /// Builds and submits a random proposal for the specified view number
 async fn submit_validating_proposal<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + Debug,
+    ELECTION: Election<
+            TYPES,
+            LeafType = ValidatingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        > + Debug,
 >(
     runner: &AppliedTestRunner<
         TYPES,
@@ -300,7 +307,11 @@ where
 /// Submits proposals for 0..NUM_VIEWS rounds where `node_id` is the leader
 fn test_validating_proposal_queueing_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + Debug,
+    ELECTION: Election<
+            TYPES,
+            LeafType = ValidatingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        > + Debug,
 >(
     runner: &mut AppliedTestRunner<
         TYPES,
@@ -331,7 +342,11 @@ where
 /// Submits proposals for views where `node_id` is not the leader, and submits multiple proposals for views where `node_id` is the leader
 fn test_bad_validating_proposal_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + Debug,
+    ELECTION: Election<
+            TYPES,
+            LeafType = ValidatingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        > + Debug,
 >(
     runner: &mut AppliedTestRunner<
         TYPES,
