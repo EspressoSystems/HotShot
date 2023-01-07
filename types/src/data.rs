@@ -26,7 +26,7 @@ use espresso_systems_common::hotshot::tag;
 use nll::nll_todo::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -102,7 +102,7 @@ where
     pub height: u64,
 
     /// Per spec, justification
-    pub justify_qc: QuorumCertificate<TYPES, ELECTION::LeafType>,
+    pub justify_qc: ELECTION::QuorumCertificate,
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
@@ -227,8 +227,10 @@ pub trait LeafType:
             <Self::NodeType as NodeType>::Time,
             <Self::NodeType as NodeType>::VoteTokenType,
             Self,
-        > + Debug
+        > + Committable
+        + Debug
         + Eq
+        + Hash
         + PartialEq
         + Send;
     type DACertificate: SignedCertificate<
@@ -595,8 +597,14 @@ impl<TYPES: NodeType> Committable for DALeaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeType, ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>>
-    From<ValidatingLeaf<TYPES>> for ValidatingProposal<TYPES, ELECTION>
+impl<
+        TYPES: NodeType,
+        ELECTION: Election<
+            TYPES,
+            LeafType = ValidatingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        >,
+    > From<ValidatingLeaf<TYPES>> for ValidatingProposal<TYPES, ELECTION>
 where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,

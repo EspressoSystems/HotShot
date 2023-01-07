@@ -4,7 +4,6 @@
 //! `HotShot` nodes can send among themselves.
 
 use crate::{
-    certificate::QuorumCertificate,
     data::{LeafType, ProposalType},
     traits::{
         node_implementation::NodeType,
@@ -158,7 +157,7 @@ pub struct TimedOut<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The current view
     pub current_view: TYPES::Time,
     /// The justification qc for this view
-    pub justify_qc: QuorumCertificate<TYPES, LEAF>,
+    pub justify_qc: LEAF::QuorumCertificate,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -183,7 +182,7 @@ pub struct Vote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// TODO we should remove this
     /// this is correct, but highly inefficient
     /// we should check a cache, and if that fails request the qc
-    pub justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
+    pub justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a Vec<u8>
     pub signature: (EncodedPublicKey, EncodedSignature),
