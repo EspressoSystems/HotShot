@@ -7,7 +7,7 @@ FORMAT_VERSION = "0.1.0"
 [route.getconfig]
 PATH = ["config"]
 DOC = """
-Get HotShot configuration needed for nodes to initialize HotShot
+Get NetworkConfig configuration needed for nodes to initialize HotShot and themselves. See `config.rs` for more information
 """
 
 # POST whether the node is ready to begin the run
