@@ -3,25 +3,34 @@ NAME = "orchestrator"
 DESCRIPTION = "Orchestrator for HotShot"
 FORMAT_VERSION = "0.1.0"
 
-# POST the network config
-# TODO ED FIX!
+# GET the network configuration
 [route.getconfig]
 PATH = ["config"]
-METHOD = "POST"
 DOC = """
-Get HotShot configuration file.
+Get HotShot configuration needed for nodes to initialize HotShot
+"""
+
+# POST whether the node is ready to begin the run
+[route.postready]
+PATH = ["ready"]
+METHOD = "POST"
+":node_index" = "Integer"
+DOC = """
+Post whether the node with node_index is ready to start the run.
 """
 
 # GET whether or not to start the run
-[route.start]
+[route.getstart]
 PATH = ["start"]
 DOC = """
-Get whether to start the run 
+Get whether the node should start the run, returns a boolean
 """
 
 # POST the run results
 [route.results]
 PATH = ["results"]
+":run_results" = "TaggedBase64"
+METHOD = "POST"
 DOC = """
 Post run results.
 """
