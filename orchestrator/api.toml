@@ -1,0 +1,27 @@
+[meta]
+NAME = "orchestrator"
+DESCRIPTION = "Orchestrator for HotShot"
+FORMAT_VERSION = "0.1.0"
+
+# POST the network config
+# TODO ED FIX!
+[route.getconfig]
+PATH = ["config"]
+METHOD = "POST"
+DOC = """
+Get HotShot configuration file.
+"""
+
+# GET whether or not to start the run
+[route.start]
+PATH = ["start"]
+DOC = """
+Get whether to start the run 
+"""
+
+# POST the run results
+[route.results]
+PATH = ["results"]
+DOC = """
+Post run results.
+"""

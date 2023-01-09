@@ -88,6 +88,10 @@ required-features = ["bin-orchestrator"]
 name = "orchestrator-vrf"
 required-features = ["bin-orchestrator"]
 
+[[bin]]
+name = "orchestrator-standalone"
+required-features = ["bin-orchestrator"]
+
 [[web-server]]
 name = "centralized_web_server"
 required-features = [""]
@@ -116,6 +120,7 @@ embed-doc-image = "0.1.4"
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.3.0" }
 futures = "0.3.25"
 hotshot-centralized-server = { version = "0.1.1", path = "centralized_server", default-features = false }
+hotshot-orchestrator = { version = "0.1.1", path = "orchestrator", default-features = false }
 hotshot-centralized-web-server = { version = "0.1.1", path = "centralized_web_server", default-features = false }
 hotshot-consensus = { path = "./consensus", version = "0.1.0", default-features = false }
 hotshot-types = { path = "./types", version = "0.1.0", default-features = false }

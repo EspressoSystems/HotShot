@@ -2382,6 +2382,7 @@ dependencies = [
  "hotshot-centralized-server",
  "hotshot-centralized-web-server",
  "hotshot-consensus",
+ "hotshot-orchestrator",
  "hotshot-types",
  "hotshot-utils",
  "itertools 0.10.5",
@@ -2473,6 +2474,33 @@ dependencies = [
  "snafu",
  "time 0.3.17",
  "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "hotshot-orchestrator"
+version = "0.1.1"
+dependencies = [
+ "async-compatibility-layer",
+ "async-lock",
+ "async-std",
+ "async-trait",
+ "bincode",
+ "clap 4.0.29",
+ "commit 0.1.0",
+ "futures",
+ "hotshot-types",
+ "hotshot-utils",
+ "libp2p-core",
+ "nll",
+ "portpicker",
+ "serde",
+ "serde_json",
+ "snafu",
+ "surf-disco",
+ "tide-disco",
+ "tokio",
+ "toml",
  "tracing",
 ]
 

@@ -1,6 +1,6 @@
-pub use crate::runs::RoundConfig;
+// pub use crate::runs::RoundConfig;
 
-use crate::Run;
+// use crate::Run;
 use hotshot_types::{ExecutionType, HotShotConfig};
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
@@ -8,59 +8,59 @@ use std::{
     time::Duration,
 };
 
-pub struct ClientConfig<K, E> {
-    pub run: Run,
-    pub config: NetworkConfig<K, E>,
-}
+// pub struct ClientConfig<K, E> {
+//     pub run: Run,
+//     pub config: NetworkConfig<K, E>,
+// }
 
-impl<K, E> Default for ClientConfig<K, E> {
-    fn default() -> Self {
-        Self {
-            run: Run(0),
-            config: NetworkConfig::default(),
-        }
-    }
-}
+// impl<K, E> Default for ClientConfig<K, E> {
+//     fn default() -> Self {
+//         Self {
+//             run: Run(0),
+//             config: NetworkConfig::default(),
+//         }
+//     }
+// }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct Libp2pConfig {
-    pub run: Run,
-    pub bootstrap_nodes: Vec<(SocketAddr, Vec<u8>)>,
-    pub public_ip: IpAddr,
-    pub base_port: u16,
-    pub node_index: u64,
-    pub bootstrap_mesh_n_high: usize,
-    pub bootstrap_mesh_n_low: usize,
-    pub bootstrap_mesh_outbound_min: usize,
-    pub bootstrap_mesh_n: usize,
-    pub mesh_n_high: usize,
-    pub mesh_n_low: usize,
-    pub mesh_outbound_min: usize,
-    pub mesh_n: usize,
-    pub next_view_timeout: u64,
-    pub propose_min_round_time: u64,
-    pub propose_max_round_time: u64,
-    pub online_time: u64,
-    pub num_txn_per_round: u64,
-}
+// #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+// pub struct Libp2pConfig {
+//     // pub run: Run,
+//     pub bootstrap_nodes: Vec<(SocketAddr, Vec<u8>)>,
+//     pub public_ip: IpAddr,
+//     pub base_port: u16,
+//     pub node_index: u64,
+//     pub bootstrap_mesh_n_high: usize,
+//     pub bootstrap_mesh_n_low: usize,
+//     pub bootstrap_mesh_outbound_min: usize,
+//     pub bootstrap_mesh_n: usize,
+//     pub mesh_n_high: usize,
+//     pub mesh_n_low: usize,
+//     pub mesh_outbound_min: usize,
+//     pub mesh_n: usize,
+//     pub next_view_timeout: u64,
+//     pub propose_min_round_time: u64,
+//     pub propose_max_round_time: u64,
+//     pub online_time: u64,
+//     pub num_txn_per_round: u64,
+// }
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct Libp2pConfigFile {
-    pub bootstrap_mesh_n_high: usize,
-    pub bootstrap_mesh_n_low: usize,
-    pub bootstrap_mesh_outbound_min: usize,
-    pub bootstrap_mesh_n: usize,
-    pub mesh_n_high: usize,
-    pub mesh_n_low: usize,
-    pub mesh_outbound_min: usize,
-    pub mesh_n: usize,
-    pub next_view_timeout: u64,
-    pub propose_min_round_time: u64,
-    pub propose_max_round_time: u64,
-    pub online_time: u64,
-    pub num_txn_per_round: u64,
-    pub base_port: u16,
-}
+// #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+// pub struct Libp2pConfigFile {
+//     pub bootstrap_mesh_n_high: usize,
+//     pub bootstrap_mesh_n_low: usize,
+//     pub bootstrap_mesh_outbound_min: usize,
+//     pub bootstrap_mesh_n: usize,
+//     pub mesh_n_high: usize,
+//     pub mesh_n_low: usize,
+//     pub mesh_outbound_min: usize,
+//     pub mesh_n: usize,
+//     pub next_view_timeout: u64,
+//     pub propose_min_round_time: u64,
+//     pub propose_max_round_time: u64,
+//     pub online_time: u64,
+//     pub num_txn_per_round: u64,
+//     pub base_port: u16,
+// }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct NetworkConfig<KEY, ELECTION> {
@@ -72,7 +72,7 @@ pub struct NetworkConfig<KEY, ELECTION> {
     pub start_delay_seconds: u64,
     pub key_type_name: String,
     pub election_config_type_name: String,
-    pub libp2p_config: Option<Libp2pConfig>,
+    // pub libp2p_config: Option<Libp2pConfig>,
     pub config: HotShotConfig<KEY, ELECTION>,
 }
 
@@ -84,7 +84,7 @@ impl<K, E> Default for NetworkConfig<K, E> {
             node_index: 0,
             seed: [0u8; 32],
             padding: default_padding(),
-            libp2p_config: None,
+            // libp2p_config: None,
             config: default_config().into(),
             start_delay_seconds: 60,
             key_type_name: std::any::type_name::<K>().to_string(),
@@ -107,8 +107,8 @@ pub struct NetworkConfigFile {
     pub padding: usize,
     #[serde(default = "default_start_delay_seconds")]
     pub start_delay_seconds: u64,
-    #[serde(default)]
-    pub libp2p_config: Option<Libp2pConfigFile>,
+    // #[serde(default)]
+    // pub libp2p_config: Option<Libp2pConfigFile>,
     #[serde(default = "default_config")]
     pub config: HotShotConfigFile,
 }
@@ -121,26 +121,26 @@ impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
             node_index: 0,
             seed: val.seed,
             padding: val.padding,
-            libp2p_config: val.libp2p_config.map(|libp2p_config| Libp2pConfig {
-                run: Run(0),
-                bootstrap_nodes: Vec::new(),
-                public_ip: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                base_port: libp2p_config.base_port,
-                node_index: 0,
-                bootstrap_mesh_n_high: libp2p_config.bootstrap_mesh_n_high,
-                bootstrap_mesh_n_low: libp2p_config.bootstrap_mesh_n_low,
-                bootstrap_mesh_outbound_min: libp2p_config.bootstrap_mesh_outbound_min,
-                bootstrap_mesh_n: libp2p_config.bootstrap_mesh_n,
-                mesh_n_high: libp2p_config.mesh_n_high,
-                mesh_n_low: libp2p_config.mesh_n_low,
-                mesh_outbound_min: libp2p_config.mesh_outbound_min,
-                mesh_n: libp2p_config.mesh_n,
-                next_view_timeout: libp2p_config.next_view_timeout,
-                propose_min_round_time: libp2p_config.propose_min_round_time,
-                propose_max_round_time: libp2p_config.propose_max_round_time,
-                online_time: libp2p_config.online_time,
-                num_txn_per_round: libp2p_config.num_txn_per_round,
-            }),
+            // libp2p_config: val.libp2p_config.map(|libp2p_config| Libp2pConfig {
+            //     run: Run(0),
+            //     bootstrap_nodes: Vec::new(),
+            //     public_ip: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            //     base_port: libp2p_config.base_port,
+            //     node_index: 0,
+            //     bootstrap_mesh_n_high: libp2p_config.bootstrap_mesh_n_high,
+            //     bootstrap_mesh_n_low: libp2p_config.bootstrap_mesh_n_low,
+            //     bootstrap_mesh_outbound_min: libp2p_config.bootstrap_mesh_outbound_min,
+            //     bootstrap_mesh_n: libp2p_config.bootstrap_mesh_n,
+            //     mesh_n_high: libp2p_config.mesh_n_high,
+            //     mesh_n_low: libp2p_config.mesh_n_low,
+            //     mesh_outbound_min: libp2p_config.mesh_outbound_min,
+            //     mesh_n: libp2p_config.mesh_n,
+            //     next_view_timeout: libp2p_config.next_view_timeout,
+            //     propose_min_round_time: libp2p_config.propose_min_round_time,
+            //     propose_max_round_time: libp2p_config.propose_max_round_time,
+            //     online_time: libp2p_config.online_time,
+            //     num_txn_per_round: libp2p_config.num_txn_per_round,
+            // }),
             config: val.config.into(),
             key_type_name: std::any::type_name::<K>().to_string(),
             election_config_type_name: std::any::type_name::<E>().to_string(),
