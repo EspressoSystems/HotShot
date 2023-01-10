@@ -119,7 +119,7 @@ where
 
                             let map = vote_outcomes
                                 .entry(vote.leaf_commitment)
-                                .or_insert_with(|| BTreeMap::new());
+                                .or_insert_with(BTreeMap::new);
                             map.insert(
                                 vote.signature.0.clone(),
                                 (vote.signature.1.clone(), vote.vote_token.clone()),

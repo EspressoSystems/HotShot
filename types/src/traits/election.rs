@@ -61,6 +61,10 @@ pub enum VoteData<TYPES: NodeType, LEAF: LeafType> {
 }
 
 impl<TYPES: NodeType, LEAF: LeafType> VoteData<TYPES, LEAF> {
+    /// Convert vote data into bytes.
+    ///
+    /// # Panics
+    /// Panics if the serialization fails.
     pub fn as_bytes(&self) -> Vec<u8> {
         bincode_opts().serialize(&self).unwrap()
     }

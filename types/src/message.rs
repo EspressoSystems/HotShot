@@ -124,8 +124,7 @@ impl<
             }
             ConsensusMessage::Vote(vote_message) => match vote_message {
                 Vote::DA(v) => v.current_view,
-                Vote::Yes(v) => v.current_view,
-                Vote::No(v) => v.current_view,
+                Vote::Yes(v) | Vote::No(v) => v.current_view,
                 Vote::Timeout(v) => v.current_view,
             },
             ConsensusMessage::NextViewInterrupt(time) => *time,
