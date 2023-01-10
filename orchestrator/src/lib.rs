@@ -21,7 +21,7 @@ use crate::config::NetworkConfig;
 type State<KEY, ELECTION> = RwLock<OrchestratorState<KEY, ELECTION>>;
 
 // TODO Can probably get rid of the extra generic stuff ED
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct OrchestratorState<KEY, ELECTION> {
     latest_index: u16,
     config: NetworkConfig<KEY, ELECTION>,
@@ -32,10 +32,10 @@ struct OrchestratorState<KEY, ELECTION> {
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
     OrchestratorState<KEY, ELECTION>
 {
-    pub fn new() -> Self {
+    pub fn new(network_config: NetworkConfig<KEY, ELECTION>) -> Self {
         OrchestratorState {
             latest_index: 0,
-            config: NetworkConfig::default(),
+            config: network_config,
             start: false,
             nodes_connected: 0,
         }
@@ -49,16 +49,15 @@ pub trait OrchestratorApi<KEY, ELECTION> {
     fn post_run_results(&mut self) -> Result<(), ServerError>;
 }
 
-// You specify a default type when declaring a generic type with the <PlaceholderType=ConcreteType> syntax. RUst docs
-
+// You specify a default type when declaring a generic type with the <PlaceholderType=ConcreteType> syntax. Rust docs
 // ED TODO Do we need the static here?
 impl<KEY, ELECTION> OrchestratorApi<KEY, ELECTION> for OrchestratorState<KEY, ELECTION>
 where
-    KEY: serde::Serialize,
-    ELECTION: serde::Serialize,
+    KEY: serde::Serialize + Clone,
+    ELECTION: serde::Serialize + Clone,
 {
     fn post_getconfig(&mut self) -> Result<(NetworkConfig<KEY, ELECTION>), ServerError> {
-        let mut config = NetworkConfig::<KEY, ELECTION>::default();
+        let mut config = self.config.clone();
         config.node_index = self.latest_index.into();
 
         self.latest_index += 1;
@@ -106,28 +105,24 @@ where
     let mut api = Api::<State, ServerError>::from_file("orchestrator/api.toml").unwrap();
     api.post("post_getconfig", |req, state| {
         async move {
-            // state.update_connections();
             state.post_getconfig()
         }
         .boxed()
     })?
     .post("postready", |req, state| {
         async move {
-            // state.update_connections();
             state.post_ready()
         }
         .boxed()
     })?
     .get("getstart", |req, state| {
         async move {
-            // state.update_connections();
             state.get_start()
         }
         .boxed()
     })?
     .post("results", |req, state| {
         async move {
-            // state.update_connections();
             state.post_run_results()
         }
         .boxed()
@@ -135,14 +130,14 @@ where
     Ok(api)
 }
 
-pub async fn run_orchestrator<KEY, ELECTION>() -> io::Result<()>
+pub async fn run_orchestrator<KEY, ELECTION>(network_config: NetworkConfig<KEY, ELECTION>) -> io::Result<()>
 where
     KEY: SignatureKey + 'static + serde::Serialize,
     ELECTION: ElectionConfig + 'static + serde::Serialize,
 {
     let api = define_api().unwrap();
 
-    let state: RwLock<OrchestratorState<KEY, ELECTION>> = RwLock::new(OrchestratorState::new());
+    let state: RwLock<OrchestratorState<KEY, ELECTION>> = RwLock::new(OrchestratorState::new(network_config));
     let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
     app.register_module("api", api).unwrap();
     app.serve(format!("http://0.0.0.0:{}", 8080)).await

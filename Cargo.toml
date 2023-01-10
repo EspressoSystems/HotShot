@@ -8,7 +8,7 @@ version = "0.3.3"
 rust-version = "1.65.0"
 
 [features]
-default = ["demo", "docs", "doc-images", "full-ci"]
+default = ["demo", "docs", "doc-images", "full-ci", "bin-orchestrator"]
 
 # Enable demo/testing logic
 demo = ["dep:blake3", "hotshot-types/demo", "libp2p/rsa", "dep:derivative"]
@@ -240,6 +240,7 @@ incremental = true
 members = [
         "centralized_server",
         "centralized_web_server",
+        "orchestrator",
         "centralized_server/benchmark_client",
         "consensus",
         "libp2p-networking",
