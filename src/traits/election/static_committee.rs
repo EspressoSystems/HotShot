@@ -2,7 +2,6 @@ use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate},
     data::LeafType,
     traits::{
         election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
@@ -95,13 +94,13 @@ where
     /// Just use the vector of public keys for the stake table
     type StakeTable = Vec<PUBKEY>;
 
-    type QuorumCertificate = QuorumCertificate<TYPES, Self::LeafType>;
+    type QuorumCertificate = LEAF::QuorumCertificate;
 
-    type DACertificate = DACertificate<TYPES>;
+    type DACertificate = LEAF::DACertificate;
 
     type LeafType = LEAF;
 
-    fn is_valid_qc(&self, _qc: Self::QuorumCertificate) -> bool {
+    fn is_valid_qc(&self, _qc: &Self::QuorumCertificate) -> bool {
         #[allow(deprecated)]
         nll_todo()
     }

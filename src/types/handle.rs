@@ -8,11 +8,11 @@ use crate::{
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use commit::Committable;
 use hotshot_types::{
-    certificate::QuorumCertificate,
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
+        election::SignedCertificate,
         network::NetworkingImplementation,
         node_implementation::NodeType,
         state::ConsensusTime,
@@ -158,8 +158,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
             if anchor_leaf.view_number == TYPES::Time::genesis() {
                 let leaf: I::Leaf = anchor_leaf.into();
-                let mut qc = QuorumCertificate::genesis();
-                qc.leaf_commitment = leaf.commit();
+                let mut qc = <I::Leaf as LeafType>::QuorumCertificate::genesis();
+                qc.set_leaf_commitment(leaf.commit());
                 let event = Event {
                     view_number: TYPES::Time::genesis(),
                     event: EventType::Decide {

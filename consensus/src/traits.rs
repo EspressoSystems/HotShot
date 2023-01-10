@@ -3,16 +3,14 @@
 use async_trait::async_trait;
 use commit::Commitment;
 use hotshot_types::message::ConsensusMessage;
-use hotshot_types::traits::election::Checked;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
-    certificate::QuorumCertificate,
     data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
     traits::{
-        election::ElectionError,
+        election::{Checked, ElectionError},
         network::NetworkError,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
@@ -134,7 +132,7 @@ pub trait ConsensusApi<
         &self,
         view_number: TYPES::Time,
         leaf_views: Vec<LEAF>,
-        decide_qc: QuorumCertificate<TYPES, LEAF>,
+        decide_qc: LEAF::QuorumCertificate,
     ) {
         self.send_event(Event {
             view_number,
@@ -177,7 +175,7 @@ pub trait ConsensusApi<
 
     /// Validate a quorum certificate by checking
     /// signatures
-    fn validate_qc(&self, quorum_certificate: &QuorumCertificate<TYPES, LEAF>) -> bool;
+    fn validate_qc(&self, quorum_certificate: &LEAF::QuorumCertificate) -> bool;
 
     /// Check if a signature is valid
     fn is_valid_signature(

@@ -11,6 +11,7 @@ use either::Either;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::num::NonZeroU64;
@@ -79,11 +80,32 @@ pub trait Accumulator<T, U>: Sized {
 /// - signature key
 /// - encoded things
 /// -
-pub trait SignedCertificate<SIGNATURE: SignatureKey>
+pub trait SignedCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, LEAF>
 where
     Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,
+    LEAF: Committable,
 {
     type Accumulator: Accumulator<(EncodedSignature, SIGNATURE), Self>;
+
+    /// Get the view number.
+    fn view_number(&self) -> TIME;
+
+    /// Get signatures.
+    fn signatures(&self) -> BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>;
+
+    // TODO (da) the following functions should be refactored into a QC-specific trait.
+
+    // Get the leaf commitment.
+    fn leaf_commitment(&self) -> Commitment<LEAF>;
+
+    // Set the leaf commitment.
+    fn set_leaf_commitment(&mut self, commitment: Commitment<LEAF>);
+
+    /// Get whether the certificate is for the genesis block.
+    fn is_genesis(&self) -> bool;
+
+    /// To be used only for generating the genesis quorum certificate; will fail if used anywhere else
+    fn genesis() -> Self;
 }
 
 /// Describes how `HotShot` chooses committees and leaders
@@ -95,18 +117,27 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
     type StakeTable: Send + Sync;
 
     /// certificate for quorum on consenus
-    type QuorumCertificate: SignedCertificate<TYPES::SignatureKey> + Clone + Debug + Eq + PartialEq;
+    type QuorumCertificate: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, Self::LeafType>
+        + Clone
+        + Debug
+        + Eq
+        + Hash
+        + PartialEq;
 
     /// certificate for data availability
-    type DACertificate: SignedCertificate<TYPES::SignatureKey> + Clone + Debug + Eq + PartialEq;
+    type DACertificate: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, Self::LeafType>
+        + Clone
+        + Debug
+        + Eq
+        + PartialEq;
 
-    type LeafType: LeafType<NodeType = TYPES>;
+    type LeafType: LeafType<NodeType = TYPES, QuorumCertificate = Self::QuorumCertificate>;
 
     /// check that the quorum certificate is valid
-    fn is_valid_qc(&self, qc: Self::QuorumCertificate) -> bool;
+    fn is_valid_qc(&self, qc: &<Self::LeafType as LeafType>::QuorumCertificate) -> bool;
 
     /// check that the data availability certificate is valid
-    fn is_valid_dac(&self, qc: Self::DACertificate) -> bool;
+    fn is_valid_dac(&self, qc: <Self::LeafType as LeafType>::DACertificate) -> bool;
 
     /// confirm that a quorum certificate signature is valid
     fn is_valid_qc_signature(

@@ -1,9 +1,6 @@
 //! Events that a `HotShot` instance can emit
 
-use crate::{
-    certificate::QuorumCertificate, data::LeafType, error::HotShotError,
-    traits::node_implementation::NodeType,
-};
+use crate::{data::LeafType, error::HotShotError, traits::node_implementation::NodeType};
 use std::sync::Arc;
 
 /// A status event emitted by a `HotShot` instance
@@ -43,7 +40,7 @@ pub enum EventType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
         ///
         /// Note that the QC for each additional leaf in the chain can be obtained from the leaf
         /// before it using [Leaf::justify_qc].
-        qc: Arc<QuorumCertificate<TYPES, LEAF>>,
+        qc: Arc<LEAF::QuorumCertificate>,
     },
     /// A replica task was canceled by a timeout interrupt
     ReplicaViewTimeout {

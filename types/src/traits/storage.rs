@@ -2,7 +2,10 @@
 #![allow(missing_docs)]
 
 use super::{node_implementation::NodeType, signature_key::EncodedPublicKey};
-use crate::{certificate::QuorumCertificate, data::LeafType, traits::Block};
+use crate::{
+    data::LeafType,
+    traits::{election::SignedCertificate, Block},
+};
 use async_trait::async_trait;
 use commit::Commitment;
 use derivative::Derivative;
@@ -130,7 +133,7 @@ pub struct StoredView<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The parent of this view
     pub parent: Commitment<LEAF>,
     /// The justify QC of this view. See the hotstuff paper for more information on this.
-    pub justify_qc: QuorumCertificate<TYPES, LEAF>,
+    pub justify_qc: LEAF::QuorumCertificate,
     /// The state of this view
     pub state: LEAF::StateCommitmentType,
     /// The history of how this view came to be
@@ -154,7 +157,7 @@ where
     ///
     /// Note that this will set the `parent` to `LeafHash::default()`, so this will not have a parent.
     pub fn from_qc_block_and_state(
-        qc: QuorumCertificate<TYPES, LEAF>,
+        qc: LEAF::QuorumCertificate,
         block: TYPES::BlockType,
         state: LEAF::StateCommitmentType,
         height: u64,
@@ -164,7 +167,7 @@ where
     ) -> Self {
         Self {
             append: ViewAppend::Block { block },
-            view_number: qc.view_number,
+            view_number: qc.view_number(),
             height,
             parent: parent_commitment,
             justify_qc: qc,

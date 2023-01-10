@@ -44,7 +44,7 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     /// Election
     /// Time is generic here to allow multiple implementations of election trait for difference
     /// consensus protocols
-    type Election: Election<TYPES, LeafType = Self::Leaf>;
+    type Election: Election<TYPES, LeafType = Self::Leaf> + Debug;
 
     type Proposal: ProposalType<NodeType = TYPES, Election = Self::Election>;
 }

@@ -35,7 +35,7 @@ use hotshot_types::{
     HotShotConfig,
 };
 use snafu::Snafu;
-use std::{collections::HashMap, fmt, marker::PhantomData};
+use std::{collections::HashMap, fmt, fmt::Debug, marker::PhantomData};
 use tracing::{debug, error, info, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
@@ -599,7 +599,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    ELECTION: Election<TYPES, LeafType = LEAF>,
+    ELECTION: Election<TYPES, LeafType = LEAF> + Debug,
     NETWORK: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>
         + NetworkingImplementation<TYPES, LEAF, PROPOSAL>,
     STORAGE: Storage<TYPES, LEAF>,
@@ -617,7 +617,7 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
         NETWORK,
         STORAGE,
-        ELECTION: Election<TYPES, LeafType = LEAF>,
+        ELECTION: Election<TYPES, LeafType = LEAF> + Debug,
     > TestableNodeImplementation<TYPES>
     for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
 where

@@ -43,6 +43,7 @@ use crate::{
     certificate::QuorumCertificate,
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
+    Checked::{Inval, Unchecked, Valid},
 };
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
@@ -57,14 +58,15 @@ use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, NextValidatingLeader, Replica, SendToTasks,
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
+use hotshot_types::message::MessageKind;
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
         election::{
-            Checked::{self, Inval, Unchecked, Valid},
-            Election, ElectionError,
+            Checked::{self},
+            Election, ElectionError, SignedCertificate, VoteToken,
         },
         metrics::Metrics,
         network::{NetworkChange, NetworkError},
@@ -79,7 +81,6 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use hotshot_types::{message::MessageKind, traits::election::VoteToken};
 use hotshot_utils::bincode::bincode_opts;
 #[allow(deprecated)]
 use nll::nll_todo::nll_todo;
@@ -592,7 +593,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                 // TODO: Don't blindly accept the newest QC but make sure it's valid with other nodes too
                 // we should be getting multiple data messages soon
                 // <https://github.com/EspressoSystems/HotShot/issues/454>
-                let should_save = anchored.view_number < qc.view_number; // incoming view is newer
+                let should_save = anchored.view_number < qc.view_number(); // incoming view is newer
                 if should_save {
                     let new_view = StoredView::from_qc_block_and_state(
                         qc,
@@ -600,8 +601,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                         state,
                         // We don't have enough information in this message to validate the height
                         // of the new QC. We would need the full parent leaf, so we can check that
-                        // its commitment matches `qc.leaf_commitment` and extract the height from
-                        // the leaf. But this message is no longer used and the whole catchup
+                        // its commitment matches `qc.leaf_commitment()` and extract the height
+                        // from the leaf. But this message is no longer used and the whole catchup
                         // protocol needs to be redesigned.
                         0,
                         parent_commitment,
@@ -688,7 +689,11 @@ pub trait ViewRunner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 #[async_trait]
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+        ELECTION: Election<
+            TYPES,
+            LeafType = ValidatingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        >,
         I: NodeImplementation<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
@@ -843,7 +848,7 @@ where
         #[cfg(feature = "async-std-executor")]
         let high_qc = results
             .into_iter()
-            .max_by_key(|qc: &QuorumCertificate<TYPES, I::Leaf>| qc.view_number)
+            .max_by_key(|qc: &ELECTION::QuorumCertificate| qc.view_number)
             .unwrap();
         #[cfg(feature = "tokio-executor")]
         let high_qc = results
@@ -990,21 +995,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     }
 
     #[instrument(skip(self, qc))]
-    fn validate_qc(&self, qc: &QuorumCertificate<TYPES, I::Leaf>) -> bool {
-        if qc.genesis && qc.view_number == TYPES::Time::genesis() {
+    fn validate_qc(&self, qc: &<I::Leaf as LeafType>::QuorumCertificate) -> bool {
+        if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
             return true;
         }
-        let hash = qc.leaf_commitment;
+        let hash = qc.leaf_commitment();
 
         let stake = qc
-            .signatures
+            .signatures()
             .iter()
             .filter(|signature| {
                 self.is_valid_signature(
                     signature.0,
                     &signature.1 .0,
                     hash,
-                    qc.view_number,
+                    qc.view_number(),
                     Unchecked(signature.1 .1.clone()),
                 )
             })
@@ -1075,7 +1080,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPES
                 context: err.to_string(),
             })?;
         let time = TYPES::Time::genesis();
-        let justify_qc = QuorumCertificate::<TYPES, LEAF>::genesis();
+        let justify_qc = LEAF::QuorumCertificate::genesis();
 
         Ok(Self {
             inner: LEAF::new(time, justify_qc, genesis_block, state),

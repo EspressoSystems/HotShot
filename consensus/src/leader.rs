@@ -12,7 +12,7 @@ use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, Proposal},
     traits::{
-        election::Election,
+        election::{Election, SignedCertificate},
         node_implementation::NodeType,
         signature_key::SignatureKey,
         state::ValidatingConsensus,
@@ -28,7 +28,11 @@ use tracing::{error, info, instrument, warn};
 pub struct ValidatingLeader<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    ELECTION: Election<
+        TYPES,
+        LeafType = ValidatingLeaf<TYPES>,
+        QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+    >,
 > where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -38,7 +42,7 @@ pub struct ValidatingLeader<
     /// Reference to consensus. Validating leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, ValidatingLeaf<TYPES>>>>,
     /// The `high_qc` per spec
-    pub high_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+    pub high_qc: ELECTION::QuorumCertificate,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// Lock over the transactions list
@@ -54,7 +58,11 @@ pub struct ValidatingLeader<
 impl<
         A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+        ELECTION: Election<
+            TYPES,
+            LeafType = ValidatingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        >,
     > ValidatingLeader<A, TYPES, ELECTION>
 where
     TYPES::StateType: TestableState,
@@ -62,12 +70,12 @@ where
 {
     /// Run one view of the leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Validating ValidatingLeader Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
+    pub async fn run_view(self) -> ELECTION::QuorumCertificate {
         let pk = self.api.public_key();
         error!("Validating leader task started!");
 
         let task_start_time = Instant::now();
-        let parent_view_number = &self.high_qc.view_number;
+        let parent_view_number = &self.high_qc.view_number();
         let consensus = self.consensus.read().await;
         let mut reached_decided = false;
 

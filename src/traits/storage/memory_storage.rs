@@ -184,7 +184,7 @@ mod test {
         StoredView::from_qc_block_and_state(
             QuorumCertificate {
                 // block_commitment: dummy_block_commit,
-                genesis: view_number == ViewNumber::genesis(),
+                is_genesis: view_number == ViewNumber::genesis(),
                 leaf_commitment: dummy_leaf_commit,
                 signatures: BTreeMap::new(),
                 view_number,

@@ -6,10 +6,10 @@
 #![allow(missing_docs)]
 
 use crate::{
-    certificate::QuorumCertificate,
+    certificate::{DACertificate, QuorumCertificate},
     constants::genesis_proposer_id,
     traits::{
-        election::Election,
+        election::{Election, SignedCertificate},
         node_implementation::NodeType,
         signature_key::EncodedPublicKey,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensusType},
@@ -26,7 +26,7 @@ use espresso_systems_common::hotshot::tag;
 use nll::nll_todo::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, marker::PhantomData};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -102,7 +102,7 @@ where
     pub height: u64,
 
     /// Per spec, justification
-    pub justify_qc: QuorumCertificate<TYPES, ELECTION::LeafType>,
+    pub justify_qc: ELECTION::QuorumCertificate,
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
@@ -222,10 +222,30 @@ pub trait LeafType:
         + Send
         + Serialize
         + Sync;
+    type QuorumCertificate: SignedCertificate<
+            <Self::NodeType as NodeType>::SignatureKey,
+            <Self::NodeType as NodeType>::Time,
+            <Self::NodeType as NodeType>::VoteTokenType,
+            Self,
+        > + Committable
+        + Debug
+        + Eq
+        + Hash
+        + PartialEq
+        + Send;
+    type DACertificate: SignedCertificate<
+            <Self::NodeType as NodeType>::SignatureKey,
+            <Self::NodeType as NodeType>::Time,
+            <Self::NodeType as NodeType>::VoteTokenType,
+            Self,
+        > + Debug
+        + Eq
+        + PartialEq
+        + Send;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
-        justify_qc: QuorumCertificate<Self::NodeType, Self>,
+        justify_qc: Self::QuorumCertificate,
         deltas: <Self::NodeType as NodeType>::BlockType,
         state: <Self::NodeType as NodeType>::StateType,
     ) -> Self;
@@ -236,7 +256,7 @@ pub trait LeafType:
 
     fn set_height(&mut self, height: u64);
 
-    fn get_justify_qc(&self) -> QuorumCertificate<Self::NodeType, Self>;
+    fn get_justify_qc(&self) -> Self::QuorumCertificate;
 
     fn get_parent_commitment(&self) -> Commitment<Self>;
 
@@ -344,6 +364,8 @@ where
 {
     type NodeType = TYPES;
     type StateCommitmentType = TYPES::StateType;
+    type QuorumCertificate = QuorumCertificate<Self::NodeType, Self>;
+    type DACertificate = DACertificate<Self::NodeType>;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
@@ -432,6 +454,8 @@ where
 impl<TYPES: NodeType> LeafType for DALeaf<TYPES> {
     type NodeType = TYPES;
     type StateCommitmentType = Either<TYPES::StateType, Commitment<TYPES::StateType>>;
+    type QuorumCertificate = QuorumCertificate<Self::NodeType, Self>;
+    type DACertificate = DACertificate<Self::NodeType>;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
@@ -554,7 +578,7 @@ where
             .u64(*self.justify_qc.view_number)
             .field(
                 "justify_qc leaf commitment",
-                self.justify_qc.leaf_commitment,
+                self.justify_qc.leaf_commitment(),
             )
             .constant_str("justify_qc signatures")
             .var_size_bytes(&signatures_bytes)
@@ -573,8 +597,14 @@ impl<TYPES: NodeType> Committable for DALeaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeType, ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>>
-    From<ValidatingLeaf<TYPES>> for ValidatingProposal<TYPES, ELECTION>
+impl<
+        TYPES: NodeType,
+        ELECTION: Election<
+            TYPES,
+            LeafType = ValidatingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        >,
+    > From<ValidatingLeaf<TYPES>> for ValidatingProposal<TYPES, ELECTION>
 where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
