@@ -65,7 +65,7 @@ use hotshot_types::{
     traits::{
         election::{
             Checked::{self},
-            Election, ElectionError, SignedCertificate,
+            Election, ElectionError, SignedCertificate, VoteData,
         },
         metrics::Metrics,
         network::{NetworkChange, NetworkError},
@@ -993,11 +993,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         &self.inner.private_key
     }
 
-    #[instrument(skip(self, qc))]
-    fn is_valid_qc(&self, qc: &<I::Leaf as LeafType>::QuorumCertificate) -> bool {
-        self.inner.election.is_valid_qc(qc)
-    }
-
+    #[instrument(skip(self, dac))]
     fn is_valid_dac(
         &self,
         dac: &<I::Leaf as LeafType>::DACertificate,
@@ -1006,35 +1002,74 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         self.inner.election.is_valid_dac(dac, block_commitment)
     }
 
-    fn is_valid_qc_signature(
+    #[instrument(skip(self, qc))]
+    fn is_valid_qc(&self, qc: &<I::Leaf as LeafType>::QuorumCertificate) -> bool {
+        self.inner.election.is_valid_qc(qc)
+    }
+
+    fn is_valid_da_vote(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<I::Leaf>,
+        data: VoteData,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
-        self.inner.election.is_valid_qc_signature(
+        self.inner.election.is_valid_da_vote(
             encoded_key,
             encoded_signature,
-            hash,
+            data,
             view_number,
             vote_token,
         )
     }
 
-    fn is_valid_dac_signature(
+    fn is_valid_yes_vote(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<TYPES::BlockType>,
+        data: VoteData,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
-        self.inner.election.is_valid_dac_signature(
+        self.inner.election.is_valid_yes_vote(
             encoded_key,
             encoded_signature,
-            hash,
+            data,
+            view_number,
+            vote_token,
+        )
+    }
+
+    fn is_valid_no_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        data: VoteData,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        self.inner.election.is_valid_no_vote(
+            encoded_key,
+            encoded_signature,
+            data,
+            view_number,
+            vote_token,
+        )
+    }
+
+    fn is_valid_timeout_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        data: VoteData,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        self.inner.election.is_valid_timeout_vote(
+            encoded_key,
+            encoded_signature,
+            data,
             view_number,
             vote_token,
         )

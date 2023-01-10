@@ -192,7 +192,9 @@ where
                 timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                 proposer_id: pk.to_bytes(),
             };
-            let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
+            let signature = self
+                .api
+                .sign_validating_or_commitment_proposal(&leaf.commit());
             let leaf: ValidatingProposal<TYPES, ELECTION> = leaf.into();
             let message = ConsensusMessage::<
                 TYPES,

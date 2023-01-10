@@ -10,7 +10,10 @@ use hotshot_types::traits::{
     election::{Checked::Unchecked, Election, VoteToken},
     state::{TestableBlock, TestableState},
 };
-use hotshot_types::{certificate::QuorumCertificate, message::ConsensusMessage};
+use hotshot_types::{
+    certificate::QuorumCertificate,
+    message::{ConsensusMessage, ConsensusVoteMessage},
+};
 use std::time::Instant;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -94,49 +97,56 @@ where
                 ConsensusMessage::TimedOut(t) => {
                     qcs.insert(t.justify_qc);
                 }
-                ConsensusMessage::Vote(vote) => {
-                    // if the signature on the vote is invalid,
-                    // assume it's sent by byzantine node
-                    // and ignore
+                ConsensusMessage::Vote(vote_messaeg) => {
+                    match vote_messaeg {
+                        ConsensusVoteMessage::YesVote(vote) => {
+                            // if the signature on the vote is invalid,
+                            // assume it's sent by byzantine node
+                            // and ignore
 
-                    if !self.api.is_valid_qc_signature(
-                        &vote.signature.0,
-                        &vote.signature.1,
-                        vote.leaf_commitment,
-                        vote.current_view,
-                        // Ignoring deserialization errors below since we are getting rid of it soon
-                        Unchecked(vote.vote_token.clone()),
-                    ) {
-                        continue;
-                    }
+                            if !self.api.is_valid_yes_vote(
+                                &vote.signature.0,
+                                &vote.signature.1,
+                                vote.leaf_commitment,
+                                vote.current_view,
+                                // Ignoring deserialization errors below since we are getting rid of it soon
+                                Unchecked(vote.vote_token.clone()),
+                            ) {
+                                continue;
+                            }
 
-                    // TODO ed ensure we have the QC that the QC commitment references
+                            // TODO ed ensure we have the QC that the QC commitment references
 
-                    let (_bh, map) = vote_outcomes
-                        .entry(vote.leaf_commitment)
-                        .or_insert_with(|| (vote.block_commitment, BTreeMap::new()));
-                    map.insert(
-                        vote.signature.0.clone(),
-                        (vote.signature.1.clone(), vote.vote_token.clone()),
-                    );
+                            let (_bh, map) = vote_outcomes
+                                .entry(vote.leaf_commitment)
+                                .or_insert_with(|| (vote.block_commitment, BTreeMap::new()));
+                            map.insert(
+                                vote.signature.0.clone(),
+                                (vote.signature.1.clone(), vote.vote_token.clone()),
+                            );
 
-                    stake_casted += u64::from(vote.vote_token.vote_count());
+                            stake_casted += u64::from(vote.vote_token.vote_count());
 
-                    if stake_casted >= u64::from(threshold) {
-                        let (_block_commitment, valid_signatures) =
-                            vote_outcomes.remove(&vote.leaf_commitment).unwrap();
+                            if stake_casted >= u64::from(threshold) {
+                                let (_block_commitment, valid_signatures) =
+                                    vote_outcomes.remove(&vote.leaf_commitment).unwrap();
 
-                        // construct QC
-                        let qc = QuorumCertificate {
-                            leaf_commitment: vote.leaf_commitment,
-                            view_number: self.cur_view,
-                            signatures: valid_signatures,
-                            is_genesis: false,
-                        };
-                        self.metrics
-                            .vote_validate_duration
-                            .add_point(vote_collection_start.elapsed().as_secs_f64());
-                        return qc;
+                                // construct QC
+                                let qc = QuorumCertificate {
+                                    leaf_commitment: vote.leaf_commitment,
+                                    view_number: self.cur_view,
+                                    signatures: valid_signatures,
+                                    is_genesis: false,
+                                };
+                                self.metrics
+                                    .vote_validate_duration
+                                    .add_point(vote_collection_start.elapsed().as_secs_f64());
+                                return qc;
+                            }
+                        }
+                        _ => {
+                            warn!("The next leader has received an unexpected vote!");
+                        }
                     }
                 }
                 ConsensusMessage::NextViewInterrupt(_view_number) => {

@@ -10,7 +10,7 @@ use hotshot_types::{
     error::HotShotError,
     event::{Event, EventType},
     traits::{
-        election::{Checked, ElectionError},
+        election::{Checked, ElectionError, VoteData},
         network::NetworkError,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
@@ -153,52 +153,109 @@ pub trait ConsensusApi<
         .await;
     }
 
-    /// Signs a vote
-    fn sign_vote(
+    /// Sign a DA proposal.
+    fn sign_da_proposal(
         &self,
-        leaf_commitment: &Commitment<LEAF>,
-        _view_number: TYPES::Time,
-    ) -> (EncodedPublicKey, EncodedSignature) {
-        let signature = TYPES::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
-        (self.public_key().to_bytes(), signature)
+        block_commitment: &Commitment<TYPES::BlockType>,
+    ) -> EncodedSignature {
+        let signature = TYPES::SignatureKey::sign(self.private_key(), block_commitment.as_ref());
+        signature
     }
 
-    /// Signs a proposal
-    fn sign_proposal(
+    /// Sign a validating or commitment proposal.
+    fn sign_validating_or_commitment_proposal(
         &self,
         leaf_commitment: &Commitment<LEAF>,
-        _view_number: TYPES::Time,
     ) -> EncodedSignature {
         let signature = TYPES::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
         signature
     }
 
-    /// Validate a quorum certificate by checking signatures.
-    fn is_valid_qc(&self, qc: &LEAF::QuorumCertificate) -> bool;
+    /// Sign a vote on DA proposal.
+    fn sign_da_vote(
+        &self,
+        block_commitment: &Commitment<TYPES::BlockType>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            self.private_key(),
+            &VoteData::DA(block_commitment).as_bytes(),
+        );
+        (self.public_key().to_bytes(), signature)
+    }
 
-    /// Validate a data availability certificate by checking signatures.
+    /// Sign a positive vote on validating or commitment proposal.
+    fn sign_yes_vote(
+        &self,
+        leaf_commitment: &Commitment<LEAF>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature =
+            TYPES::SignatureKey::sign(self.private_key(), &VoteData::Yes(leaf_commitment).as_ref());
+        (self.public_key().to_bytes(), signature)
+    }
+
+    /// Sign a neagtive vote on validating or commitment proposal.
+    fn sign_no_vote(
+        &self,
+        leaf_commitment: &Commitment<LEAF>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature =
+            TYPES::SignatureKey::sign(self.private_key(), &VoteData::No(leaf_commitment).as_ref());
+        (self.public_key().to_bytes(), signature)
+    }
+
+    /// Sign a timeout vote.
+    fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
+        let signature =
+            TYPES::SignatureKey::sign(self.private_key(), &VoteData::Timeout(view_number).as_ref());
+        (self.public_key().to_bytes(), signature)
+    }
+
+    /// Validate a DAC.
     fn is_valid_dac(
         &self,
         dac: &LEAF::DACertificate,
         block_commitment: Commitment<TYPES::BlockType>,
     ) -> bool;
 
-    /// Check if a signature for QC is valid.
-    fn is_valid_qc_signature(
+    /// Validate a QC.
+    fn is_valid_qc(&self, qc: &LEAF::QuorumCertificate) -> bool;
+
+    /// Validate a vote on DA proposal.
+    fn is_valid_da_vote(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<LEAF>,
+        data: VoteData<TYPES, LEAF>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool;
 
-    /// Check if signature for DAC is valid.
-    fn is_valid_dac_signature(
+    /// Validate a positive vote on validating or commitment proposal.
+    fn is_valid_yes_vote(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<TYPES::BlockType>,
+        data: VoteData<TYPES, LEAF>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool;
+
+    /// Validate a negative vote on validating or commitment proposal.
+    fn is_valid_no_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        data: VoteData<TYPES, LEAF>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool;
+
+    /// Validate a timeout vote on validating or commitment proposal.
+    fn is_valid_timeout_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        data: VoteData<TYPES, LEAF>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool;

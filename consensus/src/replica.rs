@@ -208,7 +208,7 @@ where
                             }
                             Ok(Some(vote_token)) => {
                                 info!("We were chosen for committee on {:?}", self.cur_view);
-                                let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
+                                let signature = self.api.sign_yes_vote(&leaf_commitment);
 
                                 // Generate and send vote
                                 let vote = ConsensusMessage::<

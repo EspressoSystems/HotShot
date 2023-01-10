@@ -12,8 +12,10 @@ use crate::{
         state::ConsensusTime,
     },
 };
+use bincode::Options;
 use commit::{Commitment, Committable};
 use either::Either;
+use hotshot_utils::bincode::bincode_opts;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
@@ -47,6 +49,21 @@ pub enum Checked<T> {
     Inval(T),
     /// This item has not been checked
     Unchecked(T),
+}
+
+/// Data to vote on for different types of votes.
+#[derive(Serialize)]
+pub enum VoteData<TYPES: NodeType, LEAF: LeafType> {
+    DA(Commitment<TYPES::BlockType>),
+    Yes(Commitment<LEAF>),
+    No(Commitment<LEAF>),
+    Timeout(TYPES::Time),
+}
+
+impl<TYPES: NodeType, LEAF: LeafType> VoteData<TYPES, LEAF> {
+    fn as_bytes(&self) -> Vec<u8> {
+        bincode_opts().serialize(&self).unwrap()
+    }
 }
 
 /// Proof of this entity's right to vote, and of the weight of those votes
@@ -140,34 +157,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
 
     type LeafType: LeafType<NodeType = TYPES, QuorumCertificate = Self::QuorumCertificate>;
 
-    /// check that the quorum certificate is valid
-    fn is_valid_qc(&self, qc: &<Self::LeafType as LeafType>::QuorumCertificate) -> bool {
-        if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
-            return true;
-        }
-        let hash = qc.leaf_commitment();
-
-        let stake = qc
-            .signatures()
-            .iter()
-            .filter(|signature| {
-                self.is_valid_qc_signature(
-                    signature.0,
-                    &signature.1 .0,
-                    hash,
-                    qc.view_number(),
-                    Unchecked(signature.1 .1.clone()),
-                )
-            })
-            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
-
-        if stake >= u64::from(self.threshold()) {
-            return true;
-        }
-        false
-    }
-
-    /// check that the data availability certificate is valid
+    /// Validate a DAC by checking its votes.
     fn is_valid_dac(
         &self,
         dac: &<Self::LeafType as LeafType>::DACertificate,
@@ -177,10 +167,10 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             .signatures()
             .iter()
             .filter(|signature| {
-                self.is_valid_dac_signature(
+                self.is_valid_vote(
                     signature.0,
                     &signature.1 .0,
-                    block_commitment,
+                    VoteData::DA(block_commitment),
                     dac.view_number(),
                     Unchecked(signature.1 .1.clone()),
                 )
@@ -193,23 +183,50 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         false
     }
 
-    /// Confirm that a signature for QC and its vote token are valid.
-    fn is_valid_qc_signature(
+    /// Validate a QC by checking its votes.
+    fn is_valid_qc(&self, qc: &<Self::LeafType as LeafType>::QuorumCertificate) -> bool {
+        if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
+            return true;
+        }
+        let leaf_commitment = qc.leaf_commitment();
+
+        let stake = qc
+            .signatures()
+            .iter()
+            .filter(|signature| {
+                self.is_valid_vote(
+                    signature.0,
+                    &signature.1 .0,
+                    VoteData::Yes(leaf_commitment),
+                    qc.view_number(),
+                    Unchecked(signature.1 .1.clone()),
+                )
+            })
+            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
+
+        if stake >= u64::from(self.threshold()) {
+            return true;
+        }
+        false
+    }
+
+    /// Validate a vote by checking its signature and token.
+    fn is_valid_vote(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<Self::LeafType>,
+        data: VoteData<TYPES, Self::LeafType>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
         let mut is_valid_vote_token = false;
         let mut is_valid_signature = false;
         if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
-            is_valid_signature = key.validate(encoded_signature, hash.as_ref());
+            is_valid_signature = key.validate(encoded_signature, &data.as_bytes());
             let valid_vote_token = self.validate_vote_token(view_number, key, vote_token);
             is_valid_vote_token = match valid_vote_token {
                 Err(_) => {
-                    error!("Vote token for QC was invalid");
+                    error!("Vote token was invalid");
                     false
                 }
                 Ok(Valid(_)) => true,
@@ -219,30 +236,99 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         is_valid_signature && is_valid_vote_token
     }
 
-    /// Confirm that a signature for DAC and its vote token are valid.
-    fn is_valid_dac_signature(
+    /// Validate a vote on DA proposal by checking its type, signature and token.
+    fn is_valid_da_vote(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<TYPES::BlockType>,
+        data: VoteData<TYPES, Self::LeafType>,
+        block_commitment: Commitment<TYPES::BlockType>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
-        let mut is_valid_vote_token = false;
-        let mut is_valid_signature = false;
-        if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
-            is_valid_signature = key.validate(encoded_signature, hash.as_ref());
-            let valid_vote_token = self.validate_vote_token(view_number, key, vote_token);
-            is_valid_vote_token = match valid_vote_token {
-                Err(_) => {
-                    error!("Vote token for DAC was invalid");
-                    false
-                }
-                Ok(Valid(_)) => true,
-                Ok(Inval(_) | Unchecked(_)) => false,
-            };
+        if let VoteData::DA(commitment) = data {
+            if commitment == block_commitment {
+                return self.is_valid_vote(
+                    encoded_key,
+                    encoded_signature,
+                    data,
+                    view_number,
+                    vote_token,
+                );
+            }
         }
-        is_valid_signature && is_valid_vote_token
+        false
+    }
+
+    /// Validate a positive vote on validating or commitment proposal by checking its type, signature and token.
+    fn is_valid_yes_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        data: VoteData<TYPES, Self::LeafType>,
+        leaf_commitment: Commitment<Self::LeafType>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        if let VoteData::Yes(commitment) = data {
+            if commitment == leaf_commitment {
+                return self.is_valid_vote(
+                    encoded_key,
+                    encoded_signature,
+                    data,
+                    view_number,
+                    vote_token,
+                );
+            }
+        }
+        false
+    }
+
+    /// Validate a negative vote on validating or commitment proposal by checking its type, signature and token.
+    fn is_valid_no_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        data: VoteData<TYPES, Self::LeafType>,
+        leaf_commitment: Commitment<Self::LeafType>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        if let VoteData::No(commitment) = data {
+            if commitment == leaf_commitment {
+                return self.is_valid_vote(
+                    encoded_key,
+                    encoded_signature,
+                    data,
+                    view_number,
+                    vote_token,
+                );
+            }
+        }
+        false
+    }
+
+    /// Validate a timeout vote by checking its type, signature and token.
+    fn is_valid_timeout_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        data: VoteData<TYPES, Self::LeafType>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        if let VoteData::Timeout(view) = data {
+            if view == view_number {
+                return self.is_valid_vote(
+                    encoded_key,
+                    encoded_signature,
+                    data,
+                    view_number,
+                    vote_token,
+                );
+            }
+        }
+        false
     }
 
     /// generate a default election configuration
