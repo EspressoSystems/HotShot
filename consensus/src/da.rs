@@ -46,6 +46,15 @@ pub struct DALeader<
     /// Limited access to the consensus protocol
     pub api: A,
 
+    pub vote_collection_chan: Arc<
+    Mutex<
+        UnboundedReceiver<
+            ConsensusMessage<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        >,
+    >,
+>,
+/// The 
+
     #[allow(missing_docs)]
     #[allow(clippy::missing_docs_in_private_items)]
     pub _pd: PhantomData<ELECTION>,
@@ -84,19 +93,116 @@ where
                     Ok(Err(e)) => {
                         // Something unprecedented is wrong, and `transactions` has been dropped
                         error!("Channel receiver error for SubscribableRwLock {:?}", e);
-                        return ;
+                        return vec!();
                     }
                     Ok(Ok(_)) => continue,
                 }
             }
+            return unclaimed_txns;
         }
     } 
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
     pub async fn run_view(self) -> DACertificate<TYPES, DALeaf<TYPES>> {
         // Prepare teh DA Proposal
-        // Brodcast DA proposal
+        let starting_state = &parent_leaf.state;
+        let mut block = starting_state.next_block();
+        let txns = wait_for_transactions.await();
+        for (_hash, txn) in txns {
+            let new_block_check = block.add_transaction_raw(txn);
+            if let Ok(new_block) = new_block_check {
+                if starting_state.validate_block(&new_block, &self.cur_view) {
+                    block = new_block;
+                    continue;
+                }
+            } 
+        }
+        if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
+            let leaf = DALeaf {
+                view_number: self.cur_view,
+                height: parent_leaf.height + 1,
+                justify_qc: self.high_qc.clone(),
+                parent_commitment: original_parent_hash,
+                deltas: block,
+                state: new_state,
+                rejected: Vec::new(),
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
+                proposer_id: pk.to_bytes(),
+            };
+            let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
+            let leaf: DAProposal<TYPES, ELECTION> = leaf.into();
+            let message = ConsensusMessage::<
+                TYPES,
+                ValidatingLeaf<TYPES>,
+                ValidatingProposal<TYPES, ELECTION>,
+            >::Proposal { proposal, signature };
+            // Brodcast DA proposal
+            if let Err(e) = self.api.send_broadcast_message(message.clone()).await {
+                consensus.metrics.failed_to_send_messages.add(1);
+                warn!(?message, ?e, "Could not broadcast leader proposal");
+            } else {
+                consensus.metrics.outgoing_broadcast_messages.add(1);
+            }
+        } else {
+            error!("Could not append state in high qc for proposal. Failed to send out proposal.");
+        }
+
         // Wait for DA votes or Timeout
-        // 
+        let lock = self.vote_collection_chan.lock().await;
+        while let Ok(msg) = lock.recv().await {
+            if msg.view_number() != self.cur_view {
+                continue;
+            }
+            match msg {
+                ConsensusMessage::TimedOut(t) => {
+                    qcs.insert(t.justify_qc);
+                }
+                ConsensusMessage::Vote(vote) => {
+                    // if the signature on the vote is invalid,
+                    // assume it's sent by byzantine node
+                    // and ignore
+
+                    if !self.api.is_valid_signature(
+                        &vote.signature.0,
+                        &vote.signature.1,
+                        vote.leaf_commitment,
+                        vote.current_view,
+                        // Ignoring deserialization errors below since we are getting rid of it soon
+                        Unchecked(vote.vote_token.clone()),
+                    ) {
+                        continue;
+                    }
+
+                    let (_bh, map) = vote_outcomes
+                        .entry(vote.leaf_commitment)
+                        .or_insert_with(|| (vote.block_commitment, BTreeMap::new()));
+                    map.insert(
+                        vote.signature.0.clone(),
+                        (vote.signature.1.clone(), vote.vote_token.clone()),
+                    );
+
+                    stake_casted += u64::from(vote.vote_token.vote_count());
+
+                    if stake_casted >= u64::from(threshold) {
+                        let (_block_commitment, valid_signatures) =
+                            vote_outcomes.remove(&vote.leaf_commitment).unwrap();
+
+                        // construct QC
+                        let qc = QuorumCertificate {
+                            leaf_commitment: vote.leaf_commitment,
+                            view_number: self.cur_view,
+                            signatures: valid_signatures,
+                            genesis: false,
+                        };
+                        return qc;
+                    }
+                }
+                ConsensusMessage::NextViewInterrupt(_view_number) => {
+                    warn!("DA leader received next view interupt");
+                }
+                ConsensusMessage::Proposal(_p) => {
+                    warn!("The DA leader has received an unexpected proposal!");
+                }
+            }
     }
 }
