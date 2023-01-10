@@ -20,13 +20,13 @@ use crate::config::NetworkConfig;
 
 type State<KEY, ELECTION> = RwLock<OrchestratorState<KEY, ELECTION>>;
 
-
+// TODO Can probably get rid of the extra generic stuff ED
 #[derive(Default)]
-struct OrchestratorState<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static> {
+struct OrchestratorState<KEY, ELECTION> {
     latest_index: u16,
     config: NetworkConfig<KEY, ELECTION>,
-    start: bool, 
-    pub nodes_connected: u64
+    start: bool,
+    pub nodes_connected: u64,
 }
 
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
@@ -36,41 +36,60 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
         OrchestratorState {
             latest_index: 0,
             config: NetworkConfig::default(),
-            start: false, 
-            nodes_connected: 0
+            start: false,
+            nodes_connected: 0,
         }
-    }
-
-    pub fn update_connections(&mut self) {
-        self.nodes_connected += 1; 
     }
 }
 
-// /// Trait defining methods needed for the `WebServerState`
-// pub trait WebServerDataSource {
-//     fn get_proposals(&self, view_number: u128) -> Result<Option<Vec<Vec<u8>>>, Error>;
-//     fn get_votes(&self, view_number: u128, index: u128) -> Result<Option<Vec<Vec<u8>>>, Error>;
-//     fn get_transactions(&self, index: u128) -> Result<Option<Vec<Vec<u8>>>, Error>;
-//     fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error>;
-//     fn post_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error>;
-//     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
-// }
+pub trait OrchestratorApi<KEY, ELECTION> {
+    fn post_getconfig(&mut self) -> Result<(NetworkConfig<KEY, ELECTION>), ServerError>;
+    fn get_start(&self) -> Result<(bool), ServerError>;
+    fn post_ready(&mut self) -> Result<(), ServerError>;
+    fn post_run_results(&mut self) -> Result<(), ServerError>;
+}
 
-// impl WebServerDataSource for WebServerState {
-//     /// Return all proposals the server has received for a particular view
-//     fn get_proposals(&self, view_number: u128) -> Result<Option<Vec<Vec<u8>>>, Error> {
-//         match self.proposals.get(&view_number) {
-//             Some(proposals) => Ok(Some(proposals.clone())),
-//             None => Ok(None),
-//         }
-//     }
+// You specify a default type when declaring a generic type with the <PlaceholderType=ConcreteType> syntax. RUst docs
+
+// ED TODO Do we need the static here?
+impl<KEY, ELECTION> OrchestratorApi<KEY, ELECTION> for OrchestratorState<KEY, ELECTION>
+where
+    KEY: serde::Serialize,
+    ELECTION: serde::Serialize,
+{
+    fn post_getconfig(&mut self) -> Result<(NetworkConfig<KEY, ELECTION>), ServerError> {
+        let mut config = NetworkConfig::<KEY, ELECTION>::default();
+        config.node_index = self.latest_index.into();
+
+        self.latest_index += 1;
+        Ok((config))
+    }
+
+    fn get_start(&self) -> Result<(bool), ServerError> {
+        Ok((self.start))
+    }
+
+    fn post_ready(&mut self) -> Result<(), ServerError> {
+        self.nodes_connected += 1; 
+        if self.nodes_connected >= self.config.config.known_nodes.len().try_into().unwrap() {
+            self.start = true; 
+        }
+        Ok(())
+    }
+
+    fn post_run_results(&mut self) -> Result<(), ServerError> {
+        Ok(())
+    }
+}
+
 
 /// Sets up all API routes
-// ED TODO update
-fn define_api<State>() -> Result<Api<State, ServerError>, ApiError>
+fn define_api<KEY, ELECTION, State>() -> Result<Api<State, ServerError>, ApiError>
 where
     State: 'static + Send + Sync + ReadState + WriteState,
-    <State as ReadState>::State: Send + Sync, //+ WebServerDataSource,
+    <State as ReadState>::State: Send + Sync + OrchestratorApi<KEY, ELECTION>,
+    KEY: serde::Serialize,
+    ELECTION: serde::Serialize,
 {
     // let mut api = match &options.api_path {
     //     Some(path) => Api::<State, ServerError>::from_file(path)?,
@@ -84,14 +103,32 @@ where
     //     }
     // };
 
-    let mut api = Api::<State, ServerError>::from_file(
-        "orchestrator/api.toml",
-    )
-    .unwrap();
-    api.get("getconfig", |req, state| {
+    let mut api = Api::<State, ServerError>::from_file("orchestrator/api.toml").unwrap();
+    api.post("post_getconfig", |req, state| {
         async move {
-            println!("THIS IS A CONFIG!");
-            Ok(())
+            // state.update_connections();
+            state.post_getconfig()
+        }
+        .boxed()
+    })?
+    .post("postready", |req, state| {
+        async move {
+            // state.update_connections();
+            state.post_ready()
+        }
+        .boxed()
+    })?
+    .get("getstart", |req, state| {
+        async move {
+            // state.update_connections();
+            state.get_start()
+        }
+        .boxed()
+    })?
+    .post("results", |req, state| {
+        async move {
+            // state.update_connections();
+            state.post_run_results()
         }
         .boxed()
     })?;
@@ -103,35 +140,7 @@ where
     KEY: SignatureKey + 'static + serde::Serialize,
     ELECTION: ElectionConfig + 'static + serde::Serialize,
 {
-
-    let api = define_api().unwrap(); 
-
-
-    // let mut api = Api::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::from_file(
-    //     "orchestrator/api.toml",
-    // )
-    // .unwrap();
-
-    // TODO ED separate out into get config and node_is_ready put command
-    // api.post("getconfig", |req, state| {
-    //     async move {
-    //         println!("Here is a config file! ");
-    //         state.update_connections();  
-    //         println!("There are this many nodes connected: {}", state.nodes_connected);
-    //         // TODO ED actually send the correctly generated config file with the right key index
-    //         let config: NetworkConfig<KEY, ELECTION> = NetworkConfig::default();
-    //         Ok(config)
-    //     }
-    //     .boxed()
-    // });
-
-    // api.get("start", |req, state| {
-    //     async move {
-    //         println!("Sending start command! ");
-    //         Ok(state.start)
-    //     }
-    //     .boxed()
-    // });
+    let api = define_api().unwrap();
 
     let state: RwLock<OrchestratorState<KEY, ELECTION>> = RwLock::new(OrchestratorState::new());
     let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);

@@ -3,11 +3,13 @@ NAME = "orchestrator"
 DESCRIPTION = "Orchestrator for HotShot"
 FORMAT_VERSION = "0.1.0"
 
-# GET the network configuration
-[route.getconfig]
+# Get the network configuration
+[route.post_getconfig]
 PATH = ["config"]
+METHOD = "POST"
 DOC = """
-Get NetworkConfig configuration needed for nodes to initialize HotShot and themselves. See `config.rs` for more information
+Get NetworkConfig configuration needed for nodes to initialize HotShot and themselves. See `config.rs` for more information. 
+This must be a POST request so we can update the OrchestratorState in the server accordingly
 """
 
 # POST whether the node is ready to begin the run
