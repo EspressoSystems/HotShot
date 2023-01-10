@@ -140,5 +140,5 @@ where
     let state: RwLock<OrchestratorState<KEY, ELECTION>> = RwLock::new(OrchestratorState::new(network_config));
     let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
     app.register_module("api", api).unwrap();
-    app.serve(format!("http://0.0.0.0:{}", 8080)).await
+    app.serve(format!("http://0.0.0.0:{}", 9090)).await
 }
