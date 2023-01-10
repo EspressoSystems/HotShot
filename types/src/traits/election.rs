@@ -61,7 +61,7 @@ pub enum VoteData<TYPES: NodeType, LEAF: LeafType> {
 }
 
 impl<TYPES: NodeType, LEAF: LeafType> VoteData<TYPES, LEAF> {
-    fn as_bytes(&self) -> Vec<u8> {
+    pub fn as_bytes(&self) -> Vec<u8> {
         bincode_opts().serialize(&self).unwrap()
     }
 }
@@ -234,101 +234,6 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             };
         }
         is_valid_signature && is_valid_vote_token
-    }
-
-    /// Validate a vote on DA proposal by checking its type, signature and token.
-    fn is_valid_da_vote(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        data: VoteData<TYPES, Self::LeafType>,
-        block_commitment: Commitment<TYPES::BlockType>,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        if let VoteData::DA(commitment) = data {
-            if commitment == block_commitment {
-                return self.is_valid_vote(
-                    encoded_key,
-                    encoded_signature,
-                    data,
-                    view_number,
-                    vote_token,
-                );
-            }
-        }
-        false
-    }
-
-    /// Validate a positive vote on validating or commitment proposal by checking its type, signature and token.
-    fn is_valid_yes_vote(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        data: VoteData<TYPES, Self::LeafType>,
-        leaf_commitment: Commitment<Self::LeafType>,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        if let VoteData::Yes(commitment) = data {
-            if commitment == leaf_commitment {
-                return self.is_valid_vote(
-                    encoded_key,
-                    encoded_signature,
-                    data,
-                    view_number,
-                    vote_token,
-                );
-            }
-        }
-        false
-    }
-
-    /// Validate a negative vote on validating or commitment proposal by checking its type, signature and token.
-    fn is_valid_no_vote(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        data: VoteData<TYPES, Self::LeafType>,
-        leaf_commitment: Commitment<Self::LeafType>,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        if let VoteData::No(commitment) = data {
-            if commitment == leaf_commitment {
-                return self.is_valid_vote(
-                    encoded_key,
-                    encoded_signature,
-                    data,
-                    view_number,
-                    vote_token,
-                );
-            }
-        }
-        false
-    }
-
-    /// Validate a timeout vote by checking its type, signature and token.
-    fn is_valid_timeout_vote(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        data: VoteData<TYPES, Self::LeafType>,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        if let VoteData::Timeout(view) = data {
-            if view == view_number {
-                return self.is_valid_vote(
-                    encoded_key,
-                    encoded_signature,
-                    data,
-                    view_number,
-                    vote_token,
-                );
-            }
-        }
-        false
     }
 
     /// generate a default election configuration

@@ -174,11 +174,11 @@ pub trait ConsensusApi<
     /// Sign a vote on DA proposal.
     fn sign_da_vote(
         &self,
-        block_commitment: &Commitment<TYPES::BlockType>,
+        block_commitment: Commitment<TYPES::BlockType>,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             self.private_key(),
-            &VoteData::DA(block_commitment).as_bytes(),
+            &VoteData::<TYPES, LEAF>::DA(block_commitment).as_bytes(),
         );
         (self.public_key().to_bytes(), signature)
     }
@@ -186,27 +186,33 @@ pub trait ConsensusApi<
     /// Sign a positive vote on validating or commitment proposal.
     fn sign_yes_vote(
         &self,
-        leaf_commitment: &Commitment<LEAF>,
+        leaf_commitment: Commitment<LEAF>,
     ) -> (EncodedPublicKey, EncodedSignature) {
-        let signature =
-            TYPES::SignatureKey::sign(self.private_key(), &VoteData::Yes(leaf_commitment).as_ref());
+        let signature = TYPES::SignatureKey::sign(
+            self.private_key(),
+            &VoteData::<TYPES, LEAF>::Yes(leaf_commitment).as_bytes(),
+        );
         (self.public_key().to_bytes(), signature)
     }
 
     /// Sign a neagtive vote on validating or commitment proposal.
     fn sign_no_vote(
         &self,
-        leaf_commitment: &Commitment<LEAF>,
+        leaf_commitment: Commitment<LEAF>,
     ) -> (EncodedPublicKey, EncodedSignature) {
-        let signature =
-            TYPES::SignatureKey::sign(self.private_key(), &VoteData::No(leaf_commitment).as_ref());
+        let signature = TYPES::SignatureKey::sign(
+            self.private_key(),
+            &VoteData::<TYPES, LEAF>::No(leaf_commitment).as_bytes(),
+        );
         (self.public_key().to_bytes(), signature)
     }
 
     /// Sign a timeout vote.
     fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
-        let signature =
-            TYPES::SignatureKey::sign(self.private_key(), &VoteData::Timeout(view_number).as_ref());
+        let signature = TYPES::SignatureKey::sign(
+            self.private_key(),
+            &VoteData::<TYPES, LEAF>::Timeout(view_number).as_bytes(),
+        );
         (self.public_key().to_bytes(), signature)
     }
 
@@ -220,38 +226,8 @@ pub trait ConsensusApi<
     /// Validate a QC.
     fn is_valid_qc(&self, qc: &LEAF::QuorumCertificate) -> bool;
 
-    /// Validate a vote on DA proposal.
-    fn is_valid_da_vote(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        data: VoteData<TYPES, LEAF>,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool;
-
-    /// Validate a positive vote on validating or commitment proposal.
-    fn is_valid_yes_vote(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        data: VoteData<TYPES, LEAF>,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool;
-
-    /// Validate a negative vote on validating or commitment proposal.
-    fn is_valid_no_vote(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        data: VoteData<TYPES, LEAF>,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool;
-
-    /// Validate a timeout vote on validating or commitment proposal.
-    fn is_valid_timeout_vote(
+    /// Validate a vote.
+    fn is_valid_vote(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,

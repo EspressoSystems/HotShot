@@ -11,7 +11,7 @@ use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, TimedOut, Vote},
+    message::{ConsensusMessage, TimedOut, Vote, YesOrNoVote},
     traits::{
         election::Election,
         node_implementation::NodeType,
@@ -208,21 +208,22 @@ where
                             }
                             Ok(Some(vote_token)) => {
                                 info!("We were chosen for committee on {:?}", self.cur_view);
-                                let signature = self.api.sign_yes_vote(&leaf_commitment);
+                                let signature = self.api.sign_yes_vote(leaf_commitment);
 
                                 // Generate and send vote
                                 let vote = ConsensusMessage::<
                                     TYPES,
                                     ValidatingLeaf<TYPES>,
                                     ValidatingProposal<TYPES, ELECTION>,
-                                >::Vote(Vote {
-                                    block_commitment: leaf.deltas.commit(),
-                                    justify_qc_commitment: leaf.justify_qc.commit(),
-                                    signature,
-                                    leaf_commitment,
-                                    current_view: self.cur_view,
-                                    vote_token,
-                                });
+                                >::Vote(Vote::Yes(
+                                    YesOrNoVote {
+                                        justify_qc_commitment: leaf.justify_qc.commit(),
+                                        signature,
+                                        leaf_commitment,
+                                        current_view: self.cur_view,
+                                        vote_token,
+                                    },
+                                ));
 
                                 let next_leader = self.api.get_leader(self.cur_view + 1).await;
 

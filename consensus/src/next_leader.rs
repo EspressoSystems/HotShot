@@ -7,12 +7,12 @@ use async_lock::Mutex;
 use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::{
-    election::{Checked::Unchecked, Election, VoteToken},
+    election::{Checked::Unchecked, Election, VoteData, VoteToken},
     state::{TestableBlock, TestableState},
 };
 use hotshot_types::{
     certificate::QuorumCertificate,
-    message::{ConsensusMessage, ConsensusVoteMessage},
+    message::{ConsensusMessage, Vote},
 };
 use std::time::Instant;
 use std::{
@@ -99,15 +99,15 @@ where
                 }
                 ConsensusMessage::Vote(vote_messaeg) => {
                     match vote_messaeg {
-                        ConsensusVoteMessage::YesVote(vote) => {
+                        Vote::Yes(vote) => {
                             // if the signature on the vote is invalid,
                             // assume it's sent by byzantine node
                             // and ignore
 
-                            if !self.api.is_valid_yes_vote(
+                            if !self.api.is_valid_vote(
                                 &vote.signature.0,
                                 &vote.signature.1,
-                                vote.leaf_commitment,
+                                VoteData::Yes(vote.leaf_commitment),
                                 vote.current_view,
                                 // Ignoring deserialization errors below since we are getting rid of it soon
                                 Unchecked(vote.vote_token.clone()),
@@ -117,9 +117,9 @@ where
 
                             // TODO ed ensure we have the QC that the QC commitment references
 
-                            let (_bh, map) = vote_outcomes
+                            let map = vote_outcomes
                                 .entry(vote.leaf_commitment)
-                                .or_insert_with(|| (vote.block_commitment, BTreeMap::new()));
+                                .or_insert_with(|| BTreeMap::new());
                             map.insert(
                                 vote.signature.0.clone(),
                                 (vote.signature.1.clone(), vote.vote_token.clone()),
@@ -128,7 +128,7 @@ where
                             stake_casted += u64::from(vote.vote_token.vote_count());
 
                             if stake_casted >= u64::from(threshold) {
-                                let (_block_commitment, valid_signatures) =
+                                let valid_signatures =
                                     vote_outcomes.remove(&vote.leaf_commitment).unwrap();
 
                                 // construct QC

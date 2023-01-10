@@ -21,7 +21,7 @@ use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     event::EventType,
-    message::{ConsensusMessage, Proposal},
+    message::{ConsensusMessage, Proposal, YesOrNoVote},
     traits::{
         election::{Election, SignedCertificate, TestableElection},
         node_implementation::NodeType,
@@ -134,15 +134,15 @@ async fn submit_validating_vote<
     // Build vote
     let mut leaf = random_validating_leaf(TYPES::BlockType::genesis(), &mut rng);
     leaf.view_number = view_number;
-    let signature = handle.sign_yes_vote(&leaf.commit());
-    let msg = ConsensusMessage::Vote(YesVote {
+    let signature = handle.sign_yes_vote(leaf.commit());
+    let msg = ConsensusMessage::Vote(Vote::Yes(YesOrNoVote {
         signature,
         justify_qc_commitment: leaf.justify_qc.commit(),
         current_view: leaf.view_number,
         leaf_commitment: leaf.commit(),
         // TODO placeholder below
         vote_token: ELECTION::generate_test_vote_token(),
-    });
+    }));
 
     let recipient = runner
         .get_handle(recipient_node_id)

@@ -1007,66 +1007,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         self.inner.election.is_valid_qc(qc)
     }
 
-    fn is_valid_da_vote(
+    fn is_valid_vote(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        data: VoteData,
+        data: VoteData<TYPES, I::Leaf>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
-        self.inner.election.is_valid_da_vote(
-            encoded_key,
-            encoded_signature,
-            data,
-            view_number,
-            vote_token,
-        )
-    }
-
-    fn is_valid_yes_vote(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        data: VoteData,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        self.inner.election.is_valid_yes_vote(
-            encoded_key,
-            encoded_signature,
-            data,
-            view_number,
-            vote_token,
-        )
-    }
-
-    fn is_valid_no_vote(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        data: VoteData,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        self.inner.election.is_valid_no_vote(
-            encoded_key,
-            encoded_signature,
-            data,
-            view_number,
-            vote_token,
-        )
-    }
-
-    fn is_valid_timeout_vote(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        data: VoteData,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        self.inner.election.is_valid_timeout_vote(
+        self.inner.election.is_valid_vote(
             encoded_key,
             encoded_signature,
             data,

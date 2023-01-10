@@ -313,7 +313,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     #[cfg(feature = "hotshot-testing")]
     pub fn sign_da_vote(
         &self,
-        block_commitment: &Commitment<TYPES::BlockType>,
+        block_commitment: Commitment<TYPES::BlockType>,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
@@ -325,7 +325,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     #[cfg(feature = "hotshot-testing")]
     pub fn sign_yes_vote(
         &self,
-        leaf_commitment: &Commitment<I::Leaf>,
+        leaf_commitment: Commitment<I::Leaf>,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
@@ -337,7 +337,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     #[cfg(feature = "hotshot-testing")]
     pub fn sign_no_vote(
         &self,
-        leaf_commitment: &Commitment<I::Leaf>,
+        leaf_commitment: Commitment<I::Leaf>,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),

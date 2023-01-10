@@ -69,16 +69,16 @@ impl<
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-/// Vote messages related to the consensus protocol
-pub enum ConsensusVoteMessage<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
+/// Votes sent by consensus messages.
+pub enum Vote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The vote on DA proposal.
-    DAVote(DAVote<TYPES, LEAF>),
+    DA(DAVote<TYPES, LEAF>),
     /// Posivite vote on validating or commitment proposal.
-    YesVote(YesOrNoVote<TYPES, LEAF>),
+    Yes(YesOrNoVote<TYPES, LEAF>),
     /// Negative vote on validating or commitment proposal.
-    NoVote(YesOrNoVote<TYPES, LEAF>),
+    No(YesOrNoVote<TYPES, LEAF>),
     /// Timeout vote.
-    TimeoutVote(TimeoutVote<TYPES>),
+    Timeout(TimeoutVote<TYPES>),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -92,10 +92,10 @@ pub enum ConsensusMessage<
     /// Leader's proposal
     Proposal(Proposal<PROPOSAL>),
     /// Replica timed out
-    /// TODO (da) replace this by ConsensusVoteMessage::TimeoutVote?
+    /// TODO (da) replace this by Vote::Timeout?
     TimedOut(TimedOut<TYPES, LEAF>),
     /// Replica's vote on a proposal.
-    Vote(ConsensusVoteMessage<TYPES, LEAF>),
+    Vote(Vote<TYPES, LEAF>),
     /// Internal ONLY message indicating a NextView interrupt
     /// View number this nextview interrupt was generated for
     /// used so we ignore stale nextview interrupts within a task
@@ -123,10 +123,10 @@ impl<
                 t.current_view
             }
             ConsensusMessage::Vote(vote_message) => match vote_message {
-                ConsensusVoteMessage::DAVote(v) => v.current_view,
-                ConsensusVoteMessage::YesVote(v) => v.current_view,
-                ConsensusVoteMessage::NoVote(v) => v.current_view,
-                ConsensusVoteMessage::TimeoutVote(v) => v.current_view,
+                Vote::DA(v) => v.current_view,
+                Vote::Yes(v) => v.current_view,
+                Vote::No(v) => v.current_view,
+                Vote::Timeout(v) => v.current_view,
             },
             ConsensusMessage::NextViewInterrupt(time) => *time,
         }
