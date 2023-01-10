@@ -64,9 +64,10 @@ use std::{
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 
+// TODO make these private and make a proper constructor ED
 pub struct CentralizedWebServerConfig {
-    host: IpAddr,
-    port: u16,
+    pub host: IpAddr,
+    pub port: u16,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
