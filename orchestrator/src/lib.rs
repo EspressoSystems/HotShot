@@ -1,12 +1,16 @@
 pub mod config;
 
 use async_lock::RwLock;
+use clap::Args;
 use hotshot_types::traits::election::ElectionConfig;
 use hotshot_types::traits::signature_key::SignatureKey;
 use std::default;
 use std::io;
+use std::net::IpAddr;
 use tide_disco::Api;
 use tide_disco::App;
+
+use std::path::PathBuf;
 
 use tide_disco::api::ApiError;
 use tide_disco::error::ServerError;
@@ -69,9 +73,9 @@ where
     }
 
     fn post_ready(&mut self) -> Result<(), ServerError> {
-        self.nodes_connected += 1; 
+        self.nodes_connected += 1;
         if self.nodes_connected >= self.config.config.known_nodes.len().try_into().unwrap() {
-            self.start = true; 
+            self.start = true;
         }
         Ok(())
     }
@@ -80,7 +84,6 @@ where
         Ok(())
     }
 }
-
 
 /// Sets up all API routes
 fn define_api<KEY, ELECTION, State>() -> Result<Api<State, ServerError>, ApiError>
@@ -104,41 +107,35 @@ where
 
     let mut api = Api::<State, ServerError>::from_file("orchestrator/api.toml").unwrap();
     api.post("post_getconfig", |req, state| {
-        async move {
-            state.post_getconfig()
-        }
-        .boxed()
+        async move { state.post_getconfig() }.boxed()
     })?
     .post("postready", |req, state| {
-        async move {
-            state.post_ready()
-        }
-        .boxed()
+        async move { state.post_ready() }.boxed()
     })?
     .get("getstart", |req, state| {
-        async move {
-            state.get_start()
-        }
-        .boxed()
+        async move { state.get_start() }.boxed()
     })?
     .post("results", |req, state| {
-        async move {
-            state.post_run_results()
-        }
-        .boxed()
+        async move { state.post_run_results() }.boxed()
     })?;
     Ok(api)
 }
 
-pub async fn run_orchestrator<KEY, ELECTION>(network_config: NetworkConfig<KEY, ELECTION>) -> io::Result<()>
+
+pub async fn run_orchestrator<KEY, ELECTION>(
+    network_config: NetworkConfig<KEY, ELECTION>,
+    host: IpAddr,
+    port: u16,
+) -> io::Result<()>
 where
     KEY: SignatureKey + 'static + serde::Serialize,
     ELECTION: ElectionConfig + 'static + serde::Serialize,
 {
     let api = define_api().unwrap();
 
-    let state: RwLock<OrchestratorState<KEY, ELECTION>> = RwLock::new(OrchestratorState::new(network_config));
+    let state: RwLock<OrchestratorState<KEY, ELECTION>> =
+        RwLock::new(OrchestratorState::new(network_config));
     let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
     app.register_module("api", api).unwrap();
-    app.serve(format!("http://0.0.0.0:{}", 9090)).await
+    app.serve(format!("http://{}:{}", host, port)).await
 }
