@@ -22,6 +22,7 @@ mod next_leader;
 mod replica;
 mod traits;
 mod utils;
+mod da;
 
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 pub use leader::ValidatingLeader;

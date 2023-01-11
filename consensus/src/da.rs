@@ -5,7 +5,7 @@ use async_compatibility_layer::{
     art::{async_sleep, async_timeout},
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
-use async_lock::RwLock;
+use async_lock::{RwLock, Mutex};
 use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -20,8 +20,11 @@ use hotshot_types::{
         Block, State,
     },
 };
+use async_compatibility_layer::channel::UnboundedReceiver;
 use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
+use hotshot_types::traits::state::SequencingConsensus;
+use hotshot_types::certificate::DACertificate;
 
 /// This view's validating leader
 #[derive(Debug, Clone)]
@@ -53,15 +56,10 @@ pub struct DALeader<
         >,
     >,
 >,
-/// The 
-
     #[allow(missing_docs)]
     #[allow(clippy::missing_docs_in_private_items)]
     pub _pd: PhantomData<ELECTION>,
 }
-
-
-
 impl<
         A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
@@ -71,7 +69,7 @@ where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
 {
-    async fn wait_for_transactions() -> Vec<TYPES::Transaction> {
+    async fn wait_for_transactions(&self) -> Vec<TYPES::Transaction> {
         while task_start_time.elapsed() < self.api.propose_max_round_time() {
             let txns = self.transactions.cloned().await;
             let unclaimed_txns: Vec<_> = txns
@@ -103,11 +101,11 @@ where
     } 
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
-    pub async fn run_view(self) -> DACertificate<TYPES, DALeaf<TYPES>> {
+    pub async fn run_view(self) -> Option<DACertificate<TYPES, DALeaf<TYPES>>> {
         // Prepare teh DA Proposal
         let starting_state = &parent_leaf.state;
         let mut block = starting_state.next_block();
-        let txns = wait_for_transactions.await();
+        let txns = wait_for_transactions.await;
         for (_hash, txn) in txns {
             let new_block_check = block.add_transaction_raw(txn);
             if let Ok(new_block) = new_block_check {
@@ -204,5 +202,7 @@ where
                     warn!("The DA leader has received an unexpected proposal!");
                 }
             }
+        }
+        None
     }
 }

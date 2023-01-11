@@ -55,7 +55,7 @@ use bincode::Options;
 use commit::{Commitment, Committable};
 use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, NextValidatingLeader, Replica, SendToTasks,
-    ValidatingLeader, View, ViewInner, ViewQueue,
+    ValidatingLeader, View, ViewInner, ViewQueue, DALeader,
 };
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
@@ -874,7 +874,34 @@ impl<TYPES: NodeType<ConsensusType = SequencingConsensus>, I: NodeImplementation
 {
     // #[instrument]
     async fn run_view(_hotshot: HotShot<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()> {
-        let da_leader = {};
+        let c_api = HotShotConsensusApi {
+            inner: hotshot.inner.clone(),
+        };
+        let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+        let (send_da_vote_chan, recv_da_vote, curr_view) = {
+            let mut consensus = hotshot.hotstuff.write().await;
+            let cur_view = consensus.increment_view();
+                HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+                curr_view,
+                send_to_next_leader,
+            )
+            .await;
+            (vq.sender_chan, vq.receiver_chan, curr_view);
+
+        };
+
+        let start = Instant::now();
+        let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
+        let da_leader = DALeader {
+            id: hotshot.id,
+            consensus: hotshot.hotstuff.clone(),
+            high_qc: high_qc.clone(),
+            curr_view,
+            transactions: txns,
+            api: c_api.clone(),
+            vote_collection_chan: da_vote_chan,
+            _pd: PhantomData,
+        };
         let da_next_leader = {};
         let da_replica = {};
         #[allow(deprecated)]
