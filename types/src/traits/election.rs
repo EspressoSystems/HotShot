@@ -181,10 +181,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             })
             .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
 
-        if stake >= u64::from(self.threshold()) {
-            return true;
-        }
-        false
+        stake >= u64::from(self.threshold())
     }
 
     /// Validate a QC by checking its votes.
@@ -208,10 +205,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             })
             .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
 
-        if stake >= u64::from(self.threshold()) {
-            return true;
-        }
-        false
+        stake >= u64::from(self.threshold())
     }
 
     /// Validate a vote by checking its signature and token.

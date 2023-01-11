@@ -171,6 +171,9 @@ pub trait ConsensusApi<
     }
 
     /// Sign a vote on DA proposal.
+    ///
+    /// The block commitment and the type of the vote (DA) are signed, which is the minimum amount
+    /// of information necessary for checking that this node voted on that block.
     fn sign_da_vote(
         &self,
         block_commitment: Commitment<TYPES::BlockType>,
@@ -183,6 +186,11 @@ pub trait ConsensusApi<
     }
 
     /// Sign a positive vote on validating or commitment proposal.
+    ///
+    /// The leaf commitment and the type of the vote (yes) are signed, which is the minimum amount
+    /// of information necessary for any user of the subsequently constructed QC to check that this
+    /// node voted `Yes` on that leaf. The leaf is expected to be reconstructed based on other
+    /// information in the yes vote.
     fn sign_yes_vote(
         &self,
         leaf_commitment: Commitment<LEAF>,
@@ -195,6 +203,10 @@ pub trait ConsensusApi<
     }
 
     /// Sign a neagtive vote on validating or commitment proposal.
+    ///
+    /// The leaf commitment and the type of the vote (no) are signed, which is the minimum amount
+    /// of information necessary for any user of the subsequently constructed QC to check that this
+    /// node voted `No` on that leaf.
     fn sign_no_vote(
         &self,
         leaf_commitment: Commitment<LEAF>,
@@ -207,6 +219,12 @@ pub trait ConsensusApi<
     }
 
     /// Sign a timeout vote.
+    ///
+    /// We only sign the view number, which is the minimum amount of information necessary for
+    /// checking that this node timed out on that view.
+    ///
+    /// This also allows for the high QC included with the vote to be spoofed in a MITM scenario,
+    /// but it is outside our threat model.
     fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             self.private_key(),
