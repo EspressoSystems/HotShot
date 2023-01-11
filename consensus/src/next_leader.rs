@@ -94,9 +94,6 @@ where
                 continue;
             }
             match msg {
-                ConsensusMessage::TimedOut(t) => {
-                    qcs.insert(t.justify_qc);
-                }
                 ConsensusMessage::Vote(vote_messaeg) => {
                     match vote_messaeg {
                         Vote::Yes(vote) => {
@@ -143,6 +140,9 @@ where
                                     .add_point(vote_collection_start.elapsed().as_secs_f64());
                                 return qc;
                             }
+                        }
+                        Vote::Timeout(vote) => {
+                            qcs.insert(vote.justify_qc);
                         }
                         _ => {
                             warn!("The next leader has received an unexpected vote!");

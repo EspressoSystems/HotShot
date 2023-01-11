@@ -57,10 +57,9 @@ pub trait ConsensusApi<
 
     /// Generates and encodes a vote token
     #[allow(clippy::type_complexity)]
-    fn generate_vote_token(
+    fn make_vote_token(
         &self,
         view_number: TYPES::Time,
-        next_state: Commitment<LEAF>,
     ) -> Result<Option<TYPES::VoteTokenType>, ElectionError>;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage

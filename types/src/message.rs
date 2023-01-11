@@ -78,7 +78,7 @@ pub enum Vote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Negative vote on validating or commitment proposal.
     No(YesOrNoVote<TYPES, LEAF>),
     /// Timeout vote.
-    Timeout(TimeoutVote<TYPES>),
+    Timeout(TimeoutVote<TYPES, LEAF>),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -91,9 +91,6 @@ pub enum ConsensusMessage<
 > {
     /// Leader's proposal
     Proposal(Proposal<PROPOSAL>),
-    /// Replica timed out
-    /// TODO (da) replace this by Vote::Timeout?
-    TimedOut(TimedOut<TYPES, LEAF>),
     /// Replica's vote on a proposal.
     Vote(Vote<TYPES, LEAF>),
     /// Internal ONLY message indicating a NextView interrupt
@@ -117,10 +114,6 @@ impl<
                 // view of leader in the leaf when proposal
                 // this should match replica upon receipt
                 p.leaf.get_view_number()
-            }
-            ConsensusMessage::TimedOut(t) => {
-                // view number on which the replica timed out waiting for proposal
-                t.current_view
             }
             ConsensusMessage::Vote(vote_message) => match vote_message {
                 Vote::DA(v) => v.current_view,
@@ -163,16 +156,6 @@ pub enum DataMessage<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 
     /// Contains a transaction to be submitted
     SubmitTransaction(TYPES::Transaction),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(bound(deserialize = ""))]
-/// Signals the start of a new view
-pub struct TimedOut<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
-    /// The current view
-    pub current_view: TYPES::Time,
-    /// The justification qc for this view
-    pub justify_qc: LEAF::QuorumCertificate,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -228,7 +211,9 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 /// A timeout vote.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub struct TimeoutVote<TYPES: NodeType> {
+pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
+    /// The justification qc for this view
+    pub justify_qc: LEAF::QuorumCertificate,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a Vec<u8>
     pub signature: (EncodedPublicKey, EncodedSignature),

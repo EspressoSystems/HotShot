@@ -466,8 +466,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             ConsensusMessage::NextViewInterrupt(_) => {
                 warn!("Received a next view interrupt. This shouldn't be possible.");
             }
-            ConsensusMessage::TimedOut(_) | ConsensusMessage::Vote(_) => {
-                warn!("Received a broadcast for a vote or nextview message. This shouldn't be possible.");
+            ConsensusMessage::Vote(_) => {
+                warn!("Received a broadcast for a vote message. This shouldn't be possible.");
             }
         };
     }
@@ -492,7 +492,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                 warn!("Received a direct message for a proposal. This shouldn't be possible.");
             }
             // this is ONLY intended for next leader
-            c @ (ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_)) => {
+            c @ ConsensusMessage::Vote(_) => {
                 let msg_time = c.view_number();
 
                 let channel_map = self.next_leader_channel_map.upgradable_read().await;
@@ -508,10 +508,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                 )
                 .await;
                 if !is_leader || msg_time < channel_map.cur_view {
-                    warn!(
-                        "Throwing away Vote or TimedOut message for view number: {:?}",
-                        msg_time
-                    );
+                    warn!("Throwing away Vote message for view number: {:?}", msg_time);
                     return;
                 }
 
@@ -919,10 +916,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     }
 
     /// Generates and encodes a vote token
-    fn generate_vote_token(
+    fn make_vote_token(
         &self,
         view_number: TYPES::Time,
-        _next_state: Commitment<I::Leaf>,
     ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError> {
         self.inner
             .election
