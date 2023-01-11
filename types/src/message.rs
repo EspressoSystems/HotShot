@@ -81,6 +81,65 @@ pub enum Vote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     Timeout(TimeoutVote<TYPES, LEAF>),
 }
 
+/// a processed consensus message
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = ""))]
+pub enum ProcessedConsensusMessage<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+> {
+    /// Leader's proposal
+    Proposal(Proposal<PROPOSAL>, TYPES::SignatureKey),
+    /// Replica's vote on a proposal.
+    Vote(Vote<TYPES, LEAF>, TYPES::SignatureKey),
+    /// Internal ONLY message indicating a NextView interrupt
+    /// View number this nextview interrupt was generated for
+    /// used so we ignore stale nextview interrupts within a task
+    #[serde(skip)]
+    NextViewInterrupt(TYPES::Time),
+}
+
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+    > From<ProcessedConsensusMessage<TYPES, LEAF, PROPOSAL>>
+    for ConsensusMessage<TYPES, LEAF, PROPOSAL>
+{
+    /// row polymorphism would be great here
+    fn from(value: ProcessedConsensusMessage<TYPES, LEAF, PROPOSAL>) -> Self {
+        match value {
+            ProcessedConsensusMessage::Proposal(p, _) => ConsensusMessage::Proposal(p),
+            ProcessedConsensusMessage::Vote(v, _) => ConsensusMessage::Vote(v),
+            ProcessedConsensusMessage::NextViewInterrupt(a) => {
+                ConsensusMessage::NextViewInterrupt(a)
+            }
+        }
+    }
+}
+
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+    > ProcessedConsensusMessage<TYPES, LEAF, PROPOSAL>
+{
+    /// row polymorphism would be great here
+    pub fn new(
+        value: ConsensusMessage<TYPES, LEAF, PROPOSAL>,
+        sender: TYPES::SignatureKey,
+    ) -> Self {
+        match value {
+            ConsensusMessage::Proposal(p) => ProcessedConsensusMessage::Proposal(p, sender),
+            ConsensusMessage::Vote(v) => ProcessedConsensusMessage::Vote(v, sender),
+            ConsensusMessage::NextViewInterrupt(a) => {
+                ProcessedConsensusMessage::NextViewInterrupt(a)
+            }
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
 /// Messages related to the consensus protocol

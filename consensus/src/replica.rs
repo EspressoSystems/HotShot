@@ -11,7 +11,7 @@ use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, TimeoutVote, Vote, YesOrNoVote},
+    message::{ConsensusMessage, ProcessedConsensusMessage, TimeoutVote, Vote, YesOrNoVote},
     traits::{
         election::Election,
         node_implementation::NodeType,
@@ -47,7 +47,11 @@ pub struct Replica<
     pub proposal_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
-                ConsensusMessage<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+                ProcessedConsensusMessage<
+                    TYPES,
+                    ValidatingLeaf<TYPES>,
+                    ValidatingProposal<TYPES, ELECTION>,
+                >,
             >,
         >,
     >,
@@ -91,11 +95,16 @@ where
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
-                if msg.view_number() != self.cur_view {
+                if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number()
+                    != self.cur_view
+                {
                     continue;
                 }
                 match msg {
-                    ConsensusMessage::Proposal(p) => {
+                    ProcessedConsensusMessage::Proposal(p, sender) => {
+                        if view_leader_key != sender {
+                            continue;
+                        }
                         let parent = if let Some(parent) =
                             consensus.saved_leaves.get(&p.leaf.parent_commitment)
                         {
@@ -243,7 +252,7 @@ where
                         }
                         break leaf;
                     }
-                    ConsensusMessage::NextViewInterrupt(_view_number) => {
+                    ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
                         let next_leader = self.api.get_leader(self.cur_view + 1).await;
 
                         consensus.metrics.number_of_timeouts.add(1);
@@ -296,7 +305,7 @@ where
                         }
                         return (consensus, None);
                     }
-                    ConsensusMessage::Vote(_) => {
+                    ProcessedConsensusMessage::Vote(_, _) => {
                         // should only be for leader, never replica
                         warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
                         continue;

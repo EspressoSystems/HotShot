@@ -5,7 +5,9 @@ use crate::ConsensusMetrics;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
 use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
+use hotshot_types::message::ProcessedConsensusMessage;
 use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::traits::{
     election::{Checked::Unchecked, Election, VoteData, VoteToken},
     state::{TestableBlock, TestableState},
@@ -44,7 +46,11 @@ pub struct NextValidatingLeader<
     pub vote_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
-                ConsensusMessage<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+                ProcessedConsensusMessage<
+                    TYPES,
+                    ValidatingLeaf<TYPES>,
+                    ValidatingProposal<TYPES, ELECTION>,
+                >,
             >,
         >,
     >,
@@ -90,13 +96,19 @@ where
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
-            if msg.view_number() != self.cur_view {
+            if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number() != self.cur_view {
                 continue;
             }
             match msg {
-                ConsensusMessage::Vote(vote_messaeg) => {
-                    match vote_messaeg {
+                ProcessedConsensusMessage::Vote(vote_message, sender) => {
+                    match vote_message {
                         Vote::Yes(vote) => {
+                            if vote.signature.0
+                                != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+                            {
+                                continue;
+                            }
+
                             // if the signature on the vote is invalid,
                             // assume it's sent by byzantine node
                             // and ignore
@@ -149,11 +161,11 @@ where
                         }
                     }
                 }
-                ConsensusMessage::NextViewInterrupt(_view_number) => {
+                ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
                     self.api.send_next_leader_timeout(self.cur_view).await;
                     break;
                 }
-                ConsensusMessage::Proposal(_p) => {
+                ProcessedConsensusMessage::Proposal(_p, _sender) => {
                     warn!("The next leader has received an unexpected proposal!");
                 }
             }

@@ -5,7 +5,7 @@ use async_lock::Mutex;
 use commit::Commitment;
 use hotshot_types::{
     data::{LeafType, ProposalType},
-    message::ConsensusMessage,
+    message::ProcessedConsensusMessage,
     traits::node_implementation::NodeType,
 };
 use std::{
@@ -54,10 +54,11 @@ pub struct ViewQueue<
     PROPOSAL: ProposalType<NodeType = TYPES>,
 > {
     /// to send networking events to Replica
-    pub sender_chan: UnboundedSender<ConsensusMessage<TYPES, LEAF, PROPOSAL>>,
+    pub sender_chan: UnboundedSender<ProcessedConsensusMessage<TYPES, LEAF, PROPOSAL>>,
 
     /// to recv networking events for Replica
-    pub receiver_chan: Arc<Mutex<UnboundedReceiver<ConsensusMessage<TYPES, LEAF, PROPOSAL>>>>,
+    pub receiver_chan:
+        Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, LEAF, PROPOSAL>>>>,
 
     /// `true` if this queue has already received a proposal
     pub has_received_proposal: Arc<AtomicBool>,

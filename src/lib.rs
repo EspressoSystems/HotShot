@@ -57,7 +57,7 @@ use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, NextValidatingLeader, Replica, SendToTasks,
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
-use hotshot_types::message::MessageKind;
+use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
@@ -271,10 +271,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     pub async fn timeout_view(
         &self,
         current_view: TYPES::Time,
-        send_replica: UnboundedSender<ConsensusMessage<TYPES, I::Leaf, I::Proposal>>,
-        send_next_leader: Option<UnboundedSender<ConsensusMessage<TYPES, I::Leaf, I::Proposal>>>,
+        send_replica: UnboundedSender<ProcessedConsensusMessage<TYPES, I::Leaf, I::Proposal>>,
+        send_next_leader: Option<
+            UnboundedSender<ProcessedConsensusMessage<TYPES, I::Leaf, I::Proposal>>,
+        >,
     ) {
-        let msg = ConsensusMessage::<TYPES, I::Leaf, I::Proposal>::NextViewInterrupt(current_view);
+        let msg = ProcessedConsensusMessage::<TYPES, I::Leaf, I::Proposal>::NextViewInterrupt(
+            current_view,
+        );
         if let Some(chan) = send_next_leader {
             if chan.send(msg.clone()).await.is_err() {
                 warn!("Error timing out next leader task");
@@ -435,14 +439,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         // <github.com/ExpressoSystems/HotShot/issues/418>
         let msg_time = msg.view_number();
 
-        // Skip messages that are not from the leader
-        let api = HotShotConsensusApi {
-            inner: self.inner.clone(),
-        };
-        if sender != api.get_leader(msg_time).await {
-            return;
-        }
-
         match msg {
             // this is ONLY intended for replica
             ConsensusMessage::Proposal(_) => {
@@ -458,7 +454,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                     Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
 
                 if !chan.has_received_proposal.swap(true, Ordering::Relaxed)
-                    && chan.sender_chan.send(msg).await.is_err()
+                    && chan
+                        .sender_chan
+                        .send(ProcessedConsensusMessage::new(msg, sender))
+                        .await
+                        .is_err()
                 {
                     warn!("Failed to send to next leader!");
                 }
@@ -473,18 +473,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     }
 
     /// Handle an incoming [`ConsensusMessage`] directed at this node.
-    #[instrument(
-        skip(self, _sender),
-        name = "Handle direct consensus message",
-        level = "error"
-    )]
+    #[instrument(skip(self), name = "Handle direct consensus message", level = "error")]
     async fn handle_direct_consensus_message(
         &self,
         msg: ConsensusMessage<TYPES, I::Leaf, I::Proposal>,
-        _sender: TYPES::SignatureKey,
+        sender: TYPES::SignatureKey,
     ) {
-        // TODO validate incoming data message based on sender signature key
-
         // We can only recv from a replicas
         // replicas should only send votes or if they timed out, timeouts
         match msg {
@@ -514,7 +508,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
 
                 let chan = Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
 
-                if chan.sender_chan.send(c).await.is_err() {
+                if chan
+                    .sender_chan
+                    .send(ProcessedConsensusMessage::new(c, sender))
+                    .await
+                    .is_err()
+                {
                     error!("Failed to send to next leader!");
                 }
             }
@@ -556,7 +555,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed
-                warn!(?msg, "Direct message received over broadcast channel");
+                warn!(
+                    ?msg,
+                    "Newest QC received over broadcast channel. This shouldn't be possible."
+                );
             }
         }
     }
@@ -567,51 +569,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         msg: DataMessage<TYPES, I::Leaf>,
         _sender: TYPES::SignatureKey,
     ) {
-        // TODO validate incoming data message based on sender signature key
         debug!(?msg, "Incoming direct data message");
         match msg {
-            DataMessage::NewestQuorumCertificate {
-                quorum_certificate: qc,
-                block,
-                state,
-                parent_commitment,
-                rejected,
-                proposer_id,
-            } => {
-                // TODO https://github.com/EspressoSystems/HotShot/issues/387
-                let anchored = match self.inner.storage.get_anchored_view().await {
-                    Err(e) => {
-                        error!(?e, "Could not load QC");
-                        return;
-                    }
-                    Ok(n) => n,
-                };
-                // TODO: Don't blindly accept the newest QC but make sure it's valid with other nodes too
-                // we should be getting multiple data messages soon
-                // <https://github.com/EspressoSystems/HotShot/issues/454>
-                let should_save = anchored.view_number < qc.view_number(); // incoming view is newer
-                if should_save {
-                    let new_view = StoredView::from_qc_block_and_state(
-                        qc,
-                        block,
-                        state,
-                        // We don't have enough information in this message to validate the height
-                        // of the new QC. We would need the full parent leaf, so we can check that
-                        // its commitment matches `qc.leaf_commitment()` and extract the height
-                        // from the leaf. But this message is no longer used and the whole catchup
-                        // protocol needs to be redesigned.
-                        0,
-                        parent_commitment,
-                        rejected,
-                        proposer_id,
-                    );
-
-                    if let Err(e) = self.inner.storage.append_single_view(new_view).await {
-                        error!(?e, "Could not insert incoming QC");
-                    }
-                }
+            DataMessage::NewestQuorumCertificate { .. } => {
+                warn!(
+                    ?msg,
+                    "Newest QC received over direct channel. This shouldn't be possible."
+                );
             }
-
             DataMessage::SubmitTransaction(_) => {
                 // Log exceptional situation and proceed
                 warn!(?msg, "Broadcast message received over direct channel");
