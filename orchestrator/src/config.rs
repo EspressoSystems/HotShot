@@ -121,9 +121,8 @@ pub struct NetworkConfigFile {
     // pub libp2p_config: Option<Libp2pConfigFile>,
     #[serde(default = "default_config")]
     pub config: HotShotConfigFile,
-    // TODO Do we necessarily need a default otpion? 
+    // TODO Do we necessarily need a default otpion?
     pub centralized_web_server_config: Option<CentralizedWebServerConfig>,
-
 }
 
 impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
@@ -158,7 +157,7 @@ impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
             key_type_name: std::any::type_name::<K>().to_string(),
             election_config_type_name: std::any::type_name::<E>().to_string(),
             start_delay_seconds: val.start_delay_seconds,
-            centralized_web_server_config: val.centralized_web_server_config
+            centralized_web_server_config: val.centralized_web_server_config,
         }
     }
 }

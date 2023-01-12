@@ -15,30 +15,37 @@ use hotshot_orchestrator::{
 
 #[derive(clap::Parser)]
 enum Args {
-    Centralized { host: String, port: u16 },
-    Web { host: String, port: u16, web_host: String, web_port: u16 },
-    Libp2p { host: String, port: u16 },
+    Centralized {
+        host: String,
+        port: u16,
+    },
+    Web {
+        host: String,
+        port: u16,
+        web_host: String,
+        web_port: u16,
+    },
+    Libp2p {
+        host: String,
+        port: u16,
+    },
 }
 
-// #[derive(Args, Default)]
-// pub struct Options {
-//     #[arg(
-//         long = "centralized-web-server-api-path",
-//         env = "CENTRALIZED_WEB_SERVER_API_PATH"
-//     )]
-//     pub api_path: Option<PathBuf>,
-// }
+// TODO ED integrate old centralized server and libp2p
 #[async_std::main]
 pub async fn main() {
-
     let args = Args::parse();
-    let (host, port, web_host, web_port) = match args  {
-        Args::Web { host, port, web_host, web_port } => {
-            (host, port, web_host, web_port)
-        }
-        _ => panic!()
+    let (host, port, web_host, web_port) = match args {
+        Args::Web {
+            host,
+            port,
+            web_host,
+            web_port,
+        } => (host, port, web_host, web_port),
+        _ => panic!(), // TODO ED implement other options
     };
     // Read config from file
+    // TODO ED make a cli argument
     let config_file = "./orchestrator/default-run-config.toml";
     let config: String =
         fs::read_to_string(config_file).expect("Should have been able to read the file");
@@ -56,5 +63,10 @@ pub async fn main() {
         })
         .collect();
 
-    hotshot_orchestrator::run_orchestrator::<Ed25519Pub, StaticElectionConfig>(run, host.as_str().parse().unwrap() , port).await;
+    hotshot_orchestrator::run_orchestrator::<Ed25519Pub, StaticElectionConfig>(
+        run,
+        host.as_str().parse().unwrap(),
+        port,
+    )
+    .await;
 }

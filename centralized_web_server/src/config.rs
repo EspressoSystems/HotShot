@@ -23,5 +23,3 @@ pub fn get_transactions_route(index: u128) -> String {
 pub fn post_transactions_route() -> String {
     format!("api/transactions")
 }
-
-

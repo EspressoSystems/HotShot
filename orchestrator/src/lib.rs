@@ -1,35 +1,33 @@
 pub mod config;
 
 use async_lock::RwLock;
-use clap::Args;
 use hotshot_types::traits::election::ElectionConfig;
 use hotshot_types::traits::signature_key::SignatureKey;
-use std::default;
 use std::io;
 use std::net::IpAddr;
 use tide_disco::Api;
 use tide_disco::App;
-
-use std::path::PathBuf;
 
 use tide_disco::api::ApiError;
 use tide_disco::error::ServerError;
 use tide_disco::method::ReadState;
 use tide_disco::method::WriteState;
 
-use async_trait::async_trait;
 use futures::FutureExt;
 
 use crate::config::NetworkConfig;
 
-type State<KEY, ELECTION> = RwLock<OrchestratorState<KEY, ELECTION>>;
-
 // TODO Can probably get rid of the extra generic stuff ED
 #[derive(Default, Clone)]
 struct OrchestratorState<KEY, ELECTION> {
+    /// Tracks the latest node index we have generated a configuration for
     latest_index: u16,
+    /// The NetworkConfig
     config: NetworkConfig<KEY, ELECTION>,
+    /// Whether nodes should start HotShot
+    /// Will be set to true once all nodes post they are ready to start
     start: bool,
+    /// The total nodes that have posted they are ready to start
     pub nodes_connected: u64,
 }
 
@@ -53,8 +51,6 @@ pub trait OrchestratorApi<KEY, ELECTION> {
     fn post_run_results(&mut self) -> Result<(), ServerError>;
 }
 
-// You specify a default type when declaring a generic type with the <PlaceholderType=ConcreteType> syntax. Rust docs
-// ED TODO Do we need the static here?
 impl<KEY, ELECTION> OrchestratorApi<KEY, ELECTION> for OrchestratorState<KEY, ELECTION>
 where
     KEY: serde::Serialize + Clone,
@@ -120,7 +116,6 @@ where
     })?;
     Ok(api)
 }
-
 
 pub async fn run_orchestrator<KEY, ELECTION>(
     network_config: NetworkConfig<KEY, ELECTION>,

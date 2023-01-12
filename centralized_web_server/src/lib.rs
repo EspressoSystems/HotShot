@@ -87,7 +87,7 @@ impl WebServerDataSource for WebServerState {
     fn get_votes(&self, view_number: u128, index: u128) -> Result<Option<Vec<Vec<u8>>>, Error> {
         let votes = self.votes.get(&view_number);
         let mut ret_votes = vec![];
-        if let Some(votes) = votes  {
+        if let Some(votes) = votes {
             for i in index..*self.vote_index.get(&view_number).unwrap() {
                 println!("getting vote {:?} for view {:?}", i, view_number);
                 ret_votes.push(votes[i as usize].1.clone());
@@ -130,7 +130,9 @@ impl WebServerDataSource for WebServerState {
             .entry(view_number)
             .and_modify(|current_votes| current_votes.push((*highest_index, vote.clone())))
             .or_insert_with(|| vec![(*highest_index, vote)]);
-        self.vote_index.entry(view_number).and_modify(|index| *index+=1);
+        self.vote_index
+            .entry(view_number)
+            .and_modify(|index| *index += 1);
         Ok(())
     }
     /// Stores a received proposal in the `WebServerState`
@@ -258,18 +260,22 @@ pub async fn run_web_server(shutdown_listener: Option<OneShotReceiver<()>>) -> i
     let mut app = App::<State, Error>::with_state(state);
 
     app.register_module("api", api).unwrap();
-    app.serve(format!("http://0.0.0.0:{}", WEB_SERVER_PORT)).await
+    app.serve(format!("http://0.0.0.0:{}", WEB_SERVER_PORT))
+        .await
 }
 
 #[cfg(test)]
 mod test {
-    use crate::config::{post_proposal_route, get_proposal_route, post_vote_route, get_vote_route, post_transactions_route, get_transactions_route};
+    use crate::config::{
+        get_proposal_route, get_transactions_route, get_vote_route, post_proposal_route,
+        post_transactions_route, post_vote_route,
+    };
 
     use super::*;
     use async_std::task::spawn;
+    use config;
     use portpicker::pick_unused_port;
     use tide_disco::StatusCode;
-    use config;
 
     type State = RwLock<WebServerState>;
     type Error = ServerError;
@@ -328,7 +334,10 @@ mod test {
         assert_ne!(res1, res2);
 
         assert_eq!(
-            client.get::<Option<Vec<u8>>>(&get_proposal_route(3)).send().await,
+            client
+                .get::<Option<Vec<u8>>>(&get_proposal_route(3))
+                .send()
+                .await,
             Ok(None)
         );
 
