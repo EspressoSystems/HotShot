@@ -2677,6 +2677,7 @@ dependencies = [
  "bincode",
  "commit",
  "custom_debug",
+ "either",
  "futures",
  "hotshot-types",
  "hotshot-utils",

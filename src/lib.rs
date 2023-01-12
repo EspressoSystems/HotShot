@@ -54,9 +54,10 @@ use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use hotshot_consensus::{
-    Consensus, ConsensusApi, ConsensusMetrics, NextValidatingLeader, Replica, SendToTasks,
-    ValidatingLeader, View, ViewInner, ViewQueue, DALeader,
+    Consensus, ConsensusApi, ConsensusMetrics, DALeader, NextValidatingLeader, Replica,
+    SendToTasks, ValidatingLeader, View, ViewInner, ViewQueue,
 };
+use hotshot_types::data::{DALeaf, DAProposal};
 use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
@@ -835,41 +836,59 @@ where
 }
 
 #[async_trait]
-impl<TYPES: NodeType<ConsensusType = SequencingConsensus>, I: NodeImplementation<TYPES>>
-    ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        ELECTION: Election<
+            TYPES,
+            LeafType = DALeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+        >,
+        I: NodeImplementation<TYPES, Leaf = DALeaf<TYPES>, Proposal = DAProposal<TYPES, ELECTION>>,
+    > ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
 {
     // #[instrument]
-    async fn run_view(_hotshot: HotShot<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()> {
+    async fn run_view(hotshot: HotShot<SequencingConsensus, TYPES, I>) -> Result<(), ()> {
         let c_api = HotShotConsensusApi {
             inner: hotshot.inner.clone(),
         };
-        let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
-        let (send_da_vote_chan, recv_da_vote, curr_view) = {
+        let send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+        let (_send_da_vote_chan, recv_da_vote, cur_view) = {
             let mut consensus = hotshot.hotstuff.write().await;
             let cur_view = consensus.increment_view();
-                HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
-                curr_view,
+            let vq = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+                cur_view,
                 send_to_next_leader,
             )
             .await;
-            (vq.sender_chan, vq.receiver_chan, curr_view);
-
+            (vq.sender_chan, vq.receiver_chan, cur_view)
+        };
+        let (high_qc, txns) = {
+            // OBTAIN read lock on consensus
+            let consensus = hotshot.hotstuff.read().await;
+            let high_qc = consensus.high_qc.clone();
+            let txns = consensus.transactions.clone();
+            (high_qc, txns)
         };
 
-        let start = Instant::now();
-        let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
         let da_leader = DALeader {
             id: hotshot.id,
             consensus: hotshot.hotstuff.clone(),
             high_qc: high_qc.clone(),
-            curr_view,
+            cur_view,
             transactions: txns,
             api: c_api.clone(),
-            vote_collection_chan: da_vote_chan,
+            vote_collection_chan: recv_da_vote,
             _pd: PhantomData,
         };
-        let da_next_leader = {};
-        let da_replica = {};
+        let _da_cert = if let Some(cert) = da_leader.run_view().await {
+            cert
+        } else {
+            return Ok(());
+        };
+        let _da_replica = {};
         #[allow(deprecated)]
         nll_todo()
     }
