@@ -11,7 +11,7 @@ use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, TimedOut, Vote},
+    message::{ConsensusMessage, ProcessedConsensusMessage, TimeoutVote, Vote, YesOrNoVote},
     traits::{
         election::Election,
         node_implementation::NodeType,
@@ -29,7 +29,11 @@ use tracing::{error, info, instrument, warn};
 pub struct Replica<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    ELECTION: Election<
+        TYPES,
+        LeafType = ValidatingLeaf<TYPES>,
+        QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+    >,
 > where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -43,14 +47,18 @@ pub struct Replica<
     pub proposal_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
-                ConsensusMessage<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+                ProcessedConsensusMessage<
+                    TYPES,
+                    ValidatingLeaf<TYPES>,
+                    ValidatingProposal<TYPES, ELECTION>,
+                >,
             >,
         >,
     >,
     /// view number this view is executing in
     pub cur_view: TYPES::Time,
     /// genericQC from the pseudocode
-    pub high_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+    pub high_qc: ELECTION::QuorumCertificate,
     /// hotshot consensus api
     pub api: A,
 }
@@ -58,7 +66,11 @@ pub struct Replica<
 impl<
         A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+        ELECTION: Election<
+            TYPES,
+            LeafType = ValidatingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        >,
     > Replica<A, TYPES, ELECTION>
 where
     TYPES::StateType: TestableState,
@@ -83,11 +95,16 @@ where
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
-                if msg.view_number() != self.cur_view {
+                if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number()
+                    != self.cur_view
+                {
                     continue;
                 }
                 match msg {
-                    ConsensusMessage::Proposal(p) => {
+                    ProcessedConsensusMessage::Proposal(p, sender) => {
+                        if view_leader_key != sender {
+                            continue;
+                        }
                         let parent = if let Some(parent) =
                             consensus.saved_leaves.get(&p.leaf.parent_commitment)
                         {
@@ -119,7 +136,7 @@ where
                         }
 
                         // check that the justify_qc is valid
-                        if !self.api.validate_qc(&justify_qc) {
+                        if !self.api.is_valid_qc(&justify_qc) {
                             invalid_qcs += 1;
                             warn!("Invalid justify_qc in proposal! Skipping proposal.");
                             continue;
@@ -185,8 +202,7 @@ where
                         }
 
                         let leaf_commitment = leaf.commit();
-                        let vote_token =
-                            self.api.generate_vote_token(self.cur_view, leaf_commitment);
+                        let vote_token = self.api.make_vote_token(self.cur_view);
 
                         match vote_token {
                             Err(e) => {
@@ -200,21 +216,22 @@ where
                             }
                             Ok(Some(vote_token)) => {
                                 info!("We were chosen for committee on {:?}", self.cur_view);
-                                let signature = self.api.sign_vote(&leaf_commitment, self.cur_view);
+                                let signature = self.api.sign_yes_vote(leaf_commitment);
 
                                 // Generate and send vote
                                 let vote = ConsensusMessage::<
                                     TYPES,
                                     ValidatingLeaf<TYPES>,
                                     ValidatingProposal<TYPES, ELECTION>,
-                                >::Vote(Vote {
-                                    block_commitment: leaf.deltas.commit(),
-                                    justify_qc_commitment: leaf.justify_qc.commit(),
-                                    signature,
-                                    leaf_commitment,
-                                    current_view: self.cur_view,
-                                    vote_token,
-                                });
+                                >::Vote(Vote::Yes(
+                                    YesOrNoVote {
+                                        justify_qc_commitment: leaf.justify_qc.commit(),
+                                        signature,
+                                        leaf_commitment,
+                                        current_view: self.cur_view,
+                                        vote_token,
+                                    },
+                                ));
 
                                 let next_leader = self.api.get_leader(self.cur_view + 1).await;
 
@@ -235,44 +252,62 @@ where
                         }
                         break leaf;
                     }
-                    ConsensusMessage::NextViewInterrupt(_view_number) => {
+                    ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
                         let next_leader = self.api.get_leader(self.cur_view + 1).await;
 
                         consensus.metrics.number_of_timeouts.add(1);
 
-                        let timed_out_msg = ConsensusMessage::TimedOut(TimedOut {
-                            current_view: self.cur_view,
-                            justify_qc: self.high_qc.clone(),
-                        });
-                        warn!(
-                            "Timed out! Sending timeout to next leader {:?}",
-                            timed_out_msg
-                        );
+                        let signature = self.api.sign_timeout_vote(self.cur_view);
+                        let vote_token = self.api.make_vote_token(self.cur_view);
 
-                        // send timedout message to the next leader
-                        if let Err(e) = self
-                            .api
-                            .send_direct_message(next_leader.clone(), timed_out_msg)
-                            .await
-                        {
-                            consensus.metrics.failed_to_send_messages.add(1);
-                            warn!(
-                                ?next_leader,
-                                ?e,
-                                "Could not send time out message to next_leader"
-                            );
-                        } else {
-                            consensus.metrics.outgoing_direct_messages.add(1);
+                        match vote_token {
+                            Err(e) => {
+                                error!(
+                                    "Failed to generate vote token for {:?} {:?}",
+                                    self.cur_view, e
+                                );
+                            }
+                            Ok(None) => {
+                                info!("We were not chosen for committee on {:?}", self.cur_view);
+                            }
+                            Ok(Some(vote_token)) => {
+                                let timed_out_msg =
+                                    ConsensusMessage::Vote(Vote::Timeout(TimeoutVote {
+                                        justify_qc: self.high_qc.clone(),
+                                        signature,
+                                        current_view: self.cur_view,
+                                        vote_token,
+                                    }));
+                                warn!(
+                                    "Timed out! Sending timeout to next leader {:?}",
+                                    timed_out_msg
+                                );
+
+                                // send timedout message to the next leader
+                                if let Err(e) = self
+                                    .api
+                                    .send_direct_message(next_leader.clone(), timed_out_msg)
+                                    .await
+                                {
+                                    consensus.metrics.failed_to_send_messages.add(1);
+                                    warn!(
+                                        ?next_leader,
+                                        ?e,
+                                        "Could not send time out message to next_leader"
+                                    );
+                                } else {
+                                    consensus.metrics.outgoing_direct_messages.add(1);
+                                }
+
+                                // exits from entire function
+                                self.api.send_replica_timeout(self.cur_view).await;
+                            }
                         }
-
-                        // exits from entire function
-                        self.api.send_replica_timeout(self.cur_view).await;
-
                         return (consensus, None);
                     }
-                    ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_) => {
+                    ProcessedConsensusMessage::Vote(_, _) => {
                         // should only be for leader, never replica
-                        warn!("Replica receieved a vote or timed out message. This is not what the replica expects. Skipping.");
+                        warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
                         continue;
                     }
                 }
@@ -295,7 +330,7 @@ where
     /// run one view of replica
     /// returns the `high_qc`
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>
+    pub async fn run_view(self) -> ELECTION::QuorumCertificate
     where
         TYPES::StateType: TestableState,
         TYPES::BlockType: TestableBlock,

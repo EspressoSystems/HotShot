@@ -8,11 +8,11 @@ use crate::{
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use commit::Committable;
 use hotshot_types::{
-    certificate::QuorumCertificate,
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
+        election::SignedCertificate,
         network::NetworkingImplementation,
         node_implementation::NodeType,
         state::ConsensusTime,
@@ -158,8 +158,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
             if anchor_leaf.view_number == TYPES::Time::genesis() {
                 let leaf: I::Leaf = anchor_leaf.into();
-                let mut qc = QuorumCertificate::genesis();
-                qc.leaf_commitment = leaf.commit();
+                let mut qc = <I::Leaf as LeafType>::QuorumCertificate::genesis();
+                qc.set_leaf_commitment(leaf.commit());
                 let event = Event {
                     view_number: TYPES::Time::genesis(),
                     event: EventType::Decide {
@@ -285,30 +285,76 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         self.hotshot.hotstuff.read().await.cur_view
     }
 
-    /// Wrapper around `HotShotConsensusApi`'s `sign_proposal` function
+    /// Wrapper around `HotShotConsensusApi`'s `sign_validating_or_commitment_proposal` function
     #[cfg(feature = "hotshot-testing")]
-    pub fn sign_proposal(
+    pub fn sign_validating_or_commitment_proposal(
         &self,
         leaf_commitment: &Commitment<I::Leaf>,
-        view_number: TYPES::Time,
     ) -> EncodedSignature {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
-        api.sign_proposal(leaf_commitment, view_number)
+        api.sign_validating_or_commitment_proposal(leaf_commitment)
     }
 
-    /// Wrapper around `HotShotConsensusApi`'s `sign_vote` function
+    /// Wrapper around `HotShotConsensusApi`'s `sign_da_proposal` function
     #[cfg(feature = "hotshot-testing")]
-    pub fn sign_vote(
+    pub fn sign_da_proposal(
         &self,
-        leaf_commitment: &Commitment<I::Leaf>,
+        block_commitment: &Commitment<TYPES::BlockType>,
+    ) -> EncodedSignature {
+        let api = HotShotConsensusApi {
+            inner: self.hotshot.inner.clone(),
+        };
+        api.sign_da_proposal(block_commitment)
+    }
+
+    /// Wrapper around `HotShotConsensusApi`'s `sign_da_vote` function
+    #[cfg(feature = "hotshot-testing")]
+    pub fn sign_da_vote(
+        &self,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let api = HotShotConsensusApi {
+            inner: self.hotshot.inner.clone(),
+        };
+        api.sign_da_vote(block_commitment)
+    }
+
+    /// Wrapper around `HotShotConsensusApi`'s `sign_yes_vote` function
+    #[cfg(feature = "hotshot-testing")]
+    pub fn sign_yes_vote(
+        &self,
+        leaf_commitment: Commitment<I::Leaf>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let api = HotShotConsensusApi {
+            inner: self.hotshot.inner.clone(),
+        };
+        api.sign_yes_vote(leaf_commitment)
+    }
+
+    /// Wrapper around `HotShotConsensusApi`'s `sign_no_vote` function
+    #[cfg(feature = "hotshot-testing")]
+    pub fn sign_no_vote(
+        &self,
+        leaf_commitment: Commitment<I::Leaf>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let api = HotShotConsensusApi {
+            inner: self.hotshot.inner.clone(),
+        };
+        api.sign_no_vote(leaf_commitment)
+    }
+
+    /// Wrapper around `HotShotConsensusApi`'s `sign_timeout_vote` function
+    #[cfg(feature = "hotshot-testing")]
+    pub fn sign_timeout_vote(
+        &self,
         view_number: TYPES::Time,
     ) -> (EncodedPublicKey, EncodedSignature) {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
-        api.sign_vote(leaf_commitment, view_number)
+        api.sign_timeout_vote(view_number)
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function

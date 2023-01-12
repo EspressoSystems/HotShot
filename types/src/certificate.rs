@@ -50,7 +50,6 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     /// TODO (da) we need to check
     ///   - parent QC PROPOSAL
     ///   - somehow make this semantically equivalent to what is currently `Leaf`
-    ///
     #[debug(skip)]
     pub leaf_commitment: Commitment<LEAF>,
 
@@ -59,42 +58,34 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     /// Threshold Signature
     pub signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
     /// If this QC is for the genesis block
-    pub genesis: bool,
-}
-
-impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> QuorumCertificate<TYPES, LEAF> {
-    /// To be used only for generating the genesis quorum certificate; will fail if used anywhere else
-    pub fn genesis() -> Self {
-        Self {
-            // block_commitment: fake_commitment(),
-            leaf_commitment: fake_commitment::<LEAF>(),
-            view_number: <TYPES::Time as ConsensusTime>::genesis(),
-            signatures: BTreeMap::default(),
-            genesis: true,
-        }
-    }
+    pub is_genesis: bool,
 }
 
 /// `CertificateAccumulator` is describes the process of collecting signatures
 /// to form a QC or a DA certificate.
 #[allow(clippy::missing_docs_in_private_items)]
-pub struct CertificateAccumulator<SIGNATURE, CERT>
+pub struct CertificateAccumulator<SIGNATURE, TIME, TOKEN, LEAF, CERT>
 where
     SIGNATURE: SignatureKey,
-    CERT: SignedCertificate<SIGNATURE>,
+    LEAF: Committable,
+    CERT: SignedCertificate<SIGNATURE, TIME, TOKEN, LEAF>,
 {
     _pd_0: PhantomData<SIGNATURE>,
     _pd_1: PhantomData<CERT>,
+    _pd_2: PhantomData<TIME>,
+    _pd_3: PhantomData<TOKEN>,
+    _pd_4: PhantomData<LEAF>,
     _valid_signatures: Vec<(EncodedSignature, SIGNATURE)>,
     _threshold: NonZeroU64,
     // TODO
 }
 
-impl<SIGNATURE, CERT> Accumulator<(EncodedSignature, SIGNATURE), CERT>
-    for CertificateAccumulator<SIGNATURE, CERT>
+impl<SIGNATURE, TIME, CERT, TOKEN, LEAF> Accumulator<(EncodedSignature, SIGNATURE), CERT>
+    for CertificateAccumulator<SIGNATURE, TIME, TOKEN, LEAF, CERT>
 where
     SIGNATURE: SignatureKey,
-    CERT: SignedCertificate<SIGNATURE>,
+    LEAF: Committable,
+    CERT: SignedCertificate<SIGNATURE, TIME, TOKEN, LEAF>,
 {
     fn append(_val: Vec<(EncodedSignature, SIGNATURE)>) -> Either<Self, CERT> {
         #[allow(deprecated)]
@@ -102,10 +93,46 @@ where
     }
 }
 
-impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> SignedCertificate<TYPES::SignatureKey>
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
+    SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>
     for QuorumCertificate<TYPES, LEAF>
 {
-    type Accumulator = CertificateAccumulator<TYPES::SignatureKey, QuorumCertificate<TYPES, LEAF>>;
+    type Accumulator = CertificateAccumulator<
+        TYPES::SignatureKey,
+        TYPES::Time,
+        TYPES::VoteTokenType,
+        LEAF,
+        QuorumCertificate<TYPES, LEAF>,
+    >;
+
+    fn view_number(&self) -> TYPES::Time {
+        self.view_number
+    }
+
+    fn signatures(&self) -> BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)> {
+        self.signatures.clone()
+    }
+
+    fn leaf_commitment(&self) -> Commitment<LEAF> {
+        self.leaf_commitment
+    }
+
+    fn set_leaf_commitment(&mut self, commitment: Commitment<LEAF>) {
+        self.leaf_commitment = commitment;
+    }
+
+    fn is_genesis(&self) -> bool {
+        self.is_genesis
+    }
+
+    fn genesis() -> Self {
+        Self {
+            leaf_commitment: fake_commitment::<LEAF>(),
+            view_number: <TYPES::Time as ConsensusTime>::genesis(),
+            signatures: BTreeMap::default(),
+            is_genesis: true,
+        }
+    }
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Eq for QuorumCertificate<TYPES, LEAF> {}
@@ -127,7 +154,9 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Committable
                 .field(&format!("Signature {idx} signature"), v.1.commit());
         }
 
-        builder.u64_field("Genesis", self.genesis.into()).finalize()
+        builder
+            .u64_field("Is genesis", self.is_genesis.into())
+            .finalize()
     }
 
     fn tag() -> String {
@@ -135,8 +164,46 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Committable
     }
 }
 
-impl<TYPES: NodeType> SignedCertificate<TYPES::SignatureKey> for DACertificate<TYPES> {
-    type Accumulator = CertificateAccumulator<TYPES::SignatureKey, DACertificate<TYPES>>;
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
+    SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>
+    for DACertificate<TYPES>
+{
+    type Accumulator = CertificateAccumulator<
+        TYPES::SignatureKey,
+        TYPES::Time,
+        TYPES::VoteTokenType,
+        LEAF,
+        DACertificate<TYPES>,
+    >;
+
+    fn view_number(&self) -> TYPES::Time {
+        self.view_number
+    }
+
+    fn signatures(&self) -> BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)> {
+        self.signatures.clone()
+    }
+
+    fn leaf_commitment(&self) -> Commitment<LEAF> {
+        // This function is only useful for QC. Will be removed after we have separated cert traits.
+        #[allow(deprecated)]
+        nll_todo()
+    }
+
+    fn set_leaf_commitment(&mut self, _commitment: Commitment<LEAF>) {
+        // This function is only useful for QC. Will be removed after we have separated cert traits.
+    }
+
+    fn is_genesis(&self) -> bool {
+        // This function is only useful for QC. Will be removed after we have separated cert traits.
+        false
+    }
+
+    fn genesis() -> Self {
+        // This function is only useful for QC. Will be removed after we have separated cert traits.
+        #[allow(deprecated)]
+        nll_todo()
+    }
 }
 
 impl<TYPES: NodeType> Eq for DACertificate<TYPES> {}

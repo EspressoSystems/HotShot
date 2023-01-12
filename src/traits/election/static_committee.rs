@@ -2,17 +2,15 @@ use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate},
     data::LeafType,
     traits::{
         election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
         node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        signature_key::{EncodedSignature, SignatureKey},
     },
 };
 use jf_primitives::signatures::BLSSignatureScheme;
 #[allow(deprecated)]
-use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
@@ -95,44 +93,11 @@ where
     /// Just use the vector of public keys for the stake table
     type StakeTable = Vec<PUBKEY>;
 
-    type QuorumCertificate = QuorumCertificate<TYPES, Self::LeafType>;
+    type QuorumCertificate = LEAF::QuorumCertificate;
 
-    type DACertificate = DACertificate<TYPES>;
+    type DACertificate = LEAF::DACertificate;
 
     type LeafType = LEAF;
-
-    fn is_valid_qc(&self, _qc: Self::QuorumCertificate) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
-    fn is_valid_dac(&self, _qc: Self::DACertificate) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
-    fn is_valid_qc_signature(
-        &self,
-        _encoded_key: &EncodedPublicKey,
-        _encoded_signature: &EncodedSignature,
-        _hash: Commitment<Self::LeafType>,
-        _view_number: TYPES::Time,
-        _vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
-    fn is_valid_dac_signature(
-        &self,
-        _encoded_key: &EncodedPublicKey,
-        _encoded_signature: &EncodedSignature,
-        _view_number: TYPES::Time,
-        _vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
 
     /// Clone the static table
     fn get_stake_table(
@@ -187,7 +152,7 @@ where
         }
     }
 
-    fn get_threshold(&self) -> NonZeroU64 {
+    fn threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((self.nodes.len() as u64 * 2) / 3) + 1).unwrap()
     }
 }

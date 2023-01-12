@@ -588,7 +588,7 @@ where
         ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
     >,
-    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
+    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>> + Debug,
 {
     type Leaf = ValidatingLeaf<DEntryTypes>;
     type Storage = MemoryStorage<DEntryTypes, ELE::LeafType>;
@@ -606,7 +606,7 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
         leaf_commitment: random_commitment(rng),
         view_number: TYPES::Time::new(rng.gen()),
         signatures: BTreeMap::default(),
-        genesis: rng.gen(),
+        is_genesis: rng.gen(),
     }
 }
 

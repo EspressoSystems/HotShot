@@ -5,12 +5,17 @@ use crate::ConsensusMetrics;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
 use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
+use hotshot_types::message::ProcessedConsensusMessage;
 use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::traits::{
-    election::{Checked::Unchecked, Election, VoteToken},
+    election::{Checked::Unchecked, Election, VoteData, VoteToken},
     state::{TestableBlock, TestableState},
 };
-use hotshot_types::{certificate::QuorumCertificate, message::ConsensusMessage};
+use hotshot_types::{
+    certificate::QuorumCertificate,
+    message::{ConsensusMessage, Vote},
+};
 use std::time::Instant;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -23,7 +28,11 @@ use tracing::{error, instrument, warn};
 pub struct NextValidatingLeader<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+    ELECTION: Election<
+        TYPES,
+        LeafType = ValidatingLeaf<TYPES>,
+        QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+    >,
 > where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -31,13 +40,17 @@ pub struct NextValidatingLeader<
     /// id of node
     pub id: u64,
     /// generic_qc before starting this
-    pub generic_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+    pub generic_qc: ELECTION::QuorumCertificate,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
     pub vote_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
-                ConsensusMessage<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+                ProcessedConsensusMessage<
+                    TYPES,
+                    ValidatingLeaf<TYPES>,
+                    ValidatingProposal<TYPES, ELECTION>,
+                >,
             >,
         >,
     >,
@@ -53,7 +66,11 @@ pub struct NextValidatingLeader<
 impl<
         A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
         TYPES: NodeType,
-        ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>>,
+        ELECTION: Election<
+            TYPES,
+            LeafType = ValidatingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        >,
     > NextValidatingLeader<A, TYPES, ELECTION>
 where
     TYPES::StateType: TestableState,
@@ -64,12 +81,12 @@ where
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Validating ValidatingLeader Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
+    pub async fn run_view(self) -> ELECTION::QuorumCertificate {
         error!("Next validating leader task started!");
 
         let vote_collection_start = Instant::now();
 
-        let mut qcs = HashSet::<QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>::new();
+        let mut qcs = HashSet::<ELECTION::QuorumCertificate>::new();
         qcs.insert(self.generic_qc.clone());
 
         let mut vote_outcomes = HashMap::new();
@@ -79,63 +96,76 @@ where
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
-            if msg.view_number() != self.cur_view {
+            if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number() != self.cur_view {
                 continue;
             }
             match msg {
-                ConsensusMessage::TimedOut(t) => {
-                    qcs.insert(t.justify_qc);
-                }
-                ConsensusMessage::Vote(vote) => {
-                    // if the signature on the vote is invalid,
-                    // assume it's sent by byzantine node
-                    // and ignore
+                ProcessedConsensusMessage::Vote(vote_message, sender) => {
+                    match vote_message {
+                        Vote::Yes(vote) => {
+                            if vote.signature.0
+                                != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+                            {
+                                continue;
+                            }
 
-                    if !self.api.is_valid_signature(
-                        &vote.signature.0,
-                        &vote.signature.1,
-                        vote.leaf_commitment,
-                        vote.current_view,
-                        // Ignoring deserialization errors below since we are getting rid of it soon
-                        Unchecked(vote.vote_token.clone()),
-                    ) {
-                        continue;
+                            // if the signature on the vote is invalid,
+                            // assume it's sent by byzantine node
+                            // and ignore
+
+                            if !self.api.is_valid_vote(
+                                &vote.signature.0,
+                                &vote.signature.1,
+                                VoteData::Yes(vote.leaf_commitment),
+                                vote.current_view,
+                                // Ignoring deserialization errors below since we are getting rid of it soon
+                                Unchecked(vote.vote_token.clone()),
+                            ) {
+                                continue;
+                            }
+
+                            // TODO ed ensure we have the QC that the QC commitment references
+
+                            let map = vote_outcomes
+                                .entry(vote.leaf_commitment)
+                                .or_insert_with(BTreeMap::new);
+                            map.insert(
+                                vote.signature.0.clone(),
+                                (vote.signature.1.clone(), vote.vote_token.clone()),
+                            );
+
+                            stake_casted += u64::from(vote.vote_token.vote_count());
+
+                            if stake_casted >= u64::from(threshold) {
+                                let valid_signatures =
+                                    vote_outcomes.remove(&vote.leaf_commitment).unwrap();
+
+                                // construct QC
+                                let qc = QuorumCertificate {
+                                    leaf_commitment: vote.leaf_commitment,
+                                    view_number: self.cur_view,
+                                    signatures: valid_signatures,
+                                    is_genesis: false,
+                                };
+                                self.metrics
+                                    .vote_validate_duration
+                                    .add_point(vote_collection_start.elapsed().as_secs_f64());
+                                return qc;
+                            }
+                        }
+                        Vote::Timeout(vote) => {
+                            qcs.insert(vote.justify_qc);
+                        }
+                        _ => {
+                            warn!("The next leader has received an unexpected vote!");
+                        }
                     }
-
-                    // TODO ed ensure we have the QC that the QC commitment references
-
-                    let (_bh, map) = vote_outcomes
-                        .entry(vote.leaf_commitment)
-                        .or_insert_with(|| (vote.block_commitment, BTreeMap::new()));
-                    map.insert(
-                        vote.signature.0.clone(),
-                        (vote.signature.1.clone(), vote.vote_token.clone()),
-                    );
-
-                    stake_casted += u64::from(vote.vote_token.vote_count());
-
-                    if stake_casted >= u64::from(threshold) {
-                        let (_block_commitment, valid_signatures) =
-                            vote_outcomes.remove(&vote.leaf_commitment).unwrap();
-
-                        // construct QC
-                        let qc = QuorumCertificate {
-                            leaf_commitment: vote.leaf_commitment,
-                            view_number: self.cur_view,
-                            signatures: valid_signatures,
-                            genesis: false,
-                        };
-                        self.metrics
-                            .vote_validate_duration
-                            .add_point(vote_collection_start.elapsed().as_secs_f64());
-                        return qc;
-                    }
                 }
-                ConsensusMessage::NextViewInterrupt(_view_number) => {
+                ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
                     self.api.send_next_leader_timeout(self.cur_view).await;
                     break;
                 }
-                ConsensusMessage::Proposal(_p) => {
+                ProcessedConsensusMessage::Proposal(_p, _sender) => {
                     warn!("The next leader has received an unexpected proposal!");
                 }
             }

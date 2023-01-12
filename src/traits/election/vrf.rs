@@ -6,10 +6,12 @@ use commit::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
 use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate},
     data::LeafType,
     traits::{
-        election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
+        election::{
+            Checked::{self},
+            Election, ElectionConfig, ElectionError, TestableElection, VoteToken,
+        },
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
     },
@@ -24,7 +26,6 @@ use jf_primitives::{
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
 #[allow(deprecated)]
-use nll::nll_todo::nll_todo;
 use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
@@ -282,17 +283,17 @@ where
 
 /// the vrf implementation
 #[derive(Derivative)]
-#[derivative(Eq, PartialEq)]
+#[derivative(Debug, Eq, PartialEq)]
 pub struct VrfImpl<TYPES, LEAF: LeafType<NodeType = TYPES>, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     VRF: Vrf<VRFHASHER, VRFPARAMS> + Sync + Send,
     TYPES: NodeType,
 {
     /// the stake table
-    #[derivative(PartialEq = "ignore")]
+    #[derivative(Debug = "ignore", PartialEq = "ignore")]
     stake_table: VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>,
     /// the proof params
-    #[derivative(PartialEq = "ignore")]
+    #[derivative(Debug = "ignore", PartialEq = "ignore")]
     proof_parameters: VRF::PublicParameter,
     /// the rng
     #[derivative(PartialEq = "ignore")]
@@ -453,44 +454,11 @@ where
     // pubkey -> unit of stake
     type StakeTable = VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>;
 
-    type QuorumCertificate = QuorumCertificate<TYPES, Self::LeafType>;
+    type QuorumCertificate = LEAF::QuorumCertificate;
 
-    type DACertificate = DACertificate<TYPES>;
+    type DACertificate = LEAF::DACertificate;
 
     type LeafType = LEAF;
-
-    fn is_valid_qc(&self, _qc: Self::QuorumCertificate) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
-    fn is_valid_dac(&self, _qc: Self::DACertificate) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
-    fn is_valid_qc_signature(
-        &self,
-        _encoded_key: &EncodedPublicKey,
-        _encoded_signature: &EncodedSignature,
-        _hash: Commitment<Self::LeafType>,
-        _view_number: TYPES::Time,
-        _vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
-    fn is_valid_dac_signature(
-        &self,
-        _encoded_key: &EncodedPublicKey,
-        _encoded_signature: &EncodedSignature,
-        _view_number: TYPES::Time,
-        _vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
 
     // FIXED STAKE
     // just return the state
@@ -622,7 +590,7 @@ where
         }
     }
 
-    fn get_threshold(&self) -> NonZeroU64 {
+    fn threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((u64::from(self.sortition_parameter) * 2) / 3) + 1).unwrap()
     }
 }
