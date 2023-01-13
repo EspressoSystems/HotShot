@@ -281,8 +281,9 @@ pub trait LeafType:
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
-#[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, std::hash::Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative)]
 #[serde(bound(deserialize = ""))]
+#[derivative(Hash, PartialEq, Eq)]
 pub struct ValidatingLeaf<TYPES: NodeType>
 where
     TYPES::StateType: TestableState,
@@ -312,17 +313,20 @@ where
 
     /// the timestamp the leaf was constructed at, in nanoseconds. Only exposed for dashboard stats
     #[derivative(PartialEq = "ignore")]
+    #[derivative(Hash = "ignore")]
     pub timestamp: i128,
 
     /// the proposer id of the leaf
     #[derivative(PartialEq = "ignore")]
+    #[derivative(Hash = "ignore")]
     pub proposer_id: EncodedPublicKey,
 }
 
 /// This is the consensus-internal analogous concept to a block, and it contains the block proper,
 /// as well as the hash of its parent `Leaf`.
 /// NOTE: `State` is constrained to implementing `BlockContents`, is `TypeMap::Block`
-#[derive(Serialize, Deserialize, Clone, Debug, Derivative, PartialEq, Eq, std::hash::Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
+#[derivative(PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct DALeaf<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
