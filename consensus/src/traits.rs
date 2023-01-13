@@ -10,7 +10,7 @@ use hotshot_types::{
     error::HotShotError,
     event::{Event, EventType},
     traits::{
-        election::{Checked, ElectionError},
+        election::{Checked, ElectionError, VoteData},
         network::NetworkError,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
@@ -57,10 +57,9 @@ pub trait ConsensusApi<
 
     /// Generates and encodes a vote token
     #[allow(clippy::type_complexity)]
-    fn generate_vote_token(
+    fn make_vote_token(
         &self,
         view_number: TYPES::Time,
-        next_state: Commitment<LEAF>,
     ) -> Result<Option<TYPES::VoteTokenType>, ElectionError>;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
@@ -153,36 +152,103 @@ pub trait ConsensusApi<
         .await;
     }
 
-    /// Signs a vote
-    fn sign_vote(
+    /// Sign a DA proposal.
+    fn sign_da_proposal(
         &self,
-        leaf_commitment: &Commitment<LEAF>,
-        _view_number: TYPES::Time,
-    ) -> (EncodedPublicKey, EncodedSignature) {
-        let signature = TYPES::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
-        (self.public_key().to_bytes(), signature)
+        block_commitment: &Commitment<TYPES::BlockType>,
+    ) -> EncodedSignature {
+        let signature = TYPES::SignatureKey::sign(self.private_key(), block_commitment.as_ref());
+        signature
     }
 
-    /// Signs a proposal
-    fn sign_proposal(
+    /// Sign a validating or commitment proposal.
+    fn sign_validating_or_commitment_proposal(
         &self,
         leaf_commitment: &Commitment<LEAF>,
-        _view_number: TYPES::Time,
     ) -> EncodedSignature {
         let signature = TYPES::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
         signature
     }
 
-    /// Validate a quorum certificate by checking
-    /// signatures
-    fn validate_qc(&self, quorum_certificate: &LEAF::QuorumCertificate) -> bool;
+    /// Sign a vote on DA proposal.
+    ///
+    /// The block commitment and the type of the vote (DA) are signed, which is the minimum amount
+    /// of information necessary for checking that this node voted on that block.
+    fn sign_da_vote(
+        &self,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            self.private_key(),
+            &VoteData::<TYPES, LEAF>::DA(block_commitment).as_bytes(),
+        );
+        (self.public_key().to_bytes(), signature)
+    }
 
-    /// Check if a signature is valid
-    fn is_valid_signature(
+    /// Sign a positive vote on validating or commitment proposal.
+    ///
+    /// The leaf commitment and the type of the vote (yes) are signed, which is the minimum amount
+    /// of information necessary for any user of the subsequently constructed QC to check that this
+    /// node voted `Yes` on that leaf. The leaf is expected to be reconstructed based on other
+    /// information in the yes vote.
+    fn sign_yes_vote(
+        &self,
+        leaf_commitment: Commitment<LEAF>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            self.private_key(),
+            &VoteData::<TYPES, LEAF>::Yes(leaf_commitment).as_bytes(),
+        );
+        (self.public_key().to_bytes(), signature)
+    }
+
+    /// Sign a neagtive vote on validating or commitment proposal.
+    ///
+    /// The leaf commitment and the type of the vote (no) are signed, which is the minimum amount
+    /// of information necessary for any user of the subsequently constructed QC to check that this
+    /// node voted `No` on that leaf.
+    fn sign_no_vote(
+        &self,
+        leaf_commitment: Commitment<LEAF>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            self.private_key(),
+            &VoteData::<TYPES, LEAF>::No(leaf_commitment).as_bytes(),
+        );
+        (self.public_key().to_bytes(), signature)
+    }
+
+    /// Sign a timeout vote.
+    ///
+    /// We only sign the view number, which is the minimum amount of information necessary for
+    /// checking that this node timed out on that view.
+    ///
+    /// This also allows for the high QC included with the vote to be spoofed in a MITM scenario,
+    /// but it is outside our threat model.
+    fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            self.private_key(),
+            &VoteData::<TYPES, LEAF>::Timeout(view_number).as_bytes(),
+        );
+        (self.public_key().to_bytes(), signature)
+    }
+
+    /// Validate a DAC.
+    fn is_valid_dac(
+        &self,
+        dac: &LEAF::DACertificate,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> bool;
+
+    /// Validate a QC.
+    fn is_valid_qc(&self, qc: &LEAF::QuorumCertificate) -> bool;
+
+    /// Validate a vote.
+    fn is_valid_vote(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<LEAF>,
+        data: VoteData<TYPES, LEAF>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool;

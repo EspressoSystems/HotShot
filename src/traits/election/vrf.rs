@@ -26,7 +26,6 @@ use jf_primitives::{
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
 #[allow(deprecated)]
-use nll::nll_todo::nll_todo;
 use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
@@ -461,39 +460,6 @@ where
 
     type LeafType = LEAF;
 
-    fn is_valid_qc(&self, _qc: &Self::QuorumCertificate) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
-    fn is_valid_dac(&self, _qc: Self::DACertificate) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
-    fn is_valid_qc_signature(
-        &self,
-        _encoded_key: &EncodedPublicKey,
-        _encoded_signature: &EncodedSignature,
-        _hash: Commitment<Self::LeafType>,
-        _view_number: TYPES::Time,
-        _vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
-    fn is_valid_dac_signature(
-        &self,
-        _encoded_key: &EncodedPublicKey,
-        _encoded_signature: &EncodedSignature,
-        _view_number: TYPES::Time,
-        _vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
     // FIXED STAKE
     // just return the state
     fn get_stake_table(
@@ -624,7 +590,7 @@ where
         }
     }
 
-    fn get_threshold(&self) -> NonZeroU64 {
+    fn threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((u64::from(self.sortition_parameter) * 2) / 3) + 1).unwrap()
     }
 }

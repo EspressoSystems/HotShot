@@ -21,7 +21,7 @@ use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     event::EventType,
-    message::{ConsensusMessage, Proposal},
+    message::{ConsensusMessage, Proposal, YesOrNoVote},
     traits::{
         election::{Election, SignedCertificate, TestableElection},
         node_implementation::NodeType,
@@ -99,7 +99,7 @@ async fn submit_validating_proposal<
     let mut leaf = random_validating_leaf(TYPES::BlockType::genesis(), &mut rng);
     leaf.view_number = view_number;
     leaf.set_height(handle.get_decided_leaf().await.get_height() + 1);
-    let signature = handle.sign_proposal(&leaf.commit(), leaf.view_number);
+    let signature = handle.sign_validating_or_commitment_proposal(&leaf.commit());
     let msg = ConsensusMessage::Proposal(Proposal {
         leaf: leaf.into(),
         signature,
@@ -134,16 +134,15 @@ async fn submit_validating_vote<
     // Build vote
     let mut leaf = random_validating_leaf(TYPES::BlockType::genesis(), &mut rng);
     leaf.view_number = view_number;
-    let signature = handle.sign_vote(&leaf.commit(), leaf.view_number);
-    let msg = ConsensusMessage::Vote(Vote {
+    let signature = handle.sign_yes_vote(leaf.commit());
+    let msg = ConsensusMessage::Vote(Vote::Yes(YesOrNoVote {
         signature,
         justify_qc_commitment: leaf.justify_qc.commit(),
         current_view: leaf.view_number,
-        block_commitment: leaf.deltas.commit(),
         leaf_commitment: leaf.commit(),
         // TODO placeholder below
         vote_token: ELECTION::generate_test_vote_token(),
-    });
+    }));
 
     let recipient = runner
         .get_handle(recipient_node_id)

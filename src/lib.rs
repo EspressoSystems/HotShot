@@ -43,7 +43,6 @@ use crate::{
     certificate::QuorumCertificate,
     traits::{NetworkingImplementation, NodeImplementation, Storage},
     types::{Event, HotShotHandle},
-    Checked::{Inval, Unchecked, Valid},
 };
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local},
@@ -58,7 +57,7 @@ use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, NextValidatingLeader, Replica, SendToTasks,
     ValidatingLeader, View, ViewInner, ViewQueue,
 };
-use hotshot_types::message::MessageKind;
+use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
@@ -66,7 +65,7 @@ use hotshot_types::{
     traits::{
         election::{
             Checked::{self},
-            Election, ElectionError, SignedCertificate, VoteToken,
+            Election, ElectionError, SignedCertificate, VoteData,
         },
         metrics::Metrics,
         network::{NetworkChange, NetworkError},
@@ -272,10 +271,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     pub async fn timeout_view(
         &self,
         current_view: TYPES::Time,
-        send_replica: UnboundedSender<ConsensusMessage<TYPES, I::Leaf, I::Proposal>>,
-        send_next_leader: Option<UnboundedSender<ConsensusMessage<TYPES, I::Leaf, I::Proposal>>>,
+        send_replica: UnboundedSender<ProcessedConsensusMessage<TYPES, I::Leaf, I::Proposal>>,
+        send_next_leader: Option<
+            UnboundedSender<ProcessedConsensusMessage<TYPES, I::Leaf, I::Proposal>>,
+        >,
     ) {
-        let msg = ConsensusMessage::<TYPES, I::Leaf, I::Proposal>::NextViewInterrupt(current_view);
+        let msg = ProcessedConsensusMessage::<TYPES, I::Leaf, I::Proposal>::NextViewInterrupt(
+            current_view,
+        );
         if let Some(chan) = send_next_leader {
             if chan.send(msg.clone()).await.is_err() {
                 warn!("Error timing out next leader task");
@@ -436,14 +439,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         // <github.com/ExpressoSystems/HotShot/issues/418>
         let msg_time = msg.view_number();
 
-        // Skip messages that are not from the leader
-        let api = HotShotConsensusApi {
-            inner: self.inner.clone(),
-        };
-        if sender != api.get_leader(msg_time).await {
-            return;
-        }
-
         match msg {
             // this is ONLY intended for replica
             ConsensusMessage::Proposal(_) => {
@@ -459,7 +454,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                     Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
 
                 if !chan.has_received_proposal.swap(true, Ordering::Relaxed)
-                    && chan.sender_chan.send(msg).await.is_err()
+                    && chan
+                        .sender_chan
+                        .send(ProcessedConsensusMessage::new(msg, sender))
+                        .await
+                        .is_err()
                 {
                     warn!("Failed to send to next leader!");
                 }
@@ -467,25 +466,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             ConsensusMessage::NextViewInterrupt(_) => {
                 warn!("Received a next view interrupt. This shouldn't be possible.");
             }
-            ConsensusMessage::TimedOut(_) | ConsensusMessage::Vote(_) => {
-                warn!("Received a broadcast for a vote or nextview message. This shouldn't be possible.");
+            ConsensusMessage::Vote(_) => {
+                warn!("Received a broadcast for a vote message. This shouldn't be possible.");
             }
         };
     }
 
     /// Handle an incoming [`ConsensusMessage`] directed at this node.
-    #[instrument(
-        skip(self, _sender),
-        name = "Handle direct consensus message",
-        level = "error"
-    )]
+    #[instrument(skip(self), name = "Handle direct consensus message", level = "error")]
     async fn handle_direct_consensus_message(
         &self,
         msg: ConsensusMessage<TYPES, I::Leaf, I::Proposal>,
-        _sender: TYPES::SignatureKey,
+        sender: TYPES::SignatureKey,
     ) {
-        // TODO validate incoming data message based on sender signature key
-
         // We can only recv from a replicas
         // replicas should only send votes or if they timed out, timeouts
         match msg {
@@ -493,7 +486,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                 warn!("Received a direct message for a proposal. This shouldn't be possible.");
             }
             // this is ONLY intended for next leader
-            c @ (ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_)) => {
+            c @ ConsensusMessage::Vote(_) => {
                 let msg_time = c.view_number();
 
                 let channel_map = self.next_leader_channel_map.upgradable_read().await;
@@ -509,16 +502,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                 )
                 .await;
                 if !is_leader || msg_time < channel_map.cur_view {
-                    warn!(
-                        "Throwing away Vote or TimedOut message for view number: {:?}",
-                        msg_time
-                    );
+                    warn!("Throwing away Vote message for view number: {:?}", msg_time);
                     return;
                 }
 
                 let chan = Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
 
-                if chan.sender_chan.send(c).await.is_err() {
+                if chan
+                    .sender_chan
+                    .send(ProcessedConsensusMessage::new(c, sender))
+                    .await
+                    .is_err()
+                {
                     error!("Failed to send to next leader!");
                 }
             }
@@ -560,7 +555,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             }
             DataMessage::NewestQuorumCertificate { .. } => {
                 // Log the exceptional situation and proceed
-                warn!(?msg, "Direct message received over broadcast channel");
+                warn!(
+                    ?msg,
+                    "Newest QC received over broadcast channel. This shouldn't be possible."
+                );
             }
         }
     }
@@ -571,51 +569,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         msg: DataMessage<TYPES, I::Leaf>,
         _sender: TYPES::SignatureKey,
     ) {
-        // TODO validate incoming data message based on sender signature key
         debug!(?msg, "Incoming direct data message");
         match msg {
-            DataMessage::NewestQuorumCertificate {
-                quorum_certificate: qc,
-                block,
-                state,
-                parent_commitment,
-                rejected,
-                proposer_id,
-            } => {
-                // TODO https://github.com/EspressoSystems/HotShot/issues/387
-                let anchored = match self.inner.storage.get_anchored_view().await {
-                    Err(e) => {
-                        error!(?e, "Could not load QC");
-                        return;
-                    }
-                    Ok(n) => n,
-                };
-                // TODO: Don't blindly accept the newest QC but make sure it's valid with other nodes too
-                // we should be getting multiple data messages soon
-                // <https://github.com/EspressoSystems/HotShot/issues/454>
-                let should_save = anchored.view_number < qc.view_number(); // incoming view is newer
-                if should_save {
-                    let new_view = StoredView::from_qc_block_and_state(
-                        qc,
-                        block,
-                        state,
-                        // We don't have enough information in this message to validate the height
-                        // of the new QC. We would need the full parent leaf, so we can check that
-                        // its commitment matches `qc.leaf_commitment()` and extract the height
-                        // from the leaf. But this message is no longer used and the whole catchup
-                        // protocol needs to be redesigned.
-                        0,
-                        parent_commitment,
-                        rejected,
-                        proposer_id,
-                    );
-
-                    if let Err(e) = self.inner.storage.append_single_view(new_view).await {
-                        error!(?e, "Could not insert incoming QC");
-                    }
-                }
+            DataMessage::NewestQuorumCertificate { .. } => {
+                warn!(
+                    ?msg,
+                    "Newest QC received over direct channel. This shouldn't be possible."
+                );
             }
-
             DataMessage::SubmitTransaction(_) => {
                 // Log exceptional situation and proceed
                 warn!(?msg, "Broadcast message received over direct channel");
@@ -900,7 +861,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     }
 
     fn threshold(&self) -> NonZeroU64 {
-        self.inner.election.get_threshold()
+        self.inner.election.threshold()
     }
 
     fn propose_min_round_time(&self) -> Duration {
@@ -920,10 +881,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     }
 
     /// Generates and encodes a vote token
-    fn generate_vote_token(
+    fn make_vote_token(
         &self,
         view_number: TYPES::Time,
-        _next_state: Commitment<I::Leaf>,
     ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError> {
         self.inner
             .election
@@ -994,59 +954,35 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         &self.inner.private_key
     }
 
-    #[instrument(skip(self, qc))]
-    fn validate_qc(&self, qc: &<I::Leaf as LeafType>::QuorumCertificate) -> bool {
-        if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
-            return true;
-        }
-        let hash = qc.leaf_commitment();
-
-        let stake = qc
-            .signatures()
-            .iter()
-            .filter(|signature| {
-                self.is_valid_signature(
-                    signature.0,
-                    &signature.1 .0,
-                    hash,
-                    qc.view_number(),
-                    Unchecked(signature.1 .1.clone()),
-                )
-            })
-            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
-
-        if stake >= u64::from(self.threshold()) {
-            return true;
-        }
-        false
+    #[instrument(skip(self, dac))]
+    fn is_valid_dac(
+        &self,
+        dac: &<I::Leaf as LeafType>::DACertificate,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> bool {
+        self.inner.election.is_valid_dac(dac, block_commitment)
     }
 
-    fn is_valid_signature(
+    #[instrument(skip(self, qc))]
+    fn is_valid_qc(&self, qc: &<I::Leaf as LeafType>::QuorumCertificate) -> bool {
+        self.inner.election.is_valid_qc(qc)
+    }
+
+    fn is_valid_vote(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<I::Leaf>,
+        data: VoteData<TYPES, I::Leaf>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
-        let mut is_valid_vote_token = false;
-        let mut is_valid_signature = false;
-        if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
-            is_valid_signature = key.validate(encoded_signature, hash.as_ref());
-            let valid_vote_token =
-                self.inner
-                    .election
-                    .validate_vote_token(view_number, key, vote_token);
-            is_valid_vote_token = match valid_vote_token {
-                Err(_) => {
-                    error!("Vote token was invalid");
-                    false
-                }
-                Ok(Valid(_)) => true,
-                Ok(Inval(_) | Unchecked(_)) => false,
-            };
-        }
-        is_valid_signature && is_valid_vote_token
+        self.inner.election.is_valid_vote(
+            encoded_key,
+            encoded_signature,
+            data,
+            view_number,
+            vote_token,
+        )
     }
 
     async fn store_leaf(
