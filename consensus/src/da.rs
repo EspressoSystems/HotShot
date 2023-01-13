@@ -1,4 +1,4 @@
-//! Contains the [`ValidatingLeader`] struct used for the leader step in the hotstuff consensus algorithm.
+//! Contains the [`DALeader`] struct used for the leader step in the hotstuff consensus algorithm.
 
 use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_compatibility_layer::channel::UnboundedReceiver;
@@ -30,7 +30,7 @@ use std::{
 };
 use tracing::{error, info, instrument, warn};
 
-/// This view's validating leader
+/// This view's DA committee leader
 #[derive(Debug, Clone)]
 pub struct DALeader<
     A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
@@ -104,12 +104,7 @@ where
     async fn wait_for_transactions(&self) -> Option<Vec<TYPES::Transaction>> {
         let task_start_time = Instant::now();
 
-        let parent_leaf = if let Some(parent) = self.parent_leaf().await {
-            parent
-        } else {
-            warn!("Couldn't find high QC parent in state map.");
-            return None;
-        };
+        let parent_leaf = self.parent_leaf().await?;
         let previous_used_txns_vec = parent_leaf.deltas.contained_transactions();
         let previous_used_txns = previous_used_txns_vec.into_iter().collect::<HashSet<_>>();
         let receiver = self.transactions.subscribe().await;
@@ -177,6 +172,8 @@ where
                 }
             }
         }
+        let block_commitment = block.commit();
+
         if let Ok(_new_state) = starting_state.append(&block, &self.cur_view) {
             let consensus = self.consensus.read().await;
             let signature = self.api.sign_da_proposal(&block.commit());
@@ -220,12 +217,11 @@ where
                                 continue;
                             }
 
-                            // Ignore invalid signature
                             if !self.api.is_valid_vote(
                                 &vote.signature.0,
                                 &vote.signature.1,
-                                VoteData::DA(vote.block_commitment),
-                                vote.current_view,
+                                VoteData::DA(block_commitment),
+                                self.cur_view,
                                 // Ignoring deserialization errors below since we are getting rid of it soon
                                 Unchecked(vote.vote_token.clone()),
                             ) {
