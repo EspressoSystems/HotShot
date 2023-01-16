@@ -51,4 +51,7 @@ ignore = [
     # https://github.com/clap-rs/clap/pull/4249
     # https://rustsec.org/advisories/RUSTSEC-2021-0145
     "RUSTSEC-2021-0145",
+
+    # TEMP Tokio ignore for web server benchmakrin g
+    "RUSTSEC-2023-0001",
 ]
