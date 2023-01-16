@@ -3,6 +3,7 @@ use async_compatibility_layer::art::async_main;
 use async_compatibility_layer::logging::setup_logging;
 use clap::Parser;
 use espresso_systems_common::hotshot::tag;
+use espresso_systems_common::hotshot::tag::ORCHESTRATOR_VRF_BLOCK;
 use hotshot::traits::election::vrf::VRFStakeTableConfig;
 use hotshot::{traits::election::vrf::JfPubKey, types::SignatureKey};
 use hotshot_centralized_server::{
@@ -134,6 +135,7 @@ mod tests {
         logging::{setup_backtrace, setup_logging},
     };
     use commit::{Commitment, Committable};
+    use espresso_systems_common::hotshot::tag;
     use hotshot::{
         traits::{election::vrf::VRFStakeTableConfig, Block, State},
         types::SignatureKey,

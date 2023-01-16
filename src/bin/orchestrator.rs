@@ -131,6 +131,7 @@ mod tests {
         logging::{setup_backtrace, setup_logging},
     };
     use commit::{Commitment, Committable};
+    use espresso_systems_common::hotshot::tag;
     use hotshot::{
         traits::{election::static_committee::StaticElectionConfig, Block, State},
         types::SignatureKey,
