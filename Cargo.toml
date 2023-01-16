@@ -161,7 +161,7 @@ snafu = "0.7.3"
 tempfile = "3.3.0"
 time = "0.3.17"
 toml = { version = "0.5.9", optional = true }
-tokio = { version = "1", optional = true, features = [
+tokio = { version = "1.23.1", optional = true, features = [
         "fs",
         "io-util",
         "io-std",

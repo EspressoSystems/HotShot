@@ -7,7 +7,6 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 
 use hotshot_centralized_web_server::{self, config};
-use hotshot_orchestrator::config::NetworkConfig;
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     message::Message,
