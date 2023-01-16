@@ -473,7 +473,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     }
 
     /// decide which handler to call based on the message variant and `transmit_type`
-    async fn handle_message(&self, item: Message<TYPES, I::Leaf, I::Proposal>, transmit_type: TransmitType) {
+    async fn handle_message(
+        &self,
+        item: Message<TYPES, I::Leaf, I::Proposal>,
+        transmit_type: TransmitType,
+    ) {
         match (item.kind, transmit_type) {
             (MessageKind::Consensus(msg), TransmitType::Broadcast) => {
                 self.handle_broadcast_consensus_message(msg, item.sender)

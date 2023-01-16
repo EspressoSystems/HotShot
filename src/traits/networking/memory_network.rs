@@ -22,7 +22,8 @@ use hotshot_types::{
     traits::{
         metrics::{Metrics, NoMetrics},
         network::{NetworkChange, TestableNetworkingImplementation, TransmitType},
-        signature_key::{SignatureKey, TestableSignatureKey}, node_implementation::NodeType,
+        node_implementation::NodeType,
+        signature_key::{SignatureKey, TestableSignatureKey},
     },
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -375,7 +376,10 @@ impl<
     > NetworkingImplementation<TYPES, LEAF, PROPOSAL> for MemoryNetwork<TYPES, LEAF, PROPOSAL>
 {
     #[instrument(name = "Libp2pNetwork::next_msg", skip_all)]
-    async fn recv_msg(&self, transmit_type: TransmitType) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
+    async fn recv_msg(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
         match transmit_type {
             TransmitType::Direct => {
                 let ret = self
@@ -577,15 +581,20 @@ mod tests {
     use super::*;
     use crate::{
         demos::dentry::{Addition, DEntryBlock, DEntryState, DEntryTransaction, Subtraction},
-        traits::election::static_committee::{StaticElectionConfig, StaticVoteToken, GeneralStaticCommittee, StaticCommittee},
+        traits::election::static_committee::{
+            GeneralStaticCommittee, StaticElectionConfig, StaticVoteToken,
+        },
     };
 
     use async_compatibility_layer::logging::setup_logging;
-    use hotshot_types::{traits::{state::ValidatingConsensus, node_implementation::ApplicationMetadata}, data::{ValidatingLeaf, ValidatingProposal}};
     use hotshot_types::{
         data::ViewNumber,
         message::{DataMessage, MessageKind},
         traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
+    };
+    use hotshot_types::{
+        data::{ValidatingLeaf, ValidatingProposal},
+        traits::{node_implementation::ApplicationMetadata, state::ValidatingConsensus},
     };
 
     /// application metadata stub
@@ -631,7 +640,10 @@ mod tests {
     /// derive EQ on Vote and thereby message
     /// we are only sending data messages, though so we compare key and
     /// data message
-    fn fake_message_eq(message_1: Message<Test, TestLeaf, TestProposal>, message_2: Message<Test, TestLeaf, TestProposal>) {
+    fn fake_message_eq(
+        message_1: Message<Test, TestLeaf, TestProposal>,
+        message_2: Message<Test, TestLeaf, TestProposal>,
+    ) {
         assert_eq!(message_1.sender, message_2.sender);
         if let MessageKind::Data(DataMessage::SubmitTransaction(d_1)) = message_1.kind {
             if let MessageKind::Data(DataMessage::SubmitTransaction(d_2)) = message_2.kind {
@@ -649,7 +661,11 @@ mod tests {
     }
 
     /// create a message
-    fn gen_messages(num_messages: u64, seed: u64, pk: Ed25519Pub) -> Vec<Message<Test, TestLeaf, TestProposal>>{
+    fn gen_messages(
+        num_messages: u64,
+        seed: u64,
+        pk: Ed25519Pub,
+    ) -> Vec<Message<Test, TestLeaf, TestProposal>> {
         let mut messages = Vec::new();
         for i in 0..num_messages {
             let message = Message {
@@ -725,7 +741,8 @@ mod tests {
         let pub_key_2 = get_pubkey();
         let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
 
-        let first_messages: Vec<Message<Test, TestLeaf, TestProposal>> = gen_messages(5, 100, pub_key_1);
+        let first_messages: Vec<Message<Test, TestLeaf, TestProposal>> =
+            gen_messages(5, 100, pub_key_1);
 
         // Test 1 -> 2
         // Send messages
@@ -741,7 +758,8 @@ mod tests {
             fake_message_eq(sent_message, recv_message);
         }
 
-        let second_messages: Vec<Message<Test, TestLeaf, TestProposal>> = gen_messages(5, 200, pub_key_2);
+        let second_messages: Vec<Message<Test, TestLeaf, TestProposal>> =
+            gen_messages(5, 200, pub_key_2);
 
         // Test 2 -> 1
         // Send messages
@@ -776,7 +794,8 @@ mod tests {
         let pub_key_2 = get_pubkey();
         let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
 
-        let first_messages: Vec<Message<Test, TestLeaf, TestProposal>> = gen_messages(5, 100, pub_key_1);
+        let first_messages: Vec<Message<Test, TestLeaf, TestProposal>> =
+            gen_messages(5, 100, pub_key_1);
 
         // Test 1 -> 2
         // Send messages
@@ -797,7 +816,8 @@ mod tests {
             fake_message_eq(sent_message, recv_message);
         }
 
-        let second_messages: Vec<Message<Test, TestLeaf, TestProposal>> = gen_messages(5, 200, pub_key_2);
+        let second_messages: Vec<Message<Test, TestLeaf, TestProposal>> =
+            gen_messages(5, 200, pub_key_2);
 
         // Test 2 -> 1
         // Send messages

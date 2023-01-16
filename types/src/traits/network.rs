@@ -152,7 +152,10 @@ pub trait NetworkingImplementation<
     /// until a single message is received or the channel is closed.
     /// Use `recv_msgs` instead does not block and will return no messages.
     #[deprecated]
-    async fn recv_msg(&self, transmit_type: TransmitType) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError>;
+    async fn recv_msg(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError>;
 
     /// Moves out the entire queue of received messages of 'transmit_type`
     ///

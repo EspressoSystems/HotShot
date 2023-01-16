@@ -13,7 +13,7 @@ use async_compatibility_layer::{
     art::{async_block_on, async_sleep, async_spawn, split_stream},
     channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
 };
-use async_lock::{Mutex, MutexGuardArc, RwLock, RwLockUpgradableReadGuard};
+use async_lock::{RwLock, RwLockUpgradableReadGuard};
 use async_trait::async_trait;
 use bincode::Options;
 use futures::{future::BoxFuture, FutureExt};
@@ -904,11 +904,7 @@ async fn run_background<TYPES: NodeType>(
     }
 
     let send_handle = run_background_send(send_stream, to_background);
-    let recv_handle = run_background_recv(
-        recv_stream,
-        from_background_sender,
-        connection,
-    );
+    let recv_handle = run_background_recv(recv_stream, from_background_sender, connection);
 
     futures::future::try_join(send_handle, recv_handle)
         .await
@@ -933,7 +929,7 @@ async fn run_background_send<K: SignatureKey>(
                     ?header,
                     "expected payload of {payload_expected_len} bytes, got {} bytes",
                     payload.len(),
-                    );
+                );
             }
         }
         stream.send(header).await?;
@@ -945,7 +941,6 @@ async fn run_background_send<K: SignatureKey>(
             confirm.send(());
         }
     }
-
 }
 
 /// Loop on the TCP recv stream.
@@ -960,7 +955,7 @@ async fn run_background_recv<TYPES: NodeType>(
     connection: Arc<Inner<TYPES>>,
 ) -> Result<(), Error> {
     loop {
-        let    msg = stream.recv().await;
+        let msg = stream.recv().await;
         if let Ok(msg) = msg {
             match msg {
                 FromServer::LocalShutdown => return Err(Error::Disconnected),
@@ -1012,12 +1007,8 @@ async fn run_background_recv<TYPES: NodeType>(
                     connection.run_ready.store(true, Ordering::Relaxed);
                 }
             }
-        } else {
-            continue
         }
-
     }
-
 }
 
 /// Inner error type for the `run_background` function.
@@ -1072,7 +1063,10 @@ impl<
     }
 
     #[instrument(name = "CentralizedServer::next_msg", skip_all)]
-    async fn recv_msg(&self, transmit_type: TransmitType) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
+    async fn recv_msg(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
         match transmit_type {
             TransmitType::Direct => self.inner.get_next_direct_message().await,
             TransmitType::Broadcast => self.inner.get_next_broadcast().await,
@@ -1103,7 +1097,10 @@ impl<
     }
 
     #[instrument(name = "CentralizedServer::broadcast_message", skip_all)]
-    async fn broadcast_message(&self, message: Message<TYPES, LEAF, PROPOSAL>) -> Result<(), NetworkError> {
+    async fn broadcast_message(
+        &self,
+        message: Message<TYPES, LEAF, PROPOSAL>,
+    ) -> Result<(), NetworkError> {
         self.inner
             .broadcast(
                 bincode_opts()

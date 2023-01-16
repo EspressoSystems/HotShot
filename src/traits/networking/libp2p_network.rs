@@ -470,7 +470,10 @@ impl<
     > NetworkingImplementation<TYPES, LEAF, PROPOSAL> for Libp2pNetwork<TYPES, LEAF, PROPOSAL>
 {
     #[instrument(name = "Libp2pNetwork::next_msg", skip_all)]
-    async fn recv_msg(&self, transmit_type: TransmitType) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
+    async fn recv_msg(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
         if self.inner.handle.is_killed() {
             Err(NetworkError::ShutDown)
         } else {
