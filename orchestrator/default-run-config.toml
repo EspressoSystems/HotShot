@@ -1,5 +1,5 @@
-rounds = 100
-transactions_per_round = 100
+rounds = 10
+transactions_per_round = 1
 node_index = 0
 seed = [
     0,
@@ -39,10 +39,10 @@ padding = 100
 start_delay_seconds = 30
 
 [config]
-total_nodes = 10
+total_nodes = 1
 max_transactions = 100
 min_transactions = 0
-next_view_timeout = 10000
+next_view_timeout = 30000
 timeout_ratio = [
     11,
     10,

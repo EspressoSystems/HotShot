@@ -77,6 +77,7 @@ pub trait WebServerDataSource {
 impl WebServerDataSource for WebServerState {
     /// Return all proposals the server has received for a particular view
     fn get_proposals(&self, view_number: u128) -> Result<Option<Vec<Vec<u8>>>, Error> {
+        println!("Getting proposal for view {}", view_number);
         match self.proposals.get(&view_number) {
             Some(proposals) => Ok(Some(proposals.clone())),
             None => Ok(None),
@@ -118,6 +119,8 @@ impl WebServerDataSource for WebServerState {
 
     /// Stores a received vote in the `WebServerState`
     fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error> {
+        println!("Posting vote for view {}", view_number);
+
         // only keep vote history for MAX_VIEWS number of views
         if self.votes.len() >= MAX_VIEWS {
             self.votes.remove(&self.oldest_vote);
@@ -137,6 +140,8 @@ impl WebServerDataSource for WebServerState {
     }
     /// Stores a received proposal in the `WebServerState`
     fn post_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error> {
+        println!("posting proposal for view {}", view_number);
+
         // only keep proposal history for MAX_VIEWS number of view
         if self.proposals.len() >= MAX_VIEWS {
             self.proposals.remove(&self.oldest_proposal);

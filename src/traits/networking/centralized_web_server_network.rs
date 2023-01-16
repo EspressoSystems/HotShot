@@ -44,28 +44,10 @@ pub struct CentralizedWebServerNetwork<TYPES: NodeTypes> {
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
-// TODO ED Make this a trait probably
-async fn get_config_from_orchestrator<TYPES: NodeTypes>() {
-    let port = 4444;
-    // TODO add URL is param
-    let base_url = format!("0.0.0.0:{port}");
-    let base_url = format!("http://{base_url}").parse().unwrap();
-    let client = surf_disco::Client::<ServerError>::new(base_url);
-    let test: Result<(bool), ServerError> = client.get("api/start").send().await;
-    println!("{:?}", test);
-    let config: Result<NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>, ServerError> = client.post("api/config").send().await;
-    println!("{:?}", config);
-}
 
 impl<TYPES: NodeTypes> CentralizedWebServerNetwork<TYPES> {
     // ED TODO make async 
     pub fn create() -> Self {
-        let handle = async_spawn({
-            async move {
-                get_config_from_orchestrator::<TYPES>().await;
-            }
-        });
-      
         
         let port = config::WEB_SERVER_PORT;
         // TODO add URL is param
@@ -177,6 +159,8 @@ async fn poll_generic<TYPES: NodeTypes>(
             }
             Ok(Some(deserialized_messages)) => match kind {
                 MessageType::Proposal => {
+                    error!("Got proposal");
+
                     // Only pushing the first proposal here since we will soon only be allowing 1 proposal per view
                     connection
                         .broadcast_poll_queue
@@ -186,6 +170,8 @@ async fn poll_generic<TYPES: NodeTypes>(
                     view_number = receiver.recv().await.unwrap();
                 }
                 MessageType::VoteTimedOut => {
+                    error!("Got vote or timed out message");
+
                     let mut direct_poll_queue = connection.direct_poll_queue.write().await;
                     deserialized_messages.iter().for_each(|vote| {
                         vote_index += 1;
@@ -193,6 +179,8 @@ async fn poll_generic<TYPES: NodeTypes>(
                     });
                 }
                 MessageType::Transaction => {
+                    error!("Got txs");
+
                     let mut lock = connection.broadcast_poll_queue.write().await;
                     deserialized_messages.iter().for_each(|tx| {
                         tx_index += 1;
@@ -213,7 +201,7 @@ async fn poll_generic<TYPES: NodeTypes>(
         if new_view_number.is_ok() {
             view_number = new_view_number.unwrap();
             view_number += num_views_ahead;
-            let vote_index = 0;
+            vote_index = 0;
         }
     }
 
@@ -230,7 +218,7 @@ async fn run_background_receive<TYPES: NodeTypes>(
     connection: Arc<Inner<TYPES>>,
 ) -> Result<(), ServerError> {
     error!("Run background receive task has started!");
-    let wait_between_polls = Duration::from_millis(500);
+    let wait_between_polls = Duration::from_millis(100);
 
     let proposal_handle = async_spawn({
         let connection_ref = connection.clone();
@@ -261,25 +249,25 @@ async fn run_background_receive<TYPES: NodeTypes>(
         }
     });
 
-    let proposal_handle_plus_one = async_spawn({
-        let connection_ref = connection.clone();
-        async move {
-            poll_generic(
-                connection_ref,
-                MessageType::Proposal,
-                wait_between_polls * 2,
-                1,
-            )
-            .await
-        }
-    });
+    // let proposal_handle_plus_one = async_spawn({
+    //     let connection_ref = connection.clone();
+    //     async move {
+    //         poll_generic(
+    //             connection_ref,
+    //             MessageType::Proposal,
+    //             wait_between_polls * 2,
+    //             1,
+    //         )
+    //         .await
+    //     }
+    // });
 
     // await them all:
     let mut task_handles = Vec::new();
     task_handles.push(proposal_handle);
     task_handles.push(vote_handle);
     task_handles.push(transaction_handle);
-    task_handles.push(proposal_handle_plus_one);
+    // task_handles.push(proposal_handle_plus_one);
 
     let children_finished = futures::future::join_all(task_handles);
     let result = children_finished.await;
