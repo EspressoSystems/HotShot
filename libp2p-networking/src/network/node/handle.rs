@@ -14,7 +14,6 @@ use async_compatibility_layer::{
 use async_lock::Mutex;
 use bincode::Options;
 use futures::{stream::FuturesOrdered, Future, FutureExt};
-// use hotshot_types::traits::network::NetworkError as HotShotNetworkError;
 use hotshot_utils::bincode::bincode_opts;
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};

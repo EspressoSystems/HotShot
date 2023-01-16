@@ -344,7 +344,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
     }
 
     /// Get all the incoming broadcast messages received from the server. Returning 0 messages if nothing was received.
-    #[allow(unused)]
     async fn get_broadcasts<M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static>(
         &self,
     ) -> Vec<Result<M, bincode::Error>> {
@@ -484,7 +483,6 @@ impl<TYPES: NodeType> Inner<TYPES> {
     }
 
     /// Get all the incoming direct messages received from the server. Returning 0 messages if nothing was received.
-    #[allow(unused)]
     async fn get_direct_messages<
         M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static,
     >(
@@ -955,59 +953,58 @@ async fn run_background_recv<TYPES: NodeType>(
     connection: Arc<Inner<TYPES>>,
 ) -> Result<(), Error> {
     loop {
-        let msg = stream.recv().await;
-        if let Ok(msg) = msg {
-            match msg {
-                FromServer::LocalShutdown => return Err(Error::Disconnected),
-                x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
-                    from_background_sender
-                        .send((x, Vec::new()))
-                        .await
-                        .map_err(|_| Error::FailedToReceive)?;
-                }
+        let msg = stream.recv().await?;
+        // if let Ok(msg) = msg {
+        match msg {
+            x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
+                from_background_sender
+                    .send((x, Vec::new()))
+                    .await
+                    .map_err(|_| Error::FailedToReceive)?;
+            }
 
-                x @ (FromServer::Broadcast { .. } | FromServer::Direct { .. }) => {
-                    let payload = if let Some(payload_len) = x.payload_len() {
-                        stream.recv_raw_all(payload_len.into()).await?
-                    } else {
-                        Vec::new()
-                    };
-                    from_background_sender
-                        .send((x, payload))
-                        .await
-                        .map_err(|_| Error::FailedToReceive)?;
-                }
+            x @ (FromServer::Broadcast { .. } | FromServer::Direct { .. }) => {
+                let payload = if let Some(payload_len) = x.payload_len() {
+                    stream.recv_raw_all(payload_len.into()).await?
+                } else {
+                    Vec::new()
+                };
+                from_background_sender
+                    .send((x, payload))
+                    .await
+                    .map_err(|_| Error::FailedToReceive)?;
+            }
 
-                x @ (FromServer::BroadcastPayload { .. } | FromServer::DirectPayload { .. }) => {
-                    let payload = if let Some(payload_len) = x.payload_len() {
-                        stream.recv_raw_all(payload_len.into()).await?
-                    } else {
-                        Vec::new()
-                    };
-                    from_background_sender
-                        .send((x, payload))
-                        .await
-                        .map_err(|_| Error::FailedToReceive)?;
-                }
+            x @ (FromServer::BroadcastPayload { .. } | FromServer::DirectPayload { .. }) => {
+                let payload = if let Some(payload_len) = x.payload_len() {
+                    stream.recv_raw_all(payload_len.into()).await?
+                } else {
+                    Vec::new()
+                };
+                from_background_sender
+                    .send((x, payload))
+                    .await
+                    .map_err(|_| Error::FailedToReceive)?;
+            }
 
-                FromServer::ClientCount(count) => {
-                    let senders =
-                        std::mem::take(&mut *connection.request_client_count_sender.write().await);
-                    connection.metrics.connected_peers.set(count as _);
-                    for sender in senders {
-                        sender.send(count);
-                    }
-                }
-
-                FromServer::Config { .. } => {
-                    tracing::warn!("Received config from server but we're already running",);
-                }
-
-                FromServer::Start => {
-                    connection.run_ready.store(true, Ordering::Relaxed);
+            FromServer::ClientCount(count) => {
+                let senders =
+                    std::mem::take(&mut *connection.request_client_count_sender.write().await);
+                connection.metrics.connected_peers.set(count as _);
+                for sender in senders {
+                    sender.send(count);
                 }
             }
+
+            FromServer::Config { .. } => {
+                tracing::warn!("Received config from server but we're already running",);
+            }
+
+            FromServer::Start => {
+                connection.run_ready.store(true, Ordering::Relaxed);
+            }
         }
+        // }
     }
 }
 
