@@ -7,6 +7,7 @@ pub mod lossy_network;
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 #[cfg(feature = "async-std-executor")]
 use async_std::prelude::StreamExt;
+use libp2p_networking::network::CONSENSUS_TOPIC;
 #[cfg(feature = "tokio-executor")]
 use tokio_stream::StreamExt;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
@@ -416,7 +417,7 @@ pub async fn regular_handle_network_event(
                             // if the conductor says to broadcast
                             // perform broadcast with gossip protocol
                             ConductorMessageMethod::Broadcast => {
-                                handle.gossip("global".to_string(), &response).await?;
+                                handle.gossip(CONSENSUS_TOPIC.to_string(), &response).await?;
                             }
                             ConductorMessageMethod::DirectMessage(pid) => {
                                 handle.direct_request(
@@ -580,7 +581,7 @@ pub async fn start_main(opts: CliOpt) -> Result<(), CounterError> {
                         // must wait for the listener to start
                         let msg = Message::ConductorIdIs(conductor_peerid);
                         if let Err(e) = handle
-                            .gossip("global".to_string(), &msg)
+                            .gossip(CONSENSUS_TOPIC.to_string(), &msg)
                             .await
                             .context(HandleSnafu)
                         {

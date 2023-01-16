@@ -7,7 +7,7 @@ use bincode::Options;
 use common::{test_bed, HandleSnafu, TestError};
 use hotshot_utils::bincode::bincode_opts;
 use libp2p_networking::network::{
-    get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError,
+    get_random_handle, NetworkEvent, NetworkNodeHandle, NetworkNodeHandleError, CONSENSUS_TOPIC,
 };
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
@@ -211,7 +211,7 @@ async fn run_gossip_round(
     }
 
     msg_handle
-        .gossip("global".to_string(), &msg)
+        .gossip(CONSENSUS_TOPIC.to_string(), &msg)
         .await
         .context(HandleSnafu)?;
 

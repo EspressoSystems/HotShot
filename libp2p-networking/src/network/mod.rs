@@ -49,6 +49,9 @@ use tcp::tokio::Transport as TcpTransport;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
+/// the topic used for consensus messages
+pub const CONSENSUS_TOPIC: &str = "global_consensus_topic";
+
 /// this is mostly to estimate how many network connections
 /// a node should allow
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -261,7 +264,7 @@ pub async fn spin_up_swarm<S: std::fmt::Debug + Default>(
     info!("known_nodes{:?}", known_nodes);
     handle.add_known_peers(known_nodes).await?;
     handle.wait_to_connect(4, idx, timeout_len).await?;
-    handle.subscribe("global".to_string()).await?;
+    handle.subscribe(CONSENSUS_TOPIC.to_string()).await?;
 
     Ok(())
 }

@@ -4,6 +4,7 @@ use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use futures::FutureExt;
 use futures::{future::join_all, Future};
 use libp2p::{identity::Keypair, Multiaddr, PeerId};
+use libp2p_networking::network::CONSENSUS_TOPIC;
 use libp2p_networking::network::{
     network_node_handle_error::NodeConfigSnafu, NetworkEvent, NetworkNodeConfigBuilder,
     NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,
@@ -212,7 +213,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
 
     for handle in &handles {
         handle
-            .subscribe("global".to_string())
+            .subscribe(CONSENSUS_TOPIC.to_string())
             .await
             .context(HandleSnafu)?;
     }

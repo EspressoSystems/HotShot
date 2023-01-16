@@ -31,6 +31,7 @@ use libp2p_networking::{
         MeshParams,
         NetworkEvent::{self, DirectRequest, DirectResponse, GossipMsg},
         NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeType,
+        CONSENSUS_TOPIC,
     },
     reexport::{Multiaddr, PeerId},
 };
@@ -47,9 +48,6 @@ use std::{
     time::Duration,
 };
 use tracing::{error, info, instrument, warn};
-
-/// hardcoded topic of QC used
-pub const QC_TOPIC: &str = "global";
 
 /// Stubbed out Ack
 #[derive(Serialize)]
@@ -495,12 +493,7 @@ impl<
             .send(message.clone())
             .await
             .unwrap();
-        match self
-            .inner
-            .handle
-            .gossip(QC_TOPIC.to_string(), &message)
-            .await
-        {
+        match self.inner.handle.gossip(CONSENSUS_TOPIC, &message).await {
             Ok(()) => {
                 self.inner.metrics.outgoing_message_count.add(1);
                 Ok(())
