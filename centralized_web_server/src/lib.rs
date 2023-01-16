@@ -285,7 +285,7 @@ mod test {
 
     type State = RwLock<WebServerState>;
     type Error = ServerError;
-
+    
     #[async_std::test]
     //KALEY TODO: refactor into smaller tests
     async fn test_web_server() {
