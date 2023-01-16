@@ -7,6 +7,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 
 use hotshot_centralized_web_server::{self, config};
+use hotshot_orchestrator::config::NetworkConfig;
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     message::Message,
@@ -43,8 +44,29 @@ pub struct CentralizedWebServerNetwork<TYPES: NodeTypes> {
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
+// TODO ED Make this a trait probably
+async fn get_config_from_orchestrator<TYPES: NodeTypes>() {
+    let port = 4444;
+    // TODO add URL is param
+    let base_url = format!("0.0.0.0:{port}");
+    let base_url = format!("http://{base_url}").parse().unwrap();
+    let client = surf_disco::Client::<ServerError>::new(base_url);
+    let test: Result<(bool), ServerError> = client.get("api/start").send().await;
+    println!("{:?}", test);
+    let config: Result<NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>, ServerError> = client.post("api/config").send().await;
+    println!("{:?}", config);
+}
+
 impl<TYPES: NodeTypes> CentralizedWebServerNetwork<TYPES> {
-    fn create() -> Self {
+    // ED TODO make async 
+    pub fn create() -> Self {
+        let handle = async_spawn({
+            async move {
+                get_config_from_orchestrator::<TYPES>().await;
+            }
+        });
+      
+        
         let port = config::WEB_SERVER_PORT;
         // TODO add URL is param
         let base_url = format!("0.0.0.0:{port}");

@@ -92,9 +92,9 @@ required-features = ["bin-orchestrator"]
 name = "orchestrator-standalone"
 required-features = ["bin-orchestrator"]
 
-[[web-server]]
+[[bin]]
 name = "centralized_web_server"
-required-features = [""]
+required-features = ["full-ci"]
 
 [dependencies]
 ark-ec = { version = "0.3.0" }

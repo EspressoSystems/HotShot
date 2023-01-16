@@ -1,9 +1,10 @@
+use ark_bls12_381::Parameters as Param381;
 use async_compatibility_layer::{
     art::{async_main, async_sleep},
     logging::{setup_backtrace, setup_logging},
 };
 use clap::Parser;
-use hotshot::traits::implementations::CentralizedWebServerNetwork;
+use hotshot::traits::{election::vrf::JfPubKey, implementations::CentralizedWebServerNetwork};
 use hotshot::{
     demos::dentry::*,
     traits::{
@@ -17,19 +18,28 @@ use hotshot::{
     types::HotShotHandle,
     HotShot,
 };
-use hotshot_centralized_server::{NetworkConfig, RunResults};
+use hotshot_orchestrator::config::NetworkConfig;
 use hotshot_types::{
-    traits::{metrics::NoMetrics, signature_key::SignatureKey, state::TestableState},
+    traits::{
+        metrics::NoMetrics, node_implementation::NodeTypes, signature_key::SignatureKey,
+        state::TestableState,
+    },
     HotShotConfig,
 };
+use jf_primitives::signatures::BLSSignatureScheme;
+use libp2p::relay::v2::client::Client;
 use std::{
     cmp,
     collections::{BTreeMap, VecDeque},
     mem,
     net::{IpAddr, SocketAddr},
+    thread::sleep,
     time::{Duration, Instant},
 };
+use surf_disco::error::ClientError;
 use tracing::{debug, error};
+
+type ServerError = ClientError;
 
 type Node =
     DEntryNode<DEntryTypes, CentralizedWebServerNetwork<DEntryTypes>, StaticCommittee<DEntryTypes>>;
@@ -93,6 +103,20 @@ async fn init_state_and_hotshot(
     (state, hotshot)
 }
 
+// TODO ED Make this a trait probably
+async fn get_config_from_orchestrator<TYPES: NodeTypes>(
+) -> Result<NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>, ServerError> {
+    let port = 4444;
+    // TODO add URL is param
+    let base_url = format!("0.0.0.0:{port}");
+    let base_url = format!("http://{base_url}").parse().unwrap();
+    let client = surf_disco::Client::<ServerError>::new(base_url);
+    let config: Result<NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>, ServerError> =
+        client.post("api/config").send().await;
+    println!("{:?}", config);
+    config
+}
+
 #[async_main]
 async fn main() {
     // Setup tracing listener
@@ -103,24 +127,43 @@ async fn main() {
     let opts: NodeOpt = NodeOpt::parse();
     let addr: SocketAddr = (opts.host, opts.port).into();
     error!("Connecting to {addr:?} to retrieve the server config");
+    
+    let port = 4444;
+    // TODO add URL is param
+    let base_url = format!("0.0.0.0:{port}");
+    let base_url = format!("http://{base_url}").parse().unwrap();
+    let client = surf_disco::Client::<ServerError>::new(base_url);
+    let config: NetworkConfig<JfPubKey<BLSSignatureScheme<Param381>>, StaticElectionConfig> =
+        client.post("api/config").send().await.unwrap();
+    println!("{:?}", config);
+    // Actually error check this TODO ED
 
     // TODO ED need to update this below with the actual function
-    let (config, run, network) =
-        CentralizedWebServerNetwork::connect_with_server_config(NoMetrics::new(), addr).await;
+    // let (config, run, network) =
+    //     CentralizedWebServerNetwork::connect_with_server_config(NoMetrics::new(), addr).await;
 
-    error!("Run: {:?}", run);
+    // error!("Run: {:?}", run);
     error!("Config: {:?}", config);
+
+    let result: Result<(), ServerError> = client
+        .post("api/ready")
+        .body_json(&config.node_index)
+        .unwrap()
+        .send()
+        .await;
 
     // Get networking information
 
     let node_count = config.config.total_nodes;
 
     debug!("Waiting on connections...");
-    while !network.run_ready() {
-        let connected_clients = network.get_connected_client_count().await;
-        error!("{} / {}", connected_clients, node_count);
-        async_sleep(Duration::from_secs(1)).await;
-    }
+    // while !network.run_ready() {
+    //     let connected_clients = network.get_connected_client_count().await;
+    //     error!("{} / {}", connected_clients, node_count);
+    //     async_sleep(Duration::from_secs(1)).await;
+    // }
+
+    let network = CentralizedWebServerNetwork::create();
 
     let NetworkConfig {
         rounds,
@@ -129,10 +172,10 @@ async fn main() {
         node_index,
         seed,
         padding,
-        libp2p_config: _,
         start_delay_seconds: _,
         key_type_name,
         election_config_type_name,
+        centralized_web_server_config,
     } = config;
     assert_eq!(key_type_name, std::any::type_name::<BlsPubKey>());
     assert_eq!(
@@ -142,6 +185,10 @@ async fn main() {
 
     // Initialize the state and hotshot
     let (_own_state, mut hotshot) = init_state_and_hotshot(network, config, seed, node_index).await;
+
+    while !client.get::<bool>("api/start").send().await.unwrap() {
+        sleep(Duration::from_millis(100));
+    }
 
     hotshot.start().await;
 
@@ -225,19 +272,19 @@ async fn main() {
     );
     debug!("All rounds completed");
 
-    let networking: &CentralizedWebServerNetwork<DEntryTypes> = hotshot.networking();
-    networking
-        .send_results(RunResults {
-            run,
-            node_index,
+    // let networking: &CentralizedWebServerNetwork<DEntryTypes> = hotshot.networking();
+    // networking
+    //     .send_results(RunResults {
+    //         run,
+    //         node_index,
 
-            transactions_submitted: total_transactions,
-            transactions_rejected: expected_transactions - total_transactions,
-            transaction_size_bytes: total_size,
+    //         transactions_submitted: total_transactions,
+    //         transactions_rejected: expected_transactions - total_transactions,
+    //         transaction_size_bytes: total_size,
 
-            rounds_succeeded: rounds as u64 - timed_out_views,
-            rounds_timed_out: timed_out_views,
-            total_time_in_seconds: total_time_elapsed.as_secs_f64(),
-        })
-        .await;
+    //         rounds_succeeded: rounds as u64 - timed_out_views,
+    //         rounds_timed_out: timed_out_views,
+    //         total_time_in_seconds: total_time_elapsed.as_secs_f64(),
+    //     })
+    //     .await;
 }
