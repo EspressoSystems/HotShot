@@ -395,7 +395,7 @@ where
             if first_leaf != leaf {
                 eprintln!("Leaf dump for {:?}", idx);
                 eprintln!("\texpected: {:#?}", first_leaf);
-                eprintln!("\tgot:      {:#?}", remaining);
+                eprintln!("\tgot:      {:#?}", leaf);
                 eprintln!("Node {} storage state does not match the first node", idx);
                 mismatch_count += 1;
             }
