@@ -280,6 +280,7 @@ mod test {
     use async_std::task::spawn;
     use config;
     use portpicker::pick_unused_port;
+    use surf_disco::error::ClientError;
     use tide_disco::StatusCode;
 
     type State = RwLock<WebServerState>;
