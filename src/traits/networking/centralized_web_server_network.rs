@@ -5,6 +5,7 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
+use hotshot_orchestrator::config::NetworkConfig;
 
 use hotshot_centralized_web_server::{self, config};
 use hotshot_types::traits::state::ConsensusTime;
@@ -52,7 +53,7 @@ impl<TYPES: NodeTypes> CentralizedWebServerNetwork<TYPES> {
         // TODO add URL is param
         let base_url = format!("0.0.0.0:{port}");
         let base_url = format!("http://{base_url}").parse().unwrap();
-        let client = surf_disco::Client::<ServerError>::new(base_url);
+        let client = surf_disco::Client::<ClientError>::new(base_url);
 
         let inner = Arc::new(Inner {
             //KALEY todo: init view number? get from server?
@@ -95,7 +96,7 @@ struct Inner<TYPES: NodeTypes> {
     //KALEY: these may not be necessary
     running: AtomicBool,
     connected: AtomicBool,
-    client: surf_disco::Client<ServerError>,
+    client: surf_disco::Client<ClientError>,
 }
 
 async fn poll_web_server<TYPES: NodeTypes>(
@@ -125,7 +126,7 @@ async fn poll_generic<TYPES: NodeTypes>(
     kind: MessageType,
     wait_between_polls: Duration,
     num_views_ahead: u64,
-) -> Result<(), ServerError> {
+) -> Result<(), ClientError> {
     let mut tx_index: u128 = 0;
 
     let receiver = connection.view_number.subscribe().await;
@@ -215,7 +216,7 @@ enum MessageType {
 
 async fn run_background_receive<TYPES: NodeTypes>(
     connection: Arc<Inner<TYPES>>,
-) -> Result<(), ServerError> {
+) -> Result<(), ClientError> {
     error!("Run background receive task has started!");
     let wait_between_polls = Duration::from_millis(100);
 
@@ -291,7 +292,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
         match message.clone().kind {
             hotshot_types::message::MessageKind::Consensus(m) => {
-                let sent_proposal: Result<(), ServerError> = self
+                let sent_proposal: Result<(), ClientError> = self
                     .inner
                     .client
                     .post(&format!("/api/proposal/{}", m.view_number().to_string()))
@@ -302,7 +303,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
             }
             // Most likely a transaction being broadcast
             hotshot_types::message::MessageKind::Data(_) => {
-                let sent_tx: Result<(), ServerError> = self
+                let sent_tx: Result<(), ClientError> = self
                     .inner
                     .client
                     .post(&format!("/api/transactions"))
@@ -327,7 +328,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
         match message.clone().kind {
             // Vote or timeout message
             hotshot_types::message::MessageKind::Consensus(m) => {
-                let sent_vote: Result<(), ServerError> = self
+                let sent_vote: Result<(), ClientError> = self
                     .inner
                     .client
                     .post(&format!("/api/votes/{}", m.view_number().to_string()))

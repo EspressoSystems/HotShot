@@ -1,0 +1,1 @@
+{"timestamp":"2023-01-16T21:19:31.323872Z","level":"ERROR","fields":{"message":"Connecting to 0.0.0.0:4444 to retrieve the server config"},"target":"multi_machine_web"}
