@@ -298,7 +298,7 @@ mod test {
         let _handle = spawn(app.serve(base_url.clone()));
 
         let base_url = format!("http://{base_url}").parse().unwrap();
-        let client = surf_disco::Client::<ServerError>::new(base_url);
+        let client = surf_disco::Client::<ClientError>::new(base_url);
         assert!(client.connect(None).await);
 
         // Test posting and getting proposals
