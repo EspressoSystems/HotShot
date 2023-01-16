@@ -122,7 +122,12 @@ pub struct NetworkConfigFile {
     #[serde(default = "default_config")]
     pub config: HotShotConfigFile,
     // TODO Do we necessarily need a default otpion?
+    #[serde(default = "default_none")]
     pub centralized_web_server_config: Option<CentralizedWebServerConfig>,
+}
+
+fn default_none () -> Option<CentralizedWebServerConfig> {
+    None
 }
 
 impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {

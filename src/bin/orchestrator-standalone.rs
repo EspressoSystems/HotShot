@@ -1,8 +1,10 @@
 use clap::Parser;
+use jf_primitives::signatures::BLSSignatureScheme;
 use std::fs;
+use ark_bls12_381::Parameters as Param381;
 
 use hotshot::{
-    traits::election::static_committee::StaticElectionConfig,
+    traits::election::{static_committee::StaticElectionConfig, vrf::JfPubKey},
     types::{
         ed25519::{Ed25519Priv, Ed25519Pub},
         SignatureKey,
@@ -50,20 +52,23 @@ pub async fn main() {
     let config: String =
         fs::read_to_string(config_file).expect("Should have been able to read the file");
     let run = toml::from_str::<NetworkConfigFile>(&config).expect("Invalid TOML");
-    let mut run: NetworkConfig<Ed25519Pub, StaticElectionConfig> = run.into();
+    let mut run: NetworkConfig<JfPubKey<BLSSignatureScheme<Param381>>, StaticElectionConfig> = run.into();
     run.centralized_web_server_config = Some(CentralizedWebServerConfig {
         host: web_host.as_str().parse().unwrap(),
         port: web_port,
     });
 
     run.config.known_nodes = (0..run.config.total_nodes.get())
-        .map(|node_id| {
-            let private_key = Ed25519Priv::generated_from_seed_indexed(run.seed, node_id as u64);
-            Ed25519Pub::from_private(&private_key)
-        })
-        .collect();
+    .map(|node_id| {
+        JfPubKey::<BLSSignatureScheme<Param381>>::generated_from_seed_indexed(
+            run.seed,
+            node_id.try_into().unwrap(),
+        )
+        .0
+    })
+    .collect();
 
-    hotshot_orchestrator::run_orchestrator::<Ed25519Pub, StaticElectionConfig>(
+    hotshot_orchestrator::run_orchestrator::< JfPubKey::<BLSSignatureScheme<Param381>>, StaticElectionConfig>(
         run,
         host.as_str().parse().unwrap(),
         port,
