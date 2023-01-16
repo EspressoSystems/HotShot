@@ -17,6 +17,7 @@
 )]
 #![allow(clippy::module_name_repetitions, clippy::unused_async)]
 
+mod da;
 mod leader;
 mod next_leader;
 mod replica;
@@ -24,6 +25,7 @@ mod traits;
 mod utils;
 
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
+pub use da::DALeader;
 pub use leader::ValidatingLeader;
 pub use next_leader::NextValidatingLeader;
 pub use replica::Replica;
