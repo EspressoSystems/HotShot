@@ -353,7 +353,7 @@ impl<
                     async_sleep(Duration::from_secs(1)).await;
                 }
 
-                handle.subscribe(QC_TOPIC.to_string()).await.unwrap();
+                handle.subscribe(CONSENSUS_TOPIC.to_string()).await.unwrap();
 
                 error!(
                     "peer {:?} waiting for publishing, type: {:?}",
@@ -493,7 +493,7 @@ impl<
             .send(message.clone())
             .await
             .unwrap();
-        match self.inner.handle.gossip(CONSENSUS_TOPIC, &message).await {
+        match self.inner.handle.gossip(CONSENSUS_TOPIC.to_string(), &message).await {
             Ok(()) => {
                 self.inner.metrics.outgoing_message_count.add(1);
                 Ok(())
