@@ -37,7 +37,7 @@ futures = "0.3.25"
 libp2p-core = { version = "0.37.0", default-features = false }
 hotshot-types = { version = "0.1.0", path = "../types", default-features = false }
 hotshot-utils = { path = "../utils"}
-tide-disco = { git = "https://git@github.com/EspressoSystems/tide-disco.git", tag = "v0.3.1" }
+tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.3.1" }
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 
 

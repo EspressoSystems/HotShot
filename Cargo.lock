@@ -127,6 +127,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "android_system_properties"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "819e7219dbd41043ac279b19830f2efc897156490d7fd6ea916720117ee66311"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "ansi_term"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -726,7 +735,7 @@ dependencies = [
  "http",
  "http-body",
  "hyper",
- "itoa",
+ "itoa 1.0.4",
  "matchit",
  "memchr",
  "mime",
@@ -986,6 +995,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "chrono"
+version = "0.4.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16b0a3d9ed01224b22057780a37bb8c5dbfe1be8ba48678e7bf57ec4b385411f"
+dependencies = [
+ "iana-time-zone",
+ "num-integer",
+ "num-traits",
+ "serde",
+ "winapi",
+]
+
+[[package]]
 name = "cipher"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1063,6 +1085,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d4198f73e42b4936b35b5bb248d81d2b595ecb170da0bac7655c54eedfa8da8"
 dependencies = [
  "os_str_bytes",
+]
+
+[[package]]
+name = "codespan-reporting"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3538270d33cc669650c4b093848450d380def10c331d38c768e34cac80576e6e"
+dependencies = [
+ "termcolor",
+ "unicode-width",
 ]
 
 [[package]]
@@ -1515,6 +1547,50 @@ dependencies = [
  "proc-macro2",
  "syn",
  "synstructure",
+]
+
+[[package]]
+name = "cxx"
+version = "1.0.86"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51d1075c37807dcf850c379432f0df05ba52cc30f279c5cfc43cc221ce7f8579"
+dependencies = [
+ "cc",
+ "cxxbridge-flags",
+ "cxxbridge-macro",
+ "link-cplusplus",
+]
+
+[[package]]
+name = "cxx-build"
+version = "1.0.86"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5044281f61b27bc598f2f6647d480aed48d2bf52d6eb0b627d84c0361b17aa70"
+dependencies = [
+ "cc",
+ "codespan-reporting",
+ "once_cell",
+ "proc-macro2",
+ "quote",
+ "scratch",
+ "syn",
+]
+
+[[package]]
+name = "cxxbridge-flags"
+version = "1.0.86"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61b50bc93ba22c27b0d31128d2d130a0a6b3d267ae27ef7e4fae2167dfe8781c"
+
+[[package]]
+name = "cxxbridge-macro"
+version = "1.0.86"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39e61fda7e62115119469c7b3591fd913ecca96fb766cfd3f2e2502ab7bc87a5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2399,9 +2475,9 @@ dependencies = [
  "serde_json",
  "sha2 0.10.6",
  "snafu",
- "surf-disco",
+ "surf-disco 0.4.0",
  "tempfile",
- "tide-disco",
+ "tide-disco 0.3.1 (git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.3.1)",
  "time 0.3.17",
  "tokio",
  "toml",
@@ -2450,8 +2526,8 @@ dependencies = [
  "serde",
  "serde_json",
  "snafu",
- "surf-disco",
- "tide-disco",
+ "surf-disco 0.1.0",
+ "tide-disco 0.3.1 (git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.3.1)",
  "tokio",
  "toml",
  "tracing",
@@ -2497,8 +2573,8 @@ dependencies = [
  "serde",
  "serde_json",
  "snafu",
- "surf-disco",
- "tide-disco",
+ "surf-disco 0.1.0",
+ "tide-disco 0.3.1 (git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.3.1)",
  "tokio",
  "toml",
  "tracing",
@@ -2577,7 +2653,7 @@ checksum = "75f43d41e26995c17e71ee126451dd3941010b0514a81a9d11f3b341debc2399"
 dependencies = [
  "bytes 1.3.0",
  "fnv",
- "itoa",
+ "itoa 1.0.4",
 ]
 
 [[package]]
@@ -2666,7 +2742,7 @@ dependencies = [
  "http-body",
  "httparse",
  "httpdate",
- "itoa",
+ "itoa 1.0.4",
  "pin-project-lite 0.2.9",
  "socket2",
  "tokio",
@@ -2711,6 +2787,30 @@ dependencies = [
  "native-tls",
  "tokio",
  "tokio-native-tls",
+]
+
+[[package]]
+name = "iana-time-zone"
+version = "0.1.53"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64c122667b287044802d6ce17ee2ddf13207ed924c712de9a66a5814d5b64765"
+dependencies = [
+ "android_system_properties",
+ "core-foundation-sys",
+ "iana-time-zone-haiku",
+ "js-sys",
+ "wasm-bindgen",
+ "winapi",
+]
+
+[[package]]
+name = "iana-time-zone-haiku"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0703ae284fc167426161c2e3f1da3ea71d94b21bedbcc9494e92b28e334e3dca"
+dependencies = [
+ "cxx",
+ "cxx-build",
 ]
 
 [[package]]
@@ -2801,6 +2901,7 @@ checksum = "1885e79c1fc4b10f0e172c475f458b7f7b93061064d98c3293e98c5ba0c8b399"
 dependencies = [
  "autocfg",
  "hashbrown 0.12.3",
+ "serde",
 ]
 
 [[package]]
@@ -2947,6 +3048,12 @@ checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
 dependencies = [
  "either",
 ]
+
+[[package]]
+name = "itoa"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b71991ff56294aa922b450139ee08b3bfc70982c6b2c7562771375cf73542dd4"
 
 [[package]]
 name = "itoa"
@@ -3756,6 +3863,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "link-cplusplus"
+version = "1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecd207c9c713c34f95a097a5b029ac2ce6010530c7b49d7fea24d977dede04f5"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "linked-hash-map"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3849,7 +3965,18 @@ version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7384febb4f8fc970cc2efab1650a6f48cac2e79b0b29587c90497b646fb10e1e"
 dependencies = [
- "maud_macros",
+ "maud_macros 0.23.0",
+ "tide",
+]
+
+[[package]]
+name = "maud"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19aff2cd19eb4b93df29efa602652513b0f731f1d3474f6e377f763fddf61e58"
+dependencies = [
+ "itoa 0.4.8",
+ "maud_macros 0.24.0",
  "tide",
 ]
 
@@ -3858,6 +3985,18 @@ name = "maud_macros"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "423430ac467408136d7de93f2929debd8a7bc3e795c92476f45e259b158e3355"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "maud_macros"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5c114f6f24b08fdd4a25d2fb87a8b140df56b577723247b382e8b04c583f2eb"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -4905,7 +5044,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83cd1b99916654a69008fd66b4f9397fbe08e6e51dfe23d4417acf5d3b8cb87c"
 dependencies = [
  "dtoa",
- "itoa",
+ "itoa 1.0.4",
  "parking_lot 0.12.1",
  "prometheus-client-derive-text-encode",
 ]
@@ -5532,6 +5671,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
+name = "scratch"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddccb15bcce173023b3fedd9436f882a0739b8dfb45e4f6b6002bee5929f61b2"
+
+[[package]]
 name = "sct"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5647,7 +5792,7 @@ version = "1.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "020ff22c755c2ed3f8cf162dbb41a7268d934702f3ed3631656ea597e08fc3db"
 dependencies = [
- "itoa",
+ "itoa 1.0.4",
  "ryu",
  "serde",
 ]
@@ -5670,7 +5815,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3491c14715ca2294c4d6a88f15e84739788c1d030eed8c110436aafdaa2f3fd"
 dependencies = [
  "form_urlencoded",
- "itoa",
+ "itoa 1.0.4",
  "ryu",
  "serde",
 ]
@@ -5682,7 +5827,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "678b5a069e50bf00ecd22d0cd8ddf7c236f68581b03db652061ed5eb13a312ff"
 dependencies = [
  "serde",
- "serde_with_macros",
+ "serde_with_macros 1.5.2",
+]
+
+[[package]]
+name = "serde_with"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30d904179146de381af4c93d3af6ca4984b3152db687dacb9c3c35e86f39809c"
+dependencies = [
+ "base64",
+ "chrono",
+ "hex",
+ "indexmap",
+ "serde",
+ "serde_json",
+ "serde_with_macros 2.2.0",
+ "time 0.3.17",
 ]
 
 [[package]]
@@ -5692,6 +5853,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e182d6ec6f05393cc0e5ed1bf81ad6db3a8feedf8ee515ecdd369809bcce8082"
 dependencies = [
  "darling 0.13.4",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "serde_with_macros"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1966009f3c05f095697c537312f5415d1e3ed31ce0a56942bac4c771c5c335e"
+dependencies = [
+ "darling 0.14.2",
  "proc-macro2",
  "quote",
  "syn",
@@ -6133,7 +6306,7 @@ dependencies = [
 [[package]]
 name = "surf-disco"
 version = "0.1.0"
-source = "git+https://git@github.com/EspressoSystems/surf-disco.git?branch=main#78aea853fde5c6fdfcae0c163abc3f2943d180cb"
+source = "git+ssh://git@github.com/EspressoSystems/surf-disco.git?branch=main#78aea853fde5c6fdfcae0c163abc3f2943d180cb"
 dependencies = [
  "async-std",
  "async-tungstenite 0.15.0",
@@ -6144,7 +6317,24 @@ dependencies = [
  "serde",
  "serde_json",
  "surf",
- "tide-disco",
+ "tide-disco 0.3.1 (git+https://git@github.com/EspressoSystems/tide-disco.git?tag=v0.3.1)",
+]
+
+[[package]]
+name = "surf-disco"
+version = "0.4.0"
+source = "git+https://github.com/EspressoSystems/surf-disco.git?branch=main#ef28df15179c39180d689abf2c1232dafdfd8f5e"
+dependencies = [
+ "async-std",
+ "async-tungstenite 0.15.0",
+ "bincode",
+ "derivative",
+ "futures",
+ "hex",
+ "serde",
+ "serde_json",
+ "surf",
+ "tide-disco 0.4.0",
 ]
 
 [[package]]
@@ -6391,13 +6581,13 @@ dependencies = [
  "lazy_static",
  "libc",
  "markdown",
- "maud",
+ "maud 0.23.0",
  "parking_lot 0.12.1",
  "routefinder",
  "semver 1.0.14",
  "serde",
  "serde_json",
- "serde_with",
+ "serde_with 1.14.0",
  "shellexpand",
  "signal-hook",
  "signal-hook-async-std",
@@ -6406,6 +6596,100 @@ dependencies = [
  "strum_macros",
  "surf",
  "tagged-base64 0.2.0 (git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.2.1)",
+ "tide",
+ "tide-websockets",
+ "toml",
+ "tracing",
+ "tracing-distributed",
+ "tracing-futures",
+ "tracing-log",
+ "tracing-subscriber",
+ "url",
+]
+
+[[package]]
+name = "tide-disco"
+version = "0.3.1"
+source = "git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.3.1#2848d5d06f7d90bb1467a71156a807ec4f32c6e9"
+dependencies = [
+ "ark-serialize",
+ "async-std",
+ "async-trait",
+ "bincode",
+ "clap 4.0.29",
+ "config",
+ "derive_more",
+ "dirs",
+ "edit-distance",
+ "futures",
+ "futures-util",
+ "http",
+ "include_dir",
+ "jf-utils",
+ "lazy_static",
+ "libc",
+ "markdown",
+ "maud 0.23.0",
+ "parking_lot 0.12.1",
+ "routefinder",
+ "semver 1.0.14",
+ "serde",
+ "serde_json",
+ "serde_with 1.14.0",
+ "shellexpand",
+ "signal-hook",
+ "signal-hook-async-std",
+ "snafu",
+ "strum",
+ "strum_macros",
+ "surf",
+ "tagged-base64 0.2.0 (git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.2.1)",
+ "tide",
+ "tide-websockets",
+ "toml",
+ "tracing",
+ "tracing-distributed",
+ "tracing-futures",
+ "tracing-log",
+ "tracing-subscriber",
+ "url",
+]
+
+[[package]]
+name = "tide-disco"
+version = "0.4.0"
+source = "git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.4.0#267aa4a0fb811c71b74768f2e653f32d892ecb09"
+dependencies = [
+ "async-std",
+ "async-trait",
+ "bincode",
+ "clap 4.0.29",
+ "config",
+ "derive_more",
+ "dirs",
+ "edit-distance",
+ "futures",
+ "futures-util",
+ "http",
+ "include_dir",
+ "lazy_static",
+ "libc",
+ "markdown",
+ "maud 0.24.0",
+ "parking_lot 0.12.1",
+ "routefinder",
+ "semver 1.0.14",
+ "serde",
+ "serde_json",
+ "serde_with 2.2.0",
+ "shellexpand",
+ "signal-hook",
+ "signal-hook-async-std",
+ "snafu",
+ "strum",
+ "strum_macros",
+ "surf",
+ "tagged-base64 0.2.4",
  "tide",
  "tide-websockets",
  "toml",
@@ -6445,7 +6729,7 @@ dependencies = [
  "libc",
  "standback",
  "stdweb",
- "time-macros",
+ "time-macros 0.1.1",
  "version_check",
  "winapi",
 ]
@@ -6456,8 +6740,10 @@ version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a561bf4617eebd33bca6434b988f39ed798e527f51a1e797d0ee4f61c0a38376"
 dependencies = [
+ "itoa 1.0.4",
  "serde",
  "time-core",
+ "time-macros 0.2.6",
 ]
 
 [[package]]
@@ -6474,6 +6760,15 @@ checksum = "957e9c6e26f12cb6d0dd7fc776bb67a706312e7299aed74c8dd5b17ebb27e2f1"
 dependencies = [
  "proc-macro-hack",
  "time-macros-impl",
+]
+
+[[package]]
+name = "time-macros"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d967f99f534ca7e495c575c62638eebc2898a8c84c119b89e250477bc4ba16b2"
+dependencies = [
+ "time-core",
 ]
 
 [[package]]
