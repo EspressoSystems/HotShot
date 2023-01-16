@@ -52,6 +52,6 @@ ignore = [
     # https://rustsec.org/advisories/RUSTSEC-2021-0145
     "RUSTSEC-2021-0145",
 
-    # TEMP Tokio ignore for web server benchmakrin g
+    # TEMP Tokio ignore for web server benchmakring
     "RUSTSEC-2023-0001",
 ]

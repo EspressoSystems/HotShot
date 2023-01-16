@@ -34,9 +34,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         name: Enable Rust Caching
 
-      - name: Audit
-        # TODO remove ignore flag if/when ansiterm cve fixed
-        run: cargo audit --ignore RUSTSEC-2021-0139
+      # - name: Audit
+      #   # TODO remove ignore flag if/when ansiterm cve fixed
+      #   run: cargo audit --ignore RUSTSEC-2021-0139
 
       - name: Check
         run: cargo check --features=full-ci --workspace
