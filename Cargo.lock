@@ -2475,9 +2475,9 @@ dependencies = [
  "serde_json",
  "sha2 0.10.6",
  "snafu",
- "surf-disco 0.4.0",
+ "surf-disco",
  "tempfile",
- "tide-disco 0.3.1 (git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.3.1)",
+ "tide-disco 0.3.1",
  "time 0.3.17",
  "tokio",
  "toml",
@@ -2526,8 +2526,8 @@ dependencies = [
  "serde",
  "serde_json",
  "snafu",
- "surf-disco 0.1.0",
- "tide-disco 0.3.1 (git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.3.1)",
+ "surf-disco",
+ "tide-disco 0.3.1",
  "tokio",
  "toml",
  "tracing",
@@ -2573,8 +2573,8 @@ dependencies = [
  "serde",
  "serde_json",
  "snafu",
- "surf-disco 0.1.0",
- "tide-disco 0.3.1 (git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.3.1)",
+ "surf-disco",
+ "tide-disco 0.3.1",
  "tokio",
  "toml",
  "tracing",
@@ -6305,23 +6305,6 @@ dependencies = [
 
 [[package]]
 name = "surf-disco"
-version = "0.1.0"
-source = "git+ssh://git@github.com/EspressoSystems/surf-disco.git?branch=main#78aea853fde5c6fdfcae0c163abc3f2943d180cb"
-dependencies = [
- "async-std",
- "async-tungstenite 0.15.0",
- "bincode",
- "derivative",
- "futures",
- "hex",
- "serde",
- "serde_json",
- "surf",
- "tide-disco 0.3.1 (git+https://git@github.com/EspressoSystems/tide-disco.git?tag=v0.3.1)",
-]
-
-[[package]]
-name = "surf-disco"
 version = "0.4.0"
 source = "git+https://github.com/EspressoSystems/surf-disco.git?branch=main#ef28df15179c39180d689abf2c1232dafdfd8f5e"
 dependencies = [
@@ -6557,54 +6540,6 @@ dependencies = [
  "route-recognizer",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "tide-disco"
-version = "0.3.1"
-source = "git+https://git@github.com/EspressoSystems/tide-disco.git?tag=v0.3.1#2848d5d06f7d90bb1467a71156a807ec4f32c6e9"
-dependencies = [
- "ark-serialize",
- "async-std",
- "async-trait",
- "bincode",
- "clap 4.0.29",
- "config",
- "derive_more",
- "dirs",
- "edit-distance",
- "futures",
- "futures-util",
- "http",
- "include_dir",
- "jf-utils",
- "lazy_static",
- "libc",
- "markdown",
- "maud 0.23.0",
- "parking_lot 0.12.1",
- "routefinder",
- "semver 1.0.14",
- "serde",
- "serde_json",
- "serde_with 1.14.0",
- "shellexpand",
- "signal-hook",
- "signal-hook-async-std",
- "snafu",
- "strum",
- "strum_macros",
- "surf",
- "tagged-base64 0.2.0 (git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.2.1)",
- "tide",
- "tide-websockets",
- "toml",
- "tracing",
- "tracing-distributed",
- "tracing-futures",
- "tracing-log",
- "tracing-subscriber",
- "url",
 ]
 
 [[package]]
