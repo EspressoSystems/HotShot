@@ -108,7 +108,7 @@ async fn get_config_from_orchestrator<TYPES: NodeTypes>(
 ) -> Result<NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>, ServerError> {
     let port = 4444;
     // TODO add URL is param
-    let base_url = format!("0.0.0.0:{port}");
+    let base_url = format!("3.145.83.64:{port}");
     let base_url = format!("http://{base_url}").parse().unwrap();
     let client = surf_disco::Client::<ServerError>::new(base_url);
     let config: Result<NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>, ServerError> =
