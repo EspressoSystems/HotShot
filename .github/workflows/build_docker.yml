@@ -1,3 +1,4 @@
+name: Build Docker Images
 
 on:
   push:
@@ -22,7 +23,7 @@ jobs:
         with:
           all_but_latest: true
           access_token: ${{ github.token }}
-          
+
       - name: Build all crates in workspace
         run: cargo build --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --examples
 
