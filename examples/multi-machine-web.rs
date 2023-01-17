@@ -51,7 +51,7 @@ type Node =
 )]
 struct NodeOpt {
     /// The address to connect to
-    host: IpAddr,
+    host: String,
 
     /// The port to connect to
     port: u16,
@@ -125,12 +125,12 @@ async fn main() {
 
     let mut rng = rand::thread_rng();
     let opts: NodeOpt = NodeOpt::parse();
-    let addr: SocketAddr = (opts.host, opts.port).into();
-    error!("Connecting to {addr:?} to retrieve the server config");
+    // let addr: SocketAddr = (opts.host, opts.port).into();
+    // error!("Connecting to {addr:?} to retrieve the server config");
     
-    let port = 4444;
+    // let port = 4444;
     // TODO add URL is param
-    let base_url = format!("{opts.host}:{opts.port}");
+    let base_url = format!("{0}:{1}", opts.host, opts.port);
     let base_url = format!("http://{base_url}").parse().unwrap();
     let client = surf_disco::Client::<ServerError>::new(base_url);
     let config: NetworkConfig<JfPubKey<BLSSignatureScheme<Param381>>, StaticElectionConfig> =
