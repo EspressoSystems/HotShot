@@ -2,7 +2,7 @@
 FROM ubuntu:jammy
 
 # assuming this is built already
-COPY arget_dirs/nix_rustc/release-lto/examples/multi-machine-web /bin/multi-machine-web
+COPY target_dirs/nix_rustc/release-lto/examples/multi-machine-web /bin/multi-machine-web
 
 # the host to connect to. Must be an IP address
 ENV HOST="0.0.0.0"
