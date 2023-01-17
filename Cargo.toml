@@ -78,7 +78,7 @@ channel-async-std = [
 
 [[example]]
 name = "multi-machine-web"
-required-features = ["full-ci, demo"]
+required-features = ["full-ci", "demo"]
 
 # [[bin]]
 # name = "orchestrator"

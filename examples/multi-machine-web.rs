@@ -130,7 +130,7 @@ async fn main() {
     
     let port = 4444;
     // TODO add URL is param
-    let base_url = format!("0.0.0.0:{port}");
+    let base_url = format!("{opts.host}:{opts.port}");
     let base_url = format!("http://{base_url}").parse().unwrap();
     let client = surf_disco::Client::<ServerError>::new(base_url);
     let config: NetworkConfig<JfPubKey<BLSSignatureScheme<Param381>>, StaticElectionConfig> =
