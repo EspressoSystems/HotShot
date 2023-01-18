@@ -24,7 +24,6 @@ use hotshot_types::{
         Block, State,
     },
 };
-use std::collections::HashMap;
 use std::{
     collections::BTreeMap, collections::HashSet, marker::PhantomData, sync::Arc, time::Instant,
 };
@@ -199,11 +198,12 @@ where
 
         // Wait for DA votes or Timeout
         let lock = self.vote_collection_chan.lock().await;
-        let mut vote_outcomes = HashMap::new();
+        let mut valid_signatures = BTreeMap::new();
         let threshold = self.api.threshold();
         let mut stake_casted = 0;
 
         while let Ok(msg) = lock.recv().await {
+            // If the message is for a different view number, skip it.
             if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number() != self.cur_view {
                 continue;
             }
@@ -228,10 +228,9 @@ where
                                 continue;
                             }
 
-                            let map = vote_outcomes
-                                .entry(vote.block_commitment)
-                                .or_insert_with(BTreeMap::new);
-                            map.insert(
+                            // Valid votes are guaranteed to have the same block commitment, so we
+                            // don't have to group them by the commitment.
+                            valid_signatures.insert(
                                 vote.signature.0.clone(),
                                 (vote.signature.1.clone(), vote.vote_token.clone()),
                             );
@@ -239,9 +238,6 @@ where
                             stake_casted += u64::from(vote.vote_token.vote_count());
 
                             if stake_casted >= u64::from(threshold) {
-                                let valid_signatures =
-                                    vote_outcomes.remove(&vote.block_commitment).unwrap();
-
                                 // construct QC
                                 let qc = DACertificate {
                                     view_number: self.cur_view,

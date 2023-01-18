@@ -67,9 +67,11 @@ impl<
     }
 }
 
+// TODO (da) Modify the Vote enum after the consensus trait refactoring:
+// <https://github.com/EspressoSystems/HotShot/issues/856>.
+/// Votes sent by consensus messages.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-/// Votes sent by consensus messages.
 pub enum Vote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The vote on DA proposal.
     DA(DAVote<TYPES, LEAF>),
