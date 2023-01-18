@@ -10,7 +10,10 @@ use async_lock::{Mutex, RwLock};
 use commit::Committable;
 use either::Either::Left;
 use hotshot_types::certificate::DACertificate;
+use hotshot_types::data::CommitmentProposal;
 use hotshot_types::message::{ProcessedConsensusMessage, Vote};
+use hotshot_types::traits::block_contents::BlockCommitment;
+use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::state::SequencingConsensus;
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -29,6 +32,7 @@ use std::{
     collections::BTreeMap, collections::HashSet, marker::PhantomData, sync::Arc, time::Instant,
 };
 use tracing::{error, info, instrument, warn};
+use either::Either;
 
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
@@ -145,7 +149,7 @@ where
     }
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
-    pub async fn run_view(self) -> Option<DACertificate<TYPES>> {
+    pub async fn run_view(self) -> Option<(DACertificate<TYPES>, TYPES::BlockType)> {
         // Prepare teh DA Proposal
         let parent_leaf = if let Some(parent) = self.parent_leaf().await {
             parent
@@ -178,7 +182,7 @@ where
             let consensus = self.consensus.read().await;
             let signature = self.api.sign_da_proposal(&block.commit());
             let leaf: DAProposal<TYPES, ELECTION> = DAProposal {
-                deltas: block,
+                deltas: block.clone(),
                 view_number: self.cur_view,
                 _pd: PhantomData,
             };
@@ -247,7 +251,7 @@ where
                                     view_number: self.cur_view,
                                     signatures: valid_signatures,
                                 };
-                                return Some(qc);
+                                return Some((qc, block));
                             }
                         }
                         _ => {
@@ -266,4 +270,259 @@ where
         }
         None
     }
+}
+
+pub struct DAConsensusLeader<
+    A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+    TYPES: NodeType,
+    ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
+> where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
+    /// id of node
+    pub id: u64,
+    /// Reference to consensus. Leader will require a read lock on this.
+    pub consensus: Arc<RwLock<Consensus<TYPES, DALeaf<TYPES>>>>,
+    /// The `high_qc` per spec
+    pub high_qc: QuorumCertificate<TYPES, DALeaf<TYPES>>,
+    /// The view number we're running on
+    pub cur_view: TYPES::Time,
+    /// Limited access to the consensus protocol
+    pub api: A,
+    /// channel through which the leader collects votes
+    #[allow(clippy::type_complexity)]
+    pub vote_collection_chan: Arc<
+        Mutex<
+            UnboundedReceiver<
+                ProcessedConsensusMessage<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+            >,
+        >,
+    >,
+    #[allow(missing_docs)]
+    #[allow(clippy::missing_docs_in_private_items)]
+    pub _pd: PhantomData<ELECTION>,
+}
+impl<
+        A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
+    > DAConsensusLeader<A, TYPES, ELECTION>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
+    // TODO: remove
+    async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
+        let parent_view_number = &self.high_qc.view_number;
+        let consensus = self.consensus.read().await;
+        let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
+            match &parent_view.view_inner {
+                ViewInner::Leaf { leaf } => {
+                    if let Some(leaf) = consensus.saved_leaves.get(leaf) {
+                        leaf
+                    } else {
+                        warn!("Failed to find high QC parent.");
+                        return None;
+                    }
+                }
+                // can happen if future api is whacked
+                ViewInner::Failed => {
+                    warn!("Parent of high QC points to a failed QC");
+                    return None;
+                }
+            }
+        } else {
+            warn!("Couldn't find high QC parent in state map.");
+            return None;
+        };
+        Some(parent_leaf.clone())
+    }
+    /// Run one view of the DA leader task
+    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
+    pub async fn run_view(
+        self,
+        cert: DACertificate<TYPES>,
+        block: TYPES::BlockType,
+    ) -> Option<QuorumCertificate<TYPES, DALeaf<TYPES>>> {
+        let parent_leaf = if let Some(parent) = self.parent_leaf().await {
+            parent
+        } else {
+            warn!("Couldn't find high QC parent in state map.");
+            return None;
+        };
+        let starting_state = if let Left(state) = &parent_leaf.state {
+            state
+        } else {
+            warn!("Don't have last state on parent leaf");
+            return None;
+        };
+        if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
+            let leaf = DALeaf {
+                view_number: self.cur_view,
+                // TODO
+                height: 0,
+                justify_qc: self.high_qc,
+                parent_commitment: parent_leaf.commit(),
+                deltas: block,
+                state: Either::Left(new_state),
+                rejected: vec!(),
+                // TODO
+                timestamp: 0,
+                proposer_id: self.api.public_key().to_bytes()
+            };
+            // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
+            let proposal = CommitmentProposal {
+                block_commitment: leaf.deltas.commit(),
+                view_number: leaf.view_number,
+                justify_qc: self.high_qc,
+                state_commitment: new_state.commit(),
+                proposer_id: leaf.proposer_id,
+                dac: cert,
+                application_metadata: {},
+            };
+            let signature = self.api.sign_validating_or_commitment_proposal(&leaf.commit());
+            let message =
+                ConsensusMessage::<TYPES, DALeaf<TYPES>, CommitmentProposal<TYPES, ELECTION>>::Proposal(
+                    Proposal { leaf: proposal, signature },
+            );
+            if let Err(e) = self.api.send_broadcast_message(message.clone()).await {
+                warn!(?message, ?e, "Could not broadcast leader proposal");
+                return None;
+            }
+        } else {
+            error!("Could not append state in high qc for proposal. Failed to send out proposal.");
+            return None;
+        }
+        Some(self.high_qc.clone())
+    }
+}
+
+pub struct DANextLeader<
+    A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+    TYPES: NodeType,
+    ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
+> where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
+    /// id of node
+    pub id: u64,
+    /// Reference to consensus. Leader will require a read lock on this.
+    pub consensus: Arc<RwLock<Consensus<TYPES, DALeaf<TYPES>>>>,
+    /// The `high_qc` per spec
+    pub high_qc: QuorumCertificate<TYPES, DALeaf<TYPES>>,
+    /// The view number we're running on
+    pub cur_view: TYPES::Time,
+    /// Limited access to the consensus protocol
+    pub api: A,
+    /// channel through which the leader collects votes
+    #[allow(clippy::type_complexity)]
+    pub vote_collection_chan: Arc<
+        Mutex<
+            UnboundedReceiver<
+                ProcessedConsensusMessage<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+            >,
+        >,
+    >,
+    #[allow(missing_docs)]
+    #[allow(clippy::missing_docs_in_private_items)]
+    pub _pd: PhantomData<ELECTION>,
+}
+impl<
+        A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
+    > DAConsensusLeader<A, TYPES, ELECTION>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
+    pub async fn run_view() -> Option<QuorumCertificate<TYPES, DALeaf<TYPES>>> {
+        let vote_collection_start = Instant::now();
+
+        let mut qcs = HashSet::<ELECTION::QuorumCertificate>::new();
+        qcs.insert(self.generic_qc.clone());
+
+        let mut vote_outcomes = HashMap::new();
+
+        let threshold = self.api.threshold();
+        let mut stake_casted = 0;
+
+        let lock = self.vote_collection_chan.lock().await;
+        while let Ok(msg) = lock.recv().await {
+            if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number() != self.cur_view {
+                continue;
+            }
+            match msg {
+                ProcessedConsensusMessage::Vote(vote_message, sender) => {
+                    match vote_message {
+                        Vote::Yes(vote) => {
+                            if vote.signature.0
+                                != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+                            {
+                                continue;
+                            }
+
+                            if !self.api.is_valid_vote(
+                                &vote.signature.0,
+                                &vote.signature.1,
+                                VoteData::Yes(vote.leaf_commitment),
+                                vote.current_view,
+                                // Ignoring deserialization errors below since we are getting rid of it soon
+                                Unchecked(vote.vote_token.clone()),
+                            ) {
+                                continue;
+                            }
+
+                            // TODO ed ensure we have the QC that the QC commitment references
+
+                            let map = vote_outcomes
+                                .entry(vote.leaf_commitment)
+                                .or_insert_with(BTreeMap::new);
+                            map.insert(
+                                vote.signature.0.clone(),
+                                (vote.signature.1.clone(), vote.vote_token.clone()),
+                            );
+
+                            stake_casted += u64::from(vote.vote_token.vote_count());
+
+                            if stake_casted >= u64::from(threshold) {
+                                let valid_signatures =
+                                    vote_outcomes.remove(&vote.leaf_commitment).unwrap();
+
+                                // construct QC
+                                let qc = QuorumCertificate {
+                                    leaf_commitment: vote.leaf_commitment,
+                                    view_number: self.cur_view,
+                                    signatures: valid_signatures,
+                                    is_genesis: false,
+                                }; 
+                                self.metrics
+                                    .vote_validate_duration
+                                    .add_point(vote_collection_start.elapsed().as_secs_f64());
+                                return qc;
+                            }
+                        }
+                        Vote::Timeout(vote) => {
+                            qcs.insert(vote.justify_qc);
+                        }
+                        _ => {
+                            warn!("The next leader has received an unexpected vote!");
+                        }
+                    }
+                }
+                ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
+                    self.api.send_next_leader_timeout(self.cur_view).await;
+                    break;
+                }
+                ProcessedConsensusMessage::Proposal(_p, _sender) => {
+                    warn!("The next leader has received an unexpected proposal!");
+                }
+            }
+        }
+
+        qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
+    }
+
 }

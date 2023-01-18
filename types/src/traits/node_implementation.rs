@@ -94,7 +94,7 @@ pub trait NodeType:
         ConsensusType = Self::ConsensusType,
     >;
 
-    type ApplicationMetadataType: ApplicationMetadata + Eq + PartialEq;
+    type ApplicationMetadataType: ApplicationMetadata + Eq + PartialEq + Send + Sync;
 }
 
 /// application specific metadata

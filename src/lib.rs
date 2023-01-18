@@ -883,11 +883,20 @@ where
             vote_collection_chan: recv_da_vote,
             _pd: PhantomData,
         };
-        let _da_cert = if let Some(cert) = da_leader.run_view().await {
-            cert
+        let (da_cert, block)t = if let Some((cert, block)) = da_leader.run_view().await {
+            (cert, block)
         } else {
             return Ok(());
         };
+        let consensus_leader = DAConsensusLeader {
+            id: hotshot.id,
+            consensus: hotshot.hotstuff.clone(),
+            high_qc: high_qc.clone(),
+            cur_view,
+            api: c_api.clone(),
+            _pd: PhantomData,
+        };
+        consensus_leader.run_view(da_cert, block);
         let _da_replica = {};
         #[allow(deprecated)]
         nll_todo()
