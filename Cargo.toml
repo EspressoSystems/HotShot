@@ -86,7 +86,7 @@ required-features = ["bin-orchestrator"]
 
 [dependencies]
 ark-ec = { version = "0.3.0" }
-ark-bls12-381 = { version = "0.3.0" }
+ark-bls12-381 = { version = "0.4.0" }
 ark-serialize = { version = "0.3.0", features = ["derive"] }
 ark-std = { version = "0.4.0" }
 async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.0.1", default-features = false, features = [ "logging-utils" ] }
