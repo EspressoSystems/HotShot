@@ -1,4 +1,5 @@
-//! Contains the [`DALeader`] struct used for the leader step in the hotstuff consensus algorithm.
+//! Contains the [`DALeader`] struct used for the leader step in the consensus algorithm with DA
+//! committee.
 
 use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_compatibility_layer::channel::UnboundedReceiver;

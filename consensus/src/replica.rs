@@ -1,4 +1,4 @@
-//! Contains the [`Replica`] struct used for the leader step in the hotstuff consensus algorithm.
+//! Contains the [`Replica`] struct used for the replica step in the hotstuff consensus algorithm.
 
 use crate::{
     utils::{Terminator, View, ViewInner},
@@ -106,7 +106,7 @@ where
                             continue;
                         }
                         let parent = if let Some(parent) =
-                            consensus.saved_leaves.get(&p.leaf.parent_commitment)
+                            consensus.saved_leaves.get(&p.data.parent_commitment)
                         {
                             parent
                         } else {
@@ -114,7 +114,7 @@ where
                             continue;
                         };
 
-                        let justify_qc = p.leaf.justify_qc;
+                        let justify_qc = p.data.justify_qc;
 
                         // go no further if the parent view number does not
                         // match the justify_qc. We can't accept this
@@ -127,10 +127,10 @@ where
                         }
 
                         // check that the chain height is correct
-                        if p.leaf.height != parent.height + 1 {
+                        if p.data.height != parent.height + 1 {
                             warn!(
                                 "Incorrect height in recv-ed proposal. The parent's height, {}, did not follow from the proposal's height, {}",
-                                parent.height, p.leaf.height
+                                parent.height, p.data.height
                             );
                             continue;
                         }
@@ -144,23 +144,23 @@ where
 
                         // check that we can indeed create the state
                         let leaf = if let Ok(state) =
-                            parent.state.append(&p.leaf.deltas, &self.cur_view)
+                            parent.state.append(&p.data.deltas, &self.cur_view)
                         {
                             // check the commitment
-                            if state.commit() != p.leaf.state_commitment {
+                            if state.commit() != p.data.state_commitment {
                                 warn!("Rejected proposal! After applying deltas to parent state, resulting commitment did not match proposal's");
                                 continue;
                             }
                             ValidatingLeaf::new(
                                 state,
-                                p.leaf.deltas,
-                                p.leaf.parent_commitment,
+                                p.data.deltas,
+                                p.data.parent_commitment,
                                 justify_qc.clone(),
                                 self.cur_view,
-                                p.leaf.height,
+                                p.data.height,
                                 Vec::new(),
                                 time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                                p.leaf.proposer_id,
+                                p.data.proposer_id,
                             )
                         } else {
                             warn!("State of proposal didn't match parent + deltas");

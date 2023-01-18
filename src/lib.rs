@@ -54,7 +54,7 @@ use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use hotshot_consensus::{
-    Consensus, ConsensusApi, ConsensusMetrics, DALeader, NextValidatingLeader, Replica,
+    Consensus, ConsensusApi, ConsensusMetrics, DALeader, DAMember, NextValidatingLeader, Replica,
     SendToTasks, ValidatingLeader, View, ViewInner, ViewQueue,
 };
 use hotshot_types::data::{DALeaf, DAProposal};
@@ -888,6 +888,17 @@ where
         } else {
             return Ok(());
         };
+        let da_member = DAMember {
+            id: hotshot.id,
+            consensus: hotshot.hotstuff.clone(),
+            high_qc: high_qc.clone(),
+            cur_view,
+            transactions: txns,
+            api: c_api.clone(),
+            vote_collection_chan: recv_da_vote,
+            _pd: PhantomData,
+        };
+        da_member.run_view().await;
         let _da_replica = {};
         #[allow(deprecated)]
         nll_todo()
