@@ -54,10 +54,14 @@
 <span id="54">54</span>
 <span id="55">55</span>
 <span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::network::NetworkNodeType;
-<span class="kw">use </span>hotshot_types::constants::DEFAULT_REPLICATION_FACTOR;
 <span class="kw">use </span>libp2p::{identity::Keypair, Multiaddr, PeerId};
 <span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize};
+
+<span class="doccomment">/// replication factor for kademlia
+</span><span class="kw">pub const </span>DEFAULT_REPLICATION_FACTOR: <span class="prelude-ty">Option</span>&lt;NonZeroUsize&gt; = NonZeroUsize::new(<span class="number">20</span>);
 
 <span class="doccomment">/// describe the configuration of the network
 </span><span class="attribute">#[derive(Clone, Default, derive_builder::Builder, custom_debug::Debug)]
@@ -111,4 +115,4 @@
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.66.0 (69f9c33d7 2022-12-12)" ></div></body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="libp2p_networking" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.66.1 (90743e729 2023-01-10)" ></div></body></html>
