@@ -872,13 +872,12 @@ where
         let member_last_view: TYPES::Time = send_to_member.cur_view;
         send_to_member.channel_map.remove(&member_last_view);
         send_to_member.cur_view += 1;
-        let member_cur_view = send_to_member.cur_view;
         let ViewQueue {
             sender_chan: _,
             receiver_chan: recv_member,
             has_received_proposal: _,
         } = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
-            member_cur_view,
+            send_to_member.cur_view,
             send_to_member,
         )
         .await;
@@ -898,7 +897,7 @@ where
             cur_view,
             transactions: txns,
             api: c_api.clone(),
-            vote_collection_chan: recv_member,
+            vote_collection_chan: recv_da_vote,
             _pd: PhantomData,
         };
         let _da_cert = if let Some(cert) = da_leader.run_view().await {
@@ -909,7 +908,7 @@ where
         let da_member = DAMember {
             id: hotshot.id,
             consensus: hotshot.hotstuff.clone(),
-            proposal_collection_chan: recv_da_vote,
+            proposal_collection_chan: recv_member,
             cur_view,
             high_qc: high_qc.clone(),
             api: c_api.clone(),
