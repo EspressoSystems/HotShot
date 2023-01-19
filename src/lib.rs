@@ -151,6 +151,8 @@ pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementat
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<TYPES, I::Leaf>>>,
 
+    // TODO (da) split this into `replica_channel_map` and `da_member_channel_map` after
+    // refactoring `HotShot`.
     /// for sending/recv-ing things with the replica task
     replica_channel_map: Arc<RwLock<SendToTasks<TYPES, I::Leaf, I::Proposal>>>,
 
@@ -865,6 +867,22 @@ where
             .await;
             (vq.sender_chan, vq.receiver_chan, cur_view)
         };
+
+        let mut send_to_member = hotshot.replica_channel_map.write().await;
+        let member_last_view: TYPES::Time = send_to_member.cur_view;
+        send_to_member.channel_map.remove(&member_last_view);
+        send_to_member.cur_view += 1;
+        let member_cur_view = send_to_member.cur_view;
+        let ViewQueue {
+            sender_chan: _,
+            receiver_chan: recv_member,
+            has_received_proposal: _,
+        } = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+            member_cur_view,
+            send_to_member,
+        )
+        .await;
+
         let (high_qc, txns) = {
             // OBTAIN read lock on consensus
             let consensus = hotshot.hotstuff.read().await;
@@ -880,7 +898,7 @@ where
             cur_view,
             transactions: txns,
             api: c_api.clone(),
-            vote_collection_chan: recv_da_vote,
+            vote_collection_chan: recv_member,
             _pd: PhantomData,
         };
         let _da_cert = if let Some(cert) = da_leader.run_view().await {
@@ -891,14 +909,12 @@ where
         let da_member = DAMember {
             id: hotshot.id,
             consensus: hotshot.hotstuff.clone(),
-            high_qc: high_qc.clone(),
+            proposal_collection_chan: recv_da_vote,
             cur_view,
-            transactions: txns,
+            high_qc: high_qc.clone(),
             api: c_api.clone(),
-            vote_collection_chan: recv_da_vote,
-            _pd: PhantomData,
         };
-        da_member.run_view().await;
+        let _ = da_member.run_view().await;
         let _da_replica = {};
         #[allow(deprecated)]
         nll_todo()

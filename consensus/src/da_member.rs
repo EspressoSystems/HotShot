@@ -6,24 +6,22 @@ use crate::{
     Consensus, ConsensusApi,
 };
 use async_compatibility_layer::channel::UnboundedReceiver;
-use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
-use bincode::Options;
+use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use commit::Committable;
+use either::Left;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{DALeaf, DAProposal},
-    message::{ConsensusMessage, ProcessedConsensusMessage, TimeoutVote, Vote, YesOrNoVote},
+    message::{ConsensusMessage, DAVote, ProcessedConsensusMessage, Vote},
     traits::{
-        election::Election,
+        election::{Election, SignedCertificate},
         node_implementation::NodeType,
         signature_key::SignatureKey,
         state::{TestableBlock, TestableState},
-        Block, State,
+        State,
     },
 };
-use hotshot_utils::bincode::bincode_opts;
-use std::ops::Bound::{Excluded, Included};
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 
 /// This view's DA committee member.
@@ -31,7 +29,11 @@ use tracing::{error, info, instrument, warn};
 pub struct DAMember<
     A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
-    ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
+    ELECTION: Election<
+        TYPES,
+        LeafType = DALeaf<TYPES>,
+        QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+    >,
 > where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -60,7 +62,11 @@ pub struct DAMember<
 impl<
         A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
         TYPES: NodeType,
-        ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
+        ELECTION: Election<
+            TYPES,
+            LeafType = DALeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+        >,
     > DAMember<A, TYPES, ELECTION>
 where
     TYPES::StateType: TestableState,
@@ -68,7 +74,7 @@ where
 {
     /// Returns the parent leaf of the proposal we are voting on
     async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
-        let parent_view_number = &self.high_qc.view_number;
+        let parent_view_number = &self.high_qc.view_number();
         let consensus = self.consensus.read().await;
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
             match &parent_view.view_inner {
@@ -99,7 +105,6 @@ where
     async fn find_valid_msg<'a>(
         &self,
         view_leader_key: TYPES::SignatureKey,
-        consensus: RwLockUpgradableReadGuard<'a, Consensus<TYPES, DALeaf<TYPES>>>,
     ) -> Option<DALeaf<TYPES>> {
         let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
@@ -117,16 +122,29 @@ where
                         if view_leader_key != sender {
                             continue;
                         }
-                        let parent_leaf = self.parent_leaf();
-                        let justify_qc = self.high_qc;
+                        let parent = self.parent_leaf().await?;
+                        let parent_state = if let Left(state) = &parent.state {
+                            state
+                        } else {
+                            warn!("Don't have last state on parent leaf");
+                            return None;
+                        };
+                        let state = if let Ok(state) =
+                            parent_state.append(&p.data.deltas, &self.cur_view)
+                        {
+                            state
+                        } else {
+                            warn!("Failed to append state in high qc for proposal.");
+                            return None;
+                        };
 
                         let leaf = DALeaf {
                             view_number: self.cur_view,
                             height: parent.height + 1,
-                            justify_qc,
+                            justify_qc: self.high_qc.clone(),
                             parent_commitment: parent.commit(),
-                            deltas: p.data.deltas,
-                            state: parent.state.append(&p.data.deltas, &self.cur_view),
+                            deltas: p.data.deltas.clone(),
+                            state: Left(state),
                             rejected: Vec::new(),
                             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                             proposer_id: sender.to_bytes(),
@@ -138,7 +156,8 @@ where
                             continue;
                         }
 
-                        let liveness_check = justify_qc.view_number > consensus.locked_view + 2;
+                        let consensus = self.consensus.read().await;
+                        let liveness_check = self.high_qc.view_number() > consensus.locked_view + 2;
 
                         // check if proposal extends from the locked leaf
                         let outcome = consensus.visit_leaf_ancestors(
@@ -190,7 +209,7 @@ where
                                         DALeaf<TYPES>,
                                         DAProposal<TYPES, ELECTION>,
                                     >::Vote(Vote::DA(DAVote {
-                                        justify_qc_commitment: justify_qc.commit(),
+                                        justify_qc_commitment: self.high_qc.commit(),
                                         signature,
                                         block_commitment,
                                         current_view: self.cur_view,
@@ -235,10 +254,9 @@ where
         TYPES::BlockType: TestableBlock,
     {
         info!("DA Committee Member task started!");
-        let consensus = self.consensus.upgradable_read().await;
         let view_leader_key = self.api.get_leader(self.cur_view).await;
 
-        let maybe_leaf = self.find_valid_msg(view_leader_key, consensus).await;
+        let maybe_leaf = self.find_valid_msg(view_leader_key).await;
 
         let leaf = if let Some(leaf) = maybe_leaf {
             leaf
@@ -247,25 +265,8 @@ where
             return;
         };
 
-        let mut last_view_number_visited = self.cur_view;
-        let mut new_decide_qc = None;
-        let mut leaf_views = Vec::new();
-        let mut included_txns = HashSet::new();
-        let parent_view = leaf.justify_qc.view_number;
-        let mut current_chain_length = 0usize;
-        if parent_view + 1 == self.cur_view {
-            current_chain_length += 1;
-            if let Err(e) = consensus.visit_leaf_ancestors(
-                parent_view,
-                Terminator::Exclusive(old_anchor_view),
-                true,
-                |leaf| false,
-            ) {
-                self.api.send_view_error(self.cur_view, Arc::new(e)).await;
-            }
-        }
-
-        // promote lock here
+        // Promote lock.
+        let consensus = self.consensus.upgradable_read().await;
         let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
         consensus.state_map.insert(
             self.cur_view,
@@ -280,10 +281,8 @@ where
         consensus.locked_view = self.cur_view;
 
         // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
-        if let Err(e) = self.api.store_leaf(old_anchor_view, leaf).await {
+        if let Err(e) = self.api.store_leaf(self.cur_view, leaf).await {
             error!("Could not insert new anchor into the storage API: {:?}", e);
         }
-
-        decide_sent.await;
     }
 }

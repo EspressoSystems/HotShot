@@ -27,6 +27,7 @@ mod utils;
 
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 pub use da_leader::DALeader;
+pub use da_member::DAMember;
 pub use leader::ValidatingLeader;
 pub use next_leader::NextValidatingLeader;
 pub use replica::Replica;

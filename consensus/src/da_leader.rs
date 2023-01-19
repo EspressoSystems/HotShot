@@ -14,11 +14,10 @@ use hotshot_types::certificate::DACertificate;
 use hotshot_types::message::{ProcessedConsensusMessage, Vote};
 use hotshot_types::traits::state::SequencingConsensus;
 use hotshot_types::{
-    certificate::QuorumCertificate,
     data::{DALeaf, DAProposal},
     message::{ConsensusMessage, Proposal},
     traits::{
-        election::{Checked::Unchecked, Election, VoteData, VoteToken},
+        election::{Checked::Unchecked, Election, SignedCertificate, VoteData, VoteToken},
         node_implementation::NodeType,
         signature_key::SignatureKey,
         state::{TestableBlock, TestableState},
@@ -45,7 +44,7 @@ pub struct DALeader<
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, DALeaf<TYPES>>>>,
     /// The `high_qc` per spec
-    pub high_qc: QuorumCertificate<TYPES, DALeaf<TYPES>>,
+    pub high_qc: ELECTION::QuorumCertificate,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// Lock over the transactions list
@@ -76,7 +75,7 @@ where
 {
     /// Returns the parent leaf of the proposal we are building
     async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
-        let parent_view_number = &self.high_qc.view_number;
+        let parent_view_number = &self.high_qc.view_number();
         let consensus = self.consensus.read().await;
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
             match &parent_view.view_inner {
@@ -177,14 +176,14 @@ where
         if let Ok(_new_state) = starting_state.append(&block, &self.cur_view) {
             let consensus = self.consensus.read().await;
             let signature = self.api.sign_da_proposal(&block.commit());
-            let leaf: DAProposal<TYPES, ELECTION> = DAProposal {
+            let data: DAProposal<TYPES, ELECTION> = DAProposal {
                 deltas: block,
                 view_number: self.cur_view,
                 _pd: PhantomData,
             };
             let message =
                 ConsensusMessage::<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>::Proposal(
-                    Proposal { leaf, signature },
+                    Proposal { data, signature },
                 );
             // Brodcast DA proposal
             if let Err(e) = self.api.send_broadcast_message(message.clone()).await {

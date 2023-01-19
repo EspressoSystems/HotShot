@@ -195,12 +195,12 @@ where
             let signature = self
                 .api
                 .sign_validating_or_commitment_proposal(&leaf.commit());
-            let leaf: ValidatingProposal<TYPES, ELECTION> = leaf.into();
+            let data: ValidatingProposal<TYPES, ELECTION> = leaf.into();
             let message = ConsensusMessage::<
                 TYPES,
                 ValidatingLeaf<TYPES>,
                 ValidatingProposal<TYPES, ELECTION>,
-            >::Proposal(Proposal { leaf, signature });
+            >::Proposal(Proposal { data, signature });
             consensus
                 .metrics
                 .proposal_build_duration
