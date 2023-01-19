@@ -954,7 +954,6 @@ async fn run_background_recv<TYPES: NodeType>(
 ) -> Result<(), Error> {
     loop {
         let msg = stream.recv().await?;
-        // if let Ok(msg) = msg {
         match msg {
             x @ (FromServer::NodeConnected { .. } | FromServer::NodeDisconnected { .. }) => {
                 from_background_sender
@@ -1004,7 +1003,6 @@ async fn run_background_recv<TYPES: NodeType>(
                 connection.run_ready.store(true, Ordering::Relaxed);
             }
         }
-        // }
     }
 }
 
