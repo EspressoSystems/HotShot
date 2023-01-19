@@ -8,6 +8,7 @@ use async_compatibility_layer::{
 };
 use async_lock::{Mutex, RwLock};
 use commit::Committable;
+use either::Either;
 use either::Either::Left;
 use hotshot_types::certificate::DACertificate;
 use hotshot_types::data::CommitmentProposal;
@@ -32,7 +33,6 @@ use std::{
     collections::BTreeMap, collections::HashSet, marker::PhantomData, sync::Arc, time::Instant,
 };
 use tracing::{error, info, instrument, warn};
-use either::Either;
 
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
@@ -275,7 +275,12 @@ where
 pub struct DAConsensusLeader<
     A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
-    ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
+    ELECTION: Election<
+        TYPES,
+        LeafType = DALeaf<TYPES>,
+        QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+        DACertificate = DACertificate<TYPES>,
+    >,
 > where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -288,25 +293,24 @@ pub struct DAConsensusLeader<
     pub high_qc: QuorumCertificate<TYPES, DALeaf<TYPES>>,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
+    pub cert: DACertificate<TYPES>,
+    pub block: TYPES::BlockType,
     /// Limited access to the consensus protocol
     pub api: A,
-    /// channel through which the leader collects votes
-    #[allow(clippy::type_complexity)]
-    pub vote_collection_chan: Arc<
-        Mutex<
-            UnboundedReceiver<
-                ProcessedConsensusMessage<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
-            >,
-        >,
-    >,
+
     #[allow(missing_docs)]
     #[allow(clippy::missing_docs_in_private_items)]
     pub _pd: PhantomData<ELECTION>,
 }
 impl<
         A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
+        ELECTION: Election<
+            TYPES,
+            LeafType = DALeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+            DACertificate = DACertificate<TYPES>,
+        >,
     > DAConsensusLeader<A, TYPES, ELECTION>
 where
     TYPES::StateType: TestableState,
@@ -340,11 +344,7 @@ where
     }
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
-    pub async fn run_view(
-        self,
-        cert: DACertificate<TYPES>,
-        block: TYPES::BlockType,
-    ) -> Option<QuorumCertificate<TYPES, DALeaf<TYPES>>> {
+    pub async fn run_view(self) -> Option<QuorumCertificate<TYPES, DALeaf<TYPES>>> {
         let parent_leaf = if let Some(parent) = self.parent_leaf().await {
             parent
         } else {
@@ -357,36 +357,43 @@ where
             warn!("Don't have last state on parent leaf");
             return None;
         };
-        if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
+        if let Ok(new_state) = starting_state.append(&self.block, &self.cur_view) {
             let leaf = DALeaf {
                 view_number: self.cur_view,
                 // TODO
                 height: 0,
-                justify_qc: self.high_qc,
+                justify_qc: self.high_qc.clone(),
                 parent_commitment: parent_leaf.commit(),
-                deltas: block,
-                state: Either::Left(new_state),
-                rejected: vec!(),
+                deltas: self.block,
+                state: Either::Left(new_state.clone()),
+                rejected: vec![],
                 // TODO
                 timestamp: 0,
-                proposer_id: self.api.public_key().to_bytes()
+                proposer_id: self.api.public_key().to_bytes(),
             };
+            let signature = self
+                .api
+                .sign_validating_or_commitment_proposal(&leaf.commit());
             // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
             let proposal = CommitmentProposal {
                 block_commitment: leaf.deltas.commit(),
                 view_number: leaf.view_number,
-                justify_qc: self.high_qc,
+                justify_qc: self.high_qc.clone(),
+                dac: self.cert,
                 state_commitment: new_state.commit(),
                 proposer_id: leaf.proposer_id,
-                dac: cert,
                 application_metadata: {},
             };
-            let signature = self.api.sign_validating_or_commitment_proposal(&leaf.commit());
-            let message =
-                ConsensusMessage::<TYPES, DALeaf<TYPES>, CommitmentProposal<TYPES, ELECTION>>::Proposal(
-                    Proposal { leaf: proposal, signature },
-            );
-            if let Err(e) = self.api.send_broadcast_message(message.clone()).await {
+
+            let message = ConsensusMessage::<
+                TYPES,
+                DALeaf<TYPES>,
+                CommitmentProposal<TYPES, ELECTION>,
+            >::Proposal(Proposal {
+                leaf: proposal,
+                signature,
+            });
+            if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
                 warn!(?message, ?e, "Could not broadcast leader proposal");
                 return None;
             }
@@ -394,7 +401,7 @@ where
             error!("Could not append state in high qc for proposal. Failed to send out proposal.");
             return None;
         }
-        Some(self.high_qc.clone())
+        Some(self.high_qc)
     }
 }
 
@@ -416,6 +423,8 @@ pub struct DANextLeader<
     pub cur_view: TYPES::Time,
     /// Limited access to the consensus protocol
     pub api: A,
+    /// generic_qc before starting this
+    pub generic_qc: QuorumCertificate<TYPES, DALeaf<TYPES>>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
     pub vote_collection_chan: Arc<
@@ -433,17 +442,17 @@ impl<
         A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
-    > DAConsensusLeader<A, TYPES, ELECTION>
+    > DANextLeader<A, TYPES, ELECTION>
 where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
 {
-    pub async fn run_view(self) -> ELECTION::QuorumCertificate {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, DALeaf<TYPES>> {
         error!("Next validating leader task started!");
 
         let vote_collection_start = Instant::now();
 
-        let mut qcs = HashSet::<ELECTION::QuorumCertificate>::new();
+        let mut qcs = HashSet::<QuorumCertificate<TYPES, DALeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
         let mut vote_outcomes = HashMap::new();
@@ -502,9 +511,6 @@ where
                                     signatures: valid_signatures,
                                     is_genesis: false,
                                 };
-                                self.metrics
-                                    .vote_validate_duration
-                                    .add_point(vote_collection_start.elapsed().as_secs_f64());
                                 return qc;
                             }
                         }

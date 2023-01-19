@@ -54,9 +54,11 @@ use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use hotshot_consensus::{
-    Consensus, ConsensusApi, ConsensusMetrics, DALeader, NextValidatingLeader, Replica,
-    SendToTasks, ValidatingLeader, View, ViewInner, ViewQueue,
+    Consensus, ConsensusApi, ConsensusMetrics, DAConsensusLeader, DALeader, DANextLeader,
+    NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner, ViewQueue,
 };
+use hotshot_types::certificate::DACertificate;
+use hotshot_types::data::ProposalType;
 use hotshot_types::data::{DALeaf, DAProposal};
 use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
 use hotshot_types::{
@@ -837,11 +839,12 @@ where
 
 #[async_trait]
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
         ELECTION: Election<
             TYPES,
             LeafType = DALeaf<TYPES>,
             QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+            DACertificate = DACertificate<TYPES>,
         >,
         I: NodeImplementation<TYPES, Leaf = DALeaf<TYPES>, Proposal = DAProposal<TYPES, ELECTION>>,
     > ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
@@ -883,7 +886,7 @@ where
             vote_collection_chan: recv_da_vote,
             _pd: PhantomData,
         };
-        let (da_cert, block)t = if let Some((cert, block)) = da_leader.run_view().await {
+        let (da_cert, block) = if let Some((cert, block)) = da_leader.run_view().await {
             (cert, block)
         } else {
             return Ok(());
@@ -892,11 +895,13 @@ where
             id: hotshot.id,
             consensus: hotshot.hotstuff.clone(),
             high_qc: high_qc.clone(),
+            cert: da_cert,
+            block,
             cur_view,
             api: c_api.clone(),
             _pd: PhantomData,
         };
-        consensus_leader.run_view(da_cert, block);
+        let qc = consensus_leader.run_view().await;
         let _da_replica = {};
         #[allow(deprecated)]
         nll_todo()
@@ -991,6 +996,20 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
                 kind: message.into(),
             })
             .await
+    }
+
+    async fn send_da_broadcast<DAPROPOSAL: ProposalType<NodeType = TYPES>>(
+        &self,
+        message: ConsensusMessage<TYPES, I::Leaf, DAPROPOSAL>,
+    ) -> std::result::Result<(), NetworkError> {
+        // self.inner
+        //     .networking
+        //     .broadcast_message(Message {
+        //         sender: self.inner.public_key.clone(),
+        //         kind: MessageKind::Consensus(message),
+        //     })
+        //     .await
+        nll_todo()
     }
 
     async fn send_event(&self, event: Event<TYPES, I::Leaf>) {

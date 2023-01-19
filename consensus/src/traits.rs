@@ -1,8 +1,11 @@
 //! Contains the [`ConsensusApi`] trait.
 
+use crate::Consensus;
 use async_trait::async_trait;
 use commit::Commitment;
+use hotshot_types::data::DAProposal;
 use hotshot_types::message::ConsensusMessage;
+use hotshot_types::traits::election::Election;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
@@ -151,6 +154,11 @@ pub trait ConsensusApi<
         })
         .await;
     }
+
+    async fn send_da_broadcast<DAPROPOSAL: ProposalType<NodeType = TYPES>>(
+        &self,
+        message: ConsensusMessage<TYPES, LEAF, DAPROPOSAL>,
+    ) -> std::result::Result<(), NetworkError>;
 
     /// Sign a DA proposal.
     fn sign_da_proposal(
