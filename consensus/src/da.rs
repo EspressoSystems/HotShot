@@ -438,7 +438,9 @@ where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
 {
-    pub async fn run_view() -> Option<QuorumCertificate<TYPES, DALeaf<TYPES>>> {
+    pub async fn run_view(self) -> ELECTION::QuorumCertificate {
+        error!("Next validating leader task started!");
+
         let vote_collection_start = Instant::now();
 
         let mut qcs = HashSet::<ELECTION::QuorumCertificate>::new();
@@ -447,10 +449,10 @@ where
         let mut vote_outcomes = HashMap::new();
 
         let threshold = self.api.threshold();
-        let mut stake_casted = 0;
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
+            // If the message is for a different view number, skip it.
             if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number() != self.cur_view {
                 continue;
             }
@@ -464,6 +466,8 @@ where
                                 continue;
                             }
 
+                            // If the signature on the vote is invalid, assume it's sent by
+                            // byzantine node and ignore.
                             if !self.api.is_valid_vote(
                                 &vote.signature.0,
                                 &vote.signature.1,
@@ -475,21 +479,21 @@ where
                                 continue;
                             }
 
-                            // TODO ed ensure we have the QC that the QC commitment references
-
-                            let map = vote_outcomes
+                            let (stake_casted, vote_map) = vote_outcomes
                                 .entry(vote.leaf_commitment)
-                                .or_insert_with(BTreeMap::new);
-                            map.insert(
+                                .or_insert_with(|| (0, BTreeMap::new()));
+                            // Accumulate the stake for each leaf commitment rather than the total
+                            // stake of all votes, in case they correspond to inconsistent
+                            // commitments.
+                            *stake_casted += u64::from(vote.vote_token.vote_count());
+                            vote_map.insert(
                                 vote.signature.0.clone(),
                                 (vote.signature.1.clone(), vote.vote_token.clone()),
                             );
 
-                            stake_casted += u64::from(vote.vote_token.vote_count());
-
-                            if stake_casted >= u64::from(threshold) {
+                            if *stake_casted >= u64::from(threshold) {
                                 let valid_signatures =
-                                    vote_outcomes.remove(&vote.leaf_commitment).unwrap();
+                                    vote_outcomes.remove(&vote.leaf_commitment).unwrap().1;
 
                                 // construct QC
                                 let qc = QuorumCertificate {
@@ -497,7 +501,7 @@ where
                                     view_number: self.cur_view,
                                     signatures: valid_signatures,
                                     is_genesis: false,
-                                }; 
+                                };
                                 self.metrics
                                     .vote_validate_duration
                                     .add_point(vote_collection_start.elapsed().as_secs_f64());
@@ -524,5 +528,4 @@ where
 
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
     }
-
 }
