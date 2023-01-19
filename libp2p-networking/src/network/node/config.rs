@@ -1,7 +1,9 @@
 use crate::network::NetworkNodeType;
-use hotshot_types::constants::DEFAULT_REPLICATION_FACTOR;
 use libp2p::{identity::Keypair, Multiaddr, PeerId};
 use std::{collections::HashSet, num::NonZeroUsize};
+
+/// replication factor for kademlia
+pub const DEFAULT_REPLICATION_FACTOR: Option<NonZeroUsize> = NonZeroUsize::new(20);
 
 /// describe the configuration of the network
 #[derive(Clone, Default, derive_builder::Builder, custom_debug::Debug)]
