@@ -129,6 +129,11 @@ where
                             warn!("Don't have last state on parent leaf");
                             return None;
                         };
+                        // TODO (da) We probably don't need this check here or replace with "structural validate"
+                        if parent_state.validate_block(&p.data.deltas, &self.cur_view) {
+                            warn!("Invalid block.");
+                            return None;
+                        }
                         let state = if let Ok(state) =
                             parent_state.append(&p.data.deltas, &self.cur_view)
                         {
@@ -265,7 +270,7 @@ where
             return;
         };
 
-        // Promote lock.
+        // Update state map and leaves.
         let consensus = self.consensus.upgradable_read().await;
         let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
         consensus.state_map.insert(
@@ -276,9 +281,7 @@ where
                 },
             },
         );
-
         consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
-        consensus.locked_view = self.cur_view;
 
         // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
         if let Err(e) = self.api.store_leaf(self.cur_view, leaf).await {

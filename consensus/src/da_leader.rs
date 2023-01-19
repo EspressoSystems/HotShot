@@ -163,7 +163,7 @@ where
 
         for txn in txns {
             let new_block_check = block.add_transaction_raw(&txn);
-            // TODO: We probably don't need this check her or replace with "structural validate"
+            // TODO (da) We probably don't need this check here or replace with "structural validate"
             if let Ok(new_block) = new_block_check {
                 if starting_state.validate_block(&new_block, &self.cur_view) {
                     block = new_block;
