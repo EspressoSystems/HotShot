@@ -18,7 +18,7 @@ jobs:
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
 
       - name: Update flake.lock
-        uses: DeterminateSystems/update-flake-lock@v15
+        uses: DeterminateSystems/update-flake-lock@v16
         with:
           pr-title: "Weekly PR to bump flake.nix" # Title of PR to be created
           pr-labels: |                  # Labels to be set on the PR
