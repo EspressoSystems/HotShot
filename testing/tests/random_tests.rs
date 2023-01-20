@@ -15,6 +15,21 @@ use hotshot::{
 use std::{collections::HashSet, iter::FromIterator};
 
 cross_all_types!(
+    test_fail_first_node_regression_small,
+    GeneralTestDescriptionBuilder {
+        total_nodes: 10,
+        start_nodes: 10,
+        num_succeeds: 40,
+        txn_ids: Right(30),
+        ids_to_shut_down: vec![vec![0].into_iter().collect::<HashSet<_>>()],
+        failure_threshold: 5,
+        ..GeneralTestDescriptionBuilder::default()
+    },
+    keep: true,
+    slow: true
+);
+
+cross_all_types!(
     test_fifty_nodes_regression,
     GeneralTestDescriptionBuilder {
         total_nodes: 50,

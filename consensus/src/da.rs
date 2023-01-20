@@ -27,7 +27,6 @@ use hotshot_types::{
         Block, State,
     },
 };
-use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::{
     collections::BTreeMap, collections::HashSet, marker::PhantomData, sync::Arc, time::Instant,
@@ -87,7 +86,7 @@ where
         block_commitment: Commitment<<TYPES as NodeType>::BlockType>,
     ) -> Option<DACertificate<TYPES>> {
         let lock = self.vote_collection_chan.lock().await;
-        let mut vote_outcomes = HashMap::new();
+        let mut valid_signatures = BTreeMap::new();
         let mut stake_casted = 0;
 
         while let Ok(msg) = lock.recv().await {
@@ -115,10 +114,7 @@ where
                                 continue;
                             }
 
-                            let map = vote_outcomes
-                                .entry(vote.block_commitment)
-                                .or_insert_with(BTreeMap::new);
-                            map.insert(
+                            valid_signatures.insert(
                                 vote.signature.0.clone(),
                                 (vote.signature.1.clone(), vote.vote_token.clone()),
                             );
@@ -126,9 +122,6 @@ where
                             stake_casted += u64::from(vote.vote_token.vote_count());
 
                             if stake_casted >= u64::from(threshold) {
-                                let valid_signatures =
-                                    vote_outcomes.remove(&vote.block_commitment).unwrap();
-
                                 // construct QC
                                 let qc = DACertificate {
                                     view_number: self.cur_view,
@@ -443,12 +436,13 @@ where
         let mut qcs = HashSet::<QuorumCertificate<TYPES, DALeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
-        let mut vote_outcomes = HashMap::new();
-
+        let mut valid_signatures = BTreeMap::new();
         let threshold = self.api.threshold();
+        let mut stake_casted = 0;
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
+            // If the message is for a different view number, skip it.
             // If the message is for a different view number, skip it.
             if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number() != self.cur_view {
                 continue;
@@ -469,29 +463,23 @@ where
                                 &vote.signature.0,
                                 &vote.signature.1,
                                 VoteData::Yes(vote.leaf_commitment),
-                                vote.current_view,
+                                self.cur_view,
                                 // Ignoring deserialization errors below since we are getting rid of it soon
                                 Unchecked(vote.vote_token.clone()),
                             ) {
                                 continue;
                             }
 
-                            let (stake_casted, vote_map) = vote_outcomes
-                                .entry(vote.leaf_commitment)
-                                .or_insert_with(|| (0, BTreeMap::new()));
-                            // Accumulate the stake for each leaf commitment rather than the total
-                            // stake of all votes, in case they correspond to inconsistent
-                            // commitments.
-                            *stake_casted += u64::from(vote.vote_token.vote_count());
-                            vote_map.insert(
+                            // Valid votes are guaranteed to have the same block commitment, so we
+                            // don't have to group them by the commitment.
+                            valid_signatures.insert(
                                 vote.signature.0.clone(),
                                 (vote.signature.1.clone(), vote.vote_token.clone()),
                             );
 
-                            if *stake_casted >= u64::from(threshold) {
-                                let valid_signatures =
-                                    vote_outcomes.remove(&vote.leaf_commitment).unwrap().1;
+                            stake_casted += u64::from(vote.vote_token.vote_count());
 
+                            if stake_casted >= u64::from(threshold) {
                                 // construct QC
                                 let qc = QuorumCertificate {
                                     leaf_commitment: vote.leaf_commitment,

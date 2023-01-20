@@ -30,21 +30,18 @@ lossy_network = [
 ]
 async-std-executor = [
     "dep:async-std",
-    "hotshot-types/async-std-executor",
     "async-compatibility-layer/async-std-executor",
     "libp2p/async-std",
 ]
 tokio-executor = [
     "dep:tokio",
-    "hotshot-types/tokio-executor",
     "async-compatibility-layer/tokio-executor",
     "libp2p/tokio",
 ]
 profiling = ["async-compatibility-layer/profiling"]
-channel-flume = ["hotshot-types/channel-flume", "async-compatibility-layer/channel-flume"]
-channel-tokio = ["hotshot-types/channel-tokio", "async-compatibility-layer/channel-tokio"]
+channel-flume = ["async-compatibility-layer/channel-flume"]
+channel-tokio = ["async-compatibility-layer/channel-tokio"]
 channel-async-std = [
-    "hotshot-types/channel-async-std",
     "async-compatibility-layer/channel-async-std",
 ]
 
@@ -60,7 +57,6 @@ custom_debug = "0.5"
 derive_builder = "0.12.0"
 either = { version = "1.8.0" }
 futures = "0.3.25"
-hotshot-types = { path = "../types", version = "0.1.0", default-features = false }
 hotshot-utils = { path = "../utils"}
 libp2p-swarm-derive = { version = "=0.31.0" }
 libp2p = { version = "0.50", default-features = false, features = [
