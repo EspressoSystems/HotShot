@@ -162,9 +162,12 @@ where
                         }
 
                         let consensus = self.consensus.read().await;
+
+                        // Liveness check.
                         let liveness_check = self.high_qc.view_number() > consensus.locked_view + 2;
 
-                        // check if proposal extends from the locked leaf
+                        // Safety check.
+                        // Check if the proposal extends from the locked leaf.
                         let outcome = consensus.visit_leaf_ancestors(
                             parent.view_number,
                             Terminator::Inclusive(consensus.locked_view),
@@ -175,17 +178,12 @@ where
                                 leaf.view_number != consensus.locked_view
                             },
                         );
-
                         let safety_check = outcome.is_ok();
-
                         if let Err(e) = outcome {
                             self.api.send_view_error(self.cur_view, Arc::new(e)).await;
                         }
 
-                        // NOTE safenode check is here
-                        // if !safenode, continue
-                        // if !(safety_check || liveness_check)
-                        // if !safety_check && !liveness_check
+                        // Skip if both saftey and liveness checks fail.
                         if !safety_check && !liveness_check {
                             warn!("Failed safety check and liveness check");
                             continue;
