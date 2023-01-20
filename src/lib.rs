@@ -884,47 +884,51 @@ where
             let txns = consensus.transactions.clone();
             (high_qc, txns)
         };
-
-        let da_leader = DALeader {
-            id: hotshot.id,
-            consensus: hotshot.hotstuff.clone(),
-            high_qc: high_qc.clone(),
-            cur_view,
-            transactions: txns,
-            api: c_api.clone(),
-            vote_collection_chan: recv_da_vote,
-            _pd: PhantomData,
-        };
-        let (da_cert, block, parent) =
-            if let Some((cert, block, parent)) = da_leader.run_view().await {
-                (cert, block, parent)
-            } else {
-                return Ok(());
+        if c_api.is_leader(cur_view).await {
+            let da_leader = DALeader {
+                id: hotshot.id,
+                consensus: hotshot.hotstuff.clone(),
+                high_qc: high_qc.clone(),
+                cur_view,
+                transactions: txns,
+                api: c_api.clone(),
+                vote_collection_chan: recv_da_vote,
+                _pd: PhantomData,
             };
-        let consensus_leader = DAConsensusLeader {
-            id: hotshot.id,
-            consensus: hotshot.hotstuff.clone(),
-            high_qc: high_qc.clone(),
-            cert: da_cert,
-            block,
-            parent,
-            cur_view,
-            api: c_api.clone(),
-            _pd: PhantomData,
-        };
-        let _qc = consensus_leader.run_view().await;
-        let next_leader = DANextLeader {
-            id: hotshot.id,
-            consensus: hotshot.hotstuff.clone(),
-            cur_view,
-            api: c_api.clone(),
-            generic_qc: high_qc.clone(),
-            vote_collection_chan: recv_commitment_vote_chan,
-            _pd: PhantomData,
-        };
-        let _new_qc = next_leader.run_view();
+            let (da_cert, block, parent) =
+                if let Some((cert, block, parent)) = da_leader.run_view().await {
+                    (cert, block, parent)
+                } else {
+                    return Ok(());
+                };
+            let consensus_leader = DAConsensusLeader {
+                id: hotshot.id,
+                consensus: hotshot.hotstuff.clone(),
+                high_qc: high_qc.clone(),
+                cert: da_cert,
+                block,
+                parent,
+                cur_view,
+                api: c_api.clone(),
+                _pd: PhantomData,
+            };
+            let _qc = consensus_leader.run_view().await;
+        }
+        if c_api.is_leader(cur_view + 1).await {
+            let next_leader = DANextLeader {
+                id: hotshot.id,
+                consensus: hotshot.hotstuff.clone(),
+                cur_view,
+                api: c_api.clone(),
+                generic_qc: high_qc.clone(),
+                vote_collection_chan: recv_commitment_vote_chan,
+                _pd: PhantomData,
+            };
+            let _new_qc = next_leader.run_view();
+        }
 
         let _da_replica = {};
+        // TODO tie all the tasks together and do correct book keeping.
         #[allow(deprecated)]
         nll_todo()
     }

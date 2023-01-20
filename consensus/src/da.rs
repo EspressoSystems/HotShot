@@ -7,6 +7,7 @@ use async_compatibility_layer::{
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
 use async_lock::{Mutex, RwLock};
+use commit::Commitment;
 use commit::Committable;
 use either::Either;
 use either::Either::Left;
@@ -27,6 +28,7 @@ use hotshot_types::{
     },
 };
 use std::collections::HashMap;
+use std::num::NonZeroU64;
 use std::{
     collections::BTreeMap, collections::HashSet, marker::PhantomData, sync::Arc, time::Instant,
 };
@@ -76,6 +78,81 @@ where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
 {
+    /// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
+    /// TODO: Refactor this to use new `Elecetion` trait and call accumulate
+    async fn wait_for_votes(
+        &self,
+        cur_view: TYPES::Time,
+        threshold: NonZeroU64,
+        block_commitment: Commitment<<TYPES as NodeType>::BlockType>,
+    ) -> Option<DACertificate<TYPES>> {
+        let lock = self.vote_collection_chan.lock().await;
+        let mut vote_outcomes = HashMap::new();
+        let mut stake_casted = 0;
+
+        while let Ok(msg) = lock.recv().await {
+            if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number() != cur_view {
+                continue;
+            }
+            match msg {
+                ProcessedConsensusMessage::Vote(vote_message, sender) => {
+                    match vote_message {
+                        Vote::DA(vote) => {
+                            if vote.signature.0
+                                != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+                            {
+                                continue;
+                            }
+
+                            if !self.api.is_valid_vote(
+                                &vote.signature.0,
+                                &vote.signature.1,
+                                VoteData::DA(block_commitment),
+                                self.cur_view,
+                                // Ignoring deserialization errors below since we are getting rid of it soon
+                                Unchecked(vote.vote_token.clone()),
+                            ) {
+                                continue;
+                            }
+
+                            let map = vote_outcomes
+                                .entry(vote.block_commitment)
+                                .or_insert_with(BTreeMap::new);
+                            map.insert(
+                                vote.signature.0.clone(),
+                                (vote.signature.1.clone(), vote.vote_token.clone()),
+                            );
+
+                            stake_casted += u64::from(vote.vote_token.vote_count());
+
+                            if stake_casted >= u64::from(threshold) {
+                                let valid_signatures =
+                                    vote_outcomes.remove(&vote.block_commitment).unwrap();
+
+                                // construct QC
+                                let qc = DACertificate {
+                                    view_number: self.cur_view,
+                                    signatures: valid_signatures,
+                                };
+                                return Some(qc);
+                            }
+                        }
+                        _ => {
+                            warn!("The DA leader has received an unexpected vote!");
+                        }
+                    }
+                }
+                ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
+                    self.api.send_next_leader_timeout(self.cur_view).await;
+                    break;
+                }
+                ProcessedConsensusMessage::Proposal(_p, _sender) => {
+                    warn!("The next leader has received an unexpected proposal!");
+                }
+            }
+        }
+        None
+    }
     /// Returns the parent leaf of the proposal we are building
     async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
         let parent_view_number = &self.high_qc.view_number;
@@ -201,71 +278,11 @@ where
         }
 
         // Wait for DA votes or Timeout
-        let lock = self.vote_collection_chan.lock().await;
-        let mut vote_outcomes = HashMap::new();
-        let threshold = self.api.threshold();
-        let mut stake_casted = 0;
-
-        while let Ok(msg) = lock.recv().await {
-            if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number() != self.cur_view {
-                continue;
-            }
-            match msg {
-                ProcessedConsensusMessage::Vote(vote_message, sender) => {
-                    match vote_message {
-                        Vote::DA(vote) => {
-                            if vote.signature.0
-                                != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
-                            {
-                                continue;
-                            }
-
-                            if !self.api.is_valid_vote(
-                                &vote.signature.0,
-                                &vote.signature.1,
-                                VoteData::DA(block_commitment),
-                                self.cur_view,
-                                // Ignoring deserialization errors below since we are getting rid of it soon
-                                Unchecked(vote.vote_token.clone()),
-                            ) {
-                                continue;
-                            }
-
-                            let map = vote_outcomes
-                                .entry(vote.block_commitment)
-                                .or_insert_with(BTreeMap::new);
-                            map.insert(
-                                vote.signature.0.clone(),
-                                (vote.signature.1.clone(), vote.vote_token.clone()),
-                            );
-
-                            stake_casted += u64::from(vote.vote_token.vote_count());
-
-                            if stake_casted >= u64::from(threshold) {
-                                let valid_signatures =
-                                    vote_outcomes.remove(&vote.block_commitment).unwrap();
-
-                                // construct QC
-                                let qc = DACertificate {
-                                    view_number: self.cur_view,
-                                    signatures: valid_signatures,
-                                };
-                                return Some((qc, block, parent_leaf));
-                            }
-                        }
-                        _ => {
-                            warn!("The DA leader has received an unexpected vote!");
-                        }
-                    }
-                }
-                ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
-                    self.api.send_next_leader_timeout(self.cur_view).await;
-                    break;
-                }
-                ProcessedConsensusMessage::Proposal(_p, _sender) => {
-                    warn!("The next leader has received an unexpected proposal!");
-                }
-            }
+        if let Some(cert) = self
+            .wait_for_votes(self.cur_view, self.api.threshold(), block_commitment)
+            .await
+        {
+            return Some((cert, block, parent_leaf));
         }
         None
     }
@@ -321,41 +338,9 @@ where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
 {
-    /// Returns the parent leaf of the proposal we are building
-    // async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
-    //     let parent_view_number = &self.high_qc.view_number;
-    //     let consensus = self.consensus.read().await;
-    //     let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
-    //         match &parent_view.view_inner {
-    //             ViewInner::Leaf { leaf } => {
-    //                 if let Some(leaf) = consensus.saved_leaves.get(leaf) {
-    //                     leaf
-    //                 } else {
-    //                     warn!("Failed to find high QC parent.");
-    //                     return None;
-    //                 }
-    //             }
-    //             // can happen if future api is whacked
-    //             ViewInner::Failed => {
-    //                 warn!("Parent of high QC points to a failed QC");
-    //                 return None;
-    //             }
-    //         }
-    //     } else {
-    //         warn!("Couldn't find high QC parent in state map.");
-    //         return None;
-    //     };
-    //     Some(parent_leaf.clone())
-    // }
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
     pub async fn run_view(self) -> Option<QuorumCertificate<TYPES, DALeaf<TYPES>>> {
-        // let parent_leaf = if let Some(parent) = self.parent_leaf().await {
-        //     parent
-        // } else {
-        //     warn!("Couldn't find high QC parent in state map.");
-        //     return None;
-        // };
         let starting_state = if let Left(state) = &self.parent.state {
             state
         } else {
