@@ -868,6 +868,15 @@ where
             .await;
             (vq.sender_chan, vq.receiver_chan, cur_view)
         };
+        let send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+        let (_send_commitment_vote_chan, recv_commitment_vote_chan) = {
+            let vq = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+                cur_view + 1,
+                send_to_next_leader,
+            )
+            .await;
+            (vq.sender_chan, vq.receiver_chan)
+        };
         let (high_qc, txns) = {
             // OBTAIN read lock on consensus
             let consensus = hotshot.hotstuff.read().await;
@@ -901,7 +910,18 @@ where
             api: c_api.clone(),
             _pd: PhantomData,
         };
-        let qc = consensus_leader.run_view().await;
+        let _qc = consensus_leader.run_view().await;
+        let next_leader = DANextLeader {
+            id: hotshot.id,
+            consensus: hotshot.hotstuff.clone(),
+            cur_view,
+            api: c_api.clone(),
+            generic_qc: high_qc.clone(),
+            vote_collection_chan: recv_commitment_vote_chan,
+            _pd: PhantomData,
+        };
+        let _new_qc = next_leader.run_view();
+
         let _da_replica = {};
         #[allow(deprecated)]
         nll_todo()
@@ -1000,8 +1020,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
 
     async fn send_da_broadcast<DAPROPOSAL: ProposalType<NodeType = TYPES>>(
         &self,
-        message: ConsensusMessage<TYPES, I::Leaf, DAPROPOSAL>,
+        _message: ConsensusMessage<TYPES, I::Leaf, DAPROPOSAL>,
     ) -> std::result::Result<(), NetworkError> {
+        // TODO: Should look like this code but it won't work due to only 1 Proposal type being
+        // associated with self.inner.networking.
         // self.inner
         //     .networking
         //     .broadcast_message(Message {
@@ -1009,6 +1031,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         //         kind: MessageKind::Consensus(message),
         //     })
         //     .await
+        #[allow(deprecated)]
         nll_todo()
     }
 

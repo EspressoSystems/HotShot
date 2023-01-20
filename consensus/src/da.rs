@@ -13,7 +13,6 @@ use either::Either::Left;
 use hotshot_types::certificate::DACertificate;
 use hotshot_types::data::CommitmentProposal;
 use hotshot_types::message::{ProcessedConsensusMessage, Vote};
-use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::state::SequencingConsensus;
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -271,6 +270,8 @@ where
     }
 }
 
+/// Implemenation of the consensus leader for a DA/Sequencing consensus.  Handles sending out a proposal to the entire network
+/// For now this step happens after the `DALeader` completes it's proposal and collects enough votes.
 pub struct DAConsensusLeader<
     A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
@@ -292,7 +293,9 @@ pub struct DAConsensusLeader<
     pub high_qc: QuorumCertificate<TYPES, DALeaf<TYPES>>,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
+    /// The Certificate generated for the transactions commited to in the proposal the leader will build
     pub cert: DACertificate<TYPES>,
+    /// The block corresponding to the DA cert
     pub block: TYPES::BlockType,
     /// Limited access to the consensus protocol
     pub api: A,
@@ -315,7 +318,7 @@ where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
 {
-    // TODO: remove
+    /// Returns the parent leaf of the proposal we are building
     async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
         let parent_view_number = &self.high_qc.view_number;
         let consensus = self.consensus.read().await;
@@ -404,6 +407,7 @@ where
     }
 }
 
+/// Implenting the next leader.  Collect votes on the previous leaders proposal and return the QC
 pub struct DANextLeader<
     A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
@@ -416,8 +420,6 @@ pub struct DANextLeader<
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, DALeaf<TYPES>>>>,
-    /// The `high_qc` per spec
-    pub high_qc: QuorumCertificate<TYPES, DALeaf<TYPES>>,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// Limited access to the consensus protocol
@@ -446,11 +448,11 @@ where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
 {
+    /// Run one view of the next leader, collect votes and build a QC for the last views `CommitmentProposal`
+    /// # Panics
+    /// While we are unwrapping, this function can logically never panic
+    /// unless there is a bug in std
     pub async fn run_view(self) -> QuorumCertificate<TYPES, DALeaf<TYPES>> {
-        error!("Next validating leader task started!");
-
-        let vote_collection_start = Instant::now();
-
         let mut qcs = HashSet::<QuorumCertificate<TYPES, DALeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
@@ -530,7 +532,6 @@ where
                 }
             }
         }
-
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
     }
 }
