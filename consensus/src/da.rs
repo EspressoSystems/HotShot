@@ -147,7 +147,7 @@ where
     }
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
-    pub async fn run_view(self) -> Option<(DACertificate<TYPES>, TYPES::BlockType)> {
+    pub async fn run_view(self) -> Option<(DACertificate<TYPES>, TYPES::BlockType, DALeaf<TYPES>)> {
         // Prepare teh DA Proposal
         let parent_leaf = if let Some(parent) = self.parent_leaf().await {
             parent
@@ -197,6 +197,7 @@ where
             }
         } else {
             error!("Could not append state in high qc for proposal. Failed to send out proposal.");
+            return None;
         }
 
         // Wait for DA votes or Timeout
@@ -249,7 +250,7 @@ where
                                     view_number: self.cur_view,
                                     signatures: valid_signatures,
                                 };
-                                return Some((qc, block));
+                                return Some((qc, block, parent_leaf));
                             }
                         }
                         _ => {
@@ -297,6 +298,8 @@ pub struct DAConsensusLeader<
     pub cert: DACertificate<TYPES>,
     /// The block corresponding to the DA cert
     pub block: TYPES::BlockType,
+    /// Leaf this proposal will chain from
+    pub parent: DALeaf<TYPES>,
     /// Limited access to the consensus protocol
     pub api: A,
 
@@ -319,41 +322,41 @@ where
     TYPES::BlockType: TestableBlock,
 {
     /// Returns the parent leaf of the proposal we are building
-    async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
-        let parent_view_number = &self.high_qc.view_number;
-        let consensus = self.consensus.read().await;
-        let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
-            match &parent_view.view_inner {
-                ViewInner::Leaf { leaf } => {
-                    if let Some(leaf) = consensus.saved_leaves.get(leaf) {
-                        leaf
-                    } else {
-                        warn!("Failed to find high QC parent.");
-                        return None;
-                    }
-                }
-                // can happen if future api is whacked
-                ViewInner::Failed => {
-                    warn!("Parent of high QC points to a failed QC");
-                    return None;
-                }
-            }
-        } else {
-            warn!("Couldn't find high QC parent in state map.");
-            return None;
-        };
-        Some(parent_leaf.clone())
-    }
+    // async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
+    //     let parent_view_number = &self.high_qc.view_number;
+    //     let consensus = self.consensus.read().await;
+    //     let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
+    //         match &parent_view.view_inner {
+    //             ViewInner::Leaf { leaf } => {
+    //                 if let Some(leaf) = consensus.saved_leaves.get(leaf) {
+    //                     leaf
+    //                 } else {
+    //                     warn!("Failed to find high QC parent.");
+    //                     return None;
+    //                 }
+    //             }
+    //             // can happen if future api is whacked
+    //             ViewInner::Failed => {
+    //                 warn!("Parent of high QC points to a failed QC");
+    //                 return None;
+    //             }
+    //         }
+    //     } else {
+    //         warn!("Couldn't find high QC parent in state map.");
+    //         return None;
+    //     };
+    //     Some(parent_leaf.clone())
+    // }
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
     pub async fn run_view(self) -> Option<QuorumCertificate<TYPES, DALeaf<TYPES>>> {
-        let parent_leaf = if let Some(parent) = self.parent_leaf().await {
-            parent
-        } else {
-            warn!("Couldn't find high QC parent in state map.");
-            return None;
-        };
-        let starting_state = if let Left(state) = &parent_leaf.state {
+        // let parent_leaf = if let Some(parent) = self.parent_leaf().await {
+        //     parent
+        // } else {
+        //     warn!("Couldn't find high QC parent in state map.");
+        //     return None;
+        // };
+        let starting_state = if let Left(state) = &self.parent.state {
             state
         } else {
             warn!("Don't have last state on parent leaf");
@@ -362,15 +365,14 @@ where
         if let Ok(new_state) = starting_state.append(&self.block, &self.cur_view) {
             let leaf = DALeaf {
                 view_number: self.cur_view,
-                // TODO
+                // TODO: what is this height for?
                 height: 0,
                 justify_qc: self.high_qc.clone(),
-                parent_commitment: parent_leaf.commit(),
+                parent_commitment: self.parent.commit(),
                 deltas: self.block,
                 state: Either::Left(new_state.clone()),
                 rejected: vec![],
-                // TODO
-                timestamp: 0,
+                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                 proposer_id: self.api.public_key().to_bytes(),
             };
             let signature = self

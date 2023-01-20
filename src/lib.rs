@@ -895,8 +895,8 @@ where
             vote_collection_chan: recv_da_vote,
             _pd: PhantomData,
         };
-        let (da_cert, block) = if let Some((cert, block)) = da_leader.run_view().await {
-            (cert, block)
+        let (da_cert, block, parent) = if let Some((cert, block, parent,)) = da_leader.run_view().await {
+            (cert, block, parent)
         } else {
             return Ok(());
         };
@@ -906,6 +906,7 @@ where
             high_qc: high_qc.clone(),
             cert: da_cert,
             block,
+            parent,
             cur_view,
             api: c_api.clone(),
             _pd: PhantomData,
