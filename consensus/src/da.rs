@@ -13,7 +13,6 @@ use either::Either::Left;
 use hotshot_types::certificate::DACertificate;
 use hotshot_types::data::CommitmentProposal;
 use hotshot_types::message::{ProcessedConsensusMessage, Vote};
-use hotshot_types::traits::block_contents::BlockCommitment;
 use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::state::SequencingConsensus;
 use hotshot_types::{

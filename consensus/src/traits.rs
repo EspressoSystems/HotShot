@@ -1,6 +1,5 @@
 //! Contains the [`ConsensusApi`] trait.
 
-use crate::Consensus;
 use async_trait::async_trait;
 use commit::Commitment;
 use hotshot_types::data::DAProposal;

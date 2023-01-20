@@ -629,33 +629,6 @@ where
     }
 }
 
-// impl<
-//         TYPES: NodeType,
-//         ELECTION: Election<
-//             TYPES,
-//             LeafType = DALeaf<TYPES>,
-//             QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
-//         >,
-//     > From<DALeaf<TYPES>> for CommitmentProposal<TYPES, ELECTION>
-// where
-//     TYPES::StateType: TestableState,
-//     TYPES::BlockType: TestableBlock,
-// {
-//     fn from(leaf: DALeaf<TYPES>) -> Self {
-//         let state_commit = match leaf.state {
-//             Either::Left(state) => {
-//                 state.commit()
-//             }
-//             Either::Right(commit) => {
-//                 commit
-//             }
-//         };
-//         Self {
-
-//         }
-//     }
-// }
-
 impl<TYPES: NodeType> ValidatingLeaf<TYPES>
 where
     TYPES::ConsensusType: ValidatingConsensusType,
