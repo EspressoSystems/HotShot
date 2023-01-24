@@ -12,11 +12,8 @@ use hotshot_types::{
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
-        election::SignedCertificate,
-        network::NetworkingImplementation,
-        node_implementation::NodeType,
-        state::ConsensusTime,
-        storage::{Storage, StoredView},
+        election::SignedCertificate, network::NetworkingImplementation,
+        node_implementation::NodeType, state::ConsensusTime, storage::Storage,
     },
 };
 use std::sync::{
@@ -148,16 +145,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     /// Signals to the underlying [`HotShot`] to unpause
     ///
     /// This will cause the background task to start running consensus again.
-    pub async fn start(&self)
-    where
-        I::Leaf: From<StoredView<TYPES, I::Leaf>>,
-    {
+    pub async fn start(&self) {
         self.hotshot.inner.background_task_handle.start().await;
         // if is genesis
         let _anchor = self.storage();
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
             if anchor_leaf.view_number == TYPES::Time::genesis() {
-                let leaf: I::Leaf = anchor_leaf.into();
+                let leaf: I::Leaf = I::Leaf::from_stored_view(anchor_leaf);
                 let mut qc = <I::Leaf as LeafType>::QuorumCertificate::genesis();
                 qc.set_leaf_commitment(leaf.commit());
                 let event = Event {
