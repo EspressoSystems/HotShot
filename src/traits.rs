@@ -11,9 +11,6 @@ pub use storage::{Result as StorageResult, Storage};
 
 /// Module for publicly usable implementations of the traits
 pub mod implementations {
-    #[cfg(feature = "async-std-executor")]
-    pub use super::networking::w_network::WNetwork;
-
     pub use super::{
         networking::{
             centralized_server_network::CentralizedServerNetwork,

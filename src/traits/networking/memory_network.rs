@@ -21,7 +21,7 @@ use hotshot_types::{
     message::Message,
     traits::{
         metrics::{Metrics, NoMetrics},
-        network::{ChannelDisconnectedSnafu, NetworkChange, TestableNetworkingImplementation},
+        network::{NetworkChange, TestableNetworkingImplementation, TransmitType},
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
@@ -375,6 +375,84 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
     > NetworkingImplementation<TYPES, LEAF, PROPOSAL> for MemoryNetwork<TYPES, LEAF, PROPOSAL>
 {
+    #[instrument(name = "Libp2pNetwork::next_msg", skip_all)]
+    async fn recv_msg(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
+        match transmit_type {
+            TransmitType::Direct => {
+                let ret = self
+                    .inner
+                    .direct_output
+                    .lock()
+                    .await
+                    .recv()
+                    .await
+                    .map_err(|_| NetworkError::ShutDown)?;
+                self.inner
+                    .in_flight_message_count
+                    .fetch_sub(1, Ordering::Relaxed);
+                self.inner.metrics.incoming_message_count.add(1);
+                Ok(ret)
+            }
+            TransmitType::Broadcast => {
+                let ret = self
+                    .inner
+                    .broadcast_output
+                    .lock()
+                    .await
+                    .recv()
+                    .await
+                    .map_err(|_| NetworkError::ShutDown)?;
+                self.inner
+                    .in_flight_message_count
+                    .fetch_sub(1, Ordering::Relaxed);
+                self.inner.metrics.incoming_message_count.add(1);
+                Ok(ret)
+            }
+        }
+    }
+
+    #[instrument(name = "Libp2pNetwork::next_msgs", skip_all)]
+    async fn recv_msgs(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
+        match transmit_type {
+            TransmitType::Direct => {
+                let ret = self
+                    .inner
+                    .direct_output
+                    .lock()
+                    .await
+                    .drain_at_least_one()
+                    .await
+                    .map_err(|_x| NetworkError::ShutDown)?;
+                self.inner
+                    .in_flight_message_count
+                    .fetch_sub(ret.len(), Ordering::Relaxed);
+                self.inner.metrics.incoming_message_count.add(ret.len());
+                Ok(ret)
+            }
+            TransmitType::Broadcast => {
+                let ret = self
+                    .inner
+                    .broadcast_output
+                    .lock()
+                    .await
+                    .drain_at_least_one()
+                    .await
+                    .map_err(|_x| NetworkError::ShutDown)?;
+                self.inner
+                    .in_flight_message_count
+                    .fetch_sub(ret.len(), Ordering::Relaxed);
+                self.inner.metrics.incoming_message_count.add(ret.len());
+                Ok(ret)
+            }
+        }
+    }
+
     #[instrument(name = "MemoryNetwork::broadcast_message")]
     async fn broadcast_message(
         &self,
@@ -443,74 +521,6 @@ impl<
         }
     }
 
-    #[instrument(name = "MemoryNetwork::broadcast_queue")]
-    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
-        let ret = self
-            .inner
-            .broadcast_output
-            .lock()
-            .await
-            .drain_at_least_one()
-            .await
-            .context(ChannelDisconnectedSnafu)?;
-        self.inner
-            .in_flight_message_count
-            .fetch_sub(ret.len(), Ordering::Relaxed);
-        self.inner.metrics.incoming_message_count.add(ret.len());
-        Ok(ret)
-    }
-
-    #[instrument(name = "MemoryNetwork::next_broadcast")]
-    async fn next_broadcast(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
-        let ret = self
-            .inner
-            .broadcast_output
-            .lock()
-            .await
-            .recv()
-            .await
-            .map_err(|_| NetworkError::ShutDown)?;
-        self.inner
-            .in_flight_message_count
-            .fetch_sub(1, Ordering::Relaxed);
-        self.inner.metrics.incoming_message_count.add(1);
-        Ok(ret)
-    }
-
-    #[instrument(name = "MemoryNetwork::direct_queue")]
-    async fn direct_queue(&self) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
-        let ret = self
-            .inner
-            .direct_output
-            .lock()
-            .await
-            .drain_at_least_one()
-            .await
-            .context(ChannelDisconnectedSnafu)?;
-        self.inner
-            .in_flight_message_count
-            .fetch_sub(ret.len(), Ordering::Relaxed);
-        self.inner.metrics.incoming_message_count.add(ret.len());
-        Ok(ret)
-    }
-
-    #[instrument(name = "MemoryNetwork::next_direct")]
-    async fn next_direct(&self) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
-        let ret = self
-            .inner
-            .direct_output
-            .lock()
-            .await
-            .recv()
-            .await
-            .map_err(|_| NetworkError::ShutDown)?;
-        self.inner
-            .in_flight_message_count
-            .fetch_sub(1, Ordering::Relaxed);
-        self.inner.metrics.incoming_message_count.add(1);
-        Ok(ret)
-    }
-
     async fn known_nodes(&self) -> Vec<TYPES::SignatureKey> {
         self.inner
             .master_map
@@ -530,7 +540,7 @@ impl<
             .await
             .drain_at_least_one()
             .await
-            .context(ChannelDisconnectedSnafu)
+            .map_err(|_| NetworkError::ShutDown)
     }
 
     async fn shut_down(&self) {
@@ -565,20 +575,26 @@ impl<
 
 // Tests have been commented out, so `mod tests` isn't used.
 #[cfg(test)]
+// panic in tests
+#[allow(clippy::panic)]
 mod tests {
     use super::*;
     use crate::{
-        demos::dentry::{DEntryBlock, DEntryState, DEntryTransaction},
-        traits::election::static_committee::{StaticElectionConfig, StaticVoteToken},
+        demos::dentry::{Addition, DEntryBlock, DEntryState, DEntryTransaction, Subtraction},
+        traits::election::static_committee::{
+            GeneralStaticCommittee, StaticElectionConfig, StaticVoteToken,
+        },
     };
 
-    use hotshot_types::traits::state::ValidatingConsensus;
+    use async_compatibility_layer::logging::setup_logging;
     use hotshot_types::{
         data::ViewNumber,
-        traits::{
-            node_implementation::ApplicationMetadata,
-            signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
-        },
+        message::{DataMessage, MessageKind},
+        traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
+    };
+    use hotshot_types::{
+        data::{ValidatingLeaf, ValidatingProposal},
+        traits::{node_implementation::ApplicationMetadata, state::ValidatingConsensus},
     };
 
     /// application metadata stub
@@ -600,9 +616,7 @@ mod tests {
         serde::Serialize,
         serde::Deserialize,
     )]
-    struct Test {
-        message: u64,
-    }
+    struct Test {}
 
     impl NodeType for Test {
         // TODO (da) can this be SequencingConsensus?
@@ -617,212 +631,262 @@ mod tests {
         type ApplicationMetadataType = TestMetaData;
     }
 
+    type TestLeaf = ValidatingLeaf<Test>;
+    type TestCommittee = GeneralStaticCommittee<Test, TestLeaf, Ed25519Pub>;
+    type TestProposal = ValidatingProposal<Test, TestCommittee>;
+
+    /// fake Eq
+    /// we can't compare the votetokentype for equality, so we can't
+    /// derive EQ on Vote and thereby message
+    /// we are only sending data messages, though so we compare key and
+    /// data message
+    fn fake_message_eq(
+        message_1: Message<Test, TestLeaf, TestProposal>,
+        message_2: Message<Test, TestLeaf, TestProposal>,
+    ) {
+        assert_eq!(message_1.sender, message_2.sender);
+        if let MessageKind::Data(DataMessage::SubmitTransaction(d_1)) = message_1.kind {
+            if let MessageKind::Data(DataMessage::SubmitTransaction(d_2)) = message_2.kind {
+                assert_eq!(d_1, d_2);
+            }
+        } else {
+            panic!("Got unexpected message type in memory test!");
+        }
+    }
+
     #[instrument]
     fn get_pubkey() -> Ed25519Pub {
         let priv_key = Ed25519Priv::generate();
         Ed25519Pub::from_private(&priv_key)
     }
 
-    // // Spawning a single MemoryNetwork should produce no errors
-    // #[cfg_attr(
-    //     feature = "tokio-executor",
-    //     tokio::test(flavor = "multi_thread", worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    // #[instrument]
-    // async fn spawn_single<ELECTION: Election<>>() {
-    //     setup_logging();
-    //     let group: Arc<MasterMap<Test, ValidatingLeaf<Test>, ValidatingProposal<Test, ELECTION>>> =
-    //         MasterMap::new();
-    //     trace!(?group);
-    //     let pub_key = get_pubkey();
-    //     let _network = MemoryNetwork::new(pub_key, NoMetrics::new(), group, Option::None);
-    // }
+    /// create a message
+    fn gen_messages(
+        num_messages: u64,
+        seed: u64,
+        pk: Ed25519Pub,
+    ) -> Vec<Message<Test, TestLeaf, TestProposal>> {
+        let mut messages = Vec::new();
+        for i in 0..num_messages {
+            let message = Message {
+                sender: pk,
+                kind: MessageKind::Data(DataMessage::SubmitTransaction(DEntryTransaction {
+                    add: Addition {
+                        account: "A".to_string(),
+                        amount: 50 + i + seed,
+                    },
+                    sub: Subtraction {
+                        account: "B".to_string(),
+                        amount: 50 + i + seed,
+                    },
+                    nonce: seed + i,
+                    padding: vec![50; 0],
+                })),
+            };
+            messages.push(message);
+        }
+        messages
+    }
+
+    // Spawning a single MemoryNetwork should produce no errors
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    #[instrument]
+    async fn spawn_single() {
+        setup_logging();
+        let group: Arc<MasterMap<Test, TestLeaf, TestProposal>> = MasterMap::new();
+        trace!(?group);
+        let pub_key = get_pubkey();
+        let _network = MemoryNetwork::new(pub_key, NoMetrics::new(), group, Option::None);
+    }
 
     // // Spawning a two MemoryNetworks and connecting them should produce no errors
-    // #[cfg_attr(
-    //     feature = "tokio-executor",
-    //     tokio::test(flavor = "multi_thread", worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    // #[instrument]
-    // async fn spawn_double() {
-    //     setup_logging();
-    //     let group: Arc<MasterMap<Test, ValidatingLeaf<Test>, ValidatingProposal<Test, ELECTION>>> =
-    //         MasterMap::new();
-    //     trace!(?group);
-    //     let pub_key_1 = get_pubkey();
-    //     let _network_1 =
-    //         MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
-    //     let pub_key_2 = get_pubkey();
-    //     let _network_2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
-    // }
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    #[instrument]
+    async fn spawn_double() {
+        setup_logging();
+        let group: Arc<MasterMap<Test, TestLeaf, TestProposal>> = MasterMap::new();
+        trace!(?group);
+        let pub_key_1 = get_pubkey();
+        let _network_1 =
+            MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
+        let pub_key_2 = get_pubkey();
+        let _network_2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
+    }
 
     // Check to make sure direct queue works
-    // #[cfg_attr(
-    //     feature = "tokio-executor",
-    //     tokio::test(flavor = "multi_thread", worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    // #[instrument]
-    // async fn direct_queue() {
-    //     setup_logging();
-    //     // Create some dummy messages
-    //     let messages: Vec<Message<Test>> = (0..5).map(|x| ()).collect();
-    //     // Make and connect the networking instances
-    //     let group: Arc<MasterMap<Test,LEAF,PROPOSAL>> = MasterMap::new();
-    //     trace!(?group);
-    //     let pub_key_1 = get_pubkey();
-    //     let network1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
-    //     let pub_key_2 = get_pubkey();
-    //     let network2 = MemoryNetwork::new(pub_key_2, group, Option::None);
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    #[allow(deprecated)]
+    #[instrument]
+    async fn direct_queue() {
+        setup_logging();
+        // Create some dummy messages
 
-    //     // Test 1 -> 2
-    //     // Send messages
-    //     for message in &messages {
-    //         network1
-    //             .message_node(message.clone(), pub_key_2)
-    //             .await
-    //             .expect("Failed to message node");
-    //     }
-    //     let mut output = Vec::new();
-    //     while output.len() < messages.len() {
-    //         let message = network2
-    //             .next_direct()
-    //             .await
-    //             .expect("Failed to receive message");
-    //         output.push(message);
-    //     }
-    //     output.sort();
-    //     // Check for equality
-    //     assert_eq!(output, messages);
+        // Make and connect the networking instances
+        let group: Arc<MasterMap<Test, TestLeaf, TestProposal>> = MasterMap::new();
+        trace!(?group);
+        let pub_key_1 = get_pubkey();
+        let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
+        let pub_key_2 = get_pubkey();
+        let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
 
-    //     // Test 2 -> 1
-    //     // Send messages
-    //     for message in &messages {
-    //         network2
-    //             .message_node(message.clone(), pub_key_1)
-    //             .await
-    //             .expect("Failed to message node");
-    //     }
-    //     let mut output = Vec::new();
-    //     while output.len() < messages.len() {
-    //         let message = network1
-    //             .next_direct()
-    //             .await
-    //             .expect("Failed to receive message");
-    //         output.push(message);
-    //     }
-    //     output.sort();
-    //     // Check for equality
-    //     assert_eq!(output, messages);
-    // }
+        let first_messages: Vec<Message<Test, TestLeaf, TestProposal>> =
+            gen_messages(5, 100, pub_key_1);
 
-    // // Check to make sure direct queue works
-    // #[cfg_attr(
-    //     feature = "tokio-executor",
-    //     tokio::test(flavor = "multi_thread", worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    // #[instrument]
-    // async fn broadcast_queue() {
-    //     setup_logging();
-    //     // Create some dummy messages
-    //     let messages: Vec<Test> = (0..5).map(|x| Test { message: x }).collect();
-    //     // Make and connect the networking instances
-    //     let group: Arc<MasterMap<Test,LEAF,PROPOSAL>> = MasterMap::new();
-    //     trace!(?group);
-    //     let pub_key_1 = get_pubkey();
-    //     let network1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
-    //     let pub_key_2 = get_pubkey();
-    //     let network2 = MemoryNetwork::new(pub_key_2, group, Option::None);
+        // Test 1 -> 2
+        // Send messages
+        for sent_message in first_messages {
+            network1
+                .message_node(sent_message.clone(), pub_key_2)
+                .await
+                .expect("Failed to message node");
+            let recv_message = network2
+                .recv_msg(TransmitType::Direct)
+                .await
+                .expect("Failed to receive message");
+            fake_message_eq(sent_message, recv_message);
+        }
 
-    //     // Test 1 -> 2
-    //     // Send messages
-    //     for message in &messages {
-    //         network1
-    //             .broadcast_message(message.clone())
-    //             .await
-    //             .expect("Failed to message node");
-    //     }
-    //     let mut output = Vec::new();
-    //     while output.len() < messages.len() {
-    //         let message = network2
-    //             .next_broadcast()
-    //             .await
-    //             .expect("Failed to receive message");
-    //         output.push(message);
-    //     }
-    //     output.sort();
-    //     // Check for equality
-    //     assert_eq!(output, messages);
+        let second_messages: Vec<Message<Test, TestLeaf, TestProposal>> =
+            gen_messages(5, 200, pub_key_2);
 
-    //     // Test 2 -> 1
-    //     // Send messages
-    //     for message in &messages {
-    //         network2
-    //             .broadcast_message(message.clone())
-    //             .await
-    //             .expect("Failed to message node");
-    //     }
-    //     let mut output = Vec::new();
-    //     while output.len() < messages.len() {
-    //         let message = network1
-    //             .next_broadcast()
-    //             .await
-    //             .expect("Failed to receive message");
-    //         output.push(message);
-    //     }
-    //     output.sort();
-    //     // Check for equality
-    //     assert_eq!(output, messages);
-    // }
-    // #[cfg_attr(
-    //     feature = "tokio-executor",
-    //     tokio::test(flavor = "multi_thread", worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    // #[instrument]
-    // async fn test_in_flight_message_count() {
-    //     setup_logging();
-    //     // Create some dummy messages
-    //     let messages: Vec<Test> = (0..5).map(|x| Test { message: x }).collect();
-    //     let group: Arc<MasterMap<Test, Ed25519Pub>> = MasterMap::new();
-    //     trace!(?group);
-    //     let pub_key_1 = get_pubkey();
-    //     let network1 = MemoryNetwork::new(pub_key_1, group.clone(), Option::None);
-    //     let pub_key_2 = get_pubkey();
-    //     let network2 = MemoryNetwork::new(pub_key_2, group, Option::None);
+        // Test 2 -> 1
+        // Send messages
+        for sent_message in second_messages {
+            network2
+                .message_node(sent_message.clone(), pub_key_1)
+                .await
+                .expect("Failed to message node");
+            let recv_message = network1
+                .recv_msg(TransmitType::Direct)
+                .await
+                .expect("Failed to receive message");
+            fake_message_eq(sent_message, recv_message);
+        }
+    }
 
-    //     assert_eq!(network1.in_flight_message_count(), Some(0));
-    //     assert_eq!(network2.in_flight_message_count(), Some(0));
+    // Check to make sure direct queue works
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    #[allow(deprecated)]
+    #[instrument]
+    async fn broadcast_queue() {
+        setup_logging();
+        // Make and connect the networking instances
+        let group: Arc<MasterMap<Test, TestLeaf, TestProposal>> = MasterMap::new();
+        trace!(?group);
+        let pub_key_1 = get_pubkey();
+        let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
+        let pub_key_2 = get_pubkey();
+        let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
 
-    //     for (count, message) in messages.iter().enumerate() {
-    //         network1
-    //             .message_node(message.clone(), pub_key_2)
-    //             .await
-    //             .unwrap();
-    //         // network 2 has received `count` broadcast messages and `count + 1` direct messages
-    //         assert_eq!(network2.in_flight_message_count(), Some(count + count + 1));
+        let first_messages: Vec<Message<Test, TestLeaf, TestProposal>> =
+            gen_messages(5, 100, pub_key_1);
 
-    //         network2.broadcast_message(message.clone()).await.unwrap();
-    //         // network 1 has received `count` broadcast messages
-    //         assert_eq!(network1.in_flight_message_count(), Some(count + 1));
+        // Test 1 -> 2
+        // Send messages
+        for sent_message in first_messages {
+            network1
+                .broadcast_message(sent_message.clone())
+                .await
+                .expect("Failed to message node");
+            let recv_message = network2
+                .recv_msg(TransmitType::Broadcast)
+                .await
+                .expect("Failed to receive message");
+            fake_message_eq(sent_message.clone(), recv_message);
+            let recv_message = network1
+                .recv_msg(TransmitType::Broadcast)
+                .await
+                .expect("Failed to receive message");
+            fake_message_eq(sent_message, recv_message);
+        }
 
-    //         // network 2 has received `count + 1` broadcast messages and `count + 1` direct messages
-    //         assert_eq!(network2.in_flight_message_count(), Some((count + 1) * 2));
-    //     }
+        let second_messages: Vec<Message<Test, TestLeaf, TestProposal>> =
+            gen_messages(5, 200, pub_key_2);
 
-    //     for count in (0..messages.len()).rev() {
-    //         network1.next_broadcast().await.unwrap();
-    //         assert_eq!(network1.in_flight_message_count(), Some(count));
+        // Test 2 -> 1
+        // Send messages
+        for sent_message in second_messages {
+            network2
+                .broadcast_message(sent_message.clone())
+                .await
+                .expect("Failed to message node");
+            let recv_message = network1
+                .recv_msg(TransmitType::Broadcast)
+                .await
+                .expect("Failed to receive message");
+            fake_message_eq(sent_message.clone(), recv_message);
+            let recv_message = network2
+                .recv_msg(TransmitType::Broadcast)
+                .await
+                .expect("Failed to receive message");
+            fake_message_eq(sent_message.clone(), recv_message);
+        }
+    }
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    #[instrument]
+    #[allow(deprecated)]
+    async fn test_in_flight_message_count() {
+        setup_logging();
 
-    //         network2.next_broadcast().await.unwrap();
-    //         network2.next_direct().await.unwrap();
-    //         assert_eq!(network2.in_flight_message_count(), Some(count * 2));
-    //     }
+        let group: Arc<MasterMap<Test, TestLeaf, TestProposal>> = MasterMap::new();
+        trace!(?group);
+        let pub_key_1 = get_pubkey();
+        let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
+        let pub_key_2 = get_pubkey();
+        let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
 
-    //     assert_eq!(network1.in_flight_message_count(), Some(0));
-    //     assert_eq!(network2.in_flight_message_count(), Some(0));
-    // }
+        // Create some dummy messages
+        let messages: Vec<Message<Test, TestLeaf, TestProposal>> = gen_messages(5, 100, pub_key_1);
+
+        assert_eq!(network1.in_flight_message_count(), Some(0));
+        assert_eq!(network2.in_flight_message_count(), Some(0));
+
+        for (count, message) in messages.iter().enumerate() {
+            network1
+                .message_node(message.clone(), pub_key_2)
+                .await
+                .unwrap();
+            // network 2 has received `count` broadcast messages and `count + 1` direct messages
+            assert_eq!(network2.in_flight_message_count(), Some(count + count + 1));
+
+            network2.broadcast_message(message.clone()).await.unwrap();
+            // network 1 has received `count` broadcast messages
+            assert_eq!(network1.in_flight_message_count(), Some(count + 1));
+
+            // network 2 has received `count + 1` broadcast messages and `count + 1` direct messages
+            assert_eq!(network2.in_flight_message_count(), Some((count + 1) * 2));
+        }
+
+        for count in (0..messages.len()).rev() {
+            network1.recv_msg(TransmitType::Broadcast).await.unwrap();
+            assert_eq!(network1.in_flight_message_count(), Some(count));
+
+            network2.recv_msg(TransmitType::Broadcast).await.unwrap();
+            network2.recv_msg(TransmitType::Direct).await.unwrap();
+            assert_eq!(network2.in_flight_message_count(), Some(count * 2));
+        }
+
+        assert_eq!(network1.in_flight_message_count(), Some(0));
+        assert_eq!(network2.in_flight_message_count(), Some(0));
+    }
 }
