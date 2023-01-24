@@ -17,6 +17,7 @@ use hotshot_types::data::CommitmentProposal;
 use hotshot_types::message::{ProcessedConsensusMessage, Vote};
 use hotshot_types::traits::state::SequencingConsensus;
 use hotshot_types::{
+    certificate::QuorumCertificate,
     data::{DALeaf, DAProposal},
     message::{ConsensusMessage, Proposal},
     traits::{
@@ -372,7 +373,7 @@ where
                 DALeaf<TYPES>,
                 CommitmentProposal<TYPES, ELECTION>,
             >::Proposal(Proposal {
-                leaf: proposal,
+                data: proposal,
                 signature,
             });
             if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
