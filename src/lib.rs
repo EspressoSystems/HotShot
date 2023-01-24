@@ -54,9 +54,11 @@ use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use hotshot_consensus::{
-    Consensus, ConsensusApi, ConsensusMetrics, DALeader, NextValidatingLeader, Replica,
-    SendToTasks, ValidatingLeader, View, ViewInner, ViewQueue,
+    Consensus, ConsensusApi, ConsensusMetrics, DAConsensusLeader, DALeader, DANextLeader,
+    NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner, ViewQueue,
 };
+use hotshot_types::certificate::DACertificate;
+use hotshot_types::data::ProposalType;
 use hotshot_types::data::{DALeaf, DAProposal};
 use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
 use hotshot_types::{
@@ -848,11 +850,12 @@ where
 
 #[async_trait]
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
         ELECTION: Election<
             TYPES,
             LeafType = DALeaf<TYPES>,
             QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+            DACertificate = DACertificate<TYPES>,
         >,
         I: NodeImplementation<TYPES, Leaf = DALeaf<TYPES>, Proposal = DAProposal<TYPES, ELECTION>>,
     > ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
@@ -876,6 +879,15 @@ where
             .await;
             (vq.sender_chan, vq.receiver_chan, cur_view)
         };
+        let send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+        let (_send_commitment_vote_chan, recv_commitment_vote_chan) = {
+            let vq = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+                cur_view + 1,
+                send_to_next_leader,
+            )
+            .await;
+            (vq.sender_chan, vq.receiver_chan)
+        };
         let (high_qc, txns) = {
             // OBTAIN read lock on consensus
             let consensus = hotshot.hotstuff.read().await;
@@ -883,23 +895,51 @@ where
             let txns = consensus.transactions.clone();
             (high_qc, txns)
         };
+        if c_api.is_leader(cur_view).await {
+            let da_leader = DALeader {
+                id: hotshot.id,
+                consensus: hotshot.hotstuff.clone(),
+                high_qc: high_qc.clone(),
+                cur_view,
+                transactions: txns,
+                api: c_api.clone(),
+                vote_collection_chan: recv_da_vote,
+                _pd: PhantomData,
+            };
+            let (da_cert, block, parent) =
+                if let Some((cert, block, parent)) = da_leader.run_view().await {
+                    (cert, block, parent)
+                } else {
+                    return Ok(());
+                };
+            let consensus_leader = DAConsensusLeader {
+                id: hotshot.id,
+                consensus: hotshot.hotstuff.clone(),
+                high_qc: high_qc.clone(),
+                cert: da_cert,
+                block,
+                parent,
+                cur_view,
+                api: c_api.clone(),
+                _pd: PhantomData,
+            };
+            let _qc = consensus_leader.run_view().await;
+        }
+        if c_api.is_leader(cur_view + 1).await {
+            let next_leader = DANextLeader {
+                id: hotshot.id,
+                consensus: hotshot.hotstuff.clone(),
+                cur_view,
+                api: c_api.clone(),
+                generic_qc: high_qc.clone(),
+                vote_collection_chan: recv_commitment_vote_chan,
+                _pd: PhantomData,
+            };
+            let _new_qc = next_leader.run_view();
+        }
 
-        let da_leader = DALeader {
-            id: hotshot.id,
-            consensus: hotshot.hotstuff.clone(),
-            high_qc: high_qc.clone(),
-            cur_view,
-            transactions: txns,
-            api: c_api.clone(),
-            vote_collection_chan: recv_da_vote,
-            _pd: PhantomData,
-        };
-        let _da_cert = if let Some(cert) = da_leader.run_view().await {
-            cert
-        } else {
-            return Ok(());
-        };
         let _da_replica = {};
+        // TODO tie all the tasks together and do correct book keeping.
         #[allow(deprecated)]
         nll_todo()
     }
@@ -993,6 +1033,23 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
                 kind: message.into(),
             })
             .await
+    }
+
+    async fn send_da_broadcast<DAPROPOSAL: ProposalType<NodeType = TYPES>>(
+        &self,
+        _message: ConsensusMessage<TYPES, I::Leaf, DAPROPOSAL>,
+    ) -> std::result::Result<(), NetworkError> {
+        // TODO: Should look like this code but it won't work due to only 1 Proposal type being
+        // associated with self.inner.networking.
+        // self.inner
+        //     .networking
+        //     .broadcast_message(Message {
+        //         sender: self.inner.public_key.clone(),
+        //         kind: MessageKind::Consensus(message),
+        //     })
+        //     .await
+        #[allow(deprecated)]
+        nll_todo()
     }
 
     async fn send_event(&self, event: Event<TYPES, I::Leaf>) {
