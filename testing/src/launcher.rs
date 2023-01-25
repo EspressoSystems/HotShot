@@ -1,4 +1,5 @@
 use super::{Generator, TestRunner};
+use crate::TestableLeaf;
 use hotshot::types::SignatureKey;
 use hotshot_types::{
     traits::{
@@ -158,6 +159,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///

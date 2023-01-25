@@ -24,7 +24,6 @@ use hotshot_types::{
         election::{Checked::Unchecked, Election, SignedCertificate, VoteData, VoteToken},
         node_implementation::NodeType,
         signature_key::SignatureKey,
-        state::{TestableBlock, TestableState},
         Block, State,
     },
 };
@@ -40,10 +39,7 @@ pub struct DALeader<
     A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
     ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
-> where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
-{
+> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
@@ -74,9 +70,6 @@ impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
     > DALeader<A, TYPES, ELECTION>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
 {
     /// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
     /// TODO: Refactor this to use new `Elecetion` trait and call accumulate
@@ -292,10 +285,7 @@ pub struct DAConsensusLeader<
         QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
         DACertificate = DACertificate<TYPES>,
     >,
-> where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
-{
+> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
@@ -327,9 +317,6 @@ impl<
             DACertificate = DACertificate<TYPES>,
         >,
     > DAConsensusLeader<A, TYPES, ELECTION>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
 {
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
@@ -392,10 +379,7 @@ pub struct DANextLeader<
     A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
     ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
-> where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
-{
+> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
@@ -424,9 +408,6 @@ impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
     > DANextLeader<A, TYPES, ELECTION>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
 {
     /// Run one view of the next leader, collect votes and build a QC for the last views `CommitmentProposal`
     /// # Panics

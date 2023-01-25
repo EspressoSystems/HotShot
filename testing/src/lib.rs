@@ -22,7 +22,7 @@ use hotshot::{
     HotShot, HotShotError, HotShotInitializer, ViewRunner, H_256,
 };
 use hotshot_types::{
-    data::{LeafType, ProposalType},
+    data::{LeafType, ProposalType, TestableLeaf},
     traits::{
         election::Election,
         metrics::NoMetrics,
@@ -77,7 +77,12 @@ pub type RoundPreSafetyCheck<TYPES, I> =
 
 /// functions to run a round of consensus
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
-pub struct Round<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct Round<TYPES: NodeType, I: NodeImplementation<TYPES>>
+where
+    <TYPES as NodeType>::BlockType: TestableBlock,
+    <TYPES as NodeType>::StateType: TestableState,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
+{
     /// Safety check before round is set up and run
     /// to ensure consistent state
     pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, I>>,
@@ -96,6 +101,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     fn default() -> Self {
         Self {
@@ -111,7 +117,10 @@ where
 pub struct TestRunner<TYPES, I>
 where
     TYPES: NodeType,
+    TYPES::BlockType: TestableBlock,
+    TYPES::StateType: TestableState,
     I: NodeImplementation<TYPES>,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     network_generator: Generator<I::Networking>,
     storage_generator: Generator<I::Storage>,
@@ -133,6 +142,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
@@ -376,6 +386,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
@@ -446,6 +457,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     /// Add a random transaction to this runner.
     pub async fn add_random_transaction(

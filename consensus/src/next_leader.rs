@@ -6,12 +6,9 @@ use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
 use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
 use hotshot_types::message::ProcessedConsensusMessage;
+use hotshot_types::traits::election::{Checked::Unchecked, Election, VoteData, VoteToken};
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::signature_key::SignatureKey;
-use hotshot_types::traits::{
-    election::{Checked::Unchecked, Election, VoteData, VoteToken},
-    state::{TestableBlock, TestableState},
-};
 use hotshot_types::{
     certificate::QuorumCertificate,
     message::{ConsensusMessage, Vote},
@@ -33,10 +30,7 @@ pub struct NextValidatingLeader<
         LeafType = ValidatingLeaf<TYPES>,
         QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
-> where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
-{
+> {
     /// id of node
     pub id: u64,
     /// generic_qc before starting this
@@ -72,9 +66,6 @@ impl<
             QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
         >,
     > NextValidatingLeader<A, TYPES, ELECTION>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
 {
     /// Run one view of the next leader task
     /// # Panics
