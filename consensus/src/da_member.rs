@@ -1,5 +1,5 @@
 //! Contains the [`DAMember`] struct used for the committee member step in the consensus algorithm
-//! with DA committee.
+//! with DA committee, i.e. in the sequencing consensus.
 
 use crate::{
     utils::{Terminator, View, ViewInner},

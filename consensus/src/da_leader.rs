@@ -1,5 +1,5 @@
-//! Contains the [`DALeader`] struct used for the leader step in the consensus algorithm with DA
-//! committee.
+//! Contains the [`DALeader`], [`DAConsensusLeader`] and [`DANextLeader`] structs used for the
+//! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
 use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_compatibility_layer::channel::UnboundedReceiver;

@@ -150,9 +150,7 @@ pub struct CommitmentProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
     /// Data availibity certificate
     pub dac: ELECTION::DACertificate,
 
-    /// parent commitment alrady in justify_qqc
-
-    /// What the state should be after applying `self.deltas`
+    /// What the state should be after applying the new block
     #[debug(skip)]
     pub state_commitment: Commitment<TYPES::StateType>,
 
