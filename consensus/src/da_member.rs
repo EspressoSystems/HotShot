@@ -17,7 +17,6 @@ use hotshot_types::{
         election::{Election, SignedCertificate},
         node_implementation::NodeType,
         signature_key::SignatureKey,
-        state::{TestableBlock, TestableState},
         State,
     },
 };
@@ -34,10 +33,7 @@ pub struct DAMember<
         LeafType = DALeaf<TYPES>,
         QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
     >,
-> where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
-{
+> {
     /// ID of node.
     pub id: u64,
     /// Reference to consensus. DA committee member will require a write lock on this.
@@ -68,9 +64,6 @@ impl<
             QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
         >,
     > DAMember<A, TYPES, ELECTION>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
 {
     /// Returns the parent leaf of the proposal we are voting on
     async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
@@ -222,11 +215,7 @@ where
 
     /// Run one view of DA committee member.
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "DA Member Task", level = "error")]
-    pub async fn run_view(self)
-    where
-        TYPES::StateType: TestableState,
-        TYPES::BlockType: TestableBlock,
-    {
+    pub async fn run_view(self) {
         info!("DA Committee Member task started!");
         let view_leader_key = self.api.get_leader(self.cur_view).await;
 
