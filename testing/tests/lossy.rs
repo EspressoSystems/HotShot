@@ -13,6 +13,7 @@ use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
     ConsensusRoundError, RoundResult,
 };
+use hotshot_types::data::TestableLeaf;
 use hotshot_types::traits::{
     network::TestableNetworkingImplementation,
     node_implementation::{NodeImplementation, NodeType, TestableNodeImplementation},
@@ -21,7 +22,6 @@ use hotshot_types::traits::{
     storage::TestableStorage,
 };
 use tracing::{error, instrument};
-
 /// checks safety requirement; relatively lax
 /// marked as success if 2f+1 nodes "succeeded" and committed the same thing
 pub fn check_safety<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
@@ -39,6 +39,7 @@ where
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     async move {
         let num_nodes = runner.ids().len();

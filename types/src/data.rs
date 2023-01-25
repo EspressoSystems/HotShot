@@ -271,6 +271,10 @@ pub trait LeafType:
     fn get_proposer_id(&self) -> EncodedPublicKey;
 
     fn from_stored_view(stored_view: StoredView<Self::NodeType, Self>) -> Self;
+}
+
+pub trait TestableLeaf {
+    type NodeType: NodeType;
 
     fn create_random_transaction(
         &self,
@@ -284,11 +288,7 @@ pub trait LeafType:
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative)]
 #[serde(bound(deserialize = ""))]
 #[derivative(Hash, PartialEq, Eq)]
-pub struct ValidatingLeaf<TYPES: NodeType>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
-{
+pub struct ValidatingLeaf<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
 
@@ -361,11 +361,7 @@ pub struct DALeaf<TYPES: NodeType> {
     pub proposer_id: EncodedPublicKey,
 }
 
-impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
-{
+impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
     type NodeType = TYPES;
     type StateCommitmentType = TYPES::StateType;
     type QuorumCertificate = QuorumCertificate<Self::NodeType, Self>;
@@ -446,6 +442,14 @@ where
             proposer_id: stored_view.proposer_id,
         }
     }
+}
+
+impl<TYPES: NodeType> TestableLeaf for ValidatingLeaf<TYPES>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
+    type NodeType = TYPES;
 
     fn create_random_transaction(
         &self,
@@ -536,6 +540,14 @@ impl<TYPES: NodeType> LeafType for DALeaf<TYPES> {
             proposer_id: stored_view.proposer_id,
         }
     }
+}
+
+impl<TYPES: NodeType> TestableLeaf for DALeaf<TYPES>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
+    type NodeType = TYPES;
 
     fn create_random_transaction(
         &self,
@@ -545,7 +557,6 @@ impl<TYPES: NodeType> LeafType for DALeaf<TYPES> {
         nll_todo()
     }
 }
-
 /// Fake the thing a genesis block points to. Needed to avoid infinite recursion
 pub fn fake_commitment<S: Committable>() -> Commitment<S> {
     commit::RawCommitmentBuilder::new("Dummy commitment for arbitrary genesis").finalize()
@@ -560,11 +571,7 @@ pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitm
         .finalize()
 }
 
-impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
-{
+impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
     fn commit(&self) -> commit::Commitment<Self> {
         let mut signatures_bytes = vec![];
         for (k, v) in &self.justify_qc.signatures {
@@ -609,9 +616,6 @@ impl<
             QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
         >,
     > From<ValidatingLeaf<TYPES>> for ValidatingProposal<TYPES, ELECTION>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
 {
     fn from(leaf: ValidatingLeaf<TYPES>) -> Self {
         Self {
@@ -632,8 +636,6 @@ where
 impl<TYPES: NodeType> ValidatingLeaf<TYPES>
 where
     TYPES::ConsensusType: ValidatingConsensusType,
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
 {
     /// Creates a new leaf with the specified block and parent
     ///
@@ -699,8 +701,6 @@ where
 impl<TYPES: NodeType> From<StoredView<TYPES, ValidatingLeaf<TYPES>>> for ValidatingLeaf<TYPES>
 where
     TYPES::ConsensusType: ValidatingConsensusType,
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
 {
     fn from(append: StoredView<TYPES, ValidatingLeaf<TYPES>>) -> Self {
         ValidatingLeaf::new(
