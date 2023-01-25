@@ -92,7 +92,6 @@ where
                         return self.high_qc;
                     }
                 }
-                // can happen if future api is whacked
                 ViewInner::Failed => {
                     warn!("Parent of high QC points to a failed QC");
                     return self.high_qc;

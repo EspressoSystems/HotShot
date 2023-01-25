@@ -172,7 +172,7 @@ where
                             continue;
                         }
 
-                        let liveness_check = justify_qc.view_number > consensus.locked_view + 2;
+                        let liveness_check = justify_qc.view_number > consensus.locked_view;
 
                         // check if proposal extends from the locked leaf
                         let outcome = consensus.visit_leaf_ancestors(

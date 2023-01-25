@@ -2,7 +2,7 @@
 //! with DA committee.
 
 use crate::{
-    utils::{Terminator, View, ViewInner},
+    utils::{View, ViewInner},
     Consensus, ConsensusApi,
 };
 use async_compatibility_layer::channel::UnboundedReceiver;
@@ -86,7 +86,6 @@ where
                         return None;
                     }
                 }
-                // can happen if future api is whacked
                 ViewInner::Failed => {
                     warn!("Parent of high QC points to a failed QC");
                     return None;
@@ -161,36 +160,7 @@ where
                             continue;
                         }
 
-                        let consensus = self.consensus.read().await;
-
-                        // Liveness check.
-                        let liveness_check = self.high_qc.view_number() > consensus.locked_view + 2;
-
-                        // Safety check.
-                        // Check if the proposal extends from the locked leaf.
-                        let outcome = consensus.visit_leaf_ancestors(
-                            parent.view_number,
-                            Terminator::Inclusive(consensus.locked_view),
-                            false,
-                            |leaf| {
-                                // if leaf view no == locked view no then we're done, report success by
-                                // returning true
-                                leaf.view_number != consensus.locked_view
-                            },
-                        );
-                        let safety_check = outcome.is_ok();
-                        if let Err(e) = outcome {
-                            self.api.send_view_error(self.cur_view, Arc::new(e)).await;
-                        }
-
-                        // Skip if both saftey and liveness checks fail.
-                        if !safety_check && !liveness_check {
-                            warn!("Failed safety check and liveness check");
-                            continue;
-                        }
-
                         let vote_token = self.api.make_vote_token(self.cur_view);
-
                         match vote_token {
                             Err(e) => {
                                 error!(
@@ -221,6 +191,7 @@ where
 
                                 info!("Sending vote to the leader {:?}", vote);
 
+                                let consensus = self.consensus.read().await;
                                 if self.api.send_direct_message(sender, vote).await.is_err() {
                                     consensus.metrics.failed_to_send_messages.add(1);
                                     warn!("Failed to send vote to the leader");

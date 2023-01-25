@@ -161,7 +161,6 @@ where
                         return None;
                     }
                 }
-                // can happen if future api is whacked
                 ViewInner::Failed => {
                     warn!("Parent of high QC points to a failed QC");
                     return None;
