@@ -16,7 +16,6 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::SignatureKey,
         state::ValidatingConsensus,
-        state::{TestableBlock, TestableState},
         Block, State,
     },
 };
@@ -33,10 +32,7 @@ pub struct ValidatingLeader<
         LeafType = ValidatingLeaf<TYPES>,
         QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
-> where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
-{
+> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Validating leader will require a read lock on this.
@@ -64,9 +60,6 @@ impl<
             QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
         >,
     > ValidatingLeader<A, TYPES, ELECTION>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
 {
     /// Run one view of the leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Validating ValidatingLeader Task", level = "error")]

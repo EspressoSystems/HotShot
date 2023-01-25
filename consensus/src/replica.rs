@@ -13,11 +13,8 @@ use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, ProcessedConsensusMessage, TimeoutVote, Vote, YesOrNoVote},
     traits::{
-        election::Election,
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
-        state::{TestableBlock, TestableState, ValidatingConsensus},
-        Block, State,
+        election::Election, node_implementation::NodeType, signature_key::SignatureKey,
+        state::ValidatingConsensus, Block, State,
     },
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -34,10 +31,7 @@ pub struct Replica<
         LeafType = ValidatingLeaf<TYPES>,
         QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
-> where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
-{
+> {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Replica will require a write lock on this.
@@ -72,9 +66,6 @@ impl<
             QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
         >,
     > Replica<A, TYPES, ELECTION>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
 {
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
@@ -330,11 +321,7 @@ where
     /// run one view of replica
     /// returns the `high_qc`
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
-    pub async fn run_view(self) -> ELECTION::QuorumCertificate
-    where
-        TYPES::StateType: TestableState,
-        TYPES::BlockType: TestableBlock,
-    {
+    pub async fn run_view(self) -> ELECTION::QuorumCertificate {
         info!("Replica task started!");
         let consensus = self.consensus.upgradable_read().await;
         let view_leader_key = self.api.get_leader(self.cur_view).await;
