@@ -459,6 +459,10 @@ impl Block for DEntryBlock {
 
     type Error = DEntryError;
 
+    fn new() -> Self {
+        <Self as TestableBlock>::genesis()
+    }
+
     fn add_transaction_raw(
         &self,
         tx: &Self::Transaction,
