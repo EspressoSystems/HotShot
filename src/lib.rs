@@ -74,10 +74,7 @@ use hotshot_types::{
         network::{NetworkError, TransmitType},
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        state::{
-            ConsensusTime, ConsensusType, SequencingConsensus, TestableBlock, TestableState,
-            ValidatingConsensus,
-        },
+        state::{ConsensusTime, ConsensusType, SequencingConsensus, ValidatingConsensus},
         storage::StoredView,
         State,
     },
@@ -677,9 +674,6 @@ impl<
             Proposal = ValidatingProposal<TYPES, ELECTION>,
         >,
     > ViewRunner<TYPES, I> for HotShot<ValidatingConsensus, TYPES, I>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
 {
     #[instrument(skip(hotshot), fields(id = hotshot.id), name = "Validating View Runner Task", level = "error")]
     async fn run_view(hotshot: HotShot<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()> {
@@ -861,9 +855,6 @@ impl<
         >,
         I: NodeImplementation<TYPES, Leaf = DALeaf<TYPES>, Proposal = DAProposal<TYPES, ELECTION>>,
     > ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
 {
     // #[instrument]
     async fn run_view(hotshot: HotShot<SequencingConsensus, TYPES, I>) -> Result<(), ()> {

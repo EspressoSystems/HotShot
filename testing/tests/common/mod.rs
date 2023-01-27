@@ -21,6 +21,7 @@ use hotshot_testing::{
     ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
     TestNodeImpl, TestRunner,
 };
+use hotshot_types::data::TestableLeaf;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
@@ -116,6 +117,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     pub general_info: GeneralTestDescriptionBuilder,
 
@@ -133,6 +135,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<TYPES, I> {
@@ -205,6 +208,7 @@ impl GeneralTestDescriptionBuilder {
         TYPES::SignatureKey: TestableSignatureKey,
         I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
         I::Storage: TestableStorage<TYPES, I::Leaf>,
+        I::Leaf: TestableLeaf<NodeType = TYPES>,
     {
         DetailedTestDescriptionBuilder {
             general_info: self,
@@ -222,6 +226,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     pub fn build(self) -> TestDescription<TYPES, I> {
         let timing_config = TimingData {
@@ -262,6 +267,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     /// TODO unneeded (should be sufficient to have gen runner)
     /// the ronds to run for the test
@@ -505,6 +511,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     // make sure the lengths match so zip doesn't spit out none
     if shut_down_ids.len() < submitter_ids.len() {
@@ -564,6 +571,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
 
@@ -601,6 +609,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     /// create rounds of consensus based on the data in `self`
     pub fn default_populate_rounds(&self) -> Vec<Round<TYPES, I>> {

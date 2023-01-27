@@ -28,6 +28,9 @@ pub trait Block:
     /// The type of the transitions we are applying
     type Transaction: Transaction;
 
+    /// Construct an empty or genesis block.
+    fn new() -> Self;
+
     /// Attempts to add a transaction, returning an Error if it would result in a structurally
     /// invalid block
     ///
@@ -113,6 +116,10 @@ pub mod dummy {
         type Error = DummyError;
 
         type Transaction = DummyTransaction;
+
+        fn new() -> Self {
+            <Self as TestableBlock>::genesis()
+        }
 
         fn add_transaction_raw(
             &self,

@@ -2,7 +2,7 @@
 //! with DA committee, i.e. in the sequencing consensus.
 
 use crate::{
-    utils::{Terminator, View, ViewInner},
+    utils::{View, ViewInner},
     Consensus, ConsensusApi,
 };
 use async_compatibility_layer::channel::UnboundedReceiver;
@@ -17,8 +17,6 @@ use hotshot_types::{
         election::{Election, SignedCertificate},
         node_implementation::NodeType,
         signature_key::SignatureKey,
-        state::{TestableBlock, TestableState},
-        State,
     },
 };
 use std::sync::Arc;
@@ -34,10 +32,7 @@ pub struct DAMember<
         LeafType = DALeaf<TYPES>,
         QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
     >,
-> where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
-{
+> {
     /// ID of node.
     pub id: u64,
     /// Reference to consensus. DA committee member will require a write lock on this.
@@ -68,9 +63,6 @@ impl<
             QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
         >,
     > DAMember<A, TYPES, ELECTION>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
 {
     /// Returns the parent leaf of the proposal we are voting on
     async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
@@ -86,7 +78,6 @@ where
                         return None;
                     }
                 }
-                // can happen if future api is whacked
                 ViewInner::Failed => {
                     warn!("Parent of high QC points to a failed QC");
                     return None;
@@ -123,33 +114,12 @@ where
                             continue;
                         }
                         let parent = self.parent_leaf().await?;
-                        let parent_state = if let Left(state) = &parent.state {
-                            state
-                        } else {
-                            warn!("Don't have last state on parent leaf");
-                            return None;
-                        };
-                        // TODO (da) We probably don't need this check here or replace with "structural validate"
-                        if parent_state.validate_block(&p.data.deltas, &self.cur_view) {
-                            warn!("Invalid block.");
-                            return None;
-                        }
-                        let state = if let Ok(state) =
-                            parent_state.append(&p.data.deltas, &self.cur_view)
-                        {
-                            state
-                        } else {
-                            warn!("Failed to append state in high qc for proposal.");
-                            return None;
-                        };
-
                         let leaf = DALeaf {
                             view_number: self.cur_view,
                             height: parent.height + 1,
                             justify_qc: self.high_qc.clone(),
                             parent_commitment: parent.commit(),
-                            deltas: p.data.deltas.clone(),
-                            state: Left(state),
+                            deltas: Left(p.data.deltas.clone()),
                             rejected: Vec::new(),
                             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                             proposer_id: sender.to_bytes(),
@@ -161,36 +131,7 @@ where
                             continue;
                         }
 
-                        let consensus = self.consensus.read().await;
-
-                        // Liveness check.
-                        let liveness_check = self.high_qc.view_number() > consensus.locked_view + 2;
-
-                        // Safety check.
-                        // Check if the proposal extends from the locked leaf.
-                        let outcome = consensus.visit_leaf_ancestors(
-                            parent.view_number,
-                            Terminator::Inclusive(consensus.locked_view),
-                            false,
-                            |leaf| {
-                                // if leaf view no == locked view no then we're done, report success by
-                                // returning true
-                                leaf.view_number != consensus.locked_view
-                            },
-                        );
-                        let safety_check = outcome.is_ok();
-                        if let Err(e) = outcome {
-                            self.api.send_view_error(self.cur_view, Arc::new(e)).await;
-                        }
-
-                        // Skip if both saftey and liveness checks fail.
-                        if !safety_check && !liveness_check {
-                            warn!("Failed safety check and liveness check");
-                            continue;
-                        }
-
                         let vote_token = self.api.make_vote_token(self.cur_view);
-
                         match vote_token {
                             Err(e) => {
                                 error!(
@@ -221,6 +162,7 @@ where
 
                                 info!("Sending vote to the leader {:?}", vote);
 
+                                let consensus = self.consensus.read().await;
                                 if self.api.send_direct_message(sender, vote).await.is_err() {
                                     consensus.metrics.failed_to_send_messages.add(1);
                                     warn!("Failed to send vote to the leader");
@@ -251,11 +193,7 @@ where
 
     /// Run one view of DA committee member.
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "DA Member Task", level = "error")]
-    pub async fn run_view(self)
-    where
-        TYPES::StateType: TestableState,
-        TYPES::BlockType: TestableBlock,
-    {
+    pub async fn run_view(self) {
         info!("DA Committee Member task started!");
         let view_leader_key = self.api.get_leader(self.cur_view).await;
 
