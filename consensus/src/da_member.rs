@@ -12,7 +12,7 @@ use either::Left;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{DALeaf, DAProposal},
-    message::{ConsensusMessage, DAVote, ProcessedConsensusMessage, Vote},
+    message::{ConsensusMessage, ProcessedConsensusMessage},
     traits::{
         election::{Election, SignedCertificate},
         node_implementation::NodeType,
@@ -90,7 +90,8 @@ impl<
         Some(parent_leaf.clone())
     }
 
-    /// DA committee member task that spins until a valid QC can be signed or timeout is hit.
+    /// DA committee member task that spins until a valid DA proposal can be signed or timeout is
+    /// hit.
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Member Task", level = "error")]
     #[allow(clippy::type_complexity)]
     async fn find_valid_msg<'a>(
@@ -144,26 +145,19 @@ impl<
                             }
                             Ok(Some(vote_token)) => {
                                 info!("We were chosen for committee on {:?}", self.cur_view);
-                                let signature = self.api.sign_da_vote(block_commitment);
 
                                 // Generate and send vote
-                                let vote =
-                                    ConsensusMessage::<
-                                        TYPES,
-                                        DALeaf<TYPES>,
-                                        DAProposal<TYPES, ELECTION>,
-                                    >::Vote(Vote::DA(DAVote {
-                                        justify_qc_commitment: self.high_qc.commit(),
-                                        signature,
-                                        block_commitment,
-                                        current_view: self.cur_view,
-                                        vote_token,
-                                    }));
+                                let message = self.api.create_da_message(
+                                    self.high_qc.commit(),
+                                    block_commitment,
+                                    self.cur_view,
+                                    vote_token,
+                                );
 
-                                info!("Sending vote to the leader {:?}", vote);
+                                info!("Sending vote to the leader {:?}", message);
 
                                 let consensus = self.consensus.read().await;
-                                if self.api.send_direct_message(sender, vote).await.is_err() {
+                                if self.api.send_direct_message(sender, message).await.is_err() {
                                     consensus.metrics.failed_to_send_messages.add(1);
                                     warn!("Failed to send vote to the leader");
                                 } else {

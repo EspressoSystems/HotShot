@@ -11,7 +11,7 @@ use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, ProcessedConsensusMessage, TimeoutVote, Vote, YesOrNoVote},
+    message::{ConsensusMessage, ProcessedConsensusMessage, TimeoutVote, Vote},
     traits::{
         election::Election, node_implementation::NodeType, signature_key::SignatureKey,
         state::ValidatingConsensus, Block, State,
@@ -207,30 +207,21 @@ impl<
                             }
                             Ok(Some(vote_token)) => {
                                 info!("We were chosen for committee on {:?}", self.cur_view);
-                                let signature = self.api.sign_yes_vote(leaf_commitment);
 
                                 // Generate and send vote
-                                let vote = ConsensusMessage::<
-                                    TYPES,
-                                    ValidatingLeaf<TYPES>,
-                                    ValidatingProposal<TYPES, ELECTION>,
-                                >::Vote(Vote::Yes(
-                                    YesOrNoVote {
-                                        justify_qc_commitment: leaf.justify_qc.commit(),
-                                        signature,
-                                        leaf_commitment,
-                                        current_view: self.cur_view,
-                                        vote_token,
-                                    },
-                                ));
+                                let message = self.api.create_yes_message(
+                                    leaf.justify_qc.commit(),
+                                    leaf_commitment,
+                                    self.cur_view,
+                                    vote_token,
+                                );
 
                                 let next_leader = self.api.get_leader(self.cur_view + 1).await;
 
-                                info!("Sending vote to next leader {:?}", vote);
-
+                                info!("Sending vote to next leader {:?}", message);
                                 if self
                                     .api
-                                    .send_direct_message(next_leader, vote)
+                                    .send_direct_message(next_leader, message)
                                     .await
                                     .is_err()
                                 {
