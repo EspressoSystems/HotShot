@@ -54,7 +54,7 @@ use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use hotshot_consensus::{
-    Consensus, ConsensusApi, ConsensusMetrics, DAConsensusLeader, DALeader, DANextLeader,
+    Consensus, ConsensusApi, ConsensusMetrics, DAConsensusLeader, DALeader, DAMember, DANextLeader,
     NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner, ViewQueue,
 };
 use hotshot_types::certificate::DACertificate;
@@ -150,6 +150,8 @@ pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementat
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<TYPES, I::Leaf>>>,
 
+    // TODO (da) split this into `replica_channel_map` and `da_member_channel_map` after
+    // refactoring `HotShot`.
     /// for sending/recv-ing things with the replica task
     replica_channel_map: Arc<RwLock<SendToTasks<TYPES, I::Leaf, I::Proposal>>>,
 
@@ -886,6 +888,19 @@ impl<
             let txns = consensus.transactions.clone();
             (high_qc, txns)
         };
+        let mut send_to_member = hotshot.replica_channel_map.write().await;
+        let member_last_view: TYPES::Time = send_to_member.cur_view;
+        send_to_member.channel_map.remove(&member_last_view);
+        send_to_member.cur_view += 1;
+        let ViewQueue {
+            sender_chan: _,
+            receiver_chan: recv_member,
+            has_received_proposal: _,
+        } = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+            send_to_member.cur_view,
+            send_to_member,
+        )
+        .await;
         if c_api.is_leader(cur_view).await {
             let da_leader = DALeader {
                 id: hotshot.id,
@@ -928,7 +943,15 @@ impl<
             };
             let _new_qc = next_leader.run_view();
         }
-
+        let da_member = DAMember {
+            id: hotshot.id,
+            consensus: hotshot.hotstuff.clone(),
+            proposal_collection_chan: recv_member,
+            cur_view,
+            high_qc: high_qc.clone(),
+            api: c_api.clone(),
+        };
+        let _ = da_member.run_view().await;
         let _da_replica = {};
         // TODO tie all the tasks together and do correct book keeping.
         #[allow(deprecated)]
