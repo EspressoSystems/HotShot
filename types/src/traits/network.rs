@@ -18,11 +18,7 @@ use crate::{
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-use std::{
-    collections::{BTreeSet, HashSet},
-    sync::{atomic::AtomicBool, Arc},
-    time::Duration,
-};
+use std::{collections::BTreeSet, time::Duration};
 
 impl From<NetworkNodeHandleError> for NetworkError {
     fn from(error: NetworkNodeHandleError) -> Self {

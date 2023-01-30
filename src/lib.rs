@@ -67,10 +67,7 @@ use hotshot_types::{
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
-        election::{
-            Checked::{self},
-            Election, ElectionError, SignedCertificate, VoteData,
-        },
+        election::{Checked, Election, ElectionError, SignedCertificate, VoteData},
         metrics::Metrics,
         network::{NetworkError, TransmitType},
         node_implementation::NodeType,
@@ -125,7 +122,7 @@ pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     storage: I::Storage,
 
     /// This `HotShot` instance's election backend
-    election: I::Election,
+    election: Arc<I::Election>,
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<TYPES, I::Leaf>>>>,
@@ -193,7 +190,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             config,
             networking,
             storage,
-            election,
+            election: Arc::new(election),
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
             metrics,
@@ -391,7 +388,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         async_spawn_local(async move {
             if inner
                 .networking
-                .broadcast_message_cc(Message { sender: pk, kind }, nll_todo(), nll_todo())
+                .broadcast_message_cc(
+                    Message { sender: pk, kind },
+                    // TODO this is morally wrong
+                    inner.election.clone().as_ref(),
+                    // TODO this is conceptually wrong
+                    <TYPES::Time as ConsensusTime>::new(0),
+                )
                 .await
                 .is_err()
             {
@@ -1026,8 +1029,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
                     sender: self.inner.public_key.clone(),
                     kind: message.into(),
                 },
-                nll_todo(),
-                nll_todo(),
+                // TODO this is morally wrong
+                self.inner.election.clone().as_ref(),
+                // TODO this is conceptually wrong
+                <TYPES::Time as ConsensusTime>::new(0),
             )
             .await?;
         Ok(())

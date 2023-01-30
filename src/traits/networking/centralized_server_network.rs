@@ -4,6 +4,7 @@
 //!
 #[cfg(feature = "async-std-executor")]
 use async_std::net::TcpStream;
+#[allow(deprecated)]
 use nll::nll_todo::nll_todo;
 #[cfg(feature = "tokio-executor")]
 use tokio::net::TcpStream;
@@ -181,6 +182,7 @@ impl<K: SignatureKey, E: ElectionConfig> Inner<K, E> {
     /// Remove the first message from the internal queue, or the internal receiving channel, if the given `c` method returns `Some(RET)` on that entry.
     ///
     /// This will block this entire `Inner` struct until a message is found.
+    #[allow(dead_code)]
     async fn remove_next_message_from_queue<F, FAIL, RET>(&self, c: F, f: FAIL) -> RET
     where
         F: Fn(
@@ -396,6 +398,7 @@ impl<K: SignatureKey, E: ElectionConfig> Inner<K, E> {
     }
 
     /// Get the next incoming broadcast message received from the server. Will lock up this struct internally until a message was received.
+    #[allow(dead_code)]
     async fn get_next_broadcast<M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static>(
         &self,
     ) -> Result<M, NetworkError> {
@@ -541,6 +544,7 @@ impl<K: SignatureKey, E: ElectionConfig> Inner<K, E> {
     }
 
     /// Get the next incoming direct message received from the server. Will lock up this struct internally until a message was received.
+    #[allow(dead_code)]
     async fn get_next_direct_message<
         M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static,
     >(
@@ -1059,12 +1063,14 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
     }
 
     async fn lookup_node(&self, _pk: K) -> Result<RequestId, NetworkError> {
+        #[allow(deprecated)]
         // we are centralized. Should we do anything here?
         nll_todo()
     }
 
     // TODO implement this
     async fn cancel_msg(&self, _cancel_id: RequestId) -> Result<(), NetworkError> {
+        #[allow(deprecated)]
         nll_todo()
     }
 
@@ -1084,15 +1090,13 @@ impl<
     for CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>
 {
     async fn ready_cc(&self) -> bool {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::ready(
-            &self,
-        )
-        .await
+        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::ready(self)
+            .await
     }
 
     async fn shut_down_cc(&self) -> () {
         <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::shut_down(
-            &self,
+            self,
         )
         .await;
     }
@@ -1103,8 +1107,8 @@ impl<
         election: &ELECTION,
         view_number: TYPES::Time,
     ) -> Result<RequestId, NetworkError> {
-        let recipients = <ELECTION as Election<TYPES>>::get_committee(&election, view_number);
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::broadcast_message(&self, message, recipients).await
+        let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
+        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::broadcast_message(self, message, recipients).await
     }
 
     async fn direct_message_cc(
@@ -1112,7 +1116,7 @@ impl<
         message: Message<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
     ) -> Result<RequestId, NetworkError> {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::direct_message(&self, message, recipient).await
+        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::direct_message(self, message, recipient).await
     }
 
     async fn recv_msgs_cc(
@@ -1120,26 +1124,26 @@ impl<
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
         <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::recv_msgs(
-            &self,
+            self,
             transmit_type,
         )
         .await
     }
 
     async fn lookup_node_cc(&self, pk: TYPES::SignatureKey) -> Result<RequestId, NetworkError> {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::lookup_node(&self, pk).await
+        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::lookup_node(self, pk).await
     }
 
     async fn cancel_msg_cc(&self, cancel_id: RequestId) -> Result<(), NetworkError> {
         <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::cancel_msg(
-            &self, cancel_id,
+            self, cancel_id,
         )
         .await
     }
 
     async fn msg_status_cc(&self, cancel_id: RequestId) -> RequestStatus {
         <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::msg_status(
-            &self, cancel_id,
+            self, cancel_id,
         )
         .await
     }

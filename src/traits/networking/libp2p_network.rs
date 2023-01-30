@@ -5,7 +5,7 @@
 use super::NetworkingMetrics;
 use async_compatibility_layer::{
     art::{async_block_on, async_sleep, async_spawn},
-    channel::{unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
+    channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -35,11 +35,12 @@ use libp2p_networking::{
     },
     reexport::{Multiaddr, PeerId},
 };
+#[allow(deprecated)]
 use nll::nll_todo::nll_todo;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use snafu::ResultExt;
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{BTreeSet, HashSet},
     num::NonZeroUsize,
     str::FromStr,
     sync::{
@@ -105,7 +106,7 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     topic_map: RwLock<BiHashMap<BTreeSet<K>, String>>,
     /// TODO periodically GC this
     /// TODO fill this out when we impelment cancellation
-    request_map: RwLock<HashMap<RequestId, (RequestStatus, Option<OneShotSender<()>>)>>,
+    // request_map: RwLock<HashMap<RequestId, (RequestStatus, Option<OneShotSender<()>>)>>,
     /// the next ID
     cur_id: Arc<AtomicU64>,
 }
@@ -296,7 +297,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 is_bootstrapped: Arc::new(AtomicBool::new(false)),
                 metrics: NetworkingMetrics::new(metrics),
                 topic_map: RwLock::default(),
-                request_map: RwLock::default(),
+                // request_map: RwLock::default(),
                 cur_id: Arc::new(AtomicU64::new(0)),
             }),
         };
@@ -659,6 +660,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     // TODO implement this. Leaving as unimplemented for now
     #[instrument(name = "Libp2pNetwork::cancel_msg", skip_all)]
     async fn cancel_msg(&self, _cancel_id: RequestId) -> Result<(), NetworkError> {
+        #[allow(deprecated)]
         nll_todo()
     }
 
@@ -681,15 +683,13 @@ impl<
     for Libp2pNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>
 {
     async fn ready_cc(&self) -> bool {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::ready(
-            &self,
-        )
-        .await
+        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::ready(self)
+            .await
     }
 
     async fn shut_down_cc(&self) -> () {
         <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::shut_down(
-            &self,
+            self,
         )
         .await;
     }
@@ -700,8 +700,8 @@ impl<
         election: &ELECTION,
         view_number: TYPES::Time,
     ) -> Result<RequestId, NetworkError> {
-        let recipients = <ELECTION as Election<TYPES>>::get_committee(&election, view_number);
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::broadcast_message(&self, message, recipients).await
+        let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
+        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::broadcast_message(self, message, recipients).await
     }
 
     async fn direct_message_cc(
@@ -709,7 +709,7 @@ impl<
         message: Message<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
     ) -> Result<RequestId, NetworkError> {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::direct_message(&self, message, recipient).await
+        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::direct_message(self, message, recipient).await
     }
 
     async fn recv_msgs_cc(
@@ -717,26 +717,26 @@ impl<
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
         <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::recv_msgs(
-            &self,
+            self,
             transmit_type,
         )
         .await
     }
 
     async fn lookup_node_cc(&self, pk: TYPES::SignatureKey) -> Result<RequestId, NetworkError> {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::lookup_node(&self, pk).await
+        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::lookup_node(self, pk).await
     }
 
     async fn cancel_msg_cc(&self, cancel_id: RequestId) -> Result<(), NetworkError> {
         <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::cancel_msg(
-            &self, cancel_id,
+            self, cancel_id,
         )
         .await
     }
 
     async fn msg_status_cc(&self, cancel_id: RequestId) -> RequestStatus {
         <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::msg_status(
-            &self, cancel_id,
+            self, cancel_id,
         )
         .await
     }

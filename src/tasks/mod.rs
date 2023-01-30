@@ -261,7 +261,7 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                 let networking = networking.clone();
                 async_spawn_local(async move {
                     info!("starting lookup for {:?}", view_to_lookup);
-                    networking
+                    let _result = networking
                         .lookup_node_cc(c_api.get_leader(view_to_lookup).await)
                         .await;
                     info!("finished lookup for {:?}", view_to_lookup);

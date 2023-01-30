@@ -8,10 +8,7 @@ use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
     data::LeafType,
     traits::{
-        election::{
-            Checked::{self},
-            Election, ElectionConfig, ElectionError, TestableElection, VoteToken,
-        },
+        election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
     },
@@ -25,15 +22,13 @@ use jf_primitives::{
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
+#[allow(deprecated)]
 use nll::nll_todo::nll_todo;
 #[allow(deprecated)]
 use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
-use serde::{
-    de::{self},
-    Deserialize, Serialize,
-};
+use serde::{de, Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
@@ -185,11 +180,12 @@ where
     SIGSCHEME::Signature: Clone + for<'a> Deserialize<'a> + Serialize,
 {
     fn partial_cmp(&self, _other: &Self) -> Option<std::cmp::Ordering> {
+        #[allow(deprecated)]
         nll_todo()
     }
 }
 
-impl<SIGSCHEME: SignatureScheme> Ord for JfPubKey<SIGSCHEME>
+impl<SIGSCHEME> Ord for JfPubKey<SIGSCHEME>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8>,
     SIGSCHEME::VerificationKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
@@ -197,6 +193,7 @@ where
     SIGSCHEME::Signature: Clone + for<'a> Deserialize<'a> + Serialize,
 {
     fn cmp(&self, _other: &Self) -> std::cmp::Ordering {
+        #[allow(deprecated)]
         nll_todo()
     }
 }
@@ -631,7 +628,7 @@ where
             .keys()
             .clone()
             .into_iter()
-            .filter_map(|k| <TYPES as NodeType>::SignatureKey::from_bytes(k))
+            .filter_map(<TYPES as NodeType>::SignatureKey::from_bytes)
             .collect()
     }
 }

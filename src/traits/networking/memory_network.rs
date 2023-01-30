@@ -30,7 +30,6 @@ use hotshot_types::{
 use hotshot_utils::bincode::bincode_opts;
 
 use rand::Rng;
-use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::{
     collections::BTreeSet,
@@ -107,6 +106,7 @@ struct MemoryNetworkInner<M: NetworkMsg, K: SignatureKey> {
     /// The networking metrics we're keeping track of
     metrics: NetworkingMetrics,
 
+    /// the next unused ID
     cur_id: Arc<AtomicU64>,
 }
 
@@ -462,15 +462,13 @@ impl<
     for MemoryNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>
 {
     async fn ready_cc(&self) -> bool {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::ready(
-            &self,
-        )
-        .await
+        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::ready(self)
+            .await
     }
 
     async fn shut_down_cc(&self) -> () {
         <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::shut_down(
-            &self,
+            self,
         )
         .await;
     }
@@ -481,8 +479,8 @@ impl<
         election: &ELECTION,
         view_number: TYPES::Time,
     ) -> Result<RequestId, NetworkError> {
-        let recipients = <ELECTION as Election<TYPES>>::get_committee(&election, view_number);
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::broadcast_message(&self, message, recipients).await
+        let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
+        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::broadcast_message(self, message, recipients).await
     }
 
     async fn direct_message_cc(
@@ -490,7 +488,7 @@ impl<
         message: Message<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
     ) -> Result<RequestId, NetworkError> {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::direct_message(&self, message, recipient).await
+        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::direct_message(self, message, recipient).await
     }
 
     async fn recv_msgs_cc(
@@ -498,26 +496,26 @@ impl<
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
         <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::recv_msgs(
-            &self,
+            self,
             transmit_type,
         )
         .await
     }
 
     async fn lookup_node_cc(&self, pk: TYPES::SignatureKey) -> Result<RequestId, NetworkError> {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::lookup_node(&self, pk).await
+        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::lookup_node(self, pk).await
     }
 
     async fn cancel_msg_cc(&self, cancel_id: RequestId) -> Result<(), NetworkError> {
         <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::cancel_msg(
-            &self, cancel_id,
+            self, cancel_id,
         )
         .await
     }
 
     async fn msg_status_cc(&self, cancel_id: RequestId) -> RequestStatus {
         <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::msg_status(
-            &self, cancel_id,
+            self, cancel_id,
         )
         .await
     }
@@ -545,6 +543,7 @@ mod tests {
         data::{ValidatingLeaf, ValidatingProposal},
         traits::{node_implementation::ApplicationMetadata, state::ValidatingConsensus},
     };
+    use serde::{Deserialize, Serialize};
 
     /// application metadata stub
     #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
