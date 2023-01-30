@@ -146,7 +146,7 @@ where
         let bootstrap_addrs: PeerInfoVec = Arc::default();
         let mut all_keys = BTreeSet::new();
 
-        for i in 0u64..(expected_node_count as u64){
+        for i in 0u64..(expected_node_count as u64) {
             let privkey = TYPES::SignatureKey::generate_test_key(i);
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
             all_keys.insert(pubkey);
@@ -213,7 +213,7 @@ where
                         bootstrap_addrs_ref,
                         num_bootstrap,
                         node_id as usize,
-                        all_keys
+                        all_keys,
                     )
                     .await
                     .unwrap()
@@ -263,7 +263,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
         bootstrap_addrs_len: usize,
         id: usize,
         // HACK
-        committee_pks: BTreeSet<K>
+        committee_pks: BTreeSet<K>,
     ) -> Result<Libp2pNetwork<M, K>, NetworkError> {
         assert!(bootstrap_addrs_len > 4, "Need at least 5 bootstrap nodes");
         let network_handle = Arc::new(
