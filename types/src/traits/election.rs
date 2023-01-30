@@ -19,7 +19,7 @@ use hotshot_utils::bincode::bincode_opts;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::num::NonZeroU64;
@@ -250,6 +250,8 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
 
     /// Returns leader for the current view number, given the current stake table
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
+
+    fn get_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
 
     /// Attempts to generate a vote token for self
     ///

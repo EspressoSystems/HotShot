@@ -17,7 +17,7 @@ pub use self::launcher::TestLauncher;
 
 use futures::future::LocalBoxFuture;
 use hotshot::{
-    traits::{NetworkingImplementation, NodeImplementation, Storage},
+    traits::{NodeImplementation, Storage},
     types::{HotShotHandle, SignatureKey},
     HotShot, HotShotError, HotShotInitializer, ViewRunner, H_256,
 };
@@ -99,7 +99,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -140,7 +140,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -384,7 +384,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -455,7 +455,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -612,8 +612,7 @@ where
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     ELECTION: Election<TYPES, LeafType = LEAF> + Debug,
-    NETWORK: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>
-        + NetworkingImplementation<TYPES, LEAF, PROPOSAL>,
+    NETWORK: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>,
     STORAGE: Storage<TYPES, LEAF>,
 {
     type Leaf = LEAF;
@@ -637,7 +636,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    NETWORK: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL>,
+    NETWORK: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>,
     ELECTION: Election<TYPES>,
     STORAGE: TestableStorage<TYPES, LEAF>,
 {

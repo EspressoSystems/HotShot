@@ -6,6 +6,7 @@
 use crate::{
     data::{LeafType, ProposalType},
     traits::{
+        network::NetworkMsg,
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature},
     },
@@ -27,6 +28,14 @@ pub struct Message<
 
     /// The message kind
     pub kind: MessageKind<TYPES, LEAF, PROPOSAL>,
+}
+
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+    > NetworkMsg for Message<TYPES, LEAF, PROPOSAL>
+{
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message

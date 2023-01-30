@@ -13,8 +13,9 @@ use hotshot::{
             vrf::{JfPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
         },
         implementations::{MemoryNetwork, MemoryStorage},
-        NetworkReliability, NetworkingImplementation,
+        NetworkReliability,
     },
+    types::Message,
     HotShot, HotShotError, ViewRunner,
 };
 use hotshot_testing::{
@@ -27,7 +28,7 @@ use hotshot_types::{
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
         election::Election,
-        network::TestableNetworkingImplementation,
+        network::{CommunicationChannel, TestableNetworkingImplementation},
         node_implementation::{ApplicationMetadata, NodeType, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState, ValidatingConsensus},
@@ -115,7 +116,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -133,7 +134,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -182,7 +183,7 @@ where
         runner.add_nodes(self.start_nodes).await;
 
         for (idx, node) in runner.nodes().collect::<Vec<_>>().iter().enumerate().rev() {
-            node.networking().ready().await;
+            node.networking().ready_cc().await;
             info!("EXECUTOR: NODE {:?} IS READY", idx);
         }
 
@@ -206,7 +207,7 @@ impl GeneralTestDescriptionBuilder {
         TYPES::BlockType: TestableBlock,
         TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
         TYPES::SignatureKey: TestableSignatureKey,
-        I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+        I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
         I::Storage: TestableStorage<TYPES, I::Leaf>,
         I::Leaf: TestableLeaf<NodeType = TYPES>,
     {
@@ -224,7 +225,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -265,7 +266,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -411,19 +412,22 @@ pub type StandardNodeImplType = TestNodeImpl<
         >,
     >,
     MemoryNetwork<
-        VrfTestTypes,
-        ValidatingLeaf<VrfTestTypes>,
-        ValidatingProposal<
+        Message<
             VrfTestTypes,
-            VrfImpl<
+            ValidatingLeaf<VrfTestTypes>,
+            ValidatingProposal<
                 VrfTestTypes,
-                ValidatingLeaf<VrfTestTypes>,
-                BLSSignatureScheme<Param381>,
-                BLSVRFScheme<Param381>,
-                Hasher,
-                Param381,
+                VrfImpl<
+                    VrfTestTypes,
+                    ValidatingLeaf<VrfTestTypes>,
+                    BLSSignatureScheme<Param381>,
+                    BLSVRFScheme<Param381>,
+                    Hasher,
+                    Param381,
+                >,
             >,
         >,
+        <VrfTestTypes as NodeType>::SignatureKey,
     >,
     MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
     VrfImpl<
@@ -446,12 +450,15 @@ pub type StaticNodeImplType = TestNodeImpl<
         StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     >,
     MemoryNetwork<
-        StaticCommitteeTestTypes,
-        ValidatingLeaf<StaticCommitteeTestTypes>,
-        ValidatingProposal<
+        Message<
             StaticCommitteeTestTypes,
-            StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<
+                StaticCommitteeTestTypes,
+                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            >,
         >,
+        <StaticCommitteeTestTypes as NodeType>::SignatureKey,
     >,
     MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -464,7 +471,7 @@ pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, ELECTION> = TestNodeImpl<
     TYPES,
     LEAF,
     PROPOSAL,
-    MemoryNetwork<TYPES, LEAF, PROPOSAL>,
+    MemoryNetwork<Message<TYPES, LEAF, PROPOSAL>, <TYPES as NodeType>::SignatureKey>,
     MemoryStorage<TYPES, LEAF>,
     ELECTION,
 >;
@@ -509,7 +516,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -569,7 +576,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -607,7 +614,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -905,8 +912,27 @@ macro_rules! cross_tests {
             hotshot_testing::TestNodeImpl<
                 common::StaticCommitteeTestTypes,
                 hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>,
-                hotshot_types::data::ValidatingProposal<common::StaticCommitteeTestTypes, hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>>,
-                $NETWORK<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>, hotshot_types::data::ValidatingProposal<StaticCommitteeTestTypes, hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>>>,
+                hotshot_types::data::ValidatingProposal<
+                    common::StaticCommitteeTestTypes,
+                    hotshot::traits::election::static_committee::StaticCommittee<
+                        common::StaticCommitteeTestTypes,
+                        hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
+                    >
+                >,
+                $NETWORK<
+                    hotshot_types::message::Message<
+                        common::StaticCommitteeTestTypes,
+                        hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>,
+                        hotshot_types::data::ValidatingProposal<
+                            common::StaticCommitteeTestTypes,
+                            hotshot::traits::election::static_committee::StaticCommittee<
+                                common::StaticCommitteeTestTypes,
+                                hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
+                            >
+                        >,
+                    >,
+                    <common::StaticCommitteeTestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
+                >,
                 $STORAGE<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,
                 hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>
             >
@@ -917,7 +943,15 @@ macro_rules! cross_tests {
     // NOTE: unclear why `tt` is needed instead of `ty`
     ($NETWORK:tt, $STORAGE:tt, $BLOCK:tt, $STATE:tt, $fn_name:ident, $e:expr, keep: $keep:tt, slow: true, args: $($args:tt)*) => {
         #[cfg(feature = "slow-tests")]
-        type TestType = $crate::TestDescription<hotshot_testing::TestNodeImpl<$STATE, $STORAGE<$STATE>, $NETWORK<hotshot::types::Message<$STATE, hotshot_types::traits::signature_key::ed25519::Ed25519Pub>, hotshot_types::traits::signature_key::ed25519::Ed25519Pub>, hotshot_types::traits::signature_key::ed25519::Ed25519Pub, hotshot::traits::election::static_committee::StaticCommittee<$STATE>>>;
+        type TestType = $crate::TestDescription<
+            hotshot_testing::TestNodeImpl<
+                $STATE,
+                $STORAGE<$STATE>,
+                $NETWORK,
+                hotshot_types::traits::signature_key::ed25519::Ed25519Pub,
+                hotshot::traits::election::static_committee::StaticCommittee<$STATE>
+            >
+        >;
 
         cross_test!(TestType, $fn_name, $e, keep: $keep, slow: true, args: $($args)*);
     };

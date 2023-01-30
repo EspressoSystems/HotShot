@@ -12,7 +12,7 @@ use crate::traits::{
         vrf::BlsPubKey,
     },
     implementations::MemoryStorage,
-    Block, NetworkingImplementation, NodeImplementation,
+    Block, NodeImplementation,
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
@@ -24,6 +24,7 @@ use hotshot_types::{
     traits::{
         block_contents::Transaction,
         election::Election,
+        network::CommunicationChannel,
         node_implementation::{ApplicationMetadata, NodeType},
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
         State,
@@ -529,19 +530,21 @@ impl NodeType for DEntryTypes {
 #[derivative(Clone(bound = ""))]
 pub struct DEntryNode<NET, ELE>(PhantomData<NET>, PhantomData<ELE>)
 where
-    NET: NetworkingImplementation<
+    NET: CommunicationChannel<
         DEntryTypes,
         ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
+        ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>;
 
 impl<NET, ELE> DEntryNode<NET, ELE>
 where
-    NET: NetworkingImplementation<
+    NET: CommunicationChannel<
         DEntryTypes,
         ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
+        ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
 {
@@ -553,10 +556,11 @@ where
 
 impl<NET, ELE> Debug for DEntryNode<NET, ELE>
 where
-    NET: NetworkingImplementation<
+    NET: CommunicationChannel<
         DEntryTypes,
         ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
+        ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
 {
@@ -569,10 +573,11 @@ where
 
 impl<NET, ELE> Default for DEntryNode<NET, ELE>
 where
-    NET: NetworkingImplementation<
+    NET: CommunicationChannel<
         DEntryTypes,
         ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
+        ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
 {
@@ -583,10 +588,11 @@ where
 
 impl<NET, ELE> NodeImplementation<DEntryTypes> for DEntryNode<NET, ELE>
 where
-    NET: NetworkingImplementation<
+    NET: CommunicationChannel<
         DEntryTypes,
         ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
+        ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>> + Debug,
 {

@@ -41,7 +41,7 @@ pub mod tasks;
 
 use crate::{
     certificate::QuorumCertificate,
-    traits::{NetworkingImplementation, NodeImplementation, Storage},
+    traits::{NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };
 use async_compatibility_layer::{
@@ -79,6 +79,10 @@ use hotshot_types::{
         State,
     },
     HotShotConfig,
+};
+use hotshot_types::{
+    message::{MessageKind, ProcessedConsensusMessage},
+    traits::network::CommunicationChannel,
 };
 use hotshot_utils::bincode::bincode_opts;
 #[allow(deprecated)]
@@ -390,7 +394,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         async_spawn_local(async move {
             if inner
                 .networking
-                .broadcast_message(Message { sender: pk, kind })
+                .broadcast_message_cc(Message { sender: pk, kind }, nll_todo(), nll_todo())
                 .await
                 .is_err()
             {
@@ -414,14 +418,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     ) -> std::result::Result<(), NetworkError> {
         self.inner
             .networking
-            .message_node(
+            .direct_message_cc(
                 Message {
                     sender: self.inner.public_key.clone(),
                     kind: kind.into(),
                 },
                 recipient,
             )
-            .await
+            .await?;
+        Ok(())
     }
 
     /// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.
@@ -1000,7 +1005,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         async_spawn_local(async move {
             inner
                 .networking
-                .message_node(
+                .direct_message_cc(
                     Message {
                         sender: inner.public_key.clone(),
                         kind: message.into(),
@@ -1019,11 +1024,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         debug!(?message, "send_broadcast_message");
         self.inner
             .networking
-            .broadcast_message(Message {
-                sender: self.inner.public_key.clone(),
-                kind: message.into(),
-            })
-            .await
+            .broadcast_message_cc(
+                Message {
+                    sender: self.inner.public_key.clone(),
+                    kind: message.into(),
+                },
+                nll_todo(),
+                nll_todo(),
+            )
+            .await?;
+        Ok(())
     }
 
     async fn send_da_broadcast<DAPROPOSAL: ProposalType<NodeType = TYPES>>(

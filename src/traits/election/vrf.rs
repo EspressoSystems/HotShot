@@ -25,6 +25,7 @@ use jf_primitives::{
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
+use nll::nll_todo::{nll_todo};
 #[allow(deprecated)]
 use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
@@ -175,6 +176,31 @@ where
         self.to_bytes().hash(state);
     }
 }
+
+impl<SIGSCHEME> PartialOrd for JfPubKey<SIGSCHEME>
+where
+    SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8>,
+    SIGSCHEME::VerificationKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
+    SIGSCHEME::SigningKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
+    SIGSCHEME::Signature: Clone + for<'a> Deserialize<'a> + Serialize,
+{
+    fn partial_cmp(&self, _other: &Self) -> Option<std::cmp::Ordering> {
+        nll_todo()
+    }
+}
+
+impl<SIGSCHEME: SignatureScheme> Ord for JfPubKey<SIGSCHEME>
+where
+    SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8>,
+    SIGSCHEME::VerificationKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
+    SIGSCHEME::SigningKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
+    SIGSCHEME::Signature: Clone + for<'a> Deserialize<'a> + Serialize,
+{
+    fn cmp(&self, _other: &Self) -> std::cmp::Ordering {
+        nll_todo()
+    }
+}
+
 impl<SIGSCHEME> SignatureKey for JfPubKey<SIGSCHEME>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8>,
@@ -592,6 +618,13 @@ where
 
     fn threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((u64::from(self.sortition_parameter) * 2) / 3) + 1).unwrap()
+    }
+
+    fn get_committee(
+        &self,
+        _view_number: <TYPES as NodeType>::Time,
+    ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
+        nll_todo()
     }
 }
 
