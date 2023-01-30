@@ -23,8 +23,6 @@ use jf_primitives::{
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
 #[allow(deprecated)]
-use nll::nll_todo::nll_todo;
-#[allow(deprecated)]
 use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
@@ -179,9 +177,8 @@ where
     SIGSCHEME::SigningKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
     SIGSCHEME::Signature: Clone + for<'a> Deserialize<'a> + Serialize,
 {
-    fn partial_cmp(&self, _other: &Self) -> Option<std::cmp::Ordering> {
-        #[allow(deprecated)]
-        nll_todo()
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.to_bytes().cmp(&other.to_bytes()))
     }
 }
 
@@ -192,9 +189,9 @@ where
     SIGSCHEME::SigningKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
     SIGSCHEME::Signature: Clone + for<'a> Deserialize<'a> + Serialize,
 {
-    fn cmp(&self, _other: &Self) -> std::cmp::Ordering {
-        #[allow(deprecated)]
-        nll_todo()
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // cursed cursed cursed !!!
+        self.to_bytes().cmp(&other.to_bytes())
     }
 }
 

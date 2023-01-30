@@ -1063,9 +1063,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
     }
 
     async fn lookup_node(&self, _pk: K) -> Result<RequestId, NetworkError> {
-        #[allow(deprecated)]
         // we are centralized. Should we do anything here?
-        nll_todo()
+        Ok(0)
     }
 
     // TODO implement this
