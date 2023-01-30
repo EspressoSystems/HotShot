@@ -61,6 +61,7 @@ use hotshot_types::certificate::DACertificate;
 use hotshot_types::data::ProposalType;
 use hotshot_types::data::{DALeaf, DAProposal};
 use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
+use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
@@ -79,10 +80,6 @@ use hotshot_types::{
         State,
     },
     HotShotConfig,
-};
-use hotshot_types::{
-    message::{MessageKind, ProcessedConsensusMessage},
-    traits::network::CommunicationChannel,
 };
 use hotshot_utils::bincode::bincode_opts;
 #[allow(deprecated)]

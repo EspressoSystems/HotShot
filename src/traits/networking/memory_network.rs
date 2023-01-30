@@ -33,7 +33,7 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::{
-    collections::{BTreeSet},
+    collections::BTreeSet,
     fmt::Debug,
     sync::{
         atomic::{AtomicU64, AtomicUsize, Ordering},

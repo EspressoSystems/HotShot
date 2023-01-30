@@ -160,6 +160,6 @@ where
         &self,
         _view_number: <TYPES as NodeType>::Time,
     ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
-        nll::nll_todo::nll_todo()
+        self.nodes.clone().into_iter().collect()
     }
 }

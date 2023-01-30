@@ -25,7 +25,7 @@ use jf_primitives::{
     },
     vrf::{blsvrf::BLSVRFScheme, Vrf},
 };
-use nll::nll_todo::{nll_todo};
+use nll::nll_todo::nll_todo;
 #[allow(deprecated)]
 use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
@@ -620,11 +620,19 @@ where
         NonZeroU64::new(((u64::from(self.sortition_parameter) * 2) / 3) + 1).unwrap()
     }
 
+    /// TODO if we ever come back to using this, we'll need to change this
+    /// this stub is incorrect as it stands right now
     fn get_committee(
         &self,
         _view_number: <TYPES as NodeType>::Time,
     ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
-        nll_todo()
+        self.stake_table
+            .mapping
+            .keys()
+            .clone()
+            .into_iter()
+            .filter_map(|k| <TYPES as NodeType>::SignatureKey::from_bytes(k))
+            .collect()
     }
 }
 
