@@ -19,7 +19,7 @@ use hotshot_types::{
         Block, State,
     },
 };
-use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Instant};
+use std::{marker::PhantomData, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
 
 /// This view's validating leader
@@ -98,7 +98,7 @@ impl<
         let original_parent_hash = parent_leaf.commit();
         let starting_state = &parent_leaf.state;
 
-        let mut previous_used_txns_vec = parent_leaf.deltas.contained_transactions();
+        let mut previous_used_txns = parent_leaf.deltas.contained_transactions();
 
         let mut next_parent_hash = original_parent_hash;
 
@@ -109,14 +109,12 @@ impl<
                 }
                 let next_parent_txns = next_parent_leaf.deltas.contained_transactions();
                 for next_parent_txn in next_parent_txns {
-                    previous_used_txns_vec.insert(next_parent_txn);
+                    previous_used_txns.insert(next_parent_txn);
                 }
                 next_parent_hash = next_parent_leaf.parent_commitment;
             }
             // TODO do some sort of sanity check on the view number that it matches decided
         }
-
-        let previous_used_txns = previous_used_txns_vec.into_iter().collect::<HashSet<_>>();
 
         let passed_time = task_start_time - Instant::now();
         async_sleep(self.api.propose_min_round_time() - passed_time).await;

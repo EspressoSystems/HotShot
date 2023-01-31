@@ -170,11 +170,10 @@ impl<
         let task_start_time = Instant::now();
 
         let parent_leaf = self.parent_leaf().await?;
-        let previous_used_txns_vec = match parent_leaf.deltas {
+        let previous_used_txns = match parent_leaf.deltas {
             Either::Left(block) => block.contained_transactions(),
             Either::Right(_commitment) => HashSet::new(),
         };
-        let previous_used_txns = previous_used_txns_vec.into_iter().collect::<HashSet<_>>();
         let receiver = self.transactions.subscribe().await;
 
         while task_start_time.elapsed() < self.api.propose_max_round_time() {
@@ -225,9 +224,7 @@ impl<
         let txns = self.wait_for_transactions().await?;
 
         for txn in txns {
-            let new_block_check = block.add_transaction_raw(&txn);
-            // TODO (da) We probably don't need this check here or replace with "structural validate"
-            if let Ok(new_block) = new_block_check {
+            if let Ok(new_block) = block.add_transaction_raw(&txn) {
                 block = new_block;
                 continue;
             }
@@ -314,8 +311,7 @@ impl<
         let block_commitment = self.block.commit();
         let leaf = DALeaf {
             view_number: self.cur_view,
-            // TODO: what is this height for?
-            height: 0,
+            height: self.parent.height + 1,
             justify_qc: self.high_qc.clone(),
             parent_commitment: self.parent.commit(),
             // Use the block commitment rather than the block, so that the replica can construct
