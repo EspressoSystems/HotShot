@@ -492,10 +492,7 @@ where
         private_key: &(SIGSCHEME::SigningKey, SIGSCHEME::VerificationKey),
     ) -> Result<Option<TYPES::VoteTokenType>, ElectionError> {
         let pub_key = JfPubKey::<SIGSCHEME>::from_native(private_key.1.clone());
-        let replicas_stake = match self.stake_table.get_stake(&pub_key) {
-            Some(val) => val,
-            None => return Ok(None),
-        };
+        let Some(replicas_stake) = self.stake_table.get_stake(&pub_key) else { return Ok(None) };
 
         let view_seed = generate_view_seed::<TYPES, VRFHASHER>(view_number, &self.chain_seed);
 

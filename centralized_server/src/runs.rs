@@ -57,7 +57,7 @@ impl<K, E> RoundConfig<K, E> {
             let config = &self.configs[run];
             fs::create_dir_all(folder)?;
             fs::write(
-                format!("{}/config.json", run),
+                format!("{run}/config.json"),
                 serde_json::to_string_pretty(config).expect("Could not serialize"),
             )?;
         }
@@ -147,7 +147,7 @@ impl<K, E> RoundConfig<K, E> {
                 }
             };
         } else if self.next_node_index == 0 && self.current_run == 0 {
-            println!("Starting run 1 / {}", total_runs);
+            println!("Starting run 1 / {total_runs}");
         }
 
         let total_nodes = config.config.total_nodes;

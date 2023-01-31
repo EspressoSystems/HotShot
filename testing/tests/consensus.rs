@@ -202,11 +202,11 @@ where
                 match queue_state {
                     QueuedMessageTense::Past(Some(len)) => {
                         result = Err(ConsensusRoundError::SafetyFailed {
-                                                description: format!("Past view's next leader receiver channel for node {} still exists for {:?} with {} items in it.  We are currenltly in {:?}", node_id, ref_view_number, len, cur_view)});
+                                                description: format!("Past view's next leader receiver channel for node {node_id} still exists for {ref_view_number:?} with {len} items in it.  We are currently in {cur_view:?}")});
                     }
                     QueuedMessageTense::Future(None) => {
                         result = Err(ConsensusRoundError::SafetyFailed {
-                            description: format!("Next ValidatingLeader did not properly queue future vote for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
+                            description: format!("Next ValidatingLeader did not properly queue future vote for {ref_view_number:?}.  We are currently in {cur_view:?}")});
                     }
                     _ => {}
                 }
@@ -287,11 +287,11 @@ where
                     match queue_state {
                         QueuedMessageTense::Past(Some(len)) => {
                             result = Err(ConsensusRoundError::SafetyFailed {
-                                                    description: format!("Node {}'s past view's replica receiver channel still exists for {:?} with {} items in it.  We are currenltly in {:?}", node_id, ref_view_number, len, cur_view)});
+                                                    description: format!("Node {node_id}'s past view's replica receiver channel still exists for {ref_view_number:?} with {len} items in it.  We are currenltly in {cur_view:?}")});
                         }
                         QueuedMessageTense::Future(None) => {
                             result = Err(ConsensusRoundError::SafetyFailed {
-                                description: format!("Replica did not properly queue future proposal for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
+                                description: format!("Replica did not properly queue future proposal for {ref_view_number:?}.  We are currently in {cur_view:?}")});
                         }
                         _ => {}
                     }
@@ -414,16 +414,16 @@ where
                 match queue_state {
                     QueuedMessageTense::Past(Some(len)) => {
                         result = Err(ConsensusRoundError::SafetyFailed {
-                            description: format!("Past view's replica receiver channel still exists for {:?} with {} items in it.  We are currenltly in {:?}", ref_view_number, len, cur_view)});
+                            description: format!("Past view's replica receiver channel still exists for {ref_view_number:?} with {len} items in it.  We are currently in {cur_view:?}")});
                     }
                     QueuedMessageTense::Future(Some(len)) => {
                         if !is_upcoming_validating_leader && ref_view_number != cur_view {
                             result = Err(ConsensusRoundError::SafetyFailed {
-                                description: format!("Replica queued invalid Proposal message that was not sent from the leader for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
+                                description: format!("Replica queued invalid Proposal message that was not sent from the leader for {ref_view_number:?}.  We are currently in {cur_view:?}")});
                         }
                         else if len > 1 {
                             result = Err(ConsensusRoundError::SafetyFailed {
-                                description: format!("Replica queued too many Proposal messages for {:?}.  We are currently in {:?}", ref_view_number, cur_view)});
+                                description: format!("Replica queued too many Proposal messages for {ref_view_number:?}.  We are currently in {cur_view:?}")});
 
                         }
                     }
