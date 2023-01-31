@@ -43,6 +43,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tracing::{error, info, instrument};
+use hotshot_types::certificate::DACertificate;
 
 // TODO wrong palce for this
 /// the sortition committee size parameter
@@ -456,7 +457,7 @@ where
 
     type QuorumCertificate = LEAF::QuorumCertificate;
 
-    type DACertificate = LEAF::DACertificate;
+    type DACertificate = DACertificate<TYPES>;
 
     type LeafType = LEAF;
 

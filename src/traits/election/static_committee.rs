@@ -14,7 +14,7 @@ use jf_primitives::signatures::BLSSignatureScheme;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
-
+use hotshot_types::certificate::DACertificate;
 use super::vrf::JfPubKey;
 
 /// Dummy implementation of [`Election`]
@@ -95,7 +95,7 @@ where
 
     type QuorumCertificate = LEAF::QuorumCertificate;
 
-    type DACertificate = LEAF::DACertificate;
+    type DACertificate = DACertificate<TYPES>;
 
     type LeafType = LEAF;
 

@@ -17,6 +17,9 @@ use hotshot_types::{
 };
 use std::num::NonZeroU64;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
+use hotshot_types::certificate::CertificateAccumulator;
+use hotshot_types::certificate::{QuorumCertificate, DACertificate};
+use either::Either;
 
 // FIXME these should be nonzero u64s
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
@@ -258,4 +261,53 @@ pub trait ConsensusApi<
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool;
+
+    fn accumulate_qc_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        leaf_commitment: Commitment<LEAF>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<
+            TYPES::SignatureKey,
+            TYPES::Time,
+            TYPES::VoteTokenType,
+            LEAF,
+            QuorumCertificate<TYPES, LEAF>,
+        >,
+    ) -> Either<
+        CertificateAccumulator<
+            TYPES::SignatureKey,
+            TYPES::Time,
+            TYPES::VoteTokenType,
+            LEAF,
+            QuorumCertificate<TYPES, LEAF>,
+        >,
+        QuorumCertificate<TYPES, LEAF>,
+    >;
+    fn accumulate_da_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        block_commitment: Commitment<TYPES::BlockType>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<
+            TYPES::SignatureKey,
+            TYPES::Time,
+            TYPES::VoteTokenType,
+            TYPES::BlockType,
+            DACertificate<TYPES>,
+        >,
+    ) -> Either<
+        CertificateAccumulator<
+            TYPES::SignatureKey,
+            TYPES::Time,
+            TYPES::VoteTokenType,
+            TYPES::BlockType,
+            DACertificate<TYPES>,
+        >,
+        DACertificate<TYPES>,
+    >;
 }

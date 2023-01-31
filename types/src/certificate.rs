@@ -3,7 +3,7 @@
 use crate::{
     data::{fake_commitment, LeafType},
     traits::{
-        election::{Accumulator, SignedCertificate},
+        election::{Accumulator, SignedCertificate, VoteToken},
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
@@ -70,26 +70,37 @@ where
     LEAF: Committable,
     CERT: SignedCertificate<SIGNATURE, TIME, TOKEN, LEAF>,
 {
-    _pd_0: PhantomData<SIGNATURE>,
-    _pd_1: PhantomData<CERT>,
-    _pd_2: PhantomData<TIME>,
-    _pd_3: PhantomData<TOKEN>,
-    _pd_4: PhantomData<LEAF>,
-    _valid_signatures: Vec<(EncodedSignature, SIGNATURE)>,
-    _threshold: NonZeroU64,
-    // TODO
+    pub _pd_0: PhantomData<SIGNATURE>,
+    pub _pd_1: PhantomData<CERT>,
+    pub _pd_2: PhantomData<TIME>,
+    pub _pd_3: PhantomData<TOKEN>,
+    pub _pd_4: PhantomData<LEAF>,
+    pub valid_signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>,
+    pub threshold: NonZeroU64,
+    pub stake_casted: u64,
 }
 
-impl<SIGNATURE, TIME, CERT, TOKEN, LEAF> Accumulator<(EncodedSignature, SIGNATURE), CERT>
+impl<SIGNATURE, TIME, CERT, TOKEN, LEAF> Accumulator<(EncodedPublicKey, (EncodedSignature, TOKEN)), BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>>
     for CertificateAccumulator<SIGNATURE, TIME, TOKEN, LEAF, CERT>
 where
     SIGNATURE: SignatureKey,
     LEAF: Committable,
     CERT: SignedCertificate<SIGNATURE, TIME, TOKEN, LEAF>,
+    TOKEN: Clone + VoteToken,
 {
-    fn append(_val: Vec<(EncodedSignature, SIGNATURE)>) -> Either<Self, CERT> {
-        #[allow(deprecated)]
-        nll_todo()
+    fn append(
+        mut self,
+        val: (EncodedPublicKey, (EncodedSignature, TOKEN)),
+    ) -> Either<Self, BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>> {
+        let (key, (sig, token)) = val;
+        self.valid_signatures.insert(key, (sig.clone(), token.clone()));
+
+        self.stake_casted += u64::from(token.vote_count());
+
+        if self.stake_casted >= u64::from(self.threshold) {
+            return Either::Right(self.valid_signatures);
+        }
+        Either::Left(self)
     }
 }
 
@@ -104,6 +115,18 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
         LEAF,
         QuorumCertificate<TYPES, LEAF>,
     >;
+    fn from_signatures_and_commitment(
+        view_number: TYPES::Time,
+        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
+        commit: Commitment<LEAF>,
+    ) -> Self {
+        QuorumCertificate {
+            leaf_commitment: commit,
+            view_number,
+            signatures,
+            is_genesis: false,
+        }
+    }
 
     fn view_number(&self) -> TYPES::Time {
         self.view_number
@@ -164,7 +187,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Committable
     }
 }
 
-impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
+impl<TYPES: NodeType, LEAF: commit::Committable>
     SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>
     for DACertificate<TYPES>
 {
@@ -175,6 +198,17 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
         LEAF,
         DACertificate<TYPES>,
     >;
+
+    fn from_signatures_and_commitment(
+        view_number: TYPES::Time,
+        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
+        _commit: Commitment<LEAF>,
+    ) -> Self {
+        DACertificate {
+            view_number,
+            signatures,
+        }
+    }
 
     fn view_number(&self) -> TYPES::Time {
         self.view_number

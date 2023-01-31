@@ -92,6 +92,8 @@ use std::{
     time::{Duration, Instant},
 };
 use tracing::{debug, error, info, instrument, trace, warn};
+use hotshot_types::certificate::CertificateAccumulator;
+use either::Either;
 
 // -- Rexports
 // External
@@ -1114,6 +1116,59 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
             view_number,
             vote_token,
         )
+    }
+
+    fn accumulate_qc_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        leaf_commitment: Commitment<I::Leaf>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<
+            TYPES::SignatureKey,
+            TYPES::Time,
+            TYPES::VoteTokenType,
+            I::Leaf,
+            QuorumCertificate<TYPES, I::Leaf>,
+        >,
+    ) -> Either<
+        CertificateAccumulator<
+            TYPES::SignatureKey,
+            TYPES::Time,
+            TYPES::VoteTokenType,
+            I::Leaf,
+            QuorumCertificate<TYPES, I::Leaf>,
+        >,
+        QuorumCertificate<TYPES, I::Leaf>,
+    > {
+        self.inner.election.accumulate_qc_vote(encoded_key, encoded_signature, leaf_commitment, vote_token, view_number, accumlator)
+    }
+    fn accumulate_da_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        block_commitment: Commitment<TYPES::BlockType>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<
+            TYPES::SignatureKey,
+            TYPES::Time,
+            TYPES::VoteTokenType,
+            TYPES::BlockType,
+            DACertificate<TYPES>,
+        >,
+    ) -> Either<
+        CertificateAccumulator<
+            TYPES::SignatureKey,
+            TYPES::Time,
+            TYPES::VoteTokenType,
+            TYPES::BlockType,
+            DACertificate<TYPES>,
+        >,
+        DACertificate<TYPES>,
+    > {
+        self.inner.election.accumulate_qc_vote(encoded_key, encoded_signature, block_commitment, vote_token, view_number, accumlator)
     }
 
     async fn store_leaf(
