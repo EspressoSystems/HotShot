@@ -55,7 +55,7 @@ derivative = "2.2.0"
 ed25519-compact = { version = "2.0.4", optional = true }
 either = { version = "1.8.1", features = [ "serde" ] }
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
-futures = "0.3.25"
+futures = "0.3.26"
 hex_fmt = "0.3.0"
 hotshot-utils = { path = "../utils" }
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
