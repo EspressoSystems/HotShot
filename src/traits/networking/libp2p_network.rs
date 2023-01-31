@@ -125,10 +125,9 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         ELECTION: Election<TYPES>,
     > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>
-    for Libp2pNetwork<Message<TYPES, LEAF, PROPOSAL>, <TYPES as NodeType>::SignatureKey>
+    for Libp2pCommChannel<TYPES, LEAF, PROPOSAL>
 where
     TYPES::SignatureKey: TestableSignatureKey,
-    // Libp2pNetwork<Message<TYPES, LEAF, PROPOSAL>, <TYPES as NodeType>::SignatureKey>: NetworkingImplementation<TYPES, LEAF, PROPOSAL>,
 {
     /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
     /// with the purpose of generating libp2p networks.
@@ -206,7 +205,7 @@ where
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
                 let all_keys = all_keys.clone();
                 async_block_on(async move {
-                    Libp2pNetwork::new(
+                    Libp2pCommChannel(Libp2pNetwork::new(
                         NoMetrics::new(),
                         config,
                         pubkey,
@@ -216,7 +215,7 @@ where
                         all_keys,
                     )
                     .await
-                    .unwrap()
+                    .unwrap())
                 })
             }
         })
@@ -688,6 +687,14 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 }
 
+/// libp2p identity communication channel
+#[derive(Clone)]
+pub struct Libp2pCommChannel<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+    >(Libp2pNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>);
+
 // FIXME maybe we should macro this...? It's repeated at verbatum EXCEPT for impl generics at the
 // top
 // we don't really want to make this the default implementation because that forces it to require ConnectedNetwork to be implemented. The struct we implement over might use multiple ConnectedNetworks
@@ -698,64 +705,51 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         ELECTION: Election<TYPES>,
     > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION>
-    for Libp2pNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>
+    for Libp2pCommChannel<TYPES, LEAF, PROPOSAL>
 {
-    async fn ready_cc(&self) -> bool {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::ready(self)
-            .await
+
+    async fn ready(&self) -> bool {
+        self.0.ready().await
     }
 
-    async fn shut_down_cc(&self) -> () {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::shut_down(
-            self,
-        )
-        .await;
+    async fn shut_down(&self) -> () {
+        self.0.shut_down().await
     }
 
-    async fn broadcast_message_cc(
+    async fn broadcast_message(
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         election: &ELECTION,
-        view_number: TYPES::Time,
+        view_number: TYPES::Time
     ) -> Result<RequestId, NetworkError> {
         let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::broadcast_message(self, message, recipients).await
+        self.0.broadcast_message(message, recipients).await
     }
 
-    async fn direct_message_cc(
+    async fn direct_message(
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
     ) -> Result<RequestId, NetworkError> {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::direct_message(self, message, recipient).await
+        self.0.direct_message(message, recipient).await
     }
 
-    async fn recv_msgs_cc(
+    async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::recv_msgs(
-            self,
-            transmit_type,
-        )
-        .await
+        self.0.recv_msgs(transmit_type).await
     }
 
-    async fn lookup_node_cc(&self, pk: TYPES::SignatureKey) -> Result<RequestId, NetworkError> {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::lookup_node(self, pk).await
+    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<RequestId, NetworkError> {
+        self.0.lookup_node(pk).await
     }
 
-    async fn cancel_msg_cc(&self, cancel_id: RequestId) -> Result<(), NetworkError> {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::cancel_msg(
-            self, cancel_id,
-        )
-        .await
+    async fn cancel_msg(&self, cancel_id: RequestId) -> Result<(), NetworkError> {
+        self.0.cancel_msg(cancel_id).await
     }
 
-    async fn msg_status_cc(&self, cancel_id: RequestId) -> RequestStatus {
-        <Self as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::msg_status(
-            self, cancel_id,
-        )
-        .await
+    async fn msg_status(&self, cancel_id: RequestId) -> RequestStatus {
+        self.0.msg_status(cancel_id).await
     }
 }

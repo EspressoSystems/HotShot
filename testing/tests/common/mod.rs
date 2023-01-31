@@ -12,7 +12,7 @@ use hotshot::{
             static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
             vrf::{JfPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
         },
-        implementations::{MemoryNetwork, MemoryStorage},
+        implementations::{MemoryCommChannel, MemoryStorage},
         NetworkReliability,
     },
     types::Message,
@@ -183,7 +183,7 @@ where
         runner.add_nodes(self.start_nodes).await;
 
         for (idx, node) in runner.nodes().collect::<Vec<_>>().iter().enumerate().rev() {
-            node.networking().ready_cc().await;
+            node.networking().ready().await;
             info!("EXECUTOR: NODE {:?} IS READY", idx);
         }
 
@@ -411,23 +411,20 @@ pub type StandardNodeImplType = TestNodeImpl<
             Param381,
         >,
     >,
-    MemoryNetwork<
-        Message<
+    MemoryCommChannel<
+        VrfTestTypes,
+        ValidatingLeaf<VrfTestTypes>,
+        ValidatingProposal<
             VrfTestTypes,
-            ValidatingLeaf<VrfTestTypes>,
-            ValidatingProposal<
+            VrfImpl<
                 VrfTestTypes,
-                VrfImpl<
-                    VrfTestTypes,
-                    ValidatingLeaf<VrfTestTypes>,
-                    BLSSignatureScheme<Param381>,
-                    BLSVRFScheme<Param381>,
-                    Hasher,
-                    Param381,
-                >,
+                ValidatingLeaf<VrfTestTypes>,
+                BLSSignatureScheme<Param381>,
+                BLSVRFScheme<Param381>,
+                Hasher,
+                Param381,
             >,
         >,
-        <VrfTestTypes as NodeType>::SignatureKey,
     >,
     MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
     VrfImpl<
@@ -449,16 +446,13 @@ pub type StaticNodeImplType = TestNodeImpl<
         StaticCommitteeTestTypes,
         StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     >,
-    MemoryNetwork<
-        Message<
+    MemoryCommChannel<
+        StaticCommitteeTestTypes,
+        ValidatingLeaf<StaticCommitteeTestTypes>,
+        ValidatingProposal<
             StaticCommitteeTestTypes,
-            ValidatingLeaf<StaticCommitteeTestTypes>,
-            ValidatingProposal<
-                StaticCommitteeTestTypes,
-                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-            >,
+            StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         >,
-        <StaticCommitteeTestTypes as NodeType>::SignatureKey,
     >,
     MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -471,7 +465,7 @@ pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, ELECTION> = TestNodeImpl<
     TYPES,
     LEAF,
     PROPOSAL,
-    MemoryNetwork<Message<TYPES, LEAF, PROPOSAL>, <TYPES as NodeType>::SignatureKey>,
+    MemoryCommChannel<TYPES, LEAF, PROPOSAL>,
     MemoryStorage<TYPES, LEAF>,
     ELECTION,
 >;
@@ -920,18 +914,15 @@ macro_rules! cross_tests {
                     >
                 >,
                 $NETWORK<
-                    hotshot_types::message::Message<
+                    common::StaticCommitteeTestTypes,
+                    hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>,
+                    hotshot_types::data::ValidatingProposal<
                         common::StaticCommitteeTestTypes,
-                        hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>,
-                        hotshot_types::data::ValidatingProposal<
+                        hotshot::traits::election::static_committee::StaticCommittee<
                             common::StaticCommitteeTestTypes,
-                            hotshot::traits::election::static_committee::StaticCommittee<
-                                common::StaticCommitteeTestTypes,
-                                hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
-                            >
-                        >,
+                            hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
+                        >
                     >,
-                    <common::StaticCommitteeTestTypes as hotshot_types::traits::node_implementation::NodeType>::SignatureKey,
                 >,
                 $STORAGE<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,
                 hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>
@@ -973,7 +964,7 @@ macro_rules! cross_all_types {
             use $crate::*;
 
             cross_tests!(
-                [ MemoryNetwork ],
+                [ MemoryCommChannel ],
                 [ MemoryStorage ],
                 [ DEntryBlock  ],
                 [ DEntryState ],
@@ -1007,7 +998,7 @@ macro_rules! cross_all_types_proptest {
             use $crate::*;
 
             cross_tests!(
-                [ MemoryNetwork Libp2pNetwork ],
+                [ MemoryCommChannel ],
                 [ MemoryStorage ], // AtomicStorage
                 [ DEntryBlock  ],
                 [ DEntryState ],

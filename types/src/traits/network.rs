@@ -128,7 +128,7 @@ pub enum RequestStatus {
 }
 
 /// API for interacting directly with a consensus committee
-/// intended to be implemented for both DA and for validasting consensus committees
+/// intended to be implemented for both DA and for validating consensus committees
 #[async_trait]
 pub trait CommunicationChannel<
     TYPES: NodeType,
@@ -140,25 +140,25 @@ pub trait CommunicationChannel<
     /// Returns true when node is successfully initialized
     /// into the network
     /// Blocks until node is ready
-    async fn ready_cc(&self) -> bool;
+    async fn ready(&self) -> bool;
 
     /// Shut down this network. Afterwards this network should no longer be used.
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
-    async fn shut_down_cc(&self) -> ();
+    async fn shut_down(&self) -> ();
 
     /// broadcast message to those listening on the communication channel
     /// non-blocking
-    async fn broadcast_message_cc(
+    async fn broadcast_message(
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         election: &ELECTION,
-        view_number: TYPES::Time,
+        view_number: TYPES::Time
     ) -> Result<RequestId, NetworkError>;
 
     /// Sends a direct message to a specific node
     /// non-blocking
-    async fn direct_message_cc(
+    async fn direct_message(
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
@@ -168,23 +168,23 @@ pub trait CommunicationChannel<
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs_cc(
+    async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError>;
 
     /// look up a node
     /// non-blocking
-    async fn lookup_node_cc(&self, pk: TYPES::SignatureKey) -> Result<RequestId, NetworkError>;
+    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<RequestId, NetworkError>;
 
     /// cancel a message
     /// if message completed or already cancelled, immediately returns
     /// blocking
-    async fn cancel_msg_cc(&self, cancel_id: RequestId) -> Result<(), NetworkError>;
+    async fn cancel_msg(&self, cancel_id: RequestId) -> Result<(), NetworkError>;
 
     /// returns the status of a message
     /// non-blocking
-    async fn msg_status_cc(&self, cancel_id: RequestId) -> RequestStatus;
+    async fn msg_status(&self, cancel_id: RequestId) -> RequestStatus;
 }
 
 /// common traits we would like olur network messages to implement

@@ -178,7 +178,7 @@ where
     SIGSCHEME::Signature: Clone + for<'a> Deserialize<'a> + Serialize,
 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.to_bytes().cmp(&other.to_bytes()))
+        self.to_bytes().partial_cmp(&other.to_bytes())
     }
 }
 

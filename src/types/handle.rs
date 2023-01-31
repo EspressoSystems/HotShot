@@ -243,7 +243,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     /// Shut down the the inner hotshot and wait until all background threads are closed.
     pub async fn shut_down(self) {
         self.shut_down.store(true, Ordering::Relaxed);
-        self.hotshot.inner.networking.shut_down_cc().await;
+        self.hotshot.inner.networking.shut_down().await;
         self.hotshot
             .inner
             .background_task_handle

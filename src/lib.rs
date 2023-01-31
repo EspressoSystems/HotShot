@@ -388,11 +388,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         async_spawn_local(async move {
             if inner
                 .networking
-                .broadcast_message_cc(
+                .broadcast_message(
                     Message { sender: pk, kind },
                     // TODO this is morally wrong
                     inner.election.clone().as_ref(),
-                    // TODO this is conceptually wrong
                     <TYPES::Time as ConsensusTime>::new(0),
                 )
                 .await
@@ -418,7 +417,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     ) -> std::result::Result<(), NetworkError> {
         self.inner
             .networking
-            .direct_message_cc(
+            .direct_message(
                 Message {
                     sender: self.inner.public_key.clone(),
                     kind: kind.into(),
@@ -1005,7 +1004,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         async_spawn_local(async move {
             inner
                 .networking
-                .direct_message_cc(
+                .direct_message(
                     Message {
                         sender: inner.public_key.clone(),
                         kind: message.into(),
@@ -1024,14 +1023,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         debug!(?message, "send_broadcast_message");
         self.inner
             .networking
-            .broadcast_message_cc(
+            .broadcast_message(
                 Message {
                     sender: self.inner.public_key.clone(),
                     kind: message.into(),
                 },
                 // TODO this is morally wrong
                 self.inner.election.clone().as_ref(),
-                // TODO this is conceptually wrong
                 <TYPES::Time as ConsensusTime>::new(0),
             )
             .await?;

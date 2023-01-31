@@ -547,8 +547,6 @@ async fn test_bad_proposal() {
 
     test.execute().await.unwrap();
 }
-// hotshot::traits::implementations::MemoryNetwork< ValidatingProposal<StaticCommitteeTestTypes, GeneralStaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>, JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>>>, JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>>:
-// TestableNetworkingImplementation<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>, ValidatingProposal<StaticCommitteeTestTypes, GeneralStaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>, JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>>>, GeneralStaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>, JfPubKey<BLSSignatureScheme<ark_bls12_381::Parameters>>>>
 
 /// Tests a single node network, which also tests when a node is leader in consecutive views
 #[cfg_attr(

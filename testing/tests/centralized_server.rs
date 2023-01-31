@@ -7,12 +7,11 @@ use common::*;
 use either::Either::Right;
 use hotshot::traits::{
     election::{static_committee::StaticCommittee, vrf::VrfImpl},
-    implementations::{CentralizedServerNetwork, MemoryStorage},
+    implementations::{MemoryStorage, CentralizedCommChannel},
 };
 use hotshot_testing::TestNodeImpl;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
-    traits::node_implementation::NodeType,
 };
 // use hotshot_utils::test_util::shutdown_logging;
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
@@ -54,9 +53,8 @@ async fn centralized_server_network_vrf() {
                     Param381,
                 >,
             >,
-            CentralizedServerNetwork<
-                <VrfTestTypes as NodeType>::SignatureKey,
-                <VrfTestTypes as NodeType>::ElectionConfigType,
+            CentralizedCommChannel<
+                VrfTestTypes
             >,
             MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
             VrfImpl<
@@ -103,9 +101,8 @@ async fn centralized_server_network() {
                 StaticCommitteeTestTypes,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
-            CentralizedServerNetwork<
-                <StaticCommitteeTestTypes as NodeType>::SignatureKey,
-                <StaticCommitteeTestTypes as NodeType>::ElectionConfigType,
+            CentralizedCommChannel<
+                StaticCommitteeTestTypes
             >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -147,9 +144,8 @@ async fn test_stress_centralized_server_network() {
                 StaticCommitteeTestTypes,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
-            CentralizedServerNetwork<
-                <StaticCommitteeTestTypes as NodeType>::SignatureKey,
-                <StaticCommitteeTestTypes as NodeType>::ElectionConfigType,
+            CentralizedCommChannel<
+                StaticCommitteeTestTypes
             >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

@@ -7,14 +7,12 @@ use either::Either::Right;
 use hotshot::{
     traits::{
         election::static_committee::StaticCommittee,
-        implementations::{Libp2pNetwork, MemoryStorage},
+        implementations::{MemoryStorage, Libp2pCommChannel},
     },
-    types::Message,
 };
 use hotshot_testing::TestNodeImpl;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
-    traits::node_implementation::NodeType,
 };
 use tracing::instrument;
 
@@ -47,19 +45,16 @@ async fn libp2p_network() {
                 StaticCommitteeTestTypes,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
-            Libp2pNetwork<
-                Message<
+            Libp2pCommChannel<
+                StaticCommitteeTestTypes,
+                ValidatingLeaf<StaticCommitteeTestTypes>,
+                ValidatingProposal<
                     StaticCommitteeTestTypes,
-                    ValidatingLeaf<StaticCommitteeTestTypes>,
-                    ValidatingProposal<
+                    StaticCommittee<
                         StaticCommitteeTestTypes,
-                        StaticCommittee<
-                            StaticCommitteeTestTypes,
-                            ValidatingLeaf<StaticCommitteeTestTypes>,
-                        >,
+                        ValidatingLeaf<StaticCommitteeTestTypes>,
                     >,
                 >,
-                <StaticCommitteeTestTypes as NodeType>::SignatureKey,
             >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -99,19 +94,16 @@ async fn test_stress_libp2p_network() {
                 StaticCommitteeTestTypes,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
-            Libp2pNetwork<
-                Message<
+            Libp2pCommChannel<
+                StaticCommitteeTestTypes,
+                ValidatingLeaf<StaticCommitteeTestTypes>,
+                ValidatingProposal<
                     StaticCommitteeTestTypes,
-                    ValidatingLeaf<StaticCommitteeTestTypes>,
-                    ValidatingProposal<
+                    StaticCommittee<
                         StaticCommitteeTestTypes,
-                        StaticCommittee<
-                            StaticCommitteeTestTypes,
-                            ValidatingLeaf<StaticCommitteeTestTypes>,
-                        >,
+                        ValidatingLeaf<StaticCommitteeTestTypes>,
                     >,
                 >,
-                <StaticCommitteeTestTypes as NodeType>::SignatureKey,
             >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
