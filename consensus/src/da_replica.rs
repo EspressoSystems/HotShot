@@ -7,16 +7,18 @@ use crate::{
 };
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
+use bincode::Options;
 use commit::Committable;
-use either::Right;
+use either::{Left, Right};
 use hotshot_types::{
-    certificate::QuorumCertificate,
+    certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, DALeaf},
     message::{ConsensusMessage, ProcessedConsensusMessage},
     traits::{
         election::{Election, SignedCertificate},
         node_implementation::NodeType,
         signature_key::SignatureKey,
+        Block,
     },
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -33,6 +35,7 @@ pub struct DAReplica<
     ELECTION: Election<
         TYPES,
         LeafType = DALeaf<TYPES>,
+        DACertificate = DACertificate<TYPES>,
         QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
     >,
 > {
@@ -67,6 +70,7 @@ impl<
         ELECTION: Election<
             TYPES,
             LeafType = DALeaf<TYPES>,
+            DACertificate = DACertificate<TYPES>,
             QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
         >,
     > DAReplica<A, TYPES, ELECTION>
@@ -146,13 +150,21 @@ impl<
                                 info!("We were chosen for committee on {:?}", self.cur_view);
 
                                 let message;
-                                // Construct the leaf and validate the `justify_qc`.
+
+                                // Construct the leaf.
                                 let justify_qc = p.data.justify_qc;
+                                let parent_commitment = match self.parent_leaf().await {
+                                    Some(parent) => parent.commit(),
+                                    None => {
+                                        break None;
+                                    }
+                                };
+                                let block_commitment = p.data.block_commitment;
                                 let leaf = DALeaf {
                                     view_number: self.cur_view,
                                     height: 0,
-                                    justify_qc,
-                                    parent_commitment: self.parent_leaf().await?.commit(),
+                                    justify_qc: justify_qc.clone(),
+                                    parent_commitment,
                                     deltas: Right(p.data.block_commitment),
                                     rejected: Vec::new(),
                                     timestamp: time::OffsetDateTime::now_utc()
@@ -161,6 +173,8 @@ impl<
                                 };
                                 let justify_qc_commitment = justify_qc.commit();
                                 let leaf_commitment = leaf.commit();
+
+                                // Validate the `justify_qc`.
                                 if !self.api.is_valid_qc(&justify_qc) {
                                     invalid_qc = true;
                                     warn!("Invalid justify_qc in proposal!.");
@@ -171,9 +185,8 @@ impl<
                                         vote_token,
                                     );
                                 }
-
                                 // Validate the DAC.
-                                if !self.api.is_valid_dac(&p.data.dac) {
+                                else if !self.api.is_valid_dac(&p.data.dac, block_commitment) {
                                     warn!("Invalid DAC in proposal! Skipping proposal.");
                                     message = self.api.create_no_message(
                                         justify_qc_commitment,
@@ -182,9 +195,10 @@ impl<
                                         vote_token,
                                     );
                                 }
-
                                 // Validate the signature.
-                                if !view_leader_key.validate(&p.signature, leaf) {
+                                else if !view_leader_key
+                                    .validate(&p.signature, leaf_commitment.as_ref())
+                                {
                                     warn!(?p.signature, "Could not verify proposal.");
                                     message = self.api.create_no_message(
                                         justify_qc_commitment,
@@ -192,49 +206,53 @@ impl<
                                         self.cur_view,
                                         vote_token,
                                     );
-                                };
-
-                                // Liveness check.
-                                let liveness_check = justify_qc.view_number > consensus.locked_view;
-
-                                // Safety check.
-                                // Check if proposal extends from the locked leaf.
-                                let outcome = consensus.visit_leaf_ancestors(
-                                    justify_qc.view_number,
-                                    Terminator::Inclusive(consensus.locked_view),
-                                    false,
-                                    |leaf| {
-                                        // if leaf view no == locked view no then we're done, report success by
-                                        // returning true
-                                        leaf.view_number != consensus.locked_view
-                                    },
-                                );
-                                let safety_check = outcome.is_ok();
-                                if let Err(e) = outcome {
-                                    self.api.send_view_error(self.cur_view, Arc::new(e)).await;
                                 }
+                                // Create a positive vote if either liveness or safety check
+                                // passes.
+                                else {
+                                    // Liveness check.
+                                    let liveness_check =
+                                        justify_qc.view_number > consensus.locked_view;
 
-                                // Skip if both saftey and liveness checks fail.
-                                if !safety_check && !liveness_check {
-                                    warn!("Failed safety check and liveness check");
-                                    self.api.create_no_message(
-                                        justify_qc_commitment,
-                                        leaf_commitment,
-                                        self.cur_view,
-                                        vote_token,
-                                    )
+                                    // Safety check.
+                                    // Check if proposal extends from the locked leaf.
+                                    let outcome = consensus.visit_leaf_ancestors(
+                                        justify_qc.view_number,
+                                        Terminator::Inclusive(consensus.locked_view),
+                                        false,
+                                        |leaf| {
+                                            // if leaf view no == locked view no then we're done, report success by
+                                            // returning true
+                                            leaf.view_number != consensus.locked_view
+                                        },
+                                    );
+                                    let safety_check = outcome.is_ok();
+                                    if let Err(e) = outcome {
+                                        self.api.send_view_error(self.cur_view, Arc::new(e)).await;
+                                    }
+
+                                    // Skip if both saftey and liveness checks fail.
+                                    if !safety_check && !liveness_check {
+                                        warn!("Failed safety check and liveness check");
+                                        message = self.api.create_no_message(
+                                            justify_qc_commitment,
+                                            leaf_commitment,
+                                            self.cur_view,
+                                            vote_token,
+                                        );
+                                    } else {
+                                        // A valid leaf is found.
+                                        valid_leaf = Some(leaf);
+
+                                        // Generate a message with yes vote.
+                                        message = self.api.create_yes_message(
+                                            justify_qc_commitment,
+                                            leaf_commitment,
+                                            self.cur_view,
+                                            vote_token,
+                                        );
+                                    }
                                 }
-
-                                // A valid leaf is found.
-                                valid_leaf = Some(leaf);
-
-                                // Generate a message with yes vote.
-                                message = self.api.create_yes_message(
-                                    justify_qc_commitment,
-                                    leaf_commitment,
-                                    self.cur_view,
-                                    vote_token,
-                                );
 
                                 info!("Sending vote to next leader {:?}", message);
                                 let next_leader = self.api.get_leader(self.cur_view + 1).await;
@@ -312,16 +330,13 @@ impl<
             }
             // fall through logic if we did not receive successfully from channel
             warn!("Replica did not receive successfully from channel. Terminating Replica.");
-            return (RwLockWriteGuard::downgrade_to_upgradable(consensus), None);
+            return (consensus, None);
         };
         let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
         if invalid_qc {
             consensus.invalid_qc += 1;
         }
-        (
-            RwLockWriteGuard::downgrade_to_upgradable(consensus),
-            Some(leaf),
-        )
+        (RwLockWriteGuard::downgrade_to_upgradable(consensus), leaf)
     }
 
     /// Run one view of the replica for sequencing consensus.
@@ -337,7 +352,7 @@ impl<
             leaf
         } else {
             // We either timed out or for some reason could not vote on a proposal.
-            return;
+            return self.high_qc;
         };
 
         let mut new_anchor_view = consensus.last_decided_view;
@@ -380,9 +395,11 @@ impl<
                     // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
                     if new_decide_reached {
                         leaf_views.push(leaf.clone());
-                        let txns = leaf.deltas.contained_transactions();
-                        for txn in txns {
-                            included_txns.insert(txn);
+                        if let Left(block) = &leaf.deltas {
+                            let txns = block.contained_transactions();
+                            for txn in txns {
+                                included_txns.insert(txn);
+                            }
                         }
                     }
                     true

@@ -248,12 +248,12 @@ pub trait ConsensusApi<
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
-        let signature = self.api.sign_da_vote(block_commitment);
+        let signature = self.sign_da_vote(block_commitment);
         ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::DA(DAVote {
             justify_qc_commitment,
             signature,
             block_commitment,
-            current_view: self.cur_view,
+            current_view,
             vote_token,
         }))
     }
@@ -266,12 +266,12 @@ pub trait ConsensusApi<
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
-        let signature = self.api.sign_yes_vote(leaf_commitment);
+        let signature = self.sign_yes_vote(leaf_commitment);
         ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::Yes(YesOrNoVote {
             justify_qc_commitment,
             signature,
             leaf_commitment,
-            current_view: self.cur_view,
+            current_view,
             vote_token,
         }))
     }
@@ -284,12 +284,12 @@ pub trait ConsensusApi<
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
-        let signature = self.api.sign_no_vote(leaf_commitment);
+        let signature = self.sign_no_vote(leaf_commitment);
         ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::No(YesOrNoVote {
             justify_qc_commitment,
             signature,
             leaf_commitment,
-            current_view: self.cur_view,
+            current_view,
             vote_token,
         }))
     }
@@ -301,11 +301,11 @@ pub trait ConsensusApi<
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
-        let signature = self.api.sign_timeout_vote(current_view);
+        let signature = self.sign_timeout_vote(current_view);
         ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::Timeout(TimeoutVote {
             justify_qc,
             signature,
-            current_view: self.cur_view,
+            current_view,
             vote_token,
         }))
     }

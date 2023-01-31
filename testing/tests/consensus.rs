@@ -15,13 +15,13 @@ use futures::{
 };
 use hotshot::{
     certificate::QuorumCertificate, demos::dentry::random_validating_leaf,
-    traits::election::vrf::VrfImpl, types::Vote,
+    traits::election::vrf::VrfImpl,
 };
 use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     event::EventType,
-    message::{ConsensusMessage, Proposal, YesOrNoVote},
+    message::{ConsensusMessage, Proposal},
     traits::{
         election::{Election, SignedCertificate, TestableElection},
         node_implementation::NodeType,

@@ -352,13 +352,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `create_da_message` function
-    fn create_da_message(
+    pub fn create_da_message(
         &self,
-        justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
+        justify_qc_commitment: Commitment<<I::Leaf as LeafType>::QuorumCertificate>,
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+    ) -> ConsensusMessage<TYPES, I::Leaf, I::Proposal> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -371,13 +371,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `create_yes_message` function
-    fn create_yes_message(
+    pub fn create_yes_message(
         &self,
-        justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
-        leaf_commitment: Commitment<LEAF>,
+        justify_qc_commitment: Commitment<<I::Leaf as LeafType>::QuorumCertificate>,
+        leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+    ) -> ConsensusMessage<TYPES, I::Leaf, I::Proposal> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -390,13 +390,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `create_no_message` function
-    fn create_no_message(
+    pub fn create_no_message(
         &self,
-        justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
-        leaf_commitment: Commitment<LEAF>,
+        justify_qc_commitment: Commitment<<I::Leaf as LeafType>::QuorumCertificate>,
+        leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+    ) -> ConsensusMessage<TYPES, I::Leaf, I::Proposal> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -409,12 +409,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `create_timeout_message` function
-    fn create_timeout_message(
+    pub fn create_timeout_message(
         &self,
-        justify_qc: LEAF::QuorumCertificate,
+        justify_qc: <I::Leaf as LeafType>::QuorumCertificate,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+    ) -> ConsensusMessage<TYPES, I::Leaf, I::Proposal> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
