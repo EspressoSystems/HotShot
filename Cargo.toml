@@ -104,7 +104,7 @@ custom_debug = "0.5"
 dashmap = "5.3.4"
 derivative = { version = "2.2.0", optional = true }
 digest = "0.10.6"
-either = { version = "1.8.0", features = [ "serde" ] }
+either = { version = "1.8.1", features = [ "serde" ] }
 embed-doc-image = "0.1.4"
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
 futures = "0.3.25"
@@ -149,7 +149,7 @@ serde = { version = "1.0.152", features = ["derive", "rc"] }
 snafu = "0.7.4"
 tempfile = "3.3.0"
 time = "0.3.17"
-toml = { version = "0.6.0", optional = true }
+toml = { version = "0.7.0", optional = true }
 tokio = { version = "1", optional = true, features = [
         "fs",
         "io-util",
@@ -174,7 +174,7 @@ clap = { version = "4.1", features = ["derive", "env"] }
 rand_xoshiro = "0.6.0"
 serde_json = "1.0.91"
 sha2 = { version = "0.10.1" }
-toml = "0.6.0"
+toml = "0.7.0"
 
 ### Profiles
 ###
