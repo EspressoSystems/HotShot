@@ -31,7 +31,7 @@ async-std = { version = "1.12", optional = true }
 async-trait = "0.1.63"
 bincode = "1.3.3"
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
-futures = "0.3.25"
+futures = "0.3.26"
 libp2p-core = { version = "0.38.0", default-features = false }
 hotshot-types = { version = "0.1.0", path = "../types", default-features = false }
 hotshot-utils = { path = "../utils" }

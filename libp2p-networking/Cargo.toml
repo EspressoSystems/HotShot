@@ -56,7 +56,7 @@ color-eyre = "0.6.2"
 custom_debug = "0.5"
 derive_builder = "0.12.0"
 either = { version = "1.8.1" }
-futures = "0.3.25"
+futures = "0.3.26"
 hotshot-utils = { path = "../utils"}
 libp2p-swarm-derive = { version = "=0.31.0" }
 libp2p = { version = "0.50", default-features = false, features = [
