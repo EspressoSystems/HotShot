@@ -29,7 +29,6 @@ use hotshot_types::{
 };
 use hotshot_utils::bincode::bincode_opts;
 
-use nll::nll_todo::nll_todo;
 use rand::Rng;
 use snafu::ResultExt;
 use std::{
@@ -311,9 +310,12 @@ where
         Box::new(move |node_id| {
             let privkey = TYPES::SignatureKey::generate_test_key(node_id);
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
-            MemoryCommChannel(
-                MemoryNetwork::new(pubkey, NoMetrics::new(), master.clone(), None)
-            )
+            MemoryCommChannel(MemoryNetwork::new(
+                pubkey,
+                NoMetrics::new(),
+                master.clone(),
+                None,
+            ))
         })
     }
 
@@ -458,10 +460,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
 /// memory identity communication channel
 #[derive(Clone)]
 pub struct MemoryCommChannel<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-    >(MemoryNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>);
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+>(MemoryNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>);
 
 #[async_trait]
 impl<
@@ -477,14 +479,14 @@ impl<
     }
 
     async fn shut_down(&self) -> () {
-        self.0.shut_down().await
+        self.0.shut_down().await;
     }
 
     async fn broadcast_message(
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         election: &ELECTION,
-        view_number: TYPES::Time
+        view_number: TYPES::Time,
     ) -> Result<RequestId, NetworkError> {
         let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
         self.0.broadcast_message(message, recipients).await

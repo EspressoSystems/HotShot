@@ -15,7 +15,6 @@ use hotshot::{
         implementations::{MemoryCommChannel, MemoryStorage},
         NetworkReliability,
     },
-    types::Message,
     HotShot, HotShotError, ViewRunner,
 };
 use hotshot_testing::{

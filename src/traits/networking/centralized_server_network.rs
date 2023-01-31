@@ -1081,9 +1081,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
 
 /// libp2p identity communication channel
 #[derive(Clone)]
-pub struct CentralizedCommChannel<
-        TYPES: NodeType,
-    >(CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>);
+pub struct CentralizedCommChannel<TYPES: NodeType>(
+    CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+);
 
 #[async_trait]
 impl<
@@ -1091,23 +1091,29 @@ impl<
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         ELECTION: Election<TYPES>,
-    > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION>
-    for CentralizedCommChannel<TYPES>
+    > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION> for CentralizedCommChannel<TYPES>
 {
     async fn ready(&self) -> bool {
-        <CentralizedServerNetwork<_, _> as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::ready(&self.0).await
+        <CentralizedServerNetwork<_, _> as ConnectedNetwork<
+            Message<TYPES, LEAF, PROPOSAL>,
+            TYPES::SignatureKey,
+        >>::ready(&self.0)
+        .await
     }
 
     async fn shut_down(&self) -> () {
-        <CentralizedServerNetwork<_, _> as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::shut_down(&self.0).await
-
+        <CentralizedServerNetwork<_, _> as ConnectedNetwork<
+            Message<TYPES, LEAF, PROPOSAL>,
+            TYPES::SignatureKey,
+        >>::shut_down(&self.0)
+        .await;
     }
 
     async fn broadcast_message(
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         election: &ELECTION,
-        view_number: TYPES::Time
+        view_number: TYPES::Time,
     ) -> Result<RequestId, NetworkError> {
         let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
         self.0.broadcast_message(message, recipients).await
@@ -1129,16 +1135,27 @@ impl<
     }
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<RequestId, NetworkError> {
-
-        <CentralizedServerNetwork<_, _> as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::lookup_node(&self.0, pk).await
+        <CentralizedServerNetwork<_, _> as ConnectedNetwork<
+            Message<TYPES, LEAF, PROPOSAL>,
+            TYPES::SignatureKey,
+        >>::lookup_node(&self.0, pk)
+        .await
     }
 
     async fn cancel_msg(&self, cancel_id: RequestId) -> Result<(), NetworkError> {
-        <CentralizedServerNetwork<_, _> as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::cancel_msg(&self.0, cancel_id).await
+        <CentralizedServerNetwork<_, _> as ConnectedNetwork<
+            Message<TYPES, LEAF, PROPOSAL>,
+            TYPES::SignatureKey,
+        >>::cancel_msg(&self.0, cancel_id)
+        .await
     }
 
     async fn msg_status(&self, cancel_id: RequestId) -> RequestStatus {
-        <CentralizedServerNetwork<_, _> as ConnectedNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>>::msg_status(&self.0, cancel_id).await
+        <CentralizedServerNetwork<_, _> as ConnectedNetwork<
+            Message<TYPES, LEAF, PROPOSAL>,
+            TYPES::SignatureKey,
+        >>::msg_status(&self.0, cancel_id)
+        .await
     }
 }
 
@@ -1148,9 +1165,7 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         ELECTION: Election<TYPES>,
     > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>
-    for CentralizedCommChannel<
-        TYPES
-    >
+    for CentralizedCommChannel<TYPES>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -1185,7 +1200,6 @@ where
             );
             network.server_shutdown_signal = Some(sender);
             CentralizedCommChannel(network)
-
         })
     }
 

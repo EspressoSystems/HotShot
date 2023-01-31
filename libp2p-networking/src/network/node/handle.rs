@@ -138,15 +138,12 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         let handle = Arc::clone(self);
         async_spawn(async move {
             let receiver = handle.receiver.receiver.lock().await;
-            let kill_switch =
-                if let Some(kill_switch) = handle.receiver.recv_kill.lock().await.take() {
-                    kill_switch
-                } else {
-                    tracing::error!(
-                        "`spawn_handle` was called on a network handle that was already closed"
-                    );
-                    return;
-                };
+             let Some(kill_switch) = handle.receiver.recv_kill.lock().await.take() else {
+                     tracing::error!(
+                         "`spawn_handle` was called on a network handle that was already closed"
+                     );
+                     return;
+                 };
             let mut next_msg = receiver.recv().boxed();
             let mut kill_switch = kill_switch.recv().boxed();
             loop {

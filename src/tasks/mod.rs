@@ -98,8 +98,7 @@ impl<TYPES: NodeType> TaskHandle<TYPES> {
         ] {
             assert!(
                 async_timeout(long_timeout, handle).await.is_ok(),
-                "{} did not shut down within a second",
-                name
+                "{name} did not shut down within a second",
             );
         }
     }

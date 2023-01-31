@@ -4,16 +4,12 @@ use common::*;
 
 use either::Either::Right;
 
-use hotshot::{
-    traits::{
-        election::static_committee::StaticCommittee,
-        implementations::{MemoryStorage, Libp2pCommChannel},
-    },
+use hotshot::traits::{
+    election::static_committee::StaticCommittee,
+    implementations::{Libp2pCommChannel, MemoryStorage},
 };
 use hotshot_testing::TestNodeImpl;
-use hotshot_types::{
-    data::{ValidatingLeaf, ValidatingProposal},
-};
+use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
 use tracing::instrument;
 
 /// libp2p network test

@@ -205,17 +205,19 @@ where
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
                 let all_keys = all_keys.clone();
                 async_block_on(async move {
-                    Libp2pCommChannel(Libp2pNetwork::new(
-                        NoMetrics::new(),
-                        config,
-                        pubkey,
-                        bootstrap_addrs_ref,
-                        num_bootstrap,
-                        node_id as usize,
-                        all_keys,
+                    Libp2pCommChannel(
+                        Libp2pNetwork::new(
+                            NoMetrics::new(),
+                            config,
+                            pubkey,
+                            bootstrap_addrs_ref,
+                            num_bootstrap,
+                            node_id as usize,
+                            all_keys,
+                        )
+                        .await
+                        .unwrap(),
                     )
-                    .await
-                    .unwrap())
                 })
             }
         })
@@ -690,10 +692,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
 /// libp2p identity communication channel
 #[derive(Clone)]
 pub struct Libp2pCommChannel<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-    >(Libp2pNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>);
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+>(Libp2pNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>);
 
 // FIXME maybe we should macro this...? It's repeated at verbatum EXCEPT for impl generics at the
 // top
@@ -707,20 +709,19 @@ impl<
     > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION>
     for Libp2pCommChannel<TYPES, LEAF, PROPOSAL>
 {
-
     async fn ready(&self) -> bool {
         self.0.ready().await
     }
 
     async fn shut_down(&self) -> () {
-        self.0.shut_down().await
+        self.0.shut_down().await;
     }
 
     async fn broadcast_message(
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         election: &ELECTION,
-        view_number: TYPES::Time
+        view_number: TYPES::Time,
     ) -> Result<RequestId, NetworkError> {
         let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
         self.0.broadcast_message(message, recipients).await

@@ -203,10 +203,7 @@ async fn run_gossip_round(
         // unwrap is okay because stream must have 2 * (len - 1) elements
         match merged_streams.next().await.unwrap() {
             Ok(()) => {}
-            Err(e) => panic!(
-                "timeout : {:?} waiting handle {:?} to subscribe to state events",
-                e, i
-            ),
+            Err(e) => panic!("timeout : {e:?} waiting handle {i:?} to subscribe to state events"),
         }
     }
 
@@ -226,7 +223,7 @@ async fn run_gossip_round(
         let handle_state = handle.state().await;
         if handle_state != new_state {
             failing.push(handle.id());
-            println!("state: {:?}, expected: {:?}", handle_state, new_state);
+            println!("state: {handle_state:?}, expected: {new_state:?}");
         }
     }
     if !failing.is_empty() {
@@ -324,7 +321,7 @@ async fn run_dht_rounds(
                 handle.get_record_timeout(&key, timeout).await;
             match result {
                 Err(e) => {
-                    panic!("DHT error {:?} during GET", e);
+                    panic!("DHT error {e:?} during GET");
                 }
                 Ok(v) => {
                     assert_eq!(v, value);
@@ -416,7 +413,7 @@ async fn run_request_response_increment_all(
         for handle in handles {
             states.push(handle.state().await);
         }
-        panic!("states: {:?}", states,);
+        panic!("states: {states:?}");
     }
 }
 

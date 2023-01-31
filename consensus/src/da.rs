@@ -211,19 +211,17 @@ impl<
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
     pub async fn run_view(self) -> Option<(DACertificate<TYPES>, TYPES::BlockType, DALeaf<TYPES>)> {
-        // Prepare teh DA Proposal
-        let parent_leaf = if let Some(parent) = self.parent_leaf().await {
-            parent
-        } else {
-            warn!("Couldn't find high QC parent in state map.");
-            return None;
-        };
-        let starting_state = if let Left(state) = &parent_leaf.state {
-            state
-        } else {
-            warn!("Don't have last state on parent leaf");
-            return None;
-        };
+        // Prepare the DA Proposal
+        let Some(parent_leaf) = self.parent_leaf().await else {
+             warn!("Couldn't find high QC parent in state map.");
+             return None;
+         };
+
+        let Left(starting_state) = &parent_leaf.state else {
+             warn!("Don't have last state on parent leaf");
+             return None;
+         };
+
         let mut block = starting_state.next_block();
         let txns = self.wait_for_transactions().await?;
 
@@ -321,12 +319,11 @@ impl<
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
     pub async fn run_view(self) -> Option<QuorumCertificate<TYPES, DALeaf<TYPES>>> {
-        let starting_state = if let Left(state) = &self.parent.state {
-            state
-        } else {
-            warn!("Don't have last state on parent leaf");
-            return None;
-        };
+        let Left(starting_state) = &self.parent.state else {
+             warn!("Don't have last state on parent leaf");
+             return None;
+         };
+
         if let Ok(new_state) = starting_state.append(&self.block, &self.cur_view) {
             let leaf = DALeaf {
                 view_number: self.cur_view,

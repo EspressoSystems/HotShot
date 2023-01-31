@@ -153,7 +153,7 @@ pub trait CommunicationChannel<
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         election: &ELECTION,
-        view_number: TYPES::Time
+        view_number: TYPES::Time,
     ) -> Result<RequestId, NetworkError>;
 
     /// Sends a direct message to a specific node
