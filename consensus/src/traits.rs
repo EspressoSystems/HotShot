@@ -2,6 +2,9 @@
 
 use async_trait::async_trait;
 use commit::Commitment;
+use either::Either;
+use hotshot_types::certificate::CertificateAccumulator;
+use hotshot_types::certificate::{DACertificate, QuorumCertificate};
 use hotshot_types::message::ConsensusMessage;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::storage::StorageError;
@@ -17,9 +20,6 @@ use hotshot_types::{
 };
 use std::num::NonZeroU64;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
-use hotshot_types::certificate::CertificateAccumulator;
-use hotshot_types::certificate::{QuorumCertificate, DACertificate};
-use either::Either;
 
 // FIXME these should be nonzero u64s
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
@@ -274,16 +274,9 @@ pub trait ConsensusApi<
             TYPES::Time,
             TYPES::VoteTokenType,
             LEAF,
-            QuorumCertificate<TYPES, LEAF>,
         >,
     ) -> Either<
-        CertificateAccumulator<
-            TYPES::SignatureKey,
-            TYPES::Time,
-            TYPES::VoteTokenType,
-            LEAF,
-            QuorumCertificate<TYPES, LEAF>,
-        >,
+        CertificateAccumulator<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>,
         QuorumCertificate<TYPES, LEAF>,
     >;
     fn accumulate_da_vote(
@@ -298,7 +291,6 @@ pub trait ConsensusApi<
             TYPES::Time,
             TYPES::VoteTokenType,
             TYPES::BlockType,
-            DACertificate<TYPES>,
         >,
     ) -> Either<
         CertificateAccumulator<
@@ -306,7 +298,6 @@ pub trait ConsensusApi<
             TYPES::Time,
             TYPES::VoteTokenType,
             TYPES::BlockType,
-            DACertificate<TYPES>,
         >,
         DACertificate<TYPES>,
     >;

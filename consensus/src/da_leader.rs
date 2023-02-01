@@ -422,7 +422,6 @@ impl<
             _pd_1: PhantomData,
             _pd_2: PhantomData,
             _pd_3: PhantomData,
-            _pd_4: PhantomData,
             valid_signatures,
             threshold: self.api.threshold(),
             stake_casted: 0,

@@ -53,10 +53,12 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
+use either::Either;
 use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, DAConsensusLeader, DALeader, DAMember, DANextLeader,
     NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner, ViewQueue,
 };
+use hotshot_types::certificate::CertificateAccumulator;
 use hotshot_types::certificate::DACertificate;
 use hotshot_types::data::ProposalType;
 use hotshot_types::data::{DALeaf, DAProposal};
@@ -92,9 +94,6 @@ use std::{
     time::{Duration, Instant},
 };
 use tracing::{debug, error, info, instrument, trace, warn};
-use hotshot_types::certificate::CertificateAccumulator;
-use either::Either;
-
 // -- Rexports
 // External
 /// Reexport rand crate
@@ -1130,19 +1129,19 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
             TYPES::Time,
             TYPES::VoteTokenType,
             I::Leaf,
-            QuorumCertificate<TYPES, I::Leaf>,
         >,
     ) -> Either<
-        CertificateAccumulator<
-            TYPES::SignatureKey,
-            TYPES::Time,
-            TYPES::VoteTokenType,
-            I::Leaf,
-            QuorumCertificate<TYPES, I::Leaf>,
-        >,
+        CertificateAccumulator<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, I::Leaf>,
         QuorumCertificate<TYPES, I::Leaf>,
     > {
-        self.inner.election.accumulate_qc_vote(encoded_key, encoded_signature, leaf_commitment, vote_token, view_number, accumlator)
+        self.inner.election.accumulate_qc_vote(
+            encoded_key,
+            encoded_signature,
+            leaf_commitment,
+            vote_token,
+            view_number,
+            accumlator,
+        )
     }
     fn accumulate_da_vote(
         &self,
@@ -1156,7 +1155,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
             TYPES::Time,
             TYPES::VoteTokenType,
             TYPES::BlockType,
-            DACertificate<TYPES>,
         >,
     ) -> Either<
         CertificateAccumulator<
@@ -1164,11 +1162,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
             TYPES::Time,
             TYPES::VoteTokenType,
             TYPES::BlockType,
-            DACertificate<TYPES>,
         >,
         DACertificate<TYPES>,
     > {
-        self.inner.election.accumulate_qc_vote(encoded_key, encoded_signature, block_commitment, vote_token, view_number, accumlator)
+        self.inner.election.accumulate_da_vote(
+            encoded_key,
+            encoded_signature,
+            block_commitment,
+            vote_token,
+            view_number,
+            accumlator,
+        )
     }
 
     async fn store_leaf(

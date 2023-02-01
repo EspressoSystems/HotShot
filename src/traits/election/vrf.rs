@@ -5,6 +5,7 @@ use blake3::Hasher;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
 use espresso_systems_common::hotshot::tag;
+use hotshot_types::certificate::DACertificate;
 use hotshot_types::{
     data::LeafType,
     traits::{
@@ -43,7 +44,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tracing::{error, info, instrument};
-use hotshot_types::certificate::DACertificate;
 
 // TODO wrong palce for this
 /// the sortition committee size parameter

@@ -64,28 +64,28 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
 /// `CertificateAccumulator` is describes the process of collecting signatures
 /// to form a QC or a DA certificate.
 #[allow(clippy::missing_docs_in_private_items)]
-pub struct CertificateAccumulator<SIGNATURE, TIME, TOKEN, LEAF, CERT>
+pub struct CertificateAccumulator<SIGNATURE, TIME, TOKEN, LEAF>
 where
     SIGNATURE: SignatureKey,
     LEAF: Committable,
-    CERT: SignedCertificate<SIGNATURE, TIME, TOKEN, LEAF>,
 {
     pub _pd_0: PhantomData<SIGNATURE>,
-    pub _pd_1: PhantomData<CERT>,
-    pub _pd_2: PhantomData<TIME>,
-    pub _pd_3: PhantomData<TOKEN>,
-    pub _pd_4: PhantomData<LEAF>,
+    pub _pd_1: PhantomData<TIME>,
+    pub _pd_2: PhantomData<TOKEN>,
+    pub _pd_3: PhantomData<LEAF>,
     pub valid_signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>,
     pub threshold: NonZeroU64,
     pub stake_casted: u64,
 }
 
-impl<SIGNATURE, TIME, CERT, TOKEN, LEAF> Accumulator<(EncodedPublicKey, (EncodedSignature, TOKEN)), BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>>
-    for CertificateAccumulator<SIGNATURE, TIME, TOKEN, LEAF, CERT>
+impl<SIGNATURE, TIME, TOKEN, LEAF>
+    Accumulator<
+        (EncodedPublicKey, (EncodedSignature, TOKEN)),
+        BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>,
+    > for CertificateAccumulator<SIGNATURE, TIME, TOKEN, LEAF>
 where
     SIGNATURE: SignatureKey,
     LEAF: Committable,
-    CERT: SignedCertificate<SIGNATURE, TIME, TOKEN, LEAF>,
     TOKEN: Clone + VoteToken,
 {
     fn append(
@@ -93,7 +93,8 @@ where
         val: (EncodedPublicKey, (EncodedSignature, TOKEN)),
     ) -> Either<Self, BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>> {
         let (key, (sig, token)) = val;
-        self.valid_signatures.insert(key, (sig.clone(), token.clone()));
+        self.valid_signatures
+            .insert(key, (sig.clone(), token.clone()));
 
         self.stake_casted += u64::from(token.vote_count());
 
@@ -108,13 +109,8 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
     SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>
     for QuorumCertificate<TYPES, LEAF>
 {
-    type Accumulator = CertificateAccumulator<
-        TYPES::SignatureKey,
-        TYPES::Time,
-        TYPES::VoteTokenType,
-        LEAF,
-        QuorumCertificate<TYPES, LEAF>,
-    >;
+    type Accumulator =
+        CertificateAccumulator<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>;
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
         signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
@@ -191,13 +187,8 @@ impl<TYPES: NodeType, LEAF: commit::Committable>
     SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>
     for DACertificate<TYPES>
 {
-    type Accumulator = CertificateAccumulator<
-        TYPES::SignatureKey,
-        TYPES::Time,
-        TYPES::VoteTokenType,
-        LEAF,
-        DACertificate<TYPES>,
-    >;
+    type Accumulator =
+        CertificateAccumulator<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>;
 
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,

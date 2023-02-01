@@ -140,7 +140,10 @@ where
     Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,
     LEAF: Committable,
 {
-    type Accumulator: Accumulator<(EncodedPublicKey, (EncodedSignature, TOKEN)), BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>>;
+    type Accumulator: Accumulator<
+        (EncodedPublicKey, (EncodedSignature, TOKEN)),
+        BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>,
+    >;
 
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
@@ -281,7 +284,6 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             TYPES::Time,
             TYPES::VoteTokenType,
             Self::LeafType,
-            Self::QuorumCertificate,
         >,
     ) -> Either<
         CertificateAccumulator<
@@ -289,9 +291,8 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             TYPES::Time,
             TYPES::VoteTokenType,
             Self::LeafType,
-            Self::QuorumCertificate,
         >,
-        Self::QuorumCertificate,
+        QuorumCertificate<TYPES, Self::LeafType>,
     > {
         if !self.is_valid_vote(
             &encoded_key,
@@ -307,7 +308,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         match accumlator.append((encoded_key.clone(), (encoded_signature.clone(), vote_token))) {
             Either::Left(accumlator) => Either::Left(accumlator),
             Either::Right(signatures) => {
-                Either::Right(Self::QuorumCertificate::from_signatures_and_commitment(
+                Either::Right(QuorumCertificate::from_signatures_and_commitment(
                     view_number,
                     signatures,
                     leaf_commitment,
@@ -328,7 +329,6 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             TYPES::Time,
             TYPES::VoteTokenType,
             TYPES::BlockType,
-            Self::DACertificate,
         >,
     ) -> Either<
         CertificateAccumulator<
@@ -336,9 +336,8 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             TYPES::Time,
             TYPES::VoteTokenType,
             TYPES::BlockType,
-            Self::DACertificate,
         >,
-        Self::DACertificate,
+        DACertificate<TYPES>,
     > {
         if !self.is_valid_vote(
             &encoded_key,
@@ -353,9 +352,13 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
 
         match accumlator.append((encoded_key.clone(), (encoded_signature.clone(), vote_token))) {
             Either::Left(accumlator) => Either::Left(accumlator),
-            Either::Right(signatures) => Either::Right(
-                Self::DACertificate::from_signatures_and_commitment(view_number, signatures, block_commitment),
-            ),
+            Either::Right(signatures) => {
+                Either::Right(DACertificate::from_signatures_and_commitment(
+                    view_number,
+                    signatures,
+                    block_commitment,
+                ))
+            }
         }
     }
 
