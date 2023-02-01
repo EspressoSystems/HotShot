@@ -76,6 +76,10 @@ channel-async-std = [
         "async-compatibility-layer/channel-async-std",
 ]
 
+[[example]]
+name = "multi-machine-libp2p"
+required-features = ["demo", "libp2p/rsa"]
+
 [[bin]]
 name = "orchestrator"
 required-features = ["bin-orchestrator"]
