@@ -13,7 +13,7 @@ use commit::Committable;
 use either::Either;
 use either::Either::Left;
 use hotshot_types::certificate::{CertificateAccumulator, DACertificate};
-use hotshot_types::data::{CommitmentProposal, LeafType};
+use hotshot_types::data::CommitmentProposal;
 use hotshot_types::message::{ProcessedConsensusMessage, Vote};
 use hotshot_types::traits::state::SequencingConsensus;
 use hotshot_types::{
@@ -416,12 +416,12 @@ impl<
         let mut qcs = HashSet::<QuorumCertificate<TYPES, DALeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
-        let mut valid_signatures = BTreeMap::new();
+        let valid_signatures = BTreeMap::new();
         let mut accumlator = CertificateAccumulator {
-            _pd_0: PhantomData,
-            _pd_1: PhantomData,
-            _pd_2: PhantomData,
-            _pd_3: PhantomData,
+            // _pd_0: PhantomData,
+            // _pd_1: PhantomData,
+            // _pd_2: PhantomData,
+            // _pd_3: PhantomData,
             valid_signatures,
             threshold: self.api.threshold(),
             stake_casted: 0,

@@ -14,7 +14,6 @@ use crate::{
     },
 };
 use bincode::Options;
-use blake3::traits::digest::crypto_common::rand_core::block;
 use commit::{Commitment, Committable};
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
@@ -25,7 +24,6 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::num::NonZeroU64;
-use time::Time;
 use tracing::error;
 
 /// Error for election problems
@@ -272,6 +270,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
     }
 
     /// Accumlate the vote, return the QC if the threshold was reached, if not return the updated accumlator
+    #[allow(clippy::type_complexity)]
     fn accumulate_qc_vote(
         &self,
         encoded_key: &EncodedPublicKey,
@@ -279,25 +278,15 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         leaf_commitment: Commitment<Self::LeafType>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<
-            TYPES::SignatureKey,
-            TYPES::Time,
-            TYPES::VoteTokenType,
-            Self::LeafType,
-        >,
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType>,
     ) -> Either<
-        CertificateAccumulator<
-            TYPES::SignatureKey,
-            TYPES::Time,
-            TYPES::VoteTokenType,
-            Self::LeafType,
-        >,
+        CertificateAccumulator<TYPES::VoteTokenType>,
         QuorumCertificate<TYPES, Self::LeafType>,
     > {
         if !self.is_valid_vote(
-            &encoded_key,
-            &encoded_signature,
-            VoteData::Yes(leaf_commitment.clone()),
+            encoded_key,
+            encoded_signature,
+            VoteData::Yes(leaf_commitment),
             view_number,
             // Ignoring deserialization errors below since we are getting rid of it soon
             Unchecked(vote_token.clone()),
@@ -317,6 +306,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         }
     }
     /// Accumlate the vote, return the QC if the threshold was reached, if not return the updated accumlator
+    #[allow(clippy::type_complexity)]
     fn accumulate_da_vote(
         &self,
         encoded_key: &EncodedPublicKey,
@@ -324,25 +314,12 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         block_commitment: Commitment<TYPES::BlockType>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<
-            TYPES::SignatureKey,
-            TYPES::Time,
-            TYPES::VoteTokenType,
-            TYPES::BlockType,
-        >,
-    ) -> Either<
-        CertificateAccumulator<
-            TYPES::SignatureKey,
-            TYPES::Time,
-            TYPES::VoteTokenType,
-            TYPES::BlockType,
-        >,
-        DACertificate<TYPES>,
-    > {
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType>, DACertificate<TYPES>> {
         if !self.is_valid_vote(
-            &encoded_key,
-            &encoded_signature,
-            VoteData::DA(block_commitment.clone()),
+            encoded_key,
+            encoded_signature,
+            VoteData::DA(block_commitment),
             view_number,
             // Ignoring deserialization errors below since we are getting rid of it soon
             Unchecked(vote_token.clone()),
