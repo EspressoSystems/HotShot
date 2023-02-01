@@ -4,8 +4,6 @@
 //!
 #[cfg(feature = "async-std-executor")]
 use async_std::net::TcpStream;
-#[allow(deprecated)]
-use nll::nll_todo::nll_todo;
 #[cfg(feature = "tokio-executor")]
 use tokio::net::TcpStream;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
@@ -31,8 +29,8 @@ use hotshot_types::{
         metrics::{Metrics, NoMetrics},
         network::{
             CentralizedServerNetworkError, CommunicationChannel, ConnectedNetwork,
-            FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkError, NetworkMsg, RequestId,
-            RequestStatus, TestableNetworkingImplementation, TransmitType,
+            FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkError, NetworkMsg,
+            TestableNetworkingImplementation, TransmitType,
         },
         node_implementation::NodeType,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
@@ -1009,13 +1007,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
         self.inner.running.store(false, Ordering::Relaxed);
     }
 
-    // TODO make this non-blocking
     #[instrument(name = "CentralizedServer::broadcast_message", skip_all)]
     async fn broadcast_message(
         &self,
         message: M,
         _recipients: BTreeSet<K>,
-    ) -> Result<RequestId, NetworkError> {
+    ) -> Result<(), NetworkError> {
         self.inner
             .broadcast(
                 bincode_opts()
@@ -1023,13 +1020,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
                     .context(FailedToSerializeSnafu)?,
             )
             .await;
-        let id = self.inner.cur_id.fetch_add(1, Ordering::SeqCst);
-        Ok(id)
+        Ok(())
     }
 
-    // TODO make this non-blocking
     #[instrument(name = "CentralizedServer::direct_message", skip_all)]
-    async fn direct_message(&self, message: M, recipient: K) -> Result<RequestId, NetworkError> {
+    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
         self.inner
             .direct_message(
                 recipient,
@@ -1038,8 +1033,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
                     .context(FailedToSerializeSnafu)?,
             )
             .await;
-        let id = self.inner.cur_id.fetch_add(1, Ordering::SeqCst);
-        Ok(id)
+        Ok(())
     }
 
     #[instrument(name = "CentralizedServer::recv_msgs", skip_all)]
@@ -1062,20 +1056,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
         }
     }
 
-    async fn lookup_node(&self, _pk: K) -> Result<RequestId, NetworkError> {
+    async fn lookup_node(&self, _pk: K) -> Result<(), NetworkError> {
         // we are centralized. Should we do anything here?
-        Ok(0)
-    }
-
-    // TODO implement this
-    async fn cancel_msg(&self, _cancel_id: RequestId) -> Result<(), NetworkError> {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
-    // TODO implement this
-    async fn msg_status(&self, _cancel_id: RequestId) -> RequestStatus {
-        RequestStatus::Completed
+        Ok(())
     }
 }
 
@@ -1114,7 +1097,7 @@ impl<
         message: Message<TYPES, LEAF, PROPOSAL>,
         election: &ELECTION,
         view_number: TYPES::Time,
-    ) -> Result<RequestId, NetworkError> {
+    ) -> Result<(), NetworkError> {
         let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
         self.0.broadcast_message(message, recipients).await
     }
@@ -1123,7 +1106,7 @@ impl<
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
-    ) -> Result<RequestId, NetworkError> {
+    ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
     }
 
@@ -1134,27 +1117,11 @@ impl<
         self.0.recv_msgs(transmit_type).await
     }
 
-    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<RequestId, NetworkError> {
+    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
             Message<TYPES, LEAF, PROPOSAL>,
             TYPES::SignatureKey,
         >>::lookup_node(&self.0, pk)
-        .await
-    }
-
-    async fn cancel_msg(&self, cancel_id: RequestId) -> Result<(), NetworkError> {
-        <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, LEAF, PROPOSAL>,
-            TYPES::SignatureKey,
-        >>::cancel_msg(&self.0, cancel_id)
-        .await
-    }
-
-    async fn msg_status(&self, cancel_id: RequestId) -> RequestStatus {
-        <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, LEAF, PROPOSAL>,
-            TYPES::SignatureKey,
-        >>::msg_status(&self.0, cancel_id)
         .await
     }
 }

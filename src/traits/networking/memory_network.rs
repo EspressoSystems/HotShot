@@ -20,8 +20,8 @@ use hotshot_types::{
         election::Election,
         metrics::{Metrics, NoMetrics},
         network::{
-            CommunicationChannel, ConnectedNetwork, NetworkMsg, RequestId, RequestStatus,
-            TestableNetworkingImplementation, TransmitType,
+            CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation,
+            TransmitType,
         },
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -35,7 +35,7 @@ use std::{
     collections::BTreeSet,
     fmt::Debug,
     sync::{
-        atomic::{AtomicU64, AtomicUsize, Ordering},
+        atomic::{AtomicUsize, Ordering},
         Arc,
     },
 };
@@ -105,9 +105,6 @@ struct MemoryNetworkInner<M: NetworkMsg, K: SignatureKey> {
 
     /// The networking metrics we're keeping track of
     metrics: NetworkingMetrics,
-
-    /// the next unused ID
-    cur_id: Arc<AtomicU64>,
 }
 
 /// In memory only network simulator.
@@ -254,7 +251,6 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
                 master_map: master_map.clone(),
                 in_flight_message_count,
                 metrics: NetworkingMetrics::new(metrics),
-                cur_id: Arc::new(AtomicU64::new(0)),
             }),
         };
         master_map.map.insert(pub_key, mn.clone());
@@ -343,7 +339,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         &self,
         message: M,
         recipients: BTreeSet<K>,
-    ) -> Result<RequestId, NetworkError> {
+    ) -> Result<(), NetworkError> {
         debug!(?message, "Broadcasting message");
         // Bincode the message
         let vec = bincode_opts()
@@ -368,12 +364,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
                 }
             }
         }
-        let id = self.inner.cur_id.fetch_add(1, Ordering::SeqCst);
-        Ok(id)
+        Ok(())
     }
 
     #[instrument(name = "MemoryNetwork::direct_message")]
-    async fn direct_message(&self, message: M, recipient: K) -> Result<RequestId, NetworkError> {
+    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
         debug!(?message, ?recipient, "Sending direct message");
         // Bincode the message
         let vec = bincode_opts()
@@ -387,8 +382,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
                 Ok(_) => {
                     self.inner.metrics.outgoing_message_count.add(1);
                     trace!(?recipient, "Delivered message to remote");
-                    let id = self.inner.cur_id.fetch_add(1, Ordering::SeqCst);
-                    Ok(id)
+                    Ok(())
                 }
                 Err(e) => {
                     self.inner.metrics.message_failed_to_send.add(1);
@@ -440,20 +434,9 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
     }
 
     #[instrument(name = "MemoryNetwork::lookup_node", skip_all)]
-    async fn lookup_node(&self, _pk: K) -> Result<RequestId, NetworkError> {
-        let id = self.inner.cur_id.fetch_add(1, Ordering::SeqCst);
-        Ok(id)
-    }
-
-    #[instrument(name = "MemoryNetwork::cancel_msg", skip_all)]
-    async fn cancel_msg(&self, _cancel_id: RequestId) -> Result<(), NetworkError> {
-        // unable to cancel memory network requests. Once it's sent, it's sent
-        Err(NetworkError::UnableToCancel)
-    }
-
-    #[instrument(name = "MemoryNetwork::msg_status", skip_all)]
-    async fn msg_status(&self, _cancel_id: RequestId) -> RequestStatus {
-        RequestStatus::Completed
+    async fn lookup_node(&self, _pk: K) -> Result<(), NetworkError> {
+        // no lookup required
+        Ok(())
     }
 }
 
@@ -487,7 +470,7 @@ impl<
         message: Message<TYPES, LEAF, PROPOSAL>,
         election: &ELECTION,
         view_number: TYPES::Time,
-    ) -> Result<RequestId, NetworkError> {
+    ) -> Result<(), NetworkError> {
         let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
         self.0.broadcast_message(message, recipients).await
     }
@@ -496,7 +479,7 @@ impl<
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
-    ) -> Result<RequestId, NetworkError> {
+    ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
     }
 
@@ -507,16 +490,8 @@ impl<
         self.0.recv_msgs(transmit_type).await
     }
 
-    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<RequestId, NetworkError> {
+    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         self.0.lookup_node(pk).await
-    }
-
-    async fn cancel_msg(&self, cancel_id: RequestId) -> Result<(), NetworkError> {
-        self.0.cancel_msg(cancel_id).await
-    }
-
-    async fn msg_status(&self, cancel_id: RequestId) -> RequestStatus {
-        self.0.msg_status(cancel_id).await
     }
 }
 

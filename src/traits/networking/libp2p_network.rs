@@ -19,7 +19,7 @@ use hotshot_types::{
         metrics::{Metrics, NoMetrics},
         network::{
             CommunicationChannel, ConnectedNetwork, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg, RequestId, RequestStatus, TestableNetworkingImplementation, TransmitType,
+            NetworkMsg, TestableNetworkingImplementation, TransmitType,
         },
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -35,18 +35,13 @@ use libp2p_networking::{
     },
     reexport::{Multiaddr, PeerId},
 };
-#[allow(deprecated)]
-use nll::nll_todo::nll_todo;
 use serde::Serialize;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeSet, HashSet},
     num::NonZeroUsize,
     str::FromStr,
-    sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
-        Arc,
-    },
+    sync::{atomic::AtomicBool, Arc},
     time::Duration,
 };
 use tracing::{error, info, instrument};
@@ -104,11 +99,6 @@ struct Libp2pNetworkInner<M: NetworkMsg, K: SignatureKey + 'static> {
     /// hash(hashset) -> topic
     /// btreemap ordered so is hashable
     topic_map: RwLock<BiHashMap<BTreeSet<K>, String>>,
-    /// TODO periodically GC this
-    /// TODO fill this out when we impelment cancellation
-    // request_map: RwLock<HashMap<RequestId, (RequestStatus, Option<OneShotSender<()>>)>>,
-    /// the next ID
-    cur_id: Arc<AtomicU64>,
 }
 
 /// Networking implementation that uses libp2p
@@ -315,8 +305,6 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 is_bootstrapped: Arc::new(AtomicBool::new(false)),
                 metrics: NetworkingMetrics::new(metrics),
                 topic_map,
-                // request_map: RwLock::default(),
-                cur_id: Arc::new(AtomicU64::new(0)),
             }),
         };
 
@@ -493,14 +481,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         }
     }
 
-    // TODO this is blocking, and spoofs request id
-    // make this nonblocking
     #[instrument(name = "Libp2pNetwork::broadcast_message", skip_all)]
     async fn broadcast_message(
         &self,
         message: M,
         recipients: BTreeSet<K>,
-    ) -> Result<RequestId, NetworkError> {
+    ) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed() {
             return Err(NetworkError::ShutDown);
         }
@@ -533,8 +519,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         match self.inner.handle.gossip(topic, &message).await {
             Ok(()) => {
                 self.inner.metrics.outgoing_message_count.add(1);
-                let id = self.inner.cur_id.fetch_add(1, Ordering::SeqCst);
-                Ok(id)
+                Ok(())
             }
             Err(e) => {
                 self.inner.metrics.message_failed_to_send.add(1);
@@ -543,10 +528,8 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         }
     }
 
-    // TODO make non-blocking
-    // TODO make requestid meaningful (e.g. track it)
     #[instrument(name = "Libp2pNetwork::direct_message", skip_all)]
-    async fn direct_message(&self, message: M, recipient: K) -> Result<RequestId, NetworkError> {
+    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
         if self.inner.handle.is_killed() {
             return Err(NetworkError::ShutDown);
         }
@@ -559,8 +542,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
                 .send(message)
                 .await
                 .map_err(|_x| NetworkError::ShutDown)?;
-            let id = self.inner.cur_id.fetch_add(1, Ordering::SeqCst);
-            return Ok(id);
+            return Ok(());
         }
 
         self.wait_for_ready().await;
@@ -598,8 +580,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
         match self.inner.handle.direct_request(pid, &message).await {
             Ok(()) => {
                 self.inner.metrics.outgoing_message_count.add(1);
-                let id = self.inner.cur_id.fetch_add(1, Ordering::SeqCst);
-                Ok(id)
+                Ok(())
             }
             Err(e) => {
                 self.inner.metrics.message_failed_to_send.add(1);
@@ -639,7 +620,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
     }
 
     #[instrument(name = "Libp2pNetwork::lookup_node", skip_all)]
-    async fn lookup_node(&self, pk: K) -> Result<RequestId, NetworkError> {
+    async fn lookup_node(&self, pk: K) -> Result<(), NetworkError> {
         self.wait_for_ready().await;
 
         if self.inner.handle.is_killed() {
@@ -671,21 +652,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
             });
         }
 
-        let id = self.inner.cur_id.fetch_add(1, Ordering::SeqCst);
-        Ok(id)
-    }
-
-    // TODO implement this. Leaving as unimplemented for now
-    #[instrument(name = "Libp2pNetwork::cancel_msg", skip_all)]
-    async fn cancel_msg(&self, _cancel_id: RequestId) -> Result<(), NetworkError> {
-        #[allow(deprecated)]
-        nll_todo()
-    }
-
-    // TODO stubbed out for now. Properly implement this
-    #[instrument(name = "Libp2pNetwork::msg_status", skip_all)]
-    async fn msg_status(&self, _cancel_id: RequestId) -> RequestStatus {
-        RequestStatus::Completed
+        Ok(())
     }
 }
 
@@ -722,7 +689,7 @@ impl<
         message: Message<TYPES, LEAF, PROPOSAL>,
         election: &ELECTION,
         view_number: TYPES::Time,
-    ) -> Result<RequestId, NetworkError> {
+    ) -> Result<(), NetworkError> {
         let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
         self.0.broadcast_message(message, recipients).await
     }
@@ -731,7 +698,7 @@ impl<
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
-    ) -> Result<RequestId, NetworkError> {
+    ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
     }
 
@@ -742,15 +709,7 @@ impl<
         self.0.recv_msgs(transmit_type).await
     }
 
-    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<RequestId, NetworkError> {
+    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         self.0.lookup_node(pk).await
-    }
-
-    async fn cancel_msg(&self, cancel_id: RequestId) -> Result<(), NetworkError> {
-        self.0.cancel_msg(cancel_id).await
-    }
-
-    async fn msg_status(&self, cancel_id: RequestId) -> RequestStatus {
-        self.0.msg_status(cancel_id).await
     }
 }

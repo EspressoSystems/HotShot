@@ -110,23 +110,6 @@ pub enum NetworkError {
     UnableToCancel,
 }
 
-/// id of message
-pub type RequestId = u64;
-
-/// the status of the message
-pub enum RequestStatus {
-    /// WIP
-    InProgress,
-    /// cancelled
-    Cancelled,
-    /// set successfully
-    Completed,
-    /// errored out
-    Error(NetworkError),
-    /// existance
-    DoesNotExist,
-}
-
 /// API for interacting directly with a consensus committee
 /// intended to be implemented for both DA and for validating consensus committees
 #[async_trait]
@@ -148,21 +131,21 @@ pub trait CommunicationChannel<
     async fn shut_down(&self) -> ();
 
     /// broadcast message to those listening on the communication channel
-    /// non-blocking
+    /// blocking
     async fn broadcast_message(
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         election: &ELECTION,
         view_number: TYPES::Time,
-    ) -> Result<RequestId, NetworkError>;
+    ) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
-    /// non-blocking
+    /// blocking
     async fn direct_message(
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
-    ) -> Result<RequestId, NetworkError>;
+    ) -> Result<(), NetworkError>;
 
     /// Moves out the entire queue of received messages of 'transmit_type`
     ///
@@ -174,17 +157,8 @@ pub trait CommunicationChannel<
     ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError>;
 
     /// look up a node
-    /// non-blocking
-    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<RequestId, NetworkError>;
-
-    /// cancel a message
-    /// if message completed or already cancelled, immediately returns
     /// blocking
-    async fn cancel_msg(&self, cancel_id: RequestId) -> Result<(), NetworkError>;
-
-    /// returns the status of a message
-    /// non-blocking
-    async fn msg_status(&self, cancel_id: RequestId) -> RequestStatus;
+    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError>;
 }
 
 /// common traits we would like olur network messages to implement
@@ -210,16 +184,16 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     async fn shut_down(&self);
 
     /// broadcast message to some subset of nodes
-    /// non-blocking
+    /// blocking
     async fn broadcast_message(
         &self,
         message: M,
         recipients: BTreeSet<K>,
-    ) -> Result<RequestId, NetworkError>;
+    ) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
-    /// non-blocking
-    async fn direct_message(&self, message: M, recipient: K) -> Result<RequestId, NetworkError>;
+    /// blocking
+    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError>;
 
     /// Moves out the entire queue of received messages of 'transmit_type`
     ///
@@ -228,16 +202,8 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError>;
 
     /// look up a node
-    /// non-blocking
-    async fn lookup_node(&self, pk: K) -> Result<RequestId, NetworkError>;
-
-    /// cancel a message
     /// blocking
-    async fn cancel_msg(&self, cancel_id: RequestId) -> Result<(), NetworkError>;
-
-    /// returns the status of a message
-    /// non-blocking
-    async fn msg_status(&self, cancel_id: RequestId) -> RequestStatus;
+    async fn lookup_node(&self, pk: K) -> Result<(), NetworkError>;
 }
 
 /// Describes additional functionality needed by the test network implementation
