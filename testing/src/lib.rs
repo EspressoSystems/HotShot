@@ -404,10 +404,10 @@ where
 
         for (idx, leaf) in remaining.iter().enumerate() {
             if first_leaf != leaf {
-                eprintln!("Leaf dump for {:?}", idx);
-                eprintln!("\texpected: {:#?}", first_leaf);
-                eprintln!("\tgot:      {:#?}", leaf);
-                eprintln!("Node {} storage state does not match the first node", idx);
+                eprintln!("Leaf dump for {idx:?}");
+                eprintln!("\texpected: {first_leaf:#?}");
+                eprintln!("\tgot:      {leaf:#?}");
+                eprintln!("Node {idx} storage state does not match the first node");
                 mismatch_count += 1;
             }
         }

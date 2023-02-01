@@ -213,13 +213,12 @@ impl<
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
     pub async fn run_view(self) -> Option<(DACertificate<TYPES>, TYPES::BlockType, DALeaf<TYPES>)> {
-        // Prepare teh DA Proposal
-        let parent_leaf = if let Some(parent) = self.parent_leaf().await {
-            parent
-        } else {
-            warn!("Couldn't find high QC parent in state map.");
-            return None;
-        };
+        // Prepare the DA Proposal
+        let Some(parent_leaf) = self.parent_leaf().await else {
+             warn!("Couldn't find high QC parent in state map.");
+             return None;
+         };
+
         let mut block = TYPES::BlockType::new();
         let txns = self.wait_for_transactions().await?;
 

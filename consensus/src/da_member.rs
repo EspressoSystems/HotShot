@@ -193,9 +193,7 @@ impl<
 
         let maybe_leaf = self.find_valid_msg(view_leader_key).await;
 
-        let leaf = if let Some(leaf) = maybe_leaf {
-            leaf
-        } else {
+        let Some(leaf) = maybe_leaf else {
             // We either timed out or for some reason could not accept a proposal.
             return;
         };
