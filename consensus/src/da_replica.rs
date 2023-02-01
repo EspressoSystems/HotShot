@@ -348,9 +348,7 @@ impl<
 
         let (consensus, maybe_leaf) = self.find_valid_msg(view_leader_key, consensus).await;
 
-        let leaf = if let Some(leaf) = maybe_leaf {
-            leaf
-        } else {
+        let Some(leaf) = maybe_leaf else {
             // We either timed out or for some reason could not vote on a proposal.
             return self.high_qc;
         };
