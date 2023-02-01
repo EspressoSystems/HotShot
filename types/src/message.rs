@@ -183,7 +183,7 @@ impl<
             ConsensusMessage::Proposal(p) => {
                 // view of leader in the leaf when proposal
                 // this should match replica upon receipt
-                p.leaf.get_view_number()
+                p.data.get_view_number()
             }
             ConsensusMessage::Vote(vote_message) => match vote_message {
                 Vote::DA(v) => v.current_view,
@@ -234,8 +234,8 @@ pub enum DataMessage<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 pub struct Proposal<PROPOSAL: ProposalType> {
     // NOTE: optimization could include view number to help look up parent leaf
     // could even do 16 bit numbers if we want
-    /// The leaf being proposed (see pseudocode)
-    pub leaf: PROPOSAL,
+    /// The data being proposed.
+    pub data: PROPOSAL,
     /// The proposal must be signed by the view leader
     pub signature: EncodedSignature,
 }

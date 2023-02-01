@@ -101,7 +101,7 @@ async fn submit_validating_proposal<
     leaf.set_height(handle.get_decided_leaf().await.get_height() + 1);
     let signature = handle.sign_validating_or_commitment_proposal(&leaf.commit());
     let msg = ConsensusMessage::Proposal(Proposal {
-        leaf: leaf.into(),
+        data: leaf.into(),
         signature,
     });
 

@@ -1,4 +1,5 @@
-//! Contains the [`DALeader`] struct used for the leader step in the hotstuff consensus algorithm.
+//! Contains the [`DALeader`] struct used for the leader step in the consensus algorithm with DA
+//! committee.
 
 use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_compatibility_layer::channel::UnboundedReceiver;
@@ -20,7 +21,7 @@ use hotshot_types::{
     data::{DALeaf, DAProposal},
     message::{ConsensusMessage, Proposal},
     traits::{
-        election::{Checked::Unchecked, Election, VoteData, VoteToken},
+        election::{Checked::Unchecked, Election, SignedCertificate, VoteData, VoteToken},
         node_implementation::NodeType,
         signature_key::SignatureKey,
         Block, State,
@@ -44,7 +45,7 @@ pub struct DALeader<
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, DALeaf<TYPES>>>>,
     /// The `high_qc` per spec
-    pub high_qc: QuorumCertificate<TYPES, DALeaf<TYPES>>,
+    pub high_qc: ELECTION::QuorumCertificate,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// Lock over the transactions list
@@ -141,7 +142,7 @@ impl<
     }
     /// Returns the parent leaf of the proposal we are building
     async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
-        let parent_view_number = &self.high_qc.view_number;
+        let parent_view_number = &self.high_qc.view_number();
         let consensus = self.consensus.read().await;
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
             match &parent_view.view_inner {
@@ -153,7 +154,6 @@ impl<
                         return None;
                     }
                 }
-                // can happen if future api is whacked
                 ViewInner::Failed => {
                     warn!("Parent of high QC points to a failed QC");
                     return None;
@@ -227,7 +227,7 @@ impl<
 
         for txn in txns {
             let new_block_check = block.add_transaction_raw(&txn);
-            // TODO: We probably don't need this check her or replace with "structural validate"
+            // TODO (da) We probably don't need this check here or replace with "structural validate"
             if let Ok(new_block) = new_block_check {
                 if starting_state.validate_block(&new_block, &self.cur_view) {
                     block = new_block;
@@ -240,14 +240,14 @@ impl<
         if let Ok(_new_state) = starting_state.append(&block, &self.cur_view) {
             let consensus = self.consensus.read().await;
             let signature = self.api.sign_da_proposal(&block.commit());
-            let leaf: DAProposal<TYPES, ELECTION> = DAProposal {
+            let data: DAProposal<TYPES, ELECTION> = DAProposal {
                 deltas: block.clone(),
                 view_number: self.cur_view,
                 _pd: PhantomData,
             };
             let message =
                 ConsensusMessage::<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>::Proposal(
-                    Proposal { leaf, signature },
+                    Proposal { data, signature },
                 );
             // Brodcast DA proposal
             if let Err(e) = self.api.send_broadcast_message(message.clone()).await {
@@ -356,7 +356,7 @@ impl<
                 DALeaf<TYPES>,
                 CommitmentProposal<TYPES, ELECTION>,
             >::Proposal(Proposal {
-                leaf: proposal,
+                data: proposal,
                 signature,
             });
             if let Err(e) = self.api.send_da_broadcast(message.clone()).await {

@@ -28,7 +28,7 @@ async-std = { version = "1.12.0", optional = true }
 async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.0.1" }
 tokio = { version = "1", optional = true }
 clap = { version = "4.1", features = ["derive", "env"] }
-futures = "0.3.25"
+futures = "0.3.26"
 hotshot-centralized-server = { path = ".." }
 hotshot-utils = { path = "../../utils" }
 hotshot-types = { path = "../../types" }
