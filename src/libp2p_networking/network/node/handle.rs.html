@@ -665,9 +665,6 @@
 <span id="665">665</span>
 <span id="666">666</span>
 <span id="667">667</span>
-<span id="668">668</span>
-<span id="669">669</span>
-<span id="670">670</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::network::{
     behaviours::direct_message_codec::DirectMessageResponse, error::DHTError, gen_multiaddr,
     ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
@@ -808,15 +805,12 @@
         <span class="kw">let </span>handle = Arc::clone(<span class="self">self</span>);
         async_spawn(<span class="kw">async move </span>{
             <span class="kw">let </span>receiver = handle.receiver.receiver.lock().<span class="kw">await</span>;
-            <span class="kw">let </span>kill_switch =
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(kill_switch) = handle.receiver.recv_kill.lock().<span class="kw">await</span>.take() {
-                    kill_switch
-                } <span class="kw">else </span>{
-                    <span class="macro">tracing::error!</span>(
-                        <span class="string">&quot;`spawn_handle` was called on a network handle that was already closed&quot;
-                    </span>);
-                    <span class="kw">return</span>;
-                };
+             <span class="kw">let </span><span class="prelude-val">Some</span>(kill_switch) = handle.receiver.recv_kill.lock().<span class="kw">await</span>.take() <span class="kw">else </span>{
+                     <span class="macro">tracing::error!</span>(
+                         <span class="string">&quot;`spawn_handle` was called on a network handle that was already closed&quot;
+                     </span>);
+                     <span class="kw">return</span>;
+                 };
             <span class="kw">let </span><span class="kw-2">mut </span>next_msg = receiver.recv().boxed();
             <span class="kw">let </span><span class="kw-2">mut </span>kill_switch = kill_switch.recv().boxed();
             <span class="kw">loop </span>{
