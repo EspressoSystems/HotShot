@@ -17,7 +17,6 @@ use hotshot_types::{
         election::{Election, SignedCertificate},
         node_implementation::NodeType,
         signature_key::SignatureKey,
-        State,
     },
 };
 use std::sync::Arc;
@@ -115,33 +114,12 @@ impl<
                             continue;
                         }
                         let parent = self.parent_leaf().await?;
-                        let parent_state = if let Left(state) = &parent.state {
-                            state
-                        } else {
-                            warn!("Don't have last state on parent leaf");
-                            return None;
-                        };
-                        // TODO (da) We probably don't need this check here or replace with "structural validate"
-                        if parent_state.validate_block(&p.data.deltas, &self.cur_view) {
-                            warn!("Invalid block.");
-                            return None;
-                        }
-                        let state = if let Ok(state) =
-                            parent_state.append(&p.data.deltas, &self.cur_view)
-                        {
-                            state
-                        } else {
-                            warn!("Failed to append state in high qc for proposal.");
-                            return None;
-                        };
-
                         let leaf = DALeaf {
                             view_number: self.cur_view,
                             height: parent.height + 1,
                             justify_qc: self.high_qc.clone(),
                             parent_commitment: parent.commit(),
-                            deltas: p.data.deltas.clone(),
-                            state: Left(state),
+                            deltas: Left(p.data.deltas.clone()),
                             rejected: Vec::new(),
                             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                             proposer_id: sender.to_bytes(),
