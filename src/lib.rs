@@ -1124,9 +1124,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         leaf_commitment: Commitment<I::Leaf>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<TYPES::VoteTokenType>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType>, QuorumCertificate<TYPES, I::Leaf>>
-    {
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, I::Leaf>,
+    ) -> Either<
+        CertificateAccumulator<TYPES::VoteTokenType, I::Leaf>,
+        QuorumCertificate<TYPES, I::Leaf>,
+    > {
         self.inner.election.accumulate_qc_vote(
             encoded_key,
             encoded_signature,
@@ -1143,8 +1145,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         block_commitment: Commitment<TYPES::BlockType>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<TYPES::VoteTokenType>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType>, DACertificate<TYPES>> {
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>
+    {
         self.inner.election.accumulate_da_vote(
             encoded_key,
             encoded_signature,

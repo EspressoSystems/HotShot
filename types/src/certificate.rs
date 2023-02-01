@@ -15,8 +15,8 @@ use espresso_systems_common::hotshot::tag;
 #[allow(deprecated)]
 use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, ops::Deref};
-
 /// A `DACertificate` is a threshold signature that some data is available.  
 /// It is signed by the members of the DA comittee, not the entire network. It is used
 /// to prove that the data will be made available to those outside of the DA committee.
@@ -61,37 +61,53 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     pub is_genesis: bool,
 }
 
+/// Mapping of leaf commitments to votes by key
+type VoteMap<LEAF, TOKEN> =
+    HashMap<Commitment<LEAF>, (u64, BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>)>;
+
 /// `CertificateAccumulator` is describes the process of collecting signatures
 /// to form a QC or a DA certificate.
 #[allow(clippy::missing_docs_in_private_items)]
-pub struct CertificateAccumulator<TOKEN> {
+pub struct CertificateAccumulator<TOKEN, LEAF: Committable> {
     /// Map of all signatures accumlated so far
-    pub valid_signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>,
+    pub vote_outcomes: VoteMap<LEAF, TOKEN>,
     /// threshold of stake needed to form a Certificate
     pub threshold: NonZeroU64,
-    /// Total of stake accumlated with signatures so far
-    pub stake_casted: u64,
 }
 
-impl<TOKEN>
+impl<TOKEN, LEAF: Committable>
     Accumulator<
-        (EncodedPublicKey, (EncodedSignature, TOKEN)),
+        (
+            Commitment<LEAF>,
+            (EncodedPublicKey, (EncodedSignature, TOKEN)),
+        ),
         BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>,
-    > for CertificateAccumulator<TOKEN>
+    > for CertificateAccumulator<TOKEN, LEAF>
 where
     TOKEN: Clone + VoteToken,
 {
     fn append(
         mut self,
-        val: (EncodedPublicKey, (EncodedSignature, TOKEN)),
+        val: (
+            Commitment<LEAF>,
+            (EncodedPublicKey, (EncodedSignature, TOKEN)),
+        ),
     ) -> Either<Self, BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>> {
-        let (key, (sig, token)) = val;
-        self.valid_signatures.insert(key, (sig, token.clone()));
+        let (commitment, (key, (sig, token))) = val;
 
-        self.stake_casted += u64::from(token.vote_count());
+        let (stake_casted, vote_map) = self
+            .vote_outcomes
+            .entry(commitment)
+            .or_insert_with(|| (0, BTreeMap::new()));
+        // Accumulate the stake for each leaf commitment rather than the total
+        // stake of all votes, in case they correspond to inconsistent
+        // commitments.
+        *stake_casted += u64::from(token.vote_count());
+        vote_map.insert(key, (sig, token));
 
-        if self.stake_casted >= u64::from(self.threshold) {
-            return Either::Right(self.valid_signatures);
+        if *stake_casted >= u64::from(self.threshold) {
+            let valid_signatures = self.vote_outcomes.remove(&commitment).unwrap().1;
+            return Either::Right(valid_signatures);
         }
         Either::Left(self)
     }
@@ -101,7 +117,6 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
     SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>
     for QuorumCertificate<TYPES, LEAF>
 {
-    type Accumulator = CertificateAccumulator<TYPES::VoteTokenType>;
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
         signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
@@ -178,8 +193,6 @@ impl<TYPES: NodeType, LEAF: commit::Committable>
     SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>
     for DACertificate<TYPES>
 {
-    type Accumulator = CertificateAccumulator<TYPES::VoteTokenType>;
-
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
         signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,

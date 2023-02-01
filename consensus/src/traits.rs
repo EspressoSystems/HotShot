@@ -270,8 +270,8 @@ pub trait ConsensusApi<
         leaf_commitment: Commitment<LEAF>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<TYPES::VoteTokenType>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType>, QuorumCertificate<TYPES, LEAF>>;
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, LEAF>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, LEAF>, QuorumCertificate<TYPES, LEAF>>;
 
     /// Add a vote for a DA QC, if the threshold is reached return the Certificate if not return the accumulator
     fn accumulate_da_vote(
@@ -281,6 +281,6 @@ pub trait ConsensusApi<
         block_commitment: Commitment<TYPES::BlockType>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<TYPES::VoteTokenType>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType>, DACertificate<TYPES>>;
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>;
 }
