@@ -115,9 +115,8 @@ impl<
                             continue;
                         }
                         let parent = self.parent_leaf().await?;
-                        let parent_state = if let Left(state) = &parent.state {
-                            state
-                        } else {
+                        let Left(parent_state) = &parent.state
+                        else {
                             warn!("Don't have last state on parent leaf");
                             return None;
                         };
@@ -126,11 +125,8 @@ impl<
                             warn!("Invalid block.");
                             return None;
                         }
-                        let state = if let Ok(state) =
-                            parent_state.append(&p.data.deltas, &self.cur_view)
-                        {
-                            state
-                        } else {
+                        let Ok(state) = parent_state.append(&p.data.deltas, &self.cur_view)
+                        else {
                             warn!("Failed to append state in high qc for proposal.");
                             return None;
                         };
@@ -221,9 +217,8 @@ impl<
 
         let maybe_leaf = self.find_valid_msg(view_leader_key).await;
 
-        let leaf = if let Some(leaf) = maybe_leaf {
-            leaf
-        } else {
+        let Some(leaf) = maybe_leaf
+        else {
             // We either timed out or for some reason could not accept a proposal.
             return;
         };
