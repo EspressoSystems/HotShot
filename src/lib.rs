@@ -55,8 +55,7 @@ use bincode::Options;
 use commit::{Commitment, Committable};
 use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, DAConsensusLeader, DALeader, DAMember, DANextLeader,
-     NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner,
-    ViewQueue,
+    NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner, ViewQueue,
 };
 use hotshot_types::certificate::DACertificate;
 use hotshot_types::data::ProposalType;
