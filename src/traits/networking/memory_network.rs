@@ -469,9 +469,9 @@ impl<
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         election: &ELECTION,
-        view_number: TYPES::Time,
     ) -> Result<(), NetworkError> {
-        let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
+        let recipients =
+            <ELECTION as Election<TYPES>>::get_committee(election, message.get_view_number());
         self.0.broadcast_message(message, recipients).await
     }
 
@@ -511,7 +511,10 @@ mod tests {
     use hotshot_types::{
         data::ViewNumber,
         message::{DataMessage, MessageKind},
-        traits::signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
+        traits::{
+            signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
+            state::ConsensusTime,
+        },
     };
     use hotshot_types::{
         data::{ValidatingLeaf, ValidatingProposal},
@@ -569,8 +572,8 @@ mod tests {
         message_2: Message<Test, TestLeaf, TestProposal>,
     ) {
         assert_eq!(message_1.sender, message_2.sender);
-        if let MessageKind::Data(DataMessage::SubmitTransaction(d_1)) = message_1.kind {
-            if let MessageKind::Data(DataMessage::SubmitTransaction(d_2)) = message_2.kind {
+        if let MessageKind::Data(DataMessage::SubmitTransaction(d_1, _)) = message_1.kind {
+            if let MessageKind::Data(DataMessage::SubmitTransaction(d_2, _)) = message_2.kind {
                 assert_eq!(d_1, d_2);
             }
         } else {
@@ -594,18 +597,21 @@ mod tests {
         for i in 0..num_messages {
             let message = Message {
                 sender: pk,
-                kind: MessageKind::Data(DataMessage::SubmitTransaction(DEntryTransaction {
-                    add: Addition {
-                        account: "A".to_string(),
-                        amount: 50 + i + seed,
+                kind: MessageKind::Data(DataMessage::SubmitTransaction(
+                    DEntryTransaction {
+                        add: Addition {
+                            account: "A".to_string(),
+                            amount: 50 + i + seed,
+                        },
+                        sub: Subtraction {
+                            account: "B".to_string(),
+                            amount: 50 + i + seed,
+                        },
+                        nonce: seed + i,
+                        padding: vec![50; 0],
                     },
-                    sub: Subtraction {
-                        account: "B".to_string(),
-                        amount: 50 + i + seed,
-                    },
-                    nonce: seed + i,
-                    padding: vec![50; 0],
-                })),
+                    <ViewNumber as ConsensusTime>::new(0),
+                )),
             };
             messages.push(message);
         }

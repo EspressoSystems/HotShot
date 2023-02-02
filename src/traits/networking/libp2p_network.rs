@@ -688,9 +688,9 @@ impl<
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         election: &ELECTION,
-        view_number: TYPES::Time,
     ) -> Result<(), NetworkError> {
-        let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
+        let recipients =
+            <ELECTION as Election<TYPES>>::get_committee(election, message.get_view_number());
         self.0.broadcast_message(message, recipients).await
     }
 

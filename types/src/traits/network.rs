@@ -136,7 +136,6 @@ pub trait CommunicationChannel<
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         election: &ELECTION,
-        view_number: TYPES::Time,
     ) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node

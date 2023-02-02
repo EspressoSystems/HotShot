@@ -38,6 +38,29 @@ impl<
 {
 }
 
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+    > Message<TYPES, LEAF, PROPOSAL>
+{
+    /// get the view number out of a message
+    pub fn get_view_number(&self) -> TYPES::Time {
+        match &self.kind {
+            MessageKind::Consensus(c) => match c {
+                ConsensusMessage::Proposal(p) => p.data.get_view_number(),
+                ConsensusMessage::Vote(v) => match v {
+                    Vote::DA(v) => v.current_view,
+                    Vote::Yes(v) | Vote::No(v) => v.current_view,
+                    Vote::Timeout(v) => v.current_view,
+                },
+                ConsensusMessage::NextViewInterrupt(v) => *v,
+            },
+            MessageKind::Data(DataMessage::SubmitTransaction(_, v)) => *v,
+        }
+    }
+}
+
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
 // data from the kind enum.
 /// Enum representation of any message type
@@ -51,7 +74,7 @@ pub enum MessageKind<
     /// Messages related to the consensus protocol
     Consensus(ConsensusMessage<TYPES, LEAF, PROPOSAL>),
     /// Messages relating to sharing data between nodes
-    Data(DataMessage<TYPES, LEAF>),
+    Data(DataMessage<TYPES>),
 }
 
 impl<
@@ -69,9 +92,9 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
-    > From<DataMessage<TYPES, LEAF>> for MessageKind<TYPES, LEAF, PROPOSAL>
+    > From<DataMessage<TYPES>> for MessageKind<TYPES, LEAF, PROPOSAL>
 {
-    fn from(m: DataMessage<TYPES, LEAF>) -> Self {
+    fn from(m: DataMessage<TYPES>) -> Self {
         Self::Data(m)
     }
 }
@@ -198,34 +221,11 @@ impl<
 #[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq)]
 #[serde(bound(deserialize = ""))]
 /// Messages related to sending data between nodes
-pub enum DataMessage<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
-    /// The newest entry that a node knows. This is send from existing nodes to a new node when the new node joins the network
-    NewestQuorumCertificate {
-        /// The newest [`QuorumCertificate`]
-        quorum_certificate: LEAF::QuorumCertificate,
-
-        /// The relevant [`BlockContents`]
-        ///
-        /// [`BlockContents`]: ../traits/block_contents/trait.BlockContents.html
-        block: TYPES::BlockType,
-
-        /// The relevant [`State`]
-        ///
-        /// [`State`]: ../traits/state/trait.State.html
-        state: LEAF::StateCommitmentType,
-
-        /// The parent leaf's commitment
-        parent_commitment: Commitment<LEAF>,
-
-        /// Transactions rejected in this view
-        rejected: Vec<TYPES::Transaction>,
-
-        /// the proposer id for this leaf
-        proposer_id: EncodedPublicKey,
-    },
-
+pub enum DataMessage<TYPES: NodeType> {
     /// Contains a transaction to be submitted
-    SubmitTransaction(TYPES::Transaction),
+    /// TODO rethink this when we start to send these messages
+    /// we only need the view number for broadcast
+    SubmitTransaction(TYPES::Transaction, TYPES::Time),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]

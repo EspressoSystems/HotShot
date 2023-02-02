@@ -303,7 +303,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         // Add the transaction to our own queue first
         trace!("Adding transaction to our own queue");
         // Wrap up a message
-        let message = DataMessage::SubmitTransaction(transaction);
+        // TODO place a view number here that makes sense
+        // we haven't worked out how this will work yet
+        let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
 
         let api = self.clone();
         async_spawn(async move {
@@ -394,7 +396,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                     Message { sender: pk, kind },
                     // TODO this is morally wrong
                     inner.election.clone().as_ref(),
-                    <TYPES::Time as ConsensusTime>::new(0),
                 )
                 .await
                 .is_err()
@@ -552,12 +553,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     /// Handle an incoming [`DataMessage`] that was broadcasted on the network
     async fn handle_broadcast_data_message(
         &self,
-        msg: DataMessage<TYPES, I::Leaf>,
+        msg: DataMessage<TYPES>,
         _sender: TYPES::SignatureKey,
     ) {
         // TODO validate incoming broadcast message based on sender signature key
         match msg {
-            DataMessage::SubmitTransaction(transaction) => {
+            DataMessage::SubmitTransaction(transaction, _view_number) => {
                 let size = bincode_opts().serialized_size(&transaction).unwrap_or(0);
 
                 // The API contract requires the hash to be unique
@@ -582,31 +583,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                         .update(size as i64);
                 }
             }
-            DataMessage::NewestQuorumCertificate { .. } => {
-                // Log the exceptional situation and proceed
-                warn!(
-                    ?msg,
-                    "Newest QC received over broadcast channel. This shouldn't be possible."
-                );
-            }
         }
     }
 
     /// Handle an incoming [`DataMessage`] that directed at this node
     async fn handle_direct_data_message(
         &self,
-        msg: DataMessage<TYPES, I::Leaf>,
+        msg: DataMessage<TYPES>,
         _sender: TYPES::SignatureKey,
     ) {
         debug!(?msg, "Incoming direct data message");
         match msg {
-            DataMessage::NewestQuorumCertificate { .. } => {
-                warn!(
-                    ?msg,
-                    "Newest QC received over direct channel. This shouldn't be possible."
-                );
-            }
-            DataMessage::SubmitTransaction(_) => {
+            DataMessage::SubmitTransaction(_, _) => {
                 // Log exceptional situation and proceed
                 warn!(?msg, "Broadcast message received over direct channel");
             }
@@ -1051,7 +1039,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
                 },
                 // TODO this is morally wrong
                 self.inner.election.clone().as_ref(),
-                <TYPES::Time as ConsensusTime>::new(0),
             )
             .await?;
         Ok(())
