@@ -141,10 +141,10 @@ impl<
                                 );
                             }
                             Ok(None) => {
-                                info!("We were not chosen for committee on {:?}", self.cur_view);
+                                info!("We were not chosen for DA committee on {:?}", self.cur_view);
                             }
                             Ok(Some(vote_token)) => {
-                                info!("We were chosen for committee on {:?}", self.cur_view);
+                                info!("We were chosen for DA committee on {:?}", self.cur_view);
 
                                 // Generate and send vote
                                 let message = self.api.create_da_message(

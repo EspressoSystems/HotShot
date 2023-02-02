@@ -144,10 +144,16 @@ impl<
                                 );
                             }
                             Ok(None) => {
-                                info!("We were not chosen for committee on {:?}", self.cur_view);
+                                info!(
+                                    "We were not chosen for consensus committee on {:?}",
+                                    self.cur_view
+                                );
                             }
                             Ok(Some(vote_token)) => {
-                                info!("We were chosen for committee on {:?}", self.cur_view);
+                                info!(
+                                    "We were chosen for consensus committee on {:?}",
+                                    self.cur_view
+                                );
 
                                 let message;
 
@@ -162,7 +168,7 @@ impl<
                                 let block_commitment = p.data.block_commitment;
                                 let leaf = DALeaf {
                                     view_number: self.cur_view,
-                                    height: 0,
+                                    height: p.data.height,
                                     justify_qc: justify_qc.clone(),
                                     parent_commitment,
                                     deltas: Right(p.data.block_commitment),

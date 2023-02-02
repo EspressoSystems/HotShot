@@ -327,6 +327,7 @@ impl<
         let proposal = CommitmentProposal {
             block_commitment,
             view_number: leaf.view_number,
+            height: leaf.height,
             justify_qc: self.high_qc.clone(),
             dac: self.cert,
             proposer_id: leaf.proposer_id,
