@@ -65,7 +65,7 @@ use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
-    message::{ConsensusMessage, DataMessage, Message},
+    message::{ConsensusMessage, DataMessage, InternalTrigger, Message},
     traits::{
         election::{
             Checked::{self},
@@ -279,8 +279,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             UnboundedSender<ProcessedConsensusMessage<TYPES, I::Leaf, I::Proposal>>,
         >,
     ) {
-        let msg = ProcessedConsensusMessage::<TYPES, I::Leaf, I::Proposal>::NextViewInterrupt(
-            current_view,
+        let msg = ProcessedConsensusMessage::<TYPES, I::Leaf, I::Proposal>::InternalTrigger(
+            InternalTrigger::Timeout(current_view),
         );
         if let Some(chan) = send_next_leader {
             if chan.send(msg.clone()).await.is_err() {
@@ -466,8 +466,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                     warn!("Failed to send to next leader!");
                 }
             }
-            ConsensusMessage::NextViewInterrupt(_) => {
-                warn!("Received a next view interrupt. This shouldn't be possible.");
+            ConsensusMessage::InternalTrigger(_) => {
+                warn!("Received an internal trigger. This shouldn't be possible.");
             }
             ConsensusMessage::Vote(_) => {
                 warn!("Received a broadcast for a vote message. This shouldn't be possible.");
@@ -508,7 +508,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         // We can only recv from a replicas
         // replicas should only send votes or if they timed out, timeouts
         match msg {
-            ConsensusMessage::Proposal(_) | ConsensusMessage::NextViewInterrupt(_) => {
+            ConsensusMessage::Proposal(_) | ConsensusMessage::InternalTrigger(_) => {
                 warn!("Received a direct message for a proposal. This shouldn't be possible.");
             }
             // this is ONLY intended for next leader

@@ -14,7 +14,7 @@ use either::Either;
 use either::Right;
 use hotshot_types::certificate::DACertificate;
 use hotshot_types::data::CommitmentProposal;
-use hotshot_types::message::{ProcessedConsensusMessage, Vote};
+use hotshot_types::message::{InternalTrigger, ProcessedConsensusMessage, Vote};
 use hotshot_types::traits::state::SequencingConsensus;
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -133,10 +133,12 @@ impl<
                         }
                     }
                 }
-                ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
-                    self.api.send_next_leader_timeout(self.cur_view).await;
-                    break;
-                }
+                ProcessedConsensusMessage::InternalTrigger(trigger) => match trigger {
+                    InternalTrigger::Timeout(_) => {
+                        self.api.send_next_leader_timeout(self.cur_view).await;
+                        break;
+                    }
+                },
                 ProcessedConsensusMessage::Proposal(_p, _sender) => {
                     warn!("The next leader has received an unexpected proposal!");
                 }
@@ -469,10 +471,12 @@ impl<
                         }
                     }
                 }
-                ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
-                    self.api.send_next_leader_timeout(self.cur_view).await;
-                    break;
-                }
+                ProcessedConsensusMessage::InternalTrigger(trigger) => match trigger {
+                    InternalTrigger::Timeout(_) => {
+                        self.api.send_next_leader_timeout(self.cur_view).await;
+                        break;
+                    }
+                },
                 ProcessedConsensusMessage::Proposal(_p, _sender) => {
                     warn!("The next leader has received an unexpected proposal!");
                 }
