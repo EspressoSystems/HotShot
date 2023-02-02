@@ -11,7 +11,7 @@ use commit::Committable;
 use either::Left;
 use hotshot_types::{
     certificate::QuorumCertificate,
-    data::{DALeaf, DAProposal},
+    data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, ProcessedConsensusMessage},
     traits::{
         election::{Election, SignedCertificate},
@@ -25,24 +25,28 @@ use tracing::{error, info, instrument, warn};
 /// This view's DA committee member.
 #[derive(Debug, Clone)]
 pub struct DAMember<
-    A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
     ELECTION: Election<
         TYPES,
-        LeafType = DALeaf<TYPES>,
-        QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+        LeafType = SequencingLeaf<TYPES>,
+        QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     >,
 > {
     /// ID of node.
     pub id: u64,
     /// Reference to consensus. DA committee member will require a write lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES, DALeaf<TYPES>>>>,
+    pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// Channel for accepting leader proposals and timeouts messages.
     #[allow(clippy::type_complexity)]
     pub proposal_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
-                ProcessedConsensusMessage<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+                ProcessedConsensusMessage<
+                    TYPES,
+                    SequencingLeaf<TYPES>,
+                    DAProposal<TYPES, ELECTION>,
+                >,
             >,
         >,
     >,
@@ -55,17 +59,17 @@ pub struct DAMember<
 }
 
 impl<
-        A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
         TYPES: NodeType,
         ELECTION: Election<
             TYPES,
-            LeafType = DALeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+            LeafType = SequencingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         >,
     > DAMember<A, TYPES, ELECTION>
 {
     /// Returns the parent leaf of the proposal we are voting on
-    async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
+    async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let parent_view_number = &self.high_qc.view_number();
         let consensus = self.consensus.read().await;
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
@@ -97,7 +101,7 @@ impl<
     async fn find_valid_msg<'a>(
         &self,
         view_leader_key: TYPES::SignatureKey,
-    ) -> Option<DALeaf<TYPES>> {
+    ) -> Option<SequencingLeaf<TYPES>> {
         let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
             let msg = lock.recv().await;
@@ -115,7 +119,7 @@ impl<
                             continue;
                         }
                         let parent = self.parent_leaf().await?;
-                        let leaf = DALeaf {
+                        let leaf = SequencingLeaf {
                             view_number: self.cur_view,
                             height: parent.height + 1,
                             justify_qc: self.high_qc.clone(),

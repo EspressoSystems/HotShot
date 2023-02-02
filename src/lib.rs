@@ -54,12 +54,13 @@ use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use hotshot_consensus::{
-    Consensus, ConsensusApi, ConsensusMetrics, DAConsensusLeader, DALeader, DAMember, DANextLeader,
-    NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner, ViewQueue,
+    Consensus, ConsensusApi, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader, DALeader,
+    DAMember, NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner,
+    ViewQueue,
 };
 use hotshot_types::certificate::DACertificate;
 use hotshot_types::data::ProposalType;
-use hotshot_types::data::{DALeaf, DAProposal};
+use hotshot_types::data::{DAProposal, SequencingLeaf};
 use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
@@ -849,11 +850,15 @@ impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
         ELECTION: Election<
             TYPES,
-            LeafType = DALeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+            LeafType = SequencingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
             DACertificate = DACertificate<TYPES>,
         >,
-        I: NodeImplementation<TYPES, Leaf = DALeaf<TYPES>, Proposal = DAProposal<TYPES, ELECTION>>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            Proposal = DAProposal<TYPES, ELECTION>,
+        >,
     > ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
 {
     // #[instrument]
@@ -916,7 +921,7 @@ impl<
                     return Ok(());
                 };
 
-            let consensus_leader = DAConsensusLeader {
+            let consensus_leader = ConsensusLeader {
                 id: hotshot.id,
                 consensus: hotshot.hotstuff.clone(),
                 high_qc: high_qc.clone(),
@@ -930,7 +935,7 @@ impl<
             let _qc = consensus_leader.run_view().await;
         }
         if c_api.is_leader(cur_view + 1).await {
-            let next_leader = DANextLeader {
+            let next_leader = ConsensusNextLeader {
                 id: hotshot.id,
                 consensus: hotshot.hotstuff.clone(),
                 cur_view,
