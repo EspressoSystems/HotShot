@@ -4,7 +4,7 @@
 
 use super::node_implementation::NodeType;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
-use crate::certificate::{CertificateAccumulator, DACertificate, QuorumCertificate};
+use crate::certificate::{CertificateAccumulator, VoteMetaData};
 use crate::{
     data::LeafType,
     traits::{
@@ -236,79 +236,38 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         is_valid_signature && is_valid_vote_token
     }
 
-    /// Accumlate the vote, return the QC if the threshold was reached, if not return the updated accumulator
-    #[allow(clippy::type_complexity)]
-    fn accumulate_qc_vote(
+    fn accumulate_vote<C: Committable, Cert>(
         &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        leaf_commitment: Commitment<Self::LeafType>,
-        vote_token: TYPES::VoteTokenType,
-        view_number: TYPES::Time,
-        accumulator: CertificateAccumulator<TYPES::VoteTokenType, Self::LeafType>,
-    ) -> Either<
-        CertificateAccumulator<TYPES::VoteTokenType, Self::LeafType>,
-        QuorumCertificate<TYPES, Self::LeafType>,
-    > {
-        if !self.is_valid_vote(
-            encoded_key,
-            encoded_signature,
-            VoteData::Yes(leaf_commitment),
-            view_number,
-            // Ignoring deserialization errors below since we are getting rid of it soon
-            Unchecked(vote_token.clone()),
-        ) {
-            return Either::Left(accumulator);
-        }
-
-        match accumulator.append((
-            leaf_commitment,
-            (encoded_key.clone(), (encoded_signature.clone(), vote_token)),
-        )) {
-            Either::Left(accumulator) => Either::Left(accumulator),
-            Either::Right(signatures) => {
-                Either::Right(QuorumCertificate::from_signatures_and_commitment(
-                    view_number,
-                    signatures,
-                    leaf_commitment,
-                ))
-            }
-        }
-    }
-    /// Accumlate the vote, return the QC if the threshold was reached, if not return the updated accumulator
-    #[allow(clippy::type_complexity)]
-    fn accumulate_da_vote(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        block_commitment: Commitment<TYPES::BlockType>,
-        vote_token: TYPES::VoteTokenType,
-        view_number: TYPES::Time,
-        accumulator: CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>
+        vota_meta: VoteMetaData<TYPES, C, TYPES::VoteTokenType, TYPES::Time, Self::LeafType>,
+        accumulator: CertificateAccumulator<TYPES::VoteTokenType, C>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Cert>
+    where
+        Cert: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, C>,
     {
         if !self.is_valid_vote(
-            encoded_key,
-            encoded_signature,
-            VoteData::DA(block_commitment),
-            view_number,
-            Unchecked(vote_token.clone()),
+            &vota_meta.encoded_key,
+            &vota_meta.encoded_signature,
+            vota_meta.data,
+            vota_meta.view_number,
+            // Ignoring deserialization errors below since we are getting rid of it soon
+            Unchecked(vota_meta.vote_token.clone()),
         ) {
             return Either::Left(accumulator);
         }
 
         match accumulator.append((
-            block_commitment,
-            (encoded_key.clone(), (encoded_signature.clone(), vote_token)),
+            vota_meta.commitment,
+            (
+                vota_meta.encoded_key.clone(),
+                (vota_meta.encoded_signature.clone(), vota_meta.vote_token),
+            ),
         )) {
             Either::Left(accumulator) => Either::Left(accumulator),
-            Either::Right(signatures) => {
-                Either::Right(DACertificate::from_signatures_and_commitment(
-                    view_number,
-                    signatures,
-                    block_commitment,
-                ))
-            }
+            Either::Right(signatures) => Either::Right(Cert::from_signatures_and_commitment(
+                vota_meta.view_number,
+                signatures,
+                vota_meta.commitment,
+            )),
         }
     }
 

@@ -58,8 +58,8 @@ use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, DAConsensusLeader, DALeader, DAMember, DANextLeader,
     NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner, ViewQueue,
 };
-use hotshot_types::certificate::CertificateAccumulator;
 use hotshot_types::certificate::DACertificate;
+use hotshot_types::certificate::{CertificateAccumulator, VoteMetaData};
 use hotshot_types::data::ProposalType;
 use hotshot_types::data::{DALeaf, DAProposal};
 use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
@@ -1127,14 +1127,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         CertificateAccumulator<TYPES::VoteTokenType, I::Leaf>,
         QuorumCertificate<TYPES, I::Leaf>,
     > {
-        self.inner.election.accumulate_qc_vote(
-            encoded_key,
-            encoded_signature,
-            leaf_commitment,
+        let meta = VoteMetaData {
+            encoded_key: encoded_key.clone(),
+            encoded_signature: encoded_signature.clone(),
+            commitment: leaf_commitment,
+            data: VoteData::Yes(leaf_commitment),
             vote_token,
             view_number,
-            accumlator,
-        )
+        };
+        self.inner.election.accumulate_vote(meta, accumlator)
     }
     fn accumulate_da_vote(
         &self,
@@ -1146,14 +1147,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         accumlator: CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>,
     ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>
     {
-        self.inner.election.accumulate_da_vote(
-            encoded_key,
-            encoded_signature,
-            block_commitment,
+        let meta = VoteMetaData {
+            encoded_key: encoded_key.clone(),
+            encoded_signature: encoded_signature.clone(),
+            commitment: block_commitment,
+            data: VoteData::DA(block_commitment),
             vote_token,
             view_number,
-            accumlator,
-        )
+        };
+        self.inner.election.accumulate_vote(meta, accumlator)
     }
 
     async fn store_leaf(

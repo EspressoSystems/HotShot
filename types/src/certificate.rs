@@ -3,7 +3,7 @@
 use crate::{
     data::{fake_commitment, LeafType},
     traits::{
-        election::{Accumulator, SignedCertificate, VoteToken},
+        election::{Accumulator, SignedCertificate, VoteData, VoteToken},
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature},
         state::ConsensusTime,
@@ -59,6 +59,22 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     pub signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
     /// If this QC is for the genesis block
     pub is_genesis: bool,
+}
+
+/// Data from a vote needed to accumulate into a `SignedCertificate`
+pub struct VoteMetaData<TYPES: NodeType, C: Committable, T: VoteToken, TIME, LEAF: LeafType> {
+    /// Voter's public key
+    pub encoded_key: EncodedPublicKey,
+    /// Votes signature
+    pub encoded_signature: EncodedSignature,
+    /// Commitment to what's voted on.  E.g. the leaf for a `QuorumCertificate`
+    pub commitment: Commitment<C>,
+    /// Data of the vote, yes, no, timeout, or DA
+    pub data: VoteData<TYPES, LEAF>,
+    /// The votes's token
+    pub vote_token: T,
+    /// View number for the vote
+    pub view_number: TIME,
 }
 
 /// Mapping of leaf commitments to votes by key
