@@ -9,7 +9,7 @@ use either::Either::{Left, Right};
 #[cfg(feature = "slow-tests")]
 use hotshot::{
     demos::dentry::DEntryState,
-    traits::implementations::{Libp2pNetwork, MemoryNetwork, MemoryStorage}, // AtomicStorage,
+    traits::implementations::{Libp2pNetwork, MemoryCommChannel, MemoryStorage}, // AtomicStorage,
 };
 #[cfg(feature = "slow-tests")]
 use std::{collections::HashSet, iter::FromIterator};

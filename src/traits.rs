@@ -5,7 +5,7 @@ mod node_implementation;
 mod storage;
 
 pub use hotshot_types::traits::{Block, State};
-pub use networking::{NetworkError, NetworkReliability, NetworkingImplementation};
+pub use networking::{NetworkError, NetworkReliability};
 pub use node_implementation::NodeImplementation;
 pub use storage::{Result as StorageResult, Storage};
 
@@ -13,9 +13,9 @@ pub use storage::{Result as StorageResult, Storage};
 pub mod implementations {
     pub use super::{
         networking::{
-            centralized_server_network::CentralizedServerNetwork,
-            libp2p_network::{Libp2pNetwork, PeerInfoVec},
-            memory_network::{DummyReliability, MasterMap, MemoryNetwork},
+            centralized_server_network::{CentralizedCommChannel, CentralizedServerNetwork},
+            libp2p_network::{Libp2pCommChannel, Libp2pNetwork, PeerInfoVec},
+            memory_network::{DummyReliability, MasterMap, MemoryCommChannel, MemoryNetwork},
         },
         storage::memory_storage::MemoryStorage, // atomic_storage::AtomicStorage,
     };

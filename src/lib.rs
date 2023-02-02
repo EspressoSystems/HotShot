@@ -41,7 +41,7 @@ pub mod tasks;
 
 use crate::{
     certificate::QuorumCertificate,
-    traits::{NetworkingImplementation, NodeImplementation, Storage},
+    traits::{NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };
 use async_compatibility_layer::{
@@ -61,15 +61,13 @@ use hotshot_types::certificate::DACertificate;
 use hotshot_types::data::ProposalType;
 use hotshot_types::data::{DALeaf, DAProposal};
 use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
+use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, Message},
     traits::{
-        election::{
-            Checked::{self},
-            Election, ElectionError, SignedCertificate, VoteData,
-        },
+        election::{Checked, Election, ElectionError, SignedCertificate, VoteData},
         metrics::Metrics,
         network::{NetworkError, TransmitType},
         node_implementation::NodeType,
@@ -305,7 +303,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         // Add the transaction to our own queue first
         trace!("Adding transaction to our own queue");
         // Wrap up a message
-        let message = DataMessage::SubmitTransaction(transaction);
+        // TODO place a view number here that makes sense
+        // we haven't worked out how this will work yet
+        let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
 
         let api = self.clone();
         async_spawn(async move {
@@ -392,7 +392,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         async_spawn_local(async move {
             if inner
                 .networking
-                .broadcast_message(Message { sender: pk, kind })
+                .broadcast_message(
+                    Message { sender: pk, kind },
+                    // TODO this is morally wrong
+                    &inner.election.clone(),
+                )
                 .await
                 .is_err()
             {
@@ -416,14 +420,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     ) -> std::result::Result<(), NetworkError> {
         self.inner
             .networking
-            .message_node(
+            .direct_message(
                 Message {
                     sender: self.inner.public_key.clone(),
                     kind: kind.into(),
                 },
                 recipient,
             )
-            .await
+            .await?;
+        Ok(())
     }
 
     /// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.
@@ -548,12 +553,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     /// Handle an incoming [`DataMessage`] that was broadcasted on the network
     async fn handle_broadcast_data_message(
         &self,
-        msg: DataMessage<TYPES, I::Leaf>,
+        msg: DataMessage<TYPES>,
         _sender: TYPES::SignatureKey,
     ) {
         // TODO validate incoming broadcast message based on sender signature key
         match msg {
-            DataMessage::SubmitTransaction(transaction) => {
+            DataMessage::SubmitTransaction(transaction, _view_number) => {
                 let size = bincode_opts().serialized_size(&transaction).unwrap_or(0);
 
                 // The API contract requires the hash to be unique
@@ -578,31 +583,18 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                         .update(size as i64);
                 }
             }
-            DataMessage::NewestQuorumCertificate { .. } => {
-                // Log the exceptional situation and proceed
-                warn!(
-                    ?msg,
-                    "Newest QC received over broadcast channel. This shouldn't be possible."
-                );
-            }
         }
     }
 
     /// Handle an incoming [`DataMessage`] that directed at this node
     async fn handle_direct_data_message(
         &self,
-        msg: DataMessage<TYPES, I::Leaf>,
+        msg: DataMessage<TYPES>,
         _sender: TYPES::SignatureKey,
     ) {
         debug!(?msg, "Incoming direct data message");
         match msg {
-            DataMessage::NewestQuorumCertificate { .. } => {
-                warn!(
-                    ?msg,
-                    "Newest QC received over direct channel. This shouldn't be possible."
-                );
-            }
-            DataMessage::SubmitTransaction(_) => {
+            DataMessage::SubmitTransaction(_, _) => {
                 // Log exceptional situation and proceed
                 warn!(?msg, "Broadcast message received over direct channel");
             }
@@ -1021,7 +1013,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         async_spawn_local(async move {
             inner
                 .networking
-                .message_node(
+                .direct_message(
                     Message {
                         sender: inner.public_key.clone(),
                         kind: message.into(),
@@ -1040,11 +1032,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         debug!(?message, "send_broadcast_message");
         self.inner
             .networking
-            .broadcast_message(Message {
-                sender: self.inner.public_key.clone(),
-                kind: message.into(),
-            })
-            .await
+            .broadcast_message(
+                Message {
+                    sender: self.inner.public_key.clone(),
+                    kind: message.into(),
+                },
+                // TODO this is morally wrong
+                &self.inner.election.clone(),
+            )
+            .await?;
+        Ok(())
     }
 
     async fn send_da_broadcast<DAPROPOSAL: ProposalType<NodeType = TYPES>>(

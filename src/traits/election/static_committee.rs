@@ -155,4 +155,11 @@ where
     fn threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((self.nodes.len() as u64 * 2) / 3) + 1).unwrap()
     }
+
+    fn get_committee(
+        &self,
+        _view_number: <TYPES as NodeType>::Time,
+    ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
+        self.nodes.clone().into_iter().collect()
+    }
 }

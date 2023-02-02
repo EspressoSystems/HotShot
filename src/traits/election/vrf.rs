@@ -8,10 +8,7 @@ use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
     data::LeafType,
     traits::{
-        election::{
-            Checked::{self},
-            Election, ElectionConfig, ElectionError, TestableElection, VoteToken,
-        },
+        election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
     },
@@ -29,10 +26,7 @@ use jf_primitives::{
 use num::{rational::Ratio, BigUint, ToPrimitive};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
-use serde::{
-    de::{self},
-    Deserialize, Serialize,
-};
+use serde::{de, Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
@@ -175,6 +169,32 @@ where
         self.to_bytes().hash(state);
     }
 }
+
+impl<SIGSCHEME> PartialOrd for JfPubKey<SIGSCHEME>
+where
+    SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8>,
+    SIGSCHEME::VerificationKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
+    SIGSCHEME::SigningKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
+    SIGSCHEME::Signature: Clone + for<'a> Deserialize<'a> + Serialize,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.to_bytes().partial_cmp(&other.to_bytes())
+    }
+}
+
+impl<SIGSCHEME> Ord for JfPubKey<SIGSCHEME>
+where
+    SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8>,
+    SIGSCHEME::VerificationKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
+    SIGSCHEME::SigningKey: Clone + for<'a> Deserialize<'a> + Serialize + Send + Sync,
+    SIGSCHEME::Signature: Clone + for<'a> Deserialize<'a> + Serialize,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // cursed cursed cursed !!!
+        self.to_bytes().cmp(&other.to_bytes())
+    }
+}
+
 impl<SIGSCHEME> SignatureKey for JfPubKey<SIGSCHEME>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8>,
@@ -589,6 +609,21 @@ where
 
     fn threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((u64::from(self.sortition_parameter) * 2) / 3) + 1).unwrap()
+    }
+
+    /// TODO if we ever come back to using this, we'll need to change this
+    /// this stub is incorrect as it stands right now
+    fn get_committee(
+        &self,
+        _view_number: <TYPES as NodeType>::Time,
+    ) -> std::collections::BTreeSet<<TYPES as NodeType>::SignatureKey> {
+        self.stake_table
+            .mapping
+            .keys()
+            .clone()
+            .into_iter()
+            .filter_map(<TYPES as NodeType>::SignatureKey::from_bytes)
+            .collect()
     }
 }
 
