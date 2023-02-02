@@ -192,7 +192,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     ) -> Result<
         (
             Vec<<I::Leaf as LeafType>::StateCommitmentType>,
-            Vec<TYPES::BlockType>,
+            Vec<<I::Leaf as LeafType>::DeltasType>,
         ),
         HotShotError<TYPES>,
     > {

@@ -54,7 +54,7 @@ pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Transactions that were submitted
     pub txns: Vec<TYPES::Transaction>,
     /// Nodes that committed this round
-    pub results: HashMap<u64, StateAndBlock<LEAF::StateCommitmentType, TYPES::BlockType>>,
+    pub results: HashMap<u64, StateAndBlock<LEAF::StateCommitmentType, LEAF::DeltasType>>,
     /// Nodes that failed to commit this round
     pub failures: HashMap<u64, HotShotError<TYPES>>,
 }
@@ -404,10 +404,10 @@ where
 
         for (idx, leaf) in remaining.iter().enumerate() {
             if first_leaf != leaf {
-                eprintln!("Leaf dump for {:?}", idx);
-                eprintln!("\texpected: {:#?}", first_leaf);
-                eprintln!("\tgot:      {:#?}", leaf);
-                eprintln!("Node {} storage state does not match the first node", idx);
+                eprintln!("Leaf dump for {idx:?}");
+                eprintln!("\texpected: {first_leaf:#?}");
+                eprintln!("\tgot:      {leaf:#?}");
+                eprintln!("Node {idx} storage state does not match the first node");
                 mismatch_count += 1;
             }
         }

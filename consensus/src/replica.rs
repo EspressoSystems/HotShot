@@ -96,11 +96,9 @@ impl<
                         if view_leader_key != sender {
                             continue;
                         }
-                        let parent = if let Some(parent) =
-                            consensus.saved_leaves.get(&p.data.parent_commitment)
-                        {
-                            parent
-                        } else {
+
+                        let Some(parent) = consensus.saved_leaves.get(&p.data.parent_commitment)
+                        else {
                             warn!("Proposal's parent missing from storage");
                             continue;
                         };
@@ -328,13 +326,11 @@ impl<
 
         let (consensus, maybe_leaf) = self.find_valid_msg(view_leader_key, consensus).await;
 
-        let leaf = if let Some(leaf) = maybe_leaf {
-            leaf
-        } else {
-            // we either timed out or for some reason
-            // could not accept a proposal
-            return self.high_qc;
-        };
+        let Some(leaf) = maybe_leaf else {
+             // we either timed out or for some reason
+             // could not accept a proposal
+             return self.high_qc;
+         };
 
         let mut new_anchor_view = consensus.last_decided_view;
         let mut new_locked_view = consensus.locked_view;

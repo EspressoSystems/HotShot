@@ -13,7 +13,7 @@ use crate::{
         node_implementation::NodeType,
         signature_key::EncodedPublicKey,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensusType},
-        storage::{StoredView, ViewAppend},
+        storage::StoredView,
         Block, State,
     },
 };
@@ -150,12 +150,6 @@ pub struct CommitmentProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
     /// Data availibity certificate
     pub dac: ELECTION::DACertificate,
 
-    /// parent commitment alrady in justify_qqc
-
-    /// What the state should be after applying `self.deltas`
-    #[debug(skip)]
-    pub state_commitment: Commitment<TYPES::StateType>,
-
     /// the propser id
     pub proposer_id: EncodedPublicKey,
 
@@ -215,6 +209,7 @@ pub trait LeafType:
     + std::hash::Hash
 {
     type NodeType: NodeType;
+    type DeltasType: Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Send + Serialize + Sync;
     type StateCommitmentType: Clone
         + Debug
         + for<'a> Deserialize<'a>
@@ -260,7 +255,7 @@ pub trait LeafType:
 
     fn get_parent_commitment(&self) -> Commitment<Self>;
 
-    fn get_deltas(&self) -> <Self::NodeType as NodeType>::BlockType;
+    fn get_deltas(&self) -> Self::DeltasType;
 
     fn get_state(&self) -> Self::StateCommitmentType;
 
@@ -342,12 +337,8 @@ pub struct DALeaf<TYPES: NodeType> {
     /// So we can ask if it extends
     pub parent_commitment: Commitment<DALeaf<TYPES>>,
 
-    /// Block leaf wants to apply
-    pub deltas: TYPES::BlockType,
-
-    /// What the state should be AFTER applying `self.deltas`
-    /// dependent on whether we have the state yet
-    pub state: Either<TYPES::StateType, Commitment<TYPES::StateType>>,
+    /// The block or block commitment to be applied
+    pub deltas: Either<TYPES::BlockType, Commitment<TYPES::BlockType>>,
 
     /// Transactions that were marked for rejection while collecting deltas
     pub rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
@@ -363,6 +354,7 @@ pub struct DALeaf<TYPES: NodeType> {
 
 impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
     type NodeType = TYPES;
+    type DeltasType = TYPES::BlockType;
     type StateCommitmentType = TYPES::StateType;
     type QuorumCertificate = QuorumCertificate<Self::NodeType, Self>;
     type DACertificate = DACertificate<Self::NodeType>;
@@ -406,7 +398,7 @@ impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
         self.parent_commitment
     }
 
-    fn get_deltas(&self) -> TYPES::BlockType {
+    fn get_deltas(&self) -> Self::DeltasType {
         self.deltas.clone()
     }
 
@@ -427,15 +419,12 @@ impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
     }
 
     fn from_stored_view(stored_view: StoredView<Self::NodeType, Self>) -> Self {
-        let deltas = match stored_view.append {
-            ViewAppend::Block { block } => block,
-        };
         Self {
             view_number: stored_view.view_number,
             height: 0,
             justify_qc: stored_view.justify_qc,
             parent_commitment: stored_view.parent,
-            deltas,
+            deltas: stored_view.deltas,
             state: stored_view.state,
             rejected: stored_view.rejected,
             timestamp: stored_view.timestamp,
@@ -461,7 +450,8 @@ where
 
 impl<TYPES: NodeType> LeafType for DALeaf<TYPES> {
     type NodeType = TYPES;
-    type StateCommitmentType = Either<TYPES::StateType, Commitment<TYPES::StateType>>;
+    type DeltasType = Either<TYPES::BlockType, Commitment<TYPES::BlockType>>;
+    type StateCommitmentType = ();
     type QuorumCertificate = QuorumCertificate<Self::NodeType, Self>;
     type DACertificate = DACertificate<Self::NodeType>;
 
@@ -469,15 +459,14 @@ impl<TYPES: NodeType> LeafType for DALeaf<TYPES> {
         view_number: <Self::NodeType as NodeType>::Time,
         justify_qc: QuorumCertificate<Self::NodeType, Self>,
         deltas: <Self::NodeType as NodeType>::BlockType,
-        state: <Self::NodeType as NodeType>::StateType,
+        _state: <Self::NodeType as NodeType>::StateType,
     ) -> Self {
         Self {
             view_number,
             height: 0,
             justify_qc,
             parent_commitment: fake_commitment(),
-            deltas,
-            state: Either::Left(state),
+            deltas: Either::Left(deltas),
             rejected: Vec::new(),
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
             proposer_id: genesis_proposer_id(),
@@ -504,13 +493,12 @@ impl<TYPES: NodeType> LeafType for DALeaf<TYPES> {
         self.parent_commitment
     }
 
-    fn get_deltas(&self) -> TYPES::BlockType {
+    fn get_deltas(&self) -> Self::DeltasType {
         self.deltas.clone()
     }
 
-    fn get_state(&self) -> Self::StateCommitmentType {
-        self.state.clone()
-    }
+    // The DA Leaf doesn't have a state.
+    fn get_state(&self) -> Self::StateCommitmentType {}
 
     fn get_rejected(&self) -> Vec<<TYPES::BlockType as Block>::Transaction> {
         self.rejected.clone()
@@ -525,16 +513,12 @@ impl<TYPES: NodeType> LeafType for DALeaf<TYPES> {
     }
 
     fn from_stored_view(stored_view: StoredView<Self::NodeType, Self>) -> Self {
-        let deltas = match stored_view.append {
-            ViewAppend::Block { block } => block,
-        };
         Self {
             view_number: stored_view.view_number,
             height: 0,
             justify_qc: stored_view.justify_qc,
             parent_commitment: stored_view.parent,
-            deltas,
-            state: stored_view.state,
+            deltas: stored_view.deltas,
             rejected: stored_view.rejected,
             timestamp: stored_view.timestamp,
             proposer_id: stored_view.proposer_id,
@@ -583,7 +567,7 @@ impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
             .u64_field("view_number", *self.view_number)
             .u64_field("height", self.height)
             .field("parent Leaf commitment", self.parent_commitment)
-            .field("deltas commitment", self.deltas.commit())
+            .field("block commitment", self.deltas.commit())
             .field("state commitment", self.state.commit())
             .constant_str("justify_qc view number")
             .u64(*self.justify_qc.view_number)
@@ -603,8 +587,32 @@ impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
 
 impl<TYPES: NodeType> Committable for DALeaf<TYPES> {
     fn commit(&self) -> commit::Commitment<Self> {
-        #[allow(deprecated)]
-        nll_todo()
+        // Commit the block commitment, rather than the block, so that the replicas can reconstruct
+        // the leaf.
+        let block_commitment = match &self.deltas {
+            Either::Left(block) => block.commit(),
+            Either::Right(commitment) => *commitment,
+        };
+        let mut signatures_bytes = vec![];
+        for (k, v) in &self.justify_qc.signatures {
+            signatures_bytes.extend(&k.0);
+            signatures_bytes.extend(&v.0 .0);
+            signatures_bytes.extend::<&[u8]>(v.1.commit().as_ref());
+        }
+        commit::RawCommitmentBuilder::new("Leaf Comm")
+            .u64_field("view_number", *self.view_number)
+            .u64_field("height", self.height)
+            .field("parent Leaf commitment", self.parent_commitment)
+            .field("block commitment", block_commitment)
+            .constant_str("justify_qc view number")
+            .u64(*self.justify_qc.view_number)
+            .field(
+                "justify_qc leaf commitment",
+                self.justify_qc.leaf_commitment(),
+            )
+            .constant_str("justify_qc signatures")
+            .var_size_bytes(&signatures_bytes)
+            .finalize()
     }
 }
 
@@ -705,7 +713,7 @@ where
     fn from(append: StoredView<TYPES, ValidatingLeaf<TYPES>>) -> Self {
         ValidatingLeaf::new(
             append.state,
-            append.append.into_deltas(),
+            append.deltas,
             append.parent,
             append.justify_qc,
             append.view_number,
@@ -729,7 +737,7 @@ where
             parent: leaf.get_parent_commitment(),
             justify_qc: leaf.get_justify_qc(),
             state: leaf.get_state(),
-            append: leaf.get_deltas().into(),
+            deltas: leaf.get_deltas(),
             rejected: leaf.get_rejected(),
             timestamp: leaf.get_timestamp(),
             proposer_id: leaf.get_proposer_id(),

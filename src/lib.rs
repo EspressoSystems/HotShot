@@ -913,12 +913,10 @@ impl<
                 vote_collection_chan: recv_da_vote,
                 _pd: PhantomData,
             };
-            let (da_cert, block, parent) =
-                if let Some((cert, block, parent)) = da_leader.run_view().await {
-                    (cert, block, parent)
-                } else {
+            let Some((da_cert, block, parent)) = da_leader.run_view().await else {
                     return Ok(());
                 };
+
             let consensus_leader = DAConsensusLeader {
                 id: hotshot.id,
                 consensus: hotshot.hotstuff.clone(),
