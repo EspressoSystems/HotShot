@@ -136,8 +136,8 @@ pub struct StoredView<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub justify_qc: LEAF::QuorumCertificate,
     /// The state of this view
     pub state: LEAF::StateCommitmentType,
-    /// The history of how this view came to be
-    pub append: ViewAppend<TYPES::BlockType>,
+    /// The deltas of this view
+    pub deltas: LEAF::DeltasType,
     /// transactions rejected in this view
     pub rejected: Vec<TYPES::Transaction>,
     /// the timestamp this view was recv-ed in nanonseconds
@@ -158,7 +158,7 @@ where
     /// Note that this will set the `parent` to `LeafHash::default()`, so this will not have a parent.
     pub fn from_qc_block_and_state(
         qc: LEAF::QuorumCertificate,
-        block: TYPES::BlockType,
+        deltas: LEAF::DeltasType,
         state: LEAF::StateCommitmentType,
         height: u64,
         parent_commitment: Commitment<LEAF>,
@@ -166,7 +166,7 @@ where
         proposer_id: EncodedPublicKey,
     ) -> Self {
         Self {
-            append: ViewAppend::Block { block },
+            deltas,
             view_number: qc.view_number(),
             height,
             parent: parent_commitment,
@@ -176,30 +176,5 @@ where
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
             proposer_id,
         }
-    }
-}
-
-/// Indicates how a view came to be
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum ViewAppend<BLOCK: Block> {
-    /// The view was created by appending a block to the previous view
-    Block {
-        /// The block that was appended
-        block: BLOCK,
-    },
-}
-
-impl<BLOCK: Block> ViewAppend<BLOCK> {
-    /// Get the block deltas from this append
-    pub fn into_deltas(self) -> BLOCK {
-        match self {
-            Self::Block { block, .. } => block,
-        }
-    }
-}
-
-impl<BLOCK: Block> From<BLOCK> for ViewAppend<BLOCK> {
-    fn from(block: BLOCK) -> Self {
-        Self::Block { block }
     }
 }

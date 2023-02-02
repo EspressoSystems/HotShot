@@ -54,7 +54,7 @@ pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Transactions that were submitted
     pub txns: Vec<TYPES::Transaction>,
     /// Nodes that committed this round
-    pub results: HashMap<u64, StateAndBlock<LEAF::StateCommitmentType, TYPES::BlockType>>,
+    pub results: HashMap<u64, StateAndBlock<LEAF::StateCommitmentType, LEAF::DeltasType>>,
     /// Nodes that failed to commit this round
     pub failures: HashMap<u64, HotShotError<TYPES>>,
 }
