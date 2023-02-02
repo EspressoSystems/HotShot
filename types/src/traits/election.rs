@@ -105,44 +105,11 @@ pub trait Accumulator<T, U>: Sized {
     fn append(self, val: T) -> Either<Self, U>;
 }
 
-// pub struct DAAccumulator<TIME, CERT: SignedCertificate, TOKEN> {
-//     valid_signatures: BTreeMap<(EncodedPublicKey, (EncodedSignature, TOKEN))>,
-//     stake_casted: NonZeroU64,
-//     threshold: NonZeroU64,
-//     view_num: TIME,
-// }
-
-// impl<TIME, CERT, TOKEN> Accumulator<(EncodedPublicKey, (EncodedSignature, TOKEN))>
-//     for DAAccumulator<TIME>
-// {
-//     fn append(
-//         val: (EncodedPublicKey, (EncodedSignature, TOKEN)),
-//     ) -> Either<Self, BTreeMap<(EncodedPublicKey, EncodedSignature)>> {
-//         let (key, (sig, token)) = val;
-//         valid_signatures.insert(key, (sig.clone(), token.clone()));
-
-//         stake_casted += u64::from(token.vote_count());
-
-//         if stake_casted >= u64::from(threshold) {
-//             return Either::Right((self.valid_signatures));
-//         }
-//         Either::Left(self)
-//     }
-// }
-/// todo associated types for:
-/// - signature key
-/// - encoded things
-/// -
 pub trait SignedCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, LEAF>
 where
     Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,
     LEAF: Committable,
 {
-    // type Accumulator: Accumulator<
-    //     (Commitment<LEAF>, (EncodedPublicKey, (EncodedSignature, TOKEN))),
-    //     BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>,
-    // >;
-
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
         view_number: TIME,
@@ -269,7 +236,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         is_valid_signature && is_valid_vote_token
     }
 
-    /// Accumlate the vote, return the QC if the threshold was reached, if not return the updated accumlator
+    /// Accumlate the vote, return the QC if the threshold was reached, if not return the updated accumulator
     #[allow(clippy::type_complexity)]
     fn accumulate_qc_vote(
         &self,
@@ -278,7 +245,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         leaf_commitment: Commitment<Self::LeafType>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<TYPES::VoteTokenType, Self::LeafType>,
+        accumulator: CertificateAccumulator<TYPES::VoteTokenType, Self::LeafType>,
     ) -> Either<
         CertificateAccumulator<TYPES::VoteTokenType, Self::LeafType>,
         QuorumCertificate<TYPES, Self::LeafType>,
@@ -291,14 +258,14 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             // Ignoring deserialization errors below since we are getting rid of it soon
             Unchecked(vote_token.clone()),
         ) {
-            return Either::Left(accumlator);
+            return Either::Left(accumulator);
         }
 
-        match accumlator.append((
+        match accumulator.append((
             leaf_commitment,
             (encoded_key.clone(), (encoded_signature.clone(), vote_token)),
         )) {
-            Either::Left(accumlator) => Either::Left(accumlator),
+            Either::Left(accumulator) => Either::Left(accumulator),
             Either::Right(signatures) => {
                 Either::Right(QuorumCertificate::from_signatures_and_commitment(
                     view_number,
@@ -308,7 +275,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             }
         }
     }
-    /// Accumlate the vote, return the QC if the threshold was reached, if not return the updated accumlator
+    /// Accumlate the vote, return the QC if the threshold was reached, if not return the updated accumulator
     #[allow(clippy::type_complexity)]
     fn accumulate_da_vote(
         &self,
@@ -317,7 +284,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         block_commitment: Commitment<TYPES::BlockType>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>,
+        accumulator: CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>,
     ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>
     {
         if !self.is_valid_vote(
@@ -325,17 +292,16 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             encoded_signature,
             VoteData::DA(block_commitment),
             view_number,
-            // Ignoring deserialization errors below since we are getting rid of it soon
             Unchecked(vote_token.clone()),
         ) {
-            return Either::Left(accumlator);
+            return Either::Left(accumulator);
         }
 
-        match accumlator.append((
+        match accumulator.append((
             block_commitment,
             (encoded_key.clone(), (encoded_signature.clone(), vote_token)),
         )) {
-            Either::Left(accumlator) => Either::Left(accumlator),
+            Either::Left(accumulator) => Either::Left(accumulator),
             Either::Right(signatures) => {
                 Either::Right(DACertificate::from_signatures_and_commitment(
                     view_number,

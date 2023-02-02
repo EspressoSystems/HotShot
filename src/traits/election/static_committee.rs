@@ -2,7 +2,6 @@ use super::vrf::JfPubKey;
 use ark_bls12_381::Parameters as Param381;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use espresso_systems_common::hotshot::tag;
-use hotshot_types::certificate::DACertificate;
 use hotshot_types::{
     data::LeafType,
     traits::{
@@ -95,7 +94,8 @@ where
 
     type QuorumCertificate = LEAF::QuorumCertificate;
 
-    type DACertificate = DACertificate<TYPES>;
+    type DACertificate = LEAF::DACertificate;
+    // type DACertificate = DACertificate<TYPES>;
 
     type LeafType = LEAF;
 
