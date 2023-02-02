@@ -1,4 +1,4 @@
-//! Contains the [`DAReplica`] struct used for the replica step in the consensus algorithm with DA
+//! Contains the [`SequencingReplica`] struct used for the replica step in the consensus algorithm with DA
 //! committee, i.e. in the sequencing consensus.
 
 use crate::{
@@ -12,7 +12,7 @@ use commit::Committable;
 use either::{Left, Right};
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{CommitmentProposal, DALeaf},
+    data::{CommitmentProposal, SequencingLeaf},
     message::{ConsensusMessage, ProcessedConsensusMessage},
     traits::{
         election::{Election, SignedCertificate},
@@ -29,20 +29,20 @@ use tracing::{error, info, instrument, warn};
 
 /// This view's replica for sequencing consensus.
 #[derive(Debug, Clone)]
-pub struct DAReplica<
-    A: ConsensusApi<TYPES, DALeaf<TYPES>, CommitmentProposal<TYPES, ELECTION>>,
+pub struct SequencingReplica<
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, CommitmentProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
     ELECTION: Election<
         TYPES,
-        LeafType = DALeaf<TYPES>,
+        LeafType = SequencingLeaf<TYPES>,
         DACertificate = DACertificate<TYPES>,
-        QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+        QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     >,
 > {
     /// ID of node.
     pub id: u64,
     /// Reference to consensus. The replica will require a write lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES, DALeaf<TYPES>>>>,
+    pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// Channel for accepting leader proposals and timeouts messages.
     #[allow(clippy::type_complexity)]
     pub proposal_collection_chan: Arc<
@@ -50,7 +50,7 @@ pub struct DAReplica<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
-                    DALeaf<TYPES>,
+                    SequencingLeaf<TYPES>,
                     CommitmentProposal<TYPES, ELECTION>,
                 >,
             >,
@@ -65,19 +65,19 @@ pub struct DAReplica<
 }
 
 impl<
-        A: ConsensusApi<TYPES, DALeaf<TYPES>, CommitmentProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, CommitmentProposal<TYPES, ELECTION>>,
         TYPES: NodeType,
         ELECTION: Election<
             TYPES,
-            LeafType = DALeaf<TYPES>,
+            LeafType = SequencingLeaf<TYPES>,
             DACertificate = DACertificate<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+            QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         >,
-    > DAReplica<A, TYPES, ELECTION>
+    > SequencingReplica<A, TYPES, ELECTION>
 {
     // TODO (da) Move this function so that it can be used by leader, replica, and committee member logic.
     /// Returns the parent leaf of the proposal we are voting on
-    async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
+    async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let parent_view_number = &self.high_qc.view_number();
         let consensus = self.consensus.read().await;
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
@@ -111,10 +111,10 @@ impl<
     async fn find_valid_msg<'a>(
         &self,
         view_leader_key: TYPES::SignatureKey,
-        consensus: RwLockUpgradableReadGuard<'a, Consensus<TYPES, DALeaf<TYPES>>>,
+        consensus: RwLockUpgradableReadGuard<'a, Consensus<TYPES, SequencingLeaf<TYPES>>>,
     ) -> (
-        RwLockUpgradableReadGuard<'a, Consensus<TYPES, DALeaf<TYPES>>>,
-        Option<DALeaf<TYPES>>,
+        RwLockUpgradableReadGuard<'a, Consensus<TYPES, SequencingLeaf<TYPES>>>,
+        Option<SequencingLeaf<TYPES>>,
     ) {
         let lock = self.proposal_collection_chan.lock().await;
         let mut invalid_qc = false;
@@ -166,7 +166,7 @@ impl<
                                     }
                                 };
                                 let block_commitment = p.data.block_commitment;
-                                let leaf = DALeaf {
+                                let leaf = SequencingLeaf {
                                     view_number: self.cur_view,
                                     height: p.data.height,
                                     justify_qc: justify_qc.clone(),
