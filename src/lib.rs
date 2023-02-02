@@ -122,7 +122,7 @@ pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     storage: I::Storage,
 
     /// This `HotShot` instance's election backend
-    election: Arc<I::Election>,
+    election: I::Election,
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<TYPES, I::Leaf>>>>,
@@ -192,7 +192,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             config,
             networking,
             storage,
-            election: Arc::new(election),
+            election,
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
             metrics,
@@ -395,7 +395,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                 .broadcast_message(
                     Message { sender: pk, kind },
                     // TODO this is morally wrong
-                    inner.election.clone().as_ref(),
+                    &inner.election.clone(),
                 )
                 .await
                 .is_err()
@@ -1038,7 +1038,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
                     kind: message.into(),
                 },
                 // TODO this is morally wrong
-                self.inner.election.clone().as_ref(),
+                &self.inner.election.clone(),
             )
             .await?;
         Ok(())
