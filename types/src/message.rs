@@ -87,8 +87,9 @@ pub enum Vote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
 pub enum InternalTrigger<TYPES: NodeType> {
+    // May add other triggers if necessary.
     /// Internal timeout at the specified view number.
-    Timeout(TYPES::Time), // May add other triggers if necessary.
+    Timeout(TYPES::Time),
 }
 
 /// a processed consensus message
@@ -103,7 +104,7 @@ pub enum ProcessedConsensusMessage<
     Proposal(Proposal<PROPOSAL>, TYPES::SignatureKey),
     /// Replica's vote on a proposal.
     Vote(Vote<TYPES, LEAF>, TYPES::SignatureKey),
-    /// Internal ONLY message indicating an view interrupt.
+    /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
 }
@@ -156,9 +157,7 @@ pub enum ConsensusMessage<
     Proposal(Proposal<PROPOSAL>),
     /// Replica's vote on a proposal.
     Vote(Vote<TYPES, LEAF>),
-    /// Internal ONLY message indicating a NextView interrupt
-    /// View number this nextview interrupt was generated for
-    /// used so we ignore stale nextview interrupts within a task
+    /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
 }
