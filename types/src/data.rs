@@ -144,6 +144,9 @@ pub struct CommitmentProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
 
+    /// Height from leader when proposing leaf
+    pub height: u64,
+
     /// Per spec, justification
     pub justify_qc: ELECTION::QuorumCertificate,
 

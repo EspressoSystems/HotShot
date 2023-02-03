@@ -943,6 +943,9 @@ impl<
             api: c_api.clone(),
         };
         let _ = da_member.run_view().await;
+        // TODO (da) Replica task isn't added since the proposal it listens to is the commitment
+        // proposal but `I::Proposal` here is the DA proposal. We need to support the two proposal
+        // types for sequencing consensus in the refactored node implementation.
         let _da_replica = {};
         // TODO tie all the tasks together and do correct book keeping.
         #[allow(deprecated)]
