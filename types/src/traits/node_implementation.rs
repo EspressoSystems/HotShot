@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     block_contents::Transaction,
     election::{ElectionConfig, VoteToken},
-    network::TestableNetworkingImplementation,
+    network::{CommunicationChannel, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, ConsensusType, TestableBlock, TestableState},
     storage::TestableStorage,
@@ -18,10 +18,7 @@ use super::{
 };
 use crate::{
     data::{LeafType, ProposalType},
-    traits::{
-        election::Election, network::NetworkingImplementation, signature_key::SignatureKey,
-        storage::Storage, Block,
-    },
+    traits::{election::Election, signature_key::SignatureKey, storage::Storage, Block},
 };
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -38,8 +35,6 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
 
     /// Storage type for this consensus implementation
     type Storage: Storage<TYPES, Self::Leaf> + Clone;
-    /// Networking type for this consensus implementation
-    type Networking: NetworkingImplementation<TYPES, Self::Leaf, Self::Proposal>;
 
     /// Election
     /// Time is generic here to allow multiple implementations of election trait for difference
@@ -47,6 +42,9 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     type Election: Election<TYPES, LeafType = Self::Leaf> + Debug;
 
     type Proposal: ProposalType<NodeType = TYPES, Election = Self::Election>;
+
+    /// Networking type for this consensus implementation
+    type Networking: CommunicationChannel<TYPES, Self::Leaf, Self::Proposal, Self::Election>;
 }
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
@@ -114,6 +112,7 @@ where
         TYPES,
         <Self as NodeImplementation<TYPES>>::Leaf,
         <Self as NodeImplementation<TYPES>>::Proposal,
+        <Self as NodeImplementation<TYPES>>::Election,
     >,
     <Self as NodeImplementation<TYPES>>::Storage:
         TestableStorage<TYPES, <Self as NodeImplementation<TYPES>>::Leaf>,

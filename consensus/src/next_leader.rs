@@ -4,9 +4,11 @@ use crate::ConsensusApi;
 use crate::ConsensusMetrics;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
+use either::Either;
+use hotshot_types::certificate::CertificateAccumulator;
 use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
 use hotshot_types::message::ProcessedConsensusMessage;
-use hotshot_types::traits::election::{Checked::Unchecked, Election, VoteData, VoteToken};
+use hotshot_types::traits::election::{Checked::Unchecked, Election, VoteData};
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::{
@@ -15,7 +17,7 @@ use hotshot_types::{
 };
 use std::time::Instant;
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     sync::Arc,
 };
 use tracing::{error, instrument, warn};
@@ -80,9 +82,10 @@ impl<
         let mut qcs = HashSet::<ELECTION::QuorumCertificate>::new();
         qcs.insert(self.generic_qc.clone());
 
-        let mut vote_outcomes = HashMap::new();
-
-        let threshold = self.api.threshold();
+        let mut accumlator = CertificateAccumulator {
+            vote_outcomes: HashMap::new(),
+            threshold: self.api.threshold(),
+        };
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
@@ -99,7 +102,24 @@ impl<
                             {
                                 continue;
                             }
-
+                            match self.api.accumulate_qc_vote(
+                                &vote.signature.0,
+                                &vote.signature.1,
+                                vote.leaf_commitment,
+                                vote.vote_token.clone(),
+                                self.cur_view,
+                                accumlator,
+                            ) {
+                                Either::Left(acc) => {
+                                    accumlator = acc;
+                                }
+                                Either::Right(qc) => {
+                                    self.metrics
+                                        .vote_validate_duration
+                                        .add_point(vote_collection_start.elapsed().as_secs_f64());
+                                    return qc;
+                                }
+                            }
                             // If the signature on the vote is invalid, assume it's sent by
                             // byzantine node and ignore.
                             if !self.api.is_valid_vote(
@@ -111,35 +131,6 @@ impl<
                                 Unchecked(vote.vote_token.clone()),
                             ) {
                                 continue;
-                            }
-
-                            let (stake_casted, vote_map) = vote_outcomes
-                                .entry(vote.leaf_commitment)
-                                .or_insert_with(|| (0, BTreeMap::new()));
-                            // Accumulate the stake for each leaf commitment rather than the total
-                            // stake of all votes, in case they correspond to inconsistent
-                            // commitments.
-                            *stake_casted += u64::from(vote.vote_token.vote_count());
-                            vote_map.insert(
-                                vote.signature.0.clone(),
-                                (vote.signature.1.clone(), vote.vote_token.clone()),
-                            );
-
-                            if *stake_casted >= u64::from(threshold) {
-                                let valid_signatures =
-                                    vote_outcomes.remove(&vote.leaf_commitment).unwrap().1;
-
-                                // construct QC
-                                let qc = QuorumCertificate {
-                                    leaf_commitment: vote.leaf_commitment,
-                                    view_number: self.cur_view,
-                                    signatures: valid_signatures,
-                                    is_genesis: false,
-                                };
-                                self.metrics
-                                    .vote_validate_duration
-                                    .add_point(vote_collection_start.elapsed().as_secs_f64());
-                                return qc;
                             }
                         }
                         Vote::Timeout(vote) => {

@@ -6,7 +6,7 @@ use either::Either::Right;
 
 use hotshot::traits::{
     election::static_committee::StaticCommittee,
-    implementations::{Libp2pNetwork, MemoryStorage},
+    implementations::{Libp2pCommChannel, MemoryStorage},
 };
 use hotshot_testing::TestNodeImpl;
 use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
@@ -41,7 +41,7 @@ async fn libp2p_network() {
                 StaticCommitteeTestTypes,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
-            Libp2pNetwork<
+            Libp2pCommChannel<
                 StaticCommitteeTestTypes,
                 ValidatingLeaf<StaticCommitteeTestTypes>,
                 ValidatingProposal<
@@ -90,7 +90,7 @@ async fn test_stress_libp2p_network() {
                 StaticCommitteeTestTypes,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
-            Libp2pNetwork<
+            Libp2pCommChannel<
                 StaticCommitteeTestTypes,
                 ValidatingLeaf<StaticCommitteeTestTypes>,
                 ValidatingProposal<

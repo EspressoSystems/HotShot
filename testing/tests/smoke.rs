@@ -2,7 +2,7 @@ mod common;
 
 use common::*;
 use either::Either::Right;
-use hotshot::traits::implementations::{MemoryNetwork, MemoryStorage};
+use hotshot::traits::implementations::{MemoryCommChannel, MemoryStorage};
 
 cross_all_types!(
     ten_tx_five_nodes,

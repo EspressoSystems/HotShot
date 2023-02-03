@@ -12,8 +12,8 @@ use hotshot_types::{
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
-        election::SignedCertificate, network::NetworkingImplementation,
-        node_implementation::NodeType, state::ConsensusTime, storage::Storage,
+        election::SignedCertificate, network::CommunicationChannel, node_implementation::NodeType,
+        state::ConsensusTime, storage::Storage,
     },
 };
 use std::sync::{
