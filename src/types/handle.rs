@@ -12,8 +12,8 @@ use hotshot_types::{
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
-        election::SignedCertificate, network::NetworkingImplementation,
-        node_implementation::NodeType, state::ConsensusTime, storage::Storage,
+        election::SignedCertificate, network::CommunicationChannel, node_implementation::NodeType,
+        state::ConsensusTime, storage::Storage,
     },
 };
 use std::sync::{
@@ -349,6 +349,76 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
             inner: self.hotshot.inner.clone(),
         };
         api.sign_timeout_vote(view_number)
+    }
+
+    /// Wrapper around `HotShotConsensusApi`'s `create_da_message` function
+    pub fn create_da_message(
+        &self,
+        justify_qc_commitment: Commitment<<I::Leaf as LeafType>::QuorumCertificate>,
+        block_commitment: Commitment<TYPES::BlockType>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, I::Leaf, I::Proposal> {
+        let api = HotShotConsensusApi {
+            inner: self.hotshot.inner.clone(),
+        };
+        api.create_da_message(
+            justify_qc_commitment,
+            block_commitment,
+            current_view,
+            vote_token,
+        )
+    }
+
+    /// Wrapper around `HotShotConsensusApi`'s `create_yes_message` function
+    pub fn create_yes_message(
+        &self,
+        justify_qc_commitment: Commitment<<I::Leaf as LeafType>::QuorumCertificate>,
+        leaf_commitment: Commitment<I::Leaf>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, I::Leaf, I::Proposal> {
+        let api = HotShotConsensusApi {
+            inner: self.hotshot.inner.clone(),
+        };
+        api.create_yes_message(
+            justify_qc_commitment,
+            leaf_commitment,
+            current_view,
+            vote_token,
+        )
+    }
+
+    /// Wrapper around `HotShotConsensusApi`'s `create_no_message` function
+    pub fn create_no_message(
+        &self,
+        justify_qc_commitment: Commitment<<I::Leaf as LeafType>::QuorumCertificate>,
+        leaf_commitment: Commitment<I::Leaf>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, I::Leaf, I::Proposal> {
+        let api = HotShotConsensusApi {
+            inner: self.hotshot.inner.clone(),
+        };
+        api.create_no_message(
+            justify_qc_commitment,
+            leaf_commitment,
+            current_view,
+            vote_token,
+        )
+    }
+
+    /// Wrapper around `HotShotConsensusApi`'s `create_timeout_message` function
+    pub fn create_timeout_message(
+        &self,
+        justify_qc: <I::Leaf as LeafType>::QuorumCertificate,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, I::Leaf, I::Proposal> {
+        let api = HotShotConsensusApi {
+            inner: self.hotshot.inner.clone(),
+        };
+        api.create_timeout_message(justify_qc, current_view, vote_token)
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function

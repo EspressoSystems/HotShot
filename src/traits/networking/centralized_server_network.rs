@@ -25,10 +25,11 @@ use hotshot_types::{
     data::{LeafType, ProposalType},
     message::Message,
     traits::{
+        election::{Election, ElectionConfig},
         metrics::{Metrics, NoMetrics},
         network::{
-            CentralizedServerNetworkError, FailedToDeserializeSnafu, FailedToSerializeSnafu,
-            NetworkChange, NetworkError, NetworkingImplementation,
+            CentralizedServerNetworkError, CommunicationChannel, ConnectedNetwork,
+            FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkError, NetworkMsg,
             TestableNetworkingImplementation, TransmitType,
         },
         node_implementation::NodeType,
@@ -44,7 +45,7 @@ use std::{
     net::{Ipv4Addr, SocketAddr},
     num::NonZeroUsize,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
     time::Duration,
@@ -55,38 +56,24 @@ use super::NetworkingMetrics;
 
 /// The inner state of the `CentralizedServerNetwork`
 #[derive(custom_debug::Debug)]
-struct Inner<TYPES: NodeType> {
+struct Inner<K: SignatureKey, E: ElectionConfig> {
     /// Self-identifying public key
-    own_key: TYPES::SignatureKey,
+    own_key: K,
     /// List of all known nodes
-    known_nodes: Vec<TYPES::SignatureKey>,
+    known_nodes: Vec<K>,
     /// `true` if the TCP stream is connected to the server
     connected: AtomicBool,
     /// `true` if the client is still running.
     running: AtomicBool,
     /// A queue of messages to be send to the server. This is emptied by `run_background`.
     /// Each message can optionally have a callback sender that will be invoked when the message is send.
-    sending: UnboundedSender<(
-        (ToServer<TYPES::SignatureKey>, Vec<u8>),
-        Option<OneShotSender<()>>,
-    )>,
+    sending: UnboundedSender<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
     /// A loopback sender that will send to `receiving`, for broadcasting to self.
-    receiving_loopback: UnboundedSender<(
-        FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-        Vec<u8>,
-    )>,
+    receiving_loopback: UnboundedSender<(FromServer<K, E>, Vec<u8>)>,
     /// A queue of messages to be received by this node. This is filled by `run_background`.
-    receiving: UnboundedReceiver<(
-        FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-        Vec<u8>,
-    )>,
+    receiving: UnboundedReceiver<(FromServer<K, E>, Vec<u8>)>,
     /// An internal queue of messages and, for some message types, payloads that have been received but not yet processed.
-    incoming_queue: RwLock<
-        Vec<(
-            FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-            Vec<u8>,
-        )>,
-    >,
+    incoming_queue: RwLock<Vec<(FromServer<K, E>, Vec<u8>)>>,
     /// a sender used to immediately broadcast the amount of clients connected
     request_client_count_sender: RwLock<Vec<OneShotSender<u32>>>,
     /// `true` if the server indicated that the run is ready to start, otherwise `false`
@@ -94,6 +81,9 @@ struct Inner<TYPES: NodeType> {
     #[debug(skip)]
     /// The networking metrics we're keeping track of
     metrics: NetworkingMetrics,
+
+    /// the next ID
+    cur_id: Arc<AtomicU64>,
 }
 
 /// Internal implementation detail; effectively allows interleaved streams to each behave as a state machine
@@ -119,7 +109,7 @@ struct MsgStepContext {
     accumulated_stream: Vec<u8>,
 }
 
-impl<TYPES: NodeType> Inner<TYPES> {
+impl<K: SignatureKey, E: ElectionConfig> Inner<K, E> {
     /// Send a broadcast mesasge to the server.
     async fn broadcast(&self, message: Vec<u8>) {
         self.sending
@@ -148,7 +138,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
         self.metrics.outgoing_message_count.add(1);
     }
     /// Send a direct message to the server.
-    async fn direct_message(&self, target: TYPES::SignatureKey, message: Vec<u8>) {
+    async fn direct_message(&self, target: K, message: Vec<u8>) {
         if target == self.own_key {
             self.receiving_loopback.send((
                 FromServer::Direct {
@@ -190,17 +180,15 @@ impl<TYPES: NodeType> Inner<TYPES> {
     /// Remove the first message from the internal queue, or the internal receiving channel, if the given `c` method returns `Some(RET)` on that entry.
     ///
     /// This will block this entire `Inner` struct until a message is found.
+    #[allow(dead_code)]
     async fn remove_next_message_from_queue<F, FAIL, RET>(&self, c: F, f: FAIL) -> RET
     where
         F: Fn(
-            &(
-                FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-                Vec<u8>,
-            ),
+            &(FromServer<K, E>, Vec<u8>),
             usize,
-            &mut HashMap<TYPES::SignatureKey, MsgStepContext>,
+            &mut HashMap<K, MsgStepContext>,
         ) -> MsgStepOutcome<RET>,
-        FAIL: FnOnce(usize, &mut HashMap<TYPES::SignatureKey, MsgStepContext>) -> RET,
+        FAIL: FnOnce(usize, &mut HashMap<K, MsgStepContext>) -> RET,
     {
         let incoming_queue = self.incoming_queue.upgradable_read().await;
         let mut context_map: HashMap<_, MsgStepContext> = HashMap::new();
@@ -284,12 +272,9 @@ impl<TYPES: NodeType> Inner<TYPES> {
     async fn remove_messages_from_queue<F, RET>(&self, c: F) -> Vec<RET>
     where
         F: Fn(
-            &(
-                FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-                Vec<u8>,
-            ),
+            &(FromServer<K, E>, Vec<u8>),
             usize,
-            &mut HashMap<TYPES::SignatureKey, MsgStepContext>,
+            &mut HashMap<K, MsgStepContext>,
         ) -> MsgStepOutcome<RET>,
     {
         let incoming_queue = self.incoming_queue.upgradable_read().await;
@@ -411,6 +396,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
     }
 
     /// Get the next incoming broadcast message received from the server. Will lock up this struct internally until a message was received.
+    #[allow(dead_code)]
     async fn get_next_broadcast<M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static>(
         &self,
     ) -> Result<M, NetworkError> {
@@ -556,6 +542,7 @@ impl<TYPES: NodeType> Inner<TYPES> {
     }
 
     /// Get the next incoming direct message received from the server. Will lock up this struct internally until a message was received.
+    #[allow(dead_code)]
     async fn get_next_direct_message<
         M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static,
     >(
@@ -630,37 +617,18 @@ impl<TYPES: NodeType> Inner<TYPES> {
         })
         .await
     }
-
-    /// Get the current `NetworkChange` messages received from the server. Returning 0 messages if nothing was received.
-    async fn get_network_changes(&self) -> Vec<NetworkChange<TYPES::SignatureKey>> {
-        self.remove_messages_from_queue(|msg, index, _| {
-            let mut remove_this = BTreeSet::new();
-            remove_this.insert(index);
-            match &msg.0 {
-                FromServer::NodeConnected { key } => {
-                    MsgStepOutcome::Complete(remove_this, NetworkChange::NodeConnected(key.clone()))
-                }
-                FromServer::NodeDisconnected { key } => MsgStepOutcome::Complete(
-                    remove_this,
-                    NetworkChange::NodeDisconnected(key.clone()),
-                ),
-                _ => MsgStepOutcome::Skip,
-            }
-        })
-        .await
-    }
 }
 
 /// Handle for connecting to a centralized server
 #[derive(Clone, Debug)]
-pub struct CentralizedServerNetwork<TYPES: NodeType> {
+pub struct CentralizedServerNetwork<K: SignatureKey, E: ElectionConfig> {
     /// The inner state
-    inner: Arc<Inner<TYPES>>,
+    inner: Arc<Inner<K, E>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
-impl<TYPES: NodeType> CentralizedServerNetwork<TYPES> {
+impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNetwork<K, E> {
     /// Connect with the server running at `addr` and retrieve the config from the server.
     ///
     /// The config is returned along with the current run index and the running `CentralizedServerNetwork`
@@ -671,11 +639,7 @@ impl<TYPES: NodeType> CentralizedServerNetwork<TYPES> {
     pub async fn connect_with_server_config(
         metrics: Box<dyn Metrics>,
         addr: SocketAddr,
-    ) -> (
-        NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-        Run,
-        Self,
-    ) {
+    ) -> (NetworkConfig<K, E>, Run, Self) {
         let (streams, run, config) = loop {
             let (mut recv_stream, mut send_stream) = match TcpStream::connect(addr).await {
                 Ok(stream) => {
@@ -700,14 +664,8 @@ impl<TYPES: NodeType> CentralizedServerNetwork<TYPES> {
             }
             match recv_stream.recv().await {
                 Ok(FromServer::Config { config, run }) => {
-                    assert_eq!(
-                        config.key_type_name,
-                        std::any::type_name::<TYPES::SignatureKey>()
-                    );
-                    assert_eq!(
-                        config.election_config_type_name,
-                        std::any::type_name::<TYPES::ElectionConfigType>()
-                    );
+                    assert_eq!(config.key_type_name, std::any::type_name::<K>());
+                    assert_eq!(config.election_config_type_name, std::any::type_name::<E>());
                     break ((recv_stream, send_stream), run, config);
                 }
                 x => {
@@ -718,8 +676,7 @@ impl<TYPES: NodeType> CentralizedServerNetwork<TYPES> {
             }
         };
 
-        let (pub_key, _priv_key) =
-            TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
+        let (pub_key, _priv_key) = K::generated_from_seed_indexed(config.seed, config.node_index);
         let known_nodes = config.config.known_nodes.clone();
 
         let mut streams = Some(streams);
@@ -761,7 +718,7 @@ impl<TYPES: NodeType> CentralizedServerNetwork<TYPES> {
     }
 }
 
-impl<TYPES: NodeType> CentralizedServerNetwork<TYPES> {
+impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNetwork<K, E> {
     /// Connect to a given socket address. Will loop and try to connect every 5 seconds if the server is unreachable.
     fn connect_to(addr: SocketAddr) -> BoxFuture<'static, (TcpStreamRecvUtil, TcpStreamSendUtil)> {
         async move {
@@ -790,9 +747,9 @@ impl<TYPES: NodeType> CentralizedServerNetwork<TYPES> {
     /// Connect to a centralized server
     pub fn connect(
         metrics: Box<dyn Metrics>,
-        known_nodes: Vec<TYPES::SignatureKey>,
+        known_nodes: Vec<K>,
         addr: SocketAddr,
-        key: TYPES::SignatureKey,
+        key: K,
     ) -> Self {
         Self::create(metrics, known_nodes, move || Self::connect_to(addr), key)
     }
@@ -802,9 +759,9 @@ impl<TYPES: NodeType> CentralizedServerNetwork<TYPES> {
     /// This will auto-reconnect when the network loses connection to the server.
     fn create<F>(
         metrics: Box<dyn Metrics>,
-        known_nodes: Vec<TYPES::SignatureKey>,
+        known_nodes: Vec<K>,
         mut create_connection: F,
-        key: TYPES::SignatureKey,
+        key: K,
     ) -> Self
     where
         F: FnMut() -> BoxFuture<'static, (TcpStreamRecvUtil, TcpStreamSendUtil)> + Send + 'static,
@@ -825,6 +782,7 @@ impl<TYPES: NodeType> CentralizedServerNetwork<TYPES> {
             request_client_count_sender: RwLock::default(),
             run_ready: AtomicBool::new(false),
             metrics: NetworkingMetrics::new(metrics),
+            cur_id: Arc::new(AtomicU64::new(0)),
         });
         async_spawn({
             let inner = Arc::clone(&inner);
@@ -869,19 +827,13 @@ impl<TYPES: NodeType> CentralizedServerNetwork<TYPES> {
 ///
 /// - All messages sent to the sender of `to_background` will be sent to the server.
 /// - All messages received from the TCP stream will be sent to `from_background_sender`.
-async fn run_background<TYPES: NodeType>(
+async fn run_background<K: SignatureKey, E: ElectionConfig>(
     recv_stream: TcpStreamRecvUtil,
     mut send_stream: TcpStreamSendUtil,
-    key: TYPES::SignatureKey,
-    to_background: &mut UnboundedReceiver<(
-        (ToServer<TYPES::SignatureKey>, Vec<u8>),
-        Option<OneShotSender<()>>,
-    )>,
-    from_background_sender: UnboundedSender<(
-        FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-        Vec<u8>,
-    )>,
-    connection: Arc<Inner<TYPES>>,
+    key: K,
+    to_background: &mut UnboundedReceiver<((ToServer<K>, Vec<u8>), Option<OneShotSender<()>>)>,
+    from_background_sender: UnboundedSender<(FromServer<K, E>, Vec<u8>)>,
+    connection: Arc<Inner<K, E>>,
 ) -> Result<(), Error> {
     // send identify
     send_stream
@@ -896,9 +848,7 @@ async fn run_background<TYPES: NodeType>(
         .await
         .is_empty()
     {
-        send_stream
-            .send(ToServer::<TYPES::SignatureKey>::RequestClientCount)
-            .await?;
+        send_stream.send(ToServer::<K>::RequestClientCount).await?;
     }
 
     let send_handle = run_background_send(send_stream, to_background);
@@ -944,13 +894,10 @@ async fn run_background_send<K: SignatureKey>(
 /// Loop on the TCP recv stream.
 ///
 /// - All messages received from the TCP stream will be sent to `from_background_sender`.
-async fn run_background_recv<TYPES: NodeType>(
+async fn run_background_recv<K: SignatureKey, E: ElectionConfig>(
     mut stream: TcpStreamRecvUtil,
-    from_background_sender: UnboundedSender<(
-        FromServer<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-        Vec<u8>,
-    )>,
-    connection: Arc<Inner<TYPES>>,
+    from_background_sender: UnboundedSender<(FromServer<K, E>, Vec<u8>)>,
+    connection: Arc<Inner<K, E>>,
 ) -> Result<(), Error> {
     loop {
         let msg = stream.recv().await?;
@@ -1043,11 +990,8 @@ impl From<hotshot_centralized_server::Error> for Error {
 }
 
 #[async_trait]
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-    > NetworkingImplementation<TYPES, LEAF, PROPOSAL> for CentralizedServerNetwork<TYPES>
+impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> ConnectedNetwork<M, K>
+    for CentralizedServerNetwork<K, E>
 {
     #[instrument(name = "CentralizedServer::ready", skip_all)]
     async fn ready(&self) -> bool {
@@ -1057,22 +1001,43 @@ impl<
         true
     }
 
-    #[instrument(name = "CentralizedServer::next_msg", skip_all)]
-    async fn recv_msg(
-        &self,
-        transmit_type: TransmitType,
-    ) -> Result<Message<TYPES, LEAF, PROPOSAL>, NetworkError> {
-        match transmit_type {
-            TransmitType::Direct => self.inner.get_next_direct_message().await,
-            TransmitType::Broadcast => self.inner.get_next_broadcast().await,
-        }
+    #[instrument(name = "CentralizedServer::shut_down", skip_all)]
+    async fn shut_down(&self) {
+        error!("SHUTTING DOWN CENTRALIZED SERVER");
+        self.inner.running.store(false, Ordering::Relaxed);
     }
 
-    #[instrument(name = "CentralizedServer::next_msgs", skip_all)]
-    async fn recv_msgs(
+    #[instrument(name = "CentralizedServer::broadcast_message", skip_all)]
+    async fn broadcast_message(
         &self,
-        transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
+        message: M,
+        _recipients: BTreeSet<K>,
+    ) -> Result<(), NetworkError> {
+        self.inner
+            .broadcast(
+                bincode_opts()
+                    .serialize(&message)
+                    .context(FailedToSerializeSnafu)?,
+            )
+            .await;
+        Ok(())
+    }
+
+    #[instrument(name = "CentralizedServer::direct_message", skip_all)]
+    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
+        self.inner
+            .direct_message(
+                recipient,
+                bincode_opts()
+                    .serialize(&message)
+                    .context(FailedToSerializeSnafu)?,
+            )
+            .await;
+        Ok(())
+    }
+
+    #[instrument(name = "CentralizedServer::recv_msgs", skip_all)]
+    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
         match transmit_type {
             TransmitType::Direct => self
                 .inner
@@ -1091,80 +1056,73 @@ impl<
         }
     }
 
-    #[instrument(name = "CentralizedServer::broadcast_message", skip_all)]
+    async fn lookup_node(&self, _pk: K) -> Result<(), NetworkError> {
+        // we are centralized. Should we do anything here?
+        Ok(())
+    }
+}
+
+/// libp2p identity communication channel
+#[derive(Clone)]
+pub struct CentralizedCommChannel<TYPES: NodeType>(
+    CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+);
+
+#[async_trait]
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        ELECTION: Election<TYPES>,
+    > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION> for CentralizedCommChannel<TYPES>
+{
+    async fn ready(&self) -> bool {
+        <CentralizedServerNetwork<_, _> as ConnectedNetwork<
+            Message<TYPES, LEAF, PROPOSAL>,
+            TYPES::SignatureKey,
+        >>::ready(&self.0)
+        .await
+    }
+
+    async fn shut_down(&self) -> () {
+        <CentralizedServerNetwork<_, _> as ConnectedNetwork<
+            Message<TYPES, LEAF, PROPOSAL>,
+            TYPES::SignatureKey,
+        >>::shut_down(&self.0)
+        .await;
+    }
+
     async fn broadcast_message(
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
+        election: &ELECTION,
     ) -> Result<(), NetworkError> {
-        self.inner
-            .broadcast(
-                bincode_opts()
-                    .serialize(&message)
-                    .context(FailedToSerializeSnafu)?,
-            )
-            .await;
-        Ok(())
+        let view_number = message.get_view_number();
+        let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
+        self.0.broadcast_message(message, recipients).await
     }
 
-    #[instrument(name = "CentralizedServer::message_node", skip_all)]
-    async fn message_node(
+    async fn direct_message(
         &self,
         message: Message<TYPES, LEAF, PROPOSAL>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        self.inner
-            .direct_message(
-                recipient,
-                bincode_opts()
-                    .serialize(&message)
-                    .context(FailedToSerializeSnafu)?,
-            )
-            .await;
-        Ok(())
+        self.0.direct_message(message, recipient).await
     }
 
-    #[instrument(name = "CentralizedServer::known_nodes", skip_all)]
-    async fn known_nodes(&self) -> Vec<TYPES::SignatureKey> {
-        self.inner.known_nodes.clone()
-    }
-
-    #[instrument(name = "CentralizedServer::network_changes", skip_all)]
-    async fn network_changes(
+    async fn recv_msgs(
         &self,
-    ) -> Result<Vec<NetworkChange<TYPES::SignatureKey>>, NetworkError> {
-        Ok(self.inner.get_network_changes().await)
+        transmit_type: TransmitType,
+    ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
+        self.0.recv_msgs(transmit_type).await
     }
 
-    #[instrument(name = "CentralizedServer::shut_down", skip_all)]
-    async fn shut_down(&self) {
-        error!("SHUTTING DOWN CENTRALIZED SERVER");
-        self.inner.running.store(false, Ordering::Relaxed);
-    }
-
-    #[instrument(name = "CentralizedServer::put_record", skip_all)]
-    async fn put_record(
-        &self,
-        _key: impl serde::Serialize + Send + Sync + 'static,
-        _value: impl serde::Serialize + Send + Sync + 'static,
-    ) -> Result<(), NetworkError> {
-        Err(NetworkError::UnimplementedFeature)
-    }
-
-    #[instrument(name = "CentralizedServer::get_record", skip_all)]
-    async fn get_record<V: for<'a> serde::Deserialize<'a>>(
-        &self,
-        _key: impl serde::Serialize + Send + Sync + 'static,
-    ) -> Result<V, NetworkError> {
-        Err(NetworkError::UnimplementedFeature)
-    }
-
-    #[instrument(name = "CentralizedServer::notify_of_subsequent_leader", skip_all)]
-    async fn notify_of_subsequent_leader(
-        &self,
-        _pk: TYPES::SignatureKey,
-        _cancelled: Arc<AtomicBool>,
-    ) {
-        // do nothing. We're centralized
+    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
+        <CentralizedServerNetwork<_, _> as ConnectedNetwork<
+            Message<TYPES, LEAF, PROPOSAL>,
+            TYPES::SignatureKey,
+        >>::lookup_node(&self.0, pk)
+        .await
     }
 }
 
@@ -1172,7 +1130,9 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
-    > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL> for CentralizedServerNetwork<TYPES>
+        ELECTION: Election<TYPES>,
+    > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>
+    for CentralizedCommChannel<TYPES>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -1206,7 +1166,7 @@ where
                 known_nodes[id as usize].clone(),
             );
             network.server_shutdown_signal = Some(sender);
-            network
+            CentralizedCommChannel(network)
         })
     }
 
@@ -1215,7 +1175,7 @@ where
     }
 }
 
-impl<TYPES: NodeType> Drop for CentralizedServerNetwork<TYPES> {
+impl<K: SignatureKey, E: ElectionConfig> Drop for CentralizedServerNetwork<K, E> {
     fn drop(&mut self) {
         if let Some(shutdown) = self.server_shutdown_signal.take() {
             // we try to unwrap this Arc. If we're the last one with a reference to this arc, we'll be able to unwrap this

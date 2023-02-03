@@ -3,7 +3,7 @@ mod common;
 
 use common::*;
 use either::Either::Right;
-use hotshot::traits::implementations::{MemoryNetwork, MemoryStorage};
+use hotshot::traits::implementations::{MemoryCommChannel, MemoryStorage};
 use std::collections::HashSet;
 
 // This test simulates a single permanent failed node

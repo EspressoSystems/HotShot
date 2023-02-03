@@ -2,6 +2,9 @@
 
 use async_trait::async_trait;
 use commit::Commitment;
+use either::Either;
+use hotshot_types::certificate::CertificateAccumulator;
+use hotshot_types::certificate::{DACertificate, QuorumCertificate};
 use hotshot_types::message::ConsensusMessage;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::storage::StorageError;
@@ -9,6 +12,7 @@ use hotshot_types::{
     data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
+    message::{DAVote, TimeoutVote, Vote, YesOrNoVote},
     traits::{
         election::{Checked, ElectionError, VoteData},
         network::NetworkError,
@@ -239,6 +243,76 @@ pub trait ConsensusApi<
         (self.public_key().to_bytes(), signature)
     }
 
+    /// Create a message with a vote on DA proposal.
+    fn create_da_message(
+        &self,
+        justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
+        block_commitment: Commitment<TYPES::BlockType>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+        let signature = self.sign_da_vote(block_commitment);
+        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::DA(DAVote {
+            justify_qc_commitment,
+            signature,
+            block_commitment,
+            current_view,
+            vote_token,
+        }))
+    }
+
+    /// Create a message with a positive vote on validating or commitment proposal.
+    fn create_yes_message(
+        &self,
+        justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
+        leaf_commitment: Commitment<LEAF>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+        let signature = self.sign_yes_vote(leaf_commitment);
+        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::Yes(YesOrNoVote {
+            justify_qc_commitment,
+            signature,
+            leaf_commitment,
+            current_view,
+            vote_token,
+        }))
+    }
+
+    /// Create a message with a negative vote on validating or commitment proposal.
+    fn create_no_message(
+        &self,
+        justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
+        leaf_commitment: Commitment<LEAF>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+        let signature = self.sign_no_vote(leaf_commitment);
+        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::No(YesOrNoVote {
+            justify_qc_commitment,
+            signature,
+            leaf_commitment,
+            current_view,
+            vote_token,
+        }))
+    }
+
+    /// Create a message with a timeout votes.
+    fn create_timeout_message(
+        &self,
+        justify_qc: LEAF::QuorumCertificate,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+        let signature = self.sign_timeout_vote(current_view);
+        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::Timeout(TimeoutVote {
+            justify_qc,
+            signature,
+            current_view,
+            vote_token,
+        }))
+    }
+
     /// Validate a DAC.
     fn is_valid_dac(
         &self,
@@ -258,4 +332,26 @@ pub trait ConsensusApi<
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool;
+
+    /// Add a vote for a QC, if the threshold is reached return the QC if not return the accumulator
+    fn accumulate_qc_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        leaf_commitment: Commitment<LEAF>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, LEAF>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, LEAF>, QuorumCertificate<TYPES, LEAF>>;
+
+    /// Add a vote for a DA QC, if the threshold is reached return the Certificate if not return the accumulator
+    fn accumulate_da_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        block_commitment: Commitment<TYPES::BlockType>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>;
 }
