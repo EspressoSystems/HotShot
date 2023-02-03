@@ -53,11 +53,13 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
+use either::Either;
 use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusMetrics, DAConsensusLeader, DALeader, DAMember, DANextLeader,
     NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner, ViewQueue,
 };
 use hotshot_types::certificate::DACertificate;
+use hotshot_types::certificate::{CertificateAccumulator, VoteMetaData};
 use hotshot_types::data::ProposalType;
 use hotshot_types::data::{DALeaf, DAProposal};
 use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
@@ -90,7 +92,6 @@ use std::{
     time::{Duration, Instant},
 };
 use tracing::{debug, error, info, instrument, trace, warn};
-
 // -- Rexports
 // External
 /// Reexport rand crate
@@ -1109,6 +1110,49 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
             view_number,
             vote_token,
         )
+    }
+
+    fn accumulate_qc_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        leaf_commitment: Commitment<I::Leaf>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, I::Leaf>,
+    ) -> Either<
+        CertificateAccumulator<TYPES::VoteTokenType, I::Leaf>,
+        QuorumCertificate<TYPES, I::Leaf>,
+    > {
+        let meta = VoteMetaData {
+            encoded_key: encoded_key.clone(),
+            encoded_signature: encoded_signature.clone(),
+            commitment: leaf_commitment,
+            data: VoteData::Yes(leaf_commitment),
+            vote_token,
+            view_number,
+        };
+        self.inner.election.accumulate_vote(meta, accumlator)
+    }
+    fn accumulate_da_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        block_commitment: Commitment<TYPES::BlockType>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>
+    {
+        let meta = VoteMetaData {
+            encoded_key: encoded_key.clone(),
+            encoded_signature: encoded_signature.clone(),
+            commitment: block_commitment,
+            data: VoteData::DA(block_commitment),
+            vote_token,
+            view_number,
+        };
+        self.inner.election.accumulate_vote(meta, accumlator)
     }
 
     async fn store_leaf(
