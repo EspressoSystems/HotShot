@@ -657,6 +657,8 @@ pub enum NetworkNodeHandleError {
         /// source of error
         source: UnboundedRecvError,
     },
+    /// no known topic matches the hashset of keys
+    NoSuchTopic,
 }
 
 /// Re-exports of the snafu errors that [`NetworkNodeHandleError`] can throw

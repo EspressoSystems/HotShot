@@ -4,6 +4,7 @@
 
 use super::node_implementation::NodeType;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
+use crate::certificate::{CertificateAccumulator, VoteMetaData};
 use crate::{
     data::LeafType,
     traits::{
@@ -19,7 +20,7 @@ use hotshot_utils::bincode::bincode_opts;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::num::NonZeroU64;
@@ -101,19 +102,20 @@ pub trait Accumulator<T, U>: Sized {
     /// accumates the val to the current state.  If
     /// A threshold is reached we Return U (which could a certificate or similar)
     /// else we return self and can continue accumulation items.
-    fn append(val: Vec<T>) -> Either<Self, U>;
+    fn append(self, val: T) -> Either<Self, U>;
 }
 
-/// todo associated types for:
-/// - signature key
-/// - encoded things
-/// -
 pub trait SignedCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, LEAF>
 where
     Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,
     LEAF: Committable,
 {
-    type Accumulator: Accumulator<(EncodedSignature, SIGNATURE), Self>;
+    /// Build a QC from the threshold signature and commitment
+    fn from_signatures_and_commitment(
+        view_number: TIME,
+        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>,
+        commit: Commitment<LEAF>,
+    ) -> Self;
 
     /// Get the view number.
     fn view_number(&self) -> TIME;
@@ -153,7 +155,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         + PartialEq;
 
     /// certificate for data availability
-    type DACertificate: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, Self::LeafType>
+    type DACertificate: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, TYPES::BlockType>
         + Clone
         + Debug
         + Eq
@@ -234,6 +236,41 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         is_valid_signature && is_valid_vote_token
     }
 
+    fn accumulate_vote<C: Committable, Cert>(
+        &self,
+        vota_meta: VoteMetaData<TYPES, C, TYPES::VoteTokenType, TYPES::Time, Self::LeafType>,
+        accumulator: CertificateAccumulator<TYPES::VoteTokenType, C>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Cert>
+    where
+        Cert: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, C>,
+    {
+        if !self.is_valid_vote(
+            &vota_meta.encoded_key,
+            &vota_meta.encoded_signature,
+            vota_meta.data,
+            vota_meta.view_number,
+            // Ignoring deserialization errors below since we are getting rid of it soon
+            Unchecked(vota_meta.vote_token.clone()),
+        ) {
+            return Either::Left(accumulator);
+        }
+
+        match accumulator.append((
+            vota_meta.commitment,
+            (
+                vota_meta.encoded_key.clone(),
+                (vota_meta.encoded_signature.clone(), vota_meta.vote_token),
+            ),
+        )) {
+            Either::Left(accumulator) => Either::Left(accumulator),
+            Either::Right(signatures) => Either::Right(Cert::from_signatures_and_commitment(
+                vota_meta.view_number,
+                signatures,
+                vota_meta.commitment,
+            )),
+        }
+    }
+
     /// generate a default election configuration
     fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType;
 
@@ -250,6 +287,8 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
 
     /// Returns leader for the current view number, given the current stake table
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
+
+    fn get_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
 
     /// Attempts to generate a vote token for self
     ///

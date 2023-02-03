@@ -11,7 +11,7 @@ use hotshot_consensus::ConsensusApi;
 use hotshot_types::{
     constants::LOOK_AHEAD,
     traits::{
-        network::{NetworkingImplementation, TransmitType},
+        network::{CommunicationChannel, TransmitType},
         node_implementation::{NodeImplementation, NodeType},
     },
     ExecutionType,
@@ -260,11 +260,8 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                 let networking = networking.clone();
                 async_spawn_local(async move {
                     info!("starting lookup for {:?}", view_to_lookup);
-                    networking
-                        .notify_of_subsequent_leader(
-                            c_api.get_leader(view_to_lookup).await,
-                            is_done,
-                        )
+                    let _result = networking
+                        .lookup_node(c_api.get_leader(view_to_lookup).await)
                         .await;
                     info!("finished lookup for {:?}", view_to_lookup);
                 });

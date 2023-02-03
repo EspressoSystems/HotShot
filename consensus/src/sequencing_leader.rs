@@ -11,8 +11,8 @@ use async_lock::{Mutex, RwLock};
 use commit::Commitment;
 use commit::Committable;
 use either::Either;
-use either::Right;
-use hotshot_types::certificate::DACertificate;
+use either::Either::Right;
+use hotshot_types::certificate::{CertificateAccumulator, DACertificate};
 use hotshot_types::data::CommitmentProposal;
 use hotshot_types::message::{ProcessedConsensusMessage, Vote};
 use hotshot_types::traits::state::SequencingConsensus;
@@ -21,16 +21,15 @@ use hotshot_types::{
     data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, Proposal},
     traits::{
-        election::{Checked::Unchecked, Election, SignedCertificate, VoteData, VoteToken},
+        election::{Election, SignedCertificate},
         node_implementation::NodeType,
         signature_key::SignatureKey,
         Block,
     },
 };
+use std::collections::HashMap;
 use std::num::NonZeroU64;
-use std::{
-    collections::BTreeMap, collections::HashSet, marker::PhantomData, sync::Arc, time::Instant,
-};
+use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
 
 /// This view's DA committee leader
@@ -84,55 +83,46 @@ impl<
         block_commitment: Commitment<<TYPES as NodeType>::BlockType>,
     ) -> Option<DACertificate<TYPES>> {
         let lock = self.vote_collection_chan.lock().await;
-        let mut valid_signatures = BTreeMap::new();
-        let mut stake_casted = 0;
+        let mut accumulator = CertificateAccumulator {
+            vote_outcomes: HashMap::new(),
+            threshold,
+        };
 
         while let Ok(msg) = lock.recv().await {
             if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number() != cur_view {
                 continue;
             }
             match msg {
-                ProcessedConsensusMessage::Vote(vote_message, sender) => {
-                    match vote_message {
-                        Vote::DA(vote) => {
-                            if vote.signature.0
-                                != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
-                            {
-                                continue;
+                ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
+                    Vote::DA(vote) => {
+                        if vote.signature.0
+                            != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+                        {
+                            continue;
+                        }
+                        if vote.block_commitment != block_commitment {
+                            continue;
+                        }
+                        match self.api.accumulate_da_vote(
+                            &vote.signature.0,
+                            &vote.signature.1,
+                            vote.block_commitment,
+                            vote.vote_token.clone(),
+                            self.cur_view,
+                            accumulator,
+                        ) {
+                            Either::Left(acc) => {
+                                accumulator = acc;
                             }
-
-                            if !self.api.is_valid_vote(
-                                &vote.signature.0,
-                                &vote.signature.1,
-                                VoteData::DA(block_commitment),
-                                self.cur_view,
-                                // Ignoring deserialization errors below since we are getting rid of it soon
-                                Unchecked(vote.vote_token.clone()),
-                            ) {
-                                continue;
-                            }
-
-                            valid_signatures.insert(
-                                vote.signature.0.clone(),
-                                (vote.signature.1.clone(), vote.vote_token.clone()),
-                            );
-
-                            stake_casted += u64::from(vote.vote_token.vote_count());
-
-                            if stake_casted >= u64::from(threshold) {
-                                // construct QC
-                                let qc = DACertificate {
-                                    view_number: self.cur_view,
-                                    signatures: valid_signatures,
-                                };
+                            Either::Right(qc) => {
                                 return Some(qc);
                             }
                         }
-                        _ => {
-                            warn!("The DA leader has received an unexpected vote!");
-                        }
                     }
-                }
+                    _ => {
+                        warn!("The DA leader has received an unexpected vote!");
+                    }
+                },
                 ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
                     self.api.send_next_leader_timeout(self.cur_view).await;
                     break;
@@ -407,9 +397,10 @@ impl<
         let mut qcs = HashSet::<QuorumCertificate<TYPES, SequencingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
-        let mut valid_signatures = BTreeMap::new();
-        let threshold = self.api.threshold();
-        let mut stake_casted = 0;
+        let mut accumulator = CertificateAccumulator {
+            vote_outcomes: HashMap::new(),
+            threshold: self.api.threshold(),
+        };
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
@@ -419,56 +410,37 @@ impl<
                 continue;
             }
             match msg {
-                ProcessedConsensusMessage::Vote(vote_message, sender) => {
-                    match vote_message {
-                        Vote::Yes(vote) => {
-                            if vote.signature.0
-                                != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
-                            {
-                                continue;
+                ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
+                    Vote::Yes(vote) => {
+                        if vote.signature.0
+                            != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+                        {
+                            continue;
+                        }
+
+                        match self.api.accumulate_qc_vote(
+                            &vote.signature.0,
+                            &vote.signature.1,
+                            vote.leaf_commitment,
+                            vote.vote_token.clone(),
+                            self.cur_view,
+                            accumulator,
+                        ) {
+                            Either::Left(acc) => {
+                                accumulator = acc;
                             }
-
-                            // If the signature on the vote is invalid, assume it's sent by
-                            // byzantine node and ignore.
-                            if !self.api.is_valid_vote(
-                                &vote.signature.0,
-                                &vote.signature.1,
-                                VoteData::Yes(vote.leaf_commitment),
-                                self.cur_view,
-                                // Ignoring deserialization errors below since we are getting rid of it soon
-                                Unchecked(vote.vote_token.clone()),
-                            ) {
-                                continue;
-                            }
-
-                            // Valid votes are guaranteed to have the same block commitment, so we
-                            // don't have to group them by the commitment.
-                            valid_signatures.insert(
-                                vote.signature.0.clone(),
-                                (vote.signature.1.clone(), vote.vote_token.clone()),
-                            );
-
-                            stake_casted += u64::from(vote.vote_token.vote_count());
-
-                            if stake_casted >= u64::from(threshold) {
-                                // construct QC
-                                let qc = QuorumCertificate {
-                                    leaf_commitment: vote.leaf_commitment,
-                                    view_number: self.cur_view,
-                                    signatures: valid_signatures,
-                                    is_genesis: false,
-                                };
+                            Either::Right(qc) => {
                                 return qc;
                             }
                         }
-                        Vote::Timeout(vote) => {
-                            qcs.insert(vote.justify_qc);
-                        }
-                        _ => {
-                            warn!("The next leader has received an unexpected vote!");
-                        }
                     }
-                }
+                    Vote::Timeout(vote) => {
+                        qcs.insert(vote.justify_qc);
+                    }
+                    _ => {
+                        warn!("The next leader has received an unexpected vote!");
+                    }
+                },
                 ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
                     self.api.send_next_leader_timeout(self.cur_view).await;
                     break;

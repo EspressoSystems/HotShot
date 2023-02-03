@@ -235,7 +235,7 @@ pub trait LeafType:
             <Self::NodeType as NodeType>::SignatureKey,
             <Self::NodeType as NodeType>::Time,
             <Self::NodeType as NodeType>::VoteTokenType,
-            Self,
+            <Self::NodeType as NodeType>::BlockType,
         > + Debug
         + Eq
         + PartialEq

@@ -56,7 +56,7 @@ lint: fmt lint_tokio lint_tokio_flume lint_async_std lint_async_std_flume
 
 fmt:
   echo Running cargo fmt
-  cargo fmt -- --check
+  cargo fmt
 
 lint_tokio:
   echo Linting with tokio executor
