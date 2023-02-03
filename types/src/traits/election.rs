@@ -53,6 +53,7 @@ pub enum Checked<T> {
 
 /// Data to vote on for different types of votes.
 #[derive(Serialize)]
+// TODO (da) : LEAF type should just be changed to a commitment and bounded by Commitable
 pub enum VoteData<TYPES: NodeType, LEAF: LeafType> {
     DA(Commitment<TYPES::BlockType>),
     Yes(Commitment<LEAF>),
