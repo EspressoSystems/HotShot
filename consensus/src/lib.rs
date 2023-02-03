@@ -17,22 +17,22 @@
 )]
 #![allow(clippy::module_name_repetitions, clippy::unused_async)]
 
-mod da_leader;
 mod da_member;
-mod da_replica;
 mod leader;
 mod next_leader;
 mod replica;
+mod sequencing_leader;
+mod sequencing_replica;
 mod traits;
 mod utils;
 
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
-pub use da_leader::{DAConsensusLeader, DALeader, DANextLeader};
 pub use da_member::DAMember;
-pub use da_replica::DAReplica;
 pub use leader::ValidatingLeader;
 pub use next_leader::NextValidatingLeader;
 pub use replica::Replica;
+pub use sequencing_leader::{ConsensusLeader, ConsensusNextLeader, DALeader};
+pub use sequencing_replica::SequencingReplica;
 pub use traits::ConsensusApi;
 pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
 

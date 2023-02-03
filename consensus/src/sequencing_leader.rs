@@ -1,4 +1,4 @@
-//! Contains the [`DALeader`], [`DAConsensusLeader`] and [`DANextLeader`] structs used for the
+//! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
 use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
@@ -18,7 +18,7 @@ use hotshot_types::message::{ProcessedConsensusMessage, Vote};
 use hotshot_types::traits::state::SequencingConsensus;
 use hotshot_types::{
     certificate::QuorumCertificate,
-    data::{DALeaf, DAProposal},
+    data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, Proposal},
     traits::{
         election::{Election, SignedCertificate},
@@ -35,14 +35,14 @@ use tracing::{error, info, instrument, warn};
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
 pub struct DALeader<
-    A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
-    ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
+    ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
 > {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES, DALeaf<TYPES>>>>,
+    pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// The `high_qc` per spec
     pub high_qc: ELECTION::QuorumCertificate,
     /// The view number we're running on
@@ -56,7 +56,11 @@ pub struct DALeader<
     pub vote_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
-                ProcessedConsensusMessage<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+                ProcessedConsensusMessage<
+                    TYPES,
+                    SequencingLeaf<TYPES>,
+                    DAProposal<TYPES, ELECTION>,
+                >,
             >,
         >,
     >,
@@ -65,9 +69,9 @@ pub struct DALeader<
     pub _pd: PhantomData<ELECTION>,
 }
 impl<
-        A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
+        ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
     > DALeader<A, TYPES, ELECTION>
 {
     /// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
@@ -131,7 +135,7 @@ impl<
         None
     }
     /// Returns the parent leaf of the proposal we are building
-    async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
+    async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let parent_view_number = &self.high_qc.view_number();
         let consensus = self.consensus.read().await;
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
@@ -202,7 +206,13 @@ impl<
     }
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
-    pub async fn run_view(self) -> Option<(DACertificate<TYPES>, TYPES::BlockType, DALeaf<TYPES>)> {
+    pub async fn run_view(
+        self,
+    ) -> Option<(
+        DACertificate<TYPES>,
+        TYPES::BlockType,
+        SequencingLeaf<TYPES>,
+    )> {
         // Prepare the DA Proposal
         let Some(parent_leaf) = self.parent_leaf().await else {
              warn!("Couldn't find high QC parent in state map.");
@@ -228,7 +238,7 @@ impl<
             _pd: PhantomData,
         };
         let message =
-            ConsensusMessage::<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>::Proposal(
+            ConsensusMessage::<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>::Proposal(
                 Proposal { data, signature },
             );
         // Brodcast DA proposal
@@ -252,22 +262,22 @@ impl<
 
 /// Implemenation of the consensus leader for a DA/Sequencing consensus.  Handles sending out a proposal to the entire network
 /// For now this step happens after the `DALeader` completes it's proposal and collects enough votes.
-pub struct DAConsensusLeader<
-    A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+pub struct ConsensusLeader<
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
     ELECTION: Election<
         TYPES,
-        LeafType = DALeaf<TYPES>,
-        QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+        LeafType = SequencingLeaf<TYPES>,
+        QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         DACertificate = DACertificate<TYPES>,
     >,
 > {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES, DALeaf<TYPES>>>>,
+    pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// The `high_qc` per spec
-    pub high_qc: QuorumCertificate<TYPES, DALeaf<TYPES>>,
+    pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// The Certificate generated for the transactions commited to in the proposal the leader will build
@@ -275,7 +285,7 @@ pub struct DAConsensusLeader<
     /// The block corresponding to the DA cert
     pub block: TYPES::BlockType,
     /// Leaf this proposal will chain from
-    pub parent: DALeaf<TYPES>,
+    pub parent: SequencingLeaf<TYPES>,
     /// Limited access to the consensus protocol
     pub api: A,
 
@@ -284,21 +294,21 @@ pub struct DAConsensusLeader<
     pub _pd: PhantomData<ELECTION>,
 }
 impl<
-        A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
         TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
         ELECTION: Election<
             TYPES,
-            LeafType = DALeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+            LeafType = SequencingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
             DACertificate = DACertificate<TYPES>,
         >,
-    > DAConsensusLeader<A, TYPES, ELECTION>
+    > ConsensusLeader<A, TYPES, ELECTION>
 {
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<TYPES, DALeaf<TYPES>> {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
         let block_commitment = self.block.commit();
-        let leaf = DALeaf {
+        let leaf = SequencingLeaf {
             view_number: self.cur_view,
             height: self.parent.height + 1,
             justify_qc: self.high_qc.clone(),
@@ -324,13 +334,14 @@ impl<
             application_metadata: {},
         };
 
-        let message =
-            ConsensusMessage::<TYPES, DALeaf<TYPES>, CommitmentProposal<TYPES, ELECTION>>::Proposal(
-                Proposal {
-                    data: proposal,
-                    signature,
-                },
-            );
+        let message = ConsensusMessage::<
+            TYPES,
+            SequencingLeaf<TYPES>,
+            CommitmentProposal<TYPES, ELECTION>,
+        >::Proposal(Proposal {
+            data: proposal,
+            signature,
+        });
         if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
             warn!(?message, ?e, "Could not broadcast leader proposal");
         }
@@ -339,28 +350,32 @@ impl<
 }
 
 /// Implenting the next leader.  Collect votes on the previous leaders proposal and return the QC
-pub struct DANextLeader<
-    A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+pub struct ConsensusNextLeader<
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
-    ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
+    ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
 > {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES, DALeaf<TYPES>>>>,
+    pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// Limited access to the consensus protocol
     pub api: A,
     /// generic_qc before starting this
-    pub generic_qc: QuorumCertificate<TYPES, DALeaf<TYPES>>,
+    pub generic_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
     // TODO (da): Change this chan to have Commitment Proposal
     pub vote_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
-                ProcessedConsensusMessage<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+                ProcessedConsensusMessage<
+                    TYPES,
+                    SequencingLeaf<TYPES>,
+                    DAProposal<TYPES, ELECTION>,
+                >,
             >,
         >,
     >,
@@ -369,17 +384,17 @@ pub struct DANextLeader<
     pub _pd: PhantomData<ELECTION>,
 }
 impl<
-        A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
-    > DANextLeader<A, TYPES, ELECTION>
+        ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
+    > ConsensusNextLeader<A, TYPES, ELECTION>
 {
     /// Run one view of the next leader, collect votes and build a QC for the last views `CommitmentProposal`
     /// # Panics
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
-    pub async fn run_view(self) -> QuorumCertificate<TYPES, DALeaf<TYPES>> {
-        let mut qcs = HashSet::<QuorumCertificate<TYPES, DALeaf<TYPES>>>::new();
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
+        let mut qcs = HashSet::<QuorumCertificate<TYPES, SequencingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
         let mut accumulator = CertificateAccumulator {
