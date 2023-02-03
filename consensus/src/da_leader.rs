@@ -342,7 +342,6 @@ impl<
             );
         if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
             warn!(?message, ?e, "Could not broadcast leader proposal");
-            return self.high_qc;
         }
         self.high_qc
     }

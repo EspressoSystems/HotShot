@@ -193,7 +193,7 @@ impl<
 
     /// Run one view of DA committee member.
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "DA Member Task", level = "error")]
-    pub async fn run_view(self) {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, DALeaf<TYPES>> {
         info!("DA Committee Member task started!");
         let view_leader_key = self.api.get_leader(self.cur_view).await;
 
@@ -201,7 +201,7 @@ impl<
 
         let Some(leaf) = maybe_leaf else {
             // We either timed out or for some reason could not accept a proposal.
-            return;
+            return self.high_qc;
         };
 
         // Update state map and leaves.
@@ -221,5 +221,6 @@ impl<
         if let Err(e) = self.api.store_leaf(self.cur_view, leaf).await {
             error!("Could not insert new anchor into the storage API: {:?}", e);
         }
+        self.high_qc
     }
 }

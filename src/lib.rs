@@ -987,7 +987,9 @@ impl<
             high_qc: high_qc.clone(),
             api: c_api.clone(),
         };
-        async_spawn(async move { da_member.run_view() });
+        let member_handle = async_spawn(async move { da_member.run_view().await });
+        task_handles.push(member_handle);
+
         let _da_replica = {};
         // TODO: ADD DA replica task handle and push it to `task_handles`.
 
@@ -995,7 +997,6 @@ impl<
 
         async_spawn({
             let next_view_timeout = hotshot.inner.config.next_view_timeout;
-            let next_view_timeout = next_view_timeout;
             let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
             async move {
                 async_sleep(Duration::from_millis(next_view_timeout)).await;
