@@ -54,7 +54,9 @@ impl<
                     Vote::Yes(v) | Vote::No(v) => v.current_view,
                     Vote::Timeout(v) => v.current_view,
                 },
-                ConsensusMessage::NextViewInterrupt(v) => *v,
+                ConsensusMessage::InternalTrigger(trigger) => match trigger {
+                    InternalTrigger::Timeout(v) => *v,
+                },
             },
             MessageKind::Data(DataMessage::SubmitTransaction(_, v)) => *v,
         }
