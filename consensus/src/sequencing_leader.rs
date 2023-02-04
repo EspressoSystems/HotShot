@@ -306,7 +306,7 @@ impl<
 {
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
-    pub async fn run_view(self) -> Option<QuorumCertificate<TYPES, SequencingLeaf<TYPES>>> {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
         let block_commitment = self.block.commit();
         let leaf = SequencingLeaf {
             view_number: self.cur_view,
@@ -344,9 +344,8 @@ impl<
         });
         if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
             warn!(?message, ?e, "Could not broadcast leader proposal");
-            return None;
         }
-        Some(self.high_qc)
+        self.high_qc
     }
 }
 
@@ -368,6 +367,7 @@ pub struct ConsensusNextLeader<
     pub generic_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
+    // TODO (da): Change this chan to have Commitment Proposal
     pub vote_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
