@@ -54,7 +54,9 @@ impl<
                     Vote::Yes(v) | Vote::No(v) => v.current_view,
                     Vote::Timeout(v) => v.current_view,
                 },
-                ConsensusMessage::NextViewInterrupt(v) => *v,
+                ConsensusMessage::InternalTrigger(trigger) => match trigger {
+                    InternalTrigger::Timeout(v) => *v,
+                },
             },
             MessageKind::Data(DataMessage::SubmitTransaction(_, v)) => *v,
         }
@@ -115,6 +117,15 @@ pub enum Vote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     Timeout(TimeoutVote<TYPES, LEAF>),
 }
 
+/// Internal triggers sent by consensus messages.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = ""))]
+pub enum InternalTrigger<TYPES: NodeType> {
+    // May add other triggers if necessary.
+    /// Internal timeout at the specified view number.
+    Timeout(TYPES::Time),
+}
+
 /// a processed consensus message
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
@@ -127,11 +138,9 @@ pub enum ProcessedConsensusMessage<
     Proposal(Proposal<PROPOSAL>, TYPES::SignatureKey),
     /// Replica's vote on a proposal.
     Vote(Vote<TYPES, LEAF>, TYPES::SignatureKey),
-    /// Internal ONLY message indicating a NextView interrupt
-    /// View number this nextview interrupt was generated for
-    /// used so we ignore stale nextview interrupts within a task
+    /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
-    NextViewInterrupt(TYPES::Time),
+    InternalTrigger(InternalTrigger<TYPES>),
 }
 
 impl<
@@ -146,9 +155,7 @@ impl<
         match value {
             ProcessedConsensusMessage::Proposal(p, _) => ConsensusMessage::Proposal(p),
             ProcessedConsensusMessage::Vote(v, _) => ConsensusMessage::Vote(v),
-            ProcessedConsensusMessage::NextViewInterrupt(a) => {
-                ConsensusMessage::NextViewInterrupt(a)
-            }
+            ProcessedConsensusMessage::InternalTrigger(a) => ConsensusMessage::InternalTrigger(a),
         }
     }
 }
@@ -167,9 +174,7 @@ impl<
         match value {
             ConsensusMessage::Proposal(p) => ProcessedConsensusMessage::Proposal(p, sender),
             ConsensusMessage::Vote(v) => ProcessedConsensusMessage::Vote(v, sender),
-            ConsensusMessage::NextViewInterrupt(a) => {
-                ProcessedConsensusMessage::NextViewInterrupt(a)
-            }
+            ConsensusMessage::InternalTrigger(a) => ProcessedConsensusMessage::InternalTrigger(a),
         }
     }
 }
@@ -186,11 +191,9 @@ pub enum ConsensusMessage<
     Proposal(Proposal<PROPOSAL>),
     /// Replica's vote on a proposal.
     Vote(Vote<TYPES, LEAF>),
-    /// Internal ONLY message indicating a NextView interrupt
-    /// View number this nextview interrupt was generated for
-    /// used so we ignore stale nextview interrupts within a task
+    /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
-    NextViewInterrupt(TYPES::Time),
+    InternalTrigger(InternalTrigger<TYPES>),
 }
 
 impl<
@@ -213,7 +216,9 @@ impl<
                 Vote::Yes(v) | Vote::No(v) => v.current_view,
                 Vote::Timeout(v) => v.current_view,
             },
-            ConsensusMessage::NextViewInterrupt(time) => *time,
+            ConsensusMessage::InternalTrigger(trigger) => match trigger {
+                InternalTrigger::Timeout(time) => *time,
+            },
         }
     }
 }

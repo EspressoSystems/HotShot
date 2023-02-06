@@ -171,8 +171,8 @@ impl<
                         }
                         break leaf;
                     }
-                    ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
-                        warn!("DA committee member receieved a next view interrupt message. This is not what the member expects. Skipping.");
+                    ProcessedConsensusMessage::InternalTrigger(_trigger) => {
+                        warn!("DA committee member receieved an internal trigger message. This is not what the member expects. Skipping.");
                         continue;
                     }
                     ProcessedConsensusMessage::Vote(_, _) => {

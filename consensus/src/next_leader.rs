@@ -13,7 +13,7 @@ use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::{
     certificate::QuorumCertificate,
-    message::{ConsensusMessage, Vote},
+    message::{ConsensusMessage, InternalTrigger, Vote},
 };
 use std::time::Instant;
 use std::{
@@ -141,10 +141,12 @@ impl<
                         }
                     }
                 }
-                ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
-                    self.api.send_next_leader_timeout(self.cur_view).await;
-                    break;
-                }
+                ProcessedConsensusMessage::InternalTrigger(trigger) => match trigger {
+                    InternalTrigger::Timeout(_) => {
+                        self.api.send_next_leader_timeout(self.cur_view).await;
+                        break;
+                    }
+                },
                 ProcessedConsensusMessage::Proposal(_p, _sender) => {
                     warn!("The next leader has received an unexpected proposal!");
                 }

@@ -11,7 +11,7 @@ use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, ProcessedConsensusMessage, TimeoutVote, Vote},
+    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, TimeoutVote, Vote},
     traits::{
         election::Election, node_implementation::NodeType, signature_key::SignatureKey,
         state::ValidatingConsensus, Block, State,
@@ -232,58 +232,65 @@ impl<
                         }
                         break leaf;
                     }
-                    ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
-                        let next_leader = self.api.get_leader(self.cur_view + 1).await;
+                    ProcessedConsensusMessage::InternalTrigger(trigger) => {
+                        match trigger {
+                            InternalTrigger::Timeout(_) => {
+                                let next_leader = self.api.get_leader(self.cur_view + 1).await;
 
-                        consensus.metrics.number_of_timeouts.add(1);
+                                consensus.metrics.number_of_timeouts.add(1);
 
-                        let signature = self.api.sign_timeout_vote(self.cur_view);
-                        let vote_token = self.api.make_vote_token(self.cur_view);
+                                let signature = self.api.sign_timeout_vote(self.cur_view);
+                                let vote_token = self.api.make_vote_token(self.cur_view);
 
-                        match vote_token {
-                            Err(e) => {
-                                error!(
-                                    "Failed to generate vote token for {:?} {:?}",
-                                    self.cur_view, e
-                                );
-                            }
-                            Ok(None) => {
-                                info!("We were not chosen for committee on {:?}", self.cur_view);
-                            }
-                            Ok(Some(vote_token)) => {
-                                let timed_out_msg =
-                                    ConsensusMessage::Vote(Vote::Timeout(TimeoutVote {
-                                        justify_qc: self.high_qc.clone(),
-                                        signature,
-                                        current_view: self.cur_view,
-                                        vote_token,
-                                    }));
-                                warn!(
-                                    "Timed out! Sending timeout to next leader {:?}",
-                                    timed_out_msg
-                                );
+                                match vote_token {
+                                    Err(e) => {
+                                        error!(
+                                            "Failed to generate vote token for {:?} {:?}",
+                                            self.cur_view, e
+                                        );
+                                    }
+                                    Ok(None) => {
+                                        info!(
+                                            "We were not chosen for committee on {:?}",
+                                            self.cur_view
+                                        );
+                                    }
+                                    Ok(Some(vote_token)) => {
+                                        let timed_out_msg =
+                                            ConsensusMessage::Vote(Vote::Timeout(TimeoutVote {
+                                                justify_qc: self.high_qc.clone(),
+                                                signature,
+                                                current_view: self.cur_view,
+                                                vote_token,
+                                            }));
+                                        warn!(
+                                            "Timed out! Sending timeout to next leader {:?}",
+                                            timed_out_msg
+                                        );
 
-                                // send timedout message to the next leader
-                                if let Err(e) = self
-                                    .api
-                                    .send_direct_message(next_leader.clone(), timed_out_msg)
-                                    .await
-                                {
-                                    consensus.metrics.failed_to_send_messages.add(1);
-                                    warn!(
-                                        ?next_leader,
-                                        ?e,
-                                        "Could not send time out message to next_leader"
-                                    );
-                                } else {
-                                    consensus.metrics.outgoing_direct_messages.add(1);
+                                        // send timedout message to the next leader
+                                        if let Err(e) = self
+                                            .api
+                                            .send_direct_message(next_leader.clone(), timed_out_msg)
+                                            .await
+                                        {
+                                            consensus.metrics.failed_to_send_messages.add(1);
+                                            warn!(
+                                                ?next_leader,
+                                                ?e,
+                                                "Could not send time out message to next_leader"
+                                            );
+                                        } else {
+                                            consensus.metrics.outgoing_direct_messages.add(1);
+                                        }
+
+                                        // exits from entire function
+                                        self.api.send_replica_timeout(self.cur_view).await;
+                                    }
                                 }
-
-                                // exits from entire function
-                                self.api.send_replica_timeout(self.cur_view).await;
+                                return (consensus, None);
                             }
                         }
-                        return (consensus, None);
                     }
                     ProcessedConsensusMessage::Vote(_, _) => {
                         // should only be for leader, never replica
