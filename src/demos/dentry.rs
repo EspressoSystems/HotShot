@@ -7,10 +7,7 @@
 //! production use.
 
 use crate::traits::{
-    election::{
-        static_committee::{StaticElectionConfig, StaticVoteToken},
-        vrf::BlsPubKey,
-    },
+    election::static_committee::{StaticElectionConfig, StaticVoteToken},
     implementations::MemoryStorage,
     Block, NodeImplementation,
 };
@@ -26,6 +23,7 @@ use hotshot_types::{
         election::Election,
         network::CommunicationChannel,
         node_implementation::{ApplicationMetadata, NodeType},
+        signature_key::ed25519::Ed25519Pub,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
         State,
     },
@@ -517,12 +515,11 @@ impl Block for DEntryBlock {
 pub struct DEntryTypes;
 
 impl NodeType for DEntryTypes {
-    // TODO (da) can this be SequencingConsensus?
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = DEntryBlock;
-    type SignatureKey = BlsPubKey;
-    type VoteTokenType = StaticVoteToken<BlsPubKey>;
+    type SignatureKey = Ed25519Pub;
+    type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = DEntryTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = DEntryState;
