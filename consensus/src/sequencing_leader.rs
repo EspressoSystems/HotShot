@@ -1,5 +1,5 @@
-//! Contains the [`DALeader`] struct used for the leader step in the consensus algorithm with DA
-//! committee.
+//! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
+//! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
 use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_compatibility_layer::channel::UnboundedReceiver;
@@ -11,39 +11,38 @@ use async_lock::{Mutex, RwLock};
 use commit::Commitment;
 use commit::Committable;
 use either::Either;
-use either::Right;
-use hotshot_types::certificate::DACertificate;
+use either::Either::Right;
+use hotshot_types::certificate::{CertificateAccumulator, DACertificate};
 use hotshot_types::data::CommitmentProposal;
 use hotshot_types::message::{ProcessedConsensusMessage, Vote};
 use hotshot_types::traits::state::SequencingConsensus;
 use hotshot_types::{
     certificate::QuorumCertificate,
-    data::{DALeaf, DAProposal},
+    data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, Proposal},
     traits::{
-        election::{Checked::Unchecked, Election, SignedCertificate, VoteData, VoteToken},
+        election::{Election, SignedCertificate},
         node_implementation::NodeType,
         signature_key::SignatureKey,
         Block,
     },
 };
+use std::collections::HashMap;
 use std::num::NonZeroU64;
-use std::{
-    collections::BTreeMap, collections::HashSet, marker::PhantomData, sync::Arc, time::Instant,
-};
+use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
 
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
 pub struct DALeader<
-    A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
-    ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
+    ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
 > {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES, DALeaf<TYPES>>>>,
+    pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// The `high_qc` per spec
     pub high_qc: ELECTION::QuorumCertificate,
     /// The view number we're running on
@@ -57,7 +56,11 @@ pub struct DALeader<
     pub vote_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
-                ProcessedConsensusMessage<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+                ProcessedConsensusMessage<
+                    TYPES,
+                    SequencingLeaf<TYPES>,
+                    DAProposal<TYPES, ELECTION>,
+                >,
             >,
         >,
     >,
@@ -66,9 +69,9 @@ pub struct DALeader<
     pub _pd: PhantomData<ELECTION>,
 }
 impl<
-        A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
+        ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
     > DALeader<A, TYPES, ELECTION>
 {
     /// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
@@ -80,55 +83,46 @@ impl<
         block_commitment: Commitment<<TYPES as NodeType>::BlockType>,
     ) -> Option<DACertificate<TYPES>> {
         let lock = self.vote_collection_chan.lock().await;
-        let mut valid_signatures = BTreeMap::new();
-        let mut stake_casted = 0;
+        let mut accumulator = CertificateAccumulator {
+            vote_outcomes: HashMap::new(),
+            threshold,
+        };
 
         while let Ok(msg) = lock.recv().await {
             if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number() != cur_view {
                 continue;
             }
             match msg {
-                ProcessedConsensusMessage::Vote(vote_message, sender) => {
-                    match vote_message {
-                        Vote::DA(vote) => {
-                            if vote.signature.0
-                                != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
-                            {
-                                continue;
+                ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
+                    Vote::DA(vote) => {
+                        if vote.signature.0
+                            != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+                        {
+                            continue;
+                        }
+                        if vote.block_commitment != block_commitment {
+                            continue;
+                        }
+                        match self.api.accumulate_da_vote(
+                            &vote.signature.0,
+                            &vote.signature.1,
+                            vote.block_commitment,
+                            vote.vote_token.clone(),
+                            self.cur_view,
+                            accumulator,
+                        ) {
+                            Either::Left(acc) => {
+                                accumulator = acc;
                             }
-
-                            if !self.api.is_valid_vote(
-                                &vote.signature.0,
-                                &vote.signature.1,
-                                VoteData::DA(block_commitment),
-                                self.cur_view,
-                                // Ignoring deserialization errors below since we are getting rid of it soon
-                                Unchecked(vote.vote_token.clone()),
-                            ) {
-                                continue;
-                            }
-
-                            valid_signatures.insert(
-                                vote.signature.0.clone(),
-                                (vote.signature.1.clone(), vote.vote_token.clone()),
-                            );
-
-                            stake_casted += u64::from(vote.vote_token.vote_count());
-
-                            if stake_casted >= u64::from(threshold) {
-                                // construct QC
-                                let qc = DACertificate {
-                                    view_number: self.cur_view,
-                                    signatures: valid_signatures,
-                                };
+                            Either::Right(qc) => {
                                 return Some(qc);
                             }
                         }
-                        _ => {
-                            warn!("The DA leader has received an unexpected vote!");
-                        }
                     }
-                }
+                    _ => {
+                        warn!("The DA leader has received an unexpected vote!");
+                    }
+                },
                 ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
                     self.api.send_next_leader_timeout(self.cur_view).await;
                     break;
@@ -141,7 +135,7 @@ impl<
         None
     }
     /// Returns the parent leaf of the proposal we are building
-    async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
+    async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let parent_view_number = &self.high_qc.view_number();
         let consensus = self.consensus.read().await;
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
@@ -212,7 +206,13 @@ impl<
     }
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
-    pub async fn run_view(self) -> Option<(DACertificate<TYPES>, TYPES::BlockType, DALeaf<TYPES>)> {
+    pub async fn run_view(
+        self,
+    ) -> Option<(
+        DACertificate<TYPES>,
+        TYPES::BlockType,
+        SequencingLeaf<TYPES>,
+    )> {
         // Prepare the DA Proposal
         let Some(parent_leaf) = self.parent_leaf().await else {
              warn!("Couldn't find high QC parent in state map.");
@@ -238,7 +238,7 @@ impl<
             _pd: PhantomData,
         };
         let message =
-            ConsensusMessage::<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>::Proposal(
+            ConsensusMessage::<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>::Proposal(
                 Proposal { data, signature },
             );
         // Brodcast DA proposal
@@ -262,22 +262,22 @@ impl<
 
 /// Implemenation of the consensus leader for a DA/Sequencing consensus.  Handles sending out a proposal to the entire network
 /// For now this step happens after the `DALeader` completes it's proposal and collects enough votes.
-pub struct DAConsensusLeader<
-    A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+pub struct ConsensusLeader<
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
     ELECTION: Election<
         TYPES,
-        LeafType = DALeaf<TYPES>,
-        QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+        LeafType = SequencingLeaf<TYPES>,
+        QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         DACertificate = DACertificate<TYPES>,
     >,
 > {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES, DALeaf<TYPES>>>>,
+    pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// The `high_qc` per spec
-    pub high_qc: QuorumCertificate<TYPES, DALeaf<TYPES>>,
+    pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// The Certificate generated for the transactions commited to in the proposal the leader will build
@@ -285,7 +285,7 @@ pub struct DAConsensusLeader<
     /// The block corresponding to the DA cert
     pub block: TYPES::BlockType,
     /// Leaf this proposal will chain from
-    pub parent: DALeaf<TYPES>,
+    pub parent: SequencingLeaf<TYPES>,
     /// Limited access to the consensus protocol
     pub api: A,
 
@@ -294,21 +294,21 @@ pub struct DAConsensusLeader<
     pub _pd: PhantomData<ELECTION>,
 }
 impl<
-        A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
         TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
         ELECTION: Election<
             TYPES,
-            LeafType = DALeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+            LeafType = SequencingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
             DACertificate = DACertificate<TYPES>,
         >,
-    > DAConsensusLeader<A, TYPES, ELECTION>
+    > ConsensusLeader<A, TYPES, ELECTION>
 {
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
-    pub async fn run_view(self) -> Option<QuorumCertificate<TYPES, DALeaf<TYPES>>> {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
         let block_commitment = self.block.commit();
-        let leaf = DALeaf {
+        let leaf = SequencingLeaf {
             view_number: self.cur_view,
             height: self.parent.height + 1,
             justify_qc: self.high_qc.clone(),
@@ -327,49 +327,55 @@ impl<
         let proposal = CommitmentProposal {
             block_commitment,
             view_number: leaf.view_number,
+            height: leaf.height,
             justify_qc: self.high_qc.clone(),
             dac: self.cert,
             proposer_id: leaf.proposer_id,
             application_metadata: {},
         };
 
-        let message =
-            ConsensusMessage::<TYPES, DALeaf<TYPES>, CommitmentProposal<TYPES, ELECTION>>::Proposal(
-                Proposal {
-                    data: proposal,
-                    signature,
-                },
-            );
+        let message = ConsensusMessage::<
+            TYPES,
+            SequencingLeaf<TYPES>,
+            CommitmentProposal<TYPES, ELECTION>,
+        >::Proposal(Proposal {
+            data: proposal,
+            signature,
+        });
         if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
             warn!(?message, ?e, "Could not broadcast leader proposal");
-            return None;
         }
-        Some(self.high_qc)
+        self.high_qc
     }
 }
 
 /// Implenting the next leader.  Collect votes on the previous leaders proposal and return the QC
-pub struct DANextLeader<
-    A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+pub struct ConsensusNextLeader<
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
-    ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
+    ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
 > {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES, DALeaf<TYPES>>>>,
+    pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// Limited access to the consensus protocol
     pub api: A,
     /// generic_qc before starting this
-    pub generic_qc: QuorumCertificate<TYPES, DALeaf<TYPES>>,
+    pub generic_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
+    // TODO (da): Change this chan to have Commitment Proposal
     pub vote_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
-                ProcessedConsensusMessage<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+                ProcessedConsensusMessage<
+                    TYPES,
+                    SequencingLeaf<TYPES>,
+                    DAProposal<TYPES, ELECTION>,
+                >,
             >,
         >,
     >,
@@ -378,22 +384,23 @@ pub struct DANextLeader<
     pub _pd: PhantomData<ELECTION>,
 }
 impl<
-        A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        ELECTION: Election<TYPES, LeafType = DALeaf<TYPES>>,
-    > DANextLeader<A, TYPES, ELECTION>
+        ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
+    > ConsensusNextLeader<A, TYPES, ELECTION>
 {
     /// Run one view of the next leader, collect votes and build a QC for the last views `CommitmentProposal`
     /// # Panics
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
-    pub async fn run_view(self) -> QuorumCertificate<TYPES, DALeaf<TYPES>> {
-        let mut qcs = HashSet::<QuorumCertificate<TYPES, DALeaf<TYPES>>>::new();
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
+        let mut qcs = HashSet::<QuorumCertificate<TYPES, SequencingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
-        let mut valid_signatures = BTreeMap::new();
-        let threshold = self.api.threshold();
-        let mut stake_casted = 0;
+        let mut accumulator = CertificateAccumulator {
+            vote_outcomes: HashMap::new(),
+            threshold: self.api.threshold(),
+        };
 
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
@@ -403,56 +410,37 @@ impl<
                 continue;
             }
             match msg {
-                ProcessedConsensusMessage::Vote(vote_message, sender) => {
-                    match vote_message {
-                        Vote::Yes(vote) => {
-                            if vote.signature.0
-                                != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
-                            {
-                                continue;
+                ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
+                    Vote::Yes(vote) => {
+                        if vote.signature.0
+                            != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+                        {
+                            continue;
+                        }
+
+                        match self.api.accumulate_qc_vote(
+                            &vote.signature.0,
+                            &vote.signature.1,
+                            vote.leaf_commitment,
+                            vote.vote_token.clone(),
+                            self.cur_view,
+                            accumulator,
+                        ) {
+                            Either::Left(acc) => {
+                                accumulator = acc;
                             }
-
-                            // If the signature on the vote is invalid, assume it's sent by
-                            // byzantine node and ignore.
-                            if !self.api.is_valid_vote(
-                                &vote.signature.0,
-                                &vote.signature.1,
-                                VoteData::Yes(vote.leaf_commitment),
-                                self.cur_view,
-                                // Ignoring deserialization errors below since we are getting rid of it soon
-                                Unchecked(vote.vote_token.clone()),
-                            ) {
-                                continue;
-                            }
-
-                            // Valid votes are guaranteed to have the same block commitment, so we
-                            // don't have to group them by the commitment.
-                            valid_signatures.insert(
-                                vote.signature.0.clone(),
-                                (vote.signature.1.clone(), vote.vote_token.clone()),
-                            );
-
-                            stake_casted += u64::from(vote.vote_token.vote_count());
-
-                            if stake_casted >= u64::from(threshold) {
-                                // construct QC
-                                let qc = QuorumCertificate {
-                                    leaf_commitment: vote.leaf_commitment,
-                                    view_number: self.cur_view,
-                                    signatures: valid_signatures,
-                                    is_genesis: false,
-                                };
+                            Either::Right(qc) => {
                                 return qc;
                             }
                         }
-                        Vote::Timeout(vote) => {
-                            qcs.insert(vote.justify_qc);
-                        }
-                        _ => {
-                            warn!("The next leader has received an unexpected vote!");
-                        }
                     }
-                }
+                    Vote::Timeout(vote) => {
+                        qcs.insert(vote.justify_qc);
+                    }
+                    _ => {
+                        warn!("The next leader has received an unexpected vote!");
+                    }
+                },
                 ProcessedConsensusMessage::NextViewInterrupt(_view_number) => {
                     self.api.send_next_leader_timeout(self.cur_view).await;
                     break;

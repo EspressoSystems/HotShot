@@ -3,9 +3,9 @@
 use crate::{
     data::{fake_commitment, LeafType},
     traits::{
-        election::{Accumulator, SignedCertificate},
+        election::{Accumulator, SignedCertificate, VoteData, VoteToken},
         node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        signature_key::{EncodedPublicKey, EncodedSignature},
         state::ConsensusTime,
     },
 };
@@ -15,8 +15,8 @@ use espresso_systems_common::hotshot::tag;
 #[allow(deprecated)]
 use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData, num::NonZeroU64, ops::Deref};
-
+use std::collections::HashMap;
+use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, ops::Deref};
 /// A `DACertificate` is a threshold signature that some data is available.  
 /// It is signed by the members of the DA comittee, not the entire network. It is used
 /// to prove that the data will be made available to those outside of the DA committee.
@@ -61,35 +61,71 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     pub is_genesis: bool,
 }
 
+/// Data from a vote needed to accumulate into a `SignedCertificate`
+pub struct VoteMetaData<TYPES: NodeType, C: Committable, T: VoteToken, TIME, LEAF: LeafType> {
+    /// Voter's public key
+    pub encoded_key: EncodedPublicKey,
+    /// Votes signature
+    pub encoded_signature: EncodedSignature,
+    /// Commitment to what's voted on.  E.g. the leaf for a `QuorumCertificate`
+    pub commitment: Commitment<C>,
+    /// Data of the vote, yes, no, timeout, or DA
+    pub data: VoteData<TYPES, LEAF>,
+    /// The votes's token
+    pub vote_token: T,
+    /// View number for the vote
+    pub view_number: TIME,
+}
+
+/// Mapping of leaf commitments to votes by key
+type VoteMap<LEAF, TOKEN> =
+    HashMap<Commitment<LEAF>, (u64, BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>)>;
+
 /// `CertificateAccumulator` is describes the process of collecting signatures
 /// to form a QC or a DA certificate.
 #[allow(clippy::missing_docs_in_private_items)]
-pub struct CertificateAccumulator<SIGNATURE, TIME, TOKEN, LEAF, CERT>
-where
-    SIGNATURE: SignatureKey,
-    LEAF: Committable,
-    CERT: SignedCertificate<SIGNATURE, TIME, TOKEN, LEAF>,
-{
-    _pd_0: PhantomData<SIGNATURE>,
-    _pd_1: PhantomData<CERT>,
-    _pd_2: PhantomData<TIME>,
-    _pd_3: PhantomData<TOKEN>,
-    _pd_4: PhantomData<LEAF>,
-    _valid_signatures: Vec<(EncodedSignature, SIGNATURE)>,
-    _threshold: NonZeroU64,
-    // TODO
+pub struct CertificateAccumulator<TOKEN, LEAF: Committable> {
+    /// Map of all signatures accumlated so far
+    pub vote_outcomes: VoteMap<LEAF, TOKEN>,
+    /// threshold of stake needed to form a Certificate
+    pub threshold: NonZeroU64,
 }
 
-impl<SIGNATURE, TIME, CERT, TOKEN, LEAF> Accumulator<(EncodedSignature, SIGNATURE), CERT>
-    for CertificateAccumulator<SIGNATURE, TIME, TOKEN, LEAF, CERT>
+impl<TOKEN, LEAF: Committable>
+    Accumulator<
+        (
+            Commitment<LEAF>,
+            (EncodedPublicKey, (EncodedSignature, TOKEN)),
+        ),
+        BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>,
+    > for CertificateAccumulator<TOKEN, LEAF>
 where
-    SIGNATURE: SignatureKey,
-    LEAF: Committable,
-    CERT: SignedCertificate<SIGNATURE, TIME, TOKEN, LEAF>,
+    TOKEN: Clone + VoteToken,
 {
-    fn append(_val: Vec<(EncodedSignature, SIGNATURE)>) -> Either<Self, CERT> {
-        #[allow(deprecated)]
-        nll_todo()
+    fn append(
+        mut self,
+        val: (
+            Commitment<LEAF>,
+            (EncodedPublicKey, (EncodedSignature, TOKEN)),
+        ),
+    ) -> Either<Self, BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>> {
+        let (commitment, (key, (sig, token))) = val;
+
+        let (stake_casted, vote_map) = self
+            .vote_outcomes
+            .entry(commitment)
+            .or_insert_with(|| (0, BTreeMap::new()));
+        // Accumulate the stake for each leaf commitment rather than the total
+        // stake of all votes, in case they correspond to inconsistent
+        // commitments.
+        *stake_casted += u64::from(token.vote_count());
+        vote_map.insert(key, (sig, token));
+
+        if *stake_casted >= u64::from(self.threshold) {
+            let valid_signatures = self.vote_outcomes.remove(&commitment).unwrap().1;
+            return Either::Right(valid_signatures);
+        }
+        Either::Left(self)
     }
 }
 
@@ -97,13 +133,18 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
     SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>
     for QuorumCertificate<TYPES, LEAF>
 {
-    type Accumulator = CertificateAccumulator<
-        TYPES::SignatureKey,
-        TYPES::Time,
-        TYPES::VoteTokenType,
-        LEAF,
-        QuorumCertificate<TYPES, LEAF>,
-    >;
+    fn from_signatures_and_commitment(
+        view_number: TYPES::Time,
+        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
+        commit: Commitment<LEAF>,
+    ) -> Self {
+        QuorumCertificate {
+            leaf_commitment: commit,
+            view_number,
+            signatures,
+            is_genesis: false,
+        }
+    }
 
     fn view_number(&self) -> TYPES::Time {
         self.view_number
@@ -164,17 +205,20 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Committable
     }
 }
 
-impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
+impl<TYPES: NodeType, LEAF: commit::Committable>
     SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>
     for DACertificate<TYPES>
 {
-    type Accumulator = CertificateAccumulator<
-        TYPES::SignatureKey,
-        TYPES::Time,
-        TYPES::VoteTokenType,
-        LEAF,
-        DACertificate<TYPES>,
-    >;
+    fn from_signatures_and_commitment(
+        view_number: TYPES::Time,
+        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
+        _commit: Commitment<LEAF>,
+    ) -> Self {
+        DACertificate {
+            view_number,
+            signatures,
+        }
+    }
 
     fn view_number(&self) -> TYPES::Time {
         self.view_number

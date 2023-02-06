@@ -15,13 +15,13 @@ use futures::{
 };
 use hotshot::{
     certificate::QuorumCertificate, demos::dentry::random_validating_leaf,
-    traits::election::vrf::VrfImpl, types::Vote,
+    traits::election::vrf::VrfImpl,
 };
 use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     event::EventType,
-    message::{ConsensusMessage, Proposal, YesOrNoVote},
+    message::{ConsensusMessage, Proposal},
     traits::{
         election::{Election, SignedCertificate, TestableElection},
         node_implementation::NodeType,
@@ -134,15 +134,13 @@ async fn submit_validating_vote<
     // Build vote
     let mut leaf = random_validating_leaf(TYPES::BlockType::genesis(), &mut rng);
     leaf.view_number = view_number;
-    let signature = handle.sign_yes_vote(leaf.commit());
-    let msg = ConsensusMessage::Vote(Vote::Yes(YesOrNoVote {
-        signature,
-        justify_qc_commitment: leaf.justify_qc.commit(),
-        current_view: leaf.view_number,
-        leaf_commitment: leaf.commit(),
+    let msg = handle.create_yes_message(
+        leaf.justify_qc.commit(),
+        leaf.commit(),
+        leaf.view_number,
         // TODO placeholder below
-        vote_token: ELECTION::generate_test_vote_token(),
-    }));
+        ELECTION::generate_test_vote_token(),
+    );
 
     let recipient = runner
         .get_handle(recipient_node_id)

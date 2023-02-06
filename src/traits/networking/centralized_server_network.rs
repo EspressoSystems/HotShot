@@ -1068,30 +1068,6 @@ pub struct CentralizedCommChannel<TYPES: NodeType>(
     CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 );
 
-impl<TYPES: NodeType> CentralizedCommChannel<TYPES> {
-    /// create new communication channel
-    pub fn new(
-        network: CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    ) -> Self {
-        Self(network)
-    }
-
-    /// passthru for example?
-    pub fn run_ready(&self) -> bool {
-        self.0.run_ready()
-    }
-
-    /// passthru for example?
-    pub async fn get_connected_client_count(&self) -> u32 {
-        self.0.get_connected_client_count().await
-    }
-
-    /// passthru for example?
-    pub async fn send_results(&self, results: RunResults) {
-        self.0.send_results(results).await;
-    }
-}
-
 #[async_trait]
 impl<
         TYPES: NodeType,

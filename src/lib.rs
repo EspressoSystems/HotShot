@@ -53,13 +53,16 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
+use either::Either;
 use hotshot_consensus::{
-    Consensus, ConsensusApi, ConsensusMetrics, DAConsensusLeader, DALeader, DAMember, DANextLeader,
-    NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner, ViewQueue,
+    Consensus, ConsensusApi, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader, DALeader,
+    DAMember, NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner,
+    ViewQueue,
 };
 use hotshot_types::certificate::DACertificate;
+use hotshot_types::certificate::{CertificateAccumulator, VoteMetaData};
 use hotshot_types::data::ProposalType;
-use hotshot_types::data::{DALeaf, DAProposal};
+use hotshot_types::data::{DAProposal, SequencingLeaf};
 use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{
@@ -90,7 +93,6 @@ use std::{
     time::{Duration, Instant},
 };
 use tracing::{debug, error, info, instrument, trace, warn};
-
 // -- Rexports
 // External
 /// Reexport rand crate
@@ -287,6 +289,29 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         // NOTE this should always exist
         if send_replica.send(msg).await.is_err() {
             warn!("Error timing out replica task");
+        };
+    }
+
+    /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
+    ///
+    /// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.
+    /// # Panics
+    /// Panics if the current view is not in the channel map
+    #[instrument(
+        skip_all,
+        fields(id = self.id, view = *current_view),
+        name = "Timeout consensus tasks",
+        level = "warn"
+    )]
+    pub async fn timeout_view_da_tasks<Proposal: ProposalType<NodeType = TYPES>>(
+        &self,
+        current_view: TYPES::Time,
+        send_da_member: UnboundedSender<ProcessedConsensusMessage<TYPES, I::Leaf, Proposal>>,
+    ) {
+        let msg =
+            ProcessedConsensusMessage::<TYPES, I::Leaf, Proposal>::NextViewInterrupt(current_view);
+        if send_da_member.send(msg).await.is_err() {
+            warn!("Error timing out da member");
         };
     }
 
@@ -841,19 +866,27 @@ impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
         ELECTION: Election<
             TYPES,
-            LeafType = DALeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+            LeafType = SequencingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
             DACertificate = DACertificate<TYPES>,
         >,
-        I: NodeImplementation<TYPES, Leaf = DALeaf<TYPES>, Proposal = DAProposal<TYPES, ELECTION>>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            Proposal = DAProposal<TYPES, ELECTION>,
+        >,
     > ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
 {
     // #[instrument]
+    #[allow(clippy::too_many_lines)]
     async fn run_view(hotshot: HotShot<SequencingConsensus, TYPES, I>) -> Result<(), ()> {
         let c_api = HotShotConsensusApi {
             inner: hotshot.inner.clone(),
         };
-        let send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+        let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+        let leader_last_view: TYPES::Time = send_to_next_leader.cur_view;
+        send_to_next_leader.channel_map.remove(&leader_last_view);
+        send_to_next_leader.cur_view += 1;
         let (_send_da_vote_chan, recv_da_vote, cur_view) = {
             let mut consensus = hotshot.hotstuff.write().await;
             let cur_view = consensus.increment_view();
@@ -865,7 +898,7 @@ impl<
             (vq.sender_chan, vq.receiver_chan, cur_view)
         };
         let send_to_next_leader = hotshot.next_leader_channel_map.write().await;
-        let (_send_commitment_vote_chan, recv_commitment_vote_chan) = {
+        let (send_commitment_vote_chan, recv_commitment_vote_chan) = {
             let vq = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
                 cur_view + 1,
                 send_to_next_leader,
@@ -873,6 +906,7 @@ impl<
             .await;
             (vq.sender_chan, vq.receiver_chan)
         };
+
         let (high_qc, txns) = {
             // OBTAIN read lock on consensus
             let consensus = hotshot.hotstuff.read().await;
@@ -885,7 +919,7 @@ impl<
         send_to_member.channel_map.remove(&member_last_view);
         send_to_member.cur_view += 1;
         let ViewQueue {
-            sender_chan: _,
+            sender_chan: send_member,
             receiver_chan: recv_member,
             has_received_proposal: _,
         } = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
@@ -893,6 +927,9 @@ impl<
             send_to_member,
         )
         .await;
+
+        let mut task_handles = Vec::new();
+
         if c_api.is_leader(cur_view).await {
             let da_leader = DALeader {
                 id: hotshot.id,
@@ -904,25 +941,30 @@ impl<
                 vote_collection_chan: recv_da_vote,
                 _pd: PhantomData,
             };
-            let Some((da_cert, block, parent)) = da_leader.run_view().await else {
-                    return Ok(());
+            let hotstuff = hotshot.hotstuff.clone();
+            let qc = high_qc.clone();
+            let api = c_api.clone();
+            let leader_handle = async_spawn(async move {
+                let Some((da_cert, block, parent)) = da_leader.run_view().await else {
+                    return qc;
                 };
-
-            let consensus_leader = DAConsensusLeader {
-                id: hotshot.id,
-                consensus: hotshot.hotstuff.clone(),
-                high_qc: high_qc.clone(),
-                cert: da_cert,
-                block,
-                parent,
-                cur_view,
-                api: c_api.clone(),
-                _pd: PhantomData,
-            };
-            let _qc = consensus_leader.run_view().await;
+                let consensus_leader = ConsensusLeader {
+                    id: hotshot.id,
+                    consensus: hotstuff,
+                    high_qc: qc,
+                    cert: da_cert,
+                    block,
+                    parent,
+                    cur_view,
+                    api: api.clone(),
+                    _pd: PhantomData,
+                };
+                consensus_leader.run_view().await
+            });
+            task_handles.push(leader_handle);
         }
         if c_api.is_leader(cur_view + 1).await {
-            let next_leader = DANextLeader {
+            let next_leader = ConsensusNextLeader {
                 id: hotshot.id,
                 consensus: hotshot.hotstuff.clone(),
                 cur_view,
@@ -931,7 +973,8 @@ impl<
                 vote_collection_chan: recv_commitment_vote_chan,
                 _pd: PhantomData,
             };
-            let _new_qc = next_leader.run_view();
+            let next_leader_handle = async_spawn(async move { next_leader.run_view().await });
+            task_handles.push(next_leader_handle);
         }
         let da_member = DAMember {
             id: hotshot.id,
@@ -941,11 +984,49 @@ impl<
             high_qc: high_qc.clone(),
             api: c_api.clone(),
         };
-        let _ = da_member.run_view().await;
+        let member_handle = async_spawn(async move { da_member.run_view().await });
+        task_handles.push(member_handle);
+
+        // TODO (da) Replica task isn't added since the proposal it listens to is the commitment
+        // proposal but `I::Proposal` here is the DA proposal. We need to support the two proposal
+        // types for sequencing consensus in the refactored node implementation.
         let _da_replica = {};
-        // TODO tie all the tasks together and do correct book keeping.
-        #[allow(deprecated)]
-        nll_todo()
+        // TODO: ADD DA replica task handle and push it to `task_handles`.
+
+        let children_finished = futures::future::join_all(task_handles);
+
+        async_spawn({
+            let next_view_timeout = hotshot.inner.config.next_view_timeout;
+            let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
+            async move {
+                async_sleep(Duration::from_millis(next_view_timeout)).await;
+                hotshot
+                    .timeout_view(cur_view, send_member, Some(send_commitment_vote_chan))
+                    .await;
+                // TODO(da): When we have the replica channel send timeout to it and the DA leader.
+                // hotshot.timeout_da_view(curr_view, send_replica).await
+            }
+        });
+
+        let results = children_finished.await;
+
+        // unwrap is fine since results must have >= 1 item(s)
+        #[cfg(feature = "async-std-executor")]
+        let high_qc = results
+            .into_iter()
+            .max_by_key(|qc: &ELECTION::QuorumCertificate| qc.view_number)
+            .unwrap();
+        #[cfg(feature = "tokio-executor")]
+        let high_qc = results
+            .into_iter()
+            .filter_map(std::result::Result::ok)
+            .max_by_key(|qc| qc.view_number)
+            .unwrap();
+
+        let mut consensus = hotshot.hotstuff.write().await;
+        consensus.high_qc = high_qc;
+        c_api.send_view_finished(consensus.cur_view).await;
+        Ok(())
     }
 }
 
@@ -1109,6 +1190,49 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
             view_number,
             vote_token,
         )
+    }
+
+    fn accumulate_qc_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        leaf_commitment: Commitment<I::Leaf>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, I::Leaf>,
+    ) -> Either<
+        CertificateAccumulator<TYPES::VoteTokenType, I::Leaf>,
+        QuorumCertificate<TYPES, I::Leaf>,
+    > {
+        let meta = VoteMetaData {
+            encoded_key: encoded_key.clone(),
+            encoded_signature: encoded_signature.clone(),
+            commitment: leaf_commitment,
+            data: VoteData::Yes(leaf_commitment),
+            vote_token,
+            view_number,
+        };
+        self.inner.election.accumulate_vote(meta, accumlator)
+    }
+    fn accumulate_da_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        block_commitment: Commitment<TYPES::BlockType>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>
+    {
+        let meta = VoteMetaData {
+            encoded_key: encoded_key.clone(),
+            encoded_signature: encoded_signature.clone(),
+            commitment: block_commitment,
+            data: VoteData::DA(block_commitment),
+            vote_token,
+            view_number,
+        };
+        self.inner.election.accumulate_vote(meta, accumlator)
     }
 
     async fn store_leaf(

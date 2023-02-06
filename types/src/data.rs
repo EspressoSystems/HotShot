@@ -144,6 +144,9 @@ pub struct CommitmentProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
 
+    /// Height from leader when proposing leaf
+    pub height: u64,
+
     /// Per spec, justification
     pub justify_qc: ELECTION::QuorumCertificate,
 
@@ -232,7 +235,7 @@ pub trait LeafType:
             <Self::NodeType as NodeType>::SignatureKey,
             <Self::NodeType as NodeType>::Time,
             <Self::NodeType as NodeType>::VoteTokenType,
-            Self,
+            <Self::NodeType as NodeType>::BlockType,
         > + Debug
         + Eq
         + PartialEq
@@ -323,7 +326,7 @@ pub struct ValidatingLeaf<TYPES: NodeType> {
 #[derive(Serialize, Deserialize, Clone, Debug, Derivative, Eq)]
 #[derivative(PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
-pub struct DALeaf<TYPES: NodeType> {
+pub struct SequencingLeaf<TYPES: NodeType> {
     /// CurView from leader when proposing leaf
     pub view_number: TYPES::Time,
 
@@ -333,9 +336,9 @@ pub struct DALeaf<TYPES: NodeType> {
     /// Per spec, justification
     pub justify_qc: QuorumCertificate<TYPES, Self>,
 
-    /// The hash of the parent `DALeaf`
+    /// The hash of the parent `SequencingLeaf`
     /// So we can ask if it extends
-    pub parent_commitment: Commitment<DALeaf<TYPES>>,
+    pub parent_commitment: Commitment<SequencingLeaf<TYPES>>,
 
     /// The block or block commitment to be applied
     pub deltas: Either<TYPES::BlockType, Commitment<TYPES::BlockType>>,
@@ -448,7 +451,7 @@ where
     }
 }
 
-impl<TYPES: NodeType> LeafType for DALeaf<TYPES> {
+impl<TYPES: NodeType> LeafType for SequencingLeaf<TYPES> {
     type NodeType = TYPES;
     type DeltasType = Either<TYPES::BlockType, Commitment<TYPES::BlockType>>;
     type StateCommitmentType = ();
@@ -497,7 +500,7 @@ impl<TYPES: NodeType> LeafType for DALeaf<TYPES> {
         self.deltas.clone()
     }
 
-    // The DA Leaf doesn't have a state.
+    // The Sequencing Leaf doesn't have a state.
     fn get_state(&self) -> Self::StateCommitmentType {}
 
     fn get_rejected(&self) -> Vec<<TYPES::BlockType as Block>::Transaction> {
@@ -526,7 +529,7 @@ impl<TYPES: NodeType> LeafType for DALeaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeType> TestableLeaf for DALeaf<TYPES>
+impl<TYPES: NodeType> TestableLeaf for SequencingLeaf<TYPES>
 where
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -585,7 +588,7 @@ impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
     }
 }
 
-impl<TYPES: NodeType> Committable for DALeaf<TYPES> {
+impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
     fn commit(&self) -> commit::Commitment<Self> {
         // Commit the block commitment, rather than the block, so that the replicas can reconstruct
         // the leaf.

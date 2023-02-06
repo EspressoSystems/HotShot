@@ -5,6 +5,7 @@ use blake3::Hasher;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
 use espresso_systems_common::hotshot::tag;
+use hotshot_types::certificate::DACertificate;
 use hotshot_types::{
     data::LeafType,
     traits::{
@@ -476,7 +477,7 @@ where
 
     type QuorumCertificate = LEAF::QuorumCertificate;
 
-    type DACertificate = LEAF::DACertificate;
+    type DACertificate = DACertificate<TYPES>;
 
     type LeafType = LEAF;
 

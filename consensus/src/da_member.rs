@@ -1,5 +1,5 @@
 //! Contains the [`DAMember`] struct used for the committee member step in the consensus algorithm
-//! with DA committee.
+//! with DA committee, i.e. in the sequencing consensus.
 
 use crate::{
     utils::{View, ViewInner},
@@ -11,8 +11,8 @@ use commit::Committable;
 use either::Left;
 use hotshot_types::{
     certificate::QuorumCertificate,
-    data::{DALeaf, DAProposal},
-    message::{ConsensusMessage, DAVote, ProcessedConsensusMessage, Vote},
+    data::{DAProposal, SequencingLeaf},
+    message::{ConsensusMessage, ProcessedConsensusMessage},
     traits::{
         election::{Election, SignedCertificate},
         node_implementation::NodeType,
@@ -25,24 +25,28 @@ use tracing::{error, info, instrument, warn};
 /// This view's DA committee member.
 #[derive(Debug, Clone)]
 pub struct DAMember<
-    A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
     TYPES: NodeType,
     ELECTION: Election<
         TYPES,
-        LeafType = DALeaf<TYPES>,
-        QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+        LeafType = SequencingLeaf<TYPES>,
+        QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     >,
 > {
     /// ID of node.
     pub id: u64,
     /// Reference to consensus. DA committee member will require a write lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES, DALeaf<TYPES>>>>,
+    pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// Channel for accepting leader proposals and timeouts messages.
     #[allow(clippy::type_complexity)]
     pub proposal_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
-                ProcessedConsensusMessage<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+                ProcessedConsensusMessage<
+                    TYPES,
+                    SequencingLeaf<TYPES>,
+                    DAProposal<TYPES, ELECTION>,
+                >,
             >,
         >,
     >,
@@ -55,17 +59,17 @@ pub struct DAMember<
 }
 
 impl<
-        A: ConsensusApi<TYPES, DALeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
         TYPES: NodeType,
         ELECTION: Election<
             TYPES,
-            LeafType = DALeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, DALeaf<TYPES>>,
+            LeafType = SequencingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         >,
     > DAMember<A, TYPES, ELECTION>
 {
     /// Returns the parent leaf of the proposal we are voting on
-    async fn parent_leaf(&self) -> Option<DALeaf<TYPES>> {
+    async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let parent_view_number = &self.high_qc.view_number();
         let consensus = self.consensus.read().await;
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
@@ -90,13 +94,14 @@ impl<
         Some(parent_leaf.clone())
     }
 
-    /// DA committee member task that spins until a valid QC can be signed or timeout is hit.
+    /// DA committee member task that spins until a valid DA proposal can be signed or timeout is
+    /// hit.
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Member Task", level = "error")]
     #[allow(clippy::type_complexity)]
     async fn find_valid_msg<'a>(
         &self,
         view_leader_key: TYPES::SignatureKey,
-    ) -> Option<DALeaf<TYPES>> {
+    ) -> Option<SequencingLeaf<TYPES>> {
         let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
             let msg = lock.recv().await;
@@ -114,7 +119,7 @@ impl<
                             continue;
                         }
                         let parent = self.parent_leaf().await?;
-                        let leaf = DALeaf {
+                        let leaf = SequencingLeaf {
                             view_number: self.cur_view,
                             height: parent.height + 1,
                             justify_qc: self.high_qc.clone(),
@@ -140,30 +145,23 @@ impl<
                                 );
                             }
                             Ok(None) => {
-                                info!("We were not chosen for committee on {:?}", self.cur_view);
+                                info!("We were not chosen for DA committee on {:?}", self.cur_view);
                             }
                             Ok(Some(vote_token)) => {
-                                info!("We were chosen for committee on {:?}", self.cur_view);
-                                let signature = self.api.sign_da_vote(block_commitment);
+                                info!("We were chosen for DA committee on {:?}", self.cur_view);
 
                                 // Generate and send vote
-                                let vote =
-                                    ConsensusMessage::<
-                                        TYPES,
-                                        DALeaf<TYPES>,
-                                        DAProposal<TYPES, ELECTION>,
-                                    >::Vote(Vote::DA(DAVote {
-                                        justify_qc_commitment: self.high_qc.commit(),
-                                        signature,
-                                        block_commitment,
-                                        current_view: self.cur_view,
-                                        vote_token,
-                                    }));
+                                let message = self.api.create_da_message(
+                                    self.high_qc.commit(),
+                                    block_commitment,
+                                    self.cur_view,
+                                    vote_token,
+                                );
 
-                                info!("Sending vote to the leader {:?}", vote);
+                                info!("Sending vote to the leader {:?}", message);
 
                                 let consensus = self.consensus.read().await;
-                                if self.api.send_direct_message(sender, vote).await.is_err() {
+                                if self.api.send_direct_message(sender, message).await.is_err() {
                                     consensus.metrics.failed_to_send_messages.add(1);
                                     warn!("Failed to send vote to the leader");
                                 } else {
@@ -193,7 +191,7 @@ impl<
 
     /// Run one view of DA committee member.
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "DA Member Task", level = "error")]
-    pub async fn run_view(self) {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
         info!("DA Committee Member task started!");
         let view_leader_key = self.api.get_leader(self.cur_view).await;
 
@@ -201,7 +199,7 @@ impl<
 
         let Some(leaf) = maybe_leaf else {
             // We either timed out or for some reason could not accept a proposal.
-            return;
+            return self.high_qc;
         };
 
         // Update state map and leaves.
@@ -221,5 +219,6 @@ impl<
         if let Err(e) = self.api.store_leaf(self.cur_view, leaf).await {
             error!("Could not insert new anchor into the storage API: {:?}", e);
         }
+        self.high_qc
     }
 }
