@@ -308,8 +308,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         current_view: TYPES::Time,
         send_da_member: UnboundedSender<ProcessedConsensusMessage<TYPES, I::Leaf, Proposal>>,
     ) {
-        let msg =
-            ProcessedConsensusMessage::<TYPES, I::Leaf, Proposal>::NextViewInterrupt(current_view);
+        let msg = ProcessedConsensusMessage::<TYPES, I::Leaf, Proposal>::InternalTrigger(
+            InternalTrigger::Timeout(current_view),
+        );
         if send_da_member.send(msg).await.is_err() {
             warn!("Error timing out da member");
         };
