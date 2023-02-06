@@ -32,6 +32,7 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+#[allow(deprecated)]
 use nll::nll_todo::nll_todo;
 use std::{
     collections::HashSet,
@@ -498,6 +499,7 @@ impl Config {
             )),
             bs_len,
             self.node_id as usize,
+            #[allow(deprecated)]
             nll_todo(),
         )
         .await
