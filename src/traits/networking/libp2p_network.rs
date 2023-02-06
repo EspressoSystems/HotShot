@@ -664,6 +664,20 @@ pub struct Libp2pCommChannel<
     PROPOSAL: ProposalType<NodeType = TYPES>,
 >(Libp2pNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>);
 
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+    > Libp2pCommChannel<TYPES, LEAF, PROPOSAL>
+{
+    /// create a new libp2p communication channel
+    pub fn new(
+        network: Libp2pNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>,
+    ) -> Self {
+        Self(network)
+    }
+}
+
 // FIXME maybe we should macro this...? It's repeated at verbatum EXCEPT for impl generics at the
 // top
 // we don't really want to make this the default implementation because that forces it to require ConnectedNetwork to be implemented. The struct we implement over might use multiple ConnectedNetworks
