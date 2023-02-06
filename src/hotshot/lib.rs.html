@@ -1278,6 +1278,7 @@
 <a href="#1278" id="1278">1278</a>
 <a href="#1279" id="1279">1279</a>
 <a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
 </pre><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1348,7 +1349,7 @@
 <span class="kw">use </span>hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
-    message::{ConsensusMessage, DataMessage, Message},
+    message::{ConsensusMessage, DataMessage, InternalTrigger, Message},
     traits::{
         election::{Checked, Election, ElectionError, SignedCertificate, VoteData},
         metrics::Metrics,
@@ -1558,8 +1559,8 @@
             UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, I::Leaf, I::Proposal&gt;&gt;,
         &gt;,
     ) {
-        <span class="kw">let </span>msg = ProcessedConsensusMessage::&lt;TYPES, I::Leaf, I::Proposal&gt;::NextViewInterrupt(
-            current_view,
+        <span class="kw">let </span>msg = ProcessedConsensusMessage::&lt;TYPES, I::Leaf, I::Proposal&gt;::InternalTrigger(
+            InternalTrigger::Timeout(current_view),
         );
         <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = send_next_leader {
             <span class="kw">if </span>chan.send(msg.clone()).<span class="kw">await</span>.is_err() {
@@ -1588,8 +1589,9 @@
         current_view: TYPES::Time,
         send_da_member: UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, I::Leaf, Proposal&gt;&gt;,
     ) {
-        <span class="kw">let </span>msg =
-            ProcessedConsensusMessage::&lt;TYPES, I::Leaf, Proposal&gt;::NextViewInterrupt(current_view);
+        <span class="kw">let </span>msg = ProcessedConsensusMessage::&lt;TYPES, I::Leaf, Proposal&gt;::InternalTrigger(
+            InternalTrigger::Timeout(current_view),
+        );
         <span class="kw">if </span>send_da_member.send(msg).<span class="kw">await</span>.is_err() {
             <span class="macro">warn!</span>(<span class="string">&quot;Error timing out da member&quot;</span>);
         };
@@ -1775,8 +1777,8 @@
                     <span class="macro">warn!</span>(<span class="string">&quot;Failed to send to next leader!&quot;</span>);
                 }
             }
-            ConsensusMessage::NextViewInterrupt(<span class="kw">_</span>) =&gt; {
-                <span class="macro">warn!</span>(<span class="string">&quot;Received a next view interrupt. This shouldn&#39;t be possible.&quot;</span>);
+            ConsensusMessage::InternalTrigger(<span class="kw">_</span>) =&gt; {
+                <span class="macro">warn!</span>(<span class="string">&quot;Received an internal trigger. This shouldn&#39;t be possible.&quot;</span>);
             }
             ConsensusMessage::Vote(<span class="kw">_</span>) =&gt; {
                 <span class="macro">warn!</span>(<span class="string">&quot;Received a broadcast for a vote message. This shouldn&#39;t be possible.&quot;</span>);
@@ -1817,7 +1819,7 @@
         <span class="comment">// We can only recv from a replicas
         // replicas should only send votes or if they timed out, timeouts
         </span><span class="kw">match </span>msg {
-            ConsensusMessage::Proposal(<span class="kw">_</span>) | ConsensusMessage::NextViewInterrupt(<span class="kw">_</span>) =&gt; {
+            ConsensusMessage::Proposal(<span class="kw">_</span>) | ConsensusMessage::InternalTrigger(<span class="kw">_</span>) =&gt; {
                 <span class="macro">warn!</span>(<span class="string">&quot;Received a direct message for a proposal. This shouldn&#39;t be possible.&quot;</span>);
             }
             <span class="comment">// this is ONLY intended for next leader
