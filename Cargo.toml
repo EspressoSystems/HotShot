@@ -153,7 +153,7 @@ serde = { version = "1.0.152", features = ["derive", "rc"] }
 snafu = "0.7.4"
 tempfile = "3.3.0"
 time = "0.3.17"
-toml = { version = "0.7.1", optional = true }
+toml = { version = "0.7.2", optional = true }
 tokio = { version = "1", optional = true, features = [
         "fs",
         "io-util",
@@ -178,7 +178,7 @@ clap = { version = "4.1", features = ["derive", "env"] }
 rand_xoshiro = "0.6.0"
 serde_json = "1.0.92"
 sha2 = { version = "0.10.1" }
-toml = "0.7.1"
+toml = "0.7.2"
 
 ### Profiles
 ###
