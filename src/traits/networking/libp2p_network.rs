@@ -13,7 +13,7 @@ use bimap::BiHashMap;
 use bincode::Options;
 use hotshot_types::{
     data::{LeafType, ProposalType},
-    message::Message,
+    message::{Message, VoteType},
     traits::{
         election::Election,
         metrics::{Metrics, NoMetrics},
@@ -662,17 +662,19 @@ pub struct Libp2pCommChannel<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
->(Libp2pNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>);
+    VOTE: VoteType<TYPES>,
+>(Libp2pNetwork<Message<TYPES, PROPOSAL, VOTE>, TYPES::SignatureKey>);
 
 impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
     > Libp2pCommChannel<TYPES, LEAF, PROPOSAL>
 {
     /// create a new libp2p communication channel
     pub fn new(
-        network: Libp2pNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>,
+        network: Libp2pNetwork<Message<TYPES, PROPOSAL, VOTE>, TYPES::SignatureKey>,
     ) -> Self {
         Self(network)
     }
@@ -686,8 +688,9 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-    > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION>
+    > CommunicationChannel<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>
     for Libp2pCommChannel<TYPES, LEAF, PROPOSAL>
 {
     async fn ready(&self) -> bool {
@@ -700,7 +703,7 @@ impl<
 
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, LEAF, PROPOSAL>,
+        message: Message<TYPES, PROPOSAL, VOTE>,
         election: &ELECTION,
     ) -> Result<(), NetworkError> {
         let recipients =
@@ -710,7 +713,7 @@ impl<
 
     async fn direct_message(
         &self,
-        message: Message<TYPES, LEAF, PROPOSAL>,
+        message: Message<TYPES, PROPOSAL, VOTE>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
@@ -719,7 +722,7 @@ impl<
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 

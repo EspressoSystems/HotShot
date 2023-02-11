@@ -273,12 +273,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     pub async fn timeout_view(
         &self,
         current_view: TYPES::Time,
-        send_replica: UnboundedSender<ProcessedConsensusMessage<TYPES, I::Leaf, I::Proposal>>,
+        send_replica: UnboundedSender<ProcessedConsensusMessage<TYPES, I::Proposal, I::Vote>>,
         send_next_leader: Option<
-            UnboundedSender<ProcessedConsensusMessage<TYPES, I::Leaf, I::Proposal>>,
+            UnboundedSender<ProcessedConsensusMessage<TYPES, I::Proposal, I::Vote>>,
         >,
     ) {
-        let msg = ProcessedConsensusMessage::<TYPES, I::Leaf, I::Proposal>::InternalTrigger(
+        let msg = ProcessedConsensusMessage::<TYPES, I::Proposal, I::Vote>::InternalTrigger(
             InternalTrigger::Timeout(current_view),
         );
         if let Some(chan) = send_next_leader {
@@ -483,7 +483,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                     return;
                 }
 
-                let chan: ViewQueue<TYPES, I::Leaf, I::Proposal> =
+                let chan: ViewQueue<TYPES, I::Proposal, I::Vote> =
                     Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
 
                 if !chan.has_received_proposal.swap(true, Ordering::Relaxed)
@@ -558,7 +558,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                 )
                 .await;
                 if !is_leader || msg_time < channel_map.cur_view {
-                    warn!("Throwing away Vote message for view number: {:?}", msg_time);
+                    warn!(
+                        "Throwing away VoteType<TYPES>message for view number: {:?}",
+                        msg_time
+                    );
                     return;
                 }
 
@@ -637,7 +640,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     pub async fn create_or_obtain_chan_from_read(
         view_num: TYPES::Time,
         channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<TYPES, I::Leaf, I::Proposal>>,
-    ) -> ViewQueue<TYPES, I::Leaf, I::Proposal> {
+    ) -> ViewQueue<TYPES, I::Proposal, I::Vote> {
         // check if we have the entry
         // if we don't, insert
         if let Some(vq) = channel_map.channel_map.get(&view_num) {
@@ -665,7 +668,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     pub async fn create_or_obtain_chan_from_write(
         view_num: TYPES::Time,
         mut channel_map: RwLockWriteGuard<'_, SendToTasks<TYPES, I::Leaf, I::Proposal>>,
-    ) -> ViewQueue<TYPES, I::Leaf, I::Proposal> {
+    ) -> ViewQueue<TYPES, I::Proposal, I::Vote> {
         channel_map.channel_map.entry(view_num).or_default().clone()
     }
 }
@@ -1040,7 +1043,8 @@ struct HotShotConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
-    hotshot_consensus::ConsensusApi<TYPES, I::Leaf, I::Proposal> for HotShotConsensusApi<TYPES, I>
+    hotshot_consensus::ConsensusApi<TYPES, I::Leaf, I::Proposal, I::Vote>
+    for HotShotConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes

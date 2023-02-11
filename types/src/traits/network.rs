@@ -13,7 +13,7 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 use super::{election::Election, node_implementation::NodeType, signature_key::SignatureKey};
 use crate::{
     data::{LeafType, ProposalType},
-    message::Message,
+    message::{Message, VoteType},
 };
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -117,6 +117,7 @@ pub trait CommunicationChannel<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
     ELECTION: Election<TYPES>,
 >: Clone + Send + Sync + 'static
 {
@@ -134,7 +135,7 @@ pub trait CommunicationChannel<
     /// blocking
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, LEAF, PROPOSAL>,
+        message: Message<TYPES, PROPOSAL, VOTE>,
         election: &ELECTION,
     ) -> Result<(), NetworkError>;
 
@@ -142,7 +143,7 @@ pub trait CommunicationChannel<
     /// blocking
     async fn direct_message(
         &self,
-        message: Message<TYPES, LEAF, PROPOSAL>,
+        message: Message<TYPES, PROPOSAL, VOTE>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError>;
 
@@ -153,7 +154,7 @@ pub trait CommunicationChannel<
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError>;
+    ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError>;
 
     /// look up a node
     /// blocking
@@ -210,8 +211,9 @@ pub trait TestableNetworkingImplementation<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
     ELECTION: Election<TYPES>,
->: CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION>
+>: CommunicationChannel<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>
 {
     /// generates a network given an expected node count
     fn generator(

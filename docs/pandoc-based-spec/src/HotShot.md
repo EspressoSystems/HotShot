@@ -210,7 +210,7 @@ enum Message {
         view_number: ViewNumber,
         node: Leaf,
     }
-    Vote {
+    VoteType<TYPES>{
         view_number: ViewNumber,
         node: Leaf,
         partial_sig: PartialSignature,

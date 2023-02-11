@@ -1097,12 +1097,14 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-    > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION> for CentralizedCommChannel<TYPES>
+    > CommunicationChannel<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>
+    for CentralizedCommChannel<TYPES>
 {
     async fn ready(&self) -> bool {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, LEAF, PROPOSAL>,
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::ready(&self.0)
         .await
@@ -1110,7 +1112,7 @@ impl<
 
     async fn shut_down(&self) -> () {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, LEAF, PROPOSAL>,
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
         .await;
@@ -1118,7 +1120,7 @@ impl<
 
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, LEAF, PROPOSAL>,
+        message: Message<TYPES, PROPOSAL, VOTE>,
         election: &ELECTION,
     ) -> Result<(), NetworkError> {
         let view_number = message.get_view_number();
@@ -1128,7 +1130,7 @@ impl<
 
     async fn direct_message(
         &self,
-        message: Message<TYPES, LEAF, PROPOSAL>,
+        message: Message<TYPES, PROPOSAL, VOTE>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
@@ -1137,13 +1139,13 @@ impl<
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, LEAF, PROPOSAL>,
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::lookup_node(&self.0, pk)
         .await

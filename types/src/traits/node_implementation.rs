@@ -18,6 +18,7 @@ use super::{
 };
 use crate::{
     data::{LeafType, ProposalType},
+    message::VoteType,
     traits::{election::Election, signature_key::SignatureKey, storage::Storage, Block},
 };
 use std::fmt::Debug;
@@ -43,8 +44,16 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
 
     type Proposal: ProposalType<NodeType = TYPES, Election = Self::Election>;
 
+    type Vote: VoteType<TYPES>;
+
     /// Networking type for this consensus implementation
-    type Networking: CommunicationChannel<TYPES, Self::Leaf, Self::Proposal, Self::Election>;
+    type Networking: CommunicationChannel<
+        TYPES,
+        Self::Leaf,
+        Self::Proposal,
+        Self::Vote,
+        Self::Election,
+    >;
 }
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
@@ -112,6 +121,7 @@ where
         TYPES,
         <Self as NodeImplementation<TYPES>>::Leaf,
         <Self as NodeImplementation<TYPES>>::Proposal,
+        <Self as NodeImplementation<TYPES>>::Vote,
         <Self as NodeImplementation<TYPES>>::Election,
     >,
     <Self as NodeImplementation<TYPES>>::Storage:

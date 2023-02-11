@@ -13,7 +13,7 @@ use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::{
     certificate::QuorumCertificate,
-    message::{ConsensusMessage, InternalTrigger, Vote},
+    message::{ConsensusMessage, InternalTrigger, QuorumVote},
 };
 use std::time::Instant;
 use std::{
@@ -25,7 +25,12 @@ use tracing::{error, instrument, warn};
 /// The next view's validating leader
 #[derive(custom_debug::Debug, Clone)]
 pub struct NextValidatingLeader<
-    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<
+        TYPES,
+        ValidatingLeaf<TYPES>,
+        ValidatingProposal<TYPES, ELECTION>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+    >,
     TYPES: NodeType,
     ELECTION: Election<
         TYPES,
@@ -44,8 +49,8 @@ pub struct NextValidatingLeader<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
-                    ValidatingLeaf<TYPES>,
                     ValidatingProposal<TYPES, ELECTION>,
+                    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
                 >,
             >,
         >,
@@ -60,7 +65,12 @@ pub struct NextValidatingLeader<
 }
 
 impl<
-        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<
+            TYPES,
+            ValidatingLeaf<TYPES>,
+            ValidatingProposal<TYPES, ELECTION>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+        >,
         TYPES: NodeType,
         ELECTION: Election<
             TYPES,
@@ -96,7 +106,7 @@ impl<
             match msg {
                 ProcessedConsensusMessage::Vote(vote_message, sender) => {
                     match vote_message {
-                        Vote::Yes(vote) => {
+                        QuorumVote::Yes(vote) => {
                             if vote.signature.0
                                 != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
                             {
@@ -133,7 +143,7 @@ impl<
                                 continue;
                             }
                         }
-                        Vote::Timeout(vote) => {
+                        QuorumVote::Timeout(vote) => {
                             qcs.insert(vote.justify_qc);
                         }
                         _ => {

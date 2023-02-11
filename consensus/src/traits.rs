@@ -12,7 +12,7 @@ use hotshot_types::{
     data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
-    message::{DAVote, TimeoutVote, Vote, YesOrNoVote},
+    message::{DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote},
     traits::{
         election::{Checked, ElectionError, VoteData},
         network::NetworkError,
@@ -31,6 +31,7 @@ pub trait ConsensusApi<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
 >: Send + Sync
 {
     /// Total number of nodes in the network. Also known as `n`.
@@ -78,13 +79,13 @@ pub trait ConsensusApi<
     async fn send_direct_message(
         &self,
         recipient: TYPES::SignatureKey,
-        message: ConsensusMessage<TYPES, LEAF, PROPOSAL>,
+        message: ConsensusMessage<TYPES, PROPOSAL, VOTE>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Send a broadcast message to the entire network.
     async fn send_broadcast_message(
         &self,
-        message: ConsensusMessage<TYPES, LEAF, PROPOSAL>,
+        message: ConsensusMessage<TYPES, PROPOSAL, VOTE>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Notify the system of an event within `hotshot-consensus`.
@@ -159,7 +160,7 @@ pub trait ConsensusApi<
     /// Send a broadcast to the DA comitee, stub for now
     async fn send_da_broadcast<DAPROPOSAL: ProposalType<NodeType = TYPES>>(
         &self,
-        message: ConsensusMessage<TYPES, LEAF, DAPROPOSAL>,
+        message: ConsensusMessage<TYPES, DAPROPOSAL, VOTE>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Sign a DA proposal.
@@ -250,9 +251,9 @@ pub trait ConsensusApi<
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+    ) -> ConsensusMessage<TYPES, PROPOSAL, VOTE> {
         let signature = self.sign_da_vote(block_commitment);
-        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::DA(DAVote {
+        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::VoteType(VoteType::DA(DAVote {
             justify_qc_commitment,
             signature,
             block_commitment,
@@ -268,9 +269,9 @@ pub trait ConsensusApi<
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+    ) -> ConsensusMessage<TYPES, PROPOSAL, VOTE> {
         let signature = self.sign_yes_vote(leaf_commitment);
-        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::Yes(YesOrNoVote {
+        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::VoteType(QuorumVote::Yes(YesOrNoVote {
             justify_qc_commitment,
             signature,
             leaf_commitment,
@@ -286,9 +287,9 @@ pub trait ConsensusApi<
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+    ) -> ConsensusMessage<TYPES, PROPOSAL, VOTE> {
         let signature = self.sign_no_vote(leaf_commitment);
-        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::No(YesOrNoVote {
+        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::VoteType(QuorumVote::No(YesOrNoVote {
             justify_qc_commitment,
             signature,
             leaf_commitment,
@@ -303,9 +304,9 @@ pub trait ConsensusApi<
         justify_qc: LEAF::QuorumCertificate,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+    ) -> ConsensusMessage<TYPES, PROPOSAL, VOTE> {
         let signature = self.sign_timeout_vote(current_view);
-        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::Timeout(TimeoutVote {
+        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::VoteType(QuorumVote::Timeout(TimeoutVote {
             justify_qc,
             signature,
             current_view,

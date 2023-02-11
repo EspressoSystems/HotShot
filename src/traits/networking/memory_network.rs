@@ -15,7 +15,7 @@ use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
     data::{LeafType, ProposalType},
-    message::Message,
+    message::{Message, VoteType},
     traits::{
         election::Election,
         metrics::{Metrics, NoMetrics},
@@ -446,15 +446,17 @@ pub struct MemoryCommChannel<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
->(MemoryNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>);
+    VOTE: VoteType<TYPES>,
+>(MemoryNetwork<Message<TYPES, PROPOSAL, VOTE>, TYPES::SignatureKey>);
 
 #[async_trait]
 impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-    > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION>
+    > CommunicationChannel<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>
     for MemoryCommChannel<TYPES, LEAF, PROPOSAL>
 {
     async fn ready(&self) -> bool {
@@ -467,7 +469,7 @@ impl<
 
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, LEAF, PROPOSAL>,
+        message: Message<TYPES, PROPOSAL, VOTE>,
         election: &ELECTION,
     ) -> Result<(), NetworkError> {
         let recipients =
@@ -477,7 +479,7 @@ impl<
 
     async fn direct_message(
         &self,
-        message: Message<TYPES, LEAF, PROPOSAL>,
+        message: Message<TYPES, PROPOSAL, VOTE>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
@@ -486,7 +488,7 @@ impl<
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 
@@ -564,7 +566,7 @@ mod tests {
 
     /// fake Eq
     /// we can't compare the votetokentype for equality, so we can't
-    /// derive EQ on Vote and thereby message
+    /// derive EQ on VoteType<TYPES>and thereby message
     /// we are only sending data messages, though so we compare key and
     /// data message
     fn fake_message_eq(

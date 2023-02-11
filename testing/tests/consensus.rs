@@ -468,7 +468,7 @@ async fn test_validating_proposal_queueing() {
     test.execute().await.unwrap();
 }
 
-/// Tests that next leaders receive and queue valid Vote messages properly
+/// Tests that next leaders receive and queue valid VoteType<TYPES>messages properly
 #[cfg_attr(
     feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)

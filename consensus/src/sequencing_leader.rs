@@ -12,18 +12,17 @@ use commit::Commitment;
 use commit::Committable;
 use either::Either;
 use either::Either::Right;
-use hotshot_types::certificate::{CertificateAccumulator, DACertificate};
-use hotshot_types::data::CommitmentProposal;
-use hotshot_types::message::{InternalTrigger, ProcessedConsensusMessage, Vote};
-use hotshot_types::traits::state::SequencingConsensus;
 use hotshot_types::{
-    certificate::QuorumCertificate,
-    data::{DAProposal, SequencingLeaf},
-    message::{ConsensusMessage, Proposal},
+    certificate::{CertificateAccumulator, DACertificate, QuorumCertificate},
+    data::{CommitmentProposal, DAProposal, SequencingLeaf},
+    message::{
+        ConsensusMessage, DAVote, InternalTrigger, ProcessedConsensusMessage, Proposal, QuorumVote,
+    },
     traits::{
         election::{Election, SignedCertificate},
         node_implementation::NodeType,
         signature_key::SignatureKey,
+        state::SequencingConsensus,
         Block,
     },
 };
@@ -35,7 +34,12 @@ use tracing::{error, info, instrument, warn};
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
 pub struct DALeader<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        DAProposal<TYPES, ELECTION>,
+        DAVote<TYPES, SequencingLeaf<TYPES>>,
+    >,
     TYPES: NodeType,
     ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
 > {
@@ -58,8 +62,8 @@ pub struct DALeader<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
-                    SequencingLeaf<TYPES>,
                     DAProposal<TYPES, ELECTION>,
+                    DAVote<TYPES, SequencingLeaf<TYPES>>,
                 >,
             >,
         >,
@@ -69,7 +73,12 @@ pub struct DALeader<
     pub _pd: PhantomData<ELECTION>,
 }
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<
+            TYPES,
+            SequencingLeaf<TYPES>,
+            DAProposal<TYPES, ELECTION>,
+            DAVote<TYPES, SequencingLeaf<TYPES>>,
+        >,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
     > DALeader<A, TYPES, ELECTION>
@@ -93,36 +102,30 @@ impl<
                 continue;
             }
             match msg {
-                ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
-                    Vote::DA(vote) => {
-                        if vote.signature.0
-                            != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
-                        {
-                            continue;
+                ProcessedConsensusMessage::Vote(vote, sender) => {
+                    if vote.signature.0 != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+                    {
+                        continue;
+                    }
+                    if vote.block_commitment != block_commitment {
+                        continue;
+                    }
+                    match self.api.accumulate_da_vote(
+                        &vote.signature.0,
+                        &vote.signature.1,
+                        vote.block_commitment,
+                        vote.vote_token.clone(),
+                        self.cur_view,
+                        accumulator,
+                    ) {
+                        Either::Left(acc) => {
+                            accumulator = acc;
                         }
-                        if vote.block_commitment != block_commitment {
-                            continue;
-                        }
-                        match self.api.accumulate_da_vote(
-                            &vote.signature.0,
-                            &vote.signature.1,
-                            vote.block_commitment,
-                            vote.vote_token.clone(),
-                            self.cur_view,
-                            accumulator,
-                        ) {
-                            Either::Left(acc) => {
-                                accumulator = acc;
-                            }
-                            Either::Right(qc) => {
-                                return Some(qc);
-                            }
+                        Either::Right(qc) => {
+                            return Some(qc);
                         }
                     }
-                    _ => {
-                        warn!("The DA leader has received an unexpected vote!");
-                    }
-                },
+                }
                 ProcessedConsensusMessage::InternalTrigger(trigger) => match trigger {
                     InternalTrigger::Timeout(_) => {
                         self.api.send_next_leader_timeout(self.cur_view).await;
@@ -265,7 +268,12 @@ impl<
 /// Implemenation of the consensus leader for a DA/Sequencing consensus.  Handles sending out a proposal to the entire network
 /// For now this step happens after the `DALeader` completes it's proposal and collects enough votes.
 pub struct ConsensusLeader<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        DAProposal<TYPES, ELECTION>,
+        QuorumVote<TYPES, SequencingLeaf<TYPES>>,
+    >,
     TYPES: NodeType,
     ELECTION: Election<
         TYPES,
@@ -296,7 +304,12 @@ pub struct ConsensusLeader<
     pub _pd: PhantomData<ELECTION>,
 }
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<
+            TYPES,
+            SequencingLeaf<TYPES>,
+            DAProposal<TYPES, ELECTION>,
+            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
+        >,
         TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
         ELECTION: Election<
             TYPES,
@@ -338,8 +351,8 @@ impl<
 
         let message = ConsensusMessage::<
             TYPES,
-            SequencingLeaf<TYPES>,
             CommitmentProposal<TYPES, ELECTION>,
+            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
         >::Proposal(Proposal {
             data: proposal,
             signature,
@@ -353,7 +366,12 @@ impl<
 
 /// Implenting the next leader.  Collect votes on the previous leaders proposal and return the QC
 pub struct ConsensusNextLeader<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        DAProposal<TYPES, ELECTION>,
+        QuorumVote<TYPES, SequencingLeaf<TYPES>>,
+    >,
     TYPES: NodeType,
     ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
 > {
@@ -375,8 +393,8 @@ pub struct ConsensusNextLeader<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
-                    SequencingLeaf<TYPES>,
                     DAProposal<TYPES, ELECTION>,
+                    QuorumVote<TYPES, SequencingLeaf<TYPES>>,
                 >,
             >,
         >,
@@ -386,7 +404,12 @@ pub struct ConsensusNextLeader<
     pub _pd: PhantomData<ELECTION>,
 }
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<
+            TYPES,
+            SequencingLeaf<TYPES>,
+            DAProposal<TYPES, ELECTION>,
+            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
+        >,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
     > ConsensusNextLeader<A, TYPES, ELECTION>
@@ -413,7 +436,7 @@ impl<
             }
             match msg {
                 ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
-                    Vote::Yes(vote) => {
+                    QuorumVote::Yes(vote) => {
                         if vote.signature.0
                             != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
                         {
@@ -436,7 +459,7 @@ impl<
                             }
                         }
                     }
-                    Vote::Timeout(vote) => {
+                    QuorumVote::Timeout(vote) => {
                         qcs.insert(vote.justify_qc);
                     }
                     _ => {
