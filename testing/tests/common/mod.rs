@@ -182,7 +182,7 @@ where
         runner.add_nodes(self.start_nodes).await;
 
         for (idx, node) in runner.nodes().collect::<Vec<_>>().iter().enumerate().rev() {
-            node.networking().ready().await;
+            node.networking().ready_blocking().await;
             info!("EXECUTOR: NODE {:?} IS READY", idx);
         }
 
@@ -424,6 +424,14 @@ pub type StandardNodeImplType = TestNodeImpl<
                 Param381,
             >,
         >,
+        VrfImpl<
+            VrfTestTypes,
+            ValidatingLeaf<VrfTestTypes>,
+            BLSSignatureScheme<Param381>,
+            BLSVRFScheme<Param381>,
+            Hasher,
+            Param381,
+        >,
     >,
     MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
     VrfImpl<
@@ -452,6 +460,7 @@ pub type StaticNodeImplType = TestNodeImpl<
             StaticCommitteeTestTypes,
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         >,
+        StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     >,
     MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -464,7 +473,7 @@ pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, ELECTION> = TestNodeImpl<
     TYPES,
     LEAF,
     PROPOSAL,
-    MemoryCommChannel<TYPES, LEAF, PROPOSAL>,
+    MemoryCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>,
     MemoryStorage<TYPES, LEAF>,
     ELECTION,
 >;
@@ -922,6 +931,10 @@ macro_rules! cross_tests {
                             hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
                         >
                     >,
+                    hotshot::traits::election::static_committee::StaticCommittee<
+                        common::StaticCommitteeTestTypes,
+                        hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
+                    >
                 >,
                 $STORAGE<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,
                 hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>

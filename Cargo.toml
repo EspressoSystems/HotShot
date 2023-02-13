@@ -77,7 +77,11 @@ channel-async-std = [
 ]
 
 [[example]]
-name = "multi-machine-libp2p"
+name = "centralized"
+required-features = ["demo", "libp2p/rsa"]
+
+[[example]]
+name = "libp2p"
 required-features = ["demo", "libp2p/rsa"]
 
 [[bin]]

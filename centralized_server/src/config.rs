@@ -24,6 +24,7 @@ impl<K, E> Default for ClientConfig<K, E> {
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Libp2pConfig {
+    /// FIXME this should be removed
     pub run: Run,
     pub bootstrap_nodes: Vec<(SocketAddr, Vec<u8>)>,
     pub public_ip: IpAddr,
@@ -63,7 +64,7 @@ pub struct Libp2pConfigFile {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct NetworkConfig<KEY, ELECTION> {
+pub struct NetworkConfig<KEY, ELECTIONCONFIG> {
     pub rounds: usize,
     pub transactions_per_round: usize,
     pub node_index: u64,
@@ -73,7 +74,7 @@ pub struct NetworkConfig<KEY, ELECTION> {
     pub key_type_name: String,
     pub election_config_type_name: String,
     pub libp2p_config: Option<Libp2pConfig>,
-    pub config: HotShotConfig<KEY, ELECTION>,
+    pub config: HotShotConfig<KEY, ELECTIONCONFIG>,
 }
 
 impl<K, E> Default for NetworkConfig<K, E> {

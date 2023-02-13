@@ -123,7 +123,11 @@ pub trait CommunicationChannel<
     /// Returns true when node is successfully initialized
     /// into the network
     /// Blocks until node is ready
-    async fn ready(&self) -> bool;
+    async fn ready_blocking(&self) -> bool;
+
+    /// checks if the network is ready
+    /// nonblocking
+    async fn ready_nonblocking(&self) -> bool;
 
     /// Shut down this network. Afterwards this network should no longer be used.
     ///
@@ -176,7 +180,11 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 {
     /// Blocks until the network is successfully initialized
     /// then returns true
-    async fn ready(&self) -> bool;
+    async fn ready_blocking(&self) -> bool;
+
+    /// checks if the network is ready
+    /// nonblocking
+    async fn ready_nonblocking(&self) -> bool;
 
     /// Blocks until the network is shut down
     /// then returns true

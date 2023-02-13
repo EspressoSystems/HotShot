@@ -119,16 +119,20 @@ where
 {
     /// Creates random transaction if possible
     /// otherwise panics
+    /// `padding` is the bytes of padding to add to the transaction
     fn create_random_transaction(
         &self,
         rng: &mut dyn rand::RngCore,
+        padding: u64,
     ) -> <Self::BlockType as Block>::Transaction;
 }
 
 /// extra functions required on block to be usable by hotshot-testing
-pub trait TestableBlock: Block {
+pub trait TestableBlock: Block + std::fmt::Debug {
     /// generate a genesis block
     fn genesis() -> Self;
+
+    fn txn_count(&self) -> u64;
 }
 
 /// Dummy implementation of `State` for unit tests
@@ -199,7 +203,7 @@ pub mod dummy {
     }
 
     impl TestableState for DummyState {
-        fn create_random_transaction(&self, _: &mut dyn rand::RngCore) -> DummyTransaction {
+        fn create_random_transaction(&self, _: &mut dyn rand::RngCore, _: u64) -> DummyTransaction {
             DummyTransaction::Dummy
         }
     }

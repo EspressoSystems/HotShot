@@ -244,9 +244,9 @@ impl DEntryBlock {
     }
 
     /// total transactions in this block
-    pub fn txn_count(&self) -> usize {
+    pub fn txn_count(&self) -> u64 {
         if let DEntryBlock::Normal(block) = self {
-            block.transactions.len()
+            block.transactions.len() as u64
         } else {
             0
         }
@@ -414,6 +414,7 @@ impl TestableState for DEntryState {
     fn create_random_transaction(
         &self,
         rng: &mut dyn rand::RngCore,
+        padding: u64,
     ) -> <Self::BlockType as Block>::Transaction {
         use rand::seq::IteratorRandom;
 
@@ -442,7 +443,7 @@ impl TestableState for DEntryState {
                 amount,
             },
             nonce: rng.gen(),
-            padding: vec![0; 0],
+            padding: vec![0; padding as usize],
         }
     }
 }
@@ -450,6 +451,10 @@ impl TestableState for DEntryState {
 impl TestableBlock for DEntryBlock {
     fn genesis() -> Self {
         Self::genesis()
+    }
+
+    fn txn_count(&self) -> u64 {
+        Self::txn_count(self)
     }
 }
 

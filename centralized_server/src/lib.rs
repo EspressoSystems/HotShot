@@ -121,13 +121,14 @@ fn run_results_can_be_serialized() {
     toml::to_string_pretty(&results).unwrap();
 }
 
+/// the run of execution we are on
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone, Copy, Default)]
 pub struct Run(pub usize);
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub enum FromServer<K, E> {
+pub enum FromServer<K, ELECTIONCONFIG> {
     Config {
-        config: Box<NetworkConfig<K, E>>,
+        config: Box<NetworkConfig<K, ELECTIONCONFIG>>,
         run: Run,
     },
     NodeConnected {

@@ -139,6 +139,10 @@ pub mod dummy {
         fn genesis() -> Self {
             Self { nonce: 0 }
         }
+
+        fn txn_count(&self) -> u64 {
+            1
+        }
     }
 
     impl Committable for DummyBlock {
