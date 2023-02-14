@@ -458,7 +458,7 @@ pub trait CliConfig<
     async fn init(args: CliOrchestrated) -> Result<Box<Self>, NetworkError>;
 
     async fn wait_for_ready(&self) {
-        CommunicationChannel::ready_blocking(&self.get_network()).await;
+        CommunicationChannel::wait_for_ready(&self.get_network()).await;
     }
 
     // TODO check that the orchestrator does this properly.

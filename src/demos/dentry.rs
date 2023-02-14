@@ -223,33 +223,9 @@ impl Committable for DEntryTransaction {
 }
 
 impl DEntryBlock {
-    /// generate a default genesis block
-    pub fn genesis() -> Self {
-        let accounts: BTreeMap<Account, Balance> = vec![
-            ("Joe", 1_000_000),
-            ("Nathan M", 500_000),
-            ("John", 400_000),
-            ("Nathan Y", 600_000),
-            ("Ian", 5_000_000),
-        ]
-        .into_iter()
-        .map(|(x, y)| (x.to_string(), y))
-        .collect();
-        Self::Genesis(DEntryGenesisBlock { accounts })
-    }
-
     /// generate a genesis block with the provided initial accounts and balances
     pub fn genesis_from(accounts: BTreeMap<Account, Balance>) -> Self {
         Self::Genesis(DEntryGenesisBlock { accounts })
-    }
-
-    /// total transactions in this block
-    pub fn txn_count(&self) -> u64 {
-        if let DEntryBlock::Normal(block) = self {
-            block.transactions.len() as u64
-        } else {
-            0
-        }
     }
 }
 
@@ -450,11 +426,25 @@ impl TestableState for DEntryState {
 
 impl TestableBlock for DEntryBlock {
     fn genesis() -> Self {
-        Self::genesis()
+        let accounts: BTreeMap<Account, Balance> = vec![
+            ("Joe", 1_000_000),
+            ("Nathan M", 500_000),
+            ("John", 400_000),
+            ("Nathan Y", 600_000),
+            ("Ian", 5_000_000),
+        ]
+        .into_iter()
+        .map(|(x, y)| (x.to_string(), y))
+        .collect();
+        Self::Genesis(DEntryGenesisBlock { accounts })
     }
 
     fn txn_count(&self) -> u64 {
-        Self::txn_count(self)
+        if let DEntryBlock::Normal(block) = self {
+            block.transactions.len() as u64
+        } else {
+            0
+        }
     }
 }
 

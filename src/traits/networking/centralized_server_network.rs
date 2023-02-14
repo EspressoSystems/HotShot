@@ -995,15 +995,14 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
     for CentralizedServerNetwork<K, E>
 {
     #[instrument(name = "CentralizedServer::ready_blocking", skip_all)]
-    async fn ready_blocking(&self) -> bool {
+    async fn wait_for_ready(&self) {
         while !self.inner.connected.load(Ordering::Relaxed) {
             async_sleep(Duration::from_secs(1)).await;
         }
-        true
     }
 
     #[instrument(name = "CentralizedServer::ready", skip_all)]
-    async fn ready_nonblocking(&self) -> bool {
+    async fn is_ready(&self) -> bool {
         self.run_ready()
     }
 
@@ -1119,19 +1118,19 @@ impl<
     > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION>
     for CentralizedCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
 {
-    async fn ready_blocking(&self) -> bool {
+    async fn wait_for_ready(&self) {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
             Message<TYPES, LEAF, PROPOSAL>,
             TYPES::SignatureKey,
-        >>::ready_blocking(&self.0)
-        .await
+        >>::wait_for_ready(&self.0)
+        .await;
     }
 
-    async fn ready_nonblocking(&self) -> bool {
+    async fn is_ready(&self) -> bool {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
             Message<TYPES, LEAF, PROPOSAL>,
             TYPES::SignatureKey,
-        >>::ready_nonblocking(&self.0)
+        >>::is_ready(&self.0)
         .await
     }
 

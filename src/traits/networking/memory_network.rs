@@ -323,12 +323,10 @@ where
 #[async_trait]
 impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for MemoryNetwork<M, K> {
     #[instrument(name = "MemoryNetwork::ready_blocking")]
-    async fn ready_blocking(&self) -> bool {
-        true
-    }
+    async fn wait_for_ready(&self) {}
 
     #[instrument(name = "MemoryNetwork::ready_nonblocking")]
-    async fn ready_nonblocking(&self) -> bool {
+    async fn is_ready(&self) -> bool {
         true
     }
 
@@ -465,12 +463,12 @@ impl<
     > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION>
     for MemoryCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
 {
-    async fn ready_blocking(&self) -> bool {
-        self.0.ready_blocking().await
+    async fn wait_for_ready(&self) {
+        self.0.wait_for_ready().await;
     }
 
-    async fn ready_nonblocking(&self) -> bool {
-        self.0.ready_nonblocking().await
+    async fn is_ready(&self) -> bool {
+        self.0.is_ready().await
     }
 
     async fn shut_down(&self) -> () {
