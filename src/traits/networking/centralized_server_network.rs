@@ -23,7 +23,7 @@ use hotshot_centralized_server::{
 };
 use hotshot_types::{
     data::{LeafType, ProposalType},
-    message::Message,
+    message::{Message, VoteType},
     traits::{
         election::{Election, ElectionConfig},
         metrics::{Metrics, NoMetrics},

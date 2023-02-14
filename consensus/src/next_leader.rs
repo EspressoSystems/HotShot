@@ -146,7 +146,7 @@ impl<
                         QuorumVote::Timeout(vote) => {
                             qcs.insert(vote.justify_qc);
                         }
-                        _ => {
+                        QuorumVote::No(_) => {
                             warn!("The next leader has received an unexpected vote!");
                         }
                     }

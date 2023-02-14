@@ -251,15 +251,15 @@ pub trait ConsensusApi<
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, PROPOSAL, VOTE> {
+    ) -> ConsensusMessage<TYPES, PROPOSAL, DAVote<TYPES, LEAF>> {
         let signature = self.sign_da_vote(block_commitment);
-        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::VoteType(VoteType::DA(DAVote {
+        ConsensusMessage::<TYPES, PROPOSAL, DAVote<TYPES, LEAF>>::Vote(DAVote {
             justify_qc_commitment,
             signature,
             block_commitment,
             current_view,
             vote_token,
-        }))
+        })
     }
 
     /// Create a message with a positive vote on validating or commitment proposal.
@@ -269,15 +269,17 @@ pub trait ConsensusApi<
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, PROPOSAL, VOTE> {
+    ) -> ConsensusMessage<TYPES, PROPOSAL, QuorumVote<TYPES, LEAF>> {
         let signature = self.sign_yes_vote(leaf_commitment);
-        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::VoteType(QuorumVote::Yes(YesOrNoVote {
-            justify_qc_commitment,
-            signature,
-            leaf_commitment,
-            current_view,
-            vote_token,
-        }))
+        ConsensusMessage::<TYPES, PROPOSAL, QuorumVote<TYPES, LEAF>>::Vote(QuorumVote::Yes(
+            YesOrNoVote {
+                justify_qc_commitment,
+                signature,
+                leaf_commitment,
+                current_view,
+                vote_token,
+            },
+        ))
     }
 
     /// Create a message with a negative vote on validating or commitment proposal.
@@ -287,31 +289,35 @@ pub trait ConsensusApi<
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, PROPOSAL, VOTE> {
+    ) -> ConsensusMessage<TYPES, PROPOSAL, QuorumVote<TYPES, LEAF>> {
         let signature = self.sign_no_vote(leaf_commitment);
-        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::VoteType(QuorumVote::No(YesOrNoVote {
-            justify_qc_commitment,
-            signature,
-            leaf_commitment,
-            current_view,
-            vote_token,
-        }))
+        ConsensusMessage::<TYPES, PROPOSAL, QuorumVote<TYPES, LEAF>>::Vote(QuorumVote::No(
+            YesOrNoVote {
+                justify_qc_commitment,
+                signature,
+                leaf_commitment,
+                current_view,
+                vote_token,
+            },
+        ))
     }
 
-    /// Create a message with a timeout votes.
+    /// Create a message with a timeout vote on validating or commitment proposal.
     fn create_timeout_message(
         &self,
         justify_qc: LEAF::QuorumCertificate,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, PROPOSAL, VOTE> {
+    ) -> ConsensusMessage<TYPES, PROPOSAL, QuorumVote<TYPES, LEAF>> {
         let signature = self.sign_timeout_vote(current_view);
-        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::VoteType(QuorumVote::Timeout(TimeoutVote {
-            justify_qc,
-            signature,
-            current_view,
-            vote_token,
-        }))
+        ConsensusMessage::<TYPES, PROPOSAL, QuorumVote<TYPES, LEAF>>::Vote(QuorumVote::Timeout(
+            TimeoutVote {
+                justify_qc,
+                signature,
+                current_view,
+                vote_token,
+            },
+        ))
     }
 
     /// Validate a DAC.

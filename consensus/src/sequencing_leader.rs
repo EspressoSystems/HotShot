@@ -242,10 +242,11 @@ impl<
             view_number: self.cur_view,
             _pd: PhantomData,
         };
-        let message =
-            ConsensusMessage::<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>::Proposal(
-                Proposal { data, signature },
-            );
+        let message = ConsensusMessage::<
+            TYPES,
+            DAProposal<TYPES, ELECTION>,
+            DAVote<TYPES, SequencingLeaf<TYPES>>,
+        >::Proposal(Proposal { data, signature });
         // Brodcast DA proposal
         if let Err(e) = self.api.send_broadcast_message(message.clone()).await {
             consensus.metrics.failed_to_send_messages.add(1);
@@ -462,7 +463,7 @@ impl<
                     QuorumVote::Timeout(vote) => {
                         qcs.insert(vote.justify_qc);
                     }
-                    _ => {
+                    QuorumVote::No(_) => {
                         warn!("The next leader has received an unexpected vote!");
                     }
                 },

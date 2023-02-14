@@ -113,9 +113,10 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
     > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>
-    for Libp2pCommChannel<TYPES, LEAF, PROPOSAL>
+    for Libp2pCommChannel<TYPES, LEAF, PROPOSAL, VOTE>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -670,7 +671,7 @@ impl<
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-    > Libp2pCommChannel<TYPES, LEAF, PROPOSAL>
+    > Libp2pCommChannel<TYPES, LEAF, PROPOSAL, VOTE>
 {
     /// create a new libp2p communication channel
     pub fn new(
