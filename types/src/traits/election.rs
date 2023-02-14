@@ -226,7 +226,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             let valid_vote_token = self.validate_vote_token(view_number, key, vote_token);
             is_valid_vote_token = match valid_vote_token {
                 Err(_) => {
-                    error!("VoteType<TYPES>token was invalid");
+                    error!("Vote token was invalid");
                     false
                 }
                 Ok(Valid(_)) => true,
