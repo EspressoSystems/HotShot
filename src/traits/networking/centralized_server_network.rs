@@ -1094,11 +1094,6 @@ impl<
     }
 
     /// passthru for example?
-    pub fn run_ready(&self) -> bool {
-        self.0.run_ready()
-    }
-
-    /// passthru for example?
     pub async fn get_connected_client_count(&self) -> u32 {
         self.0.get_connected_client_count().await
     }

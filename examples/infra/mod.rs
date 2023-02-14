@@ -362,7 +362,7 @@ where
         let node_count = config.config.total_nodes;
 
         debug!("Waiting on connections...");
-        while !network.run_ready() {
+        while !network.is_ready().await {
             let connected_clients = network.get_connected_client_count().await;
             error!("{} / {}", connected_clients, node_count);
             async_sleep(Duration::from_secs(1)).await;
