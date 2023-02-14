@@ -1156,8 +1156,9 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-    > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>
+    > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>
     for CentralizedCommChannel<TYPES>
 where
     TYPES::SignatureKey: TestableSignatureKey,

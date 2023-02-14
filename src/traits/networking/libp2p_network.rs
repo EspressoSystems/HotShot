@@ -115,8 +115,8 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-    > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>
-    for Libp2pCommChannel<TYPES, LEAF, PROPOSAL, VOTE>
+    > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>
+    for Libp2pCommChannel<TYPES, PROPOSAL, VOTE>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -661,17 +661,12 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
 #[derive(Clone)]
 pub struct Libp2pCommChannel<
     TYPES: NodeType,
-    LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
 >(Libp2pNetwork<Message<TYPES, PROPOSAL, VOTE>, TYPES::SignatureKey>);
 
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-    > Libp2pCommChannel<TYPES, LEAF, PROPOSAL, VOTE>
+impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
+    Libp2pCommChannel<TYPES, PROPOSAL, VOTE>
 {
     /// create a new libp2p communication channel
     pub fn new(
@@ -692,7 +687,7 @@ impl<
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
     > CommunicationChannel<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>
-    for Libp2pCommChannel<TYPES, LEAF, PROPOSAL>
+    for Libp2pCommChannel<TYPES, PROPOSAL, VOTE>
 {
     async fn ready(&self) -> bool {
         self.0.ready().await

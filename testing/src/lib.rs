@@ -23,6 +23,7 @@ use hotshot::{
 };
 use hotshot_types::{
     data::{LeafType, ProposalType, TestableLeaf},
+    message::VoteType,
     traits::{
         election::Election,
         metrics::NoMetrics,
@@ -99,7 +100,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -140,7 +142,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -384,7 +387,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -455,7 +459,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -603,6 +608,7 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        VOTE: VoteType<TYPES>,
         NETWORK,
         STORAGE,
         ELECTION,
@@ -612,7 +618,7 @@ where
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     ELECTION: Election<TYPES, LeafType = LEAF> + Debug,
-    NETWORK: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>,
+    NETWORK: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>,
     STORAGE: Storage<TYPES, LEAF>,
 {
     type Leaf = LEAF;
@@ -620,12 +626,14 @@ where
     type Election = ELECTION;
     type Storage = STORAGE;
     type Proposal = PROPOSAL;
+    type Vote = VOTE;
 }
 
 impl<
         TYPES,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        VOTE: VoteType<TYPES>,
         NETWORK,
         STORAGE,
         ELECTION: Election<TYPES, LeafType = LEAF> + Debug,
@@ -636,7 +644,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    NETWORK: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>,
+    NETWORK: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>,
     ELECTION: Election<TYPES>,
     STORAGE: TestableStorage<TYPES, LEAF>,
 {

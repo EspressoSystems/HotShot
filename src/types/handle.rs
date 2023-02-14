@@ -11,6 +11,7 @@ use hotshot_types::{
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
+    message::{DAVote, QuorumVote},
     traits::{
         election::SignedCertificate, network::CommunicationChannel, node_implementation::NodeType,
         state::ConsensusTime, storage::Storage,
@@ -358,7 +359,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I::Leaf, I::Proposal> {
+    ) -> ConsensusMessage<TYPES, I::Proposal, DAVote<TYPES, I::Leaf>> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -377,7 +378,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I::Leaf, I::Proposal> {
+    ) -> ConsensusMessage<TYPES, I::Proposal, QuorumVote<TYPES, I::Leaf>> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -396,7 +397,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I::Leaf, I::Proposal> {
+    ) -> ConsensusMessage<TYPES, I::Proposal, QuorumVote<TYPES, I::Leaf>> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -414,7 +415,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         justify_qc: <I::Leaf as LeafType>::QuorumCertificate,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I::Leaf, I::Proposal> {
+    ) -> ConsensusMessage<TYPES, I::Proposal, QuorumVote<TYPES, I::Leaf>> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -425,7 +426,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_broadcast_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES, I::Leaf, I::Proposal>,
+        msg: ConsensusMessage<TYPES, I::Proposal, I::Vote>,
     ) {
         let _result = self.hotshot.send_broadcast_message(msg).await;
     }
@@ -434,7 +435,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_direct_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES, I::Leaf, I::Proposal>,
+        msg: ConsensusMessage<TYPES, I::Proposal, I::Vote>,
         recipient: TYPES::SignatureKey,
     ) {
         let _result = self.hotshot.send_direct_message(msg, recipient).await;

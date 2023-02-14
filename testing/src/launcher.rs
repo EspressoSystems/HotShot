@@ -19,7 +19,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     pub(super) network: Generator<I::Networking>,
@@ -33,7 +34,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     /// Create a new launcher.
@@ -82,7 +84,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
@@ -157,7 +160,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {

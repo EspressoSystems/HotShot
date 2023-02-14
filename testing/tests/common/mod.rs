@@ -115,7 +115,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -133,7 +134,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -206,7 +208,8 @@ impl GeneralTestDescriptionBuilder {
         TYPES::BlockType: TestableBlock,
         TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
         TYPES::SignatureKey: TestableSignatureKey,
-        I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+        I::Networking:
+            TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
         I::Storage: TestableStorage<TYPES, I::Leaf>,
         I::Leaf: TestableLeaf<NodeType = TYPES>,
     {
@@ -224,7 +227,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -265,7 +269,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -460,11 +465,12 @@ pub type StaticNodeImplType = TestNodeImpl<
 /// type alias for the test runner type
 pub type AppliedTestRunner<TYPES, LEAF, PROPOSAL, ELECTION> =
     TestRunner<TYPES, AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, ELECTION>>;
-pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, ELECTION> = TestNodeImpl<
+pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, ELECTION> = TestNodeImpl<
     TYPES,
     LEAF,
     PROPOSAL,
-    MemoryCommChannel<TYPES, LEAF, PROPOSAL>,
+    VOTE,
+    MemoryCommChannel<TYPES, LEAF, PROPOSAL, VOTE>,
     MemoryStorage<TYPES, LEAF>,
     ELECTION,
 >;
@@ -509,7 +515,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -569,7 +576,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -607,7 +615,8 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking:
+        TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {

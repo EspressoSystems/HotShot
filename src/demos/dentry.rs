@@ -608,6 +608,7 @@ where
     type Networking = NET;
     type Election = ELE;
     type Proposal = ValidatingProposal<DEntryTypes, ELE>;
+    type Vote = QuorumVote<DEntryTypes, ELE::LeafType>;
 }
 
 /// Provides a random [`QuorumCertificate`]

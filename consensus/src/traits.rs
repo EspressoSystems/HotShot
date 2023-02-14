@@ -158,9 +158,12 @@ pub trait ConsensusApi<
     }
 
     /// Send a broadcast to the DA comitee, stub for now
-    async fn send_da_broadcast<DAPROPOSAL: ProposalType<NodeType = TYPES>>(
+    async fn send_da_broadcast<
+        DAPROPOSAL: ProposalType<NodeType = TYPES>,
+        DAVOTE: VoteType<TYPES>,
+    >(
         &self,
-        message: ConsensusMessage<TYPES, DAPROPOSAL, VOTE>,
+        message: ConsensusMessage<TYPES, DAPROPOSAL, DAVOTE>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Sign a DA proposal.

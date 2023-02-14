@@ -273,7 +273,7 @@ pub struct ConsensusLeader<
         TYPES,
         SequencingLeaf<TYPES>,
         DAProposal<TYPES, ELECTION>,
-        QuorumVote<TYPES, SequencingLeaf<TYPES>>,
+        DAVote<TYPES, SequencingLeaf<TYPES>>,
     >,
     TYPES: NodeType,
     ELECTION: Election<
@@ -309,7 +309,7 @@ impl<
             TYPES,
             SequencingLeaf<TYPES>,
             DAProposal<TYPES, ELECTION>,
-            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
+            DAVote<TYPES, SequencingLeaf<TYPES>>,
         >,
         TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
         ELECTION: Election<
@@ -371,7 +371,7 @@ pub struct ConsensusNextLeader<
         TYPES,
         SequencingLeaf<TYPES>,
         DAProposal<TYPES, ELECTION>,
-        QuorumVote<TYPES, SequencingLeaf<TYPES>>,
+        DAVote<TYPES, SequencingLeaf<TYPES>>,
     >,
     TYPES: NodeType,
     ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
@@ -388,14 +388,14 @@ pub struct ConsensusNextLeader<
     pub generic_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
-    // TODO (da): Change this chan to have Commitment Proposal
+    // TODO (da): Change this chan to have CommitmentProposal and QuorumVote.
     pub vote_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
                     DAProposal<TYPES, ELECTION>,
-                    QuorumVote<TYPES, SequencingLeaf<TYPES>>,
+                    DAVote<TYPES, SequencingLeaf<TYPES>>,
                 >,
             >,
         >,
@@ -409,7 +409,7 @@ impl<
             TYPES,
             SequencingLeaf<TYPES>,
             DAProposal<TYPES, ELECTION>,
-            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
+            DAVote<TYPES, SequencingLeaf<TYPES>>,
         >,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
@@ -423,7 +423,7 @@ impl<
         let mut qcs = HashSet::<QuorumCertificate<TYPES, SequencingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
-        let mut accumulator = CertificateAccumulator {
+        let _accumulator = CertificateAccumulator::<TYPES::VoteTokenType, SequencingLeaf<TYPES>> {
             vote_outcomes: HashMap::new(),
             threshold: self.api.threshold(),
         };
@@ -431,52 +431,55 @@ impl<
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
             // If the message is for a different view number, skip it.
-            // If the message is for a different view number, skip it.
             if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number() != self.cur_view {
                 continue;
             }
-            match msg {
-                ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
-                    QuorumVote::Yes(vote) => {
-                        if vote.signature.0
-                            != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
-                        {
-                            continue;
-                        }
+            // TODO (da) restore the code below after supporting two vote types. Currently it
+            // doesn't work since the vote type of `ConsensusApi` is `DAVote` but the message is
+            // supposed to be `QuorumVote`.
+            // match msg {
+            //     ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
+            //         QuorumVote::Yes(vote) => {
+            //             if vote.signature.0
+            //                 != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+            //             {
+            //                 continue;
+            //             }
 
-                        match self.api.accumulate_qc_vote(
-                            &vote.signature.0,
-                            &vote.signature.1,
-                            vote.leaf_commitment,
-                            vote.vote_token.clone(),
-                            self.cur_view,
-                            accumulator,
-                        ) {
-                            Either::Left(acc) => {
-                                accumulator = acc;
-                            }
-                            Either::Right(qc) => {
-                                return qc;
-                            }
-                        }
-                    }
-                    QuorumVote::Timeout(vote) => {
-                        qcs.insert(vote.justify_qc);
-                    }
-                    QuorumVote::No(_) => {
-                        warn!("The next leader has received an unexpected vote!");
-                    }
-                },
-                ProcessedConsensusMessage::InternalTrigger(trigger) => match trigger {
-                    InternalTrigger::Timeout(_) => {
-                        self.api.send_next_leader_timeout(self.cur_view).await;
-                        break;
-                    }
-                },
-                ProcessedConsensusMessage::Proposal(_p, _sender) => {
-                    warn!("The next leader has received an unexpected proposal!");
-                }
-            }
+            //             match self.api.accumulate_qc_vote(
+            //                 &vote.signature.0,
+            //                 &vote.signature.1,
+            //                 vote.leaf_commitment,
+            //                 vote.vote_token.clone(),
+            //                 self.cur_view,
+            //                 accumulator,
+            //             ) {
+            //                 Either::Left(acc) => {
+            //                     accumulator = acc;
+            //                 }
+            //                 Either::Right(qc) => {
+            //                     return qc;
+            //                 }
+            //             }
+            //         }
+            //         QuorumVote::Timeout(vote) => {
+            //             qcs.insert(vote.justify_qc);
+            //         }
+            //         QuorumVote::No(_) => {
+            //             warn!("The next leader has received an unexpected vote!");
+            //         }
+            //     },
+            //     ProcessedConsensusMessage::InternalTrigger(trigger) => match trigger {
+            //         InternalTrigger::Timeout(_) => {
+            //             self.api.send_next_leader_timeout(self.cur_view).await;
+            //             break;
+            //         }
+            //     },
+            //     ProcessedConsensusMessage::Proposal(_p, _sender) => {
+            //         warn!("The next leader has received an unexpected proposal!");
+            //     }
+            // }
+            break;
         }
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
     }
