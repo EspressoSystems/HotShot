@@ -29,6 +29,7 @@ pub fn check_safety<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         TYPES,
         <I as NodeImplementation<TYPES>>::Leaf,
         <I as NodeImplementation<TYPES>>::Proposal,
+        <I as NodeImplementation<TYPES>>::Vote,
         <I as NodeImplementation<TYPES>>::Election,
     >,
     results: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,

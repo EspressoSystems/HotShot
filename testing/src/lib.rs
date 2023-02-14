@@ -566,11 +566,12 @@ pub enum ConsensusTestError {
     TooManyFailures,
 }
 
-/// An implementation to make the trio `NETWORK`, `STORAGE` and `STATE` implement [`NodeImplementation`]
+/// An implementation of [`NodeImplementation`] for testing.
 pub struct TestNodeImpl<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+    VOTE: VoteType<TYPES>,
     NETWORK,
     STORAGE,
     ELECTION,
@@ -578,19 +579,21 @@ pub struct TestNodeImpl<
     _pd_0: PhantomData<TYPES>,
     _pd_1: PhantomData<LEAF>,
     _pd_2: PhantomData<PROPOSAL>,
-    _pd_3: PhantomData<NETWORK>,
-    _pd_4: PhantomData<STORAGE>,
-    _pd_5: PhantomData<ELECTION>,
+    _pd_3: PhantomData<VOTE>,
+    _pd_4: PhantomData<NETWORK>,
+    _pd_5: PhantomData<STORAGE>,
+    _pd_6: PhantomData<ELECTION>,
 }
 
 impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        VOTE: VoteType<TYPES>,
         NETWORK,
         STORAGE,
         ELECTION,
-    > Clone for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
+    > Clone for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION>
 {
     fn clone(&self) -> Self {
         Self {
@@ -600,6 +603,7 @@ impl<
             _pd_3: PhantomData,
             _pd_4: PhantomData,
             _pd_5: PhantomData,
+            _pd_6: PhantomData,
         }
     }
 }
@@ -612,7 +616,8 @@ impl<
         NETWORK,
         STORAGE,
         ELECTION,
-    > NodeImplementation<TYPES> for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
+    > NodeImplementation<TYPES>
+    for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
@@ -638,7 +643,7 @@ impl<
         STORAGE,
         ELECTION: Election<TYPES, LeafType = LEAF> + Debug,
     > TestableNodeImplementation<TYPES>
-    for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
+    for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION>
 where
     TYPES: NodeType,
     TYPES::BlockType: TestableBlock,
@@ -654,10 +659,11 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        VOTE: VoteType<TYPES>,
         NETWORK,
         STORAGE,
         ELECTION,
-    > fmt::Debug for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
+    > fmt::Debug for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION>
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("TestNodeImpl")

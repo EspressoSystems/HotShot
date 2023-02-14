@@ -17,6 +17,7 @@ use hotshot_centralized_server::{
 };
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
+    message::QuorumVote,
     traits::{
         metrics::NoMetrics,
         network::CommunicationChannel,
@@ -366,8 +367,9 @@ impl CliStandalone {
 type ThisLeaf = ValidatingLeaf<DEntryTypes>;
 type ThisElection =
     GeneralStaticCommittee<DEntryTypes, ThisLeaf, <DEntryTypes as NodeType>::SignatureKey>;
-type ThisNetworking = Libp2pCommChannel<DEntryTypes, ThisLeaf, ThisProposal>;
+type ThisNetworking = Libp2pCommChannel<DEntryTypes, ThisProposal, ThisVote>;
 type ThisProposal = ValidatingProposal<DEntryTypes, ThisElection>;
+type ThisVote = QuorumVote<DEntryTypes, ThisLeaf>;
 type Node = DEntryNode<ThisNetworking, ThisElection>;
 
 struct Config {
@@ -540,7 +542,14 @@ async fn main() {
 
     error!("waiting for connections to hotshot!");
     let network = hotshot.networking();
-    <ThisNetworking as CommunicationChannel<_, _, _, ThisElection>>::ready(network).await;
+    <ThisNetworking as CommunicationChannel<
+        DEntryTypes,
+        ThisLeaf,
+        ThisProposal,
+        ThisVote,
+        ThisElection,
+    >>::ready(network)
+    .await;
 
     if let Some(server) = &mut server_conn {
         error!("Waiting for server to start us up");
