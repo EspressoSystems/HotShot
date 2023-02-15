@@ -34,6 +34,7 @@ use snafu::ResultExt;
 use std::{
     collections::BTreeSet,
     fmt::Debug,
+    marker::PhantomData,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -294,7 +295,7 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         ELECTION: Election<TYPES>,
     > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>
-    for MemoryCommChannel<TYPES, LEAF, PROPOSAL>
+    for MemoryCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -306,12 +307,10 @@ where
         Box::new(move |node_id| {
             let privkey = TYPES::SignatureKey::generate_test_key(node_id);
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
-            MemoryCommChannel(MemoryNetwork::new(
-                pubkey,
-                NoMetrics::new(),
-                master.clone(),
-                None,
-            ))
+            MemoryCommChannel(
+                MemoryNetwork::new(pubkey, NoMetrics::new(), master.clone(), None),
+                PhantomData,
+            )
         })
     }
 
@@ -323,8 +322,11 @@ where
 // TODO instrument these functions
 #[async_trait]
 impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for MemoryNetwork<M, K> {
-    #[instrument(name = "MemoryNetwork::ready")]
-    async fn ready(&self) -> bool {
+    #[instrument(name = "MemoryNetwork::ready_blocking")]
+    async fn wait_for_ready(&self) {}
+
+    #[instrument(name = "MemoryNetwork::ready_nonblocking")]
+    async fn is_ready(&self) -> bool {
         true
     }
 
@@ -446,7 +448,11 @@ pub struct MemoryCommChannel<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
->(MemoryNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>);
+    ELECTION: Election<TYPES>,
+>(
+    MemoryNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>,
+    PhantomData<ELECTION>,
+);
 
 #[async_trait]
 impl<
@@ -455,10 +461,14 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         ELECTION: Election<TYPES>,
     > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION>
-    for MemoryCommChannel<TYPES, LEAF, PROPOSAL>
+    for MemoryCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
 {
-    async fn ready(&self) -> bool {
-        self.0.ready().await
+    async fn wait_for_ready(&self) {
+        self.0.wait_for_ready().await;
+    }
+
+    async fn is_ready(&self) -> bool {
+        self.0.is_ready().await
     }
 
     async fn shut_down(&self) -> () {

@@ -476,7 +476,7 @@ where
         // it should be caught by an assertion (and the txn will be rejected anyway)
         let leaf = self.nodes[0].handle.get_decided_leaf().await;
 
-        let txn = leaf.create_random_transaction(rng);
+        let txn = leaf.create_random_transaction(rng, 0);
 
         let node = if let Some(node_id) = node_id {
             self.nodes.get(node_id).unwrap()

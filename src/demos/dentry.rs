@@ -223,33 +223,9 @@ impl Committable for DEntryTransaction {
 }
 
 impl DEntryBlock {
-    /// generate a default genesis block
-    pub fn genesis() -> Self {
-        let accounts: BTreeMap<Account, Balance> = vec![
-            ("Joe", 1_000_000),
-            ("Nathan M", 500_000),
-            ("John", 400_000),
-            ("Nathan Y", 600_000),
-            ("Ian", 5_000_000),
-        ]
-        .into_iter()
-        .map(|(x, y)| (x.to_string(), y))
-        .collect();
-        Self::Genesis(DEntryGenesisBlock { accounts })
-    }
-
     /// generate a genesis block with the provided initial accounts and balances
     pub fn genesis_from(accounts: BTreeMap<Account, Balance>) -> Self {
         Self::Genesis(DEntryGenesisBlock { accounts })
-    }
-
-    /// total transactions in this block
-    pub fn txn_count(&self) -> usize {
-        if let DEntryBlock::Normal(block) = self {
-            block.transactions.len()
-        } else {
-            0
-        }
     }
 }
 
@@ -414,6 +390,7 @@ impl TestableState for DEntryState {
     fn create_random_transaction(
         &self,
         rng: &mut dyn rand::RngCore,
+        padding: u64,
     ) -> <Self::BlockType as Block>::Transaction {
         use rand::seq::IteratorRandom;
 
@@ -442,14 +419,32 @@ impl TestableState for DEntryState {
                 amount,
             },
             nonce: rng.gen(),
-            padding: vec![0; 0],
+            padding: vec![0; padding as usize],
         }
     }
 }
 
 impl TestableBlock for DEntryBlock {
     fn genesis() -> Self {
-        Self::genesis()
+        let accounts: BTreeMap<Account, Balance> = vec![
+            ("Joe", 1_000_000),
+            ("Nathan M", 500_000),
+            ("John", 400_000),
+            ("Nathan Y", 600_000),
+            ("Ian", 5_000_000),
+        ]
+        .into_iter()
+        .map(|(x, y)| (x.to_string(), y))
+        .collect();
+        Self::Genesis(DEntryGenesisBlock { accounts })
+    }
+
+    fn txn_count(&self) -> u64 {
+        if let DEntryBlock::Normal(block) = self {
+            block.transactions.len() as u64
+        } else {
+            0
+        }
     }
 }
 
