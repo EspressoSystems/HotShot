@@ -572,13 +572,7 @@ pub struct TestNodeImpl<
     STORAGE,
     ELECTION,
 > {
-    _pd_0: PhantomData<TYPES>,
-    _pd_1: PhantomData<LEAF>,
-    _pd_2: PhantomData<PROPOSAL>,
-    _pd_3: PhantomData<VOTE>,
-    _pd_4: PhantomData<NETWORK>,
-    _pd_5: PhantomData<STORAGE>,
-    _pd_6: PhantomData<ELECTION>,
+    _pd: PhantomData<(TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION)>,
 }
 
 impl<
@@ -592,15 +586,7 @@ impl<
     > Clone for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION>
 {
     fn clone(&self) -> Self {
-        Self {
-            _pd_0: PhantomData,
-            _pd_1: PhantomData,
-            _pd_2: PhantomData,
-            _pd_3: PhantomData,
-            _pd_4: PhantomData,
-            _pd_5: PhantomData,
-            _pd_6: PhantomData,
-        }
+        Self { _pd: PhantomData }
     }
 }
 
