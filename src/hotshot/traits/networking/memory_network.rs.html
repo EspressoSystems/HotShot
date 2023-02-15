@@ -835,6 +835,16 @@
 <a href="#835" id="835">835</a>
 <a href="#836" id="836">836</a>
 <a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
 </pre><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -871,6 +881,7 @@
 <span class="kw">use </span>std::{
     collections::BTreeSet,
     fmt::Debug,
+    marker::PhantomData,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -1131,7 +1142,7 @@
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         ELECTION: Election&lt;TYPES&gt;,
     &gt; TestableNetworkingImplementation&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
-    <span class="kw">for </span>MemoryCommChannel&lt;TYPES, LEAF, PROPOSAL&gt;
+    <span class="kw">for </span>MemoryCommChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -1143,12 +1154,10 @@
         Box::new(<span class="kw">move </span>|node_id| {
             <span class="kw">let </span>privkey = TYPES::SignatureKey::generate_test_key(node_id);
             <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
-            MemoryCommChannel(MemoryNetwork::new(
-                pubkey,
-                NoMetrics::new(),
-                master.clone(),
-                <span class="prelude-val">None</span>,
-            ))
+            MemoryCommChannel(
+                MemoryNetwork::new(pubkey, NoMetrics::new(), master.clone(), <span class="prelude-val">None</span>),
+                PhantomData,
+            )
         })
     }
 
@@ -1160,8 +1169,11 @@
 <span class="comment">// TODO instrument these functions
 </span><span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>&gt; ConnectedNetwork&lt;M, K&gt; <span class="kw">for </span>MemoryNetwork&lt;M, K&gt; {
-    <span class="attr">#[instrument(name = <span class="string">&quot;MemoryNetwork::ready&quot;</span>)]
-    </span><span class="kw">async fn </span>ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="attr">#[instrument(name = <span class="string">&quot;MemoryNetwork::ready_blocking&quot;</span>)]
+    </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {}
+
+    <span class="attr">#[instrument(name = <span class="string">&quot;MemoryNetwork::ready_nonblocking&quot;</span>)]
+    </span><span class="kw">async fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="bool-val">true
     </span>}
 
@@ -1283,7 +1295,11 @@
     TYPES: NodeType,
     LEAF: LeafType&lt;NodeType = TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-&gt;(MemoryNetwork&lt;Message&lt;TYPES, LEAF, PROPOSAL&gt;, TYPES::SignatureKey&gt;);
+    ELECTION: Election&lt;TYPES&gt;,
+&gt;(
+    MemoryNetwork&lt;Message&lt;TYPES, LEAF, PROPOSAL&gt;, TYPES::SignatureKey&gt;,
+    PhantomData&lt;ELECTION&gt;,
+);
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
@@ -1292,10 +1308,14 @@
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         ELECTION: Election&lt;TYPES&gt;,
     &gt; CommunicationChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
-    <span class="kw">for </span>MemoryCommChannel&lt;TYPES, LEAF, PROPOSAL&gt;
+    <span class="kw">for </span>MemoryCommChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
 {
-    <span class="kw">async fn </span>ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="self">self</span>.<span class="number">0</span>.ready().<span class="kw">await
+    <span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.<span class="number">0</span>.wait_for_ready().<span class="kw">await</span>;
+    }
+
+    <span class="kw">async fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.<span class="number">0</span>.is_ready().<span class="kw">await
     </span>}
 
     <span class="kw">async fn </span>shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; () {

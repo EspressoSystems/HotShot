@@ -727,6 +727,23 @@
 <a href="#727" id="727">727</a>
 <a href="#728" id="728">728</a>
 <a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -768,6 +785,7 @@
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>std::{
     collections::{BTreeSet, HashSet},
+    marker::PhantomData,
     num::NonZeroUsize,
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
@@ -844,7 +862,7 @@
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         ELECTION: Election&lt;TYPES&gt;,
     &gt; TestableNetworkingImplementation&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
-    <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, LEAF, PROPOSAL&gt;
+    <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -936,6 +954,7 @@
                         )
                         .<span class="kw">await
                         </span>.unwrap(),
+                        PhantomData,
                     )
                 })
             }
@@ -1195,11 +1214,17 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>&gt; ConnectedNetwork&lt;M, K&gt; <span class="kw">for </span>Libp2pNetwork&lt;M, K&gt; {
-    <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::ready&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::ready_blocking&quot;</span>, skip_all)]
+    </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.wait_for_ready().<span class="kw">await</span>;
-        <span class="bool-val">true
-    </span>}
+    }
+
+    <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::ready_nonblocking&quot;</span>, skip_all)]
+    </span><span class="kw">async fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.inner
+            .is_ready
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
 
     <span class="attr">#[instrument(name = <span class="string">&quot;Libp2pNetwork::shut_down&quot;</span>, skip_all)]
     </span><span class="kw">async fn </span>shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>) {
@@ -1391,19 +1416,24 @@
     TYPES: NodeType,
     LEAF: LeafType&lt;NodeType = TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-&gt;(Libp2pNetwork&lt;Message&lt;TYPES, LEAF, PROPOSAL&gt;, TYPES::SignatureKey&gt;);
+    ELECTION: Election&lt;TYPES&gt;,
+&gt;(
+    Libp2pNetwork&lt;Message&lt;TYPES, LEAF, PROPOSAL&gt;, TYPES::SignatureKey&gt;,
+    PhantomData&lt;ELECTION&gt;,
+);
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
         LEAF: LeafType&lt;NodeType = TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    &gt; Libp2pCommChannel&lt;TYPES, LEAF, PROPOSAL&gt;
+        ELECTION: Election&lt;TYPES&gt;,
+    &gt; Libp2pCommChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
 {
     <span class="doccomment">/// create a new libp2p communication channel
     </span><span class="kw">pub fn </span>new(
         network: Libp2pNetwork&lt;Message&lt;TYPES, LEAF, PROPOSAL&gt;, TYPES::SignatureKey&gt;,
     ) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>(network)
+        <span class="self">Self</span>(network, PhantomData::default())
     }
 }
 
@@ -1417,10 +1447,14 @@
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         ELECTION: Election&lt;TYPES&gt;,
     &gt; CommunicationChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
-    <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, LEAF, PROPOSAL&gt;
+    <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
 {
-    <span class="kw">async fn </span>ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="self">self</span>.<span class="number">0</span>.ready().<span class="kw">await
+    <span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.<span class="number">0</span>.wait_for_ready().<span class="kw">await</span>;
+    }
+
+    <span class="kw">async fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.<span class="number">0</span>.is_ready().<span class="kw">await
     </span>}
 
     <span class="kw">async fn </span>shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; () {

@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["benchmark_client","counter","hotshot","libp2p_networking","multi_machine_centralized","multi_machine_libp2p"];
+window.ALL_CRATES = ["benchmark_client","centralized","counter","hotshot","libp2p","libp2p_networking"];

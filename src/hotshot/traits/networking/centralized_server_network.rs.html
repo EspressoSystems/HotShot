@@ -1210,6 +1210,27 @@
 <a href="#1210" id="1210">1210</a>
 <a href="#1211" id="1211">1211</a>
 <a href="#1212" id="1212">1212</a>
+<a href="#1213" id="1213">1213</a>
+<a href="#1214" id="1214">1214</a>
+<a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
+<a href="#1217" id="1217">1217</a>
+<a href="#1218" id="1218">1218</a>
+<a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
+<a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that attempts to connect to a centralized server.
 //!
 //! To run the server, see the `./centralized_server/` folder in this repo.
@@ -1254,6 +1275,7 @@
 <span class="kw">use </span>std::{
     cmp,
     collections::{hash_map::Entry, BTreeSet, HashMap},
+    marker::PhantomData,
     net::{Ipv4Addr, SocketAddr},
     num::NonZeroUsize,
     sync::{
@@ -2205,13 +2227,17 @@
 </span><span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>, E: ElectionConfig + <span class="lifetime">&#39;static</span>&gt; ConnectedNetwork&lt;M, K&gt;
     <span class="kw">for </span>CentralizedServerNetwork&lt;K, E&gt;
 {
-    <span class="attr">#[instrument(name = <span class="string">&quot;CentralizedServer::ready&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="attr">#[instrument(name = <span class="string">&quot;CentralizedServer::ready_blocking&quot;</span>, skip_all)]
+    </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">while </span>!<span class="self">self</span>.inner.connected.load(Ordering::Relaxed) {
             async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
         }
-        <span class="bool-val">true
-    </span>}
+    }
+
+    <span class="attr">#[instrument(name = <span class="string">&quot;CentralizedServer::ready&quot;</span>, skip_all)]
+    </span><span class="kw">async fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.run_ready()
+    }
 
     <span class="attr">#[instrument(name = <span class="string">&quot;CentralizedServer::shut_down&quot;</span>, skip_all)]
     </span><span class="kw">async fn </span>shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>) {
@@ -2276,21 +2302,28 @@
 
 <span class="doccomment">/// libp2p identity communication channel
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>CentralizedCommChannel&lt;TYPES: NodeType&gt;(
+</span><span class="kw">pub struct </span>CentralizedCommChannel&lt;
+    TYPES: NodeType,
+    LEAF: LeafType&lt;NodeType = TYPES&gt;,
+    PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+    ELECTION: Election&lt;TYPES&gt;,
+&gt;(
     CentralizedServerNetwork&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
+    PhantomData&lt;(LEAF, PROPOSAL, ELECTION)&gt;,
 );
 
-<span class="kw">impl</span>&lt;TYPES: NodeType&gt; CentralizedCommChannel&lt;TYPES&gt; {
+<span class="kw">impl</span>&lt;
+        TYPES: NodeType,
+        LEAF: LeafType&lt;NodeType = TYPES&gt;,
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        ELECTION: Election&lt;TYPES&gt;,
+    &gt; CentralizedCommChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
+{
     <span class="doccomment">/// create new communication channel
     </span><span class="kw">pub fn </span>new(
         network: CentralizedServerNetwork&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
     ) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>(network)
-    }
-
-    <span class="doccomment">/// passthru for example?
-    </span><span class="kw">pub fn </span>run_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="self">self</span>.<span class="number">0</span>.run_ready()
+        <span class="self">Self</span>(network, PhantomData::default())
     }
 
     <span class="doccomment">/// passthru for example?
@@ -2310,13 +2343,22 @@
         LEAF: LeafType&lt;NodeType = TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         ELECTION: Election&lt;TYPES&gt;,
-    &gt; CommunicationChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt; <span class="kw">for </span>CentralizedCommChannel&lt;TYPES&gt;
+    &gt; CommunicationChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
+    <span class="kw">for </span>CentralizedCommChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
 {
-    <span class="kw">async fn </span>ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         &lt;CentralizedServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
             Message&lt;TYPES, LEAF, PROPOSAL&gt;,
             TYPES::SignatureKey,
-        &gt;&gt;::ready(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
+        &gt;&gt;::wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
+        .<span class="kw">await</span>;
+    }
+
+    <span class="kw">async fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        &lt;CentralizedServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
+            Message&lt;TYPES, LEAF, PROPOSAL&gt;,
+            TYPES::SignatureKey,
+        &gt;&gt;::is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
         .<span class="kw">await
     </span>}
 
@@ -2368,7 +2410,7 @@
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         ELECTION: Election&lt;TYPES&gt;,
     &gt; TestableNetworkingImplementation&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
-    <span class="kw">for </span>CentralizedCommChannel&lt;TYPES&gt;
+    <span class="kw">for </span>CentralizedCommChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -2402,7 +2444,7 @@
                 known_nodes[id <span class="kw">as </span>usize].clone(),
             );
             network.server_shutdown_signal = <span class="prelude-val">Some</span>(sender);
-            CentralizedCommChannel(network)
+            CentralizedCommChannel(network, PhantomData::default())
         })
     }
 

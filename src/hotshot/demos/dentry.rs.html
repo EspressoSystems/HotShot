@@ -637,11 +637,6 @@
 <a href="#637" id="637">637</a>
 <a href="#638" id="638">638</a>
 <a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Double entry accounting demo
 //!
 //! This module provides an implementation of the `HotShot` suite of traits that implements a
@@ -867,33 +862,9 @@
 }
 
 <span class="kw">impl </span>DEntryBlock {
-    <span class="doccomment">/// generate a default genesis block
-    </span><span class="kw">pub fn </span>genesis() -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>accounts: BTreeMap&lt;Account, Balance&gt; = <span class="macro">vec!</span>[
-            (<span class="string">&quot;Joe&quot;</span>, <span class="number">1_000_000</span>),
-            (<span class="string">&quot;Nathan M&quot;</span>, <span class="number">500_000</span>),
-            (<span class="string">&quot;John&quot;</span>, <span class="number">400_000</span>),
-            (<span class="string">&quot;Nathan Y&quot;</span>, <span class="number">600_000</span>),
-            (<span class="string">&quot;Ian&quot;</span>, <span class="number">5_000_000</span>),
-        ]
-        .into_iter()
-        .map(|(x, y)| (x.to_string(), y))
-        .collect();
-        <span class="self">Self</span>::Genesis(DEntryGenesisBlock { accounts })
-    }
-
     <span class="doccomment">/// generate a genesis block with the provided initial accounts and balances
     </span><span class="kw">pub fn </span>genesis_from(accounts: BTreeMap&lt;Account, Balance&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::Genesis(DEntryGenesisBlock { accounts })
-    }
-
-    <span class="doccomment">/// total transactions in this block
-    </span><span class="kw">pub fn </span>txn_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="kw">if let </span>DEntryBlock::Normal(block) = <span class="self">self </span>{
-            block.transactions.len()
-        } <span class="kw">else </span>{
-            <span class="number">0
-        </span>}
     }
 }
 
@@ -1058,6 +1029,7 @@
     <span class="kw">fn </span>create_random_transaction(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
+        padding: u64,
     ) -&gt; &lt;<span class="self">Self</span>::BlockType <span class="kw">as </span>Block&gt;::Transaction {
         <span class="kw">use </span>rand::seq::IteratorRandom;
 
@@ -1086,14 +1058,32 @@
                 amount,
             },
             nonce: rng.gen(),
-            padding: <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">0</span>],
+            padding: <span class="macro">vec!</span>[<span class="number">0</span>; padding <span class="kw">as </span>usize],
         }
     }
 }
 
 <span class="kw">impl </span>TestableBlock <span class="kw">for </span>DEntryBlock {
     <span class="kw">fn </span>genesis() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::genesis()
+        <span class="kw">let </span>accounts: BTreeMap&lt;Account, Balance&gt; = <span class="macro">vec!</span>[
+            (<span class="string">&quot;Joe&quot;</span>, <span class="number">1_000_000</span>),
+            (<span class="string">&quot;Nathan M&quot;</span>, <span class="number">500_000</span>),
+            (<span class="string">&quot;John&quot;</span>, <span class="number">400_000</span>),
+            (<span class="string">&quot;Nathan Y&quot;</span>, <span class="number">600_000</span>),
+            (<span class="string">&quot;Ian&quot;</span>, <span class="number">5_000_000</span>),
+        ]
+        .into_iter()
+        .map(|(x, y)| (x.to_string(), y))
+        .collect();
+        <span class="self">Self</span>::Genesis(DEntryGenesisBlock { accounts })
+    }
+
+    <span class="kw">fn </span>txn_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+        <span class="kw">if let </span>DEntryBlock::Normal(block) = <span class="self">self </span>{
+            block.transactions.len() <span class="kw">as </span>u64
+        } <span class="kw">else </span>{
+            <span class="number">0
+        </span>}
     }
 }
 
