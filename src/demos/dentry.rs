@@ -529,7 +529,6 @@ pub struct DEntryNode<NET, ELE>(PhantomData<NET>, PhantomData<ELE>)
 where
     NET: CommunicationChannel<
         DEntryTypes,
-        ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
         QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
@@ -540,7 +539,6 @@ impl<NET, ELE> DEntryNode<NET, ELE>
 where
     NET: CommunicationChannel<
         DEntryTypes,
-        ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
         QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
@@ -557,7 +555,6 @@ impl<NET, ELE> Debug for DEntryNode<NET, ELE>
 where
     NET: CommunicationChannel<
         DEntryTypes,
-        ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
         QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
@@ -575,7 +572,6 @@ impl<NET, ELE> Default for DEntryNode<NET, ELE>
 where
     NET: CommunicationChannel<
         DEntryTypes,
-        ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
         QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
@@ -591,7 +587,6 @@ impl<NET, ELE> NodeImplementation<DEntryTypes> for DEntryNode<NET, ELE>
 where
     NET: CommunicationChannel<
         DEntryTypes,
-        ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
         QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,

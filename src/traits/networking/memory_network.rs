@@ -14,7 +14,7 @@ use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
-    data::{LeafType, ProposalType},
+    data::ProposalType,
     message::{Message, VoteType},
     traits::{
         election::Election,
@@ -291,11 +291,10 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
 
 impl<
         TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-    > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>
+    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, ELECTION>
     for MemoryCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -458,11 +457,10 @@ pub struct MemoryCommChannel<
 #[async_trait]
 impl<
         TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-    > CommunicationChannel<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>
+    > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
     for MemoryCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 {
     async fn wait_for_ready(&self) {

@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
 use hotshot_types::{
-    data::{LeafType, ProposalType},
+    data::ProposalType,
     message::{Message, VoteType},
     traits::{
         election::Election,
@@ -112,11 +112,10 @@ pub struct Libp2pNetwork<M: NetworkMsg, K: SignatureKey + 'static> {
 
 impl<
         TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-    > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>
+    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, ELECTION>
     for Libp2pCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -698,11 +697,10 @@ impl<
 #[async_trait]
 impl<
         TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-    > CommunicationChannel<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>
+    > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
     for Libp2pCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 {
     async fn wait_for_ready(&self) {

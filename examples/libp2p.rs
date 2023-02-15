@@ -5,6 +5,7 @@ use hotshot::traits::election::static_committee::GeneralStaticCommittee;
 use hotshot::traits::implementations::Libp2pCommChannel;
 use hotshot_types::data::ValidatingLeaf;
 use hotshot_types::data::ValidatingProposal;
+use hotshot_types::message::QuorumVote;
 use hotshot_types::traits::node_implementation::NodeType;
 use tracing::instrument;
 
@@ -17,8 +18,9 @@ use infra::Libp2pClientConfig;
 type ThisLeaf = ValidatingLeaf<DEntryTypes>;
 type ThisElection =
     GeneralStaticCommittee<DEntryTypes, ThisLeaf, <DEntryTypes as NodeType>::SignatureKey>;
-type ThisNetwork = Libp2pCommChannel<DEntryTypes, ThisLeaf, ThisProposal, ThisElection>;
+type ThisNetwork = Libp2pCommChannel<DEntryTypes, ThisProposal, ThisVote, ThisElection>;
 type ThisProposal = ValidatingProposal<DEntryTypes, ThisElection>;
+type ThisVote = QuorumVote<DEntryTypes, ThisLeaf>;
 type ThisNode = DEntryNode<ThisNetwork, ThisElection>;
 type ThisConfig = Libp2pClientConfig<DEntryTypes, ThisElection>;
 

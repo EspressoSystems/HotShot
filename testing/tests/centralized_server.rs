@@ -57,7 +57,6 @@ async fn centralized_server_network_vrf() {
             QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
             CentralizedCommChannel<
                 VrfTestTypes,
-                ValidatingLeaf<VrfTestTypes>,
                 ValidatingProposal<
                     VrfTestTypes,
                     VrfImpl<
@@ -69,6 +68,7 @@ async fn centralized_server_network_vrf() {
                         Param381,
                     >,
                 >,
+                QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
                 VrfImpl<
                     VrfTestTypes,
                     ValidatingLeaf<VrfTestTypes>,
@@ -126,7 +126,6 @@ async fn centralized_server_network() {
             QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             CentralizedCommChannel<
                 StaticCommitteeTestTypes,
-                ValidatingLeaf<StaticCommitteeTestTypes>,
                 ValidatingProposal<
                     StaticCommitteeTestTypes,
                     StaticCommittee<
@@ -134,6 +133,7 @@ async fn centralized_server_network() {
                         ValidatingLeaf<StaticCommitteeTestTypes>,
                     >,
                 >,
+                QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -179,7 +179,6 @@ async fn test_stress_centralized_server_network() {
             QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             CentralizedCommChannel<
                 StaticCommitteeTestTypes,
-                ValidatingLeaf<StaticCommitteeTestTypes>,
                 ValidatingProposal<
                     StaticCommitteeTestTypes,
                     StaticCommittee<
@@ -187,6 +186,7 @@ async fn test_stress_centralized_server_network() {
                         ValidatingLeaf<StaticCommitteeTestTypes>,
                     >,
                 >,
+                QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

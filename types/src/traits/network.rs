@@ -12,7 +12,7 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 
 use super::{election::Election, node_implementation::NodeType, signature_key::SignatureKey};
 use crate::{
-    data::{LeafType, ProposalType},
+    data::ProposalType,
     message::{Message, VoteType},
 };
 use async_trait::async_trait;
@@ -115,7 +115,6 @@ pub enum NetworkError {
 #[async_trait]
 pub trait CommunicationChannel<
     TYPES: NodeType,
-    LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     ELECTION: Election<TYPES>,
@@ -215,11 +214,10 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 /// Describes additional functionality needed by the test network implementation
 pub trait TestableNetworkingImplementation<
     TYPES: NodeType,
-    LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     ELECTION: Election<TYPES>,
->: CommunicationChannel<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>
+>: CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 {
     /// generates a network given an expected node count
     fn generator(
