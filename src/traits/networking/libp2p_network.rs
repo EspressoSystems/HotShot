@@ -39,6 +39,7 @@ use serde::Serialize;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeSet, HashSet},
+    marker::PhantomData,
     num::NonZeroUsize,
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
@@ -116,7 +117,7 @@ impl<
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
     > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>
-    for Libp2pCommChannel<TYPES, PROPOSAL, VOTE>
+    for Libp2pCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -208,6 +209,7 @@ where
                         )
                         .await
                         .unwrap(),
+                        PhantomData,
                     )
                 })
             }
@@ -467,10 +469,16 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
 
 #[async_trait]
 impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2pNetwork<M, K> {
-    #[instrument(name = "Libp2pNetwork::ready", skip_all)]
-    async fn ready(&self) -> bool {
+    #[instrument(name = "Libp2pNetwork::ready_blocking", skip_all)]
+    async fn wait_for_ready(&self) {
         self.wait_for_ready().await;
-        true
+    }
+
+    #[instrument(name = "Libp2pNetwork::ready_nonblocking", skip_all)]
+    async fn is_ready(&self) -> bool {
+        self.inner
+            .is_ready
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     #[instrument(name = "Libp2pNetwork::shut_down", skip_all)]
@@ -663,16 +671,24 @@ pub struct Libp2pCommChannel<
     TYPES: NodeType,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
->(Libp2pNetwork<Message<TYPES, PROPOSAL, VOTE>, TYPES::SignatureKey>);
+    ELECTION: Election<TYPES>,
+>(
+    Libp2pNetwork<Message<TYPES, PROPOSAL, VOTE>, TYPES::SignatureKey>,
+    PhantomData<ELECTION>,
+);
 
-impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
-    Libp2pCommChannel<TYPES, PROPOSAL, VOTE>
+impl<
+        TYPES: NodeType,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        ELECTION: Election<TYPES>,
+    > Libp2pCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 {
     /// create a new libp2p communication channel
     pub fn new(
         network: Libp2pNetwork<Message<TYPES, PROPOSAL, VOTE>, TYPES::SignatureKey>,
     ) -> Self {
-        Self(network)
+        Self(network, PhantomData::default())
     }
 }
 
@@ -687,10 +703,14 @@ impl<
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
     > CommunicationChannel<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>
-    for Libp2pCommChannel<TYPES, PROPOSAL, VOTE>
+    for Libp2pCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 {
-    async fn ready(&self) -> bool {
-        self.0.ready().await
+    async fn wait_for_ready(&self) {
+        self.0.wait_for_ready().await;
+    }
+
+    async fn is_ready(&self) -> bool {
+        self.0.is_ready().await
     }
 
     async fn shut_down(&self) -> () {

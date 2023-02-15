@@ -55,7 +55,29 @@ async fn centralized_server_network_vrf() {
                 >,
             >,
             QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-            CentralizedCommChannel<VrfTestTypes>,
+            CentralizedCommChannel<
+                VrfTestTypes,
+                ValidatingLeaf<VrfTestTypes>,
+                ValidatingProposal<
+                    VrfTestTypes,
+                    VrfImpl<
+                        VrfTestTypes,
+                        ValidatingLeaf<VrfTestTypes>,
+                        BLSSignatureScheme<Param381>,
+                        BLSVRFScheme<Param381>,
+                        Hasher,
+                        Param381,
+                    >,
+                >,
+                VrfImpl<
+                    VrfTestTypes,
+                    ValidatingLeaf<VrfTestTypes>,
+                    BLSSignatureScheme<Param381>,
+                    BLSVRFScheme<Param381>,
+                    Hasher,
+                    Param381,
+                >,
+            >,
             MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
             VrfImpl<
                 VrfTestTypes,
@@ -102,7 +124,18 @@ async fn centralized_server_network() {
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
             QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-            CentralizedCommChannel<StaticCommitteeTestTypes>,
+            CentralizedCommChannel<
+                StaticCommitteeTestTypes,
+                ValidatingLeaf<StaticCommitteeTestTypes>,
+                ValidatingProposal<
+                    StaticCommitteeTestTypes,
+                    StaticCommittee<
+                        StaticCommitteeTestTypes,
+                        ValidatingLeaf<StaticCommitteeTestTypes>,
+                    >,
+                >,
+                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         >>()
@@ -144,7 +177,18 @@ async fn test_stress_centralized_server_network() {
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
             QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-            CentralizedCommChannel<StaticCommitteeTestTypes>,
+            CentralizedCommChannel<
+                StaticCommitteeTestTypes,
+                ValidatingLeaf<StaticCommitteeTestTypes>,
+                ValidatingProposal<
+                    StaticCommitteeTestTypes,
+                    StaticCommittee<
+                        StaticCommitteeTestTypes,
+                        ValidatingLeaf<StaticCommitteeTestTypes>,
+                    >,
+                >,
+                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         >>()

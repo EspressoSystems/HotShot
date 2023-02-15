@@ -184,7 +184,7 @@ where
         runner.add_nodes(self.start_nodes).await;
 
         for (idx, node) in runner.nodes().collect::<Vec<_>>().iter().enumerate().rev() {
-            node.networking().ready().await;
+            node.networking().wait_for_ready().await;
             info!("EXECUTOR: NODE {:?} IS READY", idx);
         }
 
@@ -430,6 +430,14 @@ pub type StandardNodeImplType = TestNodeImpl<
             >,
         >,
         QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+        VrfImpl<
+            VrfTestTypes,
+            ValidatingLeaf<VrfTestTypes>,
+            BLSSignatureScheme<Param381>,
+            BLSVRFScheme<Param381>,
+            Hasher,
+            Param381,
+        >,
     >,
     MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
     VrfImpl<
@@ -459,6 +467,7 @@ pub type StaticNodeImplType = TestNodeImpl<
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         >,
         QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+        StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     >,
     MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -472,7 +481,7 @@ pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, ELECTION> = TestNodeIm
     LEAF,
     PROPOSAL,
     VOTE,
-    MemoryCommChannel<TYPES, PROPOSAL, VOTE>,
+    MemoryCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>,
     MemoryStorage<TYPES, LEAF>,
     ELECTION,
 >;
@@ -933,7 +942,11 @@ macro_rules! cross_tests {
                             hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
                         >
                     >,
-                    hotshot_types::message::QuorumVote<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,
+                    hotshot_types::message::QuorumVote<common::StaticCommitteeTestTypes,hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,
+                    hotshot::traits::election::static_committee::StaticCommittee<
+                        common::StaticCommitteeTestTypes,
+                        hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
+                    >
                 >,
                 $STORAGE<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,
                 hotshot::traits::election::static_committee::StaticCommittee<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>

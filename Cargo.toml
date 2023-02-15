@@ -77,7 +77,11 @@ channel-async-std = [
 ]
 
 [[example]]
-name = "multi-machine-libp2p"
+name = "centralized"
+required-features = ["demo", "libp2p/rsa"]
+
+[[example]]
+name = "libp2p"
 required-features = ["demo", "libp2p/rsa"]
 
 [[bin]]
@@ -97,7 +101,7 @@ async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-co
 async-lock = "2.6"
 async-std = { version = "1.12", optional = true }
 async-trait = "0.1.64"
-async-tungstenite = "0.19.0"
+async-tungstenite = "0.20.0"
 atomic_store = { git = "https://github.com/EspressoSystems/atomicstore", tag = "0.1.3" }
 bimap = "0.6.2"
 bincode = "1.3.3"

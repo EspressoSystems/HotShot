@@ -277,6 +277,7 @@ pub trait TestableLeaf {
     fn create_random_transaction(
         &self,
         rng: &mut dyn rand::RngCore,
+        padding: u64,
     ) -> <<Self::NodeType as NodeType>::BlockType as Block>::Transaction;
 }
 
@@ -446,8 +447,9 @@ where
     fn create_random_transaction(
         &self,
         rng: &mut dyn rand::RngCore,
+        padding: u64,
     ) -> <<Self::NodeType as NodeType>::BlockType as Block>::Transaction {
-        <TYPES::StateType as TestableState>::create_random_transaction(&self.state, rng)
+        <TYPES::StateType as TestableState>::create_random_transaction(&self.state, rng, padding)
     }
 }
 
@@ -539,6 +541,7 @@ where
     fn create_random_transaction(
         &self,
         _rng: &mut dyn rand::RngCore,
+        _padding: u64,
     ) -> <<Self::NodeType as NodeType>::BlockType as Block>::Transaction {
         #[allow(deprecated)]
         nll_todo()
