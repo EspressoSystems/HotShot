@@ -14,7 +14,7 @@ use futures::{
     FutureExt,
 };
 use hotshot::{
-    certificate::QuorumCertificate, demos::dentry::random_validating_leaf,
+    certificate::QuorumCertificate, demos::vdemo::random_validating_leaf,
     traits::election::vrf::VrfImpl,
 };
 use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};

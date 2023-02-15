@@ -1,6 +1,6 @@
 use clap::Parser;
-use hotshot::demos::dentry::DEntryNode;
-use hotshot::demos::dentry::DEntryTypes;
+use hotshot::demos::vdemo::VDemoNode;
+use hotshot::demos::vdemo::VDemoTypes;
 use hotshot::traits::election::static_committee::GeneralStaticCommittee;
 use hotshot::traits::implementations::Libp2pCommChannel;
 use hotshot_types::data::ValidatingLeaf;
@@ -14,13 +14,13 @@ use infra::main_entry_point;
 use infra::CliOrchestrated;
 use infra::Libp2pClientConfig;
 
-type ThisLeaf = ValidatingLeaf<DEntryTypes>;
+type ThisLeaf = ValidatingLeaf<VDemoTypes>;
 type ThisElection =
-    GeneralStaticCommittee<DEntryTypes, ThisLeaf, <DEntryTypes as NodeType>::SignatureKey>;
-type ThisNetwork = Libp2pCommChannel<DEntryTypes, ThisLeaf, ThisProposal, ThisElection>;
-type ThisProposal = ValidatingProposal<DEntryTypes, ThisElection>;
-type ThisNode = DEntryNode<ThisNetwork, ThisElection>;
-type ThisConfig = Libp2pClientConfig<DEntryTypes, ThisElection>;
+    GeneralStaticCommittee<VDemoTypes, ThisLeaf, <VDemoTypes as NodeType>::SignatureKey>;
+type ThisNetwork = Libp2pCommChannel<VDemoTypes, ThisLeaf, ThisProposal, ThisElection>;
+type ThisProposal = ValidatingProposal<VDemoTypes, ThisElection>;
+type ThisNode = VDemoNode<ThisNetwork, ThisElection>;
+type ThisConfig = Libp2pClientConfig<VDemoTypes, ThisElection>;
 
 #[cfg_attr(
     feature = "tokio-executor",
@@ -31,5 +31,5 @@ type ThisConfig = Libp2pClientConfig<DEntryTypes, ThisElection>;
 async fn main() {
     let args = CliOrchestrated::parse();
 
-    main_entry_point::<DEntryTypes, ThisElection, ThisNetwork, ThisNode, ThisConfig>(args).await;
+    main_entry_point::<VDemoTypes, ThisElection, ThisNetwork, ThisNode, ThisConfig>(args).await;
 }

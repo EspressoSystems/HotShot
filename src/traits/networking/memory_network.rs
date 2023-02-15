@@ -511,7 +511,7 @@ impl<
 mod tests {
     use super::*;
     use crate::{
-        demos::dentry::{Addition, DEntryBlock, DEntryState, DEntryTransaction, Subtraction},
+        demos::vdemo::{Addition, Subtraction, VDemoBlock, VDemoState, VDemoTransaction},
         traits::election::static_committee::{
             GeneralStaticCommittee, StaticElectionConfig, StaticVoteToken,
         },
@@ -559,12 +559,12 @@ mod tests {
         // TODO (da) can this be SequencingConsensus?
         type ConsensusType = ValidatingConsensus;
         type Time = ViewNumber;
-        type BlockType = DEntryBlock;
+        type BlockType = VDemoBlock;
         type SignatureKey = Ed25519Pub;
         type VoteTokenType = StaticVoteToken<Ed25519Pub>;
-        type Transaction = DEntryTransaction;
+        type Transaction = VDemoTransaction;
         type ElectionConfigType = StaticElectionConfig;
-        type StateType = DEntryState;
+        type StateType = VDemoState;
         type ApplicationMetadataType = TestMetaData;
     }
 
@@ -608,7 +608,7 @@ mod tests {
             let message = Message {
                 sender: pk,
                 kind: MessageKind::Data(DataMessage::SubmitTransaction(
-                    DEntryTransaction {
+                    VDemoTransaction {
                         add: Addition {
                             account: "A".to_string(),
                             amount: 50 + i + seed,
