@@ -39,7 +39,7 @@ pub enum EventType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
         /// The QC signing the most recent leaf in `leaf_chain`.
         ///
         /// Note that the QC for each additional leaf in the chain can be obtained from the leaf
-        /// before it using [Leaf::justify_qc].
+        /// before it using
         qc: Arc<LEAF::QuorumCertificate>,
     },
     /// A replica task was canceled by a timeout interrupt

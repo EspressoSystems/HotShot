@@ -9,7 +9,7 @@
         - [ValidatingLeader](#sequential-leader)
         - [Replica](#sequential-replica)
      3. [Pipelined HotShot](#pipelined)
-  3. [Appendices](#appendices) 
+  3. [Appendices](#appendices)
      1. [Definitions](#definitions)
         1. [Quorum Certificate](#quorum-certificate)
         2. [Safe Node Predicate](#safe-node-predicate)
@@ -42,7 +42,7 @@ independently calculates who they think the leader is, without communication.
 
 For the sake of simplicity, the leaders are not described as voting, however, the leader in a given
 view additionally performs all the actions that a replica would, in addition to its own, including
-voting. 
+voting.
 
 All nodes maintain an internal reference to a Quorum Certificated called the LockedQC, which is
 updated when the node commits a Leaf. Nodes will only accept leaves that extend from their LockedQC
@@ -110,7 +110,7 @@ it, tagged with the nodes current prepareQC.
    * Waits to receive at least `2f + 1` Votes on the Quorum Certificate from the previous phase
    * Packages the votes into a Quorum Certificate marked as originating in the Commit Phase
    * Broadcasts the Quorum Certificate to the network
-     
+
 ### Sequential Replica
 
 1. Prepare
@@ -128,14 +128,14 @@ it, tagged with the nodes current prepareQC.
     * Waits for a Prepare QC from the leader
     * Generates a vote for the proposal for the pre-commit stage
     * Sends the vote to the leader
-    
+
 3. Commit
 
     In this phase, the replica:
   * Waits for a Pre-Commit QC from the leader
   * Generates a vote for the proposal for the commit stage
   * Sends the vote to the leader
-  
+
 4. Decide
 
     In this phase, the replica:
@@ -152,9 +152,9 @@ it, tagged with the nodes current prepareQC.
 
 One of the limitations of the sequential version of HotShot is that 3 rounds of interactions are needed before
 a leader can commit a block. In order to increase the throughput and latency one can do the following:
-* Have replicas handle the different stages (_Prepare_, _Pre-Commit_, _Commit_, _Decide_) yielding an update of the blockchain 
+* Have replicas handle the different stages (_Prepare_, _Pre-Commit_, _Commit_, _Decide_) yielding an update of the blockchain
 state in "parallel" for consecutive/chained proposals during each view.
-* Let leaders delegate the responsibility to move their initial proposal (Prepare) to the next stages 
+* Let leaders delegate the responsibility to move their initial proposal (Prepare) to the next stages
 to the subsequent leaders/groups of replicas.
 
 So in practice during each view *n*, a leader will propose a new extension to the blockchain, while
@@ -190,7 +190,7 @@ Thus, our implementation of cryptographic sortition slightly differs from the Al
 
 ### Quorum Certificate
 
-A Quorum Certificate is a threshold signature of a [`Leaf`](crate::data::Leaf), composed of
+A Quorum Certificate is a threshold signature of a [`ValidatingLeaf`](hotshot_types::data::ValidatingLeaf), composed of
 signatures from at least `2f + 1` nodes.
 
 In the case of sequential HotShot, or pipelined HotShot without committee election, `f` is
@@ -221,6 +221,6 @@ locked_qc.
 
 [^1]: Though, it should be noted, that it technically valid for the election process to specifiy
     arbitrarily many leaders for a round, but at most one of them will be able to make progress
-    
+
 [^2]: The network will complete a view and move on to the next one as fast as network conditions,
     irrespective of the timeout value for the round

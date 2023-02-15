@@ -254,7 +254,7 @@ pub struct DAVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// we should check a cache, and if that fails request the qc
     pub justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
     /// The signature share associated with this vote
-    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a Vec<u8>
+    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// The block commitment being voted on.
     pub block_commitment: Commitment<TYPES::BlockType>,
@@ -273,7 +273,7 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// we should check a cache, and if that fails request the qc
     pub justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
     /// The signature share associated with this vote
-    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a Vec<u8>
+    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// The leaf commitment being voted on.
     pub leaf_commitment: Commitment<LEAF>,
@@ -290,7 +290,7 @@ pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The justification qc for this view
     pub justify_qc: LEAF::QuorumCertificate,
     /// The signature share associated with this vote
-    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a Vec<u8>
+    /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
     pub signature: (EncodedPublicKey, EncodedSignature),
     /// The view this vote was cast for
     pub current_view: TYPES::Time,

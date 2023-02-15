@@ -1,11 +1,5 @@
-//! The consensus layer for hotshot. This currently implements the hotstuff paper: <https://arxiv.org/abs/1803.05069>
-//!
-//! To use this library, you should:
-//! - Implement [`ConsensusApi`]
-//! - Create a new instance of [`Consensus`]
-//! - whenever a message arrives, call [`Consensus::add_consensus_message`]
-//! - whenever a transaction arrives, call [`Consensus::add_transaction`]
-//!
+//! The consensus layer for hotshot. This currently implements both sequencing and validating
+//! consensus
 
 #![warn(
     clippy::all,

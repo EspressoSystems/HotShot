@@ -17,7 +17,7 @@ use nll::nll_todo::nll_todo;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, ops::Deref};
-/// A `DACertificate` is a threshold signature that some data is available.  
+/// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA comittee, not the entire network. It is used
 /// to prove that the data will be made available to those outside of the DA committee.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -29,7 +29,7 @@ pub struct DACertificate<TYPES: NodeType> {
 
     /// The list of signatures establishing the validity of this Quorum Certifcate
     ///
-    /// This is a mapping of the byte encoded public keys provided by the [`NodeImplementation`], to
+    /// This is a mapping of the byte encoded public keys provided by the [`crate::traits::node_implementation::NodeImplementation`], to
     /// the byte encoded signatures provided by those keys.
     ///
     /// These formats are deliberatly done as a `Vec` instead of an array to prevent creating the
@@ -41,8 +41,8 @@ pub struct DACertificate<TYPES: NodeType> {
 
 /// The type used for Quorum Certificates
 ///
-/// A Quorum Certificate is a threshold signature of the [`Leaf`] being proposed, as well as some
-/// metadata, such as the [`Stage`] of consensus the quorum certificate was generated during.
+/// A Quorum Certificate is a threshold signature of the `Leaf` being proposed, as well as some
+/// metadata, such as the `Stage` of consensus the quorum certificate was generated during.
 #[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
