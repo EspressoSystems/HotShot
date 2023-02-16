@@ -65,6 +65,7 @@ use hotshot_types::data::ProposalType;
 use hotshot_types::data::{DAProposal, SequencingLeaf};
 use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
 use hotshot_types::traits::election::Accumulator;
+use hotshot_types::traits::election::VoteToken;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
@@ -82,7 +83,6 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use hotshot_types::traits::election::VoteToken;
 use hotshot_utils::bincode::bincode_opts;
 #[allow(deprecated)]
 use nll::nll_todo::nll_todo;
@@ -1143,6 +1143,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         &self.inner.private_key
     }
 
+    // TODO (DA): Move vote related functions back to ConsensusExchange trait once it is implemented.
     fn is_valid_dac(
         &self,
         dac: &<I::Leaf as LeafType>::DACertificate,
@@ -1202,7 +1203,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         let mut is_valid_signature = false;
         if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
             is_valid_signature = key.validate(encoded_signature, &data.as_bytes());
-            let valid_vote_token = self.inner.election.validate_vote_token(view_number, key, vote_token);
+            let valid_vote_token =
+                self.inner
+                    .election
+                    .validate_vote_token(view_number, key, vote_token);
             is_valid_vote_token = match valid_vote_token {
                 Err(_) => {
                     error!("Vote token was invalid");

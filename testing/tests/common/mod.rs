@@ -26,7 +26,7 @@ use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
-        election::Election,
+        election::Membership,
         network::{CommunicationChannel, TestableNetworkingImplementation},
         node_implementation::{ApplicationMetadata, NodeType, TestableNodeImplementation},
         signature_key::TestableSignatureKey,

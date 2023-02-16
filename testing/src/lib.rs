@@ -24,7 +24,7 @@ use hotshot::{
 use hotshot_types::{
     data::{LeafType, ProposalType, TestableLeaf},
     traits::{
-        election::Election,
+        election::Membership,
         metrics::NoMetrics,
         network::TestableNetworkingImplementation,
         node_implementation::{NodeType, TestableNodeImplementation},
@@ -565,7 +565,7 @@ pub enum ConsensusTestError {
 pub struct TestNodeImpl<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
     NETWORK,
     STORAGE,
     ELECTION,
@@ -581,7 +581,7 @@ pub struct TestNodeImpl<
 impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
         NETWORK,
         STORAGE,
         ELECTION,
@@ -602,7 +602,7 @@ impl<
 impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
         NETWORK,
         STORAGE,
         ELECTION,
@@ -611,7 +611,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    ELECTION: Election<TYPES, LeafType = LEAF> + Debug,
+    ELECTION: Membership<TYPES> + Debug,
     NETWORK: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>,
     STORAGE: Storage<TYPES, LEAF>,
 {
@@ -625,10 +625,10 @@ where
 impl<
         TYPES,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
         NETWORK,
         STORAGE,
-        ELECTION: Election<TYPES, LeafType = LEAF> + Debug,
+        ELECTION: Membership<TYPES> + Debug,
     > TestableNodeImplementation<TYPES>
     for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
 where
@@ -637,7 +637,7 @@ where
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     NETWORK: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>,
-    ELECTION: Election<TYPES>,
+    ELECTION: Membership<TYPES>,
     STORAGE: TestableStorage<TYPES, LEAF>,
 {
 }
@@ -645,7 +645,7 @@ where
 impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
         NETWORK,
         STORAGE,
         ELECTION,

@@ -43,10 +43,7 @@ async fn libp2p_network() {
                 ValidatingLeaf<StaticCommitteeTestTypes>,
                 ValidatingProposal<
                     StaticCommitteeTestTypes,
-                    StaticCommittee<
-                        StaticCommitteeTestTypes,
-                        ValidatingLeaf<StaticCommitteeTestTypes>,
-                    >,
+                    ValidatingLeaf<StaticCommitteeTestTypes>,
                 >,
             >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

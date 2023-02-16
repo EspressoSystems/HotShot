@@ -367,8 +367,8 @@ type ThisLeaf = ValidatingLeaf<DEntryTypes>;
 type ThisElection =
     GeneralStaticCommittee<DEntryTypes, ThisLeaf, <DEntryTypes as NodeType>::SignatureKey>;
 type ThisNetworking = Libp2pCommChannel<DEntryTypes, ThisLeaf, ThisProposal>;
-type ThisProposal = ValidatingProposal<DEntryTypes, ThisElection>;
-type Node = DEntryNode<ThisNetworking, ThisLeaf>;
+type ThisProposal = ValidatingProposal<DEntryTypes, ThisLeaf>;
+type Node = DEntryNode<ThisNetworking, ThisElection>;
 
 struct Config {
     run: Run,
