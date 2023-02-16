@@ -448,7 +448,7 @@ pub struct MemoryCommChannel<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
-    ELECTION: Election<TYPES>,
+    ELECTION: Membership<TYPES>,
 >(
     MemoryNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>,
     PhantomData<ELECTION>,

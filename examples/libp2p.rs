@@ -18,7 +18,7 @@ type ThisLeaf = ValidatingLeaf<DEntryTypes>;
 type ThisElection =
     GeneralStaticCommittee<DEntryTypes, ThisLeaf, <DEntryTypes as NodeType>::SignatureKey>;
 type ThisNetwork = Libp2pCommChannel<DEntryTypes, ThisLeaf, ThisProposal, ThisElection>;
-type ThisProposal = ValidatingProposal<DEntryTypes, ThisElection>;
+type ThisProposal = ValidatingProposal<DEntryTypes, ThisLeaf>;
 type ThisNode = DEntryNode<ThisNetwork, ThisElection>;
 type ThisConfig = Libp2pClientConfig<DEntryTypes, ThisElection>;
 

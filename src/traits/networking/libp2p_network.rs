@@ -670,7 +670,7 @@ pub struct Libp2pCommChannel<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
-    ELECTION: Election<TYPES>,
+    ELECTION: Membership<TYPES>,
 >(
     Libp2pNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>,
     PhantomData<ELECTION>,
@@ -680,7 +680,7 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
-        ELECTION: Election<TYPES>,
+        ELECTION: Membership<TYPES>,
     > Libp2pCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
 {
     /// create a new libp2p communication channel

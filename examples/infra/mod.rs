@@ -32,6 +32,7 @@ use hotshot_centralized_server::{
     FromServer, NetworkConfig, Run, RunResults, TcpStreamUtil, TcpStreamUtilWithRecv,
     TcpStreamUtilWithSend, ToServer,
 };
+use hotshot_types::traits::election::Membership;
 use hotshot_types::{
     data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
     traits::{
@@ -121,16 +122,16 @@ pub struct CliOrchestrated {
 #[async_trait]
 impl<
         TYPES: NodeType,
-        ELECTION: Election<TYPES>,
+        ELECTION: Membership<TYPES>,
         NODE: NodeImplementation<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
-            Proposal = ValidatingProposal<TYPES, ELECTION>,
+            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             Election = ELECTION,
             Networking = Libp2pCommChannel<
                 TYPES,
                 ValidatingLeaf<TYPES>,
-                ValidatingProposal<TYPES, ELECTION>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 ELECTION,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
@@ -142,7 +143,7 @@ impl<
         Libp2pCommChannel<
             TYPES,
             ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             ELECTION,
         >,
         NODE,
@@ -270,7 +271,7 @@ where
             Libp2pCommChannel::<
                 TYPES,
                 ValidatingLeaf<TYPES>,
-                ValidatingProposal<TYPES, ELECTION>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 ELECTION,
             >::new,
         )
@@ -304,7 +305,7 @@ where
     ) -> Libp2pCommChannel<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     > {
         self.network.clone()
@@ -314,16 +315,16 @@ where
 #[async_trait]
 impl<
         TYPES: NodeType,
-        ELECTION: Election<TYPES>,
+        ELECTION: Membership<TYPES>,
         NODE: NodeImplementation<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
-            Proposal = ValidatingProposal<TYPES, ELECTION>,
+            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             Election = ELECTION,
             Networking = CentralizedCommChannel<
                 TYPES,
                 ValidatingLeaf<TYPES>,
-                ValidatingProposal<TYPES, ELECTION>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 ELECTION,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
@@ -335,7 +336,7 @@ impl<
         CentralizedCommChannel<
             TYPES,
             ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             ELECTION,
         >,
         NODE,
@@ -387,14 +388,14 @@ where
     ) -> CentralizedCommChannel<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     > {
         self.network.clone()
     }
 }
 
-pub struct Libp2pClientConfig<TYPES: NodeType, ELECTION: Election<TYPES>> {
+pub struct Libp2pClientConfig<TYPES: NodeType, ELECTION: Membership<TYPES>> {
     _bootstrap_nodes: Vec<(PeerId, Multiaddr)>,
     _node_type: NetworkNodeType,
     _bound_addr: Multiaddr,
@@ -405,7 +406,7 @@ pub struct Libp2pClientConfig<TYPES: NodeType, ELECTION: Election<TYPES>> {
     network: Libp2pCommChannel<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
     //TODO do we need this? I don't think so
@@ -414,17 +415,17 @@ pub struct Libp2pClientConfig<TYPES: NodeType, ELECTION: Election<TYPES>> {
         NetworkConfig<<TYPES as NodeType>::SignatureKey, <TYPES as NodeType>::ElectionConfigType>,
 }
 
-pub enum Config<TYPES: NodeType, ELECTION: Election<TYPES>> {
+pub enum Config<TYPES: NodeType, ELECTION: Membership<TYPES>> {
     Libp2pConfig(Libp2pClientConfig<TYPES, ELECTION>),
     CentralizedConfig(CentralizedConfig<TYPES, ELECTION>),
 }
 
-pub struct CentralizedConfig<TYPES: NodeType, ELECTION: Election<TYPES>> {
+pub struct CentralizedConfig<TYPES: NodeType, ELECTION: Membership<TYPES>> {
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     network: CentralizedCommChannel<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
     _run: Run,
@@ -433,17 +434,17 @@ pub struct CentralizedConfig<TYPES: NodeType, ELECTION: Election<TYPES>> {
 #[async_trait]
 pub trait CliConfig<
     TYPES: NodeType,
-    ELECTION: Election<TYPES>,
+    ELECTION: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        Proposal = ValidatingProposal<TYPES, ELECTION>,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Election = ELECTION,
         Networking = NETWORK,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
@@ -619,17 +620,17 @@ pub trait CliConfig<
 
 pub async fn main_entry_point<
     TYPES: NodeType,
-    ELECTION: Election<TYPES>,
+    ELECTION: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        Proposal = ValidatingProposal<TYPES, ELECTION>,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Election = ELECTION,
         Networking = NETWORK,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,

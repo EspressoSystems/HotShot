@@ -1083,7 +1083,7 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
-        ELECTION: Election<TYPES>,
+        ELECTION: Membership<TYPES>,
     > CentralizedCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
 {
     /// create new communication channel
@@ -1110,7 +1110,7 @@ impl<
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         ELECTION: Membership<TYPES>,
-    > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION> for CentralizedCommChannel<TYPES>
+    > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION>
     for CentralizedCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
 {
     async fn wait_for_ready(&self) {

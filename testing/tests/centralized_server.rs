@@ -99,7 +99,10 @@ async fn centralized_server_network() {
             CentralizedCommChannel<
                 StaticCommitteeTestTypes,
                 ValidatingLeaf<StaticCommitteeTestTypes>,
-                ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>,
+                ValidatingProposal<
+                    StaticCommitteeTestTypes,
+                    ValidatingLeaf<StaticCommitteeTestTypes>,
+                >,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -142,7 +145,10 @@ async fn test_stress_centralized_server_network() {
             CentralizedCommChannel<
                 StaticCommitteeTestTypes,
                 ValidatingLeaf<StaticCommitteeTestTypes>,
-                ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+                ValidatingProposal<
+                    StaticCommitteeTestTypes,
+                    ValidatingLeaf<StaticCommitteeTestTypes>,
+                >,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
