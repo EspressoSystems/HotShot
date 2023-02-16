@@ -42,6 +42,7 @@ use snafu::ResultExt;
 use std::{
     cmp,
     collections::{hash_map::Entry, BTreeSet, HashMap},
+    marker::PhantomData,
     net::{Ipv4Addr, SocketAddr},
     num::NonZeroUsize,
     sync::{
@@ -993,12 +994,16 @@ impl From<hotshot_centralized_server::Error> for Error {
 impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> ConnectedNetwork<M, K>
     for CentralizedServerNetwork<K, E>
 {
-    #[instrument(name = "CentralizedServer::ready", skip_all)]
-    async fn ready(&self) -> bool {
+    #[instrument(name = "CentralizedServer::ready_blocking", skip_all)]
+    async fn wait_for_ready(&self) {
         while !self.inner.connected.load(Ordering::Relaxed) {
             async_sleep(Duration::from_secs(1)).await;
         }
-        true
+    }
+
+    #[instrument(name = "CentralizedServer::ready", skip_all)]
+    async fn is_ready(&self) -> bool {
+        self.run_ready()
     }
 
     #[instrument(name = "CentralizedServer::shut_down", skip_all)]
@@ -1064,21 +1069,28 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
 
 /// libp2p identity communication channel
 #[derive(Clone)]
-pub struct CentralizedCommChannel<TYPES: NodeType>(
+pub struct CentralizedCommChannel<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    ELECTION: Membership<TYPES>,
+>(
     CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    PhantomData<(LEAF, PROPOSAL, ELECTION)>,
 );
 
-impl<TYPES: NodeType> CentralizedCommChannel<TYPES> {
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        ELECTION: Election<TYPES>,
+    > CentralizedCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
+{
     /// create new communication channel
     pub fn new(
         network: CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> Self {
-        Self(network)
-    }
-
-    /// passthru for example?
-    pub fn run_ready(&self) -> bool {
-        self.0.run_ready()
+        Self(network, PhantomData::default())
     }
 
     /// passthru for example?
@@ -1099,12 +1111,21 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         ELECTION: Membership<TYPES>,
     > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION> for CentralizedCommChannel<TYPES>
+    for CentralizedCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
 {
-    async fn ready(&self) -> bool {
+    async fn wait_for_ready(&self) {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
             Message<TYPES, LEAF, PROPOSAL>,
             TYPES::SignatureKey,
-        >>::ready(&self.0)
+        >>::wait_for_ready(&self.0)
+        .await;
+    }
+
+    async fn is_ready(&self) -> bool {
+        <CentralizedServerNetwork<_, _> as ConnectedNetwork<
+            Message<TYPES, LEAF, PROPOSAL>,
+            TYPES::SignatureKey,
+        >>::is_ready(&self.0)
         .await
     }
 
@@ -1156,7 +1177,7 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         ELECTION: Membership<TYPES>,
     > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>
-    for CentralizedCommChannel<TYPES>
+    for CentralizedCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -1190,7 +1211,7 @@ where
                 known_nodes[id as usize].clone(),
             );
             network.server_shutdown_signal = Some(sender);
-            CentralizedCommChannel(network)
+            CentralizedCommChannel(network, PhantomData::default())
         })
     }
 

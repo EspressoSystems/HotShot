@@ -120,10 +120,13 @@ pub trait CommunicationChannel<
     MEMBERSHIP: Membership<TYPES>,
 >: Clone + Send + Sync + 'static
 {
-    /// Returns true when node is successfully initialized
+    /// Blocks until node is successfully initialized
     /// into the network
-    /// Blocks until node is ready
-    async fn ready(&self) -> bool;
+    async fn wait_for_ready(&self);
+
+    /// checks if the network is ready
+    /// nonblocking
+    async fn is_ready(&self) -> bool;
 
     /// Shut down this network. Afterwards this network should no longer be used.
     ///
@@ -175,8 +178,11 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     Clone + Send + Sync + 'static
 {
     /// Blocks until the network is successfully initialized
-    /// then returns true
-    async fn ready(&self) -> bool;
+    async fn wait_for_ready(&self);
+
+    /// checks if the network is ready
+    /// nonblocking
+    async fn is_ready(&self) -> bool;
 
     /// Blocks until the network is shut down
     /// then returns true

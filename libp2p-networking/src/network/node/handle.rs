@@ -54,14 +54,21 @@ pub struct NetworkNodeHandle<S> {
     receiver: NetworkNodeReceiver,
 }
 
+/// internal network node receiver
 #[derive(Debug)]
 pub struct NetworkNodeReceiver {
+    /// whether or not the receiver is started
     receiver_spawned: AtomicBool,
+
     /// whether or not the handle has been killed
     killed: AtomicBool,
 
+    /// the receiver
     receiver: Mutex<UnboundedReceiver<NetworkEvent>>,
+
+    ///kill switch
     recv_kill: Mutex<Option<OneShotReceiver<()>>>,
+
     /// kill the event handler for events from the swarm
     kill_switch: Mutex<Option<OneShotSender<()>>>,
 }
@@ -211,7 +218,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         Ok(())
     }
 
-    /// Receives a reference of the internal [`NetworkNodeReceiver`], which can be used to query for incoming messages.
+    /// Receives a reference of the internal `NetworkNodeReceiver`, which can be used to query for incoming messages.
     pub fn receiver(&self) -> &NetworkNodeReceiver {
         &self.receiver
     }

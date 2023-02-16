@@ -163,9 +163,9 @@ where
 {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///
-    /// - `NETWORK` implements [`NetworkingImplementation`] and [`TestableNetworkingImplementation`]
-    /// - `STORAGE` implements [`Storage`]
-    /// - `BLOCK` implements [`BlockContents`] and [`TestableBlock`]
+    /// - `NETWORK` implements and [`TestableNetworkingImplementation`]
+    /// - `STORAGE` implements [`hotshot::traits::Storage`]
+    /// - `BLOCK` implements [`hotshot::traits::Block`] and [`TestableBlock`]
     pub fn launch(self) -> TestRunner<TYPES, I> {
         TestRunner::new(self)
     }

@@ -34,7 +34,7 @@ pub enum ExecutionType {
 
 /// Holds configuration for a `HotShot`
 #[derive(Clone, serde::Serialize, serde::Deserialize, Debug)]
-pub struct HotShotConfig<K, ELECTION> {
+pub struct HotShotConfig<K, ELECTIONCONFIG> {
     /// Whether to run one view or continuous views
     pub execution_type: ExecutionType,
     /// Total number of nodes in the network
@@ -60,5 +60,5 @@ pub struct HotShotConfig<K, ELECTION> {
     /// The maximum amount of time a leader can wait to start a round
     pub propose_max_round_time: Duration,
     /// the election configuration
-    pub election_config: Option<ELECTION>,
+    pub election_config: Option<ELECTIONCONFIG>,
 }

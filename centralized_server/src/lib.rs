@@ -63,7 +63,7 @@ compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-execut
 use types::*;
 
 /// 256KB, assumed to be the kernel receive buffer
-/// https://stackoverflow.com/a/2862176
+/// <https://stackoverflow.com/a/2862176>
 pub(crate) const MAX_CHUNK_SIZE: usize = 256 * 1024;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
@@ -121,13 +121,14 @@ fn run_results_can_be_serialized() {
     toml::to_string_pretty(&results).unwrap();
 }
 
+/// the run of execution we are on
 #[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Debug, Clone, Copy, Default)]
 pub struct Run(pub usize);
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub enum FromServer<K, E> {
+pub enum FromServer<K, ELECTIONCONFIG> {
     Config {
-        config: Box<NetworkConfig<K, E>>,
+        config: Box<NetworkConfig<K, ELECTIONCONFIG>>,
         run: Run,
     },
     NodeConnected {
