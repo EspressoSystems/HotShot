@@ -4,7 +4,6 @@
 //! expected to have.
 
 use commit::{Commitment, Committable};
-use espresso_systems_common::hotshot::tag;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
@@ -99,7 +98,7 @@ pub mod dummy {
         }
 
         fn tag() -> String {
-            tag::DUMMY_TXN.to_string()
+            "DUMMY_TXN".to_string()
         }
     }
     impl super::Transaction for DummyTransaction {}
@@ -153,7 +152,7 @@ pub mod dummy {
         }
 
         fn tag() -> String {
-            tag::DUMMY_BLOCK.to_string()
+            "DUMMY_BLOCK".to_string()
         }
     }
 }
