@@ -18,6 +18,7 @@ use hotshot_types::{
     certificate::QuorumCertificate,
     constants::genesis_proposer_id,
     data::{random_commitment, LeafType, ValidatingLeaf, ValidatingProposal, ViewNumber},
+    message::QuorumVote,
     traits::{
         block_contents::Transaction,
         election::Election,
@@ -528,8 +529,8 @@ pub struct DEntryNode<NET, ELE>(PhantomData<NET>, PhantomData<ELE>)
 where
     NET: CommunicationChannel<
         DEntryTypes,
-        ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
+        QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>;
@@ -538,8 +539,8 @@ impl<NET, ELE> DEntryNode<NET, ELE>
 where
     NET: CommunicationChannel<
         DEntryTypes,
-        ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
+        QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
@@ -554,8 +555,8 @@ impl<NET, ELE> Debug for DEntryNode<NET, ELE>
 where
     NET: CommunicationChannel<
         DEntryTypes,
-        ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
+        QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
@@ -571,8 +572,8 @@ impl<NET, ELE> Default for DEntryNode<NET, ELE>
 where
     NET: CommunicationChannel<
         DEntryTypes,
-        ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
+        QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
@@ -586,8 +587,8 @@ impl<NET, ELE> NodeImplementation<DEntryTypes> for DEntryNode<NET, ELE>
 where
     NET: CommunicationChannel<
         DEntryTypes,
-        ValidatingLeaf<DEntryTypes>,
         ValidatingProposal<DEntryTypes, ELE>,
+        QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>> + Debug,
@@ -597,6 +598,7 @@ where
     type Networking = NET;
     type Election = ELE;
     type Proposal = ValidatingProposal<DEntryTypes, ELE>;
+    type Vote = QuorumVote<DEntryTypes, ELE::LeafType>;
 }
 
 /// Provides a random [`QuorumCertificate`]

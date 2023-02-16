@@ -52,12 +52,8 @@ pub struct VRFStakeTable<VRF, VRFHASHER, VRFPARAMS> {
     mapping: BTreeMap<EncodedPublicKey, NonZeroU64>,
     /// total stake present
     total_stake: NonZeroU64,
-    /// PhantomData for VRF
-    _pd_0: PhantomData<VRF>,
-    /// PhantomData for VRFHASEHR
-    _pd_1: PhantomData<VRFHASHER>,
-    /// PhantomData for VRFPARAMS
-    _pd_2: PhantomData<VRFPARAMS>,
+    /// PhantomData
+    _pd: PhantomData<(VRF, VRFHASHER, VRFPARAMS)>,
 }
 
 impl<VRF, VRFHASHER, VRFPARAMS> Clone for VRFStakeTable<VRF, VRFHASHER, VRFPARAMS> {
@@ -65,9 +61,7 @@ impl<VRF, VRFHASHER, VRFPARAMS> Clone for VRFStakeTable<VRF, VRFHASHER, VRFPARAM
         Self {
             mapping: self.mapping.clone(),
             total_stake: self.total_stake,
-            _pd_0: PhantomData,
-            _pd_1: PhantomData,
-            _pd_2: PhantomData,
+            _pd: PhantomData,
         }
     }
 }
@@ -85,7 +79,7 @@ where
     /// the public key
     pk: SIGSCHEME::VerificationKey,
     /// phantom data
-    _pd_0: PhantomData<SIGSCHEME::SigningKey>,
+    _pd: PhantomData<SIGSCHEME::SigningKey>,
 }
 
 impl<SIGSCHEME> TestableSignatureKey for JfPubKey<SIGSCHEME>
@@ -111,7 +105,7 @@ where
     pub fn from_native(pk: SIGSCHEME::VerificationKey) -> Self {
         Self {
             pk,
-            _pd_0: PhantomData,
+            _pd: PhantomData,
         }
     }
 }
@@ -124,7 +118,7 @@ where
     fn clone(&self) -> Self {
         Self {
             pk: self.pk.clone(),
-            _pd_0: PhantomData,
+            _pd: PhantomData,
         }
     }
 }
@@ -230,7 +224,7 @@ where
     fn from_private(private_key: &Self::PrivateKey) -> Self {
         Self {
             pk: private_key.1.clone(),
-            _pd_0: PhantomData,
+            _pd: PhantomData,
         }
     }
 
@@ -245,7 +239,7 @@ where
     fn from_bytes(bytes: &hotshot_types::traits::signature_key::EncodedPublicKey) -> Option<Self> {
         bincode_opts().deserialize(&bytes.0).ok().map(|pk| Self {
             pk,
-            _pd_0: PhantomData,
+            _pd: PhantomData,
         })
     }
 
@@ -261,7 +255,7 @@ where
         (
             Self {
                 pk: pk.clone(),
-                _pd_0: PhantomData,
+                _pd: PhantomData,
             },
             (sk, pk),
         )
@@ -327,20 +321,8 @@ where
     #[derivative(PartialEq = "ignore")]
     _sortition_cache: std::sync::Arc<std::sync::Mutex<HashMap<BinomialQuery, Ratio<BigUint>>>>,
 
-    // TODO (fst2) accessor to stake table
-    // stake_table:
     /// phantom data
-    _pd_0: PhantomData<TYPES>,
-    /// phantom data
-    _pd_1: PhantomData<LEAF>,
-    /// phantom data
-    _pd_2: PhantomData<SIGSCHEME>,
-    /// phantom data
-    _pd_3: PhantomData<VRF>,
-    /// phantom data
-    _pd_4: PhantomData<VRFHASHER>,
-    /// phantom data
-    _pd_5: PhantomData<VRFPARAMS>,
+    _pd: PhantomData<(TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS)>,
 }
 impl<TYPES, LEAF: LeafType<NodeType = TYPES>, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS> Clone
     for VrfImpl<TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
@@ -356,12 +338,7 @@ where
             sortition_parameter: self.sortition_parameter,
             chain_seed: self.chain_seed,
             _sortition_cache: Arc::default(),
-            _pd_0: PhantomData,
-            _pd_1: PhantomData,
-            _pd_2: PhantomData,
-            _pd_3: PhantomData,
-            _pd_4: PhantomData,
-            _pd_5: PhantomData,
+            _pd: PhantomData,
         }
     }
 }
@@ -917,23 +894,14 @@ where
                     mapping: key_with_stake,
                     total_stake: NonZeroU64::new(config.distribution.iter().map(|x| x.get()).sum())
                         .unwrap(),
-                    _pd_0: PhantomData,
-                    _pd_1: PhantomData,
-                    _pd_2: PhantomData,
+                    _pd: PhantomData,
                 };
                 st
             },
             proof_parameters: (),
             chain_seed: genesis_seed,
             prng: Arc::new(Mutex::new(ChaChaRng::from_seed(Default::default()))),
-            // TODO (fst2) accessor to stake table
-            // stake_table:
-            _pd_0: PhantomData,
-            _pd_1: PhantomData,
-            _pd_2: PhantomData,
-            _pd_3: PhantomData,
-            _pd_4: PhantomData,
-            _pd_5: PhantomData,
+            _pd: PhantomData,
             sortition_parameter: config.sortition_parameter,
             _sortition_cache: Arc::default(),
         }

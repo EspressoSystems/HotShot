@@ -13,7 +13,7 @@ use either::{Left, Right};
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, SequencingLeaf},
-    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
+    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, QuorumVote},
     traits::{
         election::{Election, SignedCertificate},
         node_implementation::NodeType,
@@ -30,7 +30,12 @@ use tracing::{error, info, instrument, warn};
 /// This view's replica for sequencing consensus.
 #[derive(Debug, Clone)]
 pub struct SequencingReplica<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, CommitmentProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        CommitmentProposal<TYPES, ELECTION>,
+        QuorumVote<TYPES, SequencingLeaf<TYPES>>,
+    >,
     TYPES: NodeType,
     ELECTION: Election<
         TYPES,
@@ -50,8 +55,8 @@ pub struct SequencingReplica<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
-                    SequencingLeaf<TYPES>,
                     CommitmentProposal<TYPES, ELECTION>,
+                    QuorumVote<TYPES, SequencingLeaf<TYPES>>,
                 >,
             >,
         >,
@@ -65,7 +70,12 @@ pub struct SequencingReplica<
 }
 
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, CommitmentProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<
+            TYPES,
+            SequencingLeaf<TYPES>,
+            CommitmentProposal<TYPES, ELECTION>,
+            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
+        >,
         TYPES: NodeType,
         ELECTION: Election<
             TYPES,
