@@ -12,7 +12,7 @@ use either::Left;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{DAProposal, SequencingLeaf},
-    message::{ConsensusMessage, ProcessedConsensusMessage},
+    message::{ConsensusMessage, DAVote, ProcessedConsensusMessage},
     traits::{
         election::{Election, SignedCertificate},
         node_implementation::NodeType,
@@ -25,7 +25,12 @@ use tracing::{error, info, instrument, warn};
 /// This view's DA committee member.
 #[derive(Debug, Clone)]
 pub struct DAMember<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>,
+    A: ConsensusApi<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        DAProposal<TYPES>,
+        DAVote<TYPES, SequencingLeaf<TYPES>>,
+    >,
     TYPES: NodeType,
 > {
     /// ID of node.
@@ -37,7 +42,11 @@ pub struct DAMember<
     pub proposal_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
-                ProcessedConsensusMessage<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>,
+                ProcessedConsensusMessage<
+                    TYPES,
+                    DAProposal<TYPES>,
+                    DAVote<TYPES, SequencingLeaf<TYPES>>,
+                >,
             >,
         >,
     >,
@@ -49,8 +58,15 @@ pub struct DAMember<
     pub api: A,
 }
 
-impl<A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>, TYPES: NodeType>
-    DAMember<A, TYPES>
+impl<
+        A: ConsensusApi<
+            TYPES,
+            SequencingLeaf<TYPES>,
+            DAProposal<TYPES>,
+            DAVote<TYPES, SequencingLeaf<TYPES>>,
+        >,
+        TYPES: NodeType,
+    > DAMember<A, TYPES>
 {
     /// Returns the parent leaf of the proposal we are voting on
     async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {

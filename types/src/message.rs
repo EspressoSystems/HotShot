@@ -14,46 +14,42 @@ use crate::{
 use commit::Commitment;
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
+
+/// The vote sent by consensus messages.
+pub trait VoteType<TYPES: NodeType>:
+    Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync
+{
+    /// The view this vote was cast for.
+    fn current_view(&self) -> TYPES::Time;
+}
 
 /// Incoming message
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub struct Message<
-    TYPES: NodeType,
-    LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-> {
+pub struct Message<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
+{
     /// The sender of this message
     pub sender: TYPES::SignatureKey,
 
     /// The message kind
-    pub kind: MessageKind<TYPES, LEAF, PROPOSAL>,
+    pub kind: MessageKind<TYPES, PROPOSAL, VOTE>,
 }
 
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-    > NetworkMsg for Message<TYPES, LEAF, PROPOSAL>
+impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>> NetworkMsg
+    for Message<TYPES, PROPOSAL, VOTE>
 {
 }
 
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-    > Message<TYPES, LEAF, PROPOSAL>
+impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
+    Message<TYPES, PROPOSAL, VOTE>
 {
     /// get the view number out of a message
     pub fn get_view_number(&self) -> TYPES::Time {
         match &self.kind {
             MessageKind::Consensus(c) => match c {
                 ConsensusMessage::Proposal(p) => p.data.get_view_number(),
-                ConsensusMessage::Vote(v) => match v {
-                    Vote::DA(v) => v.current_view,
-                    Vote::Yes(v) | Vote::No(v) => v.current_view,
-                    Vote::Timeout(v) => v.current_view,
-                },
+                ConsensusMessage::Vote(v) => v.current_view(),
                 ConsensusMessage::InternalTrigger(trigger) => match trigger {
                     InternalTrigger::Timeout(v) => *v,
                 },
@@ -70,51 +66,29 @@ impl<
 #[serde(bound(deserialize = ""))]
 pub enum MessageKind<
     TYPES: NodeType,
-    LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
 > {
     /// Messages related to the consensus protocol
-    Consensus(ConsensusMessage<TYPES, LEAF, PROPOSAL>),
+    Consensus(ConsensusMessage<TYPES, PROPOSAL, VOTE>),
     /// Messages relating to sharing data between nodes
     Data(DataMessage<TYPES>),
 }
 
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-    > From<ConsensusMessage<TYPES, LEAF, PROPOSAL>> for MessageKind<TYPES, LEAF, PROPOSAL>
+impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
+    From<ConsensusMessage<TYPES, PROPOSAL, VOTE>> for MessageKind<TYPES, PROPOSAL, VOTE>
 {
-    fn from(m: ConsensusMessage<TYPES, LEAF, PROPOSAL>) -> Self {
+    fn from(m: ConsensusMessage<TYPES, PROPOSAL, VOTE>) -> Self {
         Self::Consensus(m)
     }
 }
 
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-    > From<DataMessage<TYPES>> for MessageKind<TYPES, LEAF, PROPOSAL>
+impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
+    From<DataMessage<TYPES>> for MessageKind<TYPES, PROPOSAL, VOTE>
 {
     fn from(m: DataMessage<TYPES>) -> Self {
         Self::Data(m)
     }
-}
-
-// TODO (da) Modify the Vote enum after the consensus trait refactoring:
-// <https://github.com/EspressoSystems/HotShot/issues/856>.
-/// Votes sent by consensus messages.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = ""))]
-pub enum Vote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
-    /// The vote on DA proposal.
-    DA(DAVote<TYPES, LEAF>),
-    /// Posivite vote on validating or commitment proposal.
-    Yes(YesOrNoVote<TYPES, LEAF>),
-    /// Negative vote on validating or commitment proposal.
-    No(YesOrNoVote<TYPES, LEAF>),
-    /// Timeout vote.
-    Timeout(TimeoutVote<TYPES, LEAF>),
 }
 
 /// Internal triggers sent by consensus messages.
@@ -131,27 +105,24 @@ pub enum InternalTrigger<TYPES: NodeType> {
 #[serde(bound(deserialize = ""))]
 pub enum ProcessedConsensusMessage<
     TYPES: NodeType,
-    LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
 > {
     /// Leader's proposal
     Proposal(Proposal<PROPOSAL>, TYPES::SignatureKey),
     /// Replica's vote on a proposal.
-    Vote(Vote<TYPES, LEAF>, TYPES::SignatureKey),
+    Vote(VOTE, TYPES::SignatureKey),
     /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
 }
 
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-    > From<ProcessedConsensusMessage<TYPES, LEAF, PROPOSAL>>
-    for ConsensusMessage<TYPES, LEAF, PROPOSAL>
+impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
+    From<ProcessedConsensusMessage<TYPES, PROPOSAL, VOTE>>
+    for ConsensusMessage<TYPES, PROPOSAL, VOTE>
 {
     /// row polymorphism would be great here
-    fn from(value: ProcessedConsensusMessage<TYPES, LEAF, PROPOSAL>) -> Self {
+    fn from(value: ProcessedConsensusMessage<TYPES, PROPOSAL, VOTE>) -> Self {
         match value {
             ProcessedConsensusMessage::Proposal(p, _) => ConsensusMessage::Proposal(p),
             ProcessedConsensusMessage::Vote(v, _) => ConsensusMessage::Vote(v),
@@ -160,15 +131,12 @@ impl<
     }
 }
 
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-    > ProcessedConsensusMessage<TYPES, LEAF, PROPOSAL>
+impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
+    ProcessedConsensusMessage<TYPES, PROPOSAL, VOTE>
 {
     /// row polymorphism would be great here
     pub fn new(
-        value: ConsensusMessage<TYPES, LEAF, PROPOSAL>,
+        value: ConsensusMessage<TYPES, PROPOSAL, VOTE>,
         sender: TYPES::SignatureKey,
     ) -> Self {
         match value {
@@ -184,23 +152,20 @@ impl<
 /// Messages related to the consensus protocol
 pub enum ConsensusMessage<
     TYPES: NodeType,
-    LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
 > {
     /// Leader's proposal
     Proposal(Proposal<PROPOSAL>),
     /// Replica's vote on a proposal.
-    Vote(Vote<TYPES, LEAF>),
+    Vote(VOTE),
     /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
 }
 
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-    > ConsensusMessage<TYPES, LEAF, PROPOSAL>
+impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
+    ConsensusMessage<TYPES, PROPOSAL, VOTE>
 {
     /// The view number of the (leader|replica) when the message was sent
     /// or the view of the timeout
@@ -211,11 +176,7 @@ impl<
                 // this should match replica upon receipt
                 p.data.get_view_number()
             }
-            ConsensusMessage::Vote(vote_message) => match vote_message {
-                Vote::DA(v) => v.current_view,
-                Vote::Yes(v) | Vote::No(v) => v.current_view,
-                Vote::Timeout(v) => v.current_view,
-            },
+            ConsensusMessage::Vote(vote_message) => vote_message.current_view(),
             ConsensusMessage::InternalTrigger(trigger) => match trigger {
                 InternalTrigger::Timeout(time) => *time,
             },
@@ -296,4 +257,33 @@ pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub current_view: TYPES::Time,
     /// The vote token generated by this replica
     pub vote_token: TYPES::VoteTokenType,
+}
+
+/// Votes on validating or commitment proposal.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = ""))]
+pub enum QuorumVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
+    /// Posivite vote.
+    Yes(YesOrNoVote<TYPES, LEAF>),
+    /// Negative vote.
+    No(YesOrNoVote<TYPES, LEAF>),
+    /// Timeout vote.
+    Timeout(TimeoutVote<TYPES, LEAF>),
+}
+
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> VoteType<TYPES> for DAVote<TYPES, LEAF> {
+    fn current_view(&self) -> TYPES::Time {
+        self.current_view
+    }
+}
+
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> VoteType<TYPES>
+    for QuorumVote<TYPES, LEAF>
+{
+    fn current_view(&self) -> TYPES::Time {
+        match self {
+            QuorumVote::Yes(v) | QuorumVote::No(v) => v.current_view,
+            QuorumVote::Timeout(v) => v.current_view,
+        }
+    }
 }

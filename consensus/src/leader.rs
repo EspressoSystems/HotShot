@@ -10,7 +10,7 @@ use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, Proposal},
+    message::{ConsensusMessage, Proposal, QuorumVote},
     traits::{
         election::{Election, SignedCertificate},
         node_implementation::NodeType,
@@ -25,7 +25,12 @@ use tracing::{error, info, instrument, warn};
 /// This view's validating leader
 #[derive(Debug, Clone)]
 pub struct ValidatingLeader<
-    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>,
+    A: ConsensusApi<
+        TYPES,
+        ValidatingLeaf<TYPES>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+    >,
     TYPES: NodeType,
 > {
     /// id of node
@@ -47,6 +52,7 @@ impl<
             TYPES,
             ValidatingLeaf<TYPES>,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         >,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     > ValidatingLeader<A, TYPES>
@@ -178,8 +184,8 @@ impl<
             let data: ValidatingProposal<TYPES, ValidatingLeaf<TYPES>> = leaf.into();
             let message = ConsensusMessage::<
                 TYPES,
-                ValidatingLeaf<TYPES>,
                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             >::Proposal(Proposal { data, signature });
             consensus
                 .metrics

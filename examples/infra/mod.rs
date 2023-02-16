@@ -35,6 +35,7 @@ use hotshot_centralized_server::{
 use hotshot_types::traits::election::Membership;
 use hotshot_types::{
     data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
+    message::QuorumVote,
     traits::{
         election::Election,
         metrics::NoMetrics,
@@ -130,8 +131,8 @@ impl<
             Election = ELECTION,
             Networking = Libp2pCommChannel<
                 TYPES,
-                ValidatingLeaf<TYPES>,
                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
                 ELECTION,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
@@ -142,8 +143,8 @@ impl<
         ELECTION,
         Libp2pCommChannel<
             TYPES,
-            ValidatingLeaf<TYPES>,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             ELECTION,
         >,
         NODE,
@@ -270,8 +271,8 @@ where
         .map(
             Libp2pCommChannel::<
                 TYPES,
-                ValidatingLeaf<TYPES>,
                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
                 ELECTION,
             >::new,
         )
@@ -304,8 +305,8 @@ where
         &self,
     ) -> Libp2pCommChannel<
         TYPES,
-        ValidatingLeaf<TYPES>,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     > {
         self.network.clone()
@@ -320,11 +321,12 @@ impl<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
             Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            Vote = QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             Election = ELECTION,
             Networking = CentralizedCommChannel<
                 TYPES,
-                ValidatingLeaf<TYPES>,
                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
                 ELECTION,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
@@ -335,8 +337,8 @@ impl<
         ELECTION,
         CentralizedCommChannel<
             TYPES,
-            ValidatingLeaf<TYPES>,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             ELECTION,
         >,
         NODE,
@@ -387,8 +389,8 @@ where
         &self,
     ) -> CentralizedCommChannel<
         TYPES,
-        ValidatingLeaf<TYPES>,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     > {
         self.network.clone()
@@ -405,8 +407,8 @@ pub struct Libp2pClientConfig<TYPES: NodeType, ELECTION: Membership<TYPES>> {
     _socket: TcpStreamUtil,
     network: Libp2pCommChannel<
         TYPES,
-        ValidatingLeaf<TYPES>,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
     //TODO do we need this? I don't think so
@@ -424,8 +426,8 @@ pub struct CentralizedConfig<TYPES: NodeType, ELECTION: Membership<TYPES>> {
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     network: CentralizedCommChannel<
         TYPES,
-        ValidatingLeaf<TYPES>,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
     _run: Run,
@@ -437,8 +439,8 @@ pub trait CliConfig<
     ELECTION: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
-        ValidatingLeaf<TYPES>,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
     NODE: NodeImplementation<
@@ -623,8 +625,8 @@ pub async fn main_entry_point<
     ELECTION: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
-        ValidatingLeaf<TYPES>,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
     NODE: NodeImplementation<

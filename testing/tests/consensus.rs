@@ -21,7 +21,7 @@ use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     event::EventType,
-    message::{ConsensusMessage, Proposal},
+    message::{ConsensusMessage, Proposal, QuorumVote},
     traits::{
         election::{Membership, SignedCertificate, TestableElection},
         node_implementation::NodeType,
@@ -41,6 +41,14 @@ use tracing::{instrument, warn};
 const NUM_VIEWS: u64 = 100;
 const DEFAULT_NODE_ID: u64 = 0;
 
+type AppliedValidatingTestRunner<TYPES, ELECTION> = AppliedTestRunner<
+    TYPES,
+    ValidatingLeaf<TYPES>,
+    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+    ELECTION,
+>;
+
 enum QueuedMessageTense {
     Past(Option<usize>),
     Future(Option<usize>),
@@ -51,12 +59,7 @@ async fn is_upcoming_validating_leader<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Membership<TYPES> + Debug,
 >(
-    runner: &AppliedTestRunner<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
-    >,
+    runner: &AppliedValidatingTestRunner<TYPES, ELECTION>,
     node_id: u64,
     view_number: TYPES::Time,
 ) -> bool
@@ -75,12 +78,7 @@ async fn submit_validating_proposal<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Membership<TYPES> + Debug,
 >(
-    runner: &AppliedTestRunner<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
-    >,
+    runner: &AppliedValidatingTestRunner<TYPES, ELECTION>,
     sender_node_id: u64,
     view_number: TYPES::Time,
 ) where
@@ -110,12 +108,7 @@ async fn submit_validating_vote<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Membership<TYPES> + TestableElection<TYPES> + Debug,
 >(
-    runner: &AppliedTestRunner<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
-    >,
+    runner: &AppliedValidatingTestRunner<TYPES, ELECTION>,
     sender_node_id: u64,
     view_number: TYPES::Time,
     recipient_node_id: u64,
@@ -163,12 +156,7 @@ fn test_validating_vote_queueing_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Membership<TYPES> + Debug,
 >(
-    runner: &AppliedTestRunner<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
-    >,
+    runner: &AppliedValidatingTestRunner<TYPES, ELECTION>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
@@ -216,12 +204,7 @@ fn test_validating_vote_queueing_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Membership<TYPES> + TestableElection<TYPES> + Debug,
 >(
-    runner: &mut AppliedTestRunner<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
-    >,
+    runner: &mut AppliedValidatingTestRunner<TYPES, ELECTION>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -247,12 +230,7 @@ fn test_validating_proposal_queueing_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Membership<TYPES> + Debug,
 >(
-    runner: &AppliedTestRunner<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
-    >,
+    runner: &AppliedValidatingTestRunner<TYPES, ELECTION>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
@@ -302,12 +280,7 @@ fn test_validating_proposal_queueing_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Membership<TYPES> + Debug,
 >(
-    runner: &mut AppliedTestRunner<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
-    >,
+    runner: &mut AppliedValidatingTestRunner<TYPES, ELECTION>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -333,12 +306,7 @@ fn test_bad_validating_proposal_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Membership<TYPES> + Debug,
 >(
-    runner: &mut AppliedTestRunner<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
-    >,
+    runner: &mut AppliedValidatingTestRunner<TYPES, ELECTION>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -366,12 +334,7 @@ fn test_bad_validating_proposal_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Membership<TYPES> + Debug,
 >(
-    runner: &AppliedTestRunner<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
-    >,
+    runner: &AppliedValidatingTestRunner<TYPES, ELECTION>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
@@ -456,7 +419,7 @@ async fn test_validating_proposal_queueing() {
     test.execute().await.unwrap();
 }
 
-/// Tests that next leaders receive and queue valid Vote messages properly
+/// Tests that next leaders receive and queue valid VoteType<TYPES>messages properly
 #[cfg_attr(
     feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)

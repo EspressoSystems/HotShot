@@ -11,7 +11,9 @@ use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, TimeoutVote, Vote},
+    message::{
+        ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, QuorumVote, TimeoutVote,
+    },
     traits::{
         election::Election, node_implementation::NodeType, signature_key::SignatureKey,
         state::ValidatingConsensus, Block, State,
@@ -24,7 +26,12 @@ use tracing::{error, info, instrument, warn};
 /// This view's replica
 #[derive(Debug, Clone)]
 pub struct Replica<
-    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>,
+    A: ConsensusApi<
+        TYPES,
+        ValidatingLeaf<TYPES>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+    >,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
 > {
     /// id of node
@@ -38,8 +45,8 @@ pub struct Replica<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
-                    ValidatingLeaf<TYPES>,
                     ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
                 >,
             >,
         >,
@@ -57,6 +64,7 @@ impl<
             TYPES,
             ValidatingLeaf<TYPES>,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         >,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     > Replica<A, TYPES>
@@ -250,13 +258,14 @@ impl<
                                         );
                                     }
                                     Ok(Some(vote_token)) => {
-                                        let timed_out_msg =
-                                            ConsensusMessage::Vote(Vote::Timeout(TimeoutVote {
+                                        let timed_out_msg = ConsensusMessage::Vote(
+                                            QuorumVote::Timeout(TimeoutVote {
                                                 justify_qc: self.high_qc.clone(),
                                                 signature,
                                                 current_view: self.cur_view,
                                                 vote_token,
-                                            }));
+                                            }),
+                                        );
                                         warn!(
                                             "Timed out! Sending timeout to next leader {:?}",
                                             timed_out_msg

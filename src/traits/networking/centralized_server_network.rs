@@ -22,8 +22,8 @@ use hotshot_centralized_server::{
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToServer,
 };
 use hotshot_types::{
-    data::{LeafType, ProposalType},
-    message::Message,
+    data::ProposalType,
+    message::{Message, VoteType},
     traits::{
         election::{ElectionConfig, Membership},
         metrics::{Metrics, NoMetrics},
@@ -1071,20 +1071,20 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
 #[derive(Clone)]
 pub struct CentralizedCommChannel<
     TYPES: NodeType,
-    LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
     ELECTION: Membership<TYPES>,
 >(
     CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    PhantomData<(LEAF, PROPOSAL, ELECTION)>,
+    PhantomData<(PROPOSAL, VOTE, ELECTION)>,
 );
 
 impl<
         TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
         ELECTION: Membership<TYPES>,
-    > CentralizedCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
+    > CentralizedCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 {
     /// create new communication channel
     pub fn new(
@@ -1107,15 +1107,15 @@ impl<
 #[async_trait]
 impl<
         TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
         ELECTION: Membership<TYPES>,
-    > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION>
-    for CentralizedCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
+    > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+    for CentralizedCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 {
     async fn wait_for_ready(&self) {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, LEAF, PROPOSAL>,
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
         .await;
@@ -1123,7 +1123,7 @@ impl<
 
     async fn is_ready(&self) -> bool {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, LEAF, PROPOSAL>,
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -1131,7 +1131,7 @@ impl<
 
     async fn shut_down(&self) -> () {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, LEAF, PROPOSAL>,
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
         .await;
@@ -1139,7 +1139,7 @@ impl<
 
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, LEAF, PROPOSAL>,
+        message: Message<TYPES, PROPOSAL, VOTE>,
         election: &ELECTION,
     ) -> Result<(), NetworkError> {
         let view_number = message.get_view_number();
@@ -1149,7 +1149,7 @@ impl<
 
     async fn direct_message(
         &self,
-        message: Message<TYPES, LEAF, PROPOSAL>,
+        message: Message<TYPES, PROPOSAL, VOTE>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
@@ -1158,13 +1158,13 @@ impl<
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, LEAF, PROPOSAL>,
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::lookup_node(&self.0, pk)
         .await
@@ -1173,11 +1173,11 @@ impl<
 
 impl<
         TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
         ELECTION: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>
-    for CentralizedCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
+    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, ELECTION>
+    for CentralizedCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {

@@ -14,8 +14,8 @@ use bincode::Options;
 use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
-    data::{LeafType, ProposalType},
-    message::Message,
+    data::ProposalType,
+    message::{Message, VoteType},
     traits::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
@@ -291,11 +291,11 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
 
 impl<
         TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
         ELECTION: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>
-    for MemoryCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
+    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, ELECTION>
+    for MemoryCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -446,22 +446,22 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
 #[derive(Clone)]
 pub struct MemoryCommChannel<
     TYPES: NodeType,
-    LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
     ELECTION: Membership<TYPES>,
 >(
-    MemoryNetwork<Message<TYPES, LEAF, PROPOSAL>, TYPES::SignatureKey>,
+    MemoryNetwork<Message<TYPES, PROPOSAL, VOTE>, TYPES::SignatureKey>,
     PhantomData<ELECTION>,
 );
 
 #[async_trait]
 impl<
         TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
         ELECTION: Membership<TYPES>,
-    > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION>
-    for MemoryCommChannel<TYPES, LEAF, PROPOSAL, ELECTION>
+    > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+    for MemoryCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 {
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
@@ -477,7 +477,7 @@ impl<
 
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, LEAF, PROPOSAL>,
+        message: Message<TYPES, PROPOSAL, VOTE>,
         election: &ELECTION,
     ) -> Result<(), NetworkError> {
         let recipients =
@@ -487,7 +487,7 @@ impl<
 
     async fn direct_message(
         &self,
-        message: Message<TYPES, LEAF, PROPOSAL>,
+        message: Message<TYPES, PROPOSAL, VOTE>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
@@ -496,7 +496,7 @@ impl<
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 
@@ -520,7 +520,7 @@ mod tests {
     use async_compatibility_layer::logging::setup_logging;
     use hotshot_types::{
         data::ViewNumber,
-        message::{DataMessage, MessageKind},
+        message::{DataMessage, MessageKind, QuorumVote},
         traits::{
             signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
             state::ConsensusTime,
@@ -569,17 +569,18 @@ mod tests {
     }
 
     type TestLeaf = ValidatingLeaf<Test>;
+    type TestVote = QuorumVote<Test, TestLeaf>;
     type TestCommittee = GeneralStaticCommittee<Test, TestLeaf, Ed25519Pub>;
     type TestProposal = ValidatingProposal<Test, TestLeaf>;
 
     /// fake Eq
     /// we can't compare the votetokentype for equality, so we can't
-    /// derive EQ on Vote and thereby message
+    /// derive EQ on `VoteType<TYPES>` and thereby message
     /// we are only sending data messages, though so we compare key and
     /// data message
     fn fake_message_eq(
-        message_1: Message<Test, TestLeaf, TestProposal>,
-        message_2: Message<Test, TestLeaf, TestProposal>,
+        message_1: Message<Test, TestProposal, TestVote>,
+        message_2: Message<Test, TestProposal, TestVote>,
     ) {
         assert_eq!(message_1.sender, message_2.sender);
         if let MessageKind::Data(DataMessage::SubmitTransaction(d_1, _)) = message_1.kind {
@@ -602,7 +603,7 @@ mod tests {
         num_messages: u64,
         seed: u64,
         pk: Ed25519Pub,
-    ) -> Vec<Message<Test, TestLeaf, TestProposal>> {
+    ) -> Vec<Message<Test, TestProposal, TestVote>> {
         let mut messages = Vec::new();
         for i in 0..num_messages {
             let message = Message {
@@ -638,7 +639,7 @@ mod tests {
     async fn spawn_single() {
         setup_logging();
         let group: Arc<
-            MasterMap<Message<Test, TestLeaf, TestProposal>, <Test as NodeType>::SignatureKey>,
+            MasterMap<Message<Test, TestProposal, TestVote>, <Test as NodeType>::SignatureKey>,
         > = MasterMap::new();
         trace!(?group);
         let pub_key = get_pubkey();
@@ -655,7 +656,7 @@ mod tests {
     async fn spawn_double() {
         setup_logging();
         let group: Arc<
-            MasterMap<Message<Test, TestLeaf, TestProposal>, <Test as NodeType>::SignatureKey>,
+            MasterMap<Message<Test, TestProposal, TestVote>, <Test as NodeType>::SignatureKey>,
         > = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
@@ -679,7 +680,7 @@ mod tests {
 
         // Make and connect the networking instances
         let group: Arc<
-            MasterMap<Message<Test, TestLeaf, TestProposal>, <Test as NodeType>::SignatureKey>,
+            MasterMap<Message<Test, TestProposal, TestVote>, <Test as NodeType>::SignatureKey>,
         > = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
@@ -687,7 +688,7 @@ mod tests {
         let pub_key_2 = get_pubkey();
         let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
 
-        let first_messages: Vec<Message<Test, TestLeaf, TestProposal>> =
+        let first_messages: Vec<Message<Test, TestProposal, TestVote>> =
             gen_messages(5, 100, pub_key_1);
 
         // Test 1 -> 2
@@ -706,7 +707,7 @@ mod tests {
             fake_message_eq(sent_message, recv_message);
         }
 
-        let second_messages: Vec<Message<Test, TestLeaf, TestProposal>> =
+        let second_messages: Vec<Message<Test, TestProposal, TestVote>> =
             gen_messages(5, 200, pub_key_2);
 
         // Test 2 -> 1
@@ -738,7 +739,7 @@ mod tests {
         setup_logging();
         // Make and connect the networking instances
         let group: Arc<
-            MasterMap<Message<Test, TestLeaf, TestProposal>, <Test as NodeType>::SignatureKey>,
+            MasterMap<Message<Test, TestProposal, TestVote>, <Test as NodeType>::SignatureKey>,
         > = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
@@ -746,7 +747,7 @@ mod tests {
         let pub_key_2 = get_pubkey();
         let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
 
-        let first_messages: Vec<Message<Test, TestLeaf, TestProposal>> =
+        let first_messages: Vec<Message<Test, TestProposal, TestVote>> =
             gen_messages(5, 100, pub_key_1);
 
         // Test 1 -> 2
@@ -768,7 +769,7 @@ mod tests {
             fake_message_eq(sent_message, recv_message);
         }
 
-        let second_messages: Vec<Message<Test, TestLeaf, TestProposal>> =
+        let second_messages: Vec<Message<Test, TestProposal, TestVote>> =
             gen_messages(5, 200, pub_key_2);
 
         // Test 2 -> 1
@@ -802,7 +803,7 @@ mod tests {
         // setup_logging();
         //
         // let group: Arc<
-        //     MasterMap<Message<Test, TestLeaf, TestProposal>, <Test as NodeType>::SignatureKey>,
+        //     MasterMap<Message<Test, TestProposal, TestVote>, <Test as NodeType>::SignatureKey>,
         // > = MasterMap::new();
         // trace!(?group);
         // let pub_key_1 = get_pubkey();
@@ -811,7 +812,7 @@ mod tests {
         // let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
         //
         // // Create some dummy messages
-        // let messages: Vec<Message<Test, TestLeaf, TestProposal>> = gen_messages(5, 100, pub_key_1);
+        // let messages: Vec<Message<Test, TestProposal, TestVote>> = gen_messages(5, 100, pub_key_1);
         //
         // // assert_eq!(network1.in_flight_message_count(), Some(0));
         // // assert_eq!(network2.in_flight_message_count(), Some(0));
