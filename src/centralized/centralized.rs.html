@@ -39,7 +39,7 @@
 <a href="#39" id="39">39</a>
 </pre><pre class="rust"><code><span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot::{
-    demos::dentry::{DEntryNode, DEntryTypes},
+    demos::vdemo::{VDemoNode, VDemoTypes},
     traits::{
         election::static_committee::GeneralStaticCommittee, implementations::CentralizedCommChannel,
     },
@@ -56,14 +56,14 @@
 
 <span class="kw">pub mod </span>infra;
 
-<span class="kw">type </span>ThisLeaf = ValidatingLeaf&lt;DEntryTypes&gt;;
+<span class="kw">type </span>ThisLeaf = ValidatingLeaf&lt;VDemoTypes&gt;;
 <span class="kw">type </span>ThisElection =
-    GeneralStaticCommittee&lt;DEntryTypes, ThisLeaf, &lt;DEntryTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;;
-<span class="kw">type </span>ThisNetwork = CentralizedCommChannel&lt;DEntryTypes, ThisProposal, ThisVote, ThisElection&gt;;
-<span class="kw">type </span>ThisProposal = ValidatingProposal&lt;DEntryTypes, ThisElection&gt;;
-<span class="kw">type </span>ThisVote = QuorumVote&lt;DEntryTypes, ThisLeaf&gt;;
-<span class="kw">type </span>ThisNode = DEntryNode&lt;ThisNetwork, ThisElection&gt;;
-<span class="kw">type </span>ThisConfig = CentralizedConfig&lt;DEntryTypes, ThisElection&gt;;
+    GeneralStaticCommittee&lt;VDemoTypes, ThisLeaf, &lt;VDemoTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;;
+<span class="kw">type </span>ThisNetwork = CentralizedCommChannel&lt;VDemoTypes, ThisProposal, ThisVote, ThisElection&gt;;
+<span class="kw">type </span>ThisProposal = ValidatingProposal&lt;VDemoTypes, ThisElection&gt;;
+<span class="kw">type </span>ThisVote = QuorumVote&lt;VDemoTypes, ThisLeaf&gt;;
+<span class="kw">type </span>ThisNode = VDemoNode&lt;ThisNetwork, ThisElection&gt;;
+<span class="kw">type </span>ThisConfig = CentralizedConfig&lt;VDemoTypes, ThisElection&gt;;
 
 <span class="attr">#[cfg_attr(
     feature = <span class="string">&quot;tokio-executor&quot;</span>,
@@ -74,7 +74,7 @@
 </span><span class="kw">async fn </span>main() {
     <span class="kw">let </span>args = CliOrchestrated::parse();
 
-    main_entry_point::&lt;DEntryTypes, ThisElection, ThisNetwork, ThisNode, ThisConfig&gt;(args).<span class="kw">await</span>;
+    main_entry_point::&lt;VDemoTypes, ThisElection, ThisNetwork, ThisNode, ThisConfig&gt;(args).<span class="kw">await</span>;
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="centralized" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.0 (fc594f156 2023-01-24)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>

@@ -155,14 +155,12 @@
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Abstraction over the contents of a block
 //!
 //! This module provides the [`Block`] trait, which describes the behaviors that a block is
 //! expected to have.
 
 </span><span class="kw">use </span>commit::{Commitment, Committable};
-<span class="kw">use </span>espresso_systems_common::hotshot::tag;
 <span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 <span class="kw">use </span>std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
@@ -256,7 +254,7 @@
         }
 
         <span class="kw">fn </span>tag() -&gt; String {
-            tag::DUMMY_TXN.to_string()
+            <span class="string">&quot;DUMMY_TXN&quot;</span>.to_string()
         }
     }
     <span class="kw">impl </span><span class="kw">super</span>::Transaction <span class="kw">for </span>DummyTransaction {}
@@ -310,7 +308,7 @@
         }
 
         <span class="kw">fn </span>tag() -&gt; String {
-            tag::DUMMY_BLOCK.to_string()
+            <span class="string">&quot;DUMMY_BLOCK&quot;</span>.to_string()
         }
     }
 }

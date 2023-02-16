@@ -2,7 +2,7 @@ var sourcesIndex = JSON.parse('{\
 "benchmark_client":["",[],["main.rs"]],\
 "centralized":["",[["infra",[],["mod.rs"]]],["centralized.rs"]],\
 "counter":["",[["common",[],["lossy_network.rs","mod.rs","web.rs"]]],["counter.rs"]],\
-"hotshot":["",[["demos",[],["dentry.rs"]],["tasks",[],["mod.rs"]],["traits",[["election",[],["static_committee.rs","vrf.rs"]],["networking",[],["centralized_server_network.rs","libp2p_network.rs","memory_network.rs"]],["storage",[],["memory_storage.rs"]]],["election.rs","networking.rs","node_implementation.rs","storage.rs"]],["types",[],["event.rs","handle.rs"]]],["certificate.rs","demos.rs","documentation.rs","lib.rs","traits.rs","types.rs"]],\
+"hotshot":["",[["demos",[],["sdemo.rs","vdemo.rs"]],["tasks",[],["mod.rs"]],["traits",[["election",[],["static_committee.rs","vrf.rs"]],["networking",[],["centralized_server_network.rs","libp2p_network.rs","memory_network.rs"]],["storage",[],["memory_storage.rs"]]],["election.rs","networking.rs","node_implementation.rs","storage.rs"]],["types",[],["event.rs","handle.rs"]]],["certificate.rs","demos.rs","documentation.rs","lib.rs","traits.rs","types.rs"]],\
 "hotshot_centralized_server":["",[],["client.rs","clients.rs","config.rs","lib.rs","runs.rs"]],\
 "hotshot_consensus":["",[],["da_member.rs","leader.rs","lib.rs","next_leader.rs","replica.rs","sequencing_leader.rs","sequencing_replica.rs","traits.rs","utils.rs"]],\
 "hotshot_testing":["",[["impls",[],["mod.rs"]]],["launcher.rs","lib.rs","network_reliability.rs"]],\

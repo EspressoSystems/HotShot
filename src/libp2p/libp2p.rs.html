@@ -36,8 +36,8 @@
 <a href="#36" id="36">36</a>
 <a href="#37" id="37">37</a>
 </pre><pre class="rust"><code><span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>hotshot::demos::dentry::DEntryNode;
-<span class="kw">use </span>hotshot::demos::dentry::DEntryTypes;
+<span class="kw">use </span>hotshot::demos::vdemo::VDemoNode;
+<span class="kw">use </span>hotshot::demos::vdemo::VDemoTypes;
 <span class="kw">use </span>hotshot::traits::election::static_committee::GeneralStaticCommittee;
 <span class="kw">use </span>hotshot::traits::implementations::Libp2pCommChannel;
 <span class="kw">use </span>hotshot_types::data::ValidatingLeaf;
@@ -52,14 +52,14 @@
 <span class="kw">use </span>infra::CliOrchestrated;
 <span class="kw">use </span>infra::Libp2pClientConfig;
 
-<span class="kw">type </span>ThisLeaf = ValidatingLeaf&lt;DEntryTypes&gt;;
+<span class="kw">type </span>ThisLeaf = ValidatingLeaf&lt;VDemoTypes&gt;;
 <span class="kw">type </span>ThisElection =
-    GeneralStaticCommittee&lt;DEntryTypes, ThisLeaf, &lt;DEntryTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;;
-<span class="kw">type </span>ThisNetwork = Libp2pCommChannel&lt;DEntryTypes, ThisProposal, ThisVote, ThisElection&gt;;
-<span class="kw">type </span>ThisProposal = ValidatingProposal&lt;DEntryTypes, ThisElection&gt;;
-<span class="kw">type </span>ThisVote = QuorumVote&lt;DEntryTypes, ThisLeaf&gt;;
-<span class="kw">type </span>ThisNode = DEntryNode&lt;ThisNetwork, ThisElection&gt;;
-<span class="kw">type </span>ThisConfig = Libp2pClientConfig&lt;DEntryTypes, ThisElection&gt;;
+    GeneralStaticCommittee&lt;VDemoTypes, ThisLeaf, &lt;VDemoTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;;
+<span class="kw">type </span>ThisNetwork = Libp2pCommChannel&lt;VDemoTypes, ThisProposal, ThisVote, ThisElection&gt;;
+<span class="kw">type </span>ThisProposal = ValidatingProposal&lt;VDemoTypes, ThisElection&gt;;
+<span class="kw">type </span>ThisVote = QuorumVote&lt;VDemoTypes, ThisLeaf&gt;;
+<span class="kw">type </span>ThisNode = VDemoNode&lt;ThisNetwork, ThisElection&gt;;
+<span class="kw">type </span>ThisConfig = Libp2pClientConfig&lt;VDemoTypes, ThisElection&gt;;
 
 <span class="attr">#[cfg_attr(
     feature = <span class="string">&quot;tokio-executor&quot;</span>,
@@ -70,7 +70,7 @@
 </span><span class="kw">async fn </span>main() {
     <span class="kw">let </span>args = CliOrchestrated::parse();
 
-    main_entry_point::&lt;DEntryTypes, ThisElection, ThisNetwork, ThisNode, ThisConfig&gt;(args).<span class="kw">await</span>;
+    main_entry_point::&lt;VDemoTypes, ThisElection, ThisNetwork, ThisNode, ThisConfig&gt;(args).<span class="kw">await</span>;
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="libp2p" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.0 (fc594f156 2023-01-24)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>

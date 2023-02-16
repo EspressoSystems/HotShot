@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"hotshot":[["impl ApplicationMetadata for <a class=\"struct\" href=\"hotshot/demos/dentry/struct.DEntryMetaData.html\" title=\"struct hotshot::demos::dentry::DEntryMetaData\">DEntryMetaData</a>"]]
+"hotshot":[["impl ApplicationMetadata for <a class=\"struct\" href=\"hotshot/demos/sdemo/struct.SDemoMetaData.html\" title=\"struct hotshot::demos::sdemo::SDemoMetaData\">SDemoMetaData</a>"],["impl ApplicationMetadata for <a class=\"struct\" href=\"hotshot/demos/vdemo/struct.VDemoMetaData.html\" title=\"struct hotshot::demos::vdemo::VDemoMetaData\">VDemoMetaData</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
