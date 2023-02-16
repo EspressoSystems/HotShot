@@ -1,6 +1,6 @@
 //! Abstraction over the contents of a block
 //!
-//! This module provides the [`BlockContents`] trait, which describes the behaviors that a block is
+//! This module provides the [`Block`] trait, which describes the behaviors that a block is
 //! expected to have.
 
 use commit::{Commitment, Committable};
@@ -12,13 +12,12 @@ use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
 /// Abstraction over the full contents of a block
 ///
 /// This trait encapsulates the behaviors that a block must have in order to be used by consensus:
-///   * Must have a predefined error type ([`BlockContents::Error`])
+///   * Must have a predefined error type ([`Block::Error`])
 ///   * Must have a transaction type that can be compared for equality, serialized and serialized,
 ///     sent between threads, and can have a hash produced of it
-///     ([`hash_transaction`](BlockContents::hash_transaction))
 ///   * Must be able to be produced incrementally by appending transactions
-///     ([`add_transaction_raw`](BlockContents::add_transaction_raw))
-///   * Must be hashable ([`hash`](BlockContents::hash))
+///     ([`add_transaction_raw`](Block::add_transaction_raw))
+///   * Must be hashable
 pub trait Block:
     Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Committable + DeserializeOwned
 {

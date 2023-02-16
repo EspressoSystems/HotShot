@@ -15,7 +15,7 @@ use std::{error::Error, fmt::Debug, hash::Hash, ops, ops::Deref};
 ///
 /// This trait represents the behaviors that the 'global' ledger state must have:
 ///   * A defined error type ([`Error`](State::Error))
-///   * The type of block that modifies this type of state ([`Block`](State::Block))
+///   * The type of block that modifies this type of state ([`Block`](State::BlockType))
 ///   * A method to get a template (empty) next block from the current state
 ///     ([`next_block`](State::next_block))
 ///   * The ability to validate that a block is actually a valid extension of this state

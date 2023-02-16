@@ -612,7 +612,7 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
     }
 }
 
-/// Provides a random [`Leaf`]
+/// Provides a random [`ValidatingLeaf`]
 pub fn random_validating_leaf<TYPES: NodeType<ConsensusType = ValidatingConsensus>>(
     deltas: TYPES::BlockType,
     rng: &mut dyn rand::RngCore,
