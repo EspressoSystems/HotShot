@@ -1,7 +1,7 @@
-//! Double entry accounting demo
+//! Validating (vanilla) consensus demo
 //!
 //! This module provides an implementation of the `HotShot` suite of traits that implements a
-//! basic demonstration of double entry accounting.
+//! basic demonstration of validating consensus.
 //!
 //! These implementations are useful in examples and integration testing, but are not suitable for
 //! production use.
@@ -13,7 +13,6 @@ use crate::traits::{
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
-use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
     certificate::QuorumCertificate,
     constants::genesis_proposer_id,
@@ -41,9 +40,9 @@ use tracing::error;
 
 /// application metadata stub
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct DEntryMetaData {}
+pub struct VDemoMetaData {}
 
-impl ApplicationMetadata for DEntryMetaData {}
+impl ApplicationMetadata for VDemoMetaData {}
 
 /// The account identifier type used by the demo
 ///
@@ -73,9 +72,9 @@ pub struct Addition {
     pub amount: Balance,
 }
 
-/// The error type for the dentry demo
+/// The error type for the validating demo
 #[derive(Snafu, Debug)]
-pub enum DEntryError {
+pub enum VDemoError {
     /// The subtraction and addition amounts for this transaction were not equal
     InconsistentTransaction,
     /// No such input account exists
@@ -94,9 +93,9 @@ pub enum DEntryError {
     GenesisAfterStart,
 }
 
-/// The transaction for the dentry demo
+/// The transaction for the validating demo
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
-pub struct DEntryTransaction {
+pub struct VDemoTransaction {
     /// An increment to an account balance
     pub add: Addition,
     /// A decrement to an account balance
@@ -107,9 +106,9 @@ pub struct DEntryTransaction {
     pub padding: Vec<u8>,
 }
 
-impl Transaction for DEntryTransaction {}
+impl Transaction for VDemoTransaction {}
 
-impl DEntryTransaction {
+impl VDemoTransaction {
     /// Ensures that this transaction is at least consistent with itself
     pub fn validate_independence(&self) -> bool {
         // Ensure that we are adding to one account exactly as much as we are subtracting from
@@ -118,20 +117,20 @@ impl DEntryTransaction {
     }
 }
 
-/// The state for the dentry demo
+/// The state for the validating demo
 /// NOTE both fields are btrees because we need
 /// ordered-ing otherwise commitments will not match
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
-pub struct DEntryState {
+pub struct VDemoState {
     /// Key/value store of accounts and balances
     pub balances: BTreeMap<Account, Balance>,
     // /// Set of previously seen nonces
     // pub nonces: BTreeSet<u64>,
 }
 
-impl Committable for DEntryState {
+impl Committable for VDemoState {
     fn commit(&self) -> Commitment<Self> {
-        let mut builder = commit::RawCommitmentBuilder::new("DEntry State Comm");
+        let mut builder = commit::RawCommitmentBuilder::new("VDemo State Comm");
 
         for (k, v) in &self.balances {
             builder = builder.u64_field(k, *v);
@@ -146,48 +145,48 @@ impl Committable for DEntryState {
     }
 
     fn tag() -> String {
-        tag::DENTRY_STATE.to_string()
+        "VALIDATING_DEMO_STATE".to_string()
     }
 }
 
 /// initializes the first state on genesis
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
-pub struct DEntryGenesisBlock {
+pub struct VDemoGenesisBlock {
     /// initializes the first state
     pub accounts: BTreeMap<Account, Balance>,
 }
 
 /// Any block after genesis
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
-pub struct DEntryNormalBlock {
+pub struct VDemoNormalBlock {
     /// Block state commitment
-    pub previous_state: Commitment<DEntryState>,
+    pub previous_state: Commitment<VDemoState>,
     /// Transaction vector
-    pub transactions: Vec<DEntryTransaction>,
+    pub transactions: Vec<VDemoTransaction>,
 }
 
-/// The block for the dentry demo
+/// The block for the validating demo
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
-pub enum DEntryBlock {
+pub enum VDemoBlock {
     /// genesis block
-    Genesis(DEntryGenesisBlock),
+    Genesis(VDemoGenesisBlock),
     /// normal block
-    Normal(DEntryNormalBlock),
+    Normal(VDemoNormalBlock),
 }
 
-impl Committable for DEntryBlock {
+impl Committable for VDemoBlock {
     fn commit(&self) -> Commitment<Self> {
         match &self {
-            DEntryBlock::Genesis(block) => {
-                let mut builder = commit::RawCommitmentBuilder::new("DEntry Genesis Comm")
+            VDemoBlock::Genesis(block) => {
+                let mut builder = commit::RawCommitmentBuilder::new("VDemo Genesis Comm")
                     .u64_field("account_count", block.accounts.len() as u64);
                 for account in &block.accounts {
                     builder = builder.u64_field(account.0, *account.1);
                 }
                 builder.finalize()
             }
-            DEntryBlock::Normal(block) => {
-                let mut builder = commit::RawCommitmentBuilder::new("DEntry Block Comm")
+            VDemoBlock::Normal(block) => {
+                let mut builder = commit::RawCommitmentBuilder::new("VDemo Block Comm")
                     .var_size_field("Previous State", block.previous_state.as_ref());
 
                 for txn in &block.transactions {
@@ -204,13 +203,13 @@ impl Committable for DEntryBlock {
     }
 
     fn tag() -> String {
-        tag::DENTRY_BLOCK.to_string()
+        "VALIDATING_DEMO_BLOCK".to_string()
     }
 }
 
-impl Committable for DEntryTransaction {
+impl Committable for VDemoTransaction {
     fn commit(&self) -> Commitment<Self> {
-        commit::RawCommitmentBuilder::new("DEntry Txn Comm")
+        commit::RawCommitmentBuilder::new("VDemo Txn Comm")
             .u64_field(&self.add.account, self.add.amount)
             .u64_field(&self.sub.account, self.sub.amount)
             .constant_str("nonce")
@@ -219,28 +218,28 @@ impl Committable for DEntryTransaction {
     }
 
     fn tag() -> String {
-        tag::DENTRY_TXN.to_string()
+        "VALIDATING_DEMO_TXN".to_string()
     }
 }
 
-impl DEntryBlock {
+impl VDemoBlock {
     /// generate a genesis block with the provided initial accounts and balances
     pub fn genesis_from(accounts: BTreeMap<Account, Balance>) -> Self {
-        Self::Genesis(DEntryGenesisBlock { accounts })
+        Self::Genesis(VDemoGenesisBlock { accounts })
     }
 }
 
-impl State for DEntryState {
-    type Error = DEntryError;
+impl State for VDemoState {
+    type Error = VDemoError;
 
-    type BlockType = DEntryBlock;
+    type BlockType = VDemoBlock;
 
     type Time = ViewNumber;
 
     type ConsensusType = ValidatingConsensus;
 
     fn next_block(&self) -> Self::BlockType {
-        DEntryBlock::Normal(DEntryNormalBlock {
+        VDemoBlock::Normal(VDemoNormalBlock {
             previous_state: self.commit(),
             transactions: Vec::new(),
         })
@@ -250,8 +249,8 @@ impl State for DEntryState {
     // for clarity, the logic is duplicated with append_to
     fn validate_block(&self, block: &Self::BlockType, _view_number: &Self::Time) -> bool {
         match block {
-            DEntryBlock::Genesis(_) => self.balances.is_empty(), //  && self.nonces.is_empty(),
-            DEntryBlock::Normal(block) => {
+            VDemoBlock::Genesis(_) => self.balances.is_empty(), //  && self.nonces.is_empty(),
+            VDemoBlock::Normal(block) => {
                 let state = self;
                 // A valid block is one in which every transaction is internally consistent, and results in
                 // nobody having a negative balance
@@ -311,7 +310,7 @@ impl State for DEntryState {
         _view_number: &Self::Time,
     ) -> std::result::Result<Self, Self::Error> {
         match block {
-            DEntryBlock::Genesis(block) => {
+            VDemoBlock::Genesis(block) => {
                 if self.balances.is_empty() {
                     // && self.nonces.is_empty()
                     let mut new_state = Self::default();
@@ -322,15 +321,15 @@ impl State for DEntryState {
                             .is_some()
                         {
                             error!("Adding the same account twice during application of genesis block!");
-                            return Err(DEntryError::GenesisFailed);
+                            return Err(VDemoError::GenesisFailed);
                         }
                     }
                     Ok(new_state)
                 } else {
-                    Err(DEntryError::GenesisAfterStart)
+                    Err(VDemoError::GenesisAfterStart)
                 }
             }
-            DEntryBlock::Normal(block) => {
+            VDemoBlock::Normal(block) => {
                 let state = self;
                 // A valid block is one in which every transaction is internally consistent, and results in
                 // nobody having a negative balance
@@ -349,18 +348,18 @@ impl State for DEntryState {
                     if let Some(input_account) = trial_balances.get_mut(&tx.sub.account) {
                         *input_account -= tx.sub.amount;
                     } else {
-                        return Err(DEntryError::NoSuchInputAccount);
+                        return Err(VDemoError::NoSuchInputAccount);
                     }
                     // Find the output account, and add the transfer balance to it, failing if it doesn't
                     // exist
                     if let Some(output_account) = trial_balances.get_mut(&tx.add.account) {
                         *output_account += tx.add.amount;
                     } else {
-                        return Err(DEntryError::NoSuchOutputAccount);
+                        return Err(VDemoError::NoSuchOutputAccount);
                     }
                     // // Check for nonce reuse
                     // if state.nonces.contains(&tx.nonce) {
-                    //     return Err(DEntryError::ReusedNonce);
+                    //     return Err(VDemoError::ReusedNonce);
                     // }
                 }
                 // Make sure our previous state commitment matches the provided state
@@ -371,12 +370,12 @@ impl State for DEntryState {
                     // for tx in &block.transactions {
                     //     nonces.insert(tx.nonce);
                     // }
-                    Ok(DEntryState {
+                    Ok(VDemoState {
                         balances: trial_balances,
                         // nonces,
                     })
                 } else {
-                    Err(DEntryError::PreviousStateMismatch)
+                    Err(VDemoError::PreviousStateMismatch)
                 }
             }
         }
@@ -387,7 +386,7 @@ impl State for DEntryState {
     }
 }
 
-impl TestableState for DEntryState {
+impl TestableState for VDemoState {
     fn create_random_transaction(
         &self,
         rng: &mut dyn rand::RngCore,
@@ -410,7 +409,7 @@ impl TestableState for DEntryState {
         let output_account = self.balances.keys().choose(rng).unwrap();
         let amount = rng.gen_range(0..100);
 
-        DEntryTransaction {
+        VDemoTransaction {
             add: Addition {
                 account: output_account.to_string(),
                 amount,
@@ -425,7 +424,7 @@ impl TestableState for DEntryState {
     }
 }
 
-impl TestableBlock for DEntryBlock {
+impl TestableBlock for VDemoBlock {
     fn genesis() -> Self {
         let accounts: BTreeMap<Account, Balance> = vec![
             ("Joe", 1_000_000),
@@ -437,11 +436,11 @@ impl TestableBlock for DEntryBlock {
         .into_iter()
         .map(|(x, y)| (x.to_string(), y))
         .collect();
-        Self::Genesis(DEntryGenesisBlock { accounts })
+        Self::Genesis(VDemoGenesisBlock { accounts })
     }
 
     fn txn_count(&self) -> u64 {
-        if let DEntryBlock::Normal(block) = self {
+        if let VDemoBlock::Normal(block) = self {
             block.transactions.len() as u64
         } else {
             0
@@ -449,10 +448,10 @@ impl TestableBlock for DEntryBlock {
     }
 }
 
-impl Block for DEntryBlock {
-    type Transaction = DEntryTransaction;
+impl Block for VDemoBlock {
+    type Transaction = VDemoTransaction;
 
-    type Error = DEntryError;
+    type Error = VDemoError;
 
     fn new() -> Self {
         <Self as TestableBlock>::genesis()
@@ -463,28 +462,28 @@ impl Block for DEntryBlock {
         tx: &Self::Transaction,
     ) -> std::result::Result<Self, Self::Error> {
         match self {
-            DEntryBlock::Genesis(_) => Err(DEntryError::GenesisAfterStart),
-            DEntryBlock::Normal(block) => {
+            VDemoBlock::Genesis(_) => Err(VDemoError::GenesisAfterStart),
+            VDemoBlock::Normal(block) => {
                 // first, make sure that the transaction is internally valid
                 if tx.validate_independence() {
                     // Then check the previous transactions in the block
                     if block.transactions.iter().any(|x| x.nonce == tx.nonce) {
-                        return Err(DEntryError::ReusedNonce);
+                        return Err(VDemoError::ReusedNonce);
                     }
                     let mut new_block = block.clone();
                     // Insert our transaction and return
                     new_block.transactions.push(tx.clone());
-                    Ok(DEntryBlock::Normal(new_block))
+                    Ok(VDemoBlock::Normal(new_block))
                 } else {
-                    Err(DEntryError::InconsistentTransaction)
+                    Err(VDemoError::InconsistentTransaction)
                 }
             }
         }
     }
-    fn contained_transactions(&self) -> HashSet<Commitment<DEntryTransaction>> {
+    fn contained_transactions(&self) -> HashSet<Commitment<VDemoTransaction>> {
         match self {
-            DEntryBlock::Genesis(_) => HashSet::new(),
-            DEntryBlock::Normal(block) => block
+            VDemoBlock::Genesis(_) => HashSet::new(),
+            VDemoBlock::Normal(block) => block
                 .transactions
                 .clone()
                 .into_iter()
@@ -494,7 +493,7 @@ impl Block for DEntryBlock {
     }
 }
 
-/// Implementation of [`NodeType`] for [`DEntryNode`]
+/// Implementation of [`NodeType`] for [`VDemoNode`]
 #[derive(
     Copy,
     Clone,
@@ -508,97 +507,97 @@ impl Block for DEntryBlock {
     serde::Serialize,
     serde::Deserialize,
 )]
-pub struct DEntryTypes;
+pub struct VDemoTypes;
 
-impl NodeType for DEntryTypes {
+impl NodeType for VDemoTypes {
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
-    type BlockType = DEntryBlock;
+    type BlockType = VDemoBlock;
     type SignatureKey = Ed25519Pub;
     type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
-    type Transaction = DEntryTransaction;
+    type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
-    type StateType = DEntryState;
-    type ApplicationMetadataType = DEntryMetaData;
+    type StateType = VDemoState;
+    type ApplicationMetadataType = VDemoMetaData;
 }
 
-/// The node implementation for the dentry demo
+/// The node implementation for the validating demo
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
-pub struct DEntryNode<NET, ELE>(PhantomData<NET>, PhantomData<ELE>)
+pub struct VDemoNode<NET, ELE>(PhantomData<NET>, PhantomData<ELE>)
 where
     NET: CommunicationChannel<
-        DEntryTypes,
-        ValidatingProposal<DEntryTypes, ELE>,
-        QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
+        VDemoTypes,
+        ValidatingProposal<VDemoTypes, ELE>,
+        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,
-    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>;
+    ELE: Election<VDemoTypes, LeafType = ValidatingLeaf<VDemoTypes>>;
 
-impl<NET, ELE> DEntryNode<NET, ELE>
+impl<NET, ELE> VDemoNode<NET, ELE>
 where
     NET: CommunicationChannel<
-        DEntryTypes,
-        ValidatingProposal<DEntryTypes, ELE>,
-        QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
+        VDemoTypes,
+        ValidatingProposal<VDemoTypes, ELE>,
+        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,
-    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
+    ELE: Election<VDemoTypes, LeafType = ValidatingLeaf<VDemoTypes>>,
 {
-    /// Create a new `DEntryNode`
+    /// Create a new `VDemoNode`
     pub fn new() -> Self {
-        DEntryNode(PhantomData, PhantomData)
+        VDemoNode(PhantomData, PhantomData)
     }
 }
 
-impl<NET, ELE> Debug for DEntryNode<NET, ELE>
+impl<NET, ELE> Debug for VDemoNode<NET, ELE>
 where
     NET: CommunicationChannel<
-        DEntryTypes,
-        ValidatingProposal<DEntryTypes, ELE>,
-        QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
+        VDemoTypes,
+        ValidatingProposal<VDemoTypes, ELE>,
+        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,
-    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
+    ELE: Election<VDemoTypes, LeafType = ValidatingLeaf<VDemoTypes>>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DEntryNode")
+        f.debug_struct("VDemoNode")
             .field("_phantom", &"phantom")
             .finish()
     }
 }
 
-impl<NET, ELE> Default for DEntryNode<NET, ELE>
+impl<NET, ELE> Default for VDemoNode<NET, ELE>
 where
     NET: CommunicationChannel<
-        DEntryTypes,
-        ValidatingProposal<DEntryTypes, ELE>,
-        QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
+        VDemoTypes,
+        ValidatingProposal<VDemoTypes, ELE>,
+        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,
-    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
+    ELE: Election<VDemoTypes, LeafType = ValidatingLeaf<VDemoTypes>>,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<NET, ELE> NodeImplementation<DEntryTypes> for DEntryNode<NET, ELE>
+impl<NET, ELE> NodeImplementation<VDemoTypes> for VDemoNode<NET, ELE>
 where
     NET: CommunicationChannel<
-        DEntryTypes,
-        ValidatingProposal<DEntryTypes, ELE>,
-        QuorumVote<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
+        VDemoTypes,
+        ValidatingProposal<VDemoTypes, ELE>,
+        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,
-    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>> + Debug,
+    ELE: Election<VDemoTypes, LeafType = ValidatingLeaf<VDemoTypes>> + Debug,
 {
-    type Leaf = ValidatingLeaf<DEntryTypes>;
-    type Storage = MemoryStorage<DEntryTypes, ELE::LeafType>;
+    type Leaf = ValidatingLeaf<VDemoTypes>;
+    type Storage = MemoryStorage<VDemoTypes, ELE::LeafType>;
     type Networking = NET;
     type Election = ELE;
-    type Proposal = ValidatingProposal<DEntryTypes, ELE>;
-    type Vote = QuorumVote<DEntryTypes, ELE::LeafType>;
+    type Proposal = ValidatingProposal<VDemoTypes, ELE>;
+    type Vote = QuorumVote<VDemoTypes, ELE::LeafType>;
 }
 
 /// Provides a random [`QuorumCertificate`]

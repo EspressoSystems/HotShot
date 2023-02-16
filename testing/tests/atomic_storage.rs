@@ -4,9 +4,9 @@ mod common;
 use hotshot::{
     certificate::QuorumCertificate,
     data::LeafType,
-    demos::dentry::{
-        random_quorom_certificate, random_transaction, random_validating_leaf, DEntryBlock,
-        DEntryState,
+    demos::vdemo::{
+        random_quorom_certificate, random_transaction, random_validating_leaf, VDemoBlock,
+        VDemoState,
     },
     traits::{Block, State, Storage},
 };
@@ -27,7 +27,7 @@ async fn test_happy_path_blocks() {
     println!("Using store in {:?}", path);
     let mut store = AtomicStorage::open(path).expect("Could not open atomic store");
 
-    let block = DEntryBlock::default();
+    let block = VDEntryBlock::default();
     let hash = block.hash();
     store
         .update(|mut m| {

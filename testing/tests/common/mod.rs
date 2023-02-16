@@ -6,6 +6,7 @@ use blake3::Hasher;
 use either::Either;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
+    demos::vdemo::{VDemoBlock, VDemoState, VDemoTransaction},
     traits::{
         dummy::DummyState,
         election::{
@@ -358,41 +359,16 @@ impl ApplicationMetadata for StaticCommitteeMetaData {}
 )]
 pub struct StaticCommitteeTestTypes;
 impl NodeType for StaticCommitteeTestTypes {
-    // TODO (da) can this be SequencingConsensus?
     type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
-    type BlockType = DummyBlock;
+    type BlockType = VDemoBlock;
     type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
     type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme<Param381>>>;
-    type Transaction = DummyTransaction;
+    type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
-    type StateType = DummyState;
+    type StateType = VDemoState;
     type ApplicationMetadataType = StaticCommitteeMetaData;
 }
-// #[derive(
-//     Copy,
-//     Clone,
-//     Debug,
-//     Default,
-//     Hash,
-//     PartialEq,
-//     Eq,
-//     PartialOrd,
-//     Ord,
-//     serde::Serialize,
-//     serde::Deserialize,
-// )]
-// pub struct DACommitteeTestTypes;
-// impl NodeType for DACommitteeTestTypes {
-//     type ConsensusType = SequencingConsensus;
-//     type Time = ViewNumber;
-//     type BlockType = DABlock<DummyBlock>;
-//     type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
-//     type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme<Param381>>>;
-//     type Transaction = DATransaction<DummyBlock>;
-//     type ElectionConfigType = StaticElectionConfig;
-//     type StateType = DAState<DummyBlock>;
-// }
 
 /// type synonym for vrf committee election
 /// with in-memory network
@@ -982,8 +958,8 @@ macro_rules! cross_all_types {
             cross_tests!(
                 [ MemoryCommChannel ],
                 [ MemoryStorage ],
-                [ DEntryBlock  ],
-                [ DEntryState ],
+                [ VDEntryBlock  ],
+                [ VDEntryState ],
                 $fn_name,
                 $e,
                 keep: $keep,
@@ -1016,8 +992,8 @@ macro_rules! cross_all_types_proptest {
             cross_tests!(
                 [ MemoryCommChannel ],
                 [ MemoryStorage ], // AtomicStorage
-                [ DEntryBlock  ],
-                [ DEntryState ],
+                [ VDEntryBlock  ],
+                [ VDEntryState ],
                 $fn_name,
                 $e,
                 keep: $keep,
