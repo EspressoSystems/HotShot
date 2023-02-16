@@ -42,14 +42,7 @@ async fn centralized_server_network_vrf() {
             ValidatingLeaf<VrfTestTypes>,
             ValidatingProposal<
                 VrfTestTypes,
-                VrfImpl<
-                    VrfTestTypes,
-                    ValidatingLeaf<VrfTestTypes>,
-                    BLSSignatureScheme<Param381>,
-                    BLSVRFScheme<Param381>,
-                    Hasher,
-                    Param381,
-                >,
+                ValidatingLeaf<VrfTestTypes>,
             >,
             CentralizedCommChannel<VrfTestTypes>,
             MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
@@ -95,7 +88,7 @@ async fn centralized_server_network() {
             ValidatingLeaf<StaticCommitteeTestTypes>,
             ValidatingProposal<
                 StaticCommitteeTestTypes,
-                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+                ValidatingLeaf<StaticCommitteeTestTypes>,
             >,
             CentralizedCommChannel<StaticCommitteeTestTypes>,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -136,7 +129,7 @@ async fn test_stress_centralized_server_network() {
             ValidatingLeaf<StaticCommitteeTestTypes>,
             ValidatingProposal<
                 StaticCommitteeTestTypes,
-                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+                ValidatingLeaf<StaticCommitteeTestTypes>,
             >,
             CentralizedCommChannel<StaticCommitteeTestTypes>,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

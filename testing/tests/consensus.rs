@@ -54,7 +54,7 @@ async fn is_upcoming_validating_leader<
     runner: &AppliedTestRunner<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
     node_id: u64,
@@ -82,7 +82,7 @@ async fn submit_validating_proposal<
     runner: &AppliedTestRunner<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
     sender_node_id: u64,
@@ -117,7 +117,7 @@ async fn submit_validating_vote<
     runner: &AppliedTestRunner<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
     sender_node_id: u64,
@@ -170,7 +170,7 @@ fn test_validating_vote_queueing_post_safety_check<
     runner: &AppliedTestRunner<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
@@ -223,7 +223,7 @@ fn test_validating_vote_queueing_round_setup<
     runner: &mut AppliedTestRunner<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
@@ -254,7 +254,7 @@ fn test_validating_proposal_queueing_post_safety_check<
     runner: &AppliedTestRunner<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
@@ -313,7 +313,7 @@ fn test_validating_proposal_queueing_round_setup<
     runner: &mut AppliedTestRunner<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
@@ -348,7 +348,7 @@ fn test_bad_validating_proposal_round_setup<
     runner: &mut AppliedTestRunner<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
@@ -381,7 +381,7 @@ fn test_bad_validating_proposal_post_safety_check<
     runner: &AppliedTestRunner<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         ELECTION,
     >,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,

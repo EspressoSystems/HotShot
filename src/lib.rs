@@ -689,7 +689,7 @@ impl<
         I: NodeImplementation<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
-            Proposal = ValidatingProposal<TYPES, ELECTION>,
+            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         >,
     > ViewRunner<TYPES, I> for HotShot<ValidatingConsensus, TYPES, I>
 {
@@ -874,7 +874,7 @@ impl<
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,
-            Proposal = DAProposal<TYPES, ELECTION>,
+            Proposal = DAProposal<TYPES>,
         >,
     > ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
 {

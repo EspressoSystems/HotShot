@@ -5,7 +5,7 @@ use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
     data::LeafType,
     traits::{
-        election::{Checked, Election, ElectionConfig, ElectionError, VoteToken},
+        election::{Checked, Election, ElectionConfig, ElectionError, VoteToken, Membership},
         node_implementation::NodeType,
         signature_key::{EncodedSignature, SignatureKey},
     },
@@ -80,7 +80,7 @@ pub struct StaticElectionConfig {}
 
 impl ElectionConfig for StaticElectionConfig {}
 
-impl<TYPES, LEAF: LeafType<NodeType = TYPES>, PUBKEY: SignatureKey + 'static> Election<TYPES>
+impl<TYPES, LEAF: LeafType<NodeType = TYPES>, PUBKEY: SignatureKey + 'static> Membership<TYPES>
     for GeneralStaticCommittee<TYPES, LEAF, PUBKEY>
 where
     TYPES: NodeType<
@@ -92,13 +92,6 @@ where
     /// Just use the vector of public keys for the stake table
     type StakeTable = Vec<PUBKEY>;
 
-    type QuorumCertificate = LEAF::QuorumCertificate;
-
-    type DACertificate = LEAF::DACertificate;
-    // type DACertificate = DACertificate<TYPES>;
-
-    type LeafType = LEAF;
-
     /// Clone the static table
     fn get_stake_table(
         &self,
@@ -108,7 +101,7 @@ where
         self.nodes.clone()
     }
     /// Index the vector of public keys with the current view number
-    fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {
+    fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {  
         let index = (*view_number % self.nodes.len() as u64) as usize;
         self.nodes[index].clone()
     }

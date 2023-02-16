@@ -38,7 +38,7 @@ type ThisElection =
     GeneralStaticCommittee<DEntryTypes, ThisLeaf, <DEntryTypes as NodeType>::SignatureKey>;
 type ThisNetworking = CentralizedCommChannel<DEntryTypes>;
 #[allow(dead_code)]
-type ThisProposal = ValidatingProposal<DEntryTypes, ThisElection>;
+type ThisProposal = ValidatingProposal<DEntryTypes, ThisLeaf>;
 type Node = DEntryNode<ThisNetworking, ThisElection>;
 
 #[derive(Debug, Parser)]

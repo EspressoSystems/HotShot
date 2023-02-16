@@ -534,7 +534,7 @@ where
     NET: CommunicationChannel<
         DEntryTypes,
         ValidatingLeaf<DEntryTypes>,
-        ValidatingProposal<DEntryTypes, ELE>,
+        ValidatingProposal<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>;
@@ -544,7 +544,7 @@ where
     NET: CommunicationChannel<
         DEntryTypes,
         ValidatingLeaf<DEntryTypes>,
-        ValidatingProposal<DEntryTypes, ELE>,
+        ValidatingProposal<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
@@ -560,7 +560,7 @@ where
     NET: CommunicationChannel<
         DEntryTypes,
         ValidatingLeaf<DEntryTypes>,
-        ValidatingProposal<DEntryTypes, ELE>,
+        ValidatingProposal<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
@@ -577,7 +577,7 @@ where
     NET: CommunicationChannel<
         DEntryTypes,
         ValidatingLeaf<DEntryTypes>,
-        ValidatingProposal<DEntryTypes, ELE>,
+        ValidatingProposal<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
@@ -592,7 +592,7 @@ where
     NET: CommunicationChannel<
         DEntryTypes,
         ValidatingLeaf<DEntryTypes>,
-        ValidatingProposal<DEntryTypes, ELE>,
+        ValidatingProposal<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
     ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>> + Debug,

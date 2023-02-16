@@ -88,9 +88,9 @@ pub type TxnCommitment<STATE> = Commitment<Transaction<STATE>>;
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Derivative, Eq)]
 #[serde(bound(deserialize = ""))]
 #[derivative(PartialEq, Hash)]
-pub struct ValidatingProposal<TYPES: NodeType, ELECTION: Election<TYPES>>
+pub struct ValidatingProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
 where
-    ELECTION::LeafType: Committable,
+    LEAF: Committable,
 {
     ///  current view's block commitment
     pub block_commitment: Commitment<TYPES::BlockType>,
@@ -102,12 +102,12 @@ where
     pub height: u64,
 
     /// Per spec, justification
-    pub justify_qc: ELECTION::QuorumCertificate,
+    pub justify_qc: QuorumCertificate<TYPES, LEAF>,
 
     /// The hash of the parent `Leaf`
     /// So we can ask if it extends
     #[debug(skip)]
-    pub parent_commitment: Commitment<ELECTION::LeafType>,
+    pub parent_commitment: Commitment<LEAF>,
 
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
@@ -120,24 +120,19 @@ where
 
     /// the propser id
     pub proposer_id: EncodedPublicKey,
-
-    #[allow(missing_docs)]
-    pub _pd: PhantomData<ELECTION>,
 }
 
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
-pub struct DAProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
+pub struct DAProposal<TYPES: NodeType> {
     /// Block leaf wants to apply
     pub deltas: TYPES::BlockType,
     /// View this proposal applies to
     pub view_number: TYPES::Time,
-
-    pub _pd: PhantomData<ELECTION>,
 }
 
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub struct CommitmentProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
+pub struct CommitmentProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     #[allow(clippy::missing_docs_in_private_items)]
     pub block_commitment: Commitment<TYPES::BlockType>,
 
@@ -148,10 +143,10 @@ pub struct CommitmentProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
     pub height: u64,
 
     /// Per spec, justification
-    pub justify_qc: ELECTION::QuorumCertificate,
+    pub justify_qc: QuorumCertificate<TYPES, LEAF>,
 
     /// Data availibity certificate
-    pub dac: ELECTION::DACertificate,
+    pub dac: DACertificate<TYPES>,
 
     /// the propser id
     pub proposer_id: EncodedPublicKey,
@@ -160,33 +155,28 @@ pub struct CommitmentProposal<TYPES: NodeType, ELECTION: Election<TYPES>> {
     pub application_metadata: TYPES::ApplicationMetadataType,
 }
 
-impl<TYPES: NodeType, ELECTION: Election<TYPES>> ProposalType
-    for ValidatingProposal<TYPES, ELECTION>
-where
-    ELECTION::LeafType: Committable,
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
+    for ValidatingProposal<TYPES, LEAF>
 {
     type NodeType = TYPES;
-    type Election = ELECTION;
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
         self.view_number
     }
 }
 
-impl<TYPES: NodeType, ELECTION: Election<TYPES>> ProposalType for DAProposal<TYPES, ELECTION> {
+impl<TYPES: NodeType> ProposalType for DAProposal<TYPES> {
     type NodeType = TYPES;
-    type Election = ELECTION;
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
         self.view_number
     }
 }
 
-impl<TYPES: NodeType, ELECTION: Election<TYPES>> ProposalType
-    for CommitmentProposal<TYPES, ELECTION>
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
+    for CommitmentProposal<TYPES, LEAF>
 where
     TYPES::ApplicationMetadataType: Send + Sync,
 {
     type NodeType = TYPES;
-    type Election = ELECTION;
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
         self.view_number
     }
@@ -195,7 +185,6 @@ pub trait ProposalType:
     Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq + Eq
 {
     type NodeType: NodeType;
-    type Election: Election<Self::NodeType>;
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time;
 }
 
@@ -621,12 +610,7 @@ impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
 
 impl<
         TYPES: NodeType,
-        ELECTION: Election<
-            TYPES,
-            LeafType = ValidatingLeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-        >,
-    > From<ValidatingLeaf<TYPES>> for ValidatingProposal<TYPES, ELECTION>
+    > From<ValidatingLeaf<TYPES>> for ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>
 {
     fn from(leaf: ValidatingLeaf<TYPES>) -> Self {
         Self {
@@ -639,7 +623,6 @@ impl<
             rejected: leaf.rejected,
             proposer_id: leaf.proposer_id,
             block_commitment: leaf.deltas.commit(),
-            _pd: PhantomData,
         }
     }
 }

@@ -25,7 +25,7 @@ use tracing::{error, info, instrument, warn};
 /// This view's validating leader
 #[derive(Debug, Clone)]
 pub struct ValidatingLeader<
-    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>,
     TYPES: NodeType,
     ELECTION: Election<
         TYPES,
@@ -52,7 +52,7 @@ pub struct ValidatingLeader<
 }
 
 impl<
-        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
         ELECTION: Election<
             TYPES,
@@ -185,11 +185,11 @@ impl<
             let signature = self
                 .api
                 .sign_validating_or_commitment_proposal(&leaf.commit());
-            let data: ValidatingProposal<TYPES, ELECTION> = leaf.into();
+            let data: ValidatingProposal<TYPES, ValidatingLeaf<TYPES>> = leaf.into();
             let message = ConsensusMessage::<
                 TYPES,
                 ValidatingLeaf<TYPES>,
-                ValidatingProposal<TYPES, ELECTION>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             >::Proposal(Proposal { data, signature });
             consensus
                 .metrics

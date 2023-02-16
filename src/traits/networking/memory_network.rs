@@ -560,7 +560,7 @@ mod tests {
 
     type TestLeaf = ValidatingLeaf<Test>;
     type TestCommittee = GeneralStaticCommittee<Test, TestLeaf, Ed25519Pub>;
-    type TestProposal = ValidatingProposal<Test, TestCommittee>;
+    type TestProposal = ValidatingProposal<Test, TestLeaf>;
 
     /// fake Eq
     /// we can't compare the votetokentype for equality, so we can't

@@ -39,7 +39,7 @@ async fn libp2p_network() {
             ValidatingLeaf<StaticCommitteeTestTypes>,
             ValidatingProposal<
                 StaticCommitteeTestTypes,
-                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+                ValidatingLeaf<StaticCommitteeTestTypes>
             >,
             Libp2pCommChannel<
                 StaticCommitteeTestTypes,
@@ -88,17 +88,14 @@ async fn test_stress_libp2p_network() {
             ValidatingLeaf<StaticCommitteeTestTypes>,
             ValidatingProposal<
                 StaticCommitteeTestTypes,
-                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+                ValidatingLeaf<StaticCommitteeTestTypes>,
             >,
             Libp2pCommChannel<
                 StaticCommitteeTestTypes,
                 ValidatingLeaf<StaticCommitteeTestTypes>,
                 ValidatingProposal<
                     StaticCommitteeTestTypes,
-                    StaticCommittee<
-                        StaticCommitteeTestTypes,
-                        ValidatingLeaf<StaticCommitteeTestTypes>,
-                    >,
+                    ValidatingLeaf<StaticCommitteeTestTypes>,
                 >,
             >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

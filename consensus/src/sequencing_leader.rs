@@ -35,7 +35,7 @@ use tracing::{error, info, instrument, warn};
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
 pub struct DALeader<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>,
     TYPES: NodeType,
     ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
 > {
@@ -59,7 +59,7 @@ pub struct DALeader<
                 ProcessedConsensusMessage<
                     TYPES,
                     SequencingLeaf<TYPES>,
-                    DAProposal<TYPES, ELECTION>,
+                    DAProposal<TYPES>,
                 >,
             >,
         >,
@@ -69,7 +69,7 @@ pub struct DALeader<
     pub _pd: PhantomData<ELECTION>,
 }
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
     > DALeader<A, TYPES, ELECTION>
@@ -234,13 +234,12 @@ impl<
 
         let consensus = self.consensus.read().await;
         let signature = self.api.sign_da_proposal(&block.commit());
-        let data: DAProposal<TYPES, ELECTION> = DAProposal {
+        let data: DAProposal<TYPES> = DAProposal {
             deltas: block.clone(),
             view_number: self.cur_view,
-            _pd: PhantomData,
         };
         let message =
-            ConsensusMessage::<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>::Proposal(
+            ConsensusMessage::<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>::Proposal(
                 Proposal { data, signature },
             );
         // Brodcast DA proposal
@@ -265,7 +264,7 @@ impl<
 /// Implemenation of the consensus leader for a DA/Sequencing consensus.  Handles sending out a proposal to the entire network
 /// For now this step happens after the `DALeader` completes it's proposal and collects enough votes.
 pub struct ConsensusLeader<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>,
     TYPES: NodeType,
     ELECTION: Election<
         TYPES,
@@ -296,7 +295,7 @@ pub struct ConsensusLeader<
     pub _pd: PhantomData<ELECTION>,
 }
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>,
         TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
         ELECTION: Election<
             TYPES,
@@ -339,7 +338,7 @@ impl<
         let message = ConsensusMessage::<
             TYPES,
             SequencingLeaf<TYPES>,
-            CommitmentProposal<TYPES, ELECTION>,
+            CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
         >::Proposal(Proposal {
             data: proposal,
             signature,
@@ -353,7 +352,7 @@ impl<
 
 /// Implenting the next leader.  Collect votes on the previous leaders proposal and return the QC
 pub struct ConsensusNextLeader<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>,
     TYPES: NodeType,
     ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
 > {
@@ -376,7 +375,7 @@ pub struct ConsensusNextLeader<
                 ProcessedConsensusMessage<
                     TYPES,
                     SequencingLeaf<TYPES>,
-                    DAProposal<TYPES, ELECTION>,
+                    DAProposal<TYPES>,
                 >,
             >,
         >,
@@ -386,7 +385,7 @@ pub struct ConsensusNextLeader<
     pub _pd: PhantomData<ELECTION>,
 }
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
     > ConsensusNextLeader<A, TYPES, ELECTION>

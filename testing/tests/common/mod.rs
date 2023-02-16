@@ -401,28 +401,14 @@ pub type StandardNodeImplType = TestNodeImpl<
     ValidatingLeaf<VrfTestTypes>,
     ValidatingProposal<
         VrfTestTypes,
-        VrfImpl<
-            VrfTestTypes,
-            ValidatingLeaf<VrfTestTypes>,
-            BLSSignatureScheme<Param381>,
-            BLSVRFScheme<Param381>,
-            Hasher,
-            Param381,
-        >,
+        ValidatingLeaf<VrfTestTypes>,
     >,
     MemoryCommChannel<
         VrfTestTypes,
         ValidatingLeaf<VrfTestTypes>,
         ValidatingProposal<
             VrfTestTypes,
-            VrfImpl<
-                VrfTestTypes,
-                ValidatingLeaf<VrfTestTypes>,
-                BLSSignatureScheme<Param381>,
-                BLSVRFScheme<Param381>,
-                Hasher,
-                Param381,
-            >,
+            ValidatingLeaf<VrfTestTypes>,
         >,
     >,
     MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
@@ -443,14 +429,14 @@ pub type StaticNodeImplType = TestNodeImpl<
     ValidatingLeaf<StaticCommitteeTestTypes>,
     ValidatingProposal<
         StaticCommitteeTestTypes,
-        StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+        ValidatingLeaf<StaticCommitteeTestTypes>,
     >,
     MemoryCommChannel<
         StaticCommitteeTestTypes,
         ValidatingLeaf<StaticCommitteeTestTypes>,
         ValidatingProposal<
             StaticCommitteeTestTypes,
-            StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
         >,
     >,
     MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -907,20 +893,14 @@ macro_rules! cross_tests {
                 hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>,
                 hotshot_types::data::ValidatingProposal<
                     common::StaticCommitteeTestTypes,
-                    hotshot::traits::election::static_committee::StaticCommittee<
-                        common::StaticCommitteeTestTypes,
-                        hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
-                    >
+                    hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
                 >,
                 $NETWORK<
                     common::StaticCommitteeTestTypes,
                     hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>,
                     hotshot_types::data::ValidatingProposal<
                         common::StaticCommitteeTestTypes,
-                        hotshot::traits::election::static_committee::StaticCommittee<
-                            common::StaticCommitteeTestTypes,
-                            hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
-                        >
+                        hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
                     >,
                 >,
                 $STORAGE<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,

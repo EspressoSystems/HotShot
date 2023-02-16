@@ -24,7 +24,7 @@ use tracing::{error, info, instrument, warn};
 /// This view's replica
 #[derive(Debug, Clone)]
 pub struct Replica<
-    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     ELECTION: Election<
         TYPES,
@@ -44,7 +44,7 @@ pub struct Replica<
                 ProcessedConsensusMessage<
                     TYPES,
                     ValidatingLeaf<TYPES>,
-                    ValidatingProposal<TYPES, ELECTION>,
+                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 >,
             >,
         >,
@@ -58,7 +58,7 @@ pub struct Replica<
 }
 
 impl<
-        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
         ELECTION: Election<
             TYPES,

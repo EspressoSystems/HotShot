@@ -30,7 +30,7 @@ use tracing::{error, info, instrument, warn};
 /// This view's replica for sequencing consensus.
 #[derive(Debug, Clone)]
 pub struct SequencingReplica<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, CommitmentProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, CommitmentProposal<TYPES, SequencingLeaf<TYPES>>>,
     TYPES: NodeType,
     ELECTION: Election<
         TYPES,
@@ -51,7 +51,7 @@ pub struct SequencingReplica<
                 ProcessedConsensusMessage<
                     TYPES,
                     SequencingLeaf<TYPES>,
-                    CommitmentProposal<TYPES, ELECTION>,
+                    CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
                 >,
             >,
         >,
@@ -65,7 +65,7 @@ pub struct SequencingReplica<
 }
 
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, CommitmentProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, CommitmentProposal<TYPES, SequencingLeaf<TYPES>>>,
         TYPES: NodeType,
         ELECTION: Election<
             TYPES,

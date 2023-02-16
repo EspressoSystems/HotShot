@@ -41,7 +41,7 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     /// consensus protocols
     type Election: Election<TYPES, LeafType = Self::Leaf> + Debug;
 
-    type Proposal: ProposalType<NodeType = TYPES, Election = Self::Election>;
+    type Proposal: ProposalType<NodeType = TYPES>;
 
     /// Networking type for this consensus implementation
     type Networking: CommunicationChannel<TYPES, Self::Leaf, Self::Proposal, Self::Election>;

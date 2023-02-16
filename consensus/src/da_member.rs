@@ -25,7 +25,7 @@ use tracing::{error, info, instrument, warn};
 /// This view's DA committee member.
 #[derive(Debug, Clone)]
 pub struct DAMember<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>,
     TYPES: NodeType,
     ELECTION: Election<
         TYPES,
@@ -45,7 +45,7 @@ pub struct DAMember<
                 ProcessedConsensusMessage<
                     TYPES,
                     SequencingLeaf<TYPES>,
-                    DAProposal<TYPES, ELECTION>,
+                    DAProposal<TYPES>,
                 >,
             >,
         >,
@@ -59,7 +59,7 @@ pub struct DAMember<
 }
 
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>,
         TYPES: NodeType,
         ELECTION: Election<
             TYPES,

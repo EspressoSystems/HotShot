@@ -25,7 +25,7 @@ use tracing::{error, instrument, warn};
 /// The next view's validating leader
 #[derive(custom_debug::Debug, Clone)]
 pub struct NextValidatingLeader<
-    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>,
     TYPES: NodeType,
     ELECTION: Election<
         TYPES,
@@ -45,7 +45,7 @@ pub struct NextValidatingLeader<
                 ProcessedConsensusMessage<
                     TYPES,
                     ValidatingLeaf<TYPES>,
-                    ValidatingProposal<TYPES, ELECTION>,
+                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 >,
             >,
         >,
@@ -60,7 +60,7 @@ pub struct NextValidatingLeader<
 }
 
 impl<
-        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>,
         TYPES: NodeType,
         ELECTION: Election<
             TYPES,
