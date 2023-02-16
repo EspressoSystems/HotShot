@@ -13,7 +13,6 @@ use crate::traits::{
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
-use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
     certificate::QuorumCertificate,
     constants::genesis_proposer_id,
@@ -145,7 +144,7 @@ impl Committable for VDemoState {
     }
 
     fn tag() -> String {
-        tag::DENTRY_STATE.to_string()
+        "VALIDATING_DEMO_STATE".to_string()
     }
 }
 
@@ -203,7 +202,7 @@ impl Committable for VDemoBlock {
     }
 
     fn tag() -> String {
-        tag::DENTRY_BLOCK.to_string()
+        "VALIDATING_DEMO_BLOCK".to_string()
     }
 }
 
@@ -218,7 +217,7 @@ impl Committable for VDemoTransaction {
     }
 
     fn tag() -> String {
-        tag::DENTRY_TXN.to_string()
+        "VALIDATING_DEMO_TXN".to_string()
     }
 }
 

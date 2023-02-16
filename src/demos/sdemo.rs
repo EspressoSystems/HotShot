@@ -8,7 +8,6 @@
 use std::{collections::HashSet, ops::Deref};
 
 use commit::{Commitment, Committable};
-use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
     data::{fake_commitment, ViewNumber},
     traits::{
@@ -47,7 +46,7 @@ impl Committable for SDemoTransaction {
     }
 
     fn tag() -> String {
-        tag::DENTRY_TXN.to_string()
+        "SEQUENCING_DEMO_TXN".to_string()
     }
 }
 
@@ -103,7 +102,7 @@ impl Committable for SDemoBlock {
     }
 
     fn tag() -> String {
-        tag::DENTRY_BLOCK.to_string()
+        "SEQUENCING_DEMO_BLOCK".to_string()
     }
 }
 
@@ -128,7 +127,7 @@ impl Committable for SDemoState {
     }
 
     fn tag() -> String {
-        tag::DENTRY_STATE.to_string()
+        "SEQUENCING_DEMO_STATE".to_string()
     }
 }
 
