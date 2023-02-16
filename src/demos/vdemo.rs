@@ -1,7 +1,7 @@
-//! Double entry accounting demo
+//! Validating (vanilla) consensus demo
 //!
 //! This module provides an implementation of the `HotShot` suite of traits that implements a
-//! basic demonstration of double entry accounting.
+//! basic demonstration of validating consensus.
 //!
 //! These implementations are useful in examples and integration testing, but are not suitable for
 //! production use.

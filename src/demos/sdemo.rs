@@ -1,3 +1,10 @@
+//! Sequencing consensus demo
+//!
+//! This module provides an implementation of the `HotShot` suite of traits that implements a
+//! basic demonstration of sequencing consensus.
+//!
+//! These implementations are useful in examples and integration testing, but are not suitable for
+//! production use.
 use std::{collections::HashSet, ops::Deref};
 
 use commit::{Commitment, Committable};
