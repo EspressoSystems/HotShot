@@ -128,12 +128,6 @@
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Utility functions, type aliases, helper structs and enum definitions.
 
 </span><span class="kw">use </span>async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
@@ -141,7 +135,7 @@
 <span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>hotshot_types::{
     data::{LeafType, ProposalType},
-    message::ProcessedConsensusMessage,
+    message::{ProcessedConsensusMessage, VoteType},
     traits::node_implementation::NodeType,
 };
 <span class="kw">use </span>std::{
@@ -186,25 +180,22 @@
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>ViewQueue&lt;
     TYPES: NodeType,
-    LEAF: LeafType&lt;NodeType = TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+    VOTE: VoteType&lt;TYPES&gt;,
 &gt; {
     <span class="doccomment">/// to send networking events to Replica
-    </span><span class="kw">pub </span>sender_chan: UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, LEAF, PROPOSAL&gt;&gt;,
+    </span><span class="kw">pub </span>sender_chan: UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;&gt;,
 
     <span class="doccomment">/// to recv networking events for Replica
     </span><span class="kw">pub </span>receiver_chan:
-        Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedConsensusMessage&lt;TYPES, LEAF, PROPOSAL&gt;&gt;&gt;&gt;,
+        Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;&gt;&gt;&gt;,
 
     <span class="doccomment">/// `true` if this queue has already received a proposal
     </span><span class="kw">pub </span>has_received_proposal: Arc&lt;AtomicBool&gt;,
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    &gt; Default <span class="kw">for </span>ViewQueue&lt;TYPES, LEAF, PROPOSAL&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt; Default
+    <span class="kw">for </span>ViewQueue&lt;TYPES, PROPOSAL, VOTE&gt;
 {
     <span class="doccomment">/// create new view queue
     </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
@@ -220,8 +211,8 @@
 <span class="doccomment">/// metadata for sending information to replica (and in the future, the leader)
 </span><span class="kw">pub struct </span>SendToTasks&lt;
     TYPES: NodeType,
-    LEAF: LeafType&lt;NodeType = TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+    VOTE: VoteType&lt;TYPES&gt;,
 &gt; {
     <span class="doccomment">/// the current view number
     /// this should always be in sync with `Consensus`
@@ -229,14 +220,11 @@
 
     <span class="doccomment">/// a map from view number to ViewQueue
     /// one of (replica|next leader)&#39;s&#39; task for view i will be listening on the channel in here
-    </span><span class="kw">pub </span>channel_map: BTreeMap&lt;TYPES::Time, ViewQueue&lt;TYPES, LEAF, PROPOSAL&gt;&gt;,
+    </span><span class="kw">pub </span>channel_map: BTreeMap&lt;TYPES::Time, ViewQueue&lt;TYPES, PROPOSAL, VOTE&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    &gt; SendToTasks&lt;TYPES, LEAF, PROPOSAL&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
+    SendToTasks&lt;TYPES, PROPOSAL, VOTE&gt;
 {
     <span class="doccomment">/// create new sendtosasks
     </span><span class="attr">#[must_use]

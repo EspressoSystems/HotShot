@@ -469,6 +469,7 @@
 <a href="#469" id="469">469</a>
 <a href="#470" id="470">470</a>
 <a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 </span><span class="kw">use crate</span>::{
@@ -482,6 +483,7 @@
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
+    message::{DAVote, QuorumVote},
     traits::{
         election::SignedCertificate, network::CommunicationChannel, node_implementation::NodeType,
         state::ConsensusTime, storage::Storage,
@@ -829,7 +831,7 @@
         block_commitment: Commitment&lt;TYPES::BlockType&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; ConsensusMessage&lt;TYPES, I::Leaf, I::Proposal&gt; {
+    ) -&gt; ConsensusMessage&lt;TYPES, I::Proposal, DAVote&lt;TYPES, I::Leaf&gt;&gt; {
         <span class="kw">let </span>api = HotShotConsensusApi {
             inner: <span class="self">self</span>.hotshot.inner.clone(),
         };
@@ -848,7 +850,7 @@
         leaf_commitment: Commitment&lt;I::Leaf&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; ConsensusMessage&lt;TYPES, I::Leaf, I::Proposal&gt; {
+    ) -&gt; ConsensusMessage&lt;TYPES, I::Proposal, QuorumVote&lt;TYPES, I::Leaf&gt;&gt; {
         <span class="kw">let </span>api = HotShotConsensusApi {
             inner: <span class="self">self</span>.hotshot.inner.clone(),
         };
@@ -867,7 +869,7 @@
         leaf_commitment: Commitment&lt;I::Leaf&gt;,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; ConsensusMessage&lt;TYPES, I::Leaf, I::Proposal&gt; {
+    ) -&gt; ConsensusMessage&lt;TYPES, I::Proposal, QuorumVote&lt;TYPES, I::Leaf&gt;&gt; {
         <span class="kw">let </span>api = HotShotConsensusApi {
             inner: <span class="self">self</span>.hotshot.inner.clone(),
         };
@@ -885,7 +887,7 @@
         justify_qc: &lt;I::Leaf <span class="kw">as </span>LeafType&gt;::QuorumCertificate,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -&gt; ConsensusMessage&lt;TYPES, I::Leaf, I::Proposal&gt; {
+    ) -&gt; ConsensusMessage&lt;TYPES, I::Proposal, QuorumVote&lt;TYPES, I::Leaf&gt;&gt; {
         <span class="kw">let </span>api = HotShotConsensusApi {
             inner: <span class="self">self</span>.hotshot.inner.clone(),
         };
@@ -896,7 +898,7 @@
     </span><span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
     </span><span class="kw">pub async fn </span>send_broadcast_consensus_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        msg: ConsensusMessage&lt;TYPES, I::Leaf, I::Proposal&gt;,
+        msg: ConsensusMessage&lt;TYPES, I::Proposal, I::Vote&gt;,
     ) {
         <span class="kw">let </span>_result = <span class="self">self</span>.hotshot.send_broadcast_message(msg).<span class="kw">await</span>;
     }
@@ -905,7 +907,7 @@
     </span><span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
     </span><span class="kw">pub async fn </span>send_direct_consensus_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        msg: ConsensusMessage&lt;TYPES, I::Leaf, I::Proposal&gt;,
+        msg: ConsensusMessage&lt;TYPES, I::Proposal, I::Vote&gt;,
         recipient: TYPES::SignatureKey,
     ) {
         <span class="kw">let </span>_result = <span class="self">self</span>.hotshot.send_direct_message(msg, recipient).<span class="kw">await</span>;

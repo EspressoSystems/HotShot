@@ -1255,8 +1255,8 @@
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToServer,
 };
 <span class="kw">use </span>hotshot_types::{
-    data::{LeafType, ProposalType},
-    message::Message,
+    data::ProposalType,
+    message::{Message, VoteType},
     traits::{
         election::{Election, ElectionConfig},
         metrics::{Metrics, NoMetrics},
@@ -2304,20 +2304,20 @@
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>CentralizedCommChannel&lt;
     TYPES: NodeType,
-    LEAF: LeafType&lt;NodeType = TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+    VOTE: VoteType&lt;TYPES&gt;,
     ELECTION: Election&lt;TYPES&gt;,
 &gt;(
     CentralizedServerNetwork&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
-    PhantomData&lt;(LEAF, PROPOSAL, ELECTION)&gt;,
+    PhantomData&lt;(PROPOSAL, VOTE, ELECTION)&gt;,
 );
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
         ELECTION: Election&lt;TYPES&gt;,
-    &gt; CentralizedCommChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
+    &gt; CentralizedCommChannel&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
 {
     <span class="doccomment">/// create new communication channel
     </span><span class="kw">pub fn </span>new(
@@ -2340,15 +2340,15 @@
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
         TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
         ELECTION: Election&lt;TYPES&gt;,
-    &gt; CommunicationChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
-    <span class="kw">for </span>CentralizedCommChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
+    &gt; CommunicationChannel&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
+    <span class="kw">for </span>CentralizedCommChannel&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
 {
     <span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         &lt;CentralizedServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
-            Message&lt;TYPES, LEAF, PROPOSAL&gt;,
+            Message&lt;TYPES, PROPOSAL, VOTE&gt;,
             TYPES::SignatureKey,
         &gt;&gt;::wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
         .<span class="kw">await</span>;
@@ -2356,7 +2356,7 @@
 
     <span class="kw">async fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         &lt;CentralizedServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
-            Message&lt;TYPES, LEAF, PROPOSAL&gt;,
+            Message&lt;TYPES, PROPOSAL, VOTE&gt;,
             TYPES::SignatureKey,
         &gt;&gt;::is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
         .<span class="kw">await
@@ -2364,7 +2364,7 @@
 
     <span class="kw">async fn </span>shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; () {
         &lt;CentralizedServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
-            Message&lt;TYPES, LEAF, PROPOSAL&gt;,
+            Message&lt;TYPES, PROPOSAL, VOTE&gt;,
             TYPES::SignatureKey,
         &gt;&gt;::shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
         .<span class="kw">await</span>;
@@ -2372,7 +2372,7 @@
 
     <span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES, LEAF, PROPOSAL&gt;,
+        message: Message&lt;TYPES, PROPOSAL, VOTE&gt;,
         election: <span class="kw-2">&amp;</span>ELECTION,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>view_number = message.get_view_number();
@@ -2382,7 +2382,7 @@
 
     <span class="kw">async fn </span>direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES, LEAF, PROPOSAL&gt;,
+        message: Message&lt;TYPES, PROPOSAL, VOTE&gt;,
         recipient: TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="self">self</span>.<span class="number">0</span>.direct_message(message, recipient).<span class="kw">await
@@ -2391,13 +2391,13 @@
     <span class="kw">async fn </span>recv_msgs(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, LEAF, PROPOSAL&gt;&gt;, NetworkError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;, NetworkError&gt; {
         <span class="self">self</span>.<span class="number">0</span>.recv_msgs(transmit_type).<span class="kw">await
     </span>}
 
     <span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: TYPES::SignatureKey) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         &lt;CentralizedServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
-            Message&lt;TYPES, LEAF, PROPOSAL&gt;,
+            Message&lt;TYPES, PROPOSAL, VOTE&gt;,
             TYPES::SignatureKey,
         &gt;&gt;::lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, pk)
         .<span class="kw">await
@@ -2406,11 +2406,11 @@
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
         ELECTION: Election&lt;TYPES&gt;,
-    &gt; TestableNetworkingImplementation&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
-    <span class="kw">for </span>CentralizedCommChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
+    &gt; TestableNetworkingImplementation&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
+    <span class="kw">for </span>CentralizedCommChannel&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
 {

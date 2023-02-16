@@ -845,6 +845,7 @@
 <a href="#845" id="845">845</a>
 <a href="#846" id="846">846</a>
 <a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
 </pre><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -861,8 +862,8 @@
 <span class="kw">use </span>dashmap::DashMap;
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>hotshot_types::{
-    data::{LeafType, ProposalType},
-    message::Message,
+    data::ProposalType,
+    message::{Message, VoteType},
     traits::{
         election::Election,
         metrics::{Metrics, NoMetrics},
@@ -1138,11 +1139,11 @@
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
         ELECTION: Election&lt;TYPES&gt;,
-    &gt; TestableNetworkingImplementation&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
-    <span class="kw">for </span>MemoryCommChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
+    &gt; TestableNetworkingImplementation&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
+    <span class="kw">for </span>MemoryCommChannel&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -1293,22 +1294,22 @@
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>MemoryCommChannel&lt;
     TYPES: NodeType,
-    LEAF: LeafType&lt;NodeType = TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+    VOTE: VoteType&lt;TYPES&gt;,
     ELECTION: Election&lt;TYPES&gt;,
 &gt;(
-    MemoryNetwork&lt;Message&lt;TYPES, LEAF, PROPOSAL&gt;, TYPES::SignatureKey&gt;,
+    MemoryNetwork&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;, TYPES::SignatureKey&gt;,
     PhantomData&lt;ELECTION&gt;,
 );
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
         TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
         ELECTION: Election&lt;TYPES&gt;,
-    &gt; CommunicationChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
-    <span class="kw">for </span>MemoryCommChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
+    &gt; CommunicationChannel&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
+    <span class="kw">for </span>MemoryCommChannel&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
 {
     <span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.<span class="number">0</span>.wait_for_ready().<span class="kw">await</span>;
@@ -1324,7 +1325,7 @@
 
     <span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES, LEAF, PROPOSAL&gt;,
+        message: Message&lt;TYPES, PROPOSAL, VOTE&gt;,
         election: <span class="kw-2">&amp;</span>ELECTION,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>recipients =
@@ -1334,7 +1335,7 @@
 
     <span class="kw">async fn </span>direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES, LEAF, PROPOSAL&gt;,
+        message: Message&lt;TYPES, PROPOSAL, VOTE&gt;,
         recipient: TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="self">self</span>.<span class="number">0</span>.direct_message(message, recipient).<span class="kw">await
@@ -1343,7 +1344,7 @@
     <span class="kw">async fn </span>recv_msgs(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, LEAF, PROPOSAL&gt;&gt;, NetworkError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;, NetworkError&gt; {
         <span class="self">self</span>.<span class="number">0</span>.recv_msgs(transmit_type).<span class="kw">await
     </span>}
 
@@ -1367,7 +1368,7 @@
     <span class="kw">use </span>async_compatibility_layer::logging::setup_logging;
     <span class="kw">use </span>hotshot_types::{
         data::ViewNumber,
-        message::{DataMessage, MessageKind},
+        message::{DataMessage, MessageKind, QuorumVote},
         traits::{
             signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
             state::ConsensusTime,
@@ -1416,17 +1417,18 @@
     }
 
     <span class="kw">type </span>TestLeaf = ValidatingLeaf&lt;Test&gt;;
+    <span class="kw">type </span>TestVote = QuorumVote&lt;Test, TestLeaf&gt;;
     <span class="kw">type </span>TestCommittee = GeneralStaticCommittee&lt;Test, TestLeaf, Ed25519Pub&gt;;
     <span class="kw">type </span>TestProposal = ValidatingProposal&lt;Test, TestCommittee&gt;;
 
     <span class="doccomment">/// fake Eq
     /// we can&#39;t compare the votetokentype for equality, so we can&#39;t
-    /// derive EQ on Vote and thereby message
+    /// derive EQ on `VoteType&lt;TYPES&gt;` and thereby message
     /// we are only sending data messages, though so we compare key and
     /// data message
     </span><span class="kw">fn </span>fake_message_eq(
-        message_1: Message&lt;Test, TestLeaf, TestProposal&gt;,
-        message_2: Message&lt;Test, TestLeaf, TestProposal&gt;,
+        message_1: Message&lt;Test, TestProposal, TestVote&gt;,
+        message_2: Message&lt;Test, TestProposal, TestVote&gt;,
     ) {
         <span class="macro">assert_eq!</span>(message_1.sender, message_2.sender);
         <span class="kw">if let </span>MessageKind::Data(DataMessage::SubmitTransaction(d_1, <span class="kw">_</span>)) = message_1.kind {
@@ -1449,7 +1451,7 @@
         num_messages: u64,
         seed: u64,
         pk: Ed25519Pub,
-    ) -&gt; Vec&lt;Message&lt;Test, TestLeaf, TestProposal&gt;&gt; {
+    ) -&gt; Vec&lt;Message&lt;Test, TestProposal, TestVote&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>messages = Vec::new();
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..num_messages {
             <span class="kw">let </span>message = Message {
@@ -1485,7 +1487,7 @@
     </span><span class="kw">async fn </span>spawn_single() {
         setup_logging();
         <span class="kw">let </span>group: Arc&lt;
-            MasterMap&lt;Message&lt;Test, TestLeaf, TestProposal&gt;, &lt;Test <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
+            MasterMap&lt;Message&lt;Test, TestProposal, TestVote&gt;, &lt;Test <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
         &gt; = MasterMap::new();
         <span class="macro">trace!</span>(<span class="question-mark">?</span>group);
         <span class="kw">let </span>pub_key = get_pubkey();
@@ -1502,7 +1504,7 @@
     </span><span class="kw">async fn </span>spawn_double() {
         setup_logging();
         <span class="kw">let </span>group: Arc&lt;
-            MasterMap&lt;Message&lt;Test, TestLeaf, TestProposal&gt;, &lt;Test <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
+            MasterMap&lt;Message&lt;Test, TestProposal, TestVote&gt;, &lt;Test <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
         &gt; = MasterMap::new();
         <span class="macro">trace!</span>(<span class="question-mark">?</span>group);
         <span class="kw">let </span>pub_key_1 = get_pubkey();
@@ -1526,7 +1528,7 @@
 
         // Make and connect the networking instances
         </span><span class="kw">let </span>group: Arc&lt;
-            MasterMap&lt;Message&lt;Test, TestLeaf, TestProposal&gt;, &lt;Test <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
+            MasterMap&lt;Message&lt;Test, TestProposal, TestVote&gt;, &lt;Test <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
         &gt; = MasterMap::new();
         <span class="macro">trace!</span>(<span class="question-mark">?</span>group);
         <span class="kw">let </span>pub_key_1 = get_pubkey();
@@ -1534,7 +1536,7 @@
         <span class="kw">let </span>pub_key_2 = get_pubkey();
         <span class="kw">let </span>network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
 
-        <span class="kw">let </span>first_messages: Vec&lt;Message&lt;Test, TestLeaf, TestProposal&gt;&gt; =
+        <span class="kw">let </span>first_messages: Vec&lt;Message&lt;Test, TestProposal, TestVote&gt;&gt; =
             gen_messages(<span class="number">5</span>, <span class="number">100</span>, pub_key_1);
 
         <span class="comment">// Test 1 -&gt; 2
@@ -1553,7 +1555,7 @@
             fake_message_eq(sent_message, recv_message);
         }
 
-        <span class="kw">let </span>second_messages: Vec&lt;Message&lt;Test, TestLeaf, TestProposal&gt;&gt; =
+        <span class="kw">let </span>second_messages: Vec&lt;Message&lt;Test, TestProposal, TestVote&gt;&gt; =
             gen_messages(<span class="number">5</span>, <span class="number">200</span>, pub_key_2);
 
         <span class="comment">// Test 2 -&gt; 1
@@ -1585,7 +1587,7 @@
         setup_logging();
         <span class="comment">// Make and connect the networking instances
         </span><span class="kw">let </span>group: Arc&lt;
-            MasterMap&lt;Message&lt;Test, TestLeaf, TestProposal&gt;, &lt;Test <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
+            MasterMap&lt;Message&lt;Test, TestProposal, TestVote&gt;, &lt;Test <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;,
         &gt; = MasterMap::new();
         <span class="macro">trace!</span>(<span class="question-mark">?</span>group);
         <span class="kw">let </span>pub_key_1 = get_pubkey();
@@ -1593,7 +1595,7 @@
         <span class="kw">let </span>pub_key_2 = get_pubkey();
         <span class="kw">let </span>network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
 
-        <span class="kw">let </span>first_messages: Vec&lt;Message&lt;Test, TestLeaf, TestProposal&gt;&gt; =
+        <span class="kw">let </span>first_messages: Vec&lt;Message&lt;Test, TestProposal, TestVote&gt;&gt; =
             gen_messages(<span class="number">5</span>, <span class="number">100</span>, pub_key_1);
 
         <span class="comment">// Test 1 -&gt; 2
@@ -1615,7 +1617,7 @@
             fake_message_eq(sent_message, recv_message);
         }
 
-        <span class="kw">let </span>second_messages: Vec&lt;Message&lt;Test, TestLeaf, TestProposal&gt;&gt; =
+        <span class="kw">let </span>second_messages: Vec&lt;Message&lt;Test, TestProposal, TestVote&gt;&gt; =
             gen_messages(<span class="number">5</span>, <span class="number">200</span>, pub_key_2);
 
         <span class="comment">// Test 2 -&gt; 1
@@ -1649,7 +1651,7 @@
         <span class="comment">// setup_logging();
         //
         // let group: Arc&lt;
-        //     MasterMap&lt;Message&lt;Test, TestLeaf, TestProposal&gt;, &lt;Test as NodeType&gt;::SignatureKey&gt;,
+        //     MasterMap&lt;Message&lt;Test, TestProposal, TestVote&gt;, &lt;Test as NodeType&gt;::SignatureKey&gt;,
         // &gt; = MasterMap::new();
         // trace!(?group);
         // let pub_key_1 = get_pubkey();
@@ -1658,7 +1660,7 @@
         // let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
         //
         // // Create some dummy messages
-        // let messages: Vec&lt;Message&lt;Test, TestLeaf, TestProposal&gt;&gt; = gen_messages(5, 100, pub_key_1);
+        // let messages: Vec&lt;Message&lt;Test, TestProposal, TestVote&gt;&gt; = gen_messages(5, 100, pub_key_1);
         //
         // // assert_eq!(network1.in_flight_message_count(), Some(0));
         // // assert_eq!(network2.in_flight_message_count(), Some(0));

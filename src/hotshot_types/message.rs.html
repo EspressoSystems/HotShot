@@ -287,16 +287,6 @@
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
 <a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
@@ -313,46 +303,42 @@
 <span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::fmt::Debug;
+
+<span class="doccomment">/// The vote sent by consensus messages.
+</span><span class="kw">pub trait </span>VoteType&lt;TYPES: NodeType&gt;:
+    Debug + Clone + <span class="lifetime">&#39;static </span>+ Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync
+{
+    <span class="doccomment">/// The view this vote was cast for.
+    </span><span class="kw">fn </span>current_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time;
+}
 
 <span class="doccomment">/// Incoming message
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub struct </span>Message&lt;
-    TYPES: NodeType,
-    LEAF: LeafType&lt;NodeType = TYPES&gt;,
-    PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-&gt; {
+</span><span class="kw">pub struct </span>Message&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
+{
     <span class="doccomment">/// The sender of this message
     </span><span class="kw">pub </span>sender: TYPES::SignatureKey,
 
     <span class="doccomment">/// The message kind
-    </span><span class="kw">pub </span>kind: MessageKind&lt;TYPES, LEAF, PROPOSAL&gt;,
+    </span><span class="kw">pub </span>kind: MessageKind&lt;TYPES, PROPOSAL, VOTE&gt;,
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    &gt; NetworkMsg <span class="kw">for </span>Message&lt;TYPES, LEAF, PROPOSAL&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt; NetworkMsg
+    <span class="kw">for </span>Message&lt;TYPES, PROPOSAL, VOTE&gt;
 {
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    &gt; Message&lt;TYPES, LEAF, PROPOSAL&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
+    Message&lt;TYPES, PROPOSAL, VOTE&gt;
 {
     <span class="doccomment">/// get the view number out of a message
     </span><span class="kw">pub fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.kind {
             MessageKind::Consensus(c) =&gt; <span class="kw">match </span>c {
                 ConsensusMessage::Proposal(p) =&gt; p.data.get_view_number(),
-                ConsensusMessage::Vote(v) =&gt; <span class="kw">match </span>v {
-                    Vote::DA(v) =&gt; v.current_view,
-                    Vote::Yes(v) | Vote::No(v) =&gt; v.current_view,
-                    Vote::Timeout(v) =&gt; v.current_view,
-                },
+                ConsensusMessage::Vote(v) =&gt; v.current_view(),
                 ConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
                     InternalTrigger::Timeout(v) =&gt; <span class="kw-2">*</span>v,
                 },
@@ -369,51 +355,29 @@
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub enum </span>MessageKind&lt;
     TYPES: NodeType,
-    LEAF: LeafType&lt;NodeType = TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+    VOTE: VoteType&lt;TYPES&gt;,
 &gt; {
     <span class="doccomment">/// Messages related to the consensus protocol
-    </span>Consensus(ConsensusMessage&lt;TYPES, LEAF, PROPOSAL&gt;),
+    </span>Consensus(ConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;),
     <span class="doccomment">/// Messages relating to sharing data between nodes
     </span>Data(DataMessage&lt;TYPES&gt;),
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    &gt; From&lt;ConsensusMessage&lt;TYPES, LEAF, PROPOSAL&gt;&gt; <span class="kw">for </span>MessageKind&lt;TYPES, LEAF, PROPOSAL&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
+    From&lt;ConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;&gt; <span class="kw">for </span>MessageKind&lt;TYPES, PROPOSAL, VOTE&gt;
 {
-    <span class="kw">fn </span>from(m: ConsensusMessage&lt;TYPES, LEAF, PROPOSAL&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>from(m: ConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::Consensus(m)
     }
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    &gt; From&lt;DataMessage&lt;TYPES&gt;&gt; <span class="kw">for </span>MessageKind&lt;TYPES, LEAF, PROPOSAL&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
+    From&lt;DataMessage&lt;TYPES&gt;&gt; <span class="kw">for </span>MessageKind&lt;TYPES, PROPOSAL, VOTE&gt;
 {
     <span class="kw">fn </span>from(m: DataMessage&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::Data(m)
     }
-}
-
-<span class="comment">// TODO (da) Modify the Vote enum after the consensus trait refactoring:
-// &lt;https://github.com/EspressoSystems/HotShot/issues/856&gt;.
-</span><span class="doccomment">/// Votes sent by consensus messages.
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub enum </span>Vote&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
-    <span class="doccomment">/// The vote on DA proposal.
-    </span>DA(DAVote&lt;TYPES, LEAF&gt;),
-    <span class="doccomment">/// Posivite vote on validating or commitment proposal.
-    </span>Yes(YesOrNoVote&lt;TYPES, LEAF&gt;),
-    <span class="doccomment">/// Negative vote on validating or commitment proposal.
-    </span>No(YesOrNoVote&lt;TYPES, LEAF&gt;),
-    <span class="doccomment">/// Timeout vote.
-    </span>Timeout(TimeoutVote&lt;TYPES, LEAF&gt;),
 }
 
 <span class="doccomment">/// Internal triggers sent by consensus messages.
@@ -430,27 +394,24 @@
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub enum </span>ProcessedConsensusMessage&lt;
     TYPES: NodeType,
-    LEAF: LeafType&lt;NodeType = TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+    VOTE: VoteType&lt;TYPES&gt;,
 &gt; {
     <span class="doccomment">/// Leader&#39;s proposal
     </span>Proposal(Proposal&lt;PROPOSAL&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Replica&#39;s vote on a proposal.
-    </span>Vote(Vote&lt;TYPES, LEAF&gt;, TYPES::SignatureKey),
+    </span>Vote(VOTE, TYPES::SignatureKey),
     <span class="doccomment">/// Internal ONLY message indicating a view interrupt.
     </span><span class="attr">#[serde(skip)]
     </span>InternalTrigger(InternalTrigger&lt;TYPES&gt;),
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    &gt; From&lt;ProcessedConsensusMessage&lt;TYPES, LEAF, PROPOSAL&gt;&gt;
-    <span class="kw">for </span>ConsensusMessage&lt;TYPES, LEAF, PROPOSAL&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
+    From&lt;ProcessedConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;&gt;
+    <span class="kw">for </span>ConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;
 {
     <span class="doccomment">/// row polymorphism would be great here
-    </span><span class="kw">fn </span>from(value: ProcessedConsensusMessage&lt;TYPES, LEAF, PROPOSAL&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">fn </span>from(value: ProcessedConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span>value {
             ProcessedConsensusMessage::Proposal(p, <span class="kw">_</span>) =&gt; ConsensusMessage::Proposal(p),
             ProcessedConsensusMessage::Vote(v, <span class="kw">_</span>) =&gt; ConsensusMessage::Vote(v),
@@ -459,15 +420,12 @@
     }
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    &gt; ProcessedConsensusMessage&lt;TYPES, LEAF, PROPOSAL&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
+    ProcessedConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;
 {
     <span class="doccomment">/// row polymorphism would be great here
     </span><span class="kw">pub fn </span>new(
-        value: ConsensusMessage&lt;TYPES, LEAF, PROPOSAL&gt;,
+        value: ConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;,
         sender: TYPES::SignatureKey,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span>value {
@@ -483,23 +441,20 @@
 </span><span class="doccomment">/// Messages related to the consensus protocol
 </span><span class="kw">pub enum </span>ConsensusMessage&lt;
     TYPES: NodeType,
-    LEAF: LeafType&lt;NodeType = TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+    VOTE: VoteType&lt;TYPES&gt;,
 &gt; {
     <span class="doccomment">/// Leader&#39;s proposal
     </span>Proposal(Proposal&lt;PROPOSAL&gt;),
     <span class="doccomment">/// Replica&#39;s vote on a proposal.
-    </span>Vote(Vote&lt;TYPES, LEAF&gt;),
+    </span>Vote(VOTE),
     <span class="doccomment">/// Internal ONLY message indicating a view interrupt.
     </span><span class="attr">#[serde(skip)]
     </span>InternalTrigger(InternalTrigger&lt;TYPES&gt;),
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        LEAF: LeafType&lt;NodeType = TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    &gt; ConsensusMessage&lt;TYPES, LEAF, PROPOSAL&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
+    ConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;
 {
     <span class="doccomment">/// The view number of the (leader|replica) when the message was sent
     /// or the view of the timeout
@@ -510,11 +465,7 @@
                 // this should match replica upon receipt
                 </span>p.data.get_view_number()
             }
-            ConsensusMessage::Vote(vote_message) =&gt; <span class="kw">match </span>vote_message {
-                Vote::DA(v) =&gt; v.current_view,
-                Vote::Yes(v) | Vote::No(v) =&gt; v.current_view,
-                Vote::Timeout(v) =&gt; v.current_view,
-            },
+            ConsensusMessage::Vote(vote_message) =&gt; vote_message.current_view(),
             ConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
                 InternalTrigger::Timeout(time) =&gt; <span class="kw-2">*</span>time,
             },
@@ -595,6 +546,35 @@
     </span><span class="kw">pub </span>current_view: TYPES::Time,
     <span class="doccomment">/// The vote token generated by this replica
     </span><span class="kw">pub </span>vote_token: TYPES::VoteTokenType,
+}
+
+<span class="doccomment">/// Votes on validating or commitment proposal.
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
+</span><span class="kw">pub enum </span>QuorumVote&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
+    <span class="doccomment">/// Posivite vote.
+    </span>Yes(YesOrNoVote&lt;TYPES, LEAF&gt;),
+    <span class="doccomment">/// Negative vote.
+    </span>No(YesOrNoVote&lt;TYPES, LEAF&gt;),
+    <span class="doccomment">/// Timeout vote.
+    </span>Timeout(TimeoutVote&lt;TYPES, LEAF&gt;),
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; VoteType&lt;TYPES&gt; <span class="kw">for </span>DAVote&lt;TYPES, LEAF&gt; {
+    <span class="kw">fn </span>current_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+        <span class="self">self</span>.current_view
+    }
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; VoteType&lt;TYPES&gt;
+    <span class="kw">for </span>QuorumVote&lt;TYPES, LEAF&gt;
+{
+    <span class="kw">fn </span>current_view(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+        <span class="kw">match </span><span class="self">self </span>{
+            QuorumVote::Yes(v) | QuorumVote::No(v) =&gt; v.current_view,
+            QuorumVote::Timeout(v) =&gt; v.current_view,
+        }
+    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.0 (fc594f156 2023-01-24)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>

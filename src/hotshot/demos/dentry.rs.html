@@ -637,6 +637,8 @@
 <a href="#637" id="637">637</a>
 <a href="#638" id="638">638</a>
 <a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Double entry accounting demo
 //!
 //! This module provides an implementation of the `HotShot` suite of traits that implements a
@@ -657,6 +659,7 @@
     certificate::QuorumCertificate,
     constants::genesis_proposer_id,
     data::{random_commitment, LeafType, ValidatingLeaf, ValidatingProposal, ViewNumber},
+    message::QuorumVote,
     traits::{
         block_contents::Transaction,
         election::Election,
@@ -1167,8 +1170,8 @@
 <span class="kw">where
     </span>NET: CommunicationChannel&lt;
         DEntryTypes,
-        ValidatingLeaf&lt;DEntryTypes&gt;,
         ValidatingProposal&lt;DEntryTypes, ELE&gt;,
+        QuorumVote&lt;DEntryTypes, ValidatingLeaf&lt;DEntryTypes&gt;&gt;,
         ELE,
     &gt;,
     ELE: Election&lt;DEntryTypes, LeafType = ValidatingLeaf&lt;DEntryTypes&gt;&gt;;
@@ -1177,8 +1180,8 @@
 <span class="kw">where
     </span>NET: CommunicationChannel&lt;
         DEntryTypes,
-        ValidatingLeaf&lt;DEntryTypes&gt;,
         ValidatingProposal&lt;DEntryTypes, ELE&gt;,
+        QuorumVote&lt;DEntryTypes, ValidatingLeaf&lt;DEntryTypes&gt;&gt;,
         ELE,
     &gt;,
     ELE: Election&lt;DEntryTypes, LeafType = ValidatingLeaf&lt;DEntryTypes&gt;&gt;,
@@ -1193,8 +1196,8 @@
 <span class="kw">where
     </span>NET: CommunicationChannel&lt;
         DEntryTypes,
-        ValidatingLeaf&lt;DEntryTypes&gt;,
         ValidatingProposal&lt;DEntryTypes, ELE&gt;,
+        QuorumVote&lt;DEntryTypes, ValidatingLeaf&lt;DEntryTypes&gt;&gt;,
         ELE,
     &gt;,
     ELE: Election&lt;DEntryTypes, LeafType = ValidatingLeaf&lt;DEntryTypes&gt;&gt;,
@@ -1210,8 +1213,8 @@
 <span class="kw">where
     </span>NET: CommunicationChannel&lt;
         DEntryTypes,
-        ValidatingLeaf&lt;DEntryTypes&gt;,
         ValidatingProposal&lt;DEntryTypes, ELE&gt;,
+        QuorumVote&lt;DEntryTypes, ValidatingLeaf&lt;DEntryTypes&gt;&gt;,
         ELE,
     &gt;,
     ELE: Election&lt;DEntryTypes, LeafType = ValidatingLeaf&lt;DEntryTypes&gt;&gt;,
@@ -1225,8 +1228,8 @@
 <span class="kw">where
     </span>NET: CommunicationChannel&lt;
         DEntryTypes,
-        ValidatingLeaf&lt;DEntryTypes&gt;,
         ValidatingProposal&lt;DEntryTypes, ELE&gt;,
+        QuorumVote&lt;DEntryTypes, ValidatingLeaf&lt;DEntryTypes&gt;&gt;,
         ELE,
     &gt;,
     ELE: Election&lt;DEntryTypes, LeafType = ValidatingLeaf&lt;DEntryTypes&gt;&gt; + Debug,
@@ -1236,6 +1239,7 @@
     <span class="kw">type </span>Networking = NET;
     <span class="kw">type </span>Election = ELE;
     <span class="kw">type </span>Proposal = ValidatingProposal&lt;DEntryTypes, ELE&gt;;
+    <span class="kw">type </span>Vote = QuorumVote&lt;DEntryTypes, ELE::LeafType&gt;;
 }
 
 <span class="doccomment">/// Provides a random [`QuorumCertificate`]

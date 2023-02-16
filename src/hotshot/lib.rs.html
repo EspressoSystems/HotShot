@@ -1267,18 +1267,6 @@
 <a href="#1267" id="1267">1267</a>
 <a href="#1268" id="1268">1268</a>
 <a href="#1269" id="1269">1269</a>
-<a href="#1270" id="1270">1270</a>
-<a href="#1271" id="1271">1271</a>
-<a href="#1272" id="1272">1272</a>
-<a href="#1273" id="1273">1273</a>
-<a href="#1274" id="1274">1274</a>
-<a href="#1275" id="1275">1275</a>
-<a href="#1276" id="1276">1276</a>
-<a href="#1277" id="1277">1277</a>
-<a href="#1278" id="1278">1278</a>
-<a href="#1279" id="1279">1279</a>
-<a href="#1280" id="1280">1280</a>
-<a href="#1281" id="1281">1281</a>
 </pre><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1340,12 +1328,15 @@
     DAMember, NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner,
     ViewQueue,
 };
-<span class="kw">use </span>hotshot_types::certificate::DACertificate;
-<span class="kw">use </span>hotshot_types::certificate::{CertificateAccumulator, VoteMetaData};
 <span class="kw">use </span>hotshot_types::data::ProposalType;
 <span class="kw">use </span>hotshot_types::data::{DAProposal, SequencingLeaf};
 <span class="kw">use </span>hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
 <span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
+<span class="kw">use </span>hotshot_types::{certificate::DACertificate, message::QuorumVote};
+<span class="kw">use </span>hotshot_types::{
+    certificate::{CertificateAccumulator, VoteMetaData},
+    message::{DAVote, VoteType},
+};
 <span class="kw">use </span>hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
@@ -1434,10 +1425,10 @@
     <span class="comment">// TODO (da) split this into `replica_channel_map` and `da_member_channel_map` after
     // refactoring `HotShot`.
     </span><span class="doccomment">/// for sending/recv-ing things with the replica task
-    </span>replica_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I::Leaf, I::Proposal&gt;&gt;&gt;,
+    </span>replica_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I::Proposal, I::Vote&gt;&gt;&gt;,
 
     <span class="doccomment">/// for sending/recv-ing things with the next leader task
-    </span>next_leader_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I::Leaf, I::Proposal&gt;&gt;&gt;,
+    </span>next_leader_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I::Proposal, I::Vote&gt;&gt;&gt;,
 
     <span class="doccomment">/// for sending messages to network lookup task
     </span>send_network_lookup: UnboundedSender&lt;<span class="prelude-ty">Option</span>&lt;TYPES::Time&gt;&gt;,
@@ -1554,12 +1545,12 @@
     </span><span class="kw">pub async fn </span>timeout_view(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         current_view: TYPES::Time,
-        send_replica: UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, I::Leaf, I::Proposal&gt;&gt;,
+        send_replica: UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, I::Proposal, I::Vote&gt;&gt;,
         send_next_leader: <span class="prelude-ty">Option</span>&lt;
-            UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, I::Leaf, I::Proposal&gt;&gt;,
+            UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, I::Proposal, I::Vote&gt;&gt;,
         &gt;,
     ) {
-        <span class="kw">let </span>msg = ProcessedConsensusMessage::&lt;TYPES, I::Leaf, I::Proposal&gt;::InternalTrigger(
+        <span class="kw">let </span>msg = ProcessedConsensusMessage::&lt;TYPES, I::Proposal, I::Vote&gt;::InternalTrigger(
             InternalTrigger::Timeout(current_view),
         );
         <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = send_next_leader {
@@ -1570,30 +1561,6 @@
         <span class="comment">// NOTE this should always exist
         </span><span class="kw">if </span>send_replica.send(msg).<span class="kw">await</span>.is_err() {
             <span class="macro">warn!</span>(<span class="string">&quot;Error timing out replica task&quot;</span>);
-        };
-    }
-
-    <span class="doccomment">/// Marks a given view number as timed out. This should be called a fixed period after a round is started.
-    ///
-    /// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.
-    /// # Panics
-    /// Panics if the current view is not in the channel map
-    </span><span class="attr">#[instrument(
-        skip_all,
-        fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span>current_view),
-        name = <span class="string">&quot;Timeout consensus tasks&quot;</span>,
-        level = <span class="string">&quot;warn&quot;
-    </span>)]
-    </span><span class="kw">pub async fn </span>timeout_view_da_tasks&lt;Proposal: ProposalType&lt;NodeType = TYPES&gt;&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        current_view: TYPES::Time,
-        send_da_member: UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, I::Leaf, Proposal&gt;&gt;,
-    ) {
-        <span class="kw">let </span>msg = ProcessedConsensusMessage::&lt;TYPES, I::Leaf, Proposal&gt;::InternalTrigger(
-            InternalTrigger::Timeout(current_view),
-        );
-        <span class="kw">if </span>send_da_member.send(msg).<span class="kw">await</span>.is_err() {
-            <span class="macro">warn!</span>(<span class="string">&quot;Error timing out da member&quot;</span>);
         };
     }
 
@@ -1691,7 +1658,7 @@
     /// Will return any errors that the underlying `broadcast_message` can return.
     </span><span class="kw">pub async fn </span>send_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        kind: <span class="kw">impl </span>Into&lt;MessageKind&lt;TYPES, I::Leaf, I::Proposal&gt;&gt;,
+        kind: <span class="kw">impl </span>Into&lt;MessageKind&lt;TYPES, I::Proposal, I::Vote&gt;&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
         <span class="kw">let </span>pk = <span class="self">self</span>.inner.public_key.clone();
@@ -1722,7 +1689,7 @@
     /// Will return any errors that the underlying `message_node` can return.
     </span><span class="kw">pub async fn </span>send_direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        kind: <span class="kw">impl </span>Into&lt;MessageKind&lt;TYPES, I::Leaf, I::Proposal&gt;&gt;,
+        kind: <span class="kw">impl </span>Into&lt;MessageKind&lt;TYPES, I::Proposal, I::Vote&gt;&gt;,
         recipient: TYPES::SignatureKey,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
         <span class="self">self</span>.inner
@@ -1746,7 +1713,7 @@
     </span>)]
     </span><span class="kw">async fn </span>handle_broadcast_consensus_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        msg: ConsensusMessage&lt;TYPES, I::Leaf, I::Proposal&gt;,
+        msg: ConsensusMessage&lt;TYPES, I::Proposal, I::Vote&gt;,
         sender: TYPES::SignatureKey,
     ) {
         <span class="comment">// TODO validate incoming data message based on sender signature key
@@ -1764,7 +1731,7 @@
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">let </span>chan: ViewQueue&lt;TYPES, I::Leaf, I::Proposal&gt; =
+                <span class="kw">let </span>chan: ViewQueue&lt;TYPES, I::Proposal, I::Vote&gt; =
                     <span class="self">Self</span>::create_or_obtain_chan_from_read(msg_time, channel_map).<span class="kw">await</span>;
 
                 <span class="kw">if </span>!chan.has_received_proposal.swap(<span class="bool-val">true</span>, Ordering::Relaxed)
@@ -1789,7 +1756,7 @@
     <span class="doccomment">/// decide which handler to call based on the message variant and `transmit_type`
     </span><span class="kw">async fn </span>handle_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        item: Message&lt;TYPES, I::Leaf, I::Proposal&gt;,
+        item: Message&lt;TYPES, I::Proposal, I::Vote&gt;,
         transmit_type: TransmitType,
     ) {
         <span class="kw">match </span>(item.kind, transmit_type) {
@@ -1813,7 +1780,7 @@
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), name = <span class="string">&quot;Handle direct consensus message&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
     </span><span class="kw">async fn </span>handle_direct_consensus_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        msg: ConsensusMessage&lt;TYPES, I::Leaf, I::Proposal&gt;,
+        msg: ConsensusMessage&lt;TYPES, I::Proposal, I::Vote&gt;,
         sender: TYPES::SignatureKey,
     ) {
         <span class="comment">// We can only recv from a replicas
@@ -1839,7 +1806,10 @@
                 )
                 .<span class="kw">await</span>;
                 <span class="kw">if </span>!is_leader || msg_time &lt; channel_map.cur_view {
-                    <span class="macro">warn!</span>(<span class="string">&quot;Throwing away Vote message for view number: {:?}&quot;</span>, msg_time);
+                    <span class="macro">warn!</span>(
+                        <span class="string">&quot;Throwing away VoteType&lt;TYPES&gt;message for view number: {:?}&quot;</span>,
+                        msg_time
+                    );
                     <span class="kw">return</span>;
                 }
 
@@ -1917,8 +1887,8 @@
     /// doesn&#39;t exist, or creates entry. Then returns a clone of the entry
     </span><span class="kw">pub async fn </span>create_or_obtain_chan_from_read(
         view_num: TYPES::Time,
-        channel_map: RwLockUpgradableReadGuard&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;TYPES, I::Leaf, I::Proposal&gt;&gt;,
-    ) -&gt; ViewQueue&lt;TYPES, I::Leaf, I::Proposal&gt; {
+        channel_map: RwLockUpgradableReadGuard&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;TYPES, I::Proposal, I::Vote&gt;&gt;,
+    ) -&gt; ViewQueue&lt;TYPES, I::Proposal, I::Vote&gt; {
         <span class="comment">// check if we have the entry
         // if we don&#39;t, insert
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(vq) = channel_map.channel_map.get(<span class="kw-2">&amp;</span>view_num) {
@@ -1926,7 +1896,7 @@
         } <span class="kw">else </span>{
             <span class="kw">let </span><span class="kw-2">mut </span>channel_map = RwLockUpgradableReadGuard::&lt;
                 <span class="lifetime">&#39;_</span>,
-                SendToTasks&lt;TYPES, I::Leaf, I::Proposal&gt;,
+                SendToTasks&lt;TYPES, I::Proposal, I::Vote&gt;,
             &gt;::upgrade(channel_map)
             .<span class="kw">await</span>;
             <span class="kw">let </span>new_view_queue = ViewQueue::default();
@@ -1945,8 +1915,8 @@
     /// doesn&#39;t exist, or creates entry. Then returns a clone of the entry
     </span><span class="kw">pub async fn </span>create_or_obtain_chan_from_write(
         view_num: TYPES::Time,
-        <span class="kw-2">mut </span>channel_map: RwLockWriteGuard&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;TYPES, I::Leaf, I::Proposal&gt;&gt;,
-    ) -&gt; ViewQueue&lt;TYPES, I::Leaf, I::Proposal&gt; {
+        <span class="kw-2">mut </span>channel_map: RwLockWriteGuard&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;TYPES, I::Proposal, I::Vote&gt;&gt;,
+    ) -&gt; ViewQueue&lt;TYPES, I::Proposal, I::Vote&gt; {
         channel_map.channel_map.entry(view_num).or_default().clone()
     }
 }
@@ -1971,6 +1941,7 @@
             TYPES,
             Leaf = ValidatingLeaf&lt;TYPES&gt;,
             Proposal = ValidatingProposal&lt;TYPES, ELECTION&gt;,
+            Vote = QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
         &gt;,
     &gt; ViewRunner&lt;TYPES, I&gt; <span class="kw">for </span>HotShot&lt;ValidatingConsensus, TYPES, I&gt;
 {
@@ -2156,6 +2127,7 @@
             TYPES,
             Leaf = SequencingLeaf&lt;TYPES&gt;,
             Proposal = DAProposal&lt;TYPES, ELECTION&gt;,
+            Vote = DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
         &gt;,
     &gt; ViewRunner&lt;TYPES, I&gt; <span class="kw">for </span>HotShot&lt;SequencingConsensus, TYPES, I&gt;
 {
@@ -2321,7 +2293,8 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;
-    hotshot_consensus::ConsensusApi&lt;TYPES, I::Leaf, I::Proposal&gt; <span class="kw">for </span>HotShotConsensusApi&lt;TYPES, I&gt;
+    hotshot_consensus::ConsensusApi&lt;TYPES, I::Leaf, I::Proposal, I::Vote&gt;
+    <span class="kw">for </span>HotShotConsensusApi&lt;TYPES, I&gt;
 {
     <span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroUsize {
         <span class="self">self</span>.inner.config.total_nodes
@@ -2369,7 +2342,7 @@
     <span class="kw">async fn </span>send_direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         recipient: TYPES::SignatureKey,
-        message: ConsensusMessage&lt;TYPES, I::Leaf, I::Proposal&gt;,
+        message: ConsensusMessage&lt;TYPES, I::Proposal, I::Vote&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
         <span class="macro">debug!</span>(<span class="question-mark">?</span>message, <span class="question-mark">?</span>recipient, <span class="string">&quot;send_direct_message&quot;</span>);
@@ -2390,7 +2363,7 @@
 
     <span class="kw">async fn </span>send_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: ConsensusMessage&lt;TYPES, I::Leaf, I::Proposal&gt;,
+        message: ConsensusMessage&lt;TYPES, I::Proposal, I::Vote&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
         <span class="macro">debug!</span>(<span class="question-mark">?</span>message, <span class="string">&quot;send_broadcast_message&quot;</span>);
         <span class="self">self</span>.inner
@@ -2407,12 +2380,15 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>send_da_broadcast&lt;DAPROPOSAL: ProposalType&lt;NodeType = TYPES&gt;&gt;(
+    <span class="kw">async fn </span>send_da_broadcast&lt;
+        DAPROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        DAVOTE: VoteType&lt;TYPES&gt;,
+    &gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _message: ConsensusMessage&lt;TYPES, I::Leaf, DAPROPOSAL&gt;,
+        _message: ConsensusMessage&lt;TYPES, DAPROPOSAL, DAVOTE&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
-        <span class="comment">// TODO: Should look like this code but it won&#39;t work due to only 1 Proposal type being
-        // associated with self.inner.networking.
+        <span class="comment">// TODO: Should look like this code but it won&#39;t work due to only 1 Proposal and 1 Vote
+        // type being associated with self.inner.networking.
         // self.inner
         //     .networking
         //     .broadcast_message(Message {

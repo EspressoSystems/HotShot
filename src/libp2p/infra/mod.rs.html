@@ -655,6 +655,8 @@
 <a href="#655" id="655">655</a>
 <a href="#656" id="656">656</a>
 <a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     cmp,
     collections::VecDeque,
@@ -691,6 +693,7 @@
 };
 <span class="kw">use </span>hotshot_types::{
     data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
+    message::QuorumVote,
     traits::{
         election::Election,
         metrics::NoMetrics,
@@ -786,8 +789,8 @@
             Election = ELECTION,
             Networking = Libp2pCommChannel&lt;
                 TYPES,
-                ValidatingLeaf&lt;TYPES&gt;,
                 ValidatingProposal&lt;TYPES, ELECTION&gt;,
+                QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
                 ELECTION,
             &gt;,
             Storage = MemoryStorage&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
@@ -798,8 +801,8 @@
         ELECTION,
         Libp2pCommChannel&lt;
             TYPES,
-            ValidatingLeaf&lt;TYPES&gt;,
             ValidatingProposal&lt;TYPES, ELECTION&gt;,
+            QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
             ELECTION,
         &gt;,
         NODE,
@@ -926,8 +929,8 @@
         </span>.map(
             Libp2pCommChannel::&lt;
                 TYPES,
-                ValidatingLeaf&lt;TYPES&gt;,
                 ValidatingProposal&lt;TYPES, ELECTION&gt;,
+                QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
                 ELECTION,
             &gt;::new,
         )
@@ -960,8 +963,8 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; Libp2pCommChannel&lt;
         TYPES,
-        ValidatingLeaf&lt;TYPES&gt;,
         ValidatingProposal&lt;TYPES, ELECTION&gt;,
+        QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
         ELECTION,
     &gt; {
         <span class="self">self</span>.network.clone()
@@ -976,11 +979,12 @@
             TYPES,
             Leaf = ValidatingLeaf&lt;TYPES&gt;,
             Proposal = ValidatingProposal&lt;TYPES, ELECTION&gt;,
+            Vote = QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
             Election = ELECTION,
             Networking = CentralizedCommChannel&lt;
                 TYPES,
-                ValidatingLeaf&lt;TYPES&gt;,
                 ValidatingProposal&lt;TYPES, ELECTION&gt;,
+                QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
                 ELECTION,
             &gt;,
             Storage = MemoryStorage&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
@@ -991,8 +995,8 @@
         ELECTION,
         CentralizedCommChannel&lt;
             TYPES,
-            ValidatingLeaf&lt;TYPES&gt;,
             ValidatingProposal&lt;TYPES, ELECTION&gt;,
+            QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
             ELECTION,
         &gt;,
         NODE,
@@ -1043,8 +1047,8 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; CentralizedCommChannel&lt;
         TYPES,
-        ValidatingLeaf&lt;TYPES&gt;,
         ValidatingProposal&lt;TYPES, ELECTION&gt;,
+        QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
         ELECTION,
     &gt; {
         <span class="self">self</span>.network.clone()
@@ -1061,8 +1065,8 @@
     _socket: TcpStreamUtil,
     network: Libp2pCommChannel&lt;
         TYPES,
-        ValidatingLeaf&lt;TYPES&gt;,
         ValidatingProposal&lt;TYPES, ELECTION&gt;,
+        QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
         ELECTION,
     &gt;,
     <span class="comment">//TODO do we need this? I don&#39;t think so
@@ -1080,8 +1084,8 @@
     config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
     network: CentralizedCommChannel&lt;
         TYPES,
-        ValidatingLeaf&lt;TYPES&gt;,
         ValidatingProposal&lt;TYPES, ELECTION&gt;,
+        QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
         ELECTION,
     &gt;,
     _run: Run,
@@ -1093,8 +1097,8 @@
     ELECTION: Election&lt;TYPES&gt;,
     NETWORK: CommunicationChannel&lt;
         TYPES,
-        ValidatingLeaf&lt;TYPES&gt;,
         ValidatingProposal&lt;TYPES, ELECTION&gt;,
+        QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
         ELECTION,
     &gt;,
     NODE: NodeImplementation&lt;
@@ -1279,8 +1283,8 @@
     ELECTION: Election&lt;TYPES&gt;,
     NETWORK: CommunicationChannel&lt;
         TYPES,
-        ValidatingLeaf&lt;TYPES&gt;,
         ValidatingProposal&lt;TYPES, ELECTION&gt;,
+        QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
         ELECTION,
     &gt;,
     NODE: NodeImplementation&lt;

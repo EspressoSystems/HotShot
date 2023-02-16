@@ -35,6 +35,8 @@
 <a href="#35" id="35">35</a>
 <a href="#36" id="36">36</a>
 <a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
 </pre><pre class="rust"><code><span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>hotshot::{
     demos::dentry::{DEntryNode, DEntryTypes},
@@ -44,6 +46,7 @@
 };
 <span class="kw">use </span>hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
+    message::QuorumVote,
     traits::node_implementation::NodeType,
 };
 <span class="kw">use </span>infra::CentralizedConfig;
@@ -56,8 +59,9 @@
 <span class="kw">type </span>ThisLeaf = ValidatingLeaf&lt;DEntryTypes&gt;;
 <span class="kw">type </span>ThisElection =
     GeneralStaticCommittee&lt;DEntryTypes, ThisLeaf, &lt;DEntryTypes <span class="kw">as </span>NodeType&gt;::SignatureKey&gt;;
-<span class="kw">type </span>ThisNetwork = CentralizedCommChannel&lt;DEntryTypes, ThisLeaf, ThisProposal, ThisElection&gt;;
+<span class="kw">type </span>ThisNetwork = CentralizedCommChannel&lt;DEntryTypes, ThisProposal, ThisVote, ThisElection&gt;;
 <span class="kw">type </span>ThisProposal = ValidatingProposal&lt;DEntryTypes, ThisElection&gt;;
+<span class="kw">type </span>ThisVote = QuorumVote&lt;DEntryTypes, ThisLeaf&gt;;
 <span class="kw">type </span>ThisNode = DEntryNode&lt;ThisNetwork, ThisElection&gt;;
 <span class="kw">type </span>ThisConfig = CentralizedConfig&lt;DEntryTypes, ThisElection&gt;;
 

@@ -210,6 +210,16 @@
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`ValidatingLeader`] struct used for the leader step in the hotstuff consensus algorithm.
 
 </span><span class="kw">use crate</span>::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
@@ -222,7 +232,7 @@
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, Proposal},
+    message::{ConsensusMessage, Proposal, QuorumVote},
     traits::{
         election::{Election, SignedCertificate},
         node_implementation::NodeType,
@@ -237,7 +247,12 @@
 <span class="doccomment">/// This view&#39;s validating leader
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>ValidatingLeader&lt;
-    A: ConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, ValidatingProposal&lt;TYPES, ELECTION&gt;&gt;,
+    A: ConsensusApi&lt;
+        TYPES,
+        ValidatingLeaf&lt;TYPES&gt;,
+        ValidatingProposal&lt;TYPES, ELECTION&gt;,
+        QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
+    &gt;,
     TYPES: NodeType,
     ELECTION: Election&lt;
         TYPES,
@@ -264,7 +279,12 @@
 }
 
 <span class="kw">impl</span>&lt;
-        A: ConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, ValidatingProposal&lt;TYPES, ELECTION&gt;&gt;,
+        A: ConsensusApi&lt;
+            TYPES,
+            ValidatingLeaf&lt;TYPES&gt;,
+            ValidatingProposal&lt;TYPES, ELECTION&gt;,
+            QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
+        &gt;,
         TYPES: NodeType&lt;ConsensusType = ValidatingConsensus&gt;,
         ELECTION: Election&lt;
             TYPES,
@@ -400,8 +420,8 @@
             <span class="kw">let </span>data: ValidatingProposal&lt;TYPES, ELECTION&gt; = leaf.into();
             <span class="kw">let </span>message = ConsensusMessage::&lt;
                 TYPES,
-                ValidatingLeaf&lt;TYPES&gt;,
                 ValidatingProposal&lt;TYPES, ELECTION&gt;,
+                QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
             &gt;::Proposal(Proposal { data, signature });
             consensus
                 .metrics

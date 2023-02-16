@@ -268,8 +268,8 @@
 
 <span class="kw">use super</span>::{election::Election, node_implementation::NodeType, signature_key::SignatureKey};
 <span class="kw">use crate</span>::{
-    data::{LeafType, ProposalType},
-    message::Message,
+    data::ProposalType,
+    message::{Message, VoteType},
 };
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -371,8 +371,8 @@
 </span><span class="attr">#[async_trait]
 </span><span class="kw">pub trait </span>CommunicationChannel&lt;
     TYPES: NodeType,
-    LEAF: LeafType&lt;NodeType = TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+    VOTE: VoteType&lt;TYPES&gt;,
     ELECTION: Election&lt;TYPES&gt;,
 &gt;: Clone + Send + Sync + <span class="lifetime">&#39;static
 </span>{
@@ -393,7 +393,7 @@
     /// blocking
     </span><span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES, LEAF, PROPOSAL&gt;,
+        message: Message&lt;TYPES, PROPOSAL, VOTE&gt;,
         election: <span class="kw-2">&amp;</span>ELECTION,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
 
@@ -401,7 +401,7 @@
     /// blocking
     </span><span class="kw">async fn </span>direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES, LEAF, PROPOSAL&gt;,
+        message: Message&lt;TYPES, PROPOSAL, VOTE&gt;,
         recipient: TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
 
@@ -412,7 +412,7 @@
     </span><span class="kw">async fn </span>recv_msgs(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, LEAF, PROPOSAL&gt;&gt;, NetworkError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;, NetworkError&gt;;
 
     <span class="doccomment">/// look up a node
     /// blocking
@@ -470,10 +470,10 @@
 <span class="doccomment">/// Describes additional functionality needed by the test network implementation
 </span><span class="kw">pub trait </span>TestableNetworkingImplementation&lt;
     TYPES: NodeType,
-    LEAF: LeafType&lt;NodeType = TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+    VOTE: VoteType&lt;TYPES&gt;,
     ELECTION: Election&lt;TYPES&gt;,
-&gt;: CommunicationChannel&lt;TYPES, LEAF, PROPOSAL, ELECTION&gt;
+&gt;: CommunicationChannel&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
 {
     <span class="doccomment">/// generates a network given an expected node count
     </span><span class="kw">fn </span>generator(
