@@ -27,7 +27,7 @@ block first in the list.</p>
 <p>This list may be incomplete if the node is currently performing catchup.</p>
 </div></div><div class="sub-variant-field"><span id="variant.Decide.field.qc" class="small-section-header"><a href="#variant.Decide.field.qc" class="anchor field">§</a><code>qc:&nbsp;<a class="struct" href="https://doc.rust-lang.org/1.67.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;&lt;LEAF as LeafType&gt;::QuorumCertificate&gt;</code></span><div class="docblock"><p>The QC signing the most recent leaf in <code>leaf_chain</code>.</p>
 <p>Note that the QC for each additional leaf in the chain can be obtained from the leaf
-before it using [Leaf::justify_qc].</p>
+before it using</p>
 </div></div></div><div class="docblock"><p>A new decision event was issued</p>
 </div><section id="variant.ReplicaViewTimeout" class="variant"><a href="#variant.ReplicaViewTimeout" class="anchor">§</a><h3 class="code-header">ReplicaViewTimeout</h3></section><div class="sub-variant" id="variant.ReplicaViewTimeout.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.ReplicaViewTimeout.field.view_number" class="small-section-header"><a href="#variant.ReplicaViewTimeout.field.view_number" class="anchor field">§</a><code>view_number:&nbsp;&lt;TYPES as NodeType&gt;::Time</code></span><div class="docblock"><p>The view that timed out</p>
 </div></div></div><div class="docblock"><p>A replica task was canceled by a timeout interrupt</p>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":[["ESTABLISHED_LIMIT","Wrapped num of connections"],["ESTABLISHED_LIMIT_UNWR","Number of connections to a single peer before logging an error"],["_DERIVE_core_fmt_Debug_FOR_NetworkNode",""]],"mod":[["config",""],["handle",""]],"struct":[["NetworkNode","Network definition"]]};

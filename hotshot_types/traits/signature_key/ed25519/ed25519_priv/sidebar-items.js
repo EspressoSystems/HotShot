@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Ed25519Priv","Private key type for a ed25519 keypair"]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["set_config",""]],"struct":[["RoundConfig","Contains information about the current round"]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["MemoryStorage","In memory, ephemeral, storage for a `HotShot` instance"],["MemoryStorageInternal","Internal state for a [`MemoryStorage`]"]]};

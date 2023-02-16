@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["TestLauncher","A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes."]]};

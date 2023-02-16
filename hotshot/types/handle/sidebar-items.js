@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["HotShotHandle","Event streaming handle for a [`HotShot`] instance running in the background"]]};

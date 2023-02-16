@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"hotshot":[["impl&lt;TYPES:&nbsp;NodeType, LEAF:&nbsp;LeafType&lt;NodeType = TYPES&gt;&gt; TestableStorage&lt;TYPES, LEAF&gt; for <a class=\"struct\" href=\"hotshot/traits/implementations/struct.MemoryStorage.html\" title=\"struct hotshot::traits::implementations::MemoryStorage\">MemoryStorage</a>&lt;TYPES, LEAF&gt;"]]
+"hotshot":[["impl&lt;TYPES:&nbsp;NodeType, LEAF:&nbsp;LeafType&lt;NodeType = TYPES&gt;&gt; TestableStorage&lt;TYPES, LEAF&gt; for <a class=\"struct\" href=\"hotshot/traits/storage/memory_storage/struct.MemoryStorage.html\" title=\"struct hotshot::traits::storage::memory_storage::MemoryStorage\">MemoryStorage</a>&lt;TYPES, LEAF&gt;"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

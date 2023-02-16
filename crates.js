@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["benchmark_client","centralized","counter","hotshot","libp2p","libp2p_networking"];
+window.ALL_CRATES = ["benchmark_client","centralized","counter","hotshot","hotshot_centralized_server","hotshot_consensus","hotshot_testing","hotshot_types","hotshot_utils","libp2p","libp2p_networking"];

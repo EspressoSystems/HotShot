@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["ValidatingLeader","This view’s validating leader"]]};

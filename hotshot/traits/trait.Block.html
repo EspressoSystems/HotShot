@@ -8,13 +8,12 @@
 }</code></pre></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Abstraction over the full contents of a block</p>
 <p>This trait encapsulates the behaviors that a block must have in order to be used by consensus:</p>
 <ul>
-<li>Must have a predefined error type ([<code>BlockContents::Error</code>])</li>
+<li>Must have a predefined error type (<a href="trait.Block.html#associatedtype.Error" title="Block::Error"><code>Block::Error</code></a>)</li>
 <li>Must have a transaction type that can be compared for equality, serialized and serialized,
-sent between threads, and can have a hash produced of it
-(<a href="BlockContents::hash_transaction"><code>hash_transaction</code></a>)</li>
+sent between threads, and can have a hash produced of it</li>
 <li>Must be able to be produced incrementally by appending transactions
-(<a href="BlockContents::add_transaction_raw"><code>add_transaction_raw</code></a>)</li>
-<li>Must be hashable (<a href="BlockContents::hash"><code>hash</code></a>)</li>
+(<a href="trait.Block.html#tymethod.add_transaction_raw"><code>add_transaction_raw</code></a>)</li>
+<li>Must be hashable</li>
 </ul>
 </div></details><h2 id="required-associated-types" class="small-section-header">Required Associated Types<a href="#required-associated-types" class="anchor">§</a></h2><div class="methods"><details class="rustdoc-toggle method-toggle" open><summary><section id="associatedtype.Error" class="method has-srclink"><h4 class="code-header">type <a href="#associatedtype.Error" class="associatedtype">Error</a>: <a class="trait" href="https://doc.rust-lang.org/1.67.0/core/error/trait.Error.html" title="trait core::error::Error">Error</a> + <a class="trait" href="https://doc.rust-lang.org/1.67.0/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> + <a class="trait" href="https://doc.rust-lang.org/1.67.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/1.67.0/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a></h4></section></summary><div class="docblock"><p>The error type for this type of block</p>
 </div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="associatedtype.Transaction" class="method has-srclink"><h4 class="code-header">type <a href="#associatedtype.Transaction" class="associatedtype">Transaction</a>: Transaction</h4></section></summary><div class="docblock"><p>The type of the transitions we are applying</p>
