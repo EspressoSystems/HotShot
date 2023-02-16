@@ -83,3 +83,7 @@ careful_tokio:
 careful_async_std:
   echo Careful-ing with async std executor
   cargo careful test --verbose --profile careful --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
+
+doc:
+  echo Generating docs
+  cargo doc --no-deps --workspace --profile=release-lto --document-private-items --bins --examples --features=full-ci --lib

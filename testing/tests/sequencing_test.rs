@@ -15,7 +15,7 @@ use hotshot::{
 use hotshot_testing::TestNodeImpl;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
-    traits::{node_implementation::NodeType, state::ValidatingConsensus},
+    traits::{node_implementation::NodeType, state::ValidatingConsensus}, message::QuorumVote,
 };
 use jf_primitives::signatures::BLSSignatureScheme;
 use tracing::instrument;
@@ -76,13 +76,14 @@ async fn sequencing_test() {
                 SequencingTestTypes,
                 StaticCommittee<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
             >,
+            QuorumVote<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
             MemoryCommChannel<
                 SequencingTestTypes,
-                ValidatingLeaf<SequencingTestTypes>,
                 ValidatingProposal<
                     SequencingTestTypes,
                     StaticCommittee<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
                 >,
+                QuorumVote<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
                 StaticCommittee<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
             >,
             MemoryStorage<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,

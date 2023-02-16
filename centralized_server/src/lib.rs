@@ -63,7 +63,7 @@ compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-execut
 use types::*;
 
 /// 256KB, assumed to be the kernel receive buffer
-/// https://stackoverflow.com/a/2862176
+/// <https://stackoverflow.com/a/2862176>
 pub(crate) const MAX_CHUNK_SIZE: usize = 256 * 1024;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]

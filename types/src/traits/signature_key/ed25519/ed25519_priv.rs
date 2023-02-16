@@ -5,7 +5,7 @@ use std::{cmp::Ordering, fmt, str::FromStr};
 use tagged_base64::TaggedBase64;
 use tracing::{instrument, warn};
 
-/// Private key type for a ed25519 [`SignatureKey`] pair
+/// Private key type for a ed25519 keypair
 #[derive(PartialEq, Eq, Clone)]
 pub struct Ed25519Priv {
     /// The private key for  this keypair

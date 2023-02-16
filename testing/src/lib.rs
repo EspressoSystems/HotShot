@@ -23,6 +23,7 @@ use hotshot::{
 };
 use hotshot_types::{
     data::{LeafType, ProposalType, TestableLeaf},
+    message::VoteType,
     traits::{
         election::Election,
         metrics::NoMetrics,
@@ -99,7 +100,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -140,7 +141,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -384,7 +385,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -455,7 +456,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Leaf, I::Proposal, I::Election>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Election>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -561,41 +562,31 @@ pub enum ConsensusTestError {
     TooManyFailures,
 }
 
-/// An implementation to make the trio `NETWORK`, `STORAGE` and `STATE` implement [`NodeImplementation`]
+/// An implementation of [`NodeImplementation`] for testing.
 pub struct TestNodeImpl<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+    VOTE: VoteType<TYPES>,
     NETWORK,
     STORAGE,
     ELECTION,
 > {
-    _pd_0: PhantomData<TYPES>,
-    _pd_1: PhantomData<LEAF>,
-    _pd_2: PhantomData<PROPOSAL>,
-    _pd_3: PhantomData<NETWORK>,
-    _pd_4: PhantomData<STORAGE>,
-    _pd_5: PhantomData<ELECTION>,
+    _pd: PhantomData<(TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION)>,
 }
 
 impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        VOTE: VoteType<TYPES>,
         NETWORK,
         STORAGE,
         ELECTION,
-    > Clone for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
+    > Clone for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION>
 {
     fn clone(&self) -> Self {
-        Self {
-            _pd_0: PhantomData,
-            _pd_1: PhantomData,
-            _pd_2: PhantomData,
-            _pd_3: PhantomData,
-            _pd_4: PhantomData,
-            _pd_5: PhantomData,
-        }
+        Self { _pd: PhantomData }
     }
 }
 
@@ -603,16 +594,18 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        VOTE: VoteType<TYPES>,
         NETWORK,
         STORAGE,
         ELECTION,
-    > NodeImplementation<TYPES> for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
+    > NodeImplementation<TYPES>
+    for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     ELECTION: Election<TYPES, LeafType = LEAF> + Debug,
-    NETWORK: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>,
+    NETWORK: TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, ELECTION>,
     STORAGE: Storage<TYPES, LEAF>,
 {
     type Leaf = LEAF;
@@ -620,23 +613,25 @@ where
     type Election = ELECTION;
     type Storage = STORAGE;
     type Proposal = PROPOSAL;
+    type Vote = VOTE;
 }
 
 impl<
         TYPES,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        VOTE: VoteType<TYPES>,
         NETWORK,
         STORAGE,
         ELECTION: Election<TYPES, LeafType = LEAF> + Debug,
     > TestableNodeImplementation<TYPES>
-    for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
+    for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION>
 where
     TYPES: NodeType,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    NETWORK: TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>,
+    NETWORK: TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, ELECTION>,
     ELECTION: Election<TYPES>,
     STORAGE: TestableStorage<TYPES, LEAF>,
 {
@@ -646,10 +641,11 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES, Election = ELECTION>,
+        VOTE: VoteType<TYPES>,
         NETWORK,
         STORAGE,
         ELECTION,
-    > fmt::Debug for TestNodeImpl<TYPES, LEAF, PROPOSAL, NETWORK, STORAGE, ELECTION>
+    > fmt::Debug for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION>
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("TestNodeImpl")

@@ -9,7 +9,10 @@ use hotshot::traits::{
     implementations::{Libp2pCommChannel, MemoryStorage},
 };
 use hotshot_testing::TestNodeImpl;
-use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
+use hotshot_types::{
+    data::{ValidatingLeaf, ValidatingProposal},
+    message::QuorumVote,
+};
 use tracing::instrument;
 
 /// libp2p network test
@@ -41,9 +44,9 @@ async fn libp2p_network() {
                 StaticCommitteeTestTypes,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
+            QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             Libp2pCommChannel<
                 StaticCommitteeTestTypes,
-                ValidatingLeaf<StaticCommitteeTestTypes>,
                 ValidatingProposal<
                     StaticCommitteeTestTypes,
                     StaticCommittee<
@@ -51,6 +54,7 @@ async fn libp2p_network() {
                         ValidatingLeaf<StaticCommitteeTestTypes>,
                     >,
                 >,
+                QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -91,9 +95,9 @@ async fn test_stress_libp2p_network() {
                 StaticCommitteeTestTypes,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
+            QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             Libp2pCommChannel<
                 StaticCommitteeTestTypes,
-                ValidatingLeaf<StaticCommitteeTestTypes>,
                 ValidatingProposal<
                     StaticCommitteeTestTypes,
                     StaticCommittee<
@@ -101,6 +105,7 @@ async fn test_stress_libp2p_network() {
                         ValidatingLeaf<StaticCommitteeTestTypes>,
                     >,
                 >,
+                QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

@@ -17,6 +17,7 @@ use hotshot_types::{
     certificate::QuorumCertificate,
     constants::genesis_proposer_id,
     data::{random_commitment, LeafType, ValidatingLeaf, ValidatingProposal, ViewNumber},
+    message::QuorumVote,
     traits::{
         block_contents::Transaction,
         election::Election,
@@ -527,8 +528,8 @@ pub struct VDemoNode<NET, ELE>(PhantomData<NET>, PhantomData<ELE>)
 where
     NET: CommunicationChannel<
         VDemoTypes,
-        ValidatingLeaf<VDemoTypes>,
         ValidatingProposal<VDemoTypes, ELE>,
+        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,
     ELE: Election<VDemoTypes, LeafType = ValidatingLeaf<VDemoTypes>>;
@@ -537,8 +538,8 @@ impl<NET, ELE> VDemoNode<NET, ELE>
 where
     NET: CommunicationChannel<
         VDemoTypes,
-        ValidatingLeaf<VDemoTypes>,
         ValidatingProposal<VDemoTypes, ELE>,
+        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,
     ELE: Election<VDemoTypes, LeafType = ValidatingLeaf<VDemoTypes>>,
@@ -553,8 +554,8 @@ impl<NET, ELE> Debug for VDemoNode<NET, ELE>
 where
     NET: CommunicationChannel<
         VDemoTypes,
-        ValidatingLeaf<VDemoTypes>,
         ValidatingProposal<VDemoTypes, ELE>,
+        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,
     ELE: Election<VDemoTypes, LeafType = ValidatingLeaf<VDemoTypes>>,
@@ -570,8 +571,8 @@ impl<NET, ELE> Default for VDemoNode<NET, ELE>
 where
     NET: CommunicationChannel<
         VDemoTypes,
-        ValidatingLeaf<VDemoTypes>,
         ValidatingProposal<VDemoTypes, ELE>,
+        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,
     ELE: Election<VDemoTypes, LeafType = ValidatingLeaf<VDemoTypes>>,
@@ -585,8 +586,8 @@ impl<NET, ELE> NodeImplementation<VDemoTypes> for VDemoNode<NET, ELE>
 where
     NET: CommunicationChannel<
         VDemoTypes,
-        ValidatingLeaf<VDemoTypes>,
         ValidatingProposal<VDemoTypes, ELE>,
+        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,
     ELE: Election<VDemoTypes, LeafType = ValidatingLeaf<VDemoTypes>> + Debug,
@@ -596,6 +597,7 @@ where
     type Networking = NET;
     type Election = ELE;
     type Proposal = ValidatingProposal<VDemoTypes, ELE>;
+    type Vote = QuorumVote<VDemoTypes, ELE::LeafType>;
 }
 
 /// Provides a random [`QuorumCertificate`]
@@ -611,7 +613,7 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
     }
 }
 
-/// Provides a random [`Leaf`]
+/// Provides a random [`ValidatingLeaf`]
 pub fn random_validating_leaf<TYPES: NodeType<ConsensusType = ValidatingConsensus>>(
     deltas: TYPES::BlockType,
     rng: &mut dyn rand::RngCore,

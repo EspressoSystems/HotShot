@@ -12,7 +12,7 @@ use either::Left;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{DAProposal, SequencingLeaf},
-    message::{ConsensusMessage, ProcessedConsensusMessage},
+    message::{ConsensusMessage, DAVote, ProcessedConsensusMessage},
     traits::{
         election::{Election, SignedCertificate},
         node_implementation::NodeType,
@@ -25,7 +25,12 @@ use tracing::{error, info, instrument, warn};
 /// This view's DA committee member.
 #[derive(Debug, Clone)]
 pub struct DAMember<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+    A: ConsensusApi<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        DAProposal<TYPES, ELECTION>,
+        DAVote<TYPES, SequencingLeaf<TYPES>>,
+    >,
     TYPES: NodeType,
     ELECTION: Election<
         TYPES,
@@ -44,8 +49,8 @@ pub struct DAMember<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
-                    SequencingLeaf<TYPES>,
                     DAProposal<TYPES, ELECTION>,
+                    DAVote<TYPES, SequencingLeaf<TYPES>>,
                 >,
             >,
         >,
@@ -59,7 +64,12 @@ pub struct DAMember<
 }
 
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES, ELECTION>>,
+        A: ConsensusApi<
+            TYPES,
+            SequencingLeaf<TYPES>,
+            DAProposal<TYPES, ELECTION>,
+            DAVote<TYPES, SequencingLeaf<TYPES>>,
+        >,
         TYPES: NodeType,
         ELECTION: Election<
             TYPES,

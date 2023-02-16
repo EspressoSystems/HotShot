@@ -5,7 +5,7 @@ use async_lock::Mutex;
 use commit::Commitment;
 use hotshot_types::{
     data::{LeafType, ProposalType},
-    message::ProcessedConsensusMessage,
+    message::{ProcessedConsensusMessage, VoteType},
     traits::node_implementation::NodeType,
 };
 use std::{
@@ -50,25 +50,22 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Deref for View<TYPES, LE
 #[derive(Clone)]
 pub struct ViewQueue<
     TYPES: NodeType,
-    LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
 > {
     /// to send networking events to Replica
-    pub sender_chan: UnboundedSender<ProcessedConsensusMessage<TYPES, LEAF, PROPOSAL>>,
+    pub sender_chan: UnboundedSender<ProcessedConsensusMessage<TYPES, PROPOSAL, VOTE>>,
 
     /// to recv networking events for Replica
     pub receiver_chan:
-        Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, LEAF, PROPOSAL>>>>,
+        Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, PROPOSAL, VOTE>>>>,
 
     /// `true` if this queue has already received a proposal
     pub has_received_proposal: Arc<AtomicBool>,
 }
 
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-    > Default for ViewQueue<TYPES, LEAF, PROPOSAL>
+impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>> Default
+    for ViewQueue<TYPES, PROPOSAL, VOTE>
 {
     /// create new view queue
     fn default() -> Self {
@@ -84,8 +81,8 @@ impl<
 /// metadata for sending information to replica (and in the future, the leader)
 pub struct SendToTasks<
     TYPES: NodeType,
-    LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
 > {
     /// the current view number
     /// this should always be in sync with `Consensus`
@@ -93,14 +90,11 @@ pub struct SendToTasks<
 
     /// a map from view number to ViewQueue
     /// one of (replica|next leader)'s' task for view i will be listening on the channel in here
-    pub channel_map: BTreeMap<TYPES::Time, ViewQueue<TYPES, LEAF, PROPOSAL>>,
+    pub channel_map: BTreeMap<TYPES::Time, ViewQueue<TYPES, PROPOSAL, VOTE>>,
 }
 
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-    > SendToTasks<TYPES, LEAF, PROPOSAL>
+impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
+    SendToTasks<TYPES, PROPOSAL, VOTE>
 {
     /// create new sendtosasks
     #[must_use]

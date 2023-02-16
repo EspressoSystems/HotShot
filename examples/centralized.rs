@@ -7,6 +7,7 @@ use hotshot::{
 };
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
+    message::QuorumVote,
     traits::node_implementation::NodeType,
 };
 use infra::CentralizedConfig;
@@ -19,8 +20,9 @@ pub mod infra;
 type ThisLeaf = ValidatingLeaf<VDemoTypes>;
 type ThisElection =
     GeneralStaticCommittee<VDemoTypes, ThisLeaf, <VDemoTypes as NodeType>::SignatureKey>;
-type ThisNetwork = CentralizedCommChannel<VDemoTypes, ThisLeaf, ThisProposal, ThisElection>;
+type ThisNetwork = CentralizedCommChannel<VDemoTypes, ThisProposal, ThisVote, ThisElection>;
 type ThisProposal = ValidatingProposal<VDemoTypes, ThisElection>;
+type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
 type ThisNode = VDemoNode<ThisNetwork, ThisElection>;
 type ThisConfig = CentralizedConfig<VDemoTypes, ThisElection>;
 
