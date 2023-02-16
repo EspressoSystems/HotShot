@@ -608,9 +608,8 @@ impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
     }
 }
 
-impl<
-        TYPES: NodeType,
-    > From<ValidatingLeaf<TYPES>> for ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>
+impl<TYPES: NodeType> From<ValidatingLeaf<TYPES>>
+    for ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>
 {
     fn from(leaf: ValidatingLeaf<TYPES>) -> Self {
         Self {

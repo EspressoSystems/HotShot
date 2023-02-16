@@ -65,7 +65,11 @@ pub struct SequencingReplica<
 }
 
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, CommitmentProposal<TYPES, SequencingLeaf<TYPES>>>,
+        A: ConsensusApi<
+            TYPES,
+            SequencingLeaf<TYPES>,
+            CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
+        >,
         TYPES: NodeType,
         ELECTION: Election<
             TYPES,

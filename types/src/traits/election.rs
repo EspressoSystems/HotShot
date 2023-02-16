@@ -252,7 +252,7 @@ where
 //             )),
 //         }
 //     }
-    
+
 //     /// Attempts to generate a vote token for self
 //     ///
 //     /// Returns `None` if the number of seats would be zero
@@ -279,7 +279,7 @@ where
 //     fn threshold(&self) -> NonZeroU64;
 // }
 
-pub trait Membership<TYPES: NodeType> {
+pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'static {
     type StakeTable: Send + Sync;
 
     /// generate a default election configuration
@@ -300,7 +300,7 @@ pub trait Membership<TYPES: NodeType> {
 
     fn get_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
 
-        /// Attempts to generate a vote token for self
+    /// Attempts to generate a vote token for self
     ///
     /// Returns `None` if the number of seats would be zero
     /// # Errors
@@ -322,7 +322,7 @@ pub trait Membership<TYPES: NodeType> {
         token: Checked<TYPES::VoteTokenType>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError>;
 
-    /// Returns the threshold for a specific `Election` implementation
+    /// Returns the threshold for a specific `Membership` implementation
     fn threshold(&self) -> NonZeroU64;
 }
 
@@ -458,7 +458,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
             )),
         }
     }
-    
+
     /// Attempts to generate a vote token for self
     ///
     /// Returns `None` if the number of seats would be zero
@@ -486,7 +486,7 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
 }
 
 /// Testable implementation of an [`Election`]. Will expose a method to generate a vote token used for testing.
-pub trait TestableElection<TYPES: NodeType>: Election<TYPES> {
+pub trait TestableElection<TYPES: NodeType>: Membership<TYPES> {
     /// Generate a vote token used for testing.
     fn generate_test_vote_token() -> TYPES::VoteTokenType;
 }

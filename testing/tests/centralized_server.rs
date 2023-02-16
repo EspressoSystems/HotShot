@@ -40,10 +40,7 @@ async fn centralized_server_network_vrf() {
         .build::<VrfTestTypes, TestNodeImpl<
             VrfTestTypes,
             ValidatingLeaf<VrfTestTypes>,
-            ValidatingProposal<
-                VrfTestTypes,
-                ValidatingLeaf<VrfTestTypes>,
-            >,
+            ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
             CentralizedCommChannel<VrfTestTypes>,
             MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
             VrfImpl<
@@ -86,10 +83,7 @@ async fn centralized_server_network() {
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
             StaticCommitteeTestTypes,
             ValidatingLeaf<StaticCommitteeTestTypes>,
-            ValidatingProposal<
-                StaticCommitteeTestTypes,
-                ValidatingLeaf<StaticCommitteeTestTypes>,
-            >,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             CentralizedCommChannel<StaticCommitteeTestTypes>,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -127,10 +121,7 @@ async fn test_stress_centralized_server_network() {
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
             StaticCommitteeTestTypes,
             ValidatingLeaf<StaticCommitteeTestTypes>,
-            ValidatingProposal<
-                StaticCommitteeTestTypes,
-                ValidatingLeaf<StaticCommitteeTestTypes>,
-            >,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             CentralizedCommChannel<StaticCommitteeTestTypes>,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

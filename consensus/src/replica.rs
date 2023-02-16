@@ -26,11 +26,6 @@ use tracing::{error, info, instrument, warn};
 pub struct Replica<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<
-        TYPES,
-        LeafType = ValidatingLeaf<TYPES>,
-        QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-    >,
 > {
     /// id of node
     pub id: u64,
@@ -52,20 +47,19 @@ pub struct Replica<
     /// view number this view is executing in
     pub cur_view: TYPES::Time,
     /// genericQC from the pseudocode
-    pub high_qc: ELECTION::QuorumCertificate,
+    pub high_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     /// hotshot consensus api
     pub api: A,
 }
 
 impl<
-        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>,
-        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        ELECTION: Election<
+        A: ConsensusApi<
             TYPES,
-            LeafType = ValidatingLeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+            ValidatingLeaf<TYPES>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         >,
-    > Replica<A, TYPES, ELECTION>
+        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+    > Replica<A, TYPES>
 {
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
@@ -317,7 +311,7 @@ impl<
     /// run one view of replica
     /// returns the `high_qc`
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
-    pub async fn run_view(self) -> ELECTION::QuorumCertificate {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
         info!("Replica task started!");
         let consensus = self.consensus.upgradable_read().await;
         let view_leader_key = self.api.get_leader(self.cur_view).await;

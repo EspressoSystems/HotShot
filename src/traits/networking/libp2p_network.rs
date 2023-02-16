@@ -15,7 +15,7 @@ use hotshot_types::{
     data::{LeafType, ProposalType},
     message::Message,
     traits::{
-        election::Election,
+        election::Membership,
         metrics::{Metrics, NoMetrics},
         network::{
             CommunicationChannel, ConnectedNetwork, FailedToSerializeSnafu, NetworkError,
@@ -113,7 +113,7 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
-        ELECTION: Election<TYPES>,
+        ELECTION: Membership<TYPES>,
     > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>
     for Libp2pCommChannel<TYPES, LEAF, PROPOSAL>
 where
@@ -686,7 +686,7 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
-        ELECTION: Election<TYPES>,
+        ELECTION: Membership<TYPES>,
     > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION>
     for Libp2pCommChannel<TYPES, LEAF, PROPOSAL>
 {
@@ -704,7 +704,7 @@ impl<
         election: &ELECTION,
     ) -> Result<(), NetworkError> {
         let recipients =
-            <ELECTION as Election<TYPES>>::get_committee(election, message.get_view_number());
+            <ELECTION as Membership<TYPES>>::get_committee(election, message.get_view_number());
         self.0.broadcast_message(message, recipients).await
     }
 

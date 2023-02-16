@@ -2,10 +2,13 @@
 
 use async_trait::async_trait;
 use commit::Commitment;
+use commit::Committable;
 use either::Either;
 use hotshot_types::certificate::CertificateAccumulator;
+use hotshot_types::certificate::VoteMetaData;
 use hotshot_types::certificate::{DACertificate, QuorumCertificate};
 use hotshot_types::message::ConsensusMessage;
+use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
@@ -21,7 +24,6 @@ use hotshot_types::{
 };
 use std::num::NonZeroU64;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
-
 // FIXME these should be nonzero u64s
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
 ///
@@ -332,6 +334,14 @@ pub trait ConsensusApi<
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool;
+
+    fn accumulate_vote<C: Committable, Cert>(
+        &self,
+        vota_meta: VoteMetaData<TYPES, C, TYPES::VoteTokenType, TYPES::Time, LEAF>,
+        accumulator: CertificateAccumulator<TYPES::VoteTokenType, C>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Cert>
+    where
+        Cert: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, C>;
 
     /// Add a vote for a QC, if the threshold is reached return the QC if not return the accumulator
     fn accumulate_qc_vote(

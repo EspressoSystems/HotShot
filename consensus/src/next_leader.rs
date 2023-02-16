@@ -27,16 +27,11 @@ use tracing::{error, instrument, warn};
 pub struct NextValidatingLeader<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>,
     TYPES: NodeType,
-    ELECTION: Election<
-        TYPES,
-        LeafType = ValidatingLeaf<TYPES>,
-        QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-    >,
 > {
     /// id of node
     pub id: u64,
     /// generic_qc before starting this
-    pub generic_qc: ELECTION::QuorumCertificate,
+    pub generic_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
     pub vote_collection_chan: Arc<
@@ -60,26 +55,25 @@ pub struct NextValidatingLeader<
 }
 
 impl<
-        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>>,
-        TYPES: NodeType,
-        ELECTION: Election<
+        A: ConsensusApi<
             TYPES,
-            LeafType = ValidatingLeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+            ValidatingLeaf<TYPES>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         >,
-    > NextValidatingLeader<A, TYPES, ELECTION>
+        TYPES: NodeType,
+    > NextValidatingLeader<A, TYPES>
 {
     /// Run one view of the next leader task
     /// # Panics
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Validating ValidatingLeader Task", level = "error")]
-    pub async fn run_view(self) -> ELECTION::QuorumCertificate {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
         error!("Next validating leader task started!");
 
         let vote_collection_start = Instant::now();
 
-        let mut qcs = HashSet::<ELECTION::QuorumCertificate>::new();
+        let mut qcs = HashSet::<QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
         let mut accumlator = CertificateAccumulator {

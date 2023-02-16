@@ -399,17 +399,11 @@ impl NodeType for StaticCommitteeTestTypes {
 pub type StandardNodeImplType = TestNodeImpl<
     VrfTestTypes,
     ValidatingLeaf<VrfTestTypes>,
-    ValidatingProposal<
-        VrfTestTypes,
-        ValidatingLeaf<VrfTestTypes>,
-    >,
+    ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
     MemoryCommChannel<
         VrfTestTypes,
         ValidatingLeaf<VrfTestTypes>,
-        ValidatingProposal<
-            VrfTestTypes,
-            ValidatingLeaf<VrfTestTypes>,
-        >,
+        ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
     >,
     MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
     VrfImpl<
@@ -427,17 +421,11 @@ pub type StandardNodeImplType = TestNodeImpl<
 pub type StaticNodeImplType = TestNodeImpl<
     StaticCommitteeTestTypes,
     ValidatingLeaf<StaticCommitteeTestTypes>,
-    ValidatingProposal<
-        StaticCommitteeTestTypes,
-        ValidatingLeaf<StaticCommitteeTestTypes>,
-    >,
+    ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     MemoryCommChannel<
         StaticCommitteeTestTypes,
         ValidatingLeaf<StaticCommitteeTestTypes>,
-        ValidatingProposal<
-            StaticCommitteeTestTypes,
-            ValidatingLeaf<StaticCommitteeTestTypes>,
-        >,
+        ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     >,
     MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

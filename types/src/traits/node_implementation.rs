@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     block_contents::Transaction,
-    election::{ElectionConfig, VoteToken},
+    election::{ElectionConfig, Membership, VoteToken},
     network::{CommunicationChannel, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, ConsensusType, TestableBlock, TestableState},
@@ -37,9 +37,9 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     type Storage: Storage<TYPES, Self::Leaf> + Clone;
 
     /// Election
-    /// Time is generic here to allow multiple implementations of election trait for difference
+    /// Time is generic here to allow multiple implementations of membership trait for difference
     /// consensus protocols
-    type Election: Election<TYPES, LeafType = Self::Leaf> + Debug;
+    type Election: Membership<TYPES> + Debug;
 
     type Proposal: ProposalType<NodeType = TYPES>;
 

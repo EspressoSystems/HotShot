@@ -5,7 +5,7 @@ use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
     data::LeafType,
     traits::{
-        election::{Checked, Election, ElectionConfig, ElectionError, VoteToken, Membership},
+        election::{Checked, Election, ElectionConfig, ElectionError, Membership, VoteToken},
         node_implementation::NodeType,
         signature_key::{EncodedSignature, SignatureKey},
     },
@@ -101,7 +101,7 @@ where
         self.nodes.clone()
     }
     /// Index the vector of public keys with the current view number
-    fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {  
+    fn get_leader(&self, view_number: TYPES::Time) -> PUBKEY {
         let index = (*view_number % self.nodes.len() as u64) as usize;
         self.nodes[index].clone()
     }

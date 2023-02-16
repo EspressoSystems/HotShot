@@ -20,7 +20,7 @@ use hotshot_types::{
     data::{random_commitment, LeafType, ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::Transaction,
-        election::Election,
+        election::Membership,
         network::CommunicationChannel,
         node_implementation::{ApplicationMetadata, NodeType},
         signature_key::ed25519::Ed25519Pub,
@@ -537,7 +537,7 @@ where
         ValidatingProposal<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
-    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>;
+    ELE: Membership<DEntryTypes>;
 
 impl<NET, ELE> DEntryNode<NET, ELE>
 where
@@ -547,7 +547,7 @@ where
         ValidatingProposal<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
-    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
+    ELE: Membership<DEntryTypes>,
 {
     /// Create a new `DEntryNode`
     pub fn new() -> Self {
@@ -563,7 +563,7 @@ where
         ValidatingProposal<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
-    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
+    ELE: Membership<DEntryTypes>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DEntryNode")
@@ -580,7 +580,7 @@ where
         ValidatingProposal<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
-    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
+    ELE: Membership<DEntryTypes>,
 {
     fn default() -> Self {
         Self::new()
@@ -595,13 +595,13 @@ where
         ValidatingProposal<DEntryTypes, ValidatingLeaf<DEntryTypes>>,
         ELE,
     >,
-    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>> + Debug,
+    ELE: Membership<DEntryTypes> + Debug,
 {
     type Leaf = ValidatingLeaf<DEntryTypes>;
-    type Storage = MemoryStorage<DEntryTypes, ELE::LeafType>;
+    type Storage = MemoryStorage<DEntryTypes, Self::Leaf>;
     type Networking = NET;
     type Election = ELE;
-    type Proposal = ValidatingProposal<DEntryTypes, ELE>;
+    type Proposal = ValidatingProposal<DEntryTypes, Self::Leaf>;
 }
 
 /// Provides a random [`QuorumCertificate`]

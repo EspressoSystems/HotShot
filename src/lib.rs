@@ -64,13 +64,14 @@ use hotshot_types::certificate::{CertificateAccumulator, VoteMetaData};
 use hotshot_types::data::ProposalType;
 use hotshot_types::data::{DAProposal, SequencingLeaf};
 use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
+use hotshot_types::traits::election::Accumulator;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, InternalTrigger, Message},
     traits::{
-        election::{Checked, Election, ElectionError, SignedCertificate, VoteData},
+        election::{Checked, Election, ElectionError, Membership, SignedCertificate, VoteData},
         metrics::Metrics,
         network::{NetworkError, TransmitType},
         node_implementation::NodeType,
@@ -81,6 +82,7 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
+use hotshot_types::traits::election::VoteToken;
 use hotshot_utils::bincode::bincode_opts;
 #[allow(deprecated)]
 use nll::nll_todo::nll_todo;
@@ -681,11 +683,6 @@ pub trait ViewRunner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 #[async_trait]
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        ELECTION: Election<
-            TYPES,
-            LeafType = ValidatingLeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-        >,
         I: NodeImplementation<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
@@ -792,7 +789,6 @@ impl<
                 cur_view,
                 transactions: txns,
                 api: c_api.clone(),
-                _pd: PhantomData,
             };
             let leader_handle = async_spawn(async move { leader.run_view().await });
             task_handles.push(leader_handle);
@@ -809,10 +805,8 @@ impl<
                 metrics,
             };
             let next_leader_handle = async_spawn(async move {
-                NextValidatingLeader::<HotShotConsensusApi<TYPES, I>, TYPES, _>::run_view(
-                    next_leader,
-                )
-                .await
+                NextValidatingLeader::<HotShotConsensusApi<TYPES, I>, TYPES>::run_view(next_leader)
+                    .await
             });
             task_handles.push(next_leader_handle);
         }
@@ -837,13 +831,13 @@ impl<
         #[cfg(feature = "async-std-executor")]
         let high_qc = results
             .into_iter()
-            .max_by_key(|qc: &ELECTION::QuorumCertificate| qc.view_number)
+            .max_by_key(|qc: &QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>| qc.view_number)
             .unwrap();
         #[cfg(feature = "tokio-executor")]
         let high_qc = results
             .into_iter()
             .filter_map(std::result::Result::ok)
-            .max_by_key(|qc| qc.view_number)
+            .max_by_key(|qc: &QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>| qc.view_number)
             .unwrap();
 
         #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
@@ -865,17 +859,7 @@ impl<
 #[async_trait]
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
-        ELECTION: Election<
-            TYPES,
-            LeafType = SequencingLeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-            DACertificate = DACertificate<TYPES>,
-        >,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = SequencingLeaf<TYPES>,
-            Proposal = DAProposal<TYPES>,
-        >,
+        I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>, Proposal = DAProposal<TYPES>>,
     > ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
 {
     // #[instrument]
@@ -940,7 +924,6 @@ impl<
                 transactions: txns,
                 api: c_api.clone(),
                 vote_collection_chan: recv_da_vote,
-                _pd: PhantomData,
             };
             let hotstuff = hotshot.hotstuff.clone();
             let qc = high_qc.clone();
@@ -958,7 +941,6 @@ impl<
                     parent,
                     cur_view,
                     api: api.clone(),
-                    _pd: PhantomData,
                 };
                 consensus_leader.run_view().await
             });
@@ -972,7 +954,6 @@ impl<
                 api: c_api.clone(),
                 generic_qc: high_qc.clone(),
                 vote_collection_chan: recv_commitment_vote_chan,
-                _pd: PhantomData,
             };
             let next_leader_handle = async_spawn(async move { next_leader.run_view().await });
             task_handles.push(next_leader_handle);
@@ -1015,7 +996,7 @@ impl<
         #[cfg(feature = "async-std-executor")]
         let high_qc = results
             .into_iter()
-            .max_by_key(|qc: &ELECTION::QuorumCertificate| qc.view_number)
+            .max_by_key(|qc: &QuorumCertificate<TYPES, SequencingLeaf<TYPES>>| qc.view_number)
             .unwrap();
         #[cfg(feature = "tokio-executor")]
         let high_qc = results
@@ -1162,20 +1143,53 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         &self.inner.private_key
     }
 
-    #[instrument(skip(self, dac))]
     fn is_valid_dac(
         &self,
         dac: &<I::Leaf as LeafType>::DACertificate,
         block_commitment: Commitment<TYPES::BlockType>,
     ) -> bool {
-        self.inner.election.is_valid_dac(dac, block_commitment)
+        let stake = dac
+            .signatures()
+            .iter()
+            .filter(|signature| {
+                self.is_valid_vote(
+                    signature.0,
+                    &signature.1 .0,
+                    VoteData::DA(block_commitment),
+                    dac.view_number(),
+                    Checked::Unchecked(signature.1 .1.clone()),
+                )
+            })
+            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
+
+        stake >= u64::from(self.threshold())
     }
 
-    #[instrument(skip(self, qc))]
+    /// Validate a QC by checking its votes.
     fn is_valid_qc(&self, qc: &<I::Leaf as LeafType>::QuorumCertificate) -> bool {
-        self.inner.election.is_valid_qc(qc)
+        if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
+            return true;
+        }
+        let leaf_commitment = qc.leaf_commitment();
+
+        let stake = qc
+            .signatures()
+            .iter()
+            .filter(|signature| {
+                self.is_valid_vote(
+                    signature.0,
+                    &signature.1 .0,
+                    VoteData::Yes(leaf_commitment),
+                    qc.view_number(),
+                    Checked::Unchecked(signature.1 .1.clone()),
+                )
+            })
+            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
+
+        stake >= u64::from(self.threshold())
     }
 
+    /// Validate a vote by checking its signature and token.
     fn is_valid_vote(
         &self,
         encoded_key: &EncodedPublicKey,
@@ -1184,13 +1198,55 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
-        self.inner.election.is_valid_vote(
-            encoded_key,
-            encoded_signature,
-            data,
-            view_number,
-            vote_token,
-        )
+        let mut is_valid_vote_token = false;
+        let mut is_valid_signature = false;
+        if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
+            is_valid_signature = key.validate(encoded_signature, &data.as_bytes());
+            let valid_vote_token = self.inner.election.validate_vote_token(view_number, key, vote_token);
+            is_valid_vote_token = match valid_vote_token {
+                Err(_) => {
+                    error!("Vote token was invalid");
+                    false
+                }
+                Ok(Checked::Valid(_)) => true,
+                Ok(Checked::Inval(_) | Checked::Unchecked(_)) => false,
+            };
+        }
+        is_valid_signature && is_valid_vote_token
+    }
+    fn accumulate_vote<C: Committable, Cert>(
+        &self,
+        vota_meta: VoteMetaData<TYPES, C, TYPES::VoteTokenType, TYPES::Time, I::Leaf>,
+        accumulator: CertificateAccumulator<TYPES::VoteTokenType, C>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Cert>
+    where
+        Cert: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, C>,
+    {
+        if !self.is_valid_vote(
+            &vota_meta.encoded_key,
+            &vota_meta.encoded_signature,
+            vota_meta.data,
+            vota_meta.view_number,
+            // Ignoring deserialization errors below since we are getting rid of it soon
+            Checked::Unchecked(vota_meta.vote_token.clone()),
+        ) {
+            return Either::Left(accumulator);
+        }
+
+        match accumulator.append((
+            vota_meta.commitment,
+            (
+                vota_meta.encoded_key.clone(),
+                (vota_meta.encoded_signature.clone(), vota_meta.vote_token),
+            ),
+        )) {
+            Either::Left(accumulator) => Either::Left(accumulator),
+            Either::Right(signatures) => Either::Right(Cert::from_signatures_and_commitment(
+                vota_meta.view_number,
+                signatures,
+                vota_meta.commitment,
+            )),
+        }
     }
 
     fn accumulate_qc_vote(
@@ -1213,7 +1269,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
             vote_token,
             view_number,
         };
-        self.inner.election.accumulate_vote(meta, accumlator)
+        self.accumulate_vote(meta, accumlator)
     }
     fn accumulate_da_vote(
         &self,
@@ -1233,7 +1289,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
             vote_token,
             view_number,
         };
-        self.inner.election.accumulate_vote(meta, accumlator)
+        self.accumulate_vote(meta, accumlator)
     }
 
     async fn store_leaf(

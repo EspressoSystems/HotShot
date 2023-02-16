@@ -25,7 +25,7 @@ use hotshot_types::{
     data::{LeafType, ProposalType},
     message::Message,
     traits::{
-        election::{Election, ElectionConfig},
+        election::{ElectionConfig, Membership},
         metrics::{Metrics, NoMetrics},
         network::{
             CentralizedServerNetworkError, CommunicationChannel, ConnectedNetwork,
@@ -1097,7 +1097,7 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
-        ELECTION: Election<TYPES>,
+        ELECTION: Membership<TYPES>,
     > CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION> for CentralizedCommChannel<TYPES>
 {
     async fn ready(&self) -> bool {
@@ -1122,7 +1122,7 @@ impl<
         election: &ELECTION,
     ) -> Result<(), NetworkError> {
         let view_number = message.get_view_number();
-        let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
+        let recipients = <ELECTION as Membership<TYPES>>::get_committee(election, view_number);
         self.0.broadcast_message(message, recipients).await
     }
 
@@ -1154,7 +1154,7 @@ impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
-        ELECTION: Election<TYPES>,
+        ELECTION: Membership<TYPES>,
     > TestableNetworkingImplementation<TYPES, LEAF, PROPOSAL, ELECTION>
     for CentralizedCommChannel<TYPES>
 where

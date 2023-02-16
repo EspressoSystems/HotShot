@@ -27,11 +27,6 @@ use tracing::{error, info, instrument, warn};
 pub struct DAMember<
     A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>,
     TYPES: NodeType,
-    ELECTION: Election<
-        TYPES,
-        LeafType = SequencingLeaf<TYPES>,
-        QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-    >,
 > {
     /// ID of node.
     pub id: u64,
@@ -42,31 +37,20 @@ pub struct DAMember<
     pub proposal_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
-                ProcessedConsensusMessage<
-                    TYPES,
-                    SequencingLeaf<TYPES>,
-                    DAProposal<TYPES>,
-                >,
+                ProcessedConsensusMessage<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>,
             >,
         >,
     >,
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// The High QC.
-    pub high_qc: ELECTION::QuorumCertificate,
+    pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// HotShot consensus API.
     pub api: A,
 }
 
-impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>,
-        TYPES: NodeType,
-        ELECTION: Election<
-            TYPES,
-            LeafType = SequencingLeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        >,
-    > DAMember<A, TYPES, ELECTION>
+impl<A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, DAProposal<TYPES>>, TYPES: NodeType>
+    DAMember<A, TYPES>
 {
     /// Returns the parent leaf of the proposal we are voting on
     async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
