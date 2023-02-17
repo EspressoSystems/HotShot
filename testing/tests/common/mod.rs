@@ -419,16 +419,16 @@ pub type StaticNodeImplType = TestNodeImpl<
 >;
 
 /// type alias for the test runner type
-pub type AppliedTestRunner<TYPES, LEAF, PROPOSAL, VOTE, ELECTION> =
-    TestRunner<TYPES, AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>>;
-pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, ELECTION> = TestNodeImpl<
+pub type AppliedTestRunner<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> =
+    TestRunner<TYPES, AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP>>;
+pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> = TestNodeImpl<
     TYPES,
     LEAF,
     PROPOSAL,
     VOTE,
-    MemoryCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>,
+    MemoryCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>,
     MemoryStorage<TYPES, LEAF>,
-    ELECTION,
+    MEMBERSHIP,
 >;
 
 // FIXME THIS is why we need to split up metadat and anonymous functions
