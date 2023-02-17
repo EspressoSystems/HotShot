@@ -40,7 +40,7 @@ Sequential HotShot is the simpler of the two variants, and is the basal form, fr
 derived, so it will be discussed first.</p>
 <h3 id="basics"><a href="#basics">Basics</a></h3>
 <p>The operation of HotShot is divided in to a sequence of discrete epoch, referred to as
-‘views’. Each view is assigned an integer index (represented as a <a href="https://doc.rust-lang.org/1.67.0/std/primitive.u64.html" title="u64"><code>u64</code></a>) starting with 0, which is
+‘views’. Each view is assigned an integer index (represented as a <a href="https://doc.rust-lang.org/1.67.1/std/primitive.u64.html" title="u64"><code>u64</code></a>) starting with 0, which is
 monotonically increasing.</p>
 <p>In each view number, a singe node is designated the ‘leader’<sup id="fnref1"><a href="#fn1">1</a></sup>, and is responsible for driving
 consensus for that round. The leader changes with each view number, and every caught-up node
@@ -216,4 +216,4 @@ justification quorum certificate with a view number higher than that of the node
 locked_qc.</p>
 <div class="footnotes"><hr><ol><li id="fn1"><p>Though, it should be noted, that it technically valid for the election process to specifiy
 arbitrarily many leaders for a round, but at most one of them will be able to make progress&nbsp;<a href="#fnref1">↩</a></p></li><li id="fn2"><p>The network will complete a view and move on to the next one as fast as network conditions,
-irrespective of the timeout value for the round&nbsp;<a href="#fnref2">↩</a></p></li></ol></div></div></details></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.0 (fc594f156 2023-01-24)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>
+irrespective of the timeout value for the round&nbsp;<a href="#fnref2">↩</a></p></li></ol></div></div></details></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>
