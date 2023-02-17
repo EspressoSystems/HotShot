@@ -37,17 +37,17 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     /// Storage type for this consensus implementation
     type Storage: Storage<TYPES, Self::Leaf> + Clone;
 
-    /// Election
+    /// Membership
     /// Time is generic here to allow multiple implementations of membership trait for difference
     /// consensus protocols
-    type Election: Membership<TYPES> + Debug;
+    type Membership: Membership<TYPES> + Debug;
 
     type Proposal: ProposalType<NodeType = TYPES>;
 
     type Vote: VoteType<TYPES>;
 
     /// Networking type for this consensus implementation
-    type Networking: CommunicationChannel<TYPES, Self::Proposal, Self::Vote, Self::Election>;
+    type Networking: CommunicationChannel<TYPES, Self::Proposal, Self::Vote, Self::Membership>;
 }
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
@@ -115,7 +115,7 @@ where
         TYPES,
         <Self as NodeImplementation<TYPES>>::Proposal,
         <Self as NodeImplementation<TYPES>>::Vote,
-        <Self as NodeImplementation<TYPES>>::Election,
+        <Self as NodeImplementation<TYPES>>::Membership,
     >,
     <Self as NodeImplementation<TYPES>>::Storage:
         TestableStorage<TYPES, <Self as NodeImplementation<TYPES>>::Leaf>,

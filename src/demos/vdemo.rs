@@ -524,25 +524,25 @@ impl NodeType for VDemoTypes {
 /// The node implementation for the validating demo
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
-pub struct VDemoNode<NET, ELE>(PhantomData<NET>, PhantomData<ELE>)
+pub struct VDemoNode<NET, MEMBERSHIP>(PhantomData<NET>, PhantomData<MEMBERSHIP>)
 where
     NET: CommunicationChannel<
         VDemoTypes,
         ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        ELE,
+        MEMBERSHIP,
     >,
-    ELE: Membership<VDemoTypes>;
+    MEMBERSHIP: Membership<VDemoTypes>;
 
-impl<NET, ELE> VDemoNode<NET, ELE>
+impl<NET, MEMBERSHIP> VDemoNode<NET, MEMBERSHIP>
 where
     NET: CommunicationChannel<
         VDemoTypes,
         ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        ELE,
+        MEMBERSHIP,
     >,
-    ELE: Membership<VDemoTypes>,
+    MEMBERSHIP: Membership<VDemoTypes>,
 {
     /// Create a new `VDemoNode`
     pub fn new() -> Self {
@@ -550,15 +550,15 @@ where
     }
 }
 
-impl<NET, ELE> Debug for VDemoNode<NET, ELE>
+impl<NET, MEMBERSHIP> Debug for VDemoNode<NET, MEMBERSHIP>
 where
     NET: CommunicationChannel<
         VDemoTypes,
         ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        ELE,
+        MEMBERSHIP,
     >,
-    ELE: Membership<VDemoTypes>,
+    MEMBERSHIP: Membership<VDemoTypes>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("VDemoNode")
@@ -567,35 +567,35 @@ where
     }
 }
 
-impl<NET, ELE> Default for VDemoNode<NET, ELE>
+impl<NET, MEMBERSHIP> Default for VDemoNode<NET, MEMBERSHIP>
 where
     NET: CommunicationChannel<
         VDemoTypes,
         ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        ELE,
+        MEMBERSHIP,
     >,
-    ELE: Membership<VDemoTypes>,
+    MEMBERSHIP: Membership<VDemoTypes>,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<NET, ELE> NodeImplementation<VDemoTypes> for VDemoNode<NET, ELE>
+impl<NET, MEMBERSHIP> NodeImplementation<VDemoTypes> for VDemoNode<NET, MEMBERSHIP>
 where
     NET: CommunicationChannel<
         VDemoTypes,
         ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        ELE,
+        MEMBERSHIP,
     >,
-    ELE: Membership<VDemoTypes> + Debug,
+    MEMBERSHIP: Membership<VDemoTypes> + Debug,
 {
     type Leaf = ValidatingLeaf<VDemoTypes>;
     type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
     type Networking = NET;
-    type Election = ELE;
+    type Membership = MEMBERSHIP;
     type Proposal = ValidatingProposal<VDemoTypes, Self::Leaf>;
     type Vote = QuorumVote<VDemoTypes, Self::Leaf>;
 }
