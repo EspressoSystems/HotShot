@@ -79,18 +79,22 @@ channel-async-std = [
 [[example]]
 name = "centralized"
 required-features = ["demo", "libp2p/rsa"]
+path = "examples/centralized/validator.rs"
 
 [[example]]
 name = "libp2p"
 required-features = ["demo", "libp2p/rsa"]
+path = "examples/libp2p/validator.rs"
 
-[[bin]]
-name = "orchestrator"
-required-features = ["bin-orchestrator"]
+[[example]]
+name = "libp2p-orchestrator"
+required-features = ["demo", "libp2p/rsa"]
+path = "examples/libp2p/orchestrator.rs"
 
-[[bin]]
-name = "orchestrator-vrf"
-required-features = ["bin-orchestrator"]
+[[example]]
+name = "centralized-orchestrator"
+required-features = ["demo", "libp2p/rsa"]
+path = "examples/centralized/orchestrator.rs"
 
 [dependencies]
 ark-ec = { version = "0.3.0" }
