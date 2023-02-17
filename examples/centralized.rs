@@ -1,6 +1,6 @@
 use clap::Parser;
 use hotshot::{
-    demos::dentry::{DEntryNode, DEntryTypes},
+    demos::vdemo::{VDemoNode, VDemoTypes},
     traits::{
         election::static_committee::GeneralStaticCommittee, implementations::CentralizedCommChannel,
     },
@@ -17,14 +17,14 @@ use crate::infra::{main_entry_point, CliOrchestrated};
 
 pub mod infra;
 
-type ThisLeaf = ValidatingLeaf<DEntryTypes>;
+type ThisLeaf = ValidatingLeaf<VDemoTypes>;
 type ThisElection =
-    GeneralStaticCommittee<DEntryTypes, ThisLeaf, <DEntryTypes as NodeType>::SignatureKey>;
-type ThisProposal = ValidatingProposal<DEntryTypes, ThisLeaf>;
-type ThisNetwork = CentralizedCommChannel<DEntryTypes, ThisProposal, ThisVote, ThisElection>;
-type ThisVote = QuorumVote<DEntryTypes, ThisLeaf>;
-type ThisNode = DEntryNode<ThisNetwork, ThisElection>;
-type ThisConfig = CentralizedConfig<DEntryTypes, ThisElection>;
+    GeneralStaticCommittee<VDemoTypes, ThisLeaf, <VDemoTypes as NodeType>::SignatureKey>;
+type ThisNetwork = CentralizedCommChannel<VDemoTypes, ThisProposal, ThisVote, ThisElection>;
+type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
+type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
+type ThisNode = VDemoNode<ThisNetwork, ThisElection>;
+type ThisConfig = CentralizedConfig<VDemoTypes, ThisElection>;
 
 #[cfg_attr(
     feature = "tokio-executor",
@@ -35,5 +35,5 @@ type ThisConfig = CentralizedConfig<DEntryTypes, ThisElection>;
 async fn main() {
     let args = CliOrchestrated::parse();
 
-    main_entry_point::<DEntryTypes, ThisElection, ThisNetwork, ThisNode, ThisConfig>(args).await;
+    main_entry_point::<VDemoTypes, ThisElection, ThisNetwork, ThisNode, ThisConfig>(args).await;
 }

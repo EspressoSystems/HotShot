@@ -2,4 +2,7 @@
 //!
 //! These implementations are not suitable for production use.
 
-pub mod dentry;
+/// this is a demo for sequencing consensus
+pub mod sdemo;
+/// this is a demo for validating consensus
+pub mod vdemo;

@@ -17,7 +17,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use clap::Parser;
 use hotshot::{
-    demos::dentry::DEntryTypes,
+    demos::vdemo::VDemoTypes,
     traits::{
         implementations::{
             CentralizedCommChannel, CentralizedServerNetwork, Libp2pCommChannel, Libp2pNetwork,
@@ -162,7 +162,7 @@ where
             .expect("Could not reach server");
         let mut stream = TcpStreamUtil::new(stream);
         stream
-            .send(ToServer::<<DEntryTypes as NodeType>::SignatureKey>::GetConfig)
+            .send(ToServer::<<VDemoTypes as NodeType>::SignatureKey>::GetConfig)
             .await
             .unwrap();
         error!("Waiting for server config...");
