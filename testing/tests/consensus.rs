@@ -21,13 +21,14 @@ use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     event::EventType,
-    message::{ConsensusMessage, Proposal, QuorumVote},
+    message::{ConsensusMessage, Proposal},
     traits::{
         election::{Election, SignedCertificate, TestableElection},
         node_implementation::NodeType,
         signature_key::TestableSignatureKey,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
     },
+    vote::QuorumVote,
 };
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use snafu::{ensure, OptionExt};
@@ -431,7 +432,7 @@ async fn test_validating_proposal_queueing() {
     test.execute().await.unwrap();
 }
 
-/// Tests that next leaders receive and queue valid VoteType<TYPES>messages properly
+/// Tests that next leaders receive and queue valid vote messages properly
 #[cfg_attr(
     feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)

@@ -63,12 +63,8 @@ use hotshot_types::data::ProposalType;
 use hotshot_types::data::{DAProposal, SequencingLeaf};
 use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
 use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::{certificate::DACertificate, message::QuorumVote};
 use hotshot_types::{
-    certificate::{CertificateAccumulator, VoteMetaData},
-    message::{DAVote, VoteType},
-};
-use hotshot_types::{
+    certificate::{DACertificate, VoteMetaData},
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
     message::{ConsensusMessage, DataMessage, InternalTrigger, Message},
@@ -82,6 +78,7 @@ use hotshot_types::{
         storage::StoredView,
         State,
     },
+    vote::{DAVote, QuorumVote, VoteAccumulator, VoteType},
     HotShotConfig,
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -1188,11 +1185,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         leaf_commitment: Commitment<I::Leaf>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<TYPES::VoteTokenType, I::Leaf>,
-    ) -> Either<
-        CertificateAccumulator<TYPES::VoteTokenType, I::Leaf>,
-        QuorumCertificate<TYPES, I::Leaf>,
-    > {
+        accumlator: VoteAccumulator<TYPES, I::Leaf>,
+    ) -> Either<VoteAccumulator<TYPES, I::Leaf>, QuorumCertificate<TYPES, I::Leaf>> {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),
@@ -1210,9 +1204,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         block_commitment: Commitment<TYPES::BlockType>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>
-    {
+        accumlator: VoteAccumulator<TYPES, TYPES::BlockType>,
+    ) -> Either<VoteAccumulator<TYPES, TYPES::BlockType>, DACertificate<TYPES>> {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),

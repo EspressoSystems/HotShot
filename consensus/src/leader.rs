@@ -10,7 +10,7 @@ use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, Proposal, QuorumVote},
+    message::{ConsensusMessage, Proposal},
     traits::{
         election::{Election, SignedCertificate},
         node_implementation::NodeType,
@@ -18,6 +18,7 @@ use hotshot_types::{
         state::ValidatingConsensus,
         Block, State,
     },
+    vote::QuorumVote,
 };
 use std::{marker::PhantomData, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};

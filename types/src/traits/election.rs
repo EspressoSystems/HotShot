@@ -4,14 +4,15 @@
 
 use super::node_implementation::NodeType;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
-use crate::certificate::{CertificateAccumulator, VoteMetaData};
 use crate::{
+    certificate::VoteMetaData,
     data::LeafType,
     traits::{
         election::Checked::{Inval, Unchecked, Valid},
         signature_key::SignatureKey,
         state::ConsensusTime,
     },
+    vote::{Accumulator, VoteAccumulator},
 };
 use bincode::Options;
 use commit::{Commitment, Committable};
@@ -95,14 +96,6 @@ pub trait VoteToken:
 pub trait ElectionConfig:
     Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug
 {
-}
-
-/// Describes any aggreation of signatures or votes.
-pub trait Accumulator<T, U>: Sized {
-    /// accumates the val to the current state.  If
-    /// A threshold is reached we Return U (which could a certificate or similar)
-    /// else we return self and can continue accumulation items.
-    fn append(self, val: T) -> Either<Self, U>;
 }
 
 pub trait SignedCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, LEAF>
@@ -239,8 +232,8 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
     fn accumulate_vote<C: Committable, Cert>(
         &self,
         vota_meta: VoteMetaData<TYPES, C, TYPES::VoteTokenType, TYPES::Time, Self::LeafType>,
-        accumulator: CertificateAccumulator<TYPES::VoteTokenType, C>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Cert>
+        accumulator: VoteAccumulator<TYPES, C>,
+    ) -> Either<VoteAccumulator<TYPES, C>, Cert>
     where
         Cert: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, C>,
     {

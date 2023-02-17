@@ -22,8 +22,8 @@ use hotshot_testing::{
     ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
     TestNodeImpl, TestRunner,
 };
-use hotshot_types::{data::TestableLeaf, message::QuorumVote};
 use hotshot_types::{
+    data::TestableLeaf,
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
@@ -34,6 +34,7 @@ use hotshot_types::{
         state::{TestableBlock, TestableState, ValidatingConsensus},
         storage::TestableStorage,
     },
+    vote::QuorumVote,
     HotShotConfig,
 };
 use jf_primitives::{
@@ -900,7 +901,7 @@ macro_rules! cross_tests {
                         hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
                     >
                 >,
-                hotshot_types::message::QuorumVote<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,
+                hotshot_types::vote::QuorumVote<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,
                 $NETWORK<
                     common::StaticCommitteeTestTypes,
                     hotshot_types::data::ValidatingProposal<
@@ -910,7 +911,7 @@ macro_rules! cross_tests {
                             hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
                         >
                     >,
-                    hotshot_types::message::QuorumVote<common::StaticCommitteeTestTypes,hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,
+                    hotshot_types::vote::QuorumVote<common::StaticCommitteeTestTypes,hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,
                     hotshot::traits::election::static_committee::StaticCommittee<
                         common::StaticCommitteeTestTypes,
                         hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>

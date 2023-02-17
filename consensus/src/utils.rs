@@ -5,8 +5,9 @@ use async_lock::Mutex;
 use commit::Commitment;
 use hotshot_types::{
     data::{LeafType, ProposalType},
-    message::{ProcessedConsensusMessage, VoteType},
+    message::ProcessedConsensusMessage,
     traits::node_implementation::NodeType,
+    vote::VoteType,
 };
 use std::{
     collections::BTreeMap,

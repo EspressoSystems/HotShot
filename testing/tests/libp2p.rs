@@ -11,7 +11,7 @@ use hotshot::traits::{
 use hotshot_testing::TestNodeImpl;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
-    message::QuorumVote,
+    vote::QuorumVote,
 };
 use tracing::instrument;
 

@@ -5,8 +5,8 @@ use hotshot::traits::election::static_committee::GeneralStaticCommittee;
 use hotshot::traits::implementations::Libp2pCommChannel;
 use hotshot_types::data::ValidatingLeaf;
 use hotshot_types::data::ValidatingProposal;
-use hotshot_types::message::QuorumVote;
 use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::vote::QuorumVote;
 use tracing::instrument;
 
 pub mod infra;

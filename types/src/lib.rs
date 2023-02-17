@@ -18,6 +18,7 @@ pub mod error;
 pub mod event;
 pub mod message;
 pub mod traits;
+pub mod vote;
 
 /// the type of consensus to run. Either:
 /// wait for a signal to start a view,

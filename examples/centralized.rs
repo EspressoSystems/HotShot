@@ -7,8 +7,8 @@ use hotshot::{
 };
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
-    message::QuorumVote,
     traits::node_implementation::NodeType,
+    vote::QuorumVote,
 };
 use infra::CentralizedConfig;
 use tracing::instrument;

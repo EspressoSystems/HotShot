@@ -5,16 +5,13 @@ use crate::ConsensusMetrics;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
 use either::Either;
-use hotshot_types::certificate::CertificateAccumulator;
 use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
-use hotshot_types::message::ProcessedConsensusMessage;
+use hotshot_types::message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage};
 use hotshot_types::traits::election::{Checked::Unchecked, Election, VoteData};
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::signature_key::SignatureKey;
-use hotshot_types::{
-    certificate::QuorumCertificate,
-    message::{ConsensusMessage, InternalTrigger, QuorumVote},
-};
+use hotshot_types::vote::VoteAccumulator;
+use hotshot_types::{certificate::QuorumCertificate, vote::QuorumVote};
 use std::time::Instant;
 use std::{
     collections::{HashMap, HashSet},
@@ -92,7 +89,7 @@ impl<
         let mut qcs = HashSet::<ELECTION::QuorumCertificate>::new();
         qcs.insert(self.generic_qc.clone());
 
-        let mut accumlator = CertificateAccumulator {
+        let mut accumlator = VoteAccumulator {
             vote_outcomes: HashMap::new(),
             threshold: self.api.threshold(),
         };

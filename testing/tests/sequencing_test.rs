@@ -15,8 +15,8 @@ use hotshot::{
 use hotshot_testing::TestNodeImpl;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
-    message::QuorumVote,
     traits::{node_implementation::NodeType, state::ValidatingConsensus},
+    vote::QuorumVote,
 };
 use jf_primitives::signatures::BLSSignatureScheme;
 use tracing::instrument;

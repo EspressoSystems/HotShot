@@ -13,7 +13,7 @@ use bimap::BiHashMap;
 use bincode::Options;
 use hotshot_types::{
     data::ProposalType,
-    message::{Message, VoteType},
+    message::Message,
     traits::{
         election::Election,
         metrics::{Metrics, NoMetrics},
@@ -24,6 +24,7 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
+    vote::VoteType,
 };
 use hotshot_utils::bincode::bincode_opts;
 use libp2p_networking::{
