@@ -12,14 +12,11 @@ use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, Proposal, QuorumVote},
     traits::{
-        election::{Election, SignedCertificate},
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
-        state::ValidatingConsensus,
-        Block, State,
+        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
+        state::ValidatingConsensus, Block, State,
     },
 };
-use std::{marker::PhantomData, sync::Arc, time::Instant};
+use std::{sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
 
 /// This view's validating leader

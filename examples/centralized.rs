@@ -18,13 +18,13 @@ use crate::infra::{main_entry_point, CliOrchestrated};
 pub mod infra;
 
 type ThisLeaf = ValidatingLeaf<VDemoTypes>;
-type ThisElection =
+type ThisMembership =
     GeneralStaticCommittee<VDemoTypes, ThisLeaf, <VDemoTypes as NodeType>::SignatureKey>;
-type ThisNetwork = CentralizedCommChannel<VDemoTypes, ThisProposal, ThisVote, ThisElection>;
+type ThisNetwork = CentralizedCommChannel<VDemoTypes, ThisProposal, ThisVote, ThisMembership>;
 type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
 type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
-type ThisNode = VDemoNode<ThisNetwork, ThisElection>;
-type ThisConfig = CentralizedConfig<VDemoTypes, ThisElection>;
+type ThisNode = VDemoNode<ThisNetwork, ThisMembership>;
+type ThisConfig = CentralizedConfig<VDemoTypes, ThisMembership>;
 
 #[cfg_attr(
     feature = "tokio-executor",
@@ -35,5 +35,5 @@ type ThisConfig = CentralizedConfig<VDemoTypes, ThisElection>;
 async fn main() {
     let args = CliOrchestrated::parse();
 
-    main_entry_point::<VDemoTypes, ThisElection, ThisNetwork, ThisNode, ThisConfig>(args).await;
+    main_entry_point::<VDemoTypes, ThisMembership, ThisNetwork, ThisNode, ThisConfig>(args).await;
 }

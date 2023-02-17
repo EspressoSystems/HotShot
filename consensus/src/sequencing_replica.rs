@@ -11,13 +11,11 @@ use bincode::Options;
 use commit::Committable;
 use either::{Left, Right};
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate},
+    certificate::QuorumCertificate,
     data::{CommitmentProposal, SequencingLeaf},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, QuorumVote},
     traits::{
-        election::{Election, SignedCertificate},
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
+        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
         Block,
     },
 };

@@ -3,7 +3,7 @@ use hotshot::{data::Leaf, traits::dummy::DummyState};
 use hotshot_types::{
     data::ViewNumber,
     traits::{
-        election::{Checked, Election, ElectionConfig, VoteToken},
+        election::{Checked, ElectionConfig, VoteToken},
         signature_key::ed25519::Ed25519Pub,
     },
 };

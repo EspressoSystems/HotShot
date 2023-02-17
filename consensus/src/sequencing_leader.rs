@@ -19,16 +19,13 @@ use hotshot_types::{
         ConsensusMessage, DAVote, InternalTrigger, ProcessedConsensusMessage, Proposal, QuorumVote,
     },
     traits::{
-        election::{Election, SignedCertificate},
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
-        state::SequencingConsensus,
-        Block,
+        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
+        state::SequencingConsensus, Block,
     },
 };
 use std::collections::HashMap;
 use std::num::NonZeroU64;
-use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Instant};
+use std::{collections::HashSet, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
 
 /// This view's DA committee leader

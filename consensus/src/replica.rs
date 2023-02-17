@@ -15,8 +15,8 @@ use hotshot_types::{
         ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, QuorumVote, TimeoutVote,
     },
     traits::{
-        election::Election, node_implementation::NodeType, signature_key::SignatureKey,
-        state::ValidatingConsensus, Block, State,
+        node_implementation::NodeType, signature_key::SignatureKey, state::ValidatingConsensus,
+        Block, State,
     },
 };
 use hotshot_utils::bincode::bincode_opts;

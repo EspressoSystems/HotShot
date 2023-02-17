@@ -19,7 +19,7 @@ use super::{
 use crate::{
     data::{LeafType, ProposalType},
     message::VoteType,
-    traits::{election::Election, signature_key::SignatureKey, storage::Storage, Block},
+    traits::{signature_key::SignatureKey, storage::Storage, Block},
 };
 use std::fmt::Debug;
 use std::hash::Hash;

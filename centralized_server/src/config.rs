@@ -175,10 +175,7 @@ pub struct HotShotConfigFile {
     pub propose_max_round_time: Duration,
 }
 
-impl<K, E> From<HotShotConfigFile> for HotShotConfig<K, E>
-// where
-//     E: Election<K, ViewNumber>,
-{
+impl<K, E> From<HotShotConfigFile> for HotShotConfig<K, E> {
     fn from(val: HotShotConfigFile) -> Self {
         HotShotConfig {
             execution_type: ExecutionType::Continuous,

@@ -5,7 +5,7 @@ use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
     data::LeafType,
     traits::{
-        election::{Checked, Election, ElectionConfig, ElectionError, Membership, VoteToken},
+        election::{Checked, ElectionConfig, ElectionError, Membership, VoteToken},
         node_implementation::NodeType,
         signature_key::{EncodedSignature, SignatureKey},
     },

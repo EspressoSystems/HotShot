@@ -39,7 +39,7 @@ pub trait ConsensusApi<
     /// Total number of nodes in the network. Also known as `n`.
     fn total_nodes(&self) -> NonZeroUsize;
 
-    /// The amount of stake required to reach a decision. See implementation of `Election` for more details.
+    /// The amount of stake required to reach a decision. See implementation of `Membership` for more details.
     fn threshold(&self) -> NonZeroU64;
 
     /// The minimum amount of time a leader has to wait before sending a propose
@@ -345,6 +345,8 @@ pub trait ConsensusApi<
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool;
 
+    /// Add a vote to the accumulating signature.  Return The certificate if the vote
+    /// brings us over the threshould, Else return the accumulator.
     fn accumulate_vote<C: Committable, Cert>(
         &self,
         vota_meta: VoteMetaData<TYPES, C, TYPES::VoteTokenType, TYPES::Time, LEAF>,

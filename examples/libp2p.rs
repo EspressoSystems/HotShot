@@ -16,13 +16,13 @@ use infra::CliOrchestrated;
 use infra::Libp2pClientConfig;
 
 type ThisLeaf = ValidatingLeaf<VDemoTypes>;
-type ThisElection =
+type ThisMembership =
     GeneralStaticCommittee<VDemoTypes, ThisLeaf, <VDemoTypes as NodeType>::SignatureKey>;
-type ThisNetwork = Libp2pCommChannel<VDemoTypes, ThisProposal, ThisVote, ThisElection>;
+type ThisNetwork = Libp2pCommChannel<VDemoTypes, ThisProposal, ThisVote, ThisMembership>;
 type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
 type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
-type ThisNode = VDemoNode<ThisNetwork, ThisElection>;
-type ThisConfig = Libp2pClientConfig<VDemoTypes, ThisElection>;
+type ThisNode = VDemoNode<ThisNetwork, ThisMembership>;
+type ThisConfig = Libp2pClientConfig<VDemoTypes, ThisMembership>;
 
 #[cfg_attr(
     feature = "tokio-executor",
@@ -33,5 +33,5 @@ type ThisConfig = Libp2pClientConfig<VDemoTypes, ThisElection>;
 async fn main() {
     let args = CliOrchestrated::parse();
 
-    main_entry_point::<VDemoTypes, ThisElection, ThisNetwork, ThisNode, ThisConfig>(args).await;
+    main_entry_point::<VDemoTypes, ThisMembership, ThisNetwork, ThisNode, ThisConfig>(args).await;
 }

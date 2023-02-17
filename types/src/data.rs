@@ -9,7 +9,7 @@ use crate::{
     certificate::{DACertificate, QuorumCertificate},
     constants::genesis_proposer_id,
     traits::{
-        election::{Election, Membership, SignedCertificate},
+        election::SignedCertificate,
         node_implementation::NodeType,
         signature_key::EncodedPublicKey,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensusType},
@@ -26,7 +26,7 @@ use espresso_systems_common::hotshot::tag;
 use nll::nll_todo::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, hash::Hash, marker::PhantomData};
+use std::{fmt::Debug, hash::Hash};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(

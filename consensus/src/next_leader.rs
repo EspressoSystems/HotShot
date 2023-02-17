@@ -8,7 +8,7 @@ use either::Either;
 use hotshot_types::certificate::CertificateAccumulator;
 use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
 use hotshot_types::message::ProcessedConsensusMessage;
-use hotshot_types::traits::election::{Checked::Unchecked, Election, VoteData};
+use hotshot_types::traits::election::{Checked::Unchecked, VoteData};
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::{

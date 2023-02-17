@@ -528,7 +528,7 @@ pub struct VDemoNode<NET, ELE>(PhantomData<NET>, PhantomData<ELE>)
 where
     NET: CommunicationChannel<
         VDemoTypes,
-        ValidatingProposal<VDemoTypes,  ValidatingLeaf<VDemoTypes>>,
+        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,
@@ -538,7 +538,7 @@ impl<NET, ELE> VDemoNode<NET, ELE>
 where
     NET: CommunicationChannel<
         VDemoTypes,
-        ValidatingProposal<VDemoTypes,  ValidatingLeaf<VDemoTypes>>,
+        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,
@@ -554,7 +554,7 @@ impl<NET, ELE> Debug for VDemoNode<NET, ELE>
 where
     NET: CommunicationChannel<
         VDemoTypes,
-        ValidatingProposal<VDemoTypes,  ValidatingLeaf<VDemoTypes>>,
+        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,
@@ -571,7 +571,7 @@ impl<NET, ELE> Default for VDemoNode<NET, ELE>
 where
     NET: CommunicationChannel<
         VDemoTypes,
-        ValidatingProposal<VDemoTypes,  ValidatingLeaf<VDemoTypes>>,
+        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,
@@ -586,7 +586,7 @@ impl<NET, ELE> NodeImplementation<VDemoTypes> for VDemoNode<NET, ELE>
 where
     NET: CommunicationChannel<
         VDemoTypes,
-        ValidatingProposal<VDemoTypes,  ValidatingLeaf<VDemoTypes>>,
+        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         ELE,
     >,

@@ -5,12 +5,12 @@ use blake3::Hasher;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
 use espresso_systems_common::hotshot::tag;
-use hotshot_types::certificate::DACertificate;
-use hotshot_types::traits::election::Membership;
 use hotshot_types::{
     data::LeafType,
     traits::{
-        election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
+        election::{
+            Checked, ElectionConfig, ElectionError, Membership, TestableElection, VoteToken,
+        },
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
     },

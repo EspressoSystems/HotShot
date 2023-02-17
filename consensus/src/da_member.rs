@@ -14,9 +14,7 @@ use hotshot_types::{
     data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, DAVote, ProcessedConsensusMessage},
     traits::{
-        election::{Election, SignedCertificate},
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
+        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
     },
 };
 use std::sync::Arc;
