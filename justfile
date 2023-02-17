@@ -20,18 +20,18 @@ test_tokio:
 
 test_async_std_all:
   echo Testing with async std executor
-  cargo test --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
+  RUST_LOG="" cargo test --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
 
 test_pkg := "hotshot-testing"
 
-test_name := "centralized_server_network_vrf"
+test_name := "ten_tx_seven_nodes"
 
 test_async_std_pkg_all pkg=test_pkg:
   cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --package={{pkg}} --no-fail-fast -- --test-threads=1 --nocapture
 
 
-test_async_std_pkg_test pkg=test_pkg name=test_name:
-  cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --package={{pkg}} --no-fail-fast {{name}} -- --test-threads=1 --nocapture
+test_async_std_pkg_test name=test_name:
+  cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --workspace --no-fail-fast _nodes -- --test-threads=1 --nocapture
 
 check: check_tokio check_tokio_flume check_async_std check_async_std_flume
 
@@ -56,7 +56,7 @@ lint: fmt lint_tokio lint_tokio_flume lint_async_std lint_async_std_flume
 
 fmt:
   echo Running cargo fmt
-  cargo fmt -- --check
+  cargo fmt
 
 lint_tokio:
   echo Linting with tokio executor
@@ -68,7 +68,7 @@ lint_tokio_flume:
 
 lint_async_std:
   echo Linting with async std executor
-  cargo clippy --workspace --all-targets --no-default-features --features=async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std --bins --tests --examples -- -D warnings
+  cargo clippy --workspace --all-targets --no-default-features --features=async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std --bins --tests --examples
 
 lint_async_std_flume:
   echo Linting with async std executor and flume

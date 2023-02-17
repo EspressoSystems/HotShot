@@ -109,8 +109,8 @@ impl FromStr for Ed25519Priv {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, String> {
-        let base64 = TaggedBase64::from_str(s)
-            .map_err(|e| format!("Could not decode Ed25519Pub: {:?}", e))?;
+        let base64 =
+            TaggedBase64::from_str(s).map_err(|e| format!("Could not decode Ed25519Pub: {e:?}"))?;
         if base64.tag() != PRIVKEY_ID {
             return Err(format!(
                 "Invalid Ed25519Priv tag: {:?}, expected {:?}",

@@ -1,24 +1,27 @@
 use async_compatibility_layer::{
-    art::{async_main, async_sleep},
+    art::async_sleep,
     logging::{setup_backtrace, setup_logging},
 };
 use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::{
-            static_committee::{StaticCommittee, StaticElectionConfig},
-            vrf::BlsPubKey,
-        },
-        implementations::{CentralizedServerNetwork, MemoryStorage},
+        election::static_committee::{GeneralStaticCommittee, StaticElectionConfig},
+        implementations::{CentralizedCommChannel, CentralizedServerNetwork, MemoryStorage},
         Storage,
     },
-    types::HotShotHandle,
+    types::{ed25519::Ed25519Priv, HotShotHandle},
     HotShot,
 };
 use hotshot_centralized_server::{NetworkConfig, RunResults};
 use hotshot_types::{
-    traits::{metrics::NoMetrics, signature_key::SignatureKey, state::TestableState},
+    data::{ValidatingLeaf, ValidatingProposal},
+    traits::{
+        metrics::NoMetrics,
+        node_implementation::NodeType,
+        signature_key::{ed25519::Ed25519Pub, SignatureKey},
+        state::TestableState,
+    },
     HotShotConfig,
 };
 use std::{
@@ -28,10 +31,15 @@ use std::{
     net::{IpAddr, SocketAddr},
     time::{Duration, Instant},
 };
-use tracing::{debug, error};
+use tracing::{debug, error, instrument};
 
-type Node =
-    DEntryNode<DEntryTypes, CentralizedServerNetwork<DEntryTypes>, StaticCommittee<DEntryTypes>>;
+type ThisLeaf = ValidatingLeaf<DEntryTypes>;
+type ThisElection =
+    GeneralStaticCommittee<DEntryTypes, ThisLeaf, <DEntryTypes as NodeType>::SignatureKey>;
+type ThisNetworking = CentralizedCommChannel<DEntryTypes>;
+#[allow(dead_code)]
+type ThisProposal = ValidatingProposal<DEntryTypes, ThisElection>;
+type Node = DEntryNode<ThisNetworking, ThisElection>;
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -49,8 +57,8 @@ struct NodeOpt {
 /// Creates the initial state and hotshot for simulation.
 // TODO: remove `SecretKeySet` from parameters and read `PubKey`s from files.
 async fn init_state_and_hotshot(
-    networking: CentralizedServerNetwork<DEntryTypes>,
-    config: HotShotConfig<BlsPubKey, StaticElectionConfig>,
+    networking: ThisNetworking,
+    config: HotShotConfig<Ed25519Pub, StaticElectionConfig>,
     seed: [u8; 32],
     node_id: u64,
 ) -> (DEntryState, HotShotHandle<DEntryTypes, Node>) {
@@ -68,7 +76,8 @@ async fn init_state_and_hotshot(
     let genesis_block = DEntryBlock::genesis_from(accounts);
     let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
-    let (pub_key, priv_key) = BlsPubKey::generated_from_seed_indexed(seed, node_id);
+    let priv_key = Ed25519Priv::generated_from_seed_indexed(seed, node_id);
+    let pub_key = Ed25519Pub::from_private(&priv_key);
     let known_nodes = config.known_nodes.clone();
     let hotshot = HotShot::init(
         pub_key,
@@ -77,7 +86,7 @@ async fn init_state_and_hotshot(
         config,
         networking,
         MemoryStorage::new(),
-        StaticCommittee::new(known_nodes),
+        GeneralStaticCommittee::new(known_nodes),
         initializer,
         NoMetrics::new(),
     )
@@ -85,14 +94,19 @@ async fn init_state_and_hotshot(
     .expect("Could not init hotshot");
     debug!("hotshot launched");
 
-    let storage: &MemoryStorage<DEntryTypes> = hotshot.storage();
+    let storage: &MemoryStorage<DEntryTypes, ThisLeaf> = hotshot.storage();
 
     let state = storage.get_anchored_view().await.unwrap().state;
 
     (state, hotshot)
 }
 
-#[async_main]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::main(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::main)]
+#[instrument]
 async fn main() {
     // Setup tracing listener
     setup_logging();
@@ -105,6 +119,7 @@ async fn main() {
 
     let (config, run, network) =
         CentralizedServerNetwork::connect_with_server_config(NoMetrics::new(), addr).await;
+    let network = CentralizedCommChannel::new(network);
 
     error!("Run: {:?}", run);
     error!("Config: {:?}", config);
@@ -132,7 +147,7 @@ async fn main() {
         key_type_name,
         election_config_type_name,
     } = config;
-    assert_eq!(key_type_name, std::any::type_name::<BlsPubKey>());
+    assert_eq!(key_type_name, std::any::type_name::<Ed25519Pub>());
     assert_eq!(
         election_config_type_name,
         std::any::type_name::<StaticElectionConfig>()
@@ -223,7 +238,7 @@ async fn main() {
     );
     debug!("All rounds completed");
 
-    let networking: &CentralizedServerNetwork<DEntryTypes> = hotshot.networking();
+    let networking: &ThisNetworking = hotshot.networking();
     networking
         .send_results(RunResults {
             run,

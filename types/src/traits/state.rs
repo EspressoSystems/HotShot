@@ -2,6 +2,8 @@
 //!
 //! This module provides the [`State`] trait, which serves as an compatibility over the current
 //! network state, which is modified by the transactions contained within blocks.
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(missing_docs)]
 
 use crate::traits::Block;
 use commit::Committable;
@@ -40,6 +42,8 @@ pub trait State:
     /// Time compatibility needed for reward collection
     type Time: ConsensusTime;
 
+    type ConsensusType: ConsensusType;
+
     /// Returns an empty, template next block given this current state
     fn next_block(&self) -> Self::BlockType;
     /// Returns true if and only if the provided block is valid and can extend this state
@@ -57,6 +61,31 @@ pub trait State:
     /// Gets called to notify the persistence backend that this state has been committed
     fn on_commit(&self);
 }
+
+// TODO Seuqnecing here means involving DA in consensus
+
+/// may need to make these public
+pub trait SequencingConsensusType
+where
+    Self: ConsensusType,
+{
+}
+pub trait ValidatingConsensusType
+where
+    Self: ConsensusType,
+{
+}
+pub trait ConsensusType: Clone + Send + Sync {}
+
+#[derive(Clone)]
+pub struct SequencingConsensus;
+impl SequencingConsensusType for SequencingConsensus {}
+impl ConsensusType for SequencingConsensus {}
+
+#[derive(Clone)]
+pub struct ValidatingConsensus;
+impl ConsensusType for ValidatingConsensus {}
+impl ValidatingConsensusType for ValidatingConsensus {}
 
 /// Trait for time compatibility needed for reward collection
 pub trait ConsensusTime:
@@ -146,6 +175,7 @@ pub mod dummy {
 
         type BlockType = DummyBlock;
         type Time = ViewNumber;
+        type ConsensusType = ValidatingConsensus;
 
         fn next_block(&self) -> Self::BlockType {
             DummyBlock { nonce: self.nonce }

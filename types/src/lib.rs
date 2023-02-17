@@ -11,6 +11,7 @@
 
 use std::{num::NonZeroUsize, time::Duration};
 
+pub mod certificate;
 pub mod constants;
 pub mod data;
 pub mod error;

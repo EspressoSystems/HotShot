@@ -7,9 +7,11 @@ use common::*;
 use either::Either::Right;
 use hotshot::traits::{
     election::{static_committee::StaticCommittee, vrf::VrfImpl},
-    implementations::{CentralizedServerNetwork, MemoryStorage},
+    implementations::{CentralizedCommChannel, MemoryStorage},
 };
 use hotshot_testing::TestNodeImpl;
+use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
+// use hotshot_utils::test_util::shutdown_logging;
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use tracing::instrument;
 
@@ -37,10 +39,23 @@ async fn centralized_server_network_vrf() {
     description
         .build::<VrfTestTypes, TestNodeImpl<
             VrfTestTypes,
-            CentralizedServerNetwork<VrfTestTypes>,
-            MemoryStorage<VrfTestTypes>,
+            ValidatingLeaf<VrfTestTypes>,
+            ValidatingProposal<
+                VrfTestTypes,
+                VrfImpl<
+                    VrfTestTypes,
+                    ValidatingLeaf<VrfTestTypes>,
+                    BLSSignatureScheme<Param381>,
+                    BLSVRFScheme<Param381>,
+                    Hasher,
+                    Param381,
+                >,
+            >,
+            CentralizedCommChannel<VrfTestTypes>,
+            MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
             VrfImpl<
                 VrfTestTypes,
+                ValidatingLeaf<VrfTestTypes>,
                 BLSSignatureScheme<Param381>,
                 BLSVRFScheme<Param381>,
                 Hasher,
@@ -77,9 +92,14 @@ async fn centralized_server_network() {
     description
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
             StaticCommitteeTestTypes,
-            CentralizedServerNetwork<StaticCommitteeTestTypes>,
-            MemoryStorage<StaticCommitteeTestTypes>,
-            StaticCommittee<StaticCommitteeTestTypes>,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<
+                StaticCommitteeTestTypes,
+                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            >,
+            CentralizedCommChannel<StaticCommitteeTestTypes>,
+            MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         >>()
         .execute()
         .await
@@ -87,40 +107,7 @@ async fn centralized_server_network() {
     shutdown_logging();
 }
 
-/// Centralized server network test
-// #[cfg_attr(
-//     feature = "tokio-executor",
-//     tokio::test(flavor = "multi_thread", worker_threads = 2)
-// )]
-// #[cfg_attr(feature = "async-std-executor", async_std::test)]
-// #[instrument]
-// async fn centralized_server_da() {
-//     let description = GeneralTestDescriptionBuilder {
-//         round_start_delay: 25,
-//         num_bootstrap_nodes: 5,
-//         timeout_ratio: (11, 10),
-//         total_nodes: 10,
-//         start_nodes: 10,
-//         num_succeeds: 20,
-//         txn_ids: Right(1),
-//         next_view_timeout: 10000,
-//         start_delay: 120000,
-//         ..GeneralTestDescriptionBuilder::default()
-//     };
-//
-//     description
-//         .build::<DACommitteeTestTypes, TestNodeImpl<
-//             DACommitteeTestTypes,
-//             CentralizedServerNetwork<DACommitteeTestTypes>,
-//             MemoryStorage<DACommitteeTestTypes>,
-//             StaticCommittee<DACommitteeTestTypes>,
-//         >>()
-//         .execute()
-//         .await
-//         .unwrap();
-//     shutdown_logging();
-// }
-
+// This test is ignored because it doesn't pass consistently.
 // stress test for a centralized server
 #[cfg_attr(
     feature = "tokio-executor",
@@ -146,9 +133,14 @@ async fn test_stress_centralized_server_network() {
     description
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
             StaticCommitteeTestTypes,
-            CentralizedServerNetwork<StaticCommitteeTestTypes>,
-            MemoryStorage<StaticCommitteeTestTypes>,
-            StaticCommittee<StaticCommitteeTestTypes>,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<
+                StaticCommitteeTestTypes,
+                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            >,
+            CentralizedCommChannel<StaticCommitteeTestTypes>,
+            MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         >>()
         .execute()
         .await

@@ -4,183 +4,222 @@
 
 #[cfg(feature = "async-std-executor")]
 use async_std::future::TimeoutError;
+use libp2p_networking::network::NetworkNodeHandleError;
 #[cfg(feature = "tokio-executor")]
 use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
-use super::{node_implementation::NodeTypes, signature_key::SignatureKey};
-use crate::message::Message;
+use super::{election::Election, node_implementation::NodeType, signature_key::SignatureKey};
+use crate::{
+    data::{LeafType, ProposalType},
+    message::Message,
+};
 use async_trait::async_trait;
-use async_tungstenite::tungstenite::error as werror;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
-use std::{
-    sync::{atomic::AtomicBool, Arc},
-    time::Duration,
-};
+use std::{collections::BTreeSet, time::Duration};
+
+impl From<NetworkNodeHandleError> for NetworkError {
+    fn from(error: NetworkNodeHandleError) -> Self {
+        match error {
+            NetworkNodeHandleError::SerializationError { source } => {
+                NetworkError::FailedToSerialize { source }
+            }
+            NetworkNodeHandleError::DeserializationError { source } => {
+                NetworkError::FailedToDeserialize { source }
+            }
+            NetworkNodeHandleError::TimeoutError { source } => NetworkError::Timeout { source },
+            NetworkNodeHandleError::Killed => NetworkError::ShutDown,
+            source => NetworkError::Libp2p { source },
+        }
+    }
+}
+
+/// for any errors we decide to add to memory network
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
+pub enum MemoryNetworkError {
+    /// stub
+    Stub,
+}
+
+/// Centralized server specific errors
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
+pub enum CentralizedServerNetworkError {
+    /// The centralized server could not find a specific message.
+    NoMessagesInQueue,
+}
+
+/// the type of transmission
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum TransmitType {
+    /// directly transmit
+    Direct,
+    /// broadcast the message to all
+    Broadcast,
+}
 
 /// Error type for networking
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum NetworkError {
-    /// DHT error
-    DHTError,
-    /// A Listener failed to send a message
-    ListenerSend,
+    /// Libp2p specific errors
+    Libp2p {
+        /// source of error
+        source: NetworkNodeHandleError,
+    },
+    /// memory network specific errors
+    MemoryNetwork {
+        /// source of error
+        source: MemoryNetworkError,
+    },
+    /// Centralized server specific errors
+    CentralizedServer {
+        /// source of error
+        source: CentralizedServerNetworkError,
+    },
+    /// unimplemented functionality
+    UnimplementedFeature,
     /// Could not deliver a message to a specified recipient
     CouldNotDeliver,
     /// Attempted to deliver a message to an unknown node
     NoSuchNode,
-    /// Failed to serialize a message
+    /// Failed to serialize a network message
     FailedToSerialize {
         /// Originating bincode error
         source: bincode::Error,
     },
-    /// Failed to deserealize a message
+    /// Failed to deserealize a network message
     FailedToDeserialize {
         /// originating bincode error
         source: bincode::Error,
-    },
-    /// WebSockets specific error
-    WebSocket {
-        /// Originating websockets error
-        source: werror::Error,
-    },
-    /// Error orginiating from within the executor
-    ExecutorError {
-        /// Originating async_std error
-        source: std::io::Error,
-    },
-    /// Failed to decode a socket specification
-    SocketDecodeError {
-        /// Input that was given
-        input: String,
-        /// Originating io error
-        source: std::io::Error,
-    },
-    /// Failed to bind a listener socket
-    FailedToBindListener {
-        /// originating io error
-        source: std::io::Error,
-    },
-    /// No sockets were open
-    NoSocketsError {
-        /// Input that was given
-        input: String,
-    },
-    /// Generic error type for compatibility if needed
-    Other {
-        /// Originating error
-        inner: Box<dyn std::error::Error + Send + Sync>,
     },
     /// A timeout occurred
     Timeout {
         /// Source of error
         source: TimeoutError,
     },
-    /// Channel error
+    /// Error sending output to consumer of NetworkingImplementation
+    /// TODO this should have more information
     ChannelSend,
-    /// Could not complete handshake
-    IdentityHandshake,
     /// The underlying connection has been shut down
     ShutDown,
-    /// An underlying channel has disconnected
-    ChannelDisconnected {
-        /// Source of error
-        source: async_compatibility_layer::channel::RecvError,
-    },
-    /// An underlying unbounded channel has disconnected
-    UnboundedChannelDisconnected {
-        /// Source of error
-        source: async_compatibility_layer::channel::UnboundedRecvError,
-    },
-    /// The centralized server could not find a specific message.
-    NoMessagesInQueue,
+    /// unable to cancel a request, the request has already been cancelled
+    UnableToCancel,
 }
 
-/// Describes, generically, the behaviors a networking implementation must have
+/// API for interacting directly with a consensus committee
+/// intended to be implemented for both DA and for validating consensus committees
 #[async_trait]
-pub trait NetworkingImplementation<TYPES: NodeTypes>: Clone + Send + Sync + 'static {
+pub trait CommunicationChannel<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    ELECTION: Election<TYPES>,
+>: Clone + Send + Sync + 'static
+{
     /// Returns true when node is successfully initialized
     /// into the network
-    ///
     /// Blocks until node is ready
     async fn ready(&self) -> bool;
-
-    /// Broadcasts a message to the network
-    ///
-    /// Should provide that the message eventually reach all non-faulty nodes
-    async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError>;
-
-    /// Sends a direct message to a specific node
-    async fn message_node(
-        &self,
-        message: Message<TYPES>,
-        recipient: TYPES::SignatureKey,
-    ) -> Result<(), NetworkError>;
-
-    /// Moves out the entire queue of received broadcast messages, should there be any
-    ///
-    /// Provided as a future to allow the backend to do async locking
-    async fn broadcast_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError>;
-
-    /// Provides a future for the next received broadcast
-    ///
-    /// Will unwrap the underlying `NetworkMessage`
-    async fn next_broadcast(&self) -> Result<Message<TYPES>, NetworkError>;
-
-    /// Moves out the entire queue of received direct messages to this node
-    async fn direct_queue(&self) -> Result<Vec<Message<TYPES>>, NetworkError>;
-
-    /// Provides a future for the next received direct message to this node
-    ///
-    /// Will unwrap the underlying `NetworkMessage`
-    async fn next_direct(&self) -> Result<Message<TYPES>, NetworkError>;
-
-    /// Node's currently known to the networking implementation
-    ///
-    /// Kludge function to work around leader election
-    async fn known_nodes(&self) -> Vec<TYPES::SignatureKey>;
-
-    /// Returns a list of changes in the network that have been observed. Calling this function will clear the internal list.
-    async fn network_changes(
-        &self,
-    ) -> Result<Vec<NetworkChange<TYPES::SignatureKey>>, NetworkError>;
 
     /// Shut down this network. Afterwards this network should no longer be used.
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> ();
 
-    /// Insert `value` into the shared store under `key`.
-    async fn put_record(
+    /// broadcast message to those listening on the communication channel
+    /// blocking
+    async fn broadcast_message(
         &self,
-        key: impl Serialize + Send + Sync + 'static,
-        value: impl Serialize + Send + Sync + 'static,
+        message: Message<TYPES, LEAF, PROPOSAL>,
+        election: &ELECTION,
     ) -> Result<(), NetworkError>;
 
-    /// Get value stored in shared store under `key`
-    async fn get_record<V: for<'a> Deserialize<'a>>(
+    /// Sends a direct message to a specific node
+    /// blocking
+    async fn direct_message(
         &self,
-        key: impl Serialize + Send + Sync + 'static,
-    ) -> Result<V, NetworkError>;
+        message: Message<TYPES, LEAF, PROPOSAL>,
+        recipient: TYPES::SignatureKey,
+    ) -> Result<(), NetworkError>;
 
-    /// notifies the network of the next leader
-    /// so it can prepare. Does not block
-    async fn notify_of_subsequent_leader(
+    /// Moves out the entire queue of received messages of 'transmit_type`
+    ///
+    /// Will unwrap the underlying `NetworkMessage`
+    /// blocking
+    async fn recv_msgs(
         &self,
-        pk: TYPES::SignatureKey,
-        cancelled: Arc<AtomicBool>,
-    );
+        transmit_type: TransmitType,
+    ) -> Result<Vec<Message<TYPES, LEAF, PROPOSAL>>, NetworkError>;
 
-    /// inject view number to background polling for centralized web server
-    async fn inject_view_number(&self, view_number: TYPES::Time);
+    /// look up a node
+    /// blocking
+    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError>;
+
+    ///inject view number into the networking task
+    async fn inject_view_number(&self, _view_number: TYPES::Time);
+}
+
+/// common traits we would like our network messages to implement
+pub trait NetworkMsg:
+    Serialize + for<'a> Deserialize<'a> + Clone + std::fmt::Debug + Sync + Send + 'static
+{
+}
+
+/// represents a networking implmentration
+/// exposes low level API for interacting with a network
+/// intended to be implemented for libp2p, the centralized server,
+/// and memory network
+#[async_trait]
+pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
+    Clone + Send + Sync + 'static
+{
+    /// Blocks until the network is successfully initialized
+    /// then returns true
+    async fn ready(&self) -> bool;
+
+    /// Blocks until the network is shut down
+    /// then returns true
+    async fn shut_down(&self);
+
+    /// broadcast message to some subset of nodes
+    /// blocking
+    async fn broadcast_message(
+        &self,
+        message: M,
+        recipients: BTreeSet<K>,
+    ) -> Result<(), NetworkError>;
+
+    /// Sends a direct message to a specific node
+    /// blocking
+    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError>;
+
+    /// Moves out the entire queue of received messages of 'transmit_type`
+    ///
+    /// Will unwrap the underlying `NetworkMessage`
+    /// blocking
+    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError>;
+
+    /// look up a node
+    /// blocking
+    async fn lookup_node(&self, pk: K) -> Result<(), NetworkError>;
+
+    ///inject view number into networking task
+    /// construct endpoint in commchannel and inject in networking trait
+    async fn inject_view_number(&self, _view_number: TYPES::Time);
+        
 }
 
 /// Describes additional functionality needed by the test network implementation
-pub trait TestableNetworkingImplementation<TYPES: NodeTypes>:
-    NetworkingImplementation<TYPES>
+pub trait TestableNetworkingImplementation<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    ELECTION: Election<TYPES>,
+>: CommunicationChannel<TYPES, LEAF, PROPOSAL, ELECTION>
 {
     /// generates a network given an expected node count
     fn generator(

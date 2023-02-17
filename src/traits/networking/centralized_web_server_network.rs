@@ -5,18 +5,20 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
-use hotshot_orchestrator::config::NetworkConfig;
+//use hotshot_orchestrator::config::NetworkConfig;
 
 use hotshot_centralized_web_server::{self, config};
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::{
     message::Message,
     traits::{
+        election::ElectionConfig,
         network::{
-            NetworkChange, NetworkError, NetworkingImplementation, TestableNetworkingImplementation,
+            NetworkChange, TestableNetworkingImplementation,
+            NetworkError, ConnectedNetwork, NetworkMsg
         },
-        node_implementation::NodeTypes,
-        signature_key::TestableSignatureKey,
+        node_implementation::NodeType,
+        signature_key::{SignatureKey, TestableSignatureKey},
     },
 };
 
@@ -33,19 +35,18 @@ use std::{
 };
 
 use surf_disco::error::ClientError;
-use tide_disco::error::ServerError;
 use tracing::{error, info};
 
 #[derive(Clone, Debug)]
-pub struct CentralizedWebServerNetwork<TYPES: NodeTypes> {
+pub struct CentralizedWebServerNetwork<K: SignatureKey, E: ElectionConfig> {
     /// The inner state
-    inner: Arc<Inner<TYPES>>,
+    inner: Arc<Inner<K,E>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
 
-impl<TYPES: NodeTypes> CentralizedWebServerNetwork<TYPES> {
+impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedWebServerNetwork<K, E> {
     // ED TODO make async 
     pub fn create() -> Self {
         
@@ -85,24 +86,25 @@ impl<TYPES: NodeTypes> CentralizedWebServerNetwork<TYPES> {
 }
 
 #[derive(Debug)]
-struct Inner<TYPES: NodeTypes> {
+struct Inner<K: SignatureKey, E: ElectionConfig> {
     // Current view number so we can poll accordingly
+    //KALEY TODO: ?? still need types?? Maybe can add to Inner struct here a la
+    //Inner<K: SignatureKey, E: ElectionConfig, T: Types>
     view_number: Arc<SubscribableRwLock<TYPES::Time>>,
 
     // Queue for broadcasted messages (mainly transactions and proposals)
     broadcast_poll_queue: Arc<RwLock<Vec<Message<TYPES>>>>,
     // Queue for direct messages (mainly votes)
     direct_poll_queue: Arc<RwLock<Vec<Message<TYPES>>>>,
-    //KALEY: these may not be necessary
     running: AtomicBool,
     connected: AtomicBool,
     client: surf_disco::Client<ClientError>,
 }
 
-async fn poll_web_server<TYPES: NodeTypes>(
+async fn poll_web_server<K: SignatureKey, E: ElectionConfig>(
     endpoint: String,
-    connection: Arc<Inner<TYPES>>,
-) -> Result<Option<Vec<Message<TYPES>>>, ClientError> {
+    connection: Arc<Inner<K,E>>,
+) -> Result<Option<Vec<Message<K,E>>>, ClientError> {
     let result: Result<Option<Vec<Vec<u8>>>, ClientError> =
         connection.client.get(&endpoint).send().await;
 
@@ -112,7 +114,7 @@ async fn poll_web_server<TYPES: NodeTypes>(
         Ok(Some(messages)) => {
             let mut deserialized_messages = Vec::new();
             messages.iter().for_each(|message| {
-                let deserialized_message = bincode::deserialize::<Message<TYPES>>(message).unwrap();
+                let deserialized_message = bincode::deserialize::<Message<K,E>>(message).unwrap();
                 deserialized_messages.push(deserialized_message);
             });
             Ok(Some(deserialized_messages))
@@ -121,8 +123,8 @@ async fn poll_web_server<TYPES: NodeTypes>(
     }
 }
 
-async fn poll_generic<TYPES: NodeTypes>(
-    connection: Arc<Inner<TYPES>>,
+async fn poll_generic<K: SignatureKey, E: ElectionConfig>(
+    connection: Arc<Inner<K,E>>,
     kind: MessageType,
     wait_between_polls: Duration,
     num_views_ahead: u64,
@@ -214,8 +216,8 @@ enum MessageType {
     Proposal,
 }
 
-async fn run_background_receive<TYPES: NodeTypes>(
-    connection: Arc<Inner<TYPES>>,
+async fn run_background_receive<K: SignatureKey, E: ElectionConfig>(
+    connection: Arc<Inner<K,E>>,
 ) -> Result<(), ClientError> {
     error!("Run background receive task has started!");
     let wait_between_polls = Duration::from_millis(100);
@@ -276,8 +278,10 @@ async fn run_background_receive<TYPES: NodeTypes>(
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerNetwork<TYPES> {
+impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> ConnectedNetwork<M, K>
+    for CentralizedWebServerNetwork<K, E> {
     // TODO Start up async task, ensure we can reach the centralized server
+    //KALEY TODO: add SendMsg/RecvMsg types to impl and use throughout
     async fn ready(&self) -> bool {
         while !self.inner.connected.load(Ordering::Relaxed) {
             info!("Sleeping waiting to be ready");
@@ -289,7 +293,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     // TODO send message to the centralized server
     // Will need some way for centralized server to distinguish between propsoals and transactions,
     // since it treats those differently
-    async fn broadcast_message(&self, message: Message<TYPES>) -> Result<(), NetworkError> {
+    async fn broadcast_message(&self, message: Message<K,E>) -> Result<(), NetworkError> {
         match message.clone().kind {
             hotshot_types::message::MessageKind::Consensus(m) => {
                 let sent_proposal: Result<(), ClientError> = self
@@ -322,8 +326,8 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     // but in the future we'll need to handle other messages)
     async fn message_node(
         &self,
-        message: Message<TYPES>,
-        recipient: TYPES::SignatureKey,
+        message: Message<K,E>,
+        recipient: K,
     ) -> Result<(), NetworkError> {
         match message.clone().kind {
             // Vote or timeout message
@@ -372,14 +376,14 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     }
 
     // TODO Need to see if this is used anywhere, otherwise can be a no-op
-    async fn known_nodes(&self) -> Vec<TYPES::SignatureKey> {
+    async fn known_nodes(&self) -> Vec<K> {
         nll_todo()
     }
 
     // TODO can likely be a no-op, I don't think we ever use this
     async fn network_changes(
         &self,
-    ) -> Result<Vec<NetworkChange<TYPES::SignatureKey>>, NetworkError> {
+    ) -> Result<Vec<NetworkChange<K>>, NetworkError> {
         Ok(Vec::new())
     }
 
@@ -405,15 +409,14 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
         nll_todo()
     }
 
-    // TODO No-op, only needed for libp2p
+    // No-op, only needed for libp2p
     async fn notify_of_subsequent_leader(
         &self,
-        pk: TYPES::SignatureKey,
+        pk: K,
         cancelled: Arc<AtomicBool>,
-    ) {
-        // nll_todo()
-    }
+    ) {}
 
+    //KALEY TODO: ConnectedNetwork changes discussed w/ Justin
     async fn inject_view_number(&self, view_number: TYPES::Time) {
         info!("Injecting {:?}", view_number.clone());
         self.inner
@@ -425,7 +428,7 @@ impl<TYPES: NodeTypes> NetworkingImplementation<TYPES> for CentralizedWebServerN
     }
 }
 
-impl<TYPES: NodeTypes> TestableNetworkingImplementation<TYPES>
+impl<TYPES: NodeType> TestableNetworkingImplementation<TYPES>
     for CentralizedWebServerNetwork<TYPES>
 where
     TYPES::SignatureKey: TestableSignatureKey,

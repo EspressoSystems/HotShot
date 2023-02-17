@@ -1,47 +1,74 @@
-//! Contains the [`Leader`] struct used for the leader step in the hotstuff consensus algorithm.
+//! Contains the [`ValidatingLeader`] struct used for the leader step in the hotstuff consensus algorithm.
 
 use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_compatibility_layer::{
     art::{async_sleep, async_timeout},
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
-    // subscribable_rwlock::{ReadView, SubscribableRwLock},
 };
 use async_lock::RwLock;
 use commit::Committable;
 use hotshot_types::{
-    data::{Leaf, ProposalLeaf, QuorumCertificate},
+    certificate::QuorumCertificate,
+    data::{ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, Proposal},
-    traits::{node_implementation::NodeTypes, signature_key::SignatureKey, Block, State},
+    traits::{
+        election::{Election, SignedCertificate},
+        node_implementation::NodeType,
+        signature_key::SignatureKey,
+        state::ValidatingConsensus,
+        Block, State,
+    },
 };
-use std::{collections::HashSet, sync::Arc, time::Instant};
+use std::{marker::PhantomData, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
 
-/// This view's Leader
+/// This view's validating leader
 #[derive(Debug, Clone)]
-pub struct Leader<A: ConsensusApi<TYPES>, TYPES: NodeTypes> {
+pub struct ValidatingLeader<
+    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+    TYPES: NodeType,
+    ELECTION: Election<
+        TYPES,
+        LeafType = ValidatingLeaf<TYPES>,
+        QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+    >,
+> {
     /// id of node
     pub id: u64,
-    /// Reference to consensus. Leader will require a read lock on this.
-    pub consensus: Arc<RwLock<Consensus<TYPES>>>,
+    /// Reference to consensus. Validating leader will require a read lock on this.
+    pub consensus: Arc<RwLock<Consensus<TYPES, ValidatingLeaf<TYPES>>>>,
     /// The `high_qc` per spec
-    pub high_qc: QuorumCertificate<TYPES>,
+    pub high_qc: ELECTION::QuorumCertificate,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// Lock over the transactions list
     pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
     /// Limited access to the consensus protocol
     pub api: A,
+
+    #[allow(missing_docs)]
+    #[allow(clippy::missing_docs_in_private_items)]
+    pub _pd: PhantomData<ELECTION>,
 }
 
-impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
+impl<
+        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, ValidatingProposal<TYPES, ELECTION>>,
+        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+        ELECTION: Election<
+            TYPES,
+            LeafType = ValidatingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        >,
+    > ValidatingLeader<A, TYPES, ELECTION>
+{
     /// Run one view of the leader task
-    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Leader Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<TYPES> {
+    #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Validating ValidatingLeader Task", level = "error")]
+    pub async fn run_view(self) -> ELECTION::QuorumCertificate {
         let pk = self.api.public_key();
-        error!("Leader task started!");
+        error!("Validating leader task started!");
 
         let task_start_time = Instant::now();
-        let parent_view_number = &self.high_qc.view_number;
+        let parent_view_number = &self.high_qc.view_number();
         let consensus = self.consensus.read().await;
         let mut reached_decided = false;
 
@@ -58,7 +85,6 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
                         return self.high_qc;
                     }
                 }
-                // can happen if future api is whacked
                 ViewInner::Failed => {
                     warn!("Parent of high QC points to a failed QC");
                     return self.high_qc;
@@ -72,7 +98,7 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
         let original_parent_hash = parent_leaf.commit();
         let starting_state = &parent_leaf.state;
 
-        let mut previous_used_txns_vec = parent_leaf.deltas.contained_transactions();
+        let mut previous_used_txns = parent_leaf.deltas.contained_transactions();
 
         let mut next_parent_hash = original_parent_hash;
 
@@ -83,14 +109,12 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
                 }
                 let next_parent_txns = next_parent_leaf.deltas.contained_transactions();
                 for next_parent_txn in next_parent_txns {
-                    previous_used_txns_vec.insert(next_parent_txn);
+                    previous_used_txns.insert(next_parent_txn);
                 }
                 next_parent_hash = next_parent_leaf.parent_commitment;
             }
             // TODO do some sort of sanity check on the view number that it matches decided
         }
-
-        let previous_used_txns = previous_used_txns_vec.into_iter().collect::<HashSet<_>>();
 
         let passed_time = task_start_time - Instant::now();
         async_sleep(self.api.propose_min_round_time() - passed_time).await;
@@ -147,8 +171,9 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
         let proposal_build_start = Instant::now();
 
         if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
-            let leaf = Leaf {
+            let leaf = ValidatingLeaf {
                 view_number: self.cur_view,
+                height: parent_leaf.height + 1,
                 justify_qc: self.high_qc.clone(),
                 parent_commitment: original_parent_hash,
                 deltas: block,
@@ -157,9 +182,15 @@ impl<A: ConsensusApi<TYPES>, TYPES: NodeTypes> Leader<A, TYPES> {
                 timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
                 proposer_id: pk.to_bytes(),
             };
-            let signature = self.api.sign_proposal(&leaf.commit(), self.cur_view);
-            let leaf: ProposalLeaf<TYPES> = leaf.into();
-            let message = ConsensusMessage::Proposal(Proposal { leaf, signature });
+            let signature = self
+                .api
+                .sign_validating_or_commitment_proposal(&leaf.commit());
+            let data: ValidatingProposal<TYPES, ELECTION> = leaf.into();
+            let message = ConsensusMessage::<
+                TYPES,
+                ValidatingLeaf<TYPES>,
+                ValidatingProposal<TYPES, ELECTION>,
+            >::Proposal(Proposal { data, signature });
             consensus
                 .metrics
                 .proposal_build_duration

@@ -7,24 +7,24 @@
 //! production use.
 
 use crate::traits::{
-    election::{
-        static_committee::{StaticElectionConfig, StaticVoteToken},
-        vrf::BlsPubKey,
-    },
+    election::static_committee::{StaticElectionConfig, StaticVoteToken},
     implementations::MemoryStorage,
-    Block, NetworkingImplementation, NodeImplementation,
+    Block, NodeImplementation,
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
 use espresso_systems_common::hotshot::tag;
 use hotshot_types::{
+    certificate::QuorumCertificate,
     constants::genesis_proposer_id,
-    data::{random_commitment, Leaf, QuorumCertificate, ViewNumber},
+    data::{random_commitment, LeafType, ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::Transaction,
         election::Election,
-        node_implementation::NodeTypes,
-        state::{ConsensusTime, TestableBlock, TestableState},
+        network::CommunicationChannel,
+        node_implementation::{ApplicationMetadata, NodeType},
+        signature_key::ed25519::Ed25519Pub,
+        state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
         State,
     },
 };
@@ -37,6 +37,12 @@ use std::{
     marker::PhantomData,
 };
 use tracing::error;
+
+/// application metadata stub
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct DEntryMetaData {}
+
+impl ApplicationMetadata for DEntryMetaData {}
 
 /// The account identifier type used by the demo
 ///
@@ -254,6 +260,8 @@ impl State for DEntryState {
 
     type Time = ViewNumber;
 
+    type ConsensusType = ValidatingConsensus;
+
     fn next_block(&self) -> Self::BlockType {
         DEntryBlock::Normal(DEntryNormalBlock {
             previous_state: self.commit(),
@@ -450,6 +458,10 @@ impl Block for DEntryBlock {
 
     type Error = DEntryError;
 
+    fn new() -> Self {
+        <Self as TestableBlock>::genesis()
+    }
+
     fn add_transaction_raw(
         &self,
         tx: &Self::Transaction,
@@ -486,7 +498,7 @@ impl Block for DEntryBlock {
     }
 }
 
-/// Implementation of [`NodeTypes`] for [`DEntryNode`]
+/// Implementation of [`NodeType`] for [`DEntryNode`]
 #[derive(
     Copy,
     Clone,
@@ -502,54 +514,56 @@ impl Block for DEntryBlock {
 )]
 pub struct DEntryTypes;
 
-impl NodeTypes for DEntryTypes {
+impl NodeType for DEntryTypes {
+    type ConsensusType = ValidatingConsensus;
     type Time = ViewNumber;
     type BlockType = DEntryBlock;
-    type SignatureKey = BlsPubKey;
-    type VoteTokenType = StaticVoteToken<BlsPubKey>;
+    type SignatureKey = Ed25519Pub;
+    type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = DEntryTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = DEntryState;
+    type ApplicationMetadataType = DEntryMetaData;
 }
 
 /// The node implementation for the dentry demo
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
-pub struct DEntryNode<TYPES, NET, ELE>
+pub struct DEntryNode<NET, ELE>(PhantomData<NET>, PhantomData<ELE>)
 where
-    TYPES: NodeTypes,
-    NET: NetworkingImplementation<TYPES>,
-    ELE: Election<TYPES>,
-{
-    /// Network phantom
-    _phantom_0: PhantomData<TYPES>,
-    /// Election phantom
-    _phantom_1: PhantomData<NET>,
-    /// Key phantom
-    _phantom_2: PhantomData<ELE>,
-}
+    NET: CommunicationChannel<
+        DEntryTypes,
+        ValidatingLeaf<DEntryTypes>,
+        ValidatingProposal<DEntryTypes, ELE>,
+        ELE,
+    >,
+    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>;
 
-impl<TYPES, NET, ELE> DEntryNode<TYPES, NET, ELE>
+impl<NET, ELE> DEntryNode<NET, ELE>
 where
-    TYPES: NodeTypes,
-    NET: NetworkingImplementation<TYPES>,
-    ELE: Election<TYPES>,
+    NET: CommunicationChannel<
+        DEntryTypes,
+        ValidatingLeaf<DEntryTypes>,
+        ValidatingProposal<DEntryTypes, ELE>,
+        ELE,
+    >,
+    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
 {
     /// Create a new `DEntryNode`
     pub fn new() -> Self {
-        DEntryNode {
-            _phantom_0: PhantomData,
-            _phantom_1: PhantomData,
-            _phantom_2: PhantomData,
-        }
+        DEntryNode(PhantomData, PhantomData)
     }
 }
 
-impl<TYPES, NET, ELE> Debug for DEntryNode<TYPES, NET, ELE>
+impl<NET, ELE> Debug for DEntryNode<NET, ELE>
 where
-    TYPES: NodeTypes,
-    NET: NetworkingImplementation<TYPES>,
-    ELE: Election<TYPES>,
+    NET: CommunicationChannel<
+        DEntryTypes,
+        ValidatingLeaf<DEntryTypes>,
+        ValidatingProposal<DEntryTypes, ELE>,
+        ELE,
+    >,
+    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DEntryNode")
@@ -558,52 +572,67 @@ where
     }
 }
 
-impl<TYPES, NET, ELE> Default for DEntryNode<TYPES, NET, ELE>
+impl<NET, ELE> Default for DEntryNode<NET, ELE>
 where
-    TYPES: NodeTypes,
-    NET: NetworkingImplementation<TYPES>,
-    ELE: Election<TYPES>,
+    NET: CommunicationChannel<
+        DEntryTypes,
+        ValidatingLeaf<DEntryTypes>,
+        ValidatingProposal<DEntryTypes, ELE>,
+        ELE,
+    >,
+    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>>,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<TYPES, NET, ELE> NodeImplementation<TYPES> for DEntryNode<TYPES, NET, ELE>
+impl<NET, ELE> NodeImplementation<DEntryTypes> for DEntryNode<NET, ELE>
 where
-    TYPES: NodeTypes,
-    NET: NetworkingImplementation<TYPES>,
-    ELE: Election<TYPES>,
+    NET: CommunicationChannel<
+        DEntryTypes,
+        ValidatingLeaf<DEntryTypes>,
+        ValidatingProposal<DEntryTypes, ELE>,
+        ELE,
+    >,
+    ELE: Election<DEntryTypes, LeafType = ValidatingLeaf<DEntryTypes>> + Debug,
 {
-    type Storage = MemoryStorage<TYPES>;
+    type Leaf = ValidatingLeaf<DEntryTypes>;
+    type Storage = MemoryStorage<DEntryTypes, ELE::LeafType>;
     type Networking = NET;
     type Election = ELE;
+    type Proposal = ValidatingProposal<DEntryTypes, ELE>;
 }
 
 /// Provides a random [`QuorumCertificate`]
-pub fn random_quorum_certificate<TYPES: NodeTypes>(
+pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>(
     rng: &mut dyn rand::RngCore,
-) -> QuorumCertificate<TYPES> {
+) -> QuorumCertificate<TYPES, LEAF> {
     QuorumCertificate {
-        block_commitment: random_commitment(rng),
+        // block_commitment: random_commitment(rng),
         leaf_commitment: random_commitment(rng),
         view_number: TYPES::Time::new(rng.gen()),
         signatures: BTreeMap::default(),
-        genesis: rng.gen(),
+        is_genesis: rng.gen(),
     }
 }
 
 /// Provides a random [`Leaf`]
-pub fn random_leaf<TYPES: NodeTypes>(
+pub fn random_validating_leaf<TYPES: NodeType<ConsensusType = ValidatingConsensus>>(
     deltas: TYPES::BlockType,
     rng: &mut dyn rand::RngCore,
-) -> Leaf<TYPES> {
+) -> ValidatingLeaf<TYPES>
+where
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+{
     let justify_qc = random_quorum_certificate(rng);
     let state = TYPES::StateType::default()
         .append(&deltas, &TYPES::Time::new(42))
         .unwrap_or_default();
-    Leaf {
+    ValidatingLeaf {
         view_number: justify_qc.view_number,
+        height: rng.next_u64(),
         justify_qc,
         parent_commitment: random_commitment(rng),
         deltas,

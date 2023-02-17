@@ -68,6 +68,8 @@ jobs:
       #   with:
       #     images: ghcr.io/espressosystems/hotshot/multi-machine-libp2p
 
+      # Examples have been removed temporiraly, so the follwing workflows aren't applicable for now.
+      
       # - name: Build and push multi-machine-libp2p docker
       #   uses: docker/build-push-action@v3
       #   with:
@@ -93,22 +95,6 @@ jobs:
       #     push: ${{ github.event_name != 'pull_request' }}
       #     tags: ${{ steps.multi-machine-centralized.outputs.tags }}
       #     labels: ${{ steps.multi-machine-centralized.outputs.labels }}
-
-      - name: Generate docker metadata (centralized-web-server)
-        uses: docker/metadata-action@v4
-        id: multi-machine-web
-        with:
-          images: ghcr.io/espressosystems/hotshot/multi-machine-web
-
-      - name: Build and push multi-machine-web docker
-        uses: docker/build-push-action@v3
-        with:
-          context: ./
-          file: ./deploy/multi-machine-web.Dockerfile
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.multi-machine-web.outputs.tags }}
-          labels: ${{ steps.multi-machine-web.outputs.labels }}
 
       # - name: Generate docker metadata (centralized vrf)
       #   uses: docker/metadata-action@v4

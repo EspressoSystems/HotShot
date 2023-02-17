@@ -2,16 +2,19 @@
 
 use async_trait::async_trait;
 use commit::Commitment;
+use either::Either;
+use hotshot_types::certificate::CertificateAccumulator;
+use hotshot_types::certificate::{DACertificate, QuorumCertificate};
 use hotshot_types::message::ConsensusMessage;
-use hotshot_types::traits::election::Checked;
-use hotshot_types::traits::node_implementation::NodeTypes;
+use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
-    data::{Leaf, QuorumCertificate},
+    data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
+    message::{DAVote, TimeoutVote, Vote, YesOrNoVote},
     traits::{
-        election::ElectionError,
+        election::{Checked, ElectionError, VoteData},
         network::NetworkError,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
@@ -24,7 +27,12 @@ use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 ///
 /// [`HotStuff`]: struct.HotStuff.html
 #[async_trait]
-pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
+pub trait ConsensusApi<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+>: Send + Sync
+{
     /// Total number of nodes in the network. Also known as `n`.
     fn total_nodes(&self) -> NonZeroUsize;
 
@@ -42,7 +50,7 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     async fn store_leaf(
         &self,
         old_anchor_view: TYPES::Time,
-        leaf: Leaf<TYPES>,
+        leaf: LEAF,
     ) -> Result<(), StorageError>;
 
     /// Retuns the maximum transactions allowed in a block
@@ -53,10 +61,9 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
 
     /// Generates and encodes a vote token
     #[allow(clippy::type_complexity)]
-    fn generate_vote_token(
+    fn make_vote_token(
         &self,
         view_number: TYPES::Time,
-        next_state: Commitment<Leaf<TYPES>>,
     ) -> Result<Option<TYPES::VoteTokenType>, ElectionError>;
 
     /// Returns the `I::SignatureKey` of the leader for the given round and stage
@@ -71,17 +78,17 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     async fn send_direct_message(
         &self,
         recipient: TYPES::SignatureKey,
-        message: ConsensusMessage<TYPES>,
+        message: ConsensusMessage<TYPES, LEAF, PROPOSAL>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Send a broadcast message to the entire network.
     async fn send_broadcast_message(
         &self,
-        message: ConsensusMessage<TYPES>,
+        message: ConsensusMessage<TYPES, LEAF, PROPOSAL>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Notify the system of an event within `hotshot-consensus`.
-    async fn send_event(&self, event: Event<TYPES>);
+    async fn send_event(&self, event: Event<TYPES, LEAF>);
 
     /// Get a reference to the public key.
     fn public_key(&self) -> &TYPES::SignatureKey;
@@ -124,11 +131,17 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
     }
 
     /// sends a decide event down the channel
-    async fn send_decide(&self, view_number: TYPES::Time, leaf_views: Vec<Leaf<TYPES>>) {
+    async fn send_decide(
+        &self,
+        view_number: TYPES::Time,
+        leaf_views: Vec<LEAF>,
+        decide_qc: LEAF::QuorumCertificate,
+    ) {
         self.send_event(Event {
             view_number,
             event: EventType::Decide {
                 leaf_chain: Arc::new(leaf_views),
+                qc: Arc::new(decide_qc),
             },
         })
         .await;
@@ -143,37 +156,202 @@ pub trait ConsensusApi<TYPES: NodeTypes>: Send + Sync {
         .await;
     }
 
-    /// Signs a vote
-    fn sign_vote(
+    /// Send a broadcast to the DA comitee, stub for now
+    async fn send_da_broadcast<DAPROPOSAL: ProposalType<NodeType = TYPES>>(
         &self,
-        leaf_commitment: &Commitment<Leaf<TYPES>>,
-        _view_number: TYPES::Time,
-    ) -> (EncodedPublicKey, EncodedSignature) {
-        let signature = TYPES::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
-        (self.public_key().to_bytes(), signature)
+        message: ConsensusMessage<TYPES, LEAF, DAPROPOSAL>,
+    ) -> std::result::Result<(), NetworkError>;
+
+    /// Sign a DA proposal.
+    fn sign_da_proposal(
+        &self,
+        block_commitment: &Commitment<TYPES::BlockType>,
+    ) -> EncodedSignature {
+        let signature = TYPES::SignatureKey::sign(self.private_key(), block_commitment.as_ref());
+        signature
     }
 
-    /// Signs a proposal
-    fn sign_proposal(
+    /// Sign a validating or commitment proposal.
+    fn sign_validating_or_commitment_proposal(
         &self,
-        leaf_commitment: &Commitment<Leaf<TYPES>>,
-        _view_number: TYPES::Time,
+        leaf_commitment: &Commitment<LEAF>,
     ) -> EncodedSignature {
         let signature = TYPES::SignatureKey::sign(self.private_key(), leaf_commitment.as_ref());
         signature
     }
 
-    /// Validate a quorum certificate by checking
-    /// signatures
-    fn validate_qc(&self, quorum_certificate: &QuorumCertificate<TYPES>) -> bool;
+    /// Sign a vote on DA proposal.
+    ///
+    /// The block commitment and the type of the vote (DA) are signed, which is the minimum amount
+    /// of information necessary for checking that this node voted on that block.
+    fn sign_da_vote(
+        &self,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            self.private_key(),
+            &VoteData::<TYPES, LEAF>::DA(block_commitment).as_bytes(),
+        );
+        (self.public_key().to_bytes(), signature)
+    }
 
-    /// Check if a signature is valid
-    fn is_valid_signature(
+    /// Sign a positive vote on validating or commitment proposal.
+    ///
+    /// The leaf commitment and the type of the vote (yes) are signed, which is the minimum amount
+    /// of information necessary for any user of the subsequently constructed QC to check that this
+    /// node voted `Yes` on that leaf. The leaf is expected to be reconstructed based on other
+    /// information in the yes vote.
+    fn sign_yes_vote(
+        &self,
+        leaf_commitment: Commitment<LEAF>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            self.private_key(),
+            &VoteData::<TYPES, LEAF>::Yes(leaf_commitment).as_bytes(),
+        );
+        (self.public_key().to_bytes(), signature)
+    }
+
+    /// Sign a neagtive vote on validating or commitment proposal.
+    ///
+    /// The leaf commitment and the type of the vote (no) are signed, which is the minimum amount
+    /// of information necessary for any user of the subsequently constructed QC to check that this
+    /// node voted `No` on that leaf.
+    fn sign_no_vote(
+        &self,
+        leaf_commitment: Commitment<LEAF>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            self.private_key(),
+            &VoteData::<TYPES, LEAF>::No(leaf_commitment).as_bytes(),
+        );
+        (self.public_key().to_bytes(), signature)
+    }
+
+    /// Sign a timeout vote.
+    ///
+    /// We only sign the view number, which is the minimum amount of information necessary for
+    /// checking that this node timed out on that view.
+    ///
+    /// This also allows for the high QC included with the vote to be spoofed in a MITM scenario,
+    /// but it is outside our threat model.
+    fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            self.private_key(),
+            &VoteData::<TYPES, LEAF>::Timeout(view_number).as_bytes(),
+        );
+        (self.public_key().to_bytes(), signature)
+    }
+
+    /// Create a message with a vote on DA proposal.
+    fn create_da_message(
+        &self,
+        justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
+        block_commitment: Commitment<TYPES::BlockType>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+        let signature = self.sign_da_vote(block_commitment);
+        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::DA(DAVote {
+            justify_qc_commitment,
+            signature,
+            block_commitment,
+            current_view,
+            vote_token,
+        }))
+    }
+
+    /// Create a message with a positive vote on validating or commitment proposal.
+    fn create_yes_message(
+        &self,
+        justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
+        leaf_commitment: Commitment<LEAF>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+        let signature = self.sign_yes_vote(leaf_commitment);
+        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::Yes(YesOrNoVote {
+            justify_qc_commitment,
+            signature,
+            leaf_commitment,
+            current_view,
+            vote_token,
+        }))
+    }
+
+    /// Create a message with a negative vote on validating or commitment proposal.
+    fn create_no_message(
+        &self,
+        justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
+        leaf_commitment: Commitment<LEAF>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+        let signature = self.sign_no_vote(leaf_commitment);
+        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::No(YesOrNoVote {
+            justify_qc_commitment,
+            signature,
+            leaf_commitment,
+            current_view,
+            vote_token,
+        }))
+    }
+
+    /// Create a message with a timeout votes.
+    fn create_timeout_message(
+        &self,
+        justify_qc: LEAF::QuorumCertificate,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, LEAF, PROPOSAL> {
+        let signature = self.sign_timeout_vote(current_view);
+        ConsensusMessage::<TYPES, LEAF, PROPOSAL>::Vote(Vote::Timeout(TimeoutVote {
+            justify_qc,
+            signature,
+            current_view,
+            vote_token,
+        }))
+    }
+
+    /// Validate a DAC.
+    fn is_valid_dac(
+        &self,
+        dac: &LEAF::DACertificate,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> bool;
+
+    /// Validate a QC.
+    fn is_valid_qc(&self, qc: &LEAF::QuorumCertificate) -> bool;
+
+    /// Validate a vote.
+    fn is_valid_vote(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<Leaf<TYPES>>,
+        data: VoteData<TYPES, LEAF>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool;
+
+    /// Add a vote for a QC, if the threshold is reached return the QC if not return the accumulator
+    fn accumulate_qc_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        leaf_commitment: Commitment<LEAF>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, LEAF>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, LEAF>, QuorumCertificate<TYPES, LEAF>>;
+
+    /// Add a vote for a DA QC, if the threshold is reached return the Certificate if not return the accumulator
+    fn accumulate_da_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        block_commitment: Commitment<TYPES::BlockType>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>;
 }

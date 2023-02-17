@@ -3,22 +3,16 @@
 //! This module contains a trait abstracting over network access, as well as implementations of that
 //! trait. Currently this includes
 //! - [`MemoryNetwork`](memory_network::MemoryNetwork), an in memory testing-only implementation
-//! - [`WNetwork`](w_network::WNetwork), a prototype/testing websockets implementation.
 //! - [`Libp2pNetwork`](libp2p_network::Libp2pNetwork), a production-ready networking impelmentation built on top of libp2p-rs.
 
 pub mod centralized_server_network;
 pub mod centralized_web_server_network;
 pub mod libp2p_network;
 pub mod memory_network;
-#[cfg(feature = "async-std-executor")]
-pub mod w_network;
 
 pub use hotshot_types::traits::network::{
-    ChannelDisconnectedSnafu, ChannelSendSnafu, CouldNotDeliverSnafu, ExecutorSnafu,
-    FailedToBindListenerSnafu, FailedToDeserializeSnafu, FailedToSerializeSnafu,
-    IdentityHandshakeSnafu, ListenerSendSnafu, NetworkError, NetworkReliability,
-    NetworkingImplementation, NoSocketsSnafu, NoSuchNodeSnafu, OtherSnafu, ShutDownSnafu,
-    SocketDecodeSnafu, WebSocketSnafu,
+    ChannelSendSnafu, CouldNotDeliverSnafu, FailedToDeserializeSnafu, FailedToSerializeSnafu,
+    NetworkError, NetworkReliability, NoSuchNodeSnafu, ShutDownSnafu,
 };
 
 use hotshot_types::traits::metrics::{Counter, Gauge, Metrics};
@@ -33,11 +27,11 @@ pub(self) struct NetworkingMetrics {
     pub outgoing_message_count: Box<dyn Counter>,
     /// A [`Counter`] which tracks how many messages failed to send
     pub message_failed_to_send: Box<dyn Counter>,
-    /// A [`Gauge`] which tracks how many connected entries there are in the gossipsub mesh
-    pub gossipsub_mesh_connected: Box<dyn Gauge>,
-    // /// A [`Gauge`] which tracks how many kademlia entries there are
+    // A [`Gauge`] which tracks how many connected entries there are in the gossipsub mesh
+    // pub gossipsub_mesh_connected: Box<dyn Gauge>,
+    // A [`Gauge`] which tracks how many kademlia entries there are
     // pub kademlia_entries: Box<dyn Gauge>,
-    // /// A [`Gauge`] which tracks how many kademlia buckets there are
+    // A [`Gauge`] which tracks how many kademlia buckets there are
     // pub kademlia_buckets: Box<dyn Gauge>,
 }
 
@@ -53,8 +47,8 @@ impl NetworkingMetrics {
                 .create_counter(String::from("outgoing_message_count"), None),
             message_failed_to_send: metrics
                 .create_counter(String::from("message_failed_to_send"), None),
-            gossipsub_mesh_connected: metrics
-                .create_gauge(String::from("gossipsub_mesh_connected"), None),
+            // gossipsub_mesh_connected: metrics
+            //     .create_gauge(String::from("gossipsub_mesh_connected"), None),
             // kademlia_entries: metrics.create_gauge(String::from("kademlia_entries"), None),
             // kademlia_buckets: metrics.create_gauge(String::from("kademlia_buckets"), None),
         }

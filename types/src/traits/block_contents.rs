@@ -28,6 +28,9 @@ pub trait Block:
     /// The type of the transitions we are applying
     type Transaction: Transaction;
 
+    /// Construct an empty or genesis block.
+    fn new() -> Self;
+
     /// Attempts to add a transaction, returning an Error if it would result in a structurally
     /// invalid block
     ///
@@ -64,7 +67,7 @@ pub mod dummy {
     use crate::traits::state::TestableBlock;
 
     /// The dummy block
-    #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
+    #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
     pub struct DummyBlock {
         /// Some dummy data
         pub nonce: u64,
@@ -82,7 +85,7 @@ pub mod dummy {
     pub struct DummyError;
 
     /// dummy transaction. No functionality
-    #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Hash)]
+    #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, Hash)]
     pub enum DummyTransaction {
         /// the only variant. Dummy.
         Dummy,
@@ -113,6 +116,10 @@ pub mod dummy {
         type Error = DummyError;
 
         type Transaction = DummyTransaction;
+
+        fn new() -> Self {
+            <Self as TestableBlock>::genesis()
+        }
 
         fn add_transaction_raw(
             &self,

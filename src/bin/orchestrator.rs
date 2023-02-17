@@ -385,6 +385,10 @@ mod tests {
         type Error = TestError;
         type Transaction = TestTransaction;
 
+        fn new() -> Self {
+            Self {}
+        }
+
         fn add_transaction_raw(
             &self,
             _tx: &Self::Transaction,

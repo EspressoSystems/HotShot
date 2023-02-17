@@ -2,19 +2,23 @@
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(missing_docs)]
+
+use serde::{Deserialize, Serialize};
 
 use super::{
     block_contents::Transaction,
     election::{ElectionConfig, VoteToken},
-    network::TestableNetworkingImplementation,
+    network::{CommunicationChannel, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
-    state::{ConsensusTime, TestableBlock, TestableState},
+    state::{ConsensusTime, ConsensusType, TestableBlock, TestableState},
     storage::TestableStorage,
     State,
 };
-use crate::traits::{
-    election::Election, network::NetworkingImplementation, signature_key::SignatureKey,
-    storage::Storage, Block,
+use crate::{
+    data::{LeafType, ProposalType},
+    traits::{election::Election, signature_key::SignatureKey, storage::Storage, Block},
 };
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -26,19 +30,25 @@ use std::hash::Hash;
 ///
 /// It is recommended you implement this trait on a zero sized type, as `HotShot`does not actually
 /// store or keep a reference to any value implementing this trait.
-pub trait NodeImplementation<TYPES: NodeTypes>: Send + Sync + Debug + Clone + 'static {
+pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'static {
+    type Leaf: LeafType<NodeType = TYPES>;
+
     /// Storage type for this consensus implementation
-    type Storage: Storage<TYPES> + Clone;
-    /// Networking type for this consensus implementation
-    type Networking: NetworkingImplementation<TYPES>;
+    type Storage: Storage<TYPES, Self::Leaf> + Clone;
+
     /// Election
     /// Time is generic here to allow multiple implementations of election trait for difference
     /// consensus protocols
-    type Election: Election<TYPES>;
+    type Election: Election<TYPES, LeafType = Self::Leaf> + Debug;
+
+    type Proposal: ProposalType<NodeType = TYPES, Election = Self::Election>;
+
+    /// Networking type for this consensus implementation
+    type Networking: CommunicationChannel<TYPES, Self::Leaf, Self::Proposal, Self::Election>;
 }
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
-pub trait NodeTypes:
+pub trait NodeType:
     Clone
     + Copy
     + Debug
@@ -49,11 +59,13 @@ pub trait NodeTypes:
     + Ord
     + Default
     + serde::Serialize
-    + for<'de> serde::Deserialize<'de>
+    + for<'de> Deserialize<'de>
     + Send
     + Sync
     + 'static
 {
+    /// the type of consensus (seuqencing or validating)
+    type ConsensusType: ConsensusType;
     /// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `StateType::Time` is using.
@@ -74,16 +86,35 @@ pub trait NodeTypes:
     type ElectionConfigType: ElectionConfig;
 
     /// The state type that this hotshot setup is using.
-    type StateType: State<BlockType = Self::BlockType, Time = Self::Time>;
+    type StateType: State<
+        BlockType = Self::BlockType,
+        Time = Self::Time,
+        ConsensusType = Self::ConsensusType,
+    >;
+
+    type ApplicationMetadataType: ApplicationMetadata + Eq + PartialEq + Send + Sync;
+}
+
+/// application specific metadata
+pub trait ApplicationMetadata
+where
+    Self: Debug + Clone + Serialize + for<'a> Deserialize<'a>,
+{
 }
 
 /// testable node implmeentation trait
-pub trait TestableNodeImplementation<TYPES: NodeTypes>: NodeImplementation<TYPES>
+pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    <Self as NodeImplementation<TYPES>>::Networking: TestableNetworkingImplementation<TYPES>,
-    <Self as NodeImplementation<TYPES>>::Storage: TestableStorage<TYPES>,
+    <Self as NodeImplementation<TYPES>>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        <Self as NodeImplementation<TYPES>>::Leaf,
+        <Self as NodeImplementation<TYPES>>::Proposal,
+        <Self as NodeImplementation<TYPES>>::Election,
+    >,
+    <Self as NodeImplementation<TYPES>>::Storage:
+        TestableStorage<TYPES, <Self as NodeImplementation<TYPES>>::Leaf>,
 {
 }

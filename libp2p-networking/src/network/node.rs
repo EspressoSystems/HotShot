@@ -265,9 +265,8 @@ impl NetworkNode {
                 async_spawn(fut);
             });
 
-            SwarmBuilder::new(transport, network, peer_id)
+            SwarmBuilder::with_executor(transport, network, peer_id, executor)
                 .dial_concurrency_factor(std::num::NonZeroU8::new(1).unwrap())
-                .executor(executor)
                 .build()
         };
         for (peer, addr) in &config.to_connect_addrs {

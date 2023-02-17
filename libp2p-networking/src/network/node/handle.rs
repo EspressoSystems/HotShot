@@ -14,7 +14,6 @@ use async_compatibility_layer::{
 use async_lock::Mutex;
 use bincode::Options;
 use futures::{stream::FuturesOrdered, Future, FutureExt};
-use hotshot_types::traits::network::NetworkError as HotShotNetworkError;
 use hotshot_utils::bincode::bincode_opts;
 use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
 use serde::{Deserialize, Serialize};
@@ -139,15 +138,12 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
         let handle = Arc::clone(self);
         async_spawn(async move {
             let receiver = handle.receiver.receiver.lock().await;
-            let kill_switch =
-                if let Some(kill_switch) = handle.receiver.recv_kill.lock().await.take() {
-                    kill_switch
-                } else {
-                    tracing::error!(
-                        "`spawn_handle` was called on a network handle that was already closed"
-                    );
-                    return;
-                };
+             let Some(kill_switch) = handle.receiver.recv_kill.lock().await.take() else {
+                     tracing::error!(
+                         "`spawn_handle` was called on a network handle that was already closed"
+                     );
+                     return;
+                 };
             let mut next_msg = receiver.recv().boxed();
             let mut kill_switch = kill_switch.recv().boxed();
             loop {
@@ -609,14 +605,6 @@ impl<S: Clone> NetworkNodeHandle<S> {
     }
 }
 
-impl From<NetworkNodeHandleError> for HotShotNetworkError {
-    fn from(error: NetworkNodeHandleError) -> Self {
-        HotShotNetworkError::Other {
-            inner: Box::new(error),
-        }
-    }
-}
-
 /// Error wrapper type for interacting with swarm handle
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
@@ -669,6 +657,8 @@ pub enum NetworkNodeHandleError {
         /// source of error
         source: UnboundedRecvError,
     },
+    /// no known topic matches the hashset of keys
+    NoSuchTopic,
 }
 
 /// Re-exports of the snafu errors that [`NetworkNodeHandleError`] can throw

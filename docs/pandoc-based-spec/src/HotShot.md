@@ -185,7 +185,7 @@ impl HotShot {
     fn safe_node(&self, node: Leaf) -> Bool {
         let qc = node.justify;
         node.extends_from(self.locked_qc.node) || // Safety rule
-            qc.view_number > self.locked_qc.view_number // Liveness rule
+            qc.view_number() > self.locked_qc.view_number() // Liveness rule
     }
 }
 
@@ -237,7 +237,7 @@ for view_number in 1.. {
     if self.id == leader {
         // As a leader
         let high_qc = self.leader_messages.max_by(justify.view_number).justify;
-        if high_qc.view_number > self.generic_qc.view_number {
+        if high_qc.view_number() > self.generic_qc.view_number() {
             self.generic_qc = high_qc;
         }
         let proposal = Leaf::new(self.generic_qc.node, command, self.generic_qc);

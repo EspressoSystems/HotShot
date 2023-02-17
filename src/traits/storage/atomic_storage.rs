@@ -158,7 +158,7 @@ impl<STATE: StateContents> Storage<STATE> for AtomicStorage<STATE> {
 
     #[instrument(name = "AtomicStorage::get_newest_qc", skip_all)]
     async fn get_newest_qc(&self) -> StorageResult<Option<QuorumCertificate<STATE>>> {
-        Ok(self.inner.qcs.load_latest(|qc| qc.view_number).await)
+        Ok(self.inner.qcs.load_latest(|qc| qc.view_number()).await)
     }
 
     #[instrument(name = "AtomicStorage::get_qc_for_view", skip_all)]
@@ -198,7 +198,7 @@ impl<STATE: StateContents> Storage<STATE> for AtomicStorage<STATE> {
         leafs.sort_by_cached_key(Leaf::hash);
 
         let mut quorum_certificates = self.inner.qcs.load_all().await;
-        quorum_certificates.sort_by_key(|qc| qc.view_number);
+        quorum_certificates.sort_by_key(|qc| qc.view_number());
 
         let mut states: Vec<(Commitment<Leaf<STATE>>, STATE)> =
             self.inner.states.load_all().await.into_iter().collect();

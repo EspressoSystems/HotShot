@@ -440,7 +440,7 @@ pub fn parse_node(s: &str) -> Result<Multiaddr, multiaddr::Error> {
     let mut i = s.split(':');
     let ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
     let port = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
-    Multiaddr::from_str(&format!("/ip4/{}/tcp/{}", ip, port))
+    Multiaddr::from_str(&format!("/ip4/{ip}/tcp/{port}"))
 }
 
 #[cfg(feature = "webui")]

@@ -29,7 +29,7 @@ pub mod documentation;
 /// Data availability support
 // pub mod da;
 /// Contains structures and functions for committee election
-pub mod data;
+pub mod certificate;
 #[cfg(any(feature = "demo"))]
 pub mod demos;
 /// Contains traits consumed by [`HotShot`]
@@ -37,57 +37,62 @@ pub mod traits;
 /// Contains types used by the crate
 pub mod types;
 
-mod tasks;
+pub mod tasks;
 
 use crate::{
-    data::{Leaf, QuorumCertificate},
-    traits::{NetworkingImplementation, NodeImplementation, Storage},
+    certificate::QuorumCertificate,
+    traits::{NodeImplementation, Storage},
     types::{Event, HotShotHandle},
 };
 use async_compatibility_layer::{
-    art::async_spawn,
+    art::{async_sleep, async_spawn, async_spawn_local},
     async_primitives::{broadcast::BroadcastSender, subscribable_rwlock::SubscribableRwLock},
-};
-use async_compatibility_layer::{
-    art::async_spawn_local,
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
+use bincode::Options;
 use commit::{Commitment, Committable};
+use either::Either;
 use hotshot_consensus::{
-    Consensus, ConsensusApi, ConsensusMetrics, SendToTasks, View, ViewInner, ViewQueue,
+    Consensus, ConsensusApi, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader, DALeader,
+    DAMember, NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner,
+    ViewQueue,
 };
+use hotshot_types::certificate::DACertificate;
+use hotshot_types::certificate::{CertificateAccumulator, VoteMetaData};
+use hotshot_types::data::ProposalType;
+use hotshot_types::data::{DAProposal, SequencingLeaf};
+use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
+use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{
-    constants::genesis_proposer_id,
-    data::fake_commitment,
+    data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
-    message::{ConsensusMessage, DataMessage, Message},
+    message::{ConsensusMessage, DataMessage, InternalTrigger, Message},
     traits::{
-        election::{
-            Checked::{self, Inval, Unchecked, Valid},
-            Election, ElectionError,
-        },
+        election::{Checked, Election, ElectionError, SignedCertificate, VoteData},
         metrics::Metrics,
-        network::{NetworkChange, NetworkError},
-        node_implementation::NodeTypes,
+        network::{NetworkError, TransmitType},
+        node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        state::ConsensusTime,
-        storage::{StoredView, ViewEntry},
+        state::{ConsensusTime, ConsensusType, SequencingConsensus, ValidatingConsensus},
+        storage::StoredView,
         State,
     },
     HotShotConfig,
 };
-use hotshot_types::{message::MessageKind, traits::election::VoteToken};
+use hotshot_utils::bincode::bincode_opts;
+#[allow(deprecated)]
+use nll::nll_todo::nll_todo;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},
+    marker::PhantomData,
     num::{NonZeroU64, NonZeroUsize},
     sync::{atomic::Ordering, Arc},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tracing::{debug, error, info, instrument, trace, warn};
-
 // -- Rexports
 // External
 /// Reexport rand crate
@@ -102,7 +107,7 @@ pub const H_512: usize = 64;
 pub const H_256: usize = 32;
 
 /// Holds the state needed to participate in `HotShot` consensus
-pub struct HotShotInner<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The public key of this node
     public_key: TYPES::SignatureKey,
 
@@ -122,7 +127,7 @@ pub struct HotShotInner<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
     election: I::Election,
 
     /// Sender for [`Event`]s
-    event_sender: RwLock<Option<BroadcastSender<Event<TYPES>>>>,
+    event_sender: RwLock<Option<BroadcastSender<Event<TYPES, I::Leaf>>>>,
 
     /// Senders to the background tasks.
     background_task_handle: tasks::TaskHandle<TYPES>,
@@ -133,7 +138,7 @@ pub struct HotShotInner<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
 
 /// Thread safe, shared view of a `HotShot`
 #[derive(Clone)]
-pub struct HotShot<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Handle to internal hotshot implementation
     inner: Arc<HotShotInner<TYPES, I>>,
 
@@ -143,13 +148,15 @@ pub struct HotShot<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
         Arc<SubscribableRwLock<HashMap<Commitment<TYPES::Transaction>, TYPES::Transaction>>>,
 
     /// The hotstuff implementation
-    hotstuff: Arc<RwLock<Consensus<TYPES>>>,
+    hotstuff: Arc<RwLock<Consensus<TYPES, I::Leaf>>>,
 
+    // TODO (da) split this into `replica_channel_map` and `da_member_channel_map` after
+    // refactoring `HotShot`.
     /// for sending/recv-ing things with the replica task
-    replica_channel_map: Arc<RwLock<SendToTasks<TYPES>>>,
+    replica_channel_map: Arc<RwLock<SendToTasks<TYPES, I::Leaf, I::Proposal>>>,
 
     /// for sending/recv-ing things with the next leader task
-    next_leader_channel_map: Arc<RwLock<SendToTasks<TYPES>>>,
+    next_leader_channel_map: Arc<RwLock<SendToTasks<TYPES, I::Leaf, I::Proposal>>>,
 
     /// for sending messages to network lookup task
     send_network_lookup: UnboundedSender<Option<TYPES::Time>>,
@@ -159,9 +166,12 @@ pub struct HotShot<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
 
     /// uid for instrumentation
     id: u64,
+
+    /// Phantom data for consensus type
+    _pd: PhantomData<CONSENSUS>,
 }
 
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType, TYPES, I> {
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_arguments)]
@@ -174,7 +184,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
-        initializer: HotShotInitializer<TYPES>,
+        initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
         info!("Creating a new hotshot");
@@ -195,14 +205,14 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         // insert to storage
         inner
             .storage
-            .append(vec![ViewEntry::Success(anchored_leaf.clone().into())])
+            .append(vec![anchored_leaf.clone().into()])
             .await
             .context(StorageSnafu)?;
 
         // insert genesis (or latest block) to state map
         let mut state_map = BTreeMap::default();
         state_map.insert(
-            anchored_leaf.view_number,
+            anchored_leaf.get_view_number(),
             View {
                 view_inner: ViewInner::Leaf {
                     leaf: anchored_leaf.commit(),
@@ -213,18 +223,18 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         let mut saved_leaves = HashMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
 
-        let start_view = anchored_leaf.view_number;
+        let start_view = anchored_leaf.get_view_number();
 
         let hotstuff = Consensus {
             state_map,
             cur_view: start_view,
-            last_decided_view: anchored_leaf.view_number,
+            last_decided_view: anchored_leaf.get_view_number(),
             transactions: Arc::default(),
             saved_leaves,
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
-            locked_view: anchored_leaf.view_number,
-            high_qc: anchored_leaf.justify_qc,
+            locked_view: anchored_leaf.get_view_number(),
+            high_qc: anchored_leaf.get_justify_qc(),
 
             metrics: Arc::new(ConsensusMetrics::new(
                 inner.metrics.subgroup("consensus".to_string()),
@@ -245,6 +255,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
             next_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             send_network_lookup,
             recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
+            _pd: PhantomData,
         })
     }
 
@@ -262,10 +273,14 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
     pub async fn timeout_view(
         &self,
         current_view: TYPES::Time,
-        send_replica: UnboundedSender<ConsensusMessage<TYPES>>,
-        send_next_leader: Option<UnboundedSender<ConsensusMessage<TYPES>>>,
+        send_replica: UnboundedSender<ProcessedConsensusMessage<TYPES, I::Leaf, I::Proposal>>,
+        send_next_leader: Option<
+            UnboundedSender<ProcessedConsensusMessage<TYPES, I::Leaf, I::Proposal>>,
+        >,
     ) {
-        let msg = ConsensusMessage::<TYPES>::NextViewInterrupt(current_view);
+        let msg = ProcessedConsensusMessage::<TYPES, I::Leaf, I::Proposal>::InternalTrigger(
+            InternalTrigger::Timeout(current_view),
+        );
         if let Some(chan) = send_next_leader {
             if chan.send(msg.clone()).await.is_err() {
                 warn!("Error timing out next leader task");
@@ -274,6 +289,30 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         // NOTE this should always exist
         if send_replica.send(msg).await.is_err() {
             warn!("Error timing out replica task");
+        };
+    }
+
+    /// Marks a given view number as timed out. This should be called a fixed period after a round is started.
+    ///
+    /// If the round has already ended then this function will essentially be a no-op. Otherwise `run_round` will return shortly after this function is called.
+    /// # Panics
+    /// Panics if the current view is not in the channel map
+    #[instrument(
+        skip_all,
+        fields(id = self.id, view = *current_view),
+        name = "Timeout consensus tasks",
+        level = "warn"
+    )]
+    pub async fn timeout_view_da_tasks<Proposal: ProposalType<NodeType = TYPES>>(
+        &self,
+        current_view: TYPES::Time,
+        send_da_member: UnboundedSender<ProcessedConsensusMessage<TYPES, I::Leaf, Proposal>>,
+    ) {
+        let msg = ProcessedConsensusMessage::<TYPES, I::Leaf, Proposal>::InternalTrigger(
+            InternalTrigger::Timeout(current_view),
+        );
+        if send_da_member.send(msg).await.is_err() {
+            warn!("Error timing out da member");
         };
     }
 
@@ -290,7 +329,9 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         // Add the transaction to our own queue first
         trace!("Adding transaction to our own queue");
         // Wrap up a message
-        let message = DataMessage::SubmitTransaction(transaction);
+        // TODO place a view number here that makes sense
+        // we haven't worked out how this will work yet
+        let message = DataMessage::SubmitTransaction(transaction, TYPES::Time::new(0));
 
         let api = self.clone();
         async_spawn(async move {
@@ -304,14 +345,14 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
     /// # Panics
     ///
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_state(&self) -> TYPES::StateType {
-        self.hotstuff.read().await.get_decided_leaf().state
+    pub async fn get_state(&self) -> <I::Leaf as LeafType>::StateCommitmentType {
+        self.hotstuff.read().await.get_decided_leaf().get_state()
     }
 
     /// Returns a copy of the last decided leaf
     /// # Panics
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_decided_leaf(&self) -> Leaf<TYPES> {
+    pub async fn get_decided_leaf(&self) -> I::Leaf {
         self.hotstuff.read().await.get_decided_leaf()
     }
 
@@ -327,7 +368,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
     /// # Errors
     ///
     /// Will return an error when the storage failed to insert the first `QuorumCertificate`
-    #[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     pub async fn init(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -336,9 +377,12 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         networking: I::Networking,
         storage: I::Storage,
         election: I::Election,
-        initializer: HotShotInitializer<TYPES>,
+        initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
-    ) -> Result<HotShotHandle<TYPES, I>, HotShotError<TYPES>> {
+    ) -> Result<HotShotHandle<TYPES, I>, HotShotError<TYPES>>
+    where
+        HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+    {
         // Save a clone of the storage for the handle
         let hotshot = Self::new(
             public_key,
@@ -366,7 +410,7 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
     /// Will return any errors that the underlying `broadcast_message` can return.
     pub async fn send_broadcast_message(
         &self,
-        kind: impl Into<MessageKind<TYPES>>,
+        kind: impl Into<MessageKind<TYPES, I::Leaf, I::Proposal>>,
     ) -> std::result::Result<(), NetworkError> {
         let inner = self.inner.clone();
         let pk = self.inner.public_key.clone();
@@ -374,7 +418,11 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         async_spawn_local(async move {
             if inner
                 .networking
-                .broadcast_message(Message { sender: pk, kind })
+                .broadcast_message(
+                    Message { sender: pk, kind },
+                    // TODO this is morally wrong
+                    &inner.election.clone(),
+                )
                 .await
                 .is_err()
             {
@@ -393,19 +441,20 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
     /// Will return any errors that the underlying `message_node` can return.
     pub async fn send_direct_message(
         &self,
-        kind: impl Into<MessageKind<TYPES>>,
+        kind: impl Into<MessageKind<TYPES, I::Leaf, I::Proposal>>,
         recipient: TYPES::SignatureKey,
     ) -> std::result::Result<(), NetworkError> {
         self.inner
             .networking
-            .message_node(
+            .direct_message(
                 Message {
                     sender: self.inner.public_key.clone(),
                     kind: kind.into(),
                 },
                 recipient,
             )
-            .await
+            .await?;
+        Ok(())
     }
 
     /// Handle an incoming [`ConsensusMessage`] that was broadcasted on the network.
@@ -416,20 +465,12 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
     )]
     async fn handle_broadcast_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES>,
+        msg: ConsensusMessage<TYPES, I::Leaf, I::Proposal>,
         sender: TYPES::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
         // <github.com/ExpressoSystems/HotShot/issues/418>
         let msg_time = msg.view_number();
-
-        // Skip messages that are not from the leader
-        let api = HotShotConsensusApi {
-            inner: self.inner.clone(),
-        };
-        if sender != api.get_leader(msg_time).await {
-            return;
-        }
 
         match msg {
             // this is ONLY intended for replica
@@ -442,44 +483,66 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
                     return;
                 }
 
-                let chan = create_or_obtain_chan_from_read(msg_time, channel_map).await;
+                let chan: ViewQueue<TYPES, I::Leaf, I::Proposal> =
+                    Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
 
                 if !chan.has_received_proposal.swap(true, Ordering::Relaxed)
-                    && chan.sender_chan.send(msg).await.is_err()
+                    && chan
+                        .sender_chan
+                        .send(ProcessedConsensusMessage::new(msg, sender))
+                        .await
+                        .is_err()
                 {
                     warn!("Failed to send to next leader!");
                 }
             }
-            ConsensusMessage::NextViewInterrupt(_) => {
-                warn!("Received a next view interrupt. This shouldn't be possible.");
+            ConsensusMessage::InternalTrigger(_) => {
+                warn!("Received an internal trigger. This shouldn't be possible.");
             }
-            ConsensusMessage::TimedOut(_) | ConsensusMessage::Vote(_) => {
-                warn!("Received a broadcast for a vote or nextview message. This shouldn't be possible.");
+            ConsensusMessage::Vote(_) => {
+                warn!("Received a broadcast for a vote message. This shouldn't be possible.");
+            }
+        };
+    }
+
+    /// decide which handler to call based on the message variant and `transmit_type`
+    async fn handle_message(
+        &self,
+        item: Message<TYPES, I::Leaf, I::Proposal>,
+        transmit_type: TransmitType,
+    ) {
+        match (item.kind, transmit_type) {
+            (MessageKind::Consensus(msg), TransmitType::Broadcast) => {
+                self.handle_broadcast_consensus_message(msg, item.sender)
+                    .await;
+            }
+            (MessageKind::Consensus(msg), TransmitType::Direct) => {
+                self.handle_direct_consensus_message(msg, item.sender).await;
+            }
+            (MessageKind::Data(msg), TransmitType::Broadcast) => {
+                self.handle_broadcast_data_message(msg, item.sender).await;
+            }
+            (MessageKind::Data(msg), TransmitType::Direct) => {
+                self.handle_direct_data_message(msg, item.sender).await;
             }
         };
     }
 
     /// Handle an incoming [`ConsensusMessage`] directed at this node.
-    #[instrument(
-        skip(self, _sender),
-        name = "Handle direct consensus message",
-        level = "error"
-    )]
+    #[instrument(skip(self), name = "Handle direct consensus message", level = "error")]
     async fn handle_direct_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES>,
-        _sender: TYPES::SignatureKey,
+        msg: ConsensusMessage<TYPES, I::Leaf, I::Proposal>,
+        sender: TYPES::SignatureKey,
     ) {
-        // TODO validate incoming data message based on sender signature key
-
         // We can only recv from a replicas
         // replicas should only send votes or if they timed out, timeouts
         match msg {
-            ConsensusMessage::Proposal(_) | ConsensusMessage::NextViewInterrupt(_) => {
+            ConsensusMessage::Proposal(_) | ConsensusMessage::InternalTrigger(_) => {
                 warn!("Received a direct message for a proposal. This shouldn't be possible.");
             }
             // this is ONLY intended for next leader
-            c @ (ConsensusMessage::Vote(_) | ConsensusMessage::TimedOut(_)) => {
+            c @ ConsensusMessage::Vote(_) => {
                 let msg_time = c.view_number();
 
                 let channel_map = self.next_leader_channel_map.upgradable_read().await;
@@ -495,16 +558,18 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
                 )
                 .await;
                 if !is_leader || msg_time < channel_map.cur_view {
-                    warn!(
-                        "Throwing away Vote or TimedOut message for view number: {:?}",
-                        msg_time
-                    );
+                    warn!("Throwing away Vote message for view number: {:?}", msg_time);
                     return;
                 }
 
-                let chan = create_or_obtain_chan_from_read(msg_time, channel_map).await;
+                let chan = Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
 
-                if chan.sender_chan.send(c).await.is_err() {
+                if chan
+                    .sender_chan
+                    .send(ProcessedConsensusMessage::new(c, sender))
+                    .await
+                    .is_err()
+                {
                     error!("Failed to send to next leader!");
                 }
             }
@@ -519,20 +584,30 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
     ) {
         // TODO validate incoming broadcast message based on sender signature key
         match msg {
-            DataMessage::SubmitTransaction(transaction) => {
+            DataMessage::SubmitTransaction(transaction, _view_number) => {
+                let size = bincode_opts().serialized_size(&transaction).unwrap_or(0);
+
                 // The API contract requires the hash to be unique
                 // so we can assume entry == incoming txn
                 // even if eq not satisfied
                 // so insert is an idempotent operation
+                let mut new = false;
                 self.transactions
                     .modify(|txns| {
-                        txns.insert(transaction.commit(), transaction);
+                        new = txns.insert(transaction.commit(), transaction).is_none();
                     })
                     .await;
-            }
-            DataMessage::NewestQuorumCertificate { .. } => {
-                // Log the exceptional situation and proceed
-                warn!(?msg, "Direct message received over broadcast channel");
+
+                if new {
+                    // If this is a new transaction, update metrics.
+                    let consensus = self.hotstuff.read().await;
+                    consensus.metrics.outstanding_transactions.update(1);
+                    #[allow(clippy::cast_possible_wrap)]
+                    consensus
+                        .metrics
+                        .outstanding_transactions_memory_size
+                        .update(size as i64);
+                }
             }
         }
     }
@@ -543,60 +618,11 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
         msg: DataMessage<TYPES>,
         _sender: TYPES::SignatureKey,
     ) {
-        // TODO validate incoming data message based on sender signature key
         debug!(?msg, "Incoming direct data message");
         match msg {
-            DataMessage::NewestQuorumCertificate {
-                quorum_certificate: qc,
-                block,
-                state,
-                parent_commitment,
-                rejected,
-                proposer_id,
-            } => {
-                // TODO https://github.com/EspressoSystems/HotShot/issues/387
-                let anchored = match self.inner.storage.get_anchored_view().await {
-                    Err(e) => {
-                        error!(?e, "Could not load QC");
-                        return;
-                    }
-                    Ok(n) => n,
-                };
-                // TODO: Don't blindly accept the newest QC but make sure it's valid with other nodes too
-                // we should be getting multiple data messages soon
-                // <https://github.com/EspressoSystems/HotShot/issues/454>
-                let should_save = anchored.view_number < qc.view_number; // incoming view is newer
-                if should_save {
-                    let new_view = StoredView::from_qc_block_and_state(
-                        qc,
-                        block,
-                        state,
-                        parent_commitment,
-                        rejected,
-                        proposer_id,
-                    );
-
-                    if let Err(e) = self.inner.storage.append_single_view(new_view).await {
-                        error!(?e, "Could not insert incoming QC");
-                    }
-                }
-            }
-
-            DataMessage::SubmitTransaction(_) => {
+            DataMessage::SubmitTransaction(_, _) => {
                 // Log exceptional situation and proceed
                 warn!(?msg, "Broadcast message received over direct channel");
-            }
-        }
-    }
-
-    /// Handle a change in the network
-    async fn handle_network_change(&self, node: NetworkChange<TYPES::SignatureKey>) {
-        match node {
-            NetworkChange::NodeConnected(peer) => {
-                info!("Connected to node {:?}", peer);
-            }
-            NetworkChange::NodeDisconnected(peer) => {
-                info!("Lost connection to node {:?}", peer);
             }
         }
     }
@@ -605,59 +631,426 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> HotShot<TYPES, I> {
     pub fn get_next_view_timeout(&self) -> u64 {
         self.inner.config.next_view_timeout
     }
-}
 
-/// given a view number and a upgradable read lock on a channel map, inserts entry into map if it
-/// doesn't exist, or creates entry. Then returns a clone of the entry
-pub async fn create_or_obtain_chan_from_read<TYPES: NodeTypes>(
-    view_num: TYPES::Time,
-    channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<TYPES>>,
-) -> ViewQueue<TYPES> {
-    // check if we have the entry
-    // if we don't, insert
-    if let Some(vq) = channel_map.channel_map.get(&view_num) {
-        vq.clone()
-    } else {
-        let mut channel_map =
-            RwLockUpgradableReadGuard::<'_, SendToTasks<TYPES>>::upgrade(channel_map).await;
-        let new_view_queue = ViewQueue::default();
-        let vq = new_view_queue.clone();
-        // NOTE: the read lock is held until all other read locks are DROPPED and
-        // the read lock may be turned into a write lock.
-        // This means that the `channel_map` will not change. So we don't need
-        // to check again to see if a channel was added
+    /// given a view number and a upgradable read lock on a channel map, inserts entry into map if it
+    /// doesn't exist, or creates entry. Then returns a clone of the entry
+    pub async fn create_or_obtain_chan_from_read(
+        view_num: TYPES::Time,
+        channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<TYPES, I::Leaf, I::Proposal>>,
+    ) -> ViewQueue<TYPES, I::Leaf, I::Proposal> {
+        // check if we have the entry
+        // if we don't, insert
+        if let Some(vq) = channel_map.channel_map.get(&view_num) {
+            vq.clone()
+        } else {
+            let mut channel_map = RwLockUpgradableReadGuard::<
+                '_,
+                SendToTasks<TYPES, I::Leaf, I::Proposal>,
+            >::upgrade(channel_map)
+            .await;
+            let new_view_queue = ViewQueue::default();
+            let vq = new_view_queue.clone();
+            // NOTE: the read lock is held until all other read locks are DROPPED and
+            // the read lock may be turned into a write lock.
+            // This means that the `channel_map` will not change. So we don't need
+            // to check again to see if a channel was added
 
-        channel_map.channel_map.insert(view_num, new_view_queue);
-        vq
+            channel_map.channel_map.insert(view_num, new_view_queue);
+            vq
+        }
+    }
+
+    /// given a view number and a write lock on a channel map, inserts entry into map if it
+    /// doesn't exist, or creates entry. Then returns a clone of the entry
+    pub async fn create_or_obtain_chan_from_write(
+        view_num: TYPES::Time,
+        mut channel_map: RwLockWriteGuard<'_, SendToTasks<TYPES, I::Leaf, I::Proposal>>,
+    ) -> ViewQueue<TYPES, I::Leaf, I::Proposal> {
+        channel_map.channel_map.entry(view_num).or_default().clone()
     }
 }
 
-/// given a view number and a write lock on a channel map, inserts entry into map if it
-/// doesn't exist, or creates entry. Then returns a clone of the entry
-pub async fn create_or_obtain_chan_from_write<TYPES: NodeTypes>(
-    view_num: TYPES::Time,
-    mut channel_map: RwLockWriteGuard<'_, SendToTasks<TYPES>>,
-) -> ViewQueue<TYPES> {
-    channel_map.channel_map.entry(view_num).or_default().clone()
+/// A view runner implemented by [HotShot] for different types of consensus.
+#[async_trait]
+pub trait ViewRunner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// Executes one view of consensus
+    async fn run_view(hotshot: HotShot<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()>;
+}
+
+#[allow(clippy::too_many_lines)]
+#[async_trait]
+impl<
+        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+        ELECTION: Election<
+            TYPES,
+            LeafType = ValidatingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        >,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            Proposal = ValidatingProposal<TYPES, ELECTION>,
+        >,
+    > ViewRunner<TYPES, I> for HotShot<ValidatingConsensus, TYPES, I>
+{
+    #[instrument(skip(hotshot), fields(id = hotshot.id), name = "Validating View Runner Task", level = "error")]
+    async fn run_view(hotshot: HotShot<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()> {
+        let c_api = HotShotConsensusApi {
+            inner: hotshot.inner.clone(),
+        };
+        let start = Instant::now();
+        let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
+
+        // do book keeping on channel map
+        // TODO probably cleaner to separate this into a function
+        // e.g. insert the view and remove the last view
+        let mut send_to_replica = hotshot.replica_channel_map.write().await;
+        let replica_last_view: TYPES::Time = send_to_replica.cur_view;
+        // gc previous view's channel map
+        send_to_replica.channel_map.remove(&replica_last_view);
+        send_to_replica.cur_view += 1;
+        let replica_cur_view = send_to_replica.cur_view;
+        let ViewQueue {
+            sender_chan: send_replica,
+            receiver_chan: recv_replica,
+            has_received_proposal: _,
+        } = HotShot::<ValidatingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+            replica_cur_view,
+            send_to_replica,
+        )
+        .await;
+
+        let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+        let next_leader_last_view = send_to_next_leader.cur_view;
+        // gc previous view's channel map
+        send_to_next_leader
+            .channel_map
+            .remove(&next_leader_last_view);
+        send_to_next_leader.cur_view += 1;
+        let next_leader_cur_view = send_to_next_leader.cur_view;
+        let (send_next_leader, recv_next_leader) =
+            if c_api.is_leader(next_leader_cur_view + 1).await {
+                let vq =
+                    HotShot::<ValidatingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+                        next_leader_cur_view,
+                        send_to_next_leader,
+                    )
+                    .await;
+                (Some(vq.sender_chan), Some(vq.receiver_chan))
+            } else {
+                (None, None)
+            };
+
+        // increment consensus and start tasks
+
+        let (cur_view, high_qc, txns) = {
+            // OBTAIN write lock on consensus
+            let mut consensus = hotshot.hotstuff.write().await;
+            let cur_view = consensus.increment_view();
+            // make sure consistent
+            assert_eq!(cur_view, next_leader_cur_view);
+            assert_eq!(cur_view, replica_cur_view);
+            let high_qc = consensus.high_qc.clone();
+            let txns = consensus.transactions.clone();
+            // DROP write lock on consensus
+            drop(consensus);
+            (cur_view, high_qc, txns)
+        };
+
+        // Inject current view number into the networking task
+        hotshot.inner.networking.inject_view_number(cur_view).await;
+
+        // notify networking to start worrying about the (`cur_view + LOOK_AHEAD`)th leader ahead of the current view
+        if hotshot
+            .send_network_lookup
+            .send(Some(cur_view))
+            .await
+            .is_err()
+        {
+            error!("Failed to initiate network lookup");
+        };
+
+        info!("Starting tasks for View {:?}!", cur_view);
+        metrics.current_view.set(*cur_view as usize);
+
+        let mut task_handles = Vec::new();
+
+        // replica always runs? TODO this will change once vrf integration is added
+        let replica = Replica {
+            id: hotshot.id,
+            consensus: hotshot.hotstuff.clone(),
+            proposal_collection_chan: recv_replica,
+            cur_view,
+            high_qc: high_qc.clone(),
+            api: c_api.clone(),
+        };
+        let replica_handle = async_spawn(async move { replica.run_view().await });
+        task_handles.push(replica_handle);
+
+        if c_api.is_leader(cur_view).await {
+            let leader = ValidatingLeader {
+                id: hotshot.id,
+                consensus: hotshot.hotstuff.clone(),
+                high_qc: high_qc.clone(),
+                cur_view,
+                transactions: txns,
+                api: c_api.clone(),
+                _pd: PhantomData,
+            };
+            let leader_handle = async_spawn(async move { leader.run_view().await });
+            task_handles.push(leader_handle);
+        }
+
+        if c_api.is_leader(cur_view + 1).await {
+            let next_leader = NextValidatingLeader {
+                id: hotshot.id,
+                generic_qc: high_qc,
+                // should be fine to unwrap here since the view numbers must be the same
+                vote_collection_chan: recv_next_leader.unwrap(),
+                cur_view,
+                api: c_api.clone(),
+                metrics,
+            };
+            let next_leader_handle = async_spawn(async move {
+                NextValidatingLeader::<HotShotConsensusApi<TYPES, I>, TYPES, _>::run_view(
+                    next_leader,
+                )
+                .await
+            });
+            task_handles.push(next_leader_handle);
+        }
+
+        let children_finished = futures::future::join_all(task_handles);
+
+        async_spawn({
+            let next_view_timeout = hotshot.inner.config.next_view_timeout;
+            let next_view_timeout = next_view_timeout;
+            let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
+            async move {
+                async_sleep(Duration::from_millis(next_view_timeout)).await;
+                hotshot
+                    .timeout_view(cur_view, send_replica, send_next_leader)
+                    .await;
+            }
+        });
+
+        let results = children_finished.await;
+
+        // unwrap is fine since results must have >= 1 item(s)
+        #[cfg(feature = "async-std-executor")]
+        let high_qc = results
+            .into_iter()
+            .max_by_key(|qc: &ELECTION::QuorumCertificate| qc.view_number)
+            .unwrap();
+        #[cfg(feature = "tokio-executor")]
+        let high_qc = results
+            .into_iter()
+            .filter_map(std::result::Result::ok)
+            .max_by_key(|qc| qc.view_number)
+            .unwrap();
+
+        #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
+        compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
+
+        let mut consensus = hotshot.hotstuff.write().await;
+        consensus.high_qc = high_qc;
+        consensus
+            .metrics
+            .view_duration
+            .add_point(start.elapsed().as_secs_f64());
+        c_api.send_view_finished(consensus.cur_view).await;
+
+        info!("Returning from view {:?}!", cur_view);
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
+        ELECTION: Election<
+            TYPES,
+            LeafType = SequencingLeaf<TYPES>,
+            QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+            DACertificate = DACertificate<TYPES>,
+        >,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            Proposal = DAProposal<TYPES, ELECTION>,
+        >,
+    > ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
+{
+    // #[instrument]
+    #[allow(clippy::too_many_lines)]
+    async fn run_view(hotshot: HotShot<SequencingConsensus, TYPES, I>) -> Result<(), ()> {
+        let c_api = HotShotConsensusApi {
+            inner: hotshot.inner.clone(),
+        };
+        let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+        let leader_last_view: TYPES::Time = send_to_next_leader.cur_view;
+        send_to_next_leader.channel_map.remove(&leader_last_view);
+        send_to_next_leader.cur_view += 1;
+        let (_send_da_vote_chan, recv_da_vote, cur_view) = {
+            let mut consensus = hotshot.hotstuff.write().await;
+            let cur_view = consensus.increment_view();
+            let vq = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+                cur_view,
+                send_to_next_leader,
+            )
+            .await;
+            (vq.sender_chan, vq.receiver_chan, cur_view)
+        };
+        let send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+        let (send_commitment_vote_chan, recv_commitment_vote_chan) = {
+            let vq = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+                cur_view + 1,
+                send_to_next_leader,
+            )
+            .await;
+            (vq.sender_chan, vq.receiver_chan)
+        };
+
+        let (high_qc, txns) = {
+            // OBTAIN read lock on consensus
+            let consensus = hotshot.hotstuff.read().await;
+            let high_qc = consensus.high_qc.clone();
+            let txns = consensus.transactions.clone();
+            (high_qc, txns)
+        };
+        let mut send_to_member = hotshot.replica_channel_map.write().await;
+        let member_last_view: TYPES::Time = send_to_member.cur_view;
+        send_to_member.channel_map.remove(&member_last_view);
+        send_to_member.cur_view += 1;
+        let ViewQueue {
+            sender_chan: send_member,
+            receiver_chan: recv_member,
+            has_received_proposal: _,
+        } = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+            send_to_member.cur_view,
+            send_to_member,
+        )
+        .await;
+
+        let mut task_handles = Vec::new();
+
+        if c_api.is_leader(cur_view).await {
+            let da_leader = DALeader {
+                id: hotshot.id,
+                consensus: hotshot.hotstuff.clone(),
+                high_qc: high_qc.clone(),
+                cur_view,
+                transactions: txns,
+                api: c_api.clone(),
+                vote_collection_chan: recv_da_vote,
+                _pd: PhantomData,
+            };
+            let hotstuff = hotshot.hotstuff.clone();
+            let qc = high_qc.clone();
+            let api = c_api.clone();
+            let leader_handle = async_spawn(async move {
+                let Some((da_cert, block, parent)) = da_leader.run_view().await else {
+                    return qc;
+                };
+                let consensus_leader = ConsensusLeader {
+                    id: hotshot.id,
+                    consensus: hotstuff,
+                    high_qc: qc,
+                    cert: da_cert,
+                    block,
+                    parent,
+                    cur_view,
+                    api: api.clone(),
+                    _pd: PhantomData,
+                };
+                consensus_leader.run_view().await
+            });
+            task_handles.push(leader_handle);
+        }
+        if c_api.is_leader(cur_view + 1).await {
+            let next_leader = ConsensusNextLeader {
+                id: hotshot.id,
+                consensus: hotshot.hotstuff.clone(),
+                cur_view,
+                api: c_api.clone(),
+                generic_qc: high_qc.clone(),
+                vote_collection_chan: recv_commitment_vote_chan,
+                _pd: PhantomData,
+            };
+            let next_leader_handle = async_spawn(async move { next_leader.run_view().await });
+            task_handles.push(next_leader_handle);
+        }
+        let da_member = DAMember {
+            id: hotshot.id,
+            consensus: hotshot.hotstuff.clone(),
+            proposal_collection_chan: recv_member,
+            cur_view,
+            high_qc: high_qc.clone(),
+            api: c_api.clone(),
+        };
+        let member_handle = async_spawn(async move { da_member.run_view().await });
+        task_handles.push(member_handle);
+
+        // TODO (da) Replica task isn't added since the proposal it listens to is the commitment
+        // proposal but `I::Proposal` here is the DA proposal. We need to support the two proposal
+        // types for sequencing consensus in the refactored node implementation.
+        let _da_replica = {};
+        // TODO: ADD DA replica task handle and push it to `task_handles`.
+
+        let children_finished = futures::future::join_all(task_handles);
+
+        async_spawn({
+            let next_view_timeout = hotshot.inner.config.next_view_timeout;
+            let hotshot: HotShot<TYPES::ConsensusType, TYPES, I> = hotshot.clone();
+            async move {
+                async_sleep(Duration::from_millis(next_view_timeout)).await;
+                hotshot
+                    .timeout_view(cur_view, send_member, Some(send_commitment_vote_chan))
+                    .await;
+                // TODO(da): When we have the replica channel send timeout to it and the DA leader.
+                // hotshot.timeout_da_view(curr_view, send_replica).await
+            }
+        });
+
+        let results = children_finished.await;
+
+        // unwrap is fine since results must have >= 1 item(s)
+        #[cfg(feature = "async-std-executor")]
+        let high_qc = results
+            .into_iter()
+            .max_by_key(|qc: &ELECTION::QuorumCertificate| qc.view_number)
+            .unwrap();
+        #[cfg(feature = "tokio-executor")]
+        let high_qc = results
+            .into_iter()
+            .filter_map(std::result::Result::ok)
+            .max_by_key(|qc| qc.view_number)
+            .unwrap();
+
+        let mut consensus = hotshot.hotstuff.write().await;
+        consensus.high_qc = high_qc;
+        c_api.send_view_finished(consensus.cur_view).await;
+        Ok(())
+    }
 }
 
 /// A handle that is passed to [`hotshot_hotstuff`] with to expose the interface that hotstuff needs to interact with [`HotShot`]
 #[derive(Clone)]
-struct HotShotConsensusApi<TYPES: NodeTypes, I: NodeImplementation<TYPES>> {
+struct HotShotConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`HotShotInner`]
     inner: Arc<HotShotInner<TYPES, I>>,
 }
 
 #[async_trait]
-impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::ConsensusApi<TYPES>
-    for HotShotConsensusApi<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
+    hotshot_consensus::ConsensusApi<TYPES, I::Leaf, I::Proposal> for HotShotConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes
     }
 
     fn threshold(&self) -> NonZeroU64 {
-        self.inner.election.get_threshold()
+        self.inner.election.threshold()
     }
 
     fn propose_min_round_time(&self) -> Duration {
@@ -677,10 +1070,9 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
     }
 
     /// Generates and encodes a vote token
-    fn generate_vote_token(
+    fn make_vote_token(
         &self,
         view_number: TYPES::Time,
-        _next_state: Commitment<Leaf<TYPES>>,
     ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError> {
         self.inner
             .election
@@ -699,14 +1091,14 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
     async fn send_direct_message(
         &self,
         recipient: TYPES::SignatureKey,
-        message: ConsensusMessage<TYPES>,
+        message: ConsensusMessage<TYPES, I::Leaf, I::Proposal>,
     ) -> std::result::Result<(), NetworkError> {
         let inner = self.inner.clone();
         debug!(?message, ?recipient, "send_direct_message");
         async_spawn_local(async move {
             inner
                 .networking
-                .message_node(
+                .direct_message(
                     Message {
                         sender: inner.public_key.clone(),
                         kind: message.into(),
@@ -720,19 +1112,41 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
 
     async fn send_broadcast_message(
         &self,
-        message: ConsensusMessage<TYPES>,
+        message: ConsensusMessage<TYPES, I::Leaf, I::Proposal>,
     ) -> std::result::Result<(), NetworkError> {
         debug!(?message, "send_broadcast_message");
         self.inner
             .networking
-            .broadcast_message(Message {
-                sender: self.inner.public_key.clone(),
-                kind: message.into(),
-            })
-            .await
+            .broadcast_message(
+                Message {
+                    sender: self.inner.public_key.clone(),
+                    kind: message.into(),
+                },
+                // TODO this is morally wrong
+                &self.inner.election.clone(),
+            )
+            .await?;
+        Ok(())
     }
 
-    async fn send_event(&self, event: Event<TYPES>) {
+    async fn send_da_broadcast<DAPROPOSAL: ProposalType<NodeType = TYPES>>(
+        &self,
+        _message: ConsensusMessage<TYPES, I::Leaf, DAPROPOSAL>,
+    ) -> std::result::Result<(), NetworkError> {
+        // TODO: Should look like this code but it won't work due to only 1 Proposal type being
+        // associated with self.inner.networking.
+        // self.inner
+        //     .networking
+        //     .broadcast_message(Message {
+        //         sender: self.inner.public_key.clone(),
+        //         kind: MessageKind::Consensus(message),
+        //     })
+        //     .await
+        #[allow(deprecated)]
+        nll_todo()
+    }
+
+    async fn send_event(&self, event: Event<TYPES, I::Leaf>) {
         debug!(?event, "send_event");
         let mut event_sender = self.inner.event_sender.write().await;
         if let Some(sender) = &*event_sender {
@@ -751,65 +1165,84 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
         &self.inner.private_key
     }
 
-    #[instrument(skip(self, qc))]
-    fn validate_qc(&self, qc: &QuorumCertificate<TYPES>) -> bool {
-        if qc.genesis && qc.view_number == TYPES::Time::genesis() {
-            return true;
-        }
-        let hash = qc.leaf_commitment;
-
-        let stake = qc
-            .signatures
-            .iter()
-            .filter(|signature| {
-                self.is_valid_signature(
-                    signature.0,
-                    &signature.1 .0,
-                    hash,
-                    qc.view_number,
-                    Unchecked(signature.1 .1.clone()),
-                )
-            })
-            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
-
-        if stake >= u64::from(self.threshold()) {
-            return true;
-        }
-        false
+    #[instrument(skip(self, dac))]
+    fn is_valid_dac(
+        &self,
+        dac: &<I::Leaf as LeafType>::DACertificate,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> bool {
+        self.inner.election.is_valid_dac(dac, block_commitment)
     }
 
-    fn is_valid_signature(
+    #[instrument(skip(self, qc))]
+    fn is_valid_qc(&self, qc: &<I::Leaf as LeafType>::QuorumCertificate) -> bool {
+        self.inner.election.is_valid_qc(qc)
+    }
+
+    fn is_valid_vote(
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        hash: Commitment<Leaf<TYPES>>,
+        data: VoteData<TYPES, I::Leaf>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
-        let mut is_valid_vote_token = false;
-        let mut is_valid_signature = false;
-        if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
-            is_valid_signature = key.validate(encoded_signature, hash.as_ref());
-            let valid_vote_token =
-                self.inner
-                    .election
-                    .validate_vote_token(view_number, key, vote_token);
-            is_valid_vote_token = match valid_vote_token {
-                Err(_) => {
-                    error!("Vote token was invalid");
-                    false
-                }
-                Ok(Valid(_)) => true,
-                Ok(Inval(_) | Unchecked(_)) => false,
-            };
-        }
-        is_valid_signature && is_valid_vote_token
+        self.inner.election.is_valid_vote(
+            encoded_key,
+            encoded_signature,
+            data,
+            view_number,
+            vote_token,
+        )
+    }
+
+    fn accumulate_qc_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        leaf_commitment: Commitment<I::Leaf>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, I::Leaf>,
+    ) -> Either<
+        CertificateAccumulator<TYPES::VoteTokenType, I::Leaf>,
+        QuorumCertificate<TYPES, I::Leaf>,
+    > {
+        let meta = VoteMetaData {
+            encoded_key: encoded_key.clone(),
+            encoded_signature: encoded_signature.clone(),
+            commitment: leaf_commitment,
+            data: VoteData::Yes(leaf_commitment),
+            vote_token,
+            view_number,
+        };
+        self.inner.election.accumulate_vote(meta, accumlator)
+    }
+    fn accumulate_da_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        block_commitment: Commitment<TYPES::BlockType>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>
+    {
+        let meta = VoteMetaData {
+            encoded_key: encoded_key.clone(),
+            encoded_signature: encoded_signature.clone(),
+            commitment: block_commitment,
+            data: VoteData::DA(block_commitment),
+            vote_token,
+            view_number,
+        };
+        self.inner.election.accumulate_vote(meta, accumlator)
     }
 
     async fn store_leaf(
         &self,
         old_anchor_view: TYPES::Time,
-        leaf: Leaf<TYPES>,
+        leaf: I::Leaf,
     ) -> std::result::Result<(), hotshot_types::traits::storage::StorageError> {
         let view_to_insert = StoredView::from(leaf);
         let storage = &self.inner.storage;
@@ -821,12 +1254,12 @@ impl<TYPES: NodeTypes, I: NodeImplementation<TYPES>> hotshot_consensus::Consensu
 }
 
 /// initializer struct for creating starting block
-pub struct HotShotInitializer<TYPES: NodeTypes> {
+pub struct HotShotInitializer<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// the leaf specified initialization
-    inner: Leaf<TYPES>,
+    inner: LEAF,
 }
 
-impl<TYPES: NodeTypes> HotShotInitializer<TYPES> {
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPES, LEAF> {
     /// initialize from genesis
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
@@ -837,24 +1270,15 @@ impl<TYPES: NodeTypes> HotShotInitializer<TYPES> {
                 context: err.to_string(),
             })?;
         let time = TYPES::Time::genesis();
-        let justify_qc = QuorumCertificate::<TYPES>::genesis();
+        let justify_qc = LEAF::QuorumCertificate::genesis();
 
         Ok(Self {
-            inner: Leaf {
-                view_number: time,
-                justify_qc,
-                parent_commitment: fake_commitment(),
-                deltas: genesis_block,
-                state,
-                rejected: Vec::new(),
-                timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                proposer_id: genesis_proposer_id(),
-            },
+            inner: LEAF::new(time, justify_qc, genesis_block, state),
         })
     }
 
     /// reload previous state based on most recent leaf
-    pub fn from_reload(anchor_leaf: Leaf<TYPES>) -> Self {
+    pub fn from_reload(anchor_leaf: LEAF) -> Self {
         Self { inner: anchor_leaf }
     }
 }

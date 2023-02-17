@@ -1,31 +1,27 @@
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 // TODO this should really be moved into the utils crate.
-use async_compatibility_layer::{
-    art::async_main,
-    logging::{setup_backtrace, setup_logging},
-};
 use async_lock::RwLock;
 use clap::Parser;
 use hotshot::{
     demos::dentry::*,
     traits::{
-        election::{
-            static_committee::{StaticCommittee, StaticElectionConfig},
-            vrf::BlsPubKey,
-        },
-        implementations::{Libp2pNetwork, MemoryStorage},
+        election::static_committee::{GeneralStaticCommittee, StaticElectionConfig},
+        implementations::{Libp2pCommChannel, Libp2pNetwork, MemoryStorage},
         NetworkError, Storage,
     },
-    types::HotShotHandle,
+    types::{ed25519::Ed25519Priv, HotShotHandle},
     HotShot,
 };
 use hotshot_centralized_server::{
     Run, RunResults, TcpStreamUtil, TcpStreamUtilWithRecv, TcpStreamUtilWithSend,
 };
 use hotshot_types::{
+    data::{ValidatingLeaf, ValidatingProposal},
     traits::{
         metrics::NoMetrics,
-        network::NetworkingImplementation,
-        signature_key::{SignatureKey, TestableSignatureKey},
+        network::CommunicationChannel,
+        node_implementation::NodeType,
+        signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
         state::TestableState,
     },
     ExecutionType, HotShotConfig,
@@ -36,6 +32,8 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+#[allow(deprecated)]
+use nll::nll_todo::nll_todo;
 use std::{
     collections::HashSet,
     num::NonZeroUsize,
@@ -43,7 +41,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, instrument};
 
 #[cfg(feature = "async-std-executor")]
 use async_std::net::TcpStream;
@@ -52,8 +50,8 @@ use tokio::net::TcpStream;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
-type FromServer = hotshot_centralized_server::FromServer<BlsPubKey, StaticElectionConfig>;
-type ToServer = hotshot_centralized_server::ToServer<BlsPubKey>;
+type FromServer = hotshot_centralized_server::FromServer<Ed25519Pub, StaticElectionConfig>;
+type ToServer = hotshot_centralized_server::ToServer<Ed25519Pub>;
 
 /// convert node string into multi addr
 /// node string of the form: "$IP:$PORT"
@@ -61,14 +59,14 @@ pub fn parse_dns(s: &str) -> Result<Multiaddr, multiaddr::Error> {
     let mut i = s.split(':');
     let ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
     let port = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
-    Multiaddr::from_str(&format!("/dns/{}/tcp/{}", ip, port))
+    Multiaddr::from_str(&format!("/dns/{ip}/tcp/{port}"))
 }
 
 pub fn parse_ip(s: &str) -> Result<Multiaddr, multiaddr::Error> {
     let mut i = s.split(':');
     let ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
     let port = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
-    Multiaddr::from_str(&format!("/ip4/{}/tcp/{}", ip, port))
+    Multiaddr::from_str(&format!("/ip4/{ip}/tcp/{port}"))
 }
 
 // FIXME make these actual ips/ports
@@ -222,19 +220,17 @@ impl CliOrchestrated {
             FromServer::Config { config, run } => (config, run),
             x => panic!("Expected Libp2pConfig, got {x:?}"),
         };
-        assert_eq!(config.key_type_name, std::any::type_name::<BlsPubKey>());
+        assert_eq!(config.key_type_name, std::any::type_name::<Ed25519Pub>());
         assert_eq!(
             config.election_config_type_name,
             std::any::type_name::<StaticElectionConfig>()
         );
         error!("Received server config: {config:?}");
-        let (pubkey, privkey) =
-            BlsPubKey::generated_from_seed_indexed(config.seed, config.node_index);
+        let privkey = Ed25519Priv::generated_from_seed_indexed(config.seed, config.node_index);
+        let pubkey = Ed25519Pub::from_private(&privkey);
 
         stream
-            .send(ToServer::Identify {
-                key: pubkey.clone(),
-            })
+            .send(ToServer::Identify { key: pubkey })
             .await
             .expect("Could not identify with server");
 
@@ -312,7 +308,8 @@ impl CliStandalone {
     fn init(&self) -> Config {
         let mut seed = [0u8; 32];
         seed[0..16].copy_from_slice(&self.seed.to_le_bytes());
-        let (pubkey, privkey) = BlsPubKey::generated_from_seed_indexed(seed, self.node_idx);
+        let privkey = Ed25519Priv::generated_from_seed_indexed(seed, self.node_idx);
+        let pubkey = Ed25519Pub::from_private(&privkey);
 
         let bootstrap_priv: Vec<_> = BOOTSTRAPS
             .iter()
@@ -366,12 +363,17 @@ impl CliStandalone {
     }
 }
 
-type Node = DEntryNode<DEntryTypes, Libp2pNetwork<DEntryTypes>, StaticCommittee<DEntryTypes>>;
+type ThisLeaf = ValidatingLeaf<DEntryTypes>;
+type ThisElection =
+    GeneralStaticCommittee<DEntryTypes, ThisLeaf, <DEntryTypes as NodeType>::SignatureKey>;
+type ThisNetworking = Libp2pCommChannel<DEntryTypes, ThisLeaf, ThisProposal>;
+type ThisProposal = ValidatingProposal<DEntryTypes, ThisElection>;
+type Node = DEntryNode<ThisNetworking, ThisElection>;
 
 struct Config {
     run: Run,
-    privkey: <BlsPubKey as SignatureKey>::PrivateKey,
-    pubkey: BlsPubKey,
+    privkey: Ed25519Priv,
+    pubkey: Ed25519Pub,
     bs: Vec<(PeerId, Multiaddr)>,
     node_id: u64,
     node_type: NetworkNodeType,
@@ -397,17 +399,16 @@ impl Config {
     /// Creates the initial state and hotshot for simulation.
     async fn init_state_and_hotshot(
         &self,
-
-        networking: Libp2pNetwork<DEntryTypes>,
+        networking: ThisNetworking,
     ) -> (DEntryState, HotShotHandle<DEntryTypes, Node>) {
         let genesis_block = DEntryBlock::genesis();
         let initializer = hotshot::HotShotInitializer::from_genesis(genesis_block).unwrap();
 
         // Create the initial hotshot
-        let known_nodes: Vec<_> = (0..self.num_nodes as u64)
+        let known_nodes: Vec<_> = (0..self.num_nodes)
             .map(|x| {
-                let priv_key = BlsPubKey::generate_test_key(x);
-                BlsPubKey::from_private(&priv_key)
+                let priv_key = Ed25519Pub::generate_test_key(x);
+                Ed25519Pub::from_private(&priv_key)
             })
             .collect();
 
@@ -428,13 +429,13 @@ impl Config {
         };
         debug!(?config);
         let hotshot = HotShot::init(
-            self.pubkey.clone(),
+            self.pubkey,
             self.privkey.clone(),
-            self.node_id as u64,
+            self.node_id,
             config,
             networking,
             MemoryStorage::new(),
-            StaticCommittee::new(known_nodes),
+            GeneralStaticCommittee::new(known_nodes),
             initializer,
             NoMetrics::new(),
         )
@@ -442,14 +443,14 @@ impl Config {
         .expect("Could not init hotshot");
         debug!("hotshot launched");
 
-        let storage: &MemoryStorage<DEntryTypes> = hotshot.storage();
+        let storage: &MemoryStorage<DEntryTypes, ThisLeaf> = hotshot.storage();
 
         let state = storage.get_anchored_view().await.unwrap().state;
 
         (state, hotshot)
     }
 
-    async fn new_libp2p_network(&self) -> Result<Libp2pNetwork<DEntryTypes>, NetworkError> {
+    async fn new_libp2p_network(&self) -> Result<ThisNetworking, NetworkError> {
         assert!(self.node_id < self.num_nodes);
         let mut config_builder = NetworkNodeConfigBuilder::default();
         // NOTE we may need to change this as we scale
@@ -489,7 +490,7 @@ impl Config {
         Libp2pNetwork::new(
             NoMetrics::new(),
             node_config,
-            self.pubkey.clone(),
+            self.pubkey,
             Arc::new(RwLock::new(
                 self.bs
                     .iter()
@@ -498,12 +499,20 @@ impl Config {
             )),
             bs_len,
             self.node_id as usize,
+            #[allow(deprecated)]
+            nll_todo(),
         )
         .await
+        .map(Libp2pCommChannel::new)
     }
 }
 
-#[async_main]
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::main(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::main)]
+#[instrument]
 async fn main() {
     setup_logging();
     setup_backtrace();
@@ -530,7 +539,8 @@ async fn main() {
     let (_own_state, mut hotshot) = config.init_state_and_hotshot(own_network).await;
 
     error!("waiting for connections to hotshot!");
-    hotshot.networking().ready().await;
+    let network = hotshot.networking();
+    <ThisNetworking as CommunicationChannel<_, _, _, ThisElection>>::ready(network).await;
 
     if let Some(server) = &mut server_conn {
         error!("Waiting for server to start us up");
