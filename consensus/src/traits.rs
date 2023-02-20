@@ -349,8 +349,8 @@ pub trait ConsensusApi<
     fn accumulate_vote<C: Committable, Cert>(
         &self,
         vota_meta: VoteMetaData<TYPES, C, TYPES::VoteTokenType, TYPES::Time, LEAF>,
-        accumulator: CertificateAccumulator<TYPES::VoteTokenType, C>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Cert>
+        accumulator: VoteAccumulator<TYPES, C>,
+    ) -> Either<VoteAccumulator<TYPES, C>, Cert>
     where
         Cert: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, C>;
 

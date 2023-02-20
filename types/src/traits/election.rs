@@ -7,7 +7,6 @@ use super::signature_key::{EncodedPublicKey, EncodedSignature};
 use crate::{data::LeafType, traits::signature_key::SignatureKey};
 use bincode::Options;
 use commit::{Commitment, Committable};
-use either::Either;
 use hotshot_utils::bincode::bincode_opts;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};

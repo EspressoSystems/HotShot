@@ -59,28 +59,27 @@ use hotshot_consensus::{
     DAMember, NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner,
     ViewQueue,
 };
-use hotshot_types::data::ProposalType;
-use hotshot_types::data::{DAProposal, SequencingLeaf};
-use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
-use hotshot_types::traits::election::Accumulator;
-use hotshot_types::traits::election::VoteToken;
-use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{
     certificate::{DACertificate, VoteMetaData},
-    data::{LeafType, ValidatingLeaf, ValidatingProposal},
+    data::{
+        DAProposal, LeafType, ProposalType, SequencingLeaf, ValidatingLeaf, ValidatingProposal,
+    },
     error::StorageSnafu,
-    message::{ConsensusMessage, DataMessage, InternalTrigger, Message},
+    message::{
+        ConsensusMessage, DataMessage, InternalTrigger, Message, MessageKind,
+        ProcessedConsensusMessage,
+    },
     traits::{
-        election::{Checked, ElectionError, Membership, SignedCertificate, VoteData},
+        election::{Checked, ElectionError, Membership, SignedCertificate, VoteData, VoteToken},
         metrics::Metrics,
-        network::{NetworkError, TransmitType},
+        network::{CommunicationChannel, NetworkError, TransmitType},
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::{ConsensusTime, ConsensusType, SequencingConsensus, ValidatingConsensus},
         storage::StoredView,
         State,
     },
-    vote::{DAVote, QuorumVote, VoteAccumulator, VoteType},
+    vote::{Accumulator, DAVote, QuorumVote, VoteAccumulator, VoteType},
     HotShotConfig,
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -1210,8 +1209,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     fn accumulate_vote<C: Committable, Cert>(
         &self,
         vota_meta: VoteMetaData<TYPES, C, TYPES::VoteTokenType, TYPES::Time, I::Leaf>,
-        accumulator: CertificateAccumulator<TYPES::VoteTokenType, C>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Cert>
+        accumulator: VoteAccumulator<TYPES, C>,
+    ) -> Either<VoteAccumulator<TYPES, C>, Cert>
     where
         Cert: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, C>,
     {

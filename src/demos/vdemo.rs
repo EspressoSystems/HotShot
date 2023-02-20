@@ -599,7 +599,7 @@ where
     type Proposal = ValidatingProposal<VDemoTypes, Self::Leaf>;
     type Vote = QuorumVote<VDemoTypes, Self::Leaf>;
     type DAVoteAccumulator = VoteAccumulator<VDemoTypes, VDemoBlock>;
-    type QuorumVoteAccumulator = VoteAccumulator<VDemoTypes, ELE::LeafType>;
+    type QuorumVoteAccumulator = VoteAccumulator<VDemoTypes, Self::Leaf>;
 }
 
 /// Provides a random [`QuorumCertificate`]
