@@ -1,0 +1,60 @@
+[meta]
+NAME = "centralized_web_server"
+DESCRIPTION = "Centralized web server for HotShot"
+FORMAT_VERSION = "0.1.0"
+
+# GET the proposed block for a view, where the view is passed as an argument
+[route.getproposal]
+PATH = ["proposal/:view_number"]
+":view_number" = "Integer"
+DOC = """
+Return the proposal for `view_number`.
+"""
+
+# POST for the leader to post their proposal with the view as an argument
+[route.postproposal]
+PATH = ["proposal/:view_number"]
+METHOD = "POST"
+":view_number" = "Integer"
+DOC = """
+Post the proposal for view_number
+"""
+
+# GET for the next leader to receive votes with view number and last index as arguments
+[route.getvotes]
+PATH = ["votes/:view_number/:index"]
+":view_number" = "Integer"
+":index" = "Integer"
+METHOD = "GET"
+DOC = """
+Get all votes for a view number`.
+"""
+
+# POST for replicas to send their votes with view number as argument
+[route.postvote]
+PATH = ["votes/:view_number"]
+":view_number" = "Integer"
+METHOD = "POST"
+DOC = """
+Send a vote`.
+"""
+
+# GET all of the transactions, starting with :index
+[route.gettransactions]
+PATH = ["transactions/:index"]
+":index" = "Integer"
+METHOD = "GET"
+DOC = """
+Get all transactions since given index`.
+"""
+
+
+# POST to submit transactions
+[route.posttransaction]
+PATH = ["transactions"]
+METHOD = "POST"
+DOC = """
+Send a group of transactions`.
+"""
+
+
