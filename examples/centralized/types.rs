@@ -6,8 +6,8 @@ use hotshot::{
 };
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
-    message::QuorumVote,
     traits::node_implementation::NodeType,
+    vote::QuorumVote,
 };
 
 use crate::infra::CentralizedConfig;
