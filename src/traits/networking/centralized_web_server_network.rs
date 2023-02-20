@@ -83,7 +83,7 @@ impl<
 {
     /// Create new communication channel
     pub fn new(
-        network: CentralizedWebServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>,
+        network: CentralizedWebServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES, M>,
     ) -> Self {
         Self(network, PhantomData::default())
     }
@@ -204,14 +204,14 @@ impl<
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
         M: NetworkMsg
-    > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION, M>
+    > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
     for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION, M>
 {
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
-        <CentralizedWebServerNetwork<_, _, _> as ConnectedNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
+        <CentralizedWebServerNetwork<_, _, _, _> as ConnectedNetwork<
+            M,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
         .await;
@@ -220,8 +220,8 @@ impl<
     /// checks if the network is ready
     /// nonblocking
     async fn is_ready(&self) -> bool {
-        <CentralizedWebServerNetwork<_, _, _> as ConnectedNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
+        <CentralizedWebServerNetwork<_, _, _, _> as ConnectedNetwork<
+            M,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -231,8 +231,8 @@ impl<
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
-        <CentralizedWebServerNetwork<_, _, _> as ConnectedNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
+        <CentralizedWebServerNetwork<_, _, _, _> as ConnectedNetwork<
+            M,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
         .await;
@@ -282,7 +282,7 @@ impl<
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
-    > ConnectedNetwork<M, K> for CentralizedWebServerNetwork<M, K, E, TYPES>
+    > ConnectedNetwork<M, K> for CentralizedWebServerNetwork<K, E, TYPES, M>
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {

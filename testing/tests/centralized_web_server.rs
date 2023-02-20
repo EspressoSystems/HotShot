@@ -5,9 +5,12 @@ use async_compatibility_layer::logging::shutdown_logging;
 use blake3::Hasher;
 use common::*;
 use either::Either::Right;
-use hotshot::traits::{
-    election::{static_committee::StaticCommittee, vrf::VrfImpl},
-    implementations::{CentralizedWebCommChannel, MemoryStorage},
+use hotshot::{
+    traits::{
+        election::{static_committee::StaticCommittee, vrf::VrfImpl},
+        implementations::{CentralizedWebCommChannel, MemoryStorage},
+    },
+    types::Message,
 };
 use hotshot_testing::TestNodeImpl;
 use hotshot_types::{
@@ -59,6 +62,17 @@ async fn centralized_server_network() {
                 >,
                 QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+                Message<
+                    StaticCommitteeTestTypes,
+                    ValidatingProposal<
+                        StaticCommitteeTestTypes,
+                        StaticCommittee<
+                            StaticCommitteeTestTypes,
+                            ValidatingLeaf<StaticCommitteeTestTypes>,
+                        >,
+                    >,
+                    QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+                >,
             >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
