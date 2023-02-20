@@ -3,8 +3,12 @@
 //! To run the web server, see the `./centralized_web_server/` folder in this repo.
 //!
 
+// TODO ED Remove once ready to merge
+#![allow(dead_code, unused, deprecated)]
+
 #[cfg(feature = "async-std-executor")]
 use async_std::net::TcpStream;
+use nll::nll_todo::nll_todo;
 #[cfg(feature = "tokio-executor")]
 use tokio::net::TcpStream;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
@@ -69,10 +73,111 @@ impl<
     > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
     for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 {
+    /// Blocks until node is successfully initialized
+    /// into the network
+    async fn wait_for_ready(&self) {
+        nll_todo();
+    }
+
+    /// checks if the network is ready
+    /// nonblocking
+    async fn is_ready(&self) -> bool {
+        nll_todo();
+    }
+
+    /// Shut down this network. Afterwards this network should no longer be used.
+    ///
+    /// This should also cause other functions to immediately return with a [`NetworkError`]
+    async fn shut_down(&self) -> () {
+        nll_todo();
+    }
+
+    /// broadcast message to those listening on the communication channel
+    /// blocking
+    async fn broadcast_message(
+        &self,
+        message: Message<TYPES, PROPOSAL, VOTE>,
+        election: &ELECTION,
+    ) -> Result<(), NetworkError> {
+        nll_todo();
+    }
+
+    /// Sends a direct message to a specific node
+    /// blocking
+    async fn direct_message(
+        &self,
+        message: Message<TYPES, PROPOSAL, VOTE>,
+        recipient: TYPES::SignatureKey,
+    ) -> Result<(), NetworkError> {
+        nll_todo();
+    }
+
+    /// Moves out the entire queue of received messages of 'transmit_type`
+    ///
+    /// Will unwrap the underlying `NetworkMessage`
+    /// blocking
+    async fn recv_msgs(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
+        nll_todo();
+    }
+
+    /// look up a node
+    /// blocking
+    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
+        nll_todo();
+    }
 }
 
 #[async_trait]
 impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> ConnectedNetwork<M, K>
     for CentralizedWebServerNetwork<K, E>
 {
+    /// Blocks until the network is successfully initialized
+    async fn wait_for_ready(&self) {
+        nll_todo();
+    }
+
+    /// checks if the network is ready
+    /// nonblocking
+    async fn is_ready(&self) -> bool {
+        nll_todo();
+    }
+
+    /// Blocks until the network is shut down
+    /// then returns true
+    async fn shut_down(&self) {
+        nll_todo();
+    }
+
+    /// broadcast message to some subset of nodes
+    /// blocking
+    async fn broadcast_message(
+        &self,
+        message: M,
+        recipients: BTreeSet<K>,
+    ) -> Result<(), NetworkError> {
+        nll_todo();
+    }
+
+    /// Sends a direct message to a specific node
+    /// blocking
+    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
+        nll_todo();
+    }
+
+    /// Moves out the entire queue of received messages of 'transmit_type`
+    ///
+    /// Will unwrap the underlying `NetworkMessage`
+    /// blocking
+    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
+        nll_todo();
+    }
+
+    /// look up a node
+    /// blocking
+    async fn lookup_node(&self, pk: K) -> Result<(), NetworkError> {
+        nll_todo();
+    }
 }
