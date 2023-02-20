@@ -2853,6 +2853,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.6",
  "snafu",
+ "surf-disco",
  "tempfile",
  "time 0.3.19",
  "tokio",

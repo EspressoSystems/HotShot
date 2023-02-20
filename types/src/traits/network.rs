@@ -163,7 +163,7 @@ pub trait CommunicationChannel<
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError>;
 }
 
-/// common traits we would like olur network messages to implement
+/// common traits we would like our network messages to implement
 pub trait NetworkMsg:
     Serialize + for<'a> Deserialize<'a> + Clone + std::fmt::Debug + Sync + Send + 'static
 {

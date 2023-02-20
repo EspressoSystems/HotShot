@@ -212,6 +212,8 @@ pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         if let Some(ref recv) = run_once {
             let _ = recv.recv().await;
         }
+        // TODO ED: Insert inject view number logic here? 
+        // hotshot.inner.networking.rwlock
         let _ = HotShot::<TYPES::ConsensusType, TYPES, I>::run_view(hotshot.clone()).await;
     }
 }
