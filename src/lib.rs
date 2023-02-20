@@ -129,7 +129,7 @@ pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     storage: I::Storage,
 
     /// This `HotShot` instance's election backend
-    election: I::Membership,
+    membership: I::Membership,
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<TYPES, I::Leaf>>>>,
@@ -180,7 +180,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     /// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     #[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, networking, storage, election, initializer, metrics))]
+    #[instrument(skip(private_key, networking, storage, membership, initializer, metrics))]
     pub async fn new(
         public_key: TYPES::SignatureKey,
         private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
@@ -188,7 +188,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         networking: I::Networking,
         storage: I::Storage,
-        election: I::Membership,
+        membership: I::Membership,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
@@ -199,7 +199,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             config,
             networking,
             storage,
-            election,
+            membership,
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
             metrics,
@@ -357,7 +357,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         networking: I::Networking,
         storage: I::Storage,
-        election: I::Membership,
+        membership: I::Membership,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<HotShotHandle<TYPES, I>, HotShotError<TYPES>>
@@ -372,7 +372,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             config,
             networking,
             storage,
-            election,
+            membership,
             initializer,
             metrics,
         )
@@ -402,7 +402,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                 .broadcast_message(
                     Message { sender: pk, kind },
                     // TODO this is morally wrong
-                    &inner.election.clone(),
+                    &inner.membership.clone(),
                 )
                 .await
                 .is_err()
@@ -1017,7 +1017,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     }
 
     fn threshold(&self) -> NonZeroU64 {
-        self.inner.election.threshold()
+        self.inner.membership.threshold()
     }
 
     fn propose_min_round_time(&self) -> Duration {
@@ -1042,12 +1042,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         view_number: TYPES::Time,
     ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError> {
         self.inner
-            .election
+            .membership
             .make_vote_token(view_number, &self.inner.private_key)
     }
 
     async fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
-        let election = &self.inner.election;
+        let election = &self.inner.membership;
         election.get_leader(view_number)
     }
 
@@ -1090,7 +1090,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
                     kind: message.into(),
                 },
                 // TODO this is morally wrong
-                &self.inner.election.clone(),
+                &self.inner.membership.clone(),
             )
             .await?;
         Ok(())
@@ -1197,7 +1197,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
             is_valid_signature = key.validate(encoded_signature, &data.as_bytes());
             let valid_vote_token =
                 self.inner
-                    .election
+                    .membership
                     .validate_vote_token(view_number, key, vote_token);
             is_valid_vote_token = match valid_vote_token {
                 Err(_) => {
