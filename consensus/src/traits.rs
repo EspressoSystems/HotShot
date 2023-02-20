@@ -2,10 +2,13 @@
 
 use async_trait::async_trait;
 use commit::Commitment;
+use commit::Committable;
 use either::Either;
 use hotshot_types::certificate::CertificateAccumulator;
+use hotshot_types::certificate::VoteMetaData;
 use hotshot_types::certificate::{DACertificate, QuorumCertificate};
 use hotshot_types::message::ConsensusMessage;
+use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
@@ -21,7 +24,6 @@ use hotshot_types::{
 };
 use std::num::NonZeroU64;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
-
 // FIXME these should be nonzero u64s
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
 ///
@@ -37,7 +39,7 @@ pub trait ConsensusApi<
     /// Total number of nodes in the network. Also known as `n`.
     fn total_nodes(&self) -> NonZeroUsize;
 
-    /// The amount of stake required to reach a decision. See implementation of `Election` for more details.
+    /// The amount of stake required to reach a decision. See implementation of `Membership` for more details.
     fn threshold(&self) -> NonZeroU64;
 
     /// The minimum amount of time a leader has to wait before sending a propose
@@ -342,6 +344,16 @@ pub trait ConsensusApi<
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool;
+
+    /// Add a vote to the accumulating signature.  Return The certificate if the vote
+    /// brings us over the threshould, Else return the accumulator.
+    fn accumulate_vote<C: Committable, Cert>(
+        &self,
+        vota_meta: VoteMetaData<TYPES, C, TYPES::VoteTokenType, TYPES::Time, LEAF>,
+        accumulator: CertificateAccumulator<TYPES::VoteTokenType, C>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Cert>
+    where
+        Cert: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, C>;
 
     /// Add a vote for a QC, if the threshold is reached return the QC if not return the accumulator
     fn accumulate_qc_vote(

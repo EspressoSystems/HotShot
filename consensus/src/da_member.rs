@@ -14,9 +14,7 @@ use hotshot_types::{
     data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, DAVote, ProcessedConsensusMessage},
     traits::{
-        election::{Election, SignedCertificate},
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
+        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
     },
 };
 use std::sync::Arc;
@@ -28,15 +26,10 @@ pub struct DAMember<
     A: ConsensusApi<
         TYPES,
         SequencingLeaf<TYPES>,
-        DAProposal<TYPES, ELECTION>,
+        DAProposal<TYPES>,
         DAVote<TYPES, SequencingLeaf<TYPES>>,
     >,
     TYPES: NodeType,
-    ELECTION: Election<
-        TYPES,
-        LeafType = SequencingLeaf<TYPES>,
-        QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-    >,
 > {
     /// ID of node.
     pub id: u64,
@@ -49,7 +42,7 @@ pub struct DAMember<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
-                    DAProposal<TYPES, ELECTION>,
+                    DAProposal<TYPES>,
                     DAVote<TYPES, SequencingLeaf<TYPES>>,
                 >,
             >,
@@ -58,7 +51,7 @@ pub struct DAMember<
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// The High QC.
-    pub high_qc: ELECTION::QuorumCertificate,
+    pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// HotShot consensus API.
     pub api: A,
 }
@@ -67,16 +60,11 @@ impl<
         A: ConsensusApi<
             TYPES,
             SequencingLeaf<TYPES>,
-            DAProposal<TYPES, ELECTION>,
+            DAProposal<TYPES>,
             DAVote<TYPES, SequencingLeaf<TYPES>>,
         >,
         TYPES: NodeType,
-        ELECTION: Election<
-            TYPES,
-            LeafType = SequencingLeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        >,
-    > DAMember<A, TYPES, ELECTION>
+    > DAMember<A, TYPES>
 {
     /// Returns the parent leaf of the proposal we are voting on
     async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {

@@ -19,16 +19,13 @@ use hotshot_types::{
         ConsensusMessage, DAVote, InternalTrigger, ProcessedConsensusMessage, Proposal, QuorumVote,
     },
     traits::{
-        election::{Election, SignedCertificate},
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
-        state::SequencingConsensus,
-        Block,
+        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
+        state::SequencingConsensus, Block,
     },
 };
 use std::collections::HashMap;
 use std::num::NonZeroU64;
-use std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Instant};
+use std::{collections::HashSet, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
 
 /// This view's DA committee leader
@@ -37,18 +34,17 @@ pub struct DALeader<
     A: ConsensusApi<
         TYPES,
         SequencingLeaf<TYPES>,
-        DAProposal<TYPES, ELECTION>,
+        DAProposal<TYPES>,
         DAVote<TYPES, SequencingLeaf<TYPES>>,
     >,
     TYPES: NodeType,
-    ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
 > {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// The `high_qc` per spec
-    pub high_qc: ELECTION::QuorumCertificate,
+    pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// Lock over the transactions list
@@ -62,26 +58,22 @@ pub struct DALeader<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
-                    DAProposal<TYPES, ELECTION>,
+                    DAProposal<TYPES>,
                     DAVote<TYPES, SequencingLeaf<TYPES>>,
                 >,
             >,
         >,
     >,
-    #[allow(missing_docs)]
-    #[allow(clippy::missing_docs_in_private_items)]
-    pub _pd: PhantomData<ELECTION>,
 }
 impl<
         A: ConsensusApi<
             TYPES,
             SequencingLeaf<TYPES>,
-            DAProposal<TYPES, ELECTION>,
+            DAProposal<TYPES>,
             DAVote<TYPES, SequencingLeaf<TYPES>>,
         >,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
-    > DALeader<A, TYPES, ELECTION>
+    > DALeader<A, TYPES>
 {
     /// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
     /// TODO: Refactor this to use new `Elecetion` trait and call accumulate
@@ -237,14 +229,13 @@ impl<
 
         let consensus = self.consensus.read().await;
         let signature = self.api.sign_da_proposal(&block.commit());
-        let data: DAProposal<TYPES, ELECTION> = DAProposal {
+        let data: DAProposal<TYPES> = DAProposal {
             deltas: block.clone(),
             view_number: self.cur_view,
-            _pd: PhantomData,
         };
         let message = ConsensusMessage::<
             TYPES,
-            DAProposal<TYPES, ELECTION>,
+            DAProposal<TYPES>,
             DAVote<TYPES, SequencingLeaf<TYPES>>,
         >::Proposal(Proposal { data, signature });
         // Brodcast DA proposal
@@ -272,16 +263,10 @@ pub struct ConsensusLeader<
     A: ConsensusApi<
         TYPES,
         SequencingLeaf<TYPES>,
-        DAProposal<TYPES, ELECTION>,
+        DAProposal<TYPES>,
         DAVote<TYPES, SequencingLeaf<TYPES>>,
     >,
     TYPES: NodeType,
-    ELECTION: Election<
-        TYPES,
-        LeafType = SequencingLeaf<TYPES>,
-        QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        DACertificate = DACertificate<TYPES>,
-    >,
 > {
     /// id of node
     pub id: u64,
@@ -299,26 +284,16 @@ pub struct ConsensusLeader<
     pub parent: SequencingLeaf<TYPES>,
     /// Limited access to the consensus protocol
     pub api: A,
-
-    #[allow(missing_docs)]
-    #[allow(clippy::missing_docs_in_private_items)]
-    pub _pd: PhantomData<ELECTION>,
 }
 impl<
         A: ConsensusApi<
             TYPES,
             SequencingLeaf<TYPES>,
-            DAProposal<TYPES, ELECTION>,
+            DAProposal<TYPES>,
             DAVote<TYPES, SequencingLeaf<TYPES>>,
         >,
         TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
-        ELECTION: Election<
-            TYPES,
-            LeafType = SequencingLeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-            DACertificate = DACertificate<TYPES>,
-        >,
-    > ConsensusLeader<A, TYPES, ELECTION>
+    > ConsensusLeader<A, TYPES>
 {
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
@@ -352,7 +327,7 @@ impl<
 
         let message = ConsensusMessage::<
             TYPES,
-            CommitmentProposal<TYPES, ELECTION>,
+            CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
             QuorumVote<TYPES, SequencingLeaf<TYPES>>,
         >::Proposal(Proposal {
             data: proposal,
@@ -370,11 +345,10 @@ pub struct ConsensusNextLeader<
     A: ConsensusApi<
         TYPES,
         SequencingLeaf<TYPES>,
-        DAProposal<TYPES, ELECTION>,
+        DAProposal<TYPES>,
         DAVote<TYPES, SequencingLeaf<TYPES>>,
     >,
     TYPES: NodeType,
-    ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
 > {
     /// id of node
     pub id: u64,
@@ -394,26 +368,22 @@ pub struct ConsensusNextLeader<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
-                    DAProposal<TYPES, ELECTION>,
+                    DAProposal<TYPES>,
                     DAVote<TYPES, SequencingLeaf<TYPES>>,
                 >,
             >,
         >,
     >,
-    #[allow(missing_docs)]
-    #[allow(clippy::missing_docs_in_private_items)]
-    pub _pd: PhantomData<ELECTION>,
 }
 impl<
         A: ConsensusApi<
             TYPES,
             SequencingLeaf<TYPES>,
-            DAProposal<TYPES, ELECTION>,
+            DAProposal<TYPES>,
             DAVote<TYPES, SequencingLeaf<TYPES>>,
         >,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        ELECTION: Election<TYPES, LeafType = SequencingLeaf<TYPES>>,
-    > ConsensusNextLeader<A, TYPES, ELECTION>
+    > ConsensusNextLeader<A, TYPES>
 {
     /// Run one view of the next leader, collect votes and build a QC for the last views `CommitmentProposal`
     /// # Panics

@@ -10,7 +10,7 @@ use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
-use super::{election::Election, node_implementation::NodeType, signature_key::SignatureKey};
+use super::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
 use crate::{
     data::ProposalType,
     message::{Message, VoteType},
@@ -117,7 +117,7 @@ pub trait CommunicationChannel<
     TYPES: NodeType,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
-    ELECTION: Election<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
 >: Clone + Send + Sync + 'static
 {
     /// Blocks until node is successfully initialized
@@ -138,7 +138,7 @@ pub trait CommunicationChannel<
     async fn broadcast_message(
         &self,
         message: Message<TYPES, PROPOSAL, VOTE>,
-        election: &ELECTION,
+        election: &MEMBERSHIP,
     ) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
@@ -216,8 +216,8 @@ pub trait TestableNetworkingImplementation<
     TYPES: NodeType,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
-    ELECTION: Election<TYPES>,
->: CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+    MEMBERSHIP: Membership<TYPES>,
+>: CommunicationChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// generates a network given an expected node count
     fn generator(

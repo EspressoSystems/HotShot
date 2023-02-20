@@ -27,7 +27,7 @@ use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
-        election::Election,
+        election::Membership,
         network::{CommunicationChannel, TestableNetworkingImplementation},
         node_implementation::{ApplicationMetadata, NodeType, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
@@ -116,7 +116,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Election>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -134,7 +134,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Election>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -144,7 +144,7 @@ where
             self.total_nodes,
             self.num_bootstrap_nodes,
             self.min_transactions,
-            I::Election::default_election_config(self.total_nodes as u64),
+            I::Membership::default_election_config(self.total_nodes as u64),
         );
         // modify runner to recognize timing params
         let set_timing_params =
@@ -207,7 +207,7 @@ impl GeneralTestDescriptionBuilder {
         TYPES::BlockType: TestableBlock,
         TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
         TYPES::SignatureKey: TestableSignatureKey,
-        I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Election>,
+        I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
         I::Storage: TestableStorage<TYPES, I::Leaf>,
         I::Leaf: TestableLeaf<NodeType = TYPES>,
     {
@@ -225,7 +225,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Election>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -266,7 +266,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Election>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -375,31 +375,11 @@ impl NodeType for StaticCommitteeTestTypes {
 pub type StandardNodeImplType = TestNodeImpl<
     VrfTestTypes,
     ValidatingLeaf<VrfTestTypes>,
-    ValidatingProposal<
-        VrfTestTypes,
-        VrfImpl<
-            VrfTestTypes,
-            ValidatingLeaf<VrfTestTypes>,
-            BLSSignatureScheme<Param381>,
-            BLSVRFScheme<Param381>,
-            Hasher,
-            Param381,
-        >,
-    >,
+    ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
     QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
     MemoryCommChannel<
         VrfTestTypes,
-        ValidatingProposal<
-            VrfTestTypes,
-            VrfImpl<
-                VrfTestTypes,
-                ValidatingLeaf<VrfTestTypes>,
-                BLSSignatureScheme<Param381>,
-                BLSVRFScheme<Param381>,
-                Hasher,
-                Param381,
-            >,
-        >,
+        ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
         QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
         VrfImpl<
             VrfTestTypes,
@@ -426,17 +406,11 @@ pub type StandardNodeImplType = TestNodeImpl<
 pub type StaticNodeImplType = TestNodeImpl<
     StaticCommitteeTestTypes,
     ValidatingLeaf<StaticCommitteeTestTypes>,
-    ValidatingProposal<
-        StaticCommitteeTestTypes,
-        StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-    >,
+    ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     MemoryCommChannel<
         StaticCommitteeTestTypes,
-        ValidatingProposal<
-            StaticCommitteeTestTypes,
-            StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-        >,
+        ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     >,
@@ -445,16 +419,16 @@ pub type StaticNodeImplType = TestNodeImpl<
 >;
 
 /// type alias for the test runner type
-pub type AppliedTestRunner<TYPES, LEAF, PROPOSAL, VOTE, ELECTION> =
-    TestRunner<TYPES, AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, ELECTION>>;
-pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, ELECTION> = TestNodeImpl<
+pub type AppliedTestRunner<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> =
+    TestRunner<TYPES, AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP>>;
+pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> = TestNodeImpl<
     TYPES,
     LEAF,
     PROPOSAL,
     VOTE,
-    MemoryCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>,
+    MemoryCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>,
     MemoryStorage<TYPES, LEAF>,
-    ELECTION,
+    MEMBERSHIP,
 >;
 
 // FIXME THIS is why we need to split up metadat and anonymous functions
@@ -497,7 +471,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Election>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -557,7 +531,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Election>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -595,7 +569,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Election>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -895,20 +869,14 @@ macro_rules! cross_tests {
                 hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>,
                 hotshot_types::data::ValidatingProposal<
                     common::StaticCommitteeTestTypes,
-                    hotshot::traits::election::static_committee::StaticCommittee<
-                        common::StaticCommitteeTestTypes,
-                        hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
-                    >
+                    hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
                 >,
                 hotshot_types::message::QuorumVote<common::StaticCommitteeTestTypes, hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,
                 $NETWORK<
                     common::StaticCommitteeTestTypes,
                     hotshot_types::data::ValidatingProposal<
                         common::StaticCommitteeTestTypes,
-                        hotshot::traits::election::static_committee::StaticCommittee<
-                            common::StaticCommitteeTestTypes,
-                            hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
-                        >
+                        hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>
                     >,
                     hotshot_types::message::QuorumVote<common::StaticCommitteeTestTypes,hotshot_types::data::ValidatingLeaf<common::StaticCommitteeTestTypes>>,
                     hotshot::traits::election::static_committee::StaticCommittee<

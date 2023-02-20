@@ -11,13 +11,11 @@ use bincode::Options;
 use commit::Committable;
 use either::{Left, Right};
 use hotshot_types::{
-    certificate::{DACertificate, QuorumCertificate},
+    certificate::QuorumCertificate,
     data::{CommitmentProposal, SequencingLeaf},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, QuorumVote},
     traits::{
-        election::{Election, SignedCertificate},
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
+        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
         Block,
     },
 };
@@ -33,16 +31,10 @@ pub struct SequencingReplica<
     A: ConsensusApi<
         TYPES,
         SequencingLeaf<TYPES>,
-        CommitmentProposal<TYPES, ELECTION>,
+        CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
         QuorumVote<TYPES, SequencingLeaf<TYPES>>,
     >,
     TYPES: NodeType,
-    ELECTION: Election<
-        TYPES,
-        LeafType = SequencingLeaf<TYPES>,
-        DACertificate = DACertificate<TYPES>,
-        QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-    >,
 > {
     /// ID of node.
     pub id: u64,
@@ -55,7 +47,7 @@ pub struct SequencingReplica<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
-                    CommitmentProposal<TYPES, ELECTION>,
+                    CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
                     QuorumVote<TYPES, SequencingLeaf<TYPES>>,
                 >,
             >,
@@ -64,7 +56,7 @@ pub struct SequencingReplica<
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// The High QC.
-    pub high_qc: ELECTION::QuorumCertificate,
+    pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// HotShot consensus API.
     pub api: A,
 }
@@ -73,17 +65,11 @@ impl<
         A: ConsensusApi<
             TYPES,
             SequencingLeaf<TYPES>,
-            CommitmentProposal<TYPES, ELECTION>,
+            CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
             QuorumVote<TYPES, SequencingLeaf<TYPES>>,
         >,
         TYPES: NodeType,
-        ELECTION: Election<
-            TYPES,
-            LeafType = SequencingLeaf<TYPES>,
-            DACertificate = DACertificate<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
-        >,
-    > SequencingReplica<A, TYPES, ELECTION>
+    > SequencingReplica<A, TYPES>
 {
     // TODO (da) Move this function so that it can be used by leader, replica, and committee member logic.
     /// Returns the parent leaf of the proposal we are voting on
@@ -364,7 +350,7 @@ impl<
 
     /// Run one view of the replica for sequencing consensus.
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing Replica Task", level = "error")]
-    pub async fn run_view(self) -> ELECTION::QuorumCertificate {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
         info!("Sequencing replica task started!");
         let view_leader_key = self.api.get_leader(self.cur_view).await;
         let consensus = self.consensus.upgradable_read().await;

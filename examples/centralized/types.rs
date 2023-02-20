@@ -13,10 +13,10 @@ use hotshot_types::{
 use crate::infra::CentralizedConfig;
 
 pub type ThisLeaf = ValidatingLeaf<VDemoTypes>;
-pub type ThisElection =
+pub type ThisMembership =
     GeneralStaticCommittee<VDemoTypes, ThisLeaf, <VDemoTypes as NodeType>::SignatureKey>;
-pub type ThisNetwork = CentralizedCommChannel<VDemoTypes, ThisProposal, ThisVote, ThisElection>;
-pub type ThisProposal = ValidatingProposal<VDemoTypes, ThisElection>;
+pub type ThisNetwork = CentralizedCommChannel<VDemoTypes, ThisProposal, ThisVote, ThisMembership>;
+pub type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
 pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
-pub type ThisNode = VDemoNode<ThisNetwork, ThisElection>;
-pub type ThisConfig = CentralizedConfig<VDemoTypes, ThisElection>;
+pub type ThisNode = VDemoNode<ThisNetwork, ThisMembership>;
+pub type ThisConfig = CentralizedConfig<VDemoTypes, ThisMembership>;
