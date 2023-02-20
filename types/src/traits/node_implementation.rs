@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     block_contents::Transaction,
-    election::{ElectionConfig, VoteToken},
+    election::{ElectionConfig, Membership, VoteToken},
     network::{CommunicationChannel, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, ConsensusType, TestableBlock, TestableState},
@@ -19,7 +19,6 @@ use super::{
 use crate::{
     data::{LeafType, ProposalType},
     traits::{
-        election::Election,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         storage::Storage,
         Block,
@@ -44,12 +43,12 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     /// Storage type for this consensus implementation
     type Storage: Storage<TYPES, Self::Leaf> + Clone;
 
-    /// Election
-    /// Time is generic here to allow multiple implementations of election trait for difference
+    /// Membership
+    /// Time is generic here to allow multiple implementations of membership trait for difference
     /// consensus protocols
-    type Election: Election<TYPES, LeafType = Self::Leaf> + Debug;
+    type Membership: Membership<TYPES> + Debug;
 
-    type Proposal: ProposalType<NodeType = TYPES, Election = Self::Election>;
+    type Proposal: ProposalType<NodeType = TYPES>;
 
     type Vote: VoteType<TYPES>;
 
@@ -71,7 +70,7 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     >;
 
     /// Networking type for this consensus implementation
-    type Networking: CommunicationChannel<TYPES, Self::Proposal, Self::Vote, Self::Election>;
+    type Networking: CommunicationChannel<TYPES, Self::Proposal, Self::Vote, Self::Membership>;
 }
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
@@ -139,7 +138,7 @@ where
         TYPES,
         <Self as NodeImplementation<TYPES>>::Proposal,
         <Self as NodeImplementation<TYPES>>::Vote,
-        <Self as NodeImplementation<TYPES>>::Election,
+        <Self as NodeImplementation<TYPES>>::Membership,
     >,
     <Self as NodeImplementation<TYPES>>::Storage:
         TestableStorage<TYPES, <Self as NodeImplementation<TYPES>>::Leaf>,

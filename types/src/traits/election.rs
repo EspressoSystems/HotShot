@@ -4,16 +4,7 @@
 
 use super::node_implementation::NodeType;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
-use crate::{
-    certificate::VoteMetaData,
-    data::LeafType,
-    traits::{
-        election::Checked::{Inval, Unchecked, Valid},
-        signature_key::SignatureKey,
-        state::ConsensusTime,
-    },
-    vote::{Accumulator, VoteAccumulator},
-};
+use crate::{data::LeafType, traits::signature_key::SignatureKey};
 use bincode::Options;
 use commit::{Commitment, Committable};
 use either::Either;
@@ -25,7 +16,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::num::NonZeroU64;
-use tracing::error;
 
 /// Error for election problems
 #[derive(Snafu, Debug)]
@@ -131,138 +121,8 @@ where
     fn genesis() -> Self;
 }
 
-/// Describes how `HotShot` chooses committees and leaders
-/// TODO (da) make a separate vote token type for DA and QC
-/// @ny thinks we should make the vote token types be bound to `ConsensusType`
-pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'static {
-    /// Data structure describing the currently valid states
-    /// TODO make this a trait so we can pass in places
+pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'static {
     type StakeTable: Send + Sync;
-
-    /// certificate for quorum on consenus
-    type QuorumCertificate: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, Self::LeafType>
-        + Clone
-        + Debug
-        + Eq
-        + Hash
-        + PartialEq;
-
-    /// certificate for data availability
-    type DACertificate: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, TYPES::BlockType>
-        + Clone
-        + Debug
-        + Eq
-        + PartialEq;
-
-    type LeafType: LeafType<NodeType = TYPES, QuorumCertificate = Self::QuorumCertificate>;
-
-    /// Validate a DAC by checking its votes.
-    fn is_valid_dac(
-        &self,
-        dac: &<Self::LeafType as LeafType>::DACertificate,
-        block_commitment: Commitment<TYPES::BlockType>,
-    ) -> bool {
-        let stake = dac
-            .signatures()
-            .iter()
-            .filter(|signature| {
-                self.is_valid_vote(
-                    signature.0,
-                    &signature.1 .0,
-                    VoteData::DA(block_commitment),
-                    dac.view_number(),
-                    Unchecked(signature.1 .1.clone()),
-                )
-            })
-            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
-
-        stake >= u64::from(self.threshold())
-    }
-
-    /// Validate a QC by checking its votes.
-    fn is_valid_qc(&self, qc: &<Self::LeafType as LeafType>::QuorumCertificate) -> bool {
-        if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
-            return true;
-        }
-        let leaf_commitment = qc.leaf_commitment();
-
-        let stake = qc
-            .signatures()
-            .iter()
-            .filter(|signature| {
-                self.is_valid_vote(
-                    signature.0,
-                    &signature.1 .0,
-                    VoteData::Yes(leaf_commitment),
-                    qc.view_number(),
-                    Unchecked(signature.1 .1.clone()),
-                )
-            })
-            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
-
-        stake >= u64::from(self.threshold())
-    }
-
-    /// Validate a vote by checking its signature and token.
-    fn is_valid_vote(
-        &self,
-        encoded_key: &EncodedPublicKey,
-        encoded_signature: &EncodedSignature,
-        data: VoteData<TYPES, Self::LeafType>,
-        view_number: TYPES::Time,
-        vote_token: Checked<TYPES::VoteTokenType>,
-    ) -> bool {
-        let mut is_valid_vote_token = false;
-        let mut is_valid_signature = false;
-        if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
-            is_valid_signature = key.validate(encoded_signature, &data.as_bytes());
-            let valid_vote_token = self.validate_vote_token(view_number, key, vote_token);
-            is_valid_vote_token = match valid_vote_token {
-                Err(_) => {
-                    error!("Vote token was invalid");
-                    false
-                }
-                Ok(Valid(_)) => true,
-                Ok(Inval(_) | Unchecked(_)) => false,
-            };
-        }
-        is_valid_signature && is_valid_vote_token
-    }
-
-    fn accumulate_vote<C: Committable, Cert>(
-        &self,
-        vota_meta: VoteMetaData<TYPES, C, TYPES::VoteTokenType, TYPES::Time, Self::LeafType>,
-        accumulator: VoteAccumulator<TYPES, C>,
-    ) -> Either<VoteAccumulator<TYPES, C>, Cert>
-    where
-        Cert: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, C>,
-    {
-        if !self.is_valid_vote(
-            &vota_meta.encoded_key,
-            &vota_meta.encoded_signature,
-            vota_meta.data,
-            vota_meta.view_number,
-            // Ignoring deserialization errors below since we are getting rid of it soon
-            Unchecked(vota_meta.vote_token.clone()),
-        ) {
-            return Either::Left(accumulator);
-        }
-
-        match accumulator.append((
-            vota_meta.commitment,
-            (
-                vota_meta.encoded_key.clone(),
-                (vota_meta.encoded_signature.clone(), vota_meta.vote_token),
-            ),
-        )) {
-            Either::Left(accumulator) => Either::Left(accumulator),
-            Either::Right(signatures) => Either::Right(Cert::from_signatures_and_commitment(
-                vota_meta.view_number,
-                signatures,
-                vota_meta.commitment,
-            )),
-        }
-    }
 
     /// generate a default election configuration
     fn default_election_config(num_nodes: u64) -> TYPES::ElectionConfigType;
@@ -278,7 +138,6 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         state: &TYPES::StateType,
     ) -> Self::StakeTable;
 
-    /// Returns leader for the current view number, given the current stake table
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
 
     fn get_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
@@ -305,12 +164,12 @@ pub trait Election<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'sta
         token: Checked<TYPES::VoteTokenType>,
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError>;
 
-    /// Returns the threshold for a specific `Election` implementation
+    /// Returns the threshold for a specific `Membership` implementation
     fn threshold(&self) -> NonZeroU64;
 }
 
 /// Testable implementation of an [`Election`]. Will expose a method to generate a vote token used for testing.
-pub trait TestableElection<TYPES: NodeType>: Election<TYPES> {
+pub trait TestableElection<TYPES: NodeType>: Membership<TYPES> {
     /// Generate a vote token used for testing.
     fn generate_test_vote_token() -> TYPES::VoteTokenType;
 }

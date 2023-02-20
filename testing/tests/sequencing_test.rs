@@ -73,17 +73,11 @@ async fn sequencing_test() {
         .build::<SequencingTestTypes, TestNodeImpl<
             SequencingTestTypes,
             ValidatingLeaf<SequencingTestTypes>,
-            ValidatingProposal<
-                SequencingTestTypes,
-                StaticCommittee<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
-            >,
+            ValidatingProposal<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
             QuorumVote<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
             MemoryCommChannel<
                 SequencingTestTypes,
-                ValidatingProposal<
-                    SequencingTestTypes,
-                    StaticCommittee<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
-                >,
+                ValidatingProposal<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
                 QuorumVote<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
                 StaticCommittee<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
             >,
