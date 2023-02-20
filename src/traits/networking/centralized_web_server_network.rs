@@ -56,12 +56,24 @@ use tracing::{error, instrument};
 
 use super::NetworkingMetrics;
 
+#[derive(Clone)]
+pub struct CentralizedWebCommChannel<
+    TYPES: NodeType,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
+    ELECTION: Election<TYPES>,
+>(
+    CentralizedWebServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    PhantomData<(PROPOSAL, VOTE, ELECTION)>,
+);
+
 #[derive(Clone, Debug)]
-pub struct CentralizedWebServerNetwork<TYPES: NodeTypes> {
+pub struct CentralizedWebServerNetwork<KEY: SignatureKey, ELECTION: ElectionConfig> {
     /// The inner state
-    inner: Arc<Inner<TYPES>>,
+    // inner: Arc<Inner<TYPES>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
-    server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
+    // server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
+    phantom: PhantomData<(KEY, ELECTION)>,
 }
 
 #[async_trait]
@@ -76,20 +88,20 @@ impl<
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
-        nll_todo();
+        nll_todo()
     }
 
     /// checks if the network is ready
     /// nonblocking
     async fn is_ready(&self) -> bool {
-        nll_todo();
+        nll_todo()
     }
 
     /// Shut down this network. Afterwards this network should no longer be used.
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
-        nll_todo();
+        nll_todo()
     }
 
     /// broadcast message to those listening on the communication channel
@@ -99,7 +111,7 @@ impl<
         message: Message<TYPES, PROPOSAL, VOTE>,
         election: &ELECTION,
     ) -> Result<(), NetworkError> {
-        nll_todo();
+        nll_todo()
     }
 
     /// Sends a direct message to a specific node
@@ -109,7 +121,7 @@ impl<
         message: Message<TYPES, PROPOSAL, VOTE>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        nll_todo();
+        nll_todo()
     }
 
     /// Moves out the entire queue of received messages of 'transmit_type`
@@ -120,13 +132,13 @@ impl<
         &self,
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
-        nll_todo();
+        nll_todo()
     }
 
     /// look up a node
     /// blocking
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
-        nll_todo();
+        nll_todo()
     }
 }
 
@@ -136,19 +148,19 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
-        nll_todo();
+        nll_todo()
     }
 
     /// checks if the network is ready
     /// nonblocking
     async fn is_ready(&self) -> bool {
-        nll_todo();
+        nll_todo()
     }
 
     /// Blocks until the network is shut down
     /// then returns true
     async fn shut_down(&self) {
-        nll_todo();
+        nll_todo()
     }
 
     /// broadcast message to some subset of nodes
@@ -158,13 +170,13 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
         message: M,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
-        nll_todo();
+        nll_todo()
     }
 
     /// Sends a direct message to a specific node
     /// blocking
     async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
-        nll_todo();
+        nll_todo()
     }
 
     /// Moves out the entire queue of received messages of 'transmit_type`
@@ -172,12 +184,33 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
     async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
-        nll_todo();
+        nll_todo()
     }
 
     /// look up a node
     /// blocking
     async fn lookup_node(&self, pk: K) -> Result<(), NetworkError> {
-        nll_todo();
+        nll_todo()
+    }
+}
+impl<
+        TYPES: NodeType,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        ELECTION: Election<TYPES>,
+    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, ELECTION>
+    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+{
+    fn generator(
+        expected_node_count: usize,
+        _num_bootstrap: usize,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        nll_todo()
+    }
+
+    fn in_flight_message_count(&self) -> Option<usize> {
+        nll_todo()
     }
 }
