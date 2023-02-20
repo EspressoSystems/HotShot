@@ -660,7 +660,7 @@
     message::QuorumVote,
     traits::{
         block_contents::Transaction,
-        election::Election,
+        election::Membership,
         network::CommunicationChannel,
         node_implementation::{ApplicationMetadata, NodeType},
         signature_key::ed25519::Ed25519Pub,
@@ -1164,25 +1164,25 @@
 <span class="doccomment">/// The node implementation for the validating demo
 </span><span class="attr">#[derive(Derivative)]
 #[derivative(Clone(bound = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub struct </span>VDemoNode&lt;NET, ELE&gt;(PhantomData&lt;NET&gt;, PhantomData&lt;ELE&gt;)
+</span><span class="kw">pub struct </span>VDemoNode&lt;NET, MEMBERSHIP&gt;(PhantomData&lt;NET&gt;, PhantomData&lt;MEMBERSHIP&gt;)
 <span class="kw">where
     </span>NET: CommunicationChannel&lt;
         VDemoTypes,
-        ValidatingProposal&lt;VDemoTypes, ELE&gt;,
+        ValidatingProposal&lt;VDemoTypes, ValidatingLeaf&lt;VDemoTypes&gt;&gt;,
         QuorumVote&lt;VDemoTypes, ValidatingLeaf&lt;VDemoTypes&gt;&gt;,
-        ELE,
+        MEMBERSHIP,
     &gt;,
-    ELE: Election&lt;VDemoTypes, LeafType = ValidatingLeaf&lt;VDemoTypes&gt;&gt;;
+    MEMBERSHIP: Membership&lt;VDemoTypes&gt;;
 
-<span class="kw">impl</span>&lt;NET, ELE&gt; VDemoNode&lt;NET, ELE&gt;
+<span class="kw">impl</span>&lt;NET, MEMBERSHIP&gt; VDemoNode&lt;NET, MEMBERSHIP&gt;
 <span class="kw">where
     </span>NET: CommunicationChannel&lt;
         VDemoTypes,
-        ValidatingProposal&lt;VDemoTypes, ELE&gt;,
+        ValidatingProposal&lt;VDemoTypes, ValidatingLeaf&lt;VDemoTypes&gt;&gt;,
         QuorumVote&lt;VDemoTypes, ValidatingLeaf&lt;VDemoTypes&gt;&gt;,
-        ELE,
+        MEMBERSHIP,
     &gt;,
-    ELE: Election&lt;VDemoTypes, LeafType = ValidatingLeaf&lt;VDemoTypes&gt;&gt;,
+    MEMBERSHIP: Membership&lt;VDemoTypes&gt;,
 {
     <span class="doccomment">/// Create a new `VDemoNode`
     </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
@@ -1190,15 +1190,15 @@
     }
 }
 
-<span class="kw">impl</span>&lt;NET, ELE&gt; Debug <span class="kw">for </span>VDemoNode&lt;NET, ELE&gt;
+<span class="kw">impl</span>&lt;NET, MEMBERSHIP&gt; Debug <span class="kw">for </span>VDemoNode&lt;NET, MEMBERSHIP&gt;
 <span class="kw">where
     </span>NET: CommunicationChannel&lt;
         VDemoTypes,
-        ValidatingProposal&lt;VDemoTypes, ELE&gt;,
+        ValidatingProposal&lt;VDemoTypes, ValidatingLeaf&lt;VDemoTypes&gt;&gt;,
         QuorumVote&lt;VDemoTypes, ValidatingLeaf&lt;VDemoTypes&gt;&gt;,
-        ELE,
+        MEMBERSHIP,
     &gt;,
-    ELE: Election&lt;VDemoTypes, LeafType = ValidatingLeaf&lt;VDemoTypes&gt;&gt;,
+    MEMBERSHIP: Membership&lt;VDemoTypes&gt;,
 {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         f.debug_struct(<span class="string">&quot;VDemoNode&quot;</span>)
@@ -1207,37 +1207,37 @@
     }
 }
 
-<span class="kw">impl</span>&lt;NET, ELE&gt; Default <span class="kw">for </span>VDemoNode&lt;NET, ELE&gt;
+<span class="kw">impl</span>&lt;NET, MEMBERSHIP&gt; Default <span class="kw">for </span>VDemoNode&lt;NET, MEMBERSHIP&gt;
 <span class="kw">where
     </span>NET: CommunicationChannel&lt;
         VDemoTypes,
-        ValidatingProposal&lt;VDemoTypes, ELE&gt;,
+        ValidatingProposal&lt;VDemoTypes, ValidatingLeaf&lt;VDemoTypes&gt;&gt;,
         QuorumVote&lt;VDemoTypes, ValidatingLeaf&lt;VDemoTypes&gt;&gt;,
-        ELE,
+        MEMBERSHIP,
     &gt;,
-    ELE: Election&lt;VDemoTypes, LeafType = ValidatingLeaf&lt;VDemoTypes&gt;&gt;,
+    MEMBERSHIP: Membership&lt;VDemoTypes&gt;,
 {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::new()
     }
 }
 
-<span class="kw">impl</span>&lt;NET, ELE&gt; NodeImplementation&lt;VDemoTypes&gt; <span class="kw">for </span>VDemoNode&lt;NET, ELE&gt;
+<span class="kw">impl</span>&lt;NET, MEMBERSHIP&gt; NodeImplementation&lt;VDemoTypes&gt; <span class="kw">for </span>VDemoNode&lt;NET, MEMBERSHIP&gt;
 <span class="kw">where
     </span>NET: CommunicationChannel&lt;
         VDemoTypes,
-        ValidatingProposal&lt;VDemoTypes, ELE&gt;,
+        ValidatingProposal&lt;VDemoTypes, ValidatingLeaf&lt;VDemoTypes&gt;&gt;,
         QuorumVote&lt;VDemoTypes, ValidatingLeaf&lt;VDemoTypes&gt;&gt;,
-        ELE,
+        MEMBERSHIP,
     &gt;,
-    ELE: Election&lt;VDemoTypes, LeafType = ValidatingLeaf&lt;VDemoTypes&gt;&gt; + Debug,
+    MEMBERSHIP: Membership&lt;VDemoTypes&gt; + Debug,
 {
     <span class="kw">type </span>Leaf = ValidatingLeaf&lt;VDemoTypes&gt;;
-    <span class="kw">type </span>Storage = MemoryStorage&lt;VDemoTypes, ELE::LeafType&gt;;
+    <span class="kw">type </span>Storage = MemoryStorage&lt;VDemoTypes, <span class="self">Self</span>::Leaf&gt;;
     <span class="kw">type </span>Networking = NET;
-    <span class="kw">type </span>Election = ELE;
-    <span class="kw">type </span>Proposal = ValidatingProposal&lt;VDemoTypes, ELE&gt;;
-    <span class="kw">type </span>Vote = QuorumVote&lt;VDemoTypes, ELE::LeafType&gt;;
+    <span class="kw">type </span>Membership = MEMBERSHIP;
+    <span class="kw">type </span>Proposal = ValidatingProposal&lt;VDemoTypes, <span class="self">Self</span>::Leaf&gt;;
+    <span class="kw">type </span>Vote = QuorumVote&lt;VDemoTypes, <span class="self">Self</span>::Leaf&gt;;
 }
 
 <span class="doccomment">/// Provides a random [`QuorumCertificate`]

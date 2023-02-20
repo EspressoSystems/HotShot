@@ -266,7 +266,7 @@
 <span class="attr">#[cfg(not(any(feature = <span class="string">&quot;async-std-executor&quot;</span>, feature = <span class="string">&quot;tokio-executor&quot;</span>)))]
 </span><span class="macro">std::compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
 
-<span class="kw">use super</span>::{election::Election, node_implementation::NodeType, signature_key::SignatureKey};
+<span class="kw">use super</span>::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
 <span class="kw">use crate</span>::{
     data::ProposalType,
     message::{Message, VoteType},
@@ -373,7 +373,7 @@
     TYPES: NodeType,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
     VOTE: VoteType&lt;TYPES&gt;,
-    ELECTION: Election&lt;TYPES&gt;,
+    MEMBERSHIP: Membership&lt;TYPES&gt;,
 &gt;: Clone + Send + Sync + <span class="lifetime">&#39;static
 </span>{
     <span class="doccomment">/// Blocks until node is successfully initialized
@@ -394,7 +394,7 @@
     </span><span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Message&lt;TYPES, PROPOSAL, VOTE&gt;,
-        election: <span class="kw-2">&amp;</span>ELECTION,
+        election: <span class="kw-2">&amp;</span>MEMBERSHIP,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
 
     <span class="doccomment">/// Sends a direct message to a specific node
@@ -472,8 +472,8 @@
     TYPES: NodeType,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
     VOTE: VoteType&lt;TYPES&gt;,
-    ELECTION: Election&lt;TYPES&gt;,
-&gt;: CommunicationChannel&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
+    MEMBERSHIP: Membership&lt;TYPES&gt;,
+&gt;: CommunicationChannel&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
 {
     <span class="doccomment">/// generates a network given an expected node count
     </span><span class="kw">fn </span>generator(

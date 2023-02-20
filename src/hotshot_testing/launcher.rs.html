@@ -191,7 +191,7 @@
     </span>TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Election&gt;,
+    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Membership&gt;,
     I::Storage: TestableStorage&lt;TYPES, I::Leaf&gt;,
 {
     <span class="kw">pub</span>(<span class="kw">super</span>) network: Generator&lt;I::Networking&gt;,
@@ -205,7 +205,7 @@
     </span>TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Election&gt;,
+    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Membership&gt;,
     I::Storage: TestableStorage&lt;TYPES, I::Leaf&gt;,
 {
     <span class="doccomment">/// Create a new launcher.
@@ -254,7 +254,7 @@
     </span>TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Election&gt;,
+    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Membership&gt;,
     I::Storage: TestableStorage&lt;TYPES, I::Leaf&gt;,
 {
     <span class="doccomment">/// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
@@ -329,7 +329,7 @@
     </span>TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Election&gt;,
+    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Membership&gt;,
     I::Storage: TestableStorage&lt;TYPES, I::Leaf&gt;,
     I::Leaf: TestableLeaf&lt;NodeType = TYPES&gt;,
 {

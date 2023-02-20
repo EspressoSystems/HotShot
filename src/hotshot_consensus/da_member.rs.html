@@ -220,18 +220,6 @@
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`DAMember`] struct used for the committee member step in the consensus algorithm
 //! with DA committee, i.e. in the sequencing consensus.
 
@@ -248,9 +236,7 @@
     data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, DAVote, ProcessedConsensusMessage},
     traits::{
-        election::{Election, SignedCertificate},
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
+        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
     },
 };
 <span class="kw">use </span>std::sync::Arc;
@@ -262,15 +248,10 @@
     A: ConsensusApi&lt;
         TYPES,
         SequencingLeaf&lt;TYPES&gt;,
-        DAProposal&lt;TYPES, ELECTION&gt;,
+        DAProposal&lt;TYPES&gt;,
         DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
     &gt;,
     TYPES: NodeType,
-    ELECTION: Election&lt;
-        TYPES,
-        LeafType = SequencingLeaf&lt;TYPES&gt;,
-        QuorumCertificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-    &gt;,
 &gt; {
     <span class="doccomment">/// ID of node.
     </span><span class="kw">pub </span>id: u64,
@@ -283,7 +264,7 @@
             UnboundedReceiver&lt;
                 ProcessedConsensusMessage&lt;
                     TYPES,
-                    DAProposal&lt;TYPES, ELECTION&gt;,
+                    DAProposal&lt;TYPES&gt;,
                     DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
                 &gt;,
             &gt;,
@@ -292,7 +273,7 @@
     <span class="doccomment">/// View number this view is executing in.
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
     <span class="doccomment">/// The High QC.
-    </span><span class="kw">pub </span>high_qc: ELECTION::QuorumCertificate,
+    </span><span class="kw">pub </span>high_qc: QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// HotShot consensus API.
     </span><span class="kw">pub </span>api: A,
 }
@@ -301,16 +282,11 @@
         A: ConsensusApi&lt;
             TYPES,
             SequencingLeaf&lt;TYPES&gt;,
-            DAProposal&lt;TYPES, ELECTION&gt;,
+            DAProposal&lt;TYPES&gt;,
             DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
         &gt;,
         TYPES: NodeType,
-        ELECTION: Election&lt;
-            TYPES,
-            LeafType = SequencingLeaf&lt;TYPES&gt;,
-            QuorumCertificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        &gt;,
-    &gt; DAMember&lt;A, TYPES, ELECTION&gt;
+    &gt; DAMember&lt;A, TYPES&gt;
 {
     <span class="doccomment">/// Returns the parent leaf of the proposal we are voting on
     </span><span class="kw">async fn </span>parent_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;SequencingLeaf&lt;TYPES&gt;&gt; {

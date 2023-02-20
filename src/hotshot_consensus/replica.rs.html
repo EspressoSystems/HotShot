@@ -502,16 +502,6 @@
 <a href="#502" id="502">502</a>
 <a href="#503" id="503">503</a>
 <a href="#504" id="504">504</a>
-<a href="#505" id="505">505</a>
-<a href="#506" id="506">506</a>
-<a href="#507" id="507">507</a>
-<a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
-<a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`Replica`] struct used for the replica step in the hotstuff consensus algorithm.
 
 </span><span class="kw">use crate</span>::{
@@ -529,8 +519,8 @@
         ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, QuorumVote, TimeoutVote,
     },
     traits::{
-        election::Election, node_implementation::NodeType, signature_key::SignatureKey,
-        state::ValidatingConsensus, Block, State,
+        node_implementation::NodeType, signature_key::SignatureKey, state::ValidatingConsensus,
+        Block, State,
     },
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
@@ -543,15 +533,10 @@
     A: ConsensusApi&lt;
         TYPES,
         ValidatingLeaf&lt;TYPES&gt;,
-        ValidatingProposal&lt;TYPES, ELECTION&gt;,
+        ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
         QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
     &gt;,
     TYPES: NodeType&lt;ConsensusType = ValidatingConsensus&gt;,
-    ELECTION: Election&lt;
-        TYPES,
-        LeafType = ValidatingLeaf&lt;TYPES&gt;,
-        QuorumCertificate = QuorumCertificate&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
-    &gt;,
 &gt; {
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
@@ -564,7 +549,7 @@
             UnboundedReceiver&lt;
                 ProcessedConsensusMessage&lt;
                     TYPES,
-                    ValidatingProposal&lt;TYPES, ELECTION&gt;,
+                    ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
                     QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
                 &gt;,
             &gt;,
@@ -573,7 +558,7 @@
     <span class="doccomment">/// view number this view is executing in
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
     <span class="doccomment">/// genericQC from the pseudocode
-    </span><span class="kw">pub </span>high_qc: ELECTION::QuorumCertificate,
+    </span><span class="kw">pub </span>high_qc: QuorumCertificate&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// hotshot consensus api
     </span><span class="kw">pub </span>api: A,
 }
@@ -582,16 +567,11 @@
         A: ConsensusApi&lt;
             TYPES,
             ValidatingLeaf&lt;TYPES&gt;,
-            ValidatingProposal&lt;TYPES, ELECTION&gt;,
+            ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
             QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
         &gt;,
         TYPES: NodeType&lt;ConsensusType = ValidatingConsensus&gt;,
-        ELECTION: Election&lt;
-            TYPES,
-            LeafType = ValidatingLeaf&lt;TYPES&gt;,
-            QuorumCertificate = QuorumCertificate&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
-        &gt;,
-    &gt; Replica&lt;A, TYPES, ELECTION&gt;
+    &gt; Replica&lt;A, TYPES&gt;
 {
     <span class="doccomment">/// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
@@ -844,7 +824,7 @@
     <span class="doccomment">/// run one view of replica
     /// returns the `high_qc`
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Replica Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
-    </span><span class="kw">pub async fn </span>run_view(<span class="self">self</span>) -&gt; ELECTION::QuorumCertificate {
+    </span><span class="kw">pub async fn </span>run_view(<span class="self">self</span>) -&gt; QuorumCertificate&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt; {
         <span class="macro">info!</span>(<span class="string">&quot;Replica task started!&quot;</span>);
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
         <span class="kw">let </span>view_leader_key = <span class="self">self</span>.api.get_leader(<span class="self">self</span>.cur_view).<span class="kw">await</span>;

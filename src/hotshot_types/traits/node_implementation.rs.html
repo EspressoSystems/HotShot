@@ -132,7 +132,7 @@
 
 <span class="kw">use super</span>::{
     block_contents::Transaction,
-    election::{ElectionConfig, VoteToken},
+    election::{ElectionConfig, Membership, VoteToken},
     network::{CommunicationChannel, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, ConsensusType, TestableBlock, TestableState},
@@ -142,7 +142,7 @@
 <span class="kw">use crate</span>::{
     data::{LeafType, ProposalType},
     message::VoteType,
-    traits::{election::Election, signature_key::SignatureKey, storage::Storage, Block},
+    traits::{signature_key::SignatureKey, storage::Storage, Block},
 };
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::hash::Hash;
@@ -160,17 +160,17 @@
     <span class="doccomment">/// Storage type for this consensus implementation
     </span><span class="kw">type </span>Storage: Storage&lt;TYPES, <span class="self">Self</span>::Leaf&gt; + Clone;
 
-    <span class="doccomment">/// Election
-    /// Time is generic here to allow multiple implementations of election trait for difference
+    <span class="doccomment">/// Membership
+    /// Time is generic here to allow multiple implementations of membership trait for difference
     /// consensus protocols
-    </span><span class="kw">type </span>Election: Election&lt;TYPES, LeafType = <span class="self">Self</span>::Leaf&gt; + Debug;
+    </span><span class="kw">type </span>Membership: Membership&lt;TYPES&gt; + Debug;
 
-    <span class="kw">type </span>Proposal: ProposalType&lt;NodeType = TYPES, Election = <span class="self">Self</span>::Election&gt;;
+    <span class="kw">type </span>Proposal: ProposalType&lt;NodeType = TYPES&gt;;
 
     <span class="kw">type </span>Vote: VoteType&lt;TYPES&gt;;
 
     <span class="doccomment">/// Networking type for this consensus implementation
-    </span><span class="kw">type </span>Networking: CommunicationChannel&lt;TYPES, <span class="self">Self</span>::Proposal, <span class="self">Self</span>::Vote, <span class="self">Self</span>::Election&gt;;
+    </span><span class="kw">type </span>Networking: CommunicationChannel&lt;TYPES, <span class="self">Self</span>::Proposal, <span class="self">Self</span>::Vote, <span class="self">Self</span>::Membership&gt;;
 }
 
 <span class="doccomment">/// Trait with all the type definitions that are used in the current hotshot setup.
@@ -238,7 +238,7 @@
         TYPES,
         &lt;<span class="self">Self </span><span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Proposal,
         &lt;<span class="self">Self </span><span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Vote,
-        &lt;<span class="self">Self </span><span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Election,
+        &lt;<span class="self">Self </span><span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Membership,
     &gt;,
     &lt;<span class="self">Self </span><span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Storage:
         TestableStorage&lt;TYPES, &lt;<span class="self">Self </span><span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf&gt;,

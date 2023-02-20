@@ -454,36 +454,6 @@
 <a href="#454" id="454">454</a>
 <a href="#455" id="455">455</a>
 <a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
-<a href="#481" id="481">481</a>
-<a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
@@ -505,16 +475,13 @@
         ConsensusMessage, DAVote, InternalTrigger, ProcessedConsensusMessage, Proposal, QuorumVote,
     },
     traits::{
-        election::{Election, SignedCertificate},
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
-        state::SequencingConsensus,
-        Block,
+        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
+        state::SequencingConsensus, Block,
     },
 };
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::num::NonZeroU64;
-<span class="kw">use </span>std::{collections::HashSet, marker::PhantomData, sync::Arc, time::Instant};
+<span class="kw">use </span>std::{collections::HashSet, sync::Arc, time::Instant};
 <span class="kw">use </span>tracing::{error, info, instrument, warn};
 
 <span class="doccomment">/// This view&#39;s DA committee leader
@@ -523,18 +490,17 @@
     A: ConsensusApi&lt;
         TYPES,
         SequencingLeaf&lt;TYPES&gt;,
-        DAProposal&lt;TYPES, ELECTION&gt;,
+        DAProposal&lt;TYPES&gt;,
         DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
     &gt;,
     TYPES: NodeType,
-    ELECTION: Election&lt;TYPES, LeafType = SequencingLeaf&lt;TYPES&gt;&gt;,
 &gt; {
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
     <span class="doccomment">/// Reference to consensus. Leader will require a read lock on this.
     </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// The `high_qc` per spec
-    </span><span class="kw">pub </span>high_qc: ELECTION::QuorumCertificate,
+    </span><span class="kw">pub </span>high_qc: QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// The view number we&#39;re running on
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
     <span class="doccomment">/// Lock over the transactions list
@@ -548,26 +514,22 @@
             UnboundedReceiver&lt;
                 ProcessedConsensusMessage&lt;
                     TYPES,
-                    DAProposal&lt;TYPES, ELECTION&gt;,
+                    DAProposal&lt;TYPES&gt;,
                     DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
                 &gt;,
             &gt;,
         &gt;,
     &gt;,
-    <span class="attr">#[allow(missing_docs)]
-    #[allow(clippy::missing_docs_in_private_items)]
-    </span><span class="kw">pub </span>_pd: PhantomData&lt;ELECTION&gt;,
 }
 <span class="kw">impl</span>&lt;
         A: ConsensusApi&lt;
             TYPES,
             SequencingLeaf&lt;TYPES&gt;,
-            DAProposal&lt;TYPES, ELECTION&gt;,
+            DAProposal&lt;TYPES&gt;,
             DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
         &gt;,
         TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-        ELECTION: Election&lt;TYPES, LeafType = SequencingLeaf&lt;TYPES&gt;&gt;,
-    &gt; DALeader&lt;A, TYPES, ELECTION&gt;
+    &gt; DALeader&lt;A, TYPES&gt;
 {
     <span class="doccomment">/// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
     /// TODO: Refactor this to use new `Elecetion` trait and call accumulate
@@ -723,14 +685,13 @@
 
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
         <span class="kw">let </span>signature = <span class="self">self</span>.api.sign_da_proposal(<span class="kw-2">&amp;</span>block.commit());
-        <span class="kw">let </span>data: DAProposal&lt;TYPES, ELECTION&gt; = DAProposal {
+        <span class="kw">let </span>data: DAProposal&lt;TYPES&gt; = DAProposal {
             deltas: block.clone(),
             view_number: <span class="self">self</span>.cur_view,
-            _pd: PhantomData,
         };
         <span class="kw">let </span>message = ConsensusMessage::&lt;
             TYPES,
-            DAProposal&lt;TYPES, ELECTION&gt;,
+            DAProposal&lt;TYPES&gt;,
             DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
         &gt;::Proposal(Proposal { data, signature });
         <span class="comment">// Brodcast DA proposal
@@ -758,16 +719,10 @@
     A: ConsensusApi&lt;
         TYPES,
         SequencingLeaf&lt;TYPES&gt;,
-        DAProposal&lt;TYPES, ELECTION&gt;,
+        DAProposal&lt;TYPES&gt;,
         DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
     &gt;,
     TYPES: NodeType,
-    ELECTION: Election&lt;
-        TYPES,
-        LeafType = SequencingLeaf&lt;TYPES&gt;,
-        QuorumCertificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        DACertificate = DACertificate&lt;TYPES&gt;,
-    &gt;,
 &gt; {
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
@@ -785,26 +740,16 @@
     </span><span class="kw">pub </span>parent: SequencingLeaf&lt;TYPES&gt;,
     <span class="doccomment">/// Limited access to the consensus protocol
     </span><span class="kw">pub </span>api: A,
-
-    <span class="attr">#[allow(missing_docs)]
-    #[allow(clippy::missing_docs_in_private_items)]
-    </span><span class="kw">pub </span>_pd: PhantomData&lt;ELECTION&gt;,
 }
 <span class="kw">impl</span>&lt;
         A: ConsensusApi&lt;
             TYPES,
             SequencingLeaf&lt;TYPES&gt;,
-            DAProposal&lt;TYPES, ELECTION&gt;,
+            DAProposal&lt;TYPES&gt;,
             DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
         &gt;,
         TYPES: NodeType&lt;ConsensusType = SequencingConsensus, ApplicationMetadataType = ()&gt;,
-        ELECTION: Election&lt;
-            TYPES,
-            LeafType = SequencingLeaf&lt;TYPES&gt;,
-            QuorumCertificate = QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-            DACertificate = DACertificate&lt;TYPES&gt;,
-        &gt;,
-    &gt; ConsensusLeader&lt;A, TYPES, ELECTION&gt;
+    &gt; ConsensusLeader&lt;A, TYPES&gt;
 {
     <span class="doccomment">/// Run one view of the DA leader task
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Sequencing DALeader Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
@@ -838,7 +783,7 @@
 
         <span class="kw">let </span>message = ConsensusMessage::&lt;
             TYPES,
-            CommitmentProposal&lt;TYPES, ELECTION&gt;,
+            CommitmentProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
             QuorumVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
         &gt;::Proposal(Proposal {
             data: proposal,
@@ -856,11 +801,10 @@
     A: ConsensusApi&lt;
         TYPES,
         SequencingLeaf&lt;TYPES&gt;,
-        DAProposal&lt;TYPES, ELECTION&gt;,
+        DAProposal&lt;TYPES&gt;,
         DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
     &gt;,
     TYPES: NodeType,
-    ELECTION: Election&lt;TYPES, LeafType = SequencingLeaf&lt;TYPES&gt;&gt;,
 &gt; {
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
@@ -880,26 +824,22 @@
             UnboundedReceiver&lt;
                 ProcessedConsensusMessage&lt;
                     TYPES,
-                    DAProposal&lt;TYPES, ELECTION&gt;,
+                    DAProposal&lt;TYPES&gt;,
                     DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
                 &gt;,
             &gt;,
         &gt;,
     &gt;,
-    <span class="attr">#[allow(missing_docs)]
-    #[allow(clippy::missing_docs_in_private_items)]
-    </span><span class="kw">pub </span>_pd: PhantomData&lt;ELECTION&gt;,
 }
 <span class="kw">impl</span>&lt;
         A: ConsensusApi&lt;
             TYPES,
             SequencingLeaf&lt;TYPES&gt;,
-            DAProposal&lt;TYPES, ELECTION&gt;,
+            DAProposal&lt;TYPES&gt;,
             DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
         &gt;,
         TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-        ELECTION: Election&lt;TYPES, LeafType = SequencingLeaf&lt;TYPES&gt;&gt;,
-    &gt; ConsensusNextLeader&lt;A, TYPES, ELECTION&gt;
+    &gt; ConsensusNextLeader&lt;A, TYPES&gt;
 {
     <span class="doccomment">/// Run one view of the next leader, collect votes and build a QC for the last views `CommitmentProposal`
     /// # Panics

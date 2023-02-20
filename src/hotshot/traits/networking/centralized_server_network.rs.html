@@ -1258,7 +1258,7 @@
     data::ProposalType,
     message::{Message, VoteType},
     traits::{
-        election::{Election, ElectionConfig},
+        election::{ElectionConfig, Membership},
         metrics::{Metrics, NoMetrics},
         network::{
             CentralizedServerNetworkError, CommunicationChannel, ConnectedNetwork,
@@ -2306,18 +2306,18 @@
     TYPES: NodeType,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
     VOTE: VoteType&lt;TYPES&gt;,
-    ELECTION: Election&lt;TYPES&gt;,
+    MEMBERSHIP: Membership&lt;TYPES&gt;,
 &gt;(
     CentralizedServerNetwork&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
-    PhantomData&lt;(PROPOSAL, VOTE, ELECTION)&gt;,
+    PhantomData&lt;(PROPOSAL, VOTE, MEMBERSHIP)&gt;,
 );
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
-        ELECTION: Election&lt;TYPES&gt;,
-    &gt; CentralizedCommChannel&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
+        MEMBERSHIP: Membership&lt;TYPES&gt;,
+    &gt; CentralizedCommChannel&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
 {
     <span class="doccomment">/// create new communication channel
     </span><span class="kw">pub fn </span>new(
@@ -2342,9 +2342,9 @@
         TYPES: NodeType,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
-        ELECTION: Election&lt;TYPES&gt;,
-    &gt; CommunicationChannel&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
-    <span class="kw">for </span>CentralizedCommChannel&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
+        MEMBERSHIP: Membership&lt;TYPES&gt;,
+    &gt; CommunicationChannel&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    <span class="kw">for </span>CentralizedCommChannel&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
 {
     <span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         &lt;CentralizedServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
@@ -2373,10 +2373,10 @@
     <span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Message&lt;TYPES, PROPOSAL, VOTE&gt;,
-        election: <span class="kw-2">&amp;</span>ELECTION,
+        membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>view_number = message.get_view_number();
-        <span class="kw">let </span>recipients = &lt;ELECTION <span class="kw">as </span>Election&lt;TYPES&gt;&gt;::get_committee(election, view_number);
+        <span class="kw">let </span>recipients = &lt;MEMBERSHIP <span class="kw">as </span>Membership&lt;TYPES&gt;&gt;::get_committee(membership, view_number);
         <span class="self">self</span>.<span class="number">0</span>.broadcast_message(message, recipients).<span class="kw">await
     </span>}
 
@@ -2408,9 +2408,9 @@
         TYPES: NodeType,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
-        ELECTION: Election&lt;TYPES&gt;,
-    &gt; TestableNetworkingImplementation&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
-    <span class="kw">for </span>CentralizedCommChannel&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;
+        MEMBERSHIP: Membership&lt;TYPES&gt;,
+    &gt; TestableNetworkingImplementation&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    <span class="kw">for </span>CentralizedCommChannel&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
 {

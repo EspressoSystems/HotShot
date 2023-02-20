@@ -732,24 +732,6 @@
 <a href="#732" id="732">732</a>
 <a href="#733" id="733">733</a>
 <a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
-<a href="#737" id="737">737</a>
-<a href="#738" id="738">738</a>
-<a href="#739" id="739">739</a>
-<a href="#740" id="740">740</a>
-<a href="#741" id="741">741</a>
-<a href="#742" id="742">742</a>
-<a href="#743" id="743">743</a>
-<a href="#744" id="744">744</a>
-<a href="#745" id="745">745</a>
-<a href="#746" id="746">746</a>
-<a href="#747" id="747">747</a>
-<a href="#748" id="748">748</a>
-<a href="#749" id="749">749</a>
-<a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -761,7 +743,7 @@
     certificate::{DACertificate, QuorumCertificate},
     constants::genesis_proposer_id,
     traits::{
-        election::{Election, SignedCertificate},
+        election::SignedCertificate,
         node_implementation::NodeType,
         signature_key::EncodedPublicKey,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensusType},
@@ -778,7 +760,7 @@
 </span><span class="kw">use </span>nll::nll_todo::nll_todo;
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::{fmt::Debug, hash::Hash, marker::PhantomData};
+<span class="kw">use </span>std::{fmt::Debug, hash::Hash};
 
 <span class="doccomment">/// Type-safe wrapper around `u64` so we know the thing we&#39;re talking about is a view number.
 </span><span class="attr">#[derive(
@@ -840,9 +822,9 @@
 </span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Derivative, Eq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 #[derivative(PartialEq, Hash)]
-</span><span class="kw">pub struct </span>ValidatingProposal&lt;TYPES: NodeType, ELECTION: Election&lt;TYPES&gt;&gt;
+</span><span class="kw">pub struct </span>ValidatingProposal&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt;
 <span class="kw">where
-    </span>ELECTION::LeafType: Committable,
+    </span>LEAF: Committable,
 {
     <span class="doccomment">///  current view&#39;s block commitment
     </span><span class="kw">pub </span>block_commitment: Commitment&lt;TYPES::BlockType&gt;,
@@ -854,12 +836,12 @@
     </span><span class="kw">pub </span>height: u64,
 
     <span class="doccomment">/// Per spec, justification
-    </span><span class="kw">pub </span>justify_qc: ELECTION::QuorumCertificate,
+    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
 
     <span class="doccomment">/// The hash of the parent `Leaf`
     /// So we can ask if it extends
     </span><span class="attr">#[debug(skip)]
-    </span><span class="kw">pub </span>parent_commitment: Commitment&lt;ELECTION::LeafType&gt;,
+    </span><span class="kw">pub </span>parent_commitment: Commitment&lt;LEAF&gt;,
 
     <span class="doccomment">/// Block leaf wants to apply
     </span><span class="kw">pub </span>deltas: TYPES::BlockType,
@@ -872,24 +854,19 @@
 
     <span class="doccomment">/// the propser id
     </span><span class="kw">pub </span>proposer_id: EncodedPublicKey,
-
-    <span class="attr">#[allow(missing_docs)]
-    </span><span class="kw">pub </span>_pd: PhantomData&lt;ELECTION&gt;,
 }
 
 <span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
-</span><span class="kw">pub struct </span>DAProposal&lt;TYPES: NodeType, ELECTION: Election&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>DAProposal&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Block leaf wants to apply
     </span><span class="kw">pub </span>deltas: TYPES::BlockType,
     <span class="doccomment">/// View this proposal applies to
     </span><span class="kw">pub </span>view_number: TYPES::Time,
-
-    <span class="kw">pub </span>_pd: PhantomData&lt;ELECTION&gt;,
 }
 
 <span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub struct </span>CommitmentProposal&lt;TYPES: NodeType, ELECTION: Election&lt;TYPES&gt;&gt; {
+</span><span class="kw">pub struct </span>CommitmentProposal&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
     <span class="attr">#[allow(clippy::missing_docs_in_private_items)]
     </span><span class="kw">pub </span>block_commitment: Commitment&lt;TYPES::BlockType&gt;,
 
@@ -900,10 +877,10 @@
     </span><span class="kw">pub </span>height: u64,
 
     <span class="doccomment">/// Per spec, justification
-    </span><span class="kw">pub </span>justify_qc: ELECTION::QuorumCertificate,
+    </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
 
     <span class="doccomment">/// Data availibity certificate
-    </span><span class="kw">pub </span>dac: ELECTION::DACertificate,
+    </span><span class="kw">pub </span>dac: DACertificate&lt;TYPES&gt;,
 
     <span class="doccomment">/// the propser id
     </span><span class="kw">pub </span>proposer_id: EncodedPublicKey,
@@ -912,33 +889,28 @@
     </span><span class="kw">pub </span>application_metadata: TYPES::ApplicationMetadataType,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, ELECTION: Election&lt;TYPES&gt;&gt; ProposalType
-    <span class="kw">for </span>ValidatingProposal&lt;TYPES, ELECTION&gt;
-<span class="kw">where
-    </span>ELECTION::LeafType: Committable,
+<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; ProposalType
+    <span class="kw">for </span>ValidatingProposal&lt;TYPES, LEAF&gt;
 {
     <span class="kw">type </span>NodeType = TYPES;
-    <span class="kw">type </span>Election = ELECTION;
     <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time {
         <span class="self">self</span>.view_number
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, ELECTION: Election&lt;TYPES&gt;&gt; ProposalType <span class="kw">for </span>DAProposal&lt;TYPES, ELECTION&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; ProposalType <span class="kw">for </span>DAProposal&lt;TYPES&gt; {
     <span class="kw">type </span>NodeType = TYPES;
-    <span class="kw">type </span>Election = ELECTION;
     <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time {
         <span class="self">self</span>.view_number
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, ELECTION: Election&lt;TYPES&gt;&gt; ProposalType
-    <span class="kw">for </span>CommitmentProposal&lt;TYPES, ELECTION&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; ProposalType
+    <span class="kw">for </span>CommitmentProposal&lt;TYPES, LEAF&gt;
 <span class="kw">where
     </span>TYPES::ApplicationMetadataType: Send + Sync,
 {
     <span class="kw">type </span>NodeType = TYPES;
-    <span class="kw">type </span>Election = ELECTION;
     <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time {
         <span class="self">self</span>.view_number
     }
@@ -947,7 +919,6 @@
     Debug + Clone + <span class="lifetime">&#39;static </span>+ Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync + PartialEq + Eq
 {
     <span class="kw">type </span>NodeType: NodeType;
-    <span class="kw">type </span>Election: Election&lt;<span class="self">Self</span>::NodeType&gt;;
     <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time;
 }
 
@@ -1374,14 +1345,8 @@
     }
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        ELECTION: Election&lt;
-            TYPES,
-            LeafType = ValidatingLeaf&lt;TYPES&gt;,
-            QuorumCertificate = QuorumCertificate&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
-        &gt;,
-    &gt; From&lt;ValidatingLeaf&lt;TYPES&gt;&gt; <span class="kw">for </span>ValidatingProposal&lt;TYPES, ELECTION&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType&gt; From&lt;ValidatingLeaf&lt;TYPES&gt;&gt;
+    <span class="kw">for </span>ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;
 {
     <span class="kw">fn </span>from(leaf: ValidatingLeaf&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
@@ -1394,7 +1359,6 @@
             rejected: leaf.rejected,
             proposer_id: leaf.proposer_id,
             block_commitment: leaf.deltas.commit(),
-            _pd: PhantomData,
         }
     }
 }

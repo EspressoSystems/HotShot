@@ -314,7 +314,7 @@
 }
 
 <span class="doccomment">/// Incoming message
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub struct </span>Message&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
 {
@@ -351,7 +351,7 @@
 <span class="comment">// TODO (da) make it more customized to the consensus layer, maybe separating the specific message
 // data from the kind enum.
 </span><span class="doccomment">/// Enum representation of any message type
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub enum </span>MessageKind&lt;
     TYPES: NodeType,
@@ -381,7 +381,7 @@
 }
 
 <span class="doccomment">/// Internal triggers sent by consensus messages.
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub enum </span>InternalTrigger&lt;TYPES: NodeType&gt; {
     <span class="comment">// May add other triggers if necessary.
@@ -390,7 +390,7 @@
 }
 
 <span class="doccomment">/// a processed consensus message
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub enum </span>ProcessedConsensusMessage&lt;
     TYPES: NodeType,
@@ -436,7 +436,7 @@
     }
 }
 
-<span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+<span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="doccomment">/// Messages related to the consensus protocol
 </span><span class="kw">pub enum </span>ConsensusMessage&lt;

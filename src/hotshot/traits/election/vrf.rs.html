@@ -1262,11 +1262,6 @@
 <a href="#1262" id="1262">1262</a>
 <a href="#1263" id="1263">1263</a>
 <a href="#1264" id="1264">1264</a>
-<a href="#1265" id="1265">1265</a>
-<a href="#1266" id="1266">1266</a>
-<a href="#1267" id="1267">1267</a>
-<a href="#1268" id="1268">1268</a>
-<a href="#1269" id="1269">1269</a>
 </pre><pre class="rust"><code><span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>ark_ec::bls12::Bls12Parameters;
 <span class="kw">use </span>bincode::Options;
@@ -1274,11 +1269,12 @@
 <span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>espresso_systems_common::hotshot::tag;
-<span class="kw">use </span>hotshot_types::certificate::DACertificate;
 <span class="kw">use </span>hotshot_types::{
     data::LeafType,
     traits::{
-        election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
+        election::{
+            Checked, ElectionConfig, ElectionError, Membership, TestableElection, VoteToken,
+        },
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
     },
@@ -1689,8 +1685,8 @@
 }
 
 <span class="comment">// KEY is VRFPubKey
-</span><span class="kw">impl</span>&lt;VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, TYPES, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; Election&lt;TYPES&gt;
-    <span class="kw">for </span>VrfImpl&lt;TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS&gt;
+</span><span class="kw">impl</span>&lt;VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, TYPES, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt;
+    Membership&lt;TYPES&gt; <span class="kw">for </span>VrfImpl&lt;TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS&gt;
 <span class="kw">where
     </span>SIGSCHEME: SignatureScheme&lt;PublicParameter = (), MessageUnit = u8&gt; + Sync + Send + <span class="lifetime">&#39;static</span>,
     SIGSCHEME::VerificationKey: Clone + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Sync + Send,
@@ -1720,12 +1716,6 @@
 {
     <span class="comment">// pubkey -&gt; unit of stake
     </span><span class="kw">type </span>StakeTable = VRFStakeTable&lt;VRF, VRFHASHER, VRFPARAMS&gt;;
-
-    <span class="kw">type </span>QuorumCertificate = LEAF::QuorumCertificate;
-
-    <span class="kw">type </span>DACertificate = DACertificate&lt;TYPES&gt;;
-
-    <span class="kw">type </span>LeafType = LEAF;
 
     <span class="comment">// FIXED STAKE
     // just return the state

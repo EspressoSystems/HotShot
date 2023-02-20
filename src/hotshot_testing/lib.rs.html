@@ -684,7 +684,7 @@
     data::{LeafType, ProposalType, TestableLeaf},
     message::VoteType,
     traits::{
-        election::Election,
+        election::Membership,
         metrics::NoMetrics,
         network::TestableNetworkingImplementation,
         node_implementation::{NodeType, TestableNodeImplementation},
@@ -759,7 +759,7 @@
     </span>TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Election&gt;,
+    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Membership&gt;,
     I::Storage: TestableStorage&lt;TYPES, I::Leaf&gt;,
     I::Leaf: TestableLeaf&lt;NodeType = TYPES&gt;,
 {
@@ -800,7 +800,7 @@
     </span>TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Election&gt;,
+    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Membership&gt;,
     I::Storage: TestableStorage&lt;TYPES, I::Leaf&gt;,
     I::Leaf: TestableLeaf&lt;NodeType = TYPES&gt;,
 {
@@ -878,7 +878,7 @@
         <span class="kw">let </span>private_key = TYPES::SignatureKey::generate_test_key(node_id);
         <span class="kw">let </span>public_key = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>private_key);
         <span class="kw">let </span>election_config = config.election_config.clone().unwrap_or_else(|| {
-            I::Election::default_election_config(config.total_nodes.get() <span class="kw">as </span>u64)
+            I::Membership::default_election_config(config.total_nodes.get() <span class="kw">as </span>u64)
         });
         <span class="kw">let </span>handle = HotShot::init(
             public_key,
@@ -887,7 +887,7 @@
             config,
             network,
             storage,
-            I::Election::create_election(known_nodes, election_config),
+            I::Membership::create_election(known_nodes, election_config),
             initializer,
             NoMetrics::new(),
         )
@@ -1044,7 +1044,7 @@
     </span>TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Election&gt;,
+    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Membership&gt;,
     I::Storage: TestableStorage&lt;TYPES, I::Leaf&gt;,
     I::Leaf: TestableLeaf&lt;NodeType = TYPES&gt;,
 {
@@ -1115,7 +1115,7 @@
     </span>TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Election&gt;,
+    I::Networking: TestableNetworkingImplementation&lt;TYPES, I::Proposal, I::Vote, I::Membership&gt;,
     I::Storage: TestableStorage&lt;TYPES, I::Leaf&gt;,
     I::Leaf: TestableLeaf&lt;NodeType = TYPES&gt;,
 {
@@ -1225,24 +1225,24 @@
 </span><span class="kw">pub struct </span>TestNodeImpl&lt;
     TYPES: NodeType,
     LEAF: LeafType&lt;NodeType = TYPES&gt;,
-    PROPOSAL: ProposalType&lt;NodeType = TYPES, Election = ELECTION&gt;,
+    PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
     VOTE: VoteType&lt;TYPES&gt;,
     NETWORK,
     STORAGE,
-    ELECTION,
+    MEMBERSHIP,
 &gt; {
-    _pd: PhantomData&lt;(TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION)&gt;,
+    _pd: PhantomData&lt;(TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP)&gt;,
 }
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
         LEAF: LeafType&lt;NodeType = TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES, Election = ELECTION&gt;,
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
         NETWORK,
         STORAGE,
-        ELECTION,
-    &gt; Clone <span class="kw">for </span>TestNodeImpl&lt;TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION&gt;
+        MEMBERSHIP,
+    &gt; Clone <span class="kw">for </span>TestNodeImpl&lt;TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP&gt;
 {
     <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ _pd: PhantomData }
@@ -1252,24 +1252,24 @@
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
         LEAF: LeafType&lt;NodeType = TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES, Election = ELECTION&gt;,
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
         NETWORK,
         STORAGE,
-        ELECTION,
+        MEMBERSHIP,
     &gt; NodeImplementation&lt;TYPES&gt;
-    <span class="kw">for </span>TestNodeImpl&lt;TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION&gt;
+    <span class="kw">for </span>TestNodeImpl&lt;TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP&gt;
 <span class="kw">where
     </span>TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    ELECTION: Election&lt;TYPES, LeafType = LEAF&gt; + Debug,
-    NETWORK: TestableNetworkingImplementation&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;,
+    MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
+    NETWORK: TestableNetworkingImplementation&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;,
     STORAGE: Storage&lt;TYPES, LEAF&gt;,
 {
     <span class="kw">type </span>Leaf = LEAF;
     <span class="kw">type </span>Networking = NETWORK;
-    <span class="kw">type </span>Election = ELECTION;
+    <span class="kw">type </span>Membership = MEMBERSHIP;
     <span class="kw">type </span>Storage = STORAGE;
     <span class="kw">type </span>Proposal = PROPOSAL;
     <span class="kw">type </span>Vote = VOTE;
@@ -1278,20 +1278,20 @@
 <span class="kw">impl</span>&lt;
         TYPES,
         LEAF: LeafType&lt;NodeType = TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES, Election = ELECTION&gt;,
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
         NETWORK,
         STORAGE,
-        ELECTION: Election&lt;TYPES, LeafType = LEAF&gt; + Debug,
+        MEMBERSHIP: Membership&lt;TYPES&gt; + Debug,
     &gt; TestableNodeImplementation&lt;TYPES&gt;
-    <span class="kw">for </span>TestNodeImpl&lt;TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION&gt;
+    <span class="kw">for </span>TestNodeImpl&lt;TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP&gt;
 <span class="kw">where
     </span>TYPES: NodeType,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    NETWORK: TestableNetworkingImplementation&lt;TYPES, PROPOSAL, VOTE, ELECTION&gt;,
-    ELECTION: Election&lt;TYPES&gt;,
+    MEMBERSHIP: Membership&lt;TYPES&gt;,
+    NETWORK: TestableNetworkingImplementation&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;,
     STORAGE: TestableStorage&lt;TYPES, LEAF&gt;,
 {
 }
@@ -1299,12 +1299,12 @@
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
         LEAF: LeafType&lt;NodeType = TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES, Election = ELECTION&gt;,
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
         NETWORK,
         STORAGE,
-        ELECTION,
-    &gt; fmt::Debug <span class="kw">for </span>TestNodeImpl&lt;TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, ELECTION&gt;
+        MEMBERSHIP,
+    &gt; fmt::Debug <span class="kw">for </span>TestNodeImpl&lt;TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP&gt;
 {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
         fmt.debug_struct(<span class="string">&quot;TestNodeImpl&quot;</span>)

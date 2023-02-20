@@ -29,7 +29,7 @@
 
 <span class="kw">use crate</span>::{
     infra::{main_entry_point, CliOrchestrated},
-    types::{ThisConfig, ThisElection, ThisNetwork, ThisNode},
+    types::{ThisConfig, ThisMembership, ThisNetwork, ThisNode},
 };
 
 <span class="kw">pub mod </span>types;
@@ -46,7 +46,7 @@
 </span><span class="kw">async fn </span>main() {
     <span class="kw">let </span>args = CliOrchestrated::parse();
 
-    main_entry_point::&lt;VDemoTypes, ThisElection, ThisNetwork, ThisNode, ThisConfig&gt;(args).<span class="kw">await</span>;
+    main_entry_point::&lt;VDemoTypes, ThisMembership, ThisNetwork, ThisNode, ThisConfig&gt;(args).<span class="kw">await</span>;
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="centralized" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>

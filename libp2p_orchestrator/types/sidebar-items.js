@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"type":[["ThisConfig",""],["ThisElection",""],["ThisLeaf",""],["ThisNetwork",""],["ThisNode",""],["ThisProposal",""],["ThisVote",""]]};
+window.SIDEBAR_ITEMS = {"type":[["ThisConfig",""],["ThisLeaf",""],["ThisMembership",""],["ThisNetwork",""],["ThisNode",""],["ThisProposal",""],["ThisVote",""]]};
