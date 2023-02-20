@@ -82,6 +82,16 @@ required-features = ["demo", "libp2p/rsa"]
 path = "examples/centralized/validator.rs"
 
 [[example]]
+name = "centralized-web-server"
+required-features = ["full-ci"]
+path = "examples/centralized_web_server/centralized_web_server.rs"
+
+[[example]]
+name = "web-server-orchestrator"
+required-features = []
+path = "examples/centralized_web_server/orchestrator.rs"
+
+[[example]]
 name = "libp2p"
 required-features = ["demo", "libp2p/rsa"]
 path = "examples/libp2p/validator.rs"
@@ -123,6 +133,7 @@ futures = "0.3.26"
 hotshot-centralized-server = { version = "0.1.1", path = "centralized_server", default-features = false }
 hotshot-centralized-web-server = { version = "0.1.1", path = "centralized_web_server", default-features = false }
 hotshot-consensus = { path = "./consensus", version = "0.1.0", default-features = false }
+hotshot-orchestrator = { version = "0.1.1", path = "orchestrator", default-features = false }
 hotshot-types = { path = "./types", version = "0.1.0", default-features = false }
 hotshot-utils = { path = "./utils" }
 itertools = "0.10"

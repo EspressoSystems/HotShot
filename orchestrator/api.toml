@@ -1,0 +1,38 @@
+[meta]
+NAME = "orchestrator"
+DESCRIPTION = "Orchestrator for HotShot"
+FORMAT_VERSION = "0.1.0"
+
+# Get the network configuration
+[route.post_getconfig]
+PATH = ["config"]
+METHOD = "POST"
+DOC = """
+Get NetworkConfig configuration needed for nodes to initialize HotShot and themselves. See `config.rs` for more information. 
+This must be a POST request so we can update the OrchestratorState in the server accordingly
+"""
+
+# POST whether the node is ready to begin the run
+[route.postready]
+PATH = ["ready"]
+METHOD = "POST"
+":node_index" = "Integer"
+DOC = """
+Post whether the node with node_index is ready to start the run.
+"""
+
+# GET whether or not to start the run
+[route.getstart]
+PATH = ["start"]
+DOC = """
+Get whether the node should start the run, returns a boolean
+"""
+
+# POST the run results
+[route.results]
+PATH = ["results"]
+":run_results" = "TaggedBase64"
+METHOD = "POST"
+DOC = """
+Post run results.
+"""
