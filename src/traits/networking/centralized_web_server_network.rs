@@ -43,7 +43,7 @@ use hotshot_types::{
     },
 };
 use hotshot_utils::bincode::bincode_opts;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
 use std::{
     cmp,
@@ -68,8 +68,9 @@ pub struct CentralizedWebCommChannel<
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     ELECTION: Election<TYPES>,
+    M: NetworkMsg
 >(
-    CentralizedWebServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES>,
+    CentralizedWebServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES, M>,
     PhantomData<(PROPOSAL, VOTE, ELECTION)>,
 );
 impl<
@@ -77,7 +78,8 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-    > CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+        M: NetworkMsg
+    > CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION, M>
 {
     /// Create new communication channel
     pub fn new(
@@ -92,15 +94,22 @@ pub struct CentralizedWebServerNetwork<
     KEY: SignatureKey,
     ELECTIONCONFIG: ElectionConfig,
     TYPES: NodeType,
+    M: NetworkMsg
 > {
     /// The inner state
-    inner: Arc<Inner<KEY, ELECTIONCONFIG, TYPES>>,
+    // TODO ED What's the point of inner? 
+    inner: Arc<Inner<KEY, ELECTIONCONFIG, TYPES, M>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
 #[derive(Debug)]
-struct Inner<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType> {
+struct Inner<
+    KEY: SignatureKey,
+    ELECTIONCONFIG: ElectionConfig,
+    TYPES: NodeType,
+    M: NetworkMsg
+> {
     phantom: PhantomData<(KEY, ELECTIONCONFIG)>,
     // Current view number so we can poll accordingly
     // TODO ED impl "read view" trait so that we can't accidentially write this
@@ -111,20 +120,34 @@ struct Inner<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType>
     // TODO Do we ever use this?
     own_key: TYPES::SignatureKey,
     // // Queue for broadcasted messages (mainly transactions and proposals)
-    // broadcast_poll_queue: Arc<RwLock<Vec<Message<TYPES>>>>,
+    broadcast_poll_queue: Arc<RwLock<Vec<M>>>,
     // // Queue for direct messages (mainly votes)
-    // direct_poll_queue: Arc<RwLock<Vec<Message<TYPES>>>>,
-    // //KALEY: these may not be necessary
-    // running: AtomicBool,
-
+    // Should this be channels? TODO ED
+    direct_poll_queue: Arc<RwLock<Vec<M>>>,
+    // TODO ED the same as connected?
+    running: AtomicBool,
     // The network is connected to the web server and ready to go
     connected: AtomicBool,
     client: surf_disco::Client<ClientError>,
-    // wait_between_polls: Duration,
+    wait_between_polls: Duration,
 }
 
-impl<K: SignatureKey + 'static, E: ElectionConfig + 'static, TYPES: NodeType + 'static>
-    CentralizedWebServerNetwork<K, E, TYPES>
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = ""))]
+pub struct WebServerNetworkMessage<
+    M: NetworkMsg
+> {
+    message: M,
+    endpoint: String,
+}
+
+impl<M: NetworkMsg> NetworkMsg
+    for WebServerNetworkMessage<M>
+{
+}
+
+impl<K: SignatureKey + 'static, E: ElectionConfig + 'static, TYPES: NodeType + 'static, M: NetworkMsg + 'static>
+    CentralizedWebServerNetwork<K, E, TYPES, M>
 {
     // TODO ED change to new
     pub fn create(
@@ -141,20 +164,21 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static, TYPES: NodeType + '
 
         let inner = Arc::new(Inner {
             phantom: PhantomData::default(),
-            //KALEY todo: init view number? get from server?
+            // Assuming this is initialized to zero
             view_number: Arc::new(SubscribableRwLock::new(TYPES::Time::new(0))),
             is_current_leader: Arc::new(SubscribableRwLock::new(false)),
             is_next_leader: Arc::new(SubscribableRwLock::new(false)),
-            // broadcast_poll_queue: Default::default(),
-            // direct_poll_queue: Default::default(),
-            // running: AtomicBool::new(true),
+            broadcast_poll_queue: Default::default(),
+            direct_poll_queue: Default::default(),
+            running: AtomicBool::new(true),
             connected: AtomicBool::new(false),
             client,
-            // wait_between_polls,
+            wait_between_polls,
             own_key: key,
         });
         inner.connected.store(true, Ordering::Relaxed);
 
+        // TODO ED Uncomment this when ready
         // async_spawn({
         //     let inner = Arc::clone(&inner);
         //     async move {
@@ -179,8 +203,9 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-    > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
-    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+        M: NetworkMsg
+    > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION, M>
+    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION, M>
 {
     /// Blocks until node is successfully initialized
     /// into the network
@@ -247,7 +272,7 @@ impl<
     /// look up a node
     /// blocking
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
-        nll_todo()
+        Ok(())
     }
 }
 
@@ -257,7 +282,7 @@ impl<
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
-    > ConnectedNetwork<M, K> for CentralizedWebServerNetwork<K, E, TYPES>
+    > ConnectedNetwork<M, K> for CentralizedWebServerNetwork<M, K, E, TYPES>
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
@@ -285,8 +310,6 @@ impl<
         message: M,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
-
-        
         Ok(())
     }
 
@@ -307,7 +330,7 @@ impl<
     /// look up a node
     /// blocking
     async fn lookup_node(&self, pk: K) -> Result<(), NetworkError> {
-        nll_todo()
+        Ok(())
     }
 }
 impl<
@@ -315,8 +338,9 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
+        M: NetworkMsg
     > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, ELECTION>
-    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION, M>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
