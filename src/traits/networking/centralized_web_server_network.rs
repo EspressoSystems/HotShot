@@ -98,6 +98,46 @@ impl<
     ) -> Self {
         Self(network, PhantomData::default())
     }
+
+    fn parse_message(
+        &self,
+        message: Message<TYPES, PROPOSAL, VOTE>,
+    ) -> WebServerNetworkMessage<TYPES, PROPOSAL, VOTE> {
+        // Plan:
+        // create NetworkMsg using match for endpoint
+        // Best way to map endpoints?  Enum?  Import config from web server
+        let view_number: TYPES::Time = message.get_view_number().into();
+
+        // Returns the endpoint we need, maybe should return an option?  For internal trigger? Return error for now?
+        let endpoint = match message.clone().kind {
+            hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind {
+                hotshot_types::message::ConsensusMessage::Proposal(_) => {
+                    config::post_proposal_route((*view_number).into())
+                }
+                hotshot_types::message::ConsensusMessage::Vote(_) => {
+                    // We shouldn't ever reach this TODO ED
+                    config::post_vote_route((*view_number).into())
+                }
+                hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {
+                    // TODO ED Remove this once we are sure this is never hit
+                    panic!();
+                    // return Err(NetworkError::UnimplementedFeature)
+                    "InternalTrigger".to_string()
+                }
+            },
+            hotshot_types::message::MessageKind::Data(message_kind) => match message_kind {
+                hotshot_types::message::DataMessage::SubmitTransaction(_, _) => {
+                    config::post_transactions_route()
+                }
+            },
+        };
+
+        let network_msg: WebServerNetworkMessage<TYPES, PROPOSAL, VOTE> =
+            WebServerNetworkMessage { message, endpoint };
+        network_msg
+
+        // TODO ED Current web server doesn't have a concept of recipients
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -113,6 +153,34 @@ pub struct CentralizedWebServerNetwork<
     inner: Arc<Inner<KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
+}
+
+impl<
+        KEY: SignatureKey,
+        ELECTIONCONFIG: ElectionConfig,
+        TYPES: NodeType,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+    > CentralizedWebServerNetwork<KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
+{
+    async fn send_message_to_web_server<
+        M: NetworkMsg + WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>,
+    >(
+        &self,
+        message: M,
+    ) -> Result<(), NetworkError> {
+        let result: Result<(), ClientError> = self
+            .inner
+            .client
+            // TODO ED update this to get actual message
+            .post(&message.get_endpoint())
+            .body_binary(&message.get_message())
+            .unwrap()
+            .send()
+            .await;
+        // TODO ED Actually return result
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -156,21 +224,27 @@ pub struct WebServerNetworkMessage<
     endpoint: String,
 }
 
-// Ideally you'd want it to be generic over any network msg, but for now this is fine 
-pub trait WebServerNetworkMessageTrait<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>> {
-    fn get_endpoint (&self) -> String;
-    fn get_message (&self) -> Message<TYPES, PROPOSAL, VOTE>;
+// Ideally you'd want it to be generic over any network msg, but for now this is fine
+pub trait WebServerNetworkMessageTrait<
+    TYPES: NodeType,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
+>
+{
+    fn get_endpoint(&self) -> String;
+    fn get_message(&self) -> Message<TYPES, PROPOSAL, VOTE>;
 }
 
 impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
-    WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE> for WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>
+    WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>
+    for WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>
 {
-    // TODO ED String doesn't impl copy? 
-    fn get_endpoint (&self) -> String {
+    // TODO ED String doesn't impl copy?
+    fn get_endpoint(&self) -> String {
         self.endpoint.clone()
     }
 
-    fn get_message (&self) -> Message<TYPES, PROPOSAL, VOTE> {
+    fn get_message(&self) -> Message<TYPES, PROPOSAL, VOTE> {
         self.message.clone()
     }
 }
@@ -283,38 +357,7 @@ impl<
         message: Message<TYPES, PROPOSAL, VOTE>,
         election: &ELECTION,
     ) -> Result<(), NetworkError> {
-        // Plan:
-        // create NetworkMsg using match for endpoint
-        // Best way to map endpoints?  Enum?  Import config from web server
-        let view_number: TYPES::Time = message.get_view_number().into();
-
-        // Returns the endpoint we need, maybe should return an option?  For internal trigger? Return error for now?
-        let endpoint = match message.clone().kind {
-            hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind {
-                hotshot_types::message::ConsensusMessage::Proposal(_) => {
-                    config::post_proposal_route((*view_number).into())
-                }
-                hotshot_types::message::ConsensusMessage::Vote(_) => {
-                    config::post_vote_route((*view_number).into())
-                }
-                hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {
-                    // TODO ED Remove this once we are sure this is never hit
-                    panic!();
-                    // return Err(NetworkError::UnimplementedFeature)
-                    "InternalTrigger".to_string()
-                }
-            },
-            hotshot_types::message::MessageKind::Data(message_kind) => match message_kind {
-                hotshot_types::message::DataMessage::SubmitTransaction(_, _) => {
-                    config::post_transactions_route()
-                }
-            },
-        };
-
-        let network_msg: WebServerNetworkMessage<TYPES, PROPOSAL, VOTE> =
-            WebServerNetworkMessage { message, endpoint };
-
-        // TODO ED Current web server doesn't have a concept of recipients
+        let network_msg = self.parse_message(message);
         self.0.broadcast_message(network_msg, BTreeSet::new()).await
     }
 
@@ -325,7 +368,8 @@ impl<
         message: Message<TYPES, PROPOSAL, VOTE>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        Ok(())
+        let network_msg = self.parse_message(message);
+        self.0.direct_message(network_msg, recipient).await
     }
 
     /// Moves out the entire queue of received messages of 'transmit_type`
@@ -385,17 +429,9 @@ where
         message: M,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
-        let result: Result<(), ClientError> = self
-            .inner
-            .client
-            // TODO ED update this to get actual message
-            .post(&message.get_endpoint())
-            .body_binary(&message)
-            .unwrap()
-            .send()
-            .await;
+        let result = self.send_message_to_web_server(message).await;
 
-        // send message to web server
+        // TODO ED Match result
 
         Ok(())
     }
@@ -403,6 +439,10 @@ where
     /// Sends a direct message to a specific node
     /// blocking
     async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
+        let result = self.send_message_to_web_server(message).await;
+
+        // TODO ED Match result
+
         Ok(())
     }
 

@@ -127,7 +127,8 @@ impl WebServerDataSource for WebServerState {
 
     /// Stores a received vote in the `WebServerState`
     fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error> {
-        // println!("Posting vote for view {}", view_number);
+        println!("Posting vote for view {} on the web server", view_number);
+        
 
         // only keep vote history for MAX_VIEWS number of views
         if self.votes.len() >= MAX_VIEWS {
