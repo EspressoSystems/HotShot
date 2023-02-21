@@ -69,9 +69,14 @@ pub struct CentralizedWebCommChannel<
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     ELECTION: Election<TYPES>,
-    M: NetworkMsg,
 >(
-    CentralizedWebServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES, M>,
+    CentralizedWebServerNetwork<
+        TYPES::SignatureKey,
+        TYPES::ElectionConfigType,
+        TYPES,
+        PROPOSAL,
+        VOTE,
+    >,
     PhantomData<(PROPOSAL, VOTE, ELECTION)>,
 );
 impl<
@@ -79,8 +84,7 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-        M: NetworkMsg,
-    > CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION, M>
+    > CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 {
     /// Create new communication channel
     pub fn new(
@@ -88,7 +92,8 @@ impl<
             TYPES::SignatureKey,
             TYPES::ElectionConfigType,
             TYPES,
-            M,
+            PROPOSAL,
+            VOTE,
         >,
     ) -> Self {
         Self(network, PhantomData::default())
@@ -100,17 +105,24 @@ pub struct CentralizedWebServerNetwork<
     KEY: SignatureKey,
     ELECTIONCONFIG: ElectionConfig,
     TYPES: NodeType,
-    M: NetworkMsg,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
 > {
     /// The inner state
     // TODO ED What's the point of inner?
-    inner: Arc<Inner<KEY, ELECTIONCONFIG, TYPES, M>>,
+    inner: Arc<Inner<KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
 #[derive(Debug)]
-struct Inner<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType, M: NetworkMsg> {
+struct Inner<
+    KEY: SignatureKey,
+    ELECTIONCONFIG: ElectionConfig,
+    TYPES: NodeType,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
+> {
     phantom: PhantomData<(KEY, ELECTIONCONFIG)>,
     // Current view number so we can poll accordingly
     // TODO ED impl "read view" trait so that we can't accidentially write this
@@ -121,10 +133,10 @@ struct Inner<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType,
     // TODO Do we ever use this?
     own_key: TYPES::SignatureKey,
     // // Queue for broadcasted messages (mainly transactions and proposals)
-    broadcast_poll_queue: Arc<RwLock<Vec<M>>>,
+    broadcast_poll_queue: Arc<RwLock<Vec<Message<TYPES, PROPOSAL, VOTE>>>>,
     // // Queue for direct messages (mainly votes)
     // Should this be channels? TODO ED
-    direct_poll_queue: Arc<RwLock<Vec<M>>>,
+    direct_poll_queue: Arc<RwLock<Vec<Message<TYPES, PROPOSAL, VOTE>>>>,
     // TODO ED the same as connected?
     running: AtomicBool,
     // The network is connected to the web server and ready to go
@@ -135,19 +147,27 @@ struct Inner<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType,
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub struct WebServerNetworkMessage<M: NetworkMsg> {
-    message: M,
+pub struct WebServerNetworkMessage<
+    TYPES: NodeType,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
+> {
+    message: Message<TYPES, PROPOSAL, VOTE>,
     endpoint: String,
 }
 
-impl<M: NetworkMsg> NetworkMsg for WebServerNetworkMessage<M>  {}
+impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>> NetworkMsg
+    for WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>
+{
+}
 
 impl<
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
-        M: NetworkMsg + 'static,
-    > CentralizedWebServerNetwork<K, E, TYPES, M>
+        PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
+        VOTE: VoteType<TYPES> + 'static,
+    > CentralizedWebServerNetwork<K, E, TYPES, PROPOSAL, VOTE>
 {
     // TODO ED change to new
     pub fn create(
@@ -203,15 +223,14 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-        M: NetworkMsg,
     > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
-    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION, M>
+    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 {
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
-        <CentralizedWebServerNetwork<_, _, _, _> as ConnectedNetwork<
-            M,
+        <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
         .await;
@@ -220,8 +239,8 @@ impl<
     /// checks if the network is ready
     /// nonblocking
     async fn is_ready(&self) -> bool {
-        <CentralizedWebServerNetwork<_, _, _, _> as ConnectedNetwork<
-            M,
+        <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -231,8 +250,8 @@ impl<
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
-        <CentralizedWebServerNetwork<_, _, _, _> as ConnectedNetwork<
-            M,
+        <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
         .await;
@@ -251,7 +270,7 @@ impl<
         let view_number: TYPES::Time = message.get_view_number().into();
 
         // Returns the endpoint we need, maybe should return an option?  For internal trigger? Return error for now?
-        let endpoint = match message.kind {
+        let endpoint = match message.clone().kind {
             hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind {
                 hotshot_types::message::ConsensusMessage::Proposal(_) => {
                     config::post_proposal_route((*view_number).into())
@@ -273,13 +292,10 @@ impl<
             },
         };
 
-        let network_msg: WebServerNetworkMessage<M>  = WebServerNetworkMessage {
-            message, 
-            endpoint,
-        };
+        let network_msg: WebServerNetworkMessage<TYPES, PROPOSAL, VOTE> =
+            WebServerNetworkMessage { message, endpoint };
 
         self.0.broadcast_message(network_msg, BTreeSet::new()).await
-
     }
 
     /// Sends a direct message to a specific node
@@ -316,7 +332,9 @@ impl<
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
-    > ConnectedNetwork<M, K> for CentralizedWebServerNetwork<K, E, TYPES, M>
+        PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
+        VOTE: VoteType<TYPES> + 'static,
+    > ConnectedNetwork<M, K> for CentralizedWebServerNetwork<K, E, TYPES, PROPOSAL, VOTE>
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
@@ -372,9 +390,8 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-        M: NetworkMsg,
     > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, ELECTION>
-    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION, M>
+    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
