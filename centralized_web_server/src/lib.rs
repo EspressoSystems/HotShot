@@ -148,7 +148,7 @@ impl WebServerDataSource for WebServerState {
     }
     /// Stores a received proposal in the `WebServerState`
     fn post_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error> {
-        println!("posting proposal for view {}", view_number);
+        println!("posting proposal for view {} on the web server", view_number);
 
         // only keep proposal history for MAX_VIEWS number of view
         if self.proposals.len() >= MAX_VIEWS {

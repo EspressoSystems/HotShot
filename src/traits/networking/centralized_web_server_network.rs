@@ -314,6 +314,7 @@ impl<
         let network_msg: WebServerNetworkMessage<TYPES, PROPOSAL, VOTE> =
             WebServerNetworkMessage { message, endpoint };
 
+        // TODO ED Current web server doesn't have a concept of recipients
         self.0.broadcast_message(network_msg, BTreeSet::new()).await
     }
 
