@@ -45,7 +45,7 @@ pub struct DAVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub vote_token: TYPES::VoteTokenType,
 }
 
-/// A positive or negative vote on valiadting or commitment proposal.
+/// A positive or negative vote on validating or commitment proposal.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
 pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
