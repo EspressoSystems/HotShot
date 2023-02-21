@@ -156,6 +156,25 @@ pub struct WebServerNetworkMessage<
     endpoint: String,
 }
 
+// Ideally you'd want it to be generic over any network msg, but for now this is fine 
+pub trait WebServerNetworkMessageTrait<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>> {
+    fn get_endpoint (&self) -> String;
+    fn get_message (&self) -> Message<TYPES, PROPOSAL, VOTE>;
+}
+
+impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
+    WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE> for WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>
+{
+    // TODO ED String doesn't impl copy? 
+    fn get_endpoint (&self) -> String {
+        self.endpoint.clone()
+    }
+
+    fn get_message (&self) -> Message<TYPES, PROPOSAL, VOTE> {
+        self.message.clone()
+    }
+}
+
 impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>> NetworkMsg
     for WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>
 {
@@ -230,7 +249,7 @@ impl<
     /// into the network
     async fn wait_for_ready(&self) {
         <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
+            WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
         .await;
@@ -240,7 +259,7 @@ impl<
     /// nonblocking
     async fn is_ready(&self) -> bool {
         <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
+            WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -251,7 +270,7 @@ impl<
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
         <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
+            WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
         .await;
@@ -335,6 +354,9 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
         VOTE: VoteType<TYPES> + 'static,
     > ConnectedNetwork<M, K> for CentralizedWebServerNetwork<K, E, TYPES, PROPOSAL, VOTE>
+// Make this a trait?
+where
+    M: WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE> + NetworkMsg,
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
@@ -362,6 +384,18 @@ impl<
         message: M,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
+        let result: Result<(), ClientError> = self
+            .inner
+            .client
+            // TODO ED update this to get actual message
+            .post(&message.get_endpoint())
+            .body_binary(&message)
+            .unwrap()
+            .send()
+            .await;
+
+        // send message to web server
+
         Ok(())
     }
 
