@@ -21,6 +21,7 @@ use async_compatibility_layer::{
 };
 
 // TODO ED Do we really need this?
+use hotshot_centralized_web_server::{self, config};
 use hotshot_types::traits::state::ConsensusTime;
 
 use async_lock::{RwLock, RwLockUpgradableReadGuard};
@@ -68,7 +69,7 @@ pub struct CentralizedWebCommChannel<
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     ELECTION: Election<TYPES>,
-    M: NetworkMsg
+    M: NetworkMsg,
 >(
     CentralizedWebServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES, M>,
     PhantomData<(PROPOSAL, VOTE, ELECTION)>,
@@ -78,12 +79,17 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-        M: NetworkMsg
+        M: NetworkMsg,
     > CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION, M>
 {
     /// Create new communication channel
     pub fn new(
-        network: CentralizedWebServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES, M>,
+        network: CentralizedWebServerNetwork<
+            TYPES::SignatureKey,
+            TYPES::ElectionConfigType,
+            TYPES,
+            M,
+        >,
     ) -> Self {
         Self(network, PhantomData::default())
     }
@@ -94,22 +100,17 @@ pub struct CentralizedWebServerNetwork<
     KEY: SignatureKey,
     ELECTIONCONFIG: ElectionConfig,
     TYPES: NodeType,
-    M: NetworkMsg
+    M: NetworkMsg,
 > {
     /// The inner state
-    // TODO ED What's the point of inner? 
+    // TODO ED What's the point of inner?
     inner: Arc<Inner<KEY, ELECTIONCONFIG, TYPES, M>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
 #[derive(Debug)]
-struct Inner<
-    KEY: SignatureKey,
-    ELECTIONCONFIG: ElectionConfig,
-    TYPES: NodeType,
-    M: NetworkMsg
-> {
+struct Inner<KEY: SignatureKey, ELECTIONCONFIG: ElectionConfig, TYPES: NodeType, M: NetworkMsg> {
     phantom: PhantomData<(KEY, ELECTIONCONFIG)>,
     // Current view number so we can poll accordingly
     // TODO ED impl "read view" trait so that we can't accidentially write this
@@ -134,20 +135,19 @@ struct Inner<
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub struct WebServerNetworkMessage<
-    M: NetworkMsg
-> {
+pub struct WebServerNetworkMessage<M: NetworkMsg> {
     message: M,
     endpoint: String,
 }
 
-impl<M: NetworkMsg> NetworkMsg
-    for WebServerNetworkMessage<M>
-{
-}
+impl<M: NetworkMsg> NetworkMsg for WebServerNetworkMessage<M>  {}
 
-impl<K: SignatureKey + 'static, E: ElectionConfig + 'static, TYPES: NodeType + 'static, M: NetworkMsg + 'static>
-    CentralizedWebServerNetwork<K, E, TYPES, M>
+impl<
+        K: SignatureKey + 'static,
+        E: ElectionConfig + 'static,
+        TYPES: NodeType + 'static,
+        M: NetworkMsg + 'static,
+    > CentralizedWebServerNetwork<K, E, TYPES, M>
 {
     // TODO ED change to new
     pub fn create(
@@ -203,7 +203,7 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-        M: NetworkMsg
+        M: NetworkMsg,
     > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
     for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION, M>
 {
@@ -245,7 +245,41 @@ impl<
         message: Message<TYPES, PROPOSAL, VOTE>,
         election: &ELECTION,
     ) -> Result<(), NetworkError> {
-        Ok(())
+        // Plan:
+        // create NetworkMsg using match for endpoint
+        // Best way to map endpoints?  Enum?  Import config from web server
+        let view_number: TYPES::Time = message.get_view_number().into();
+
+        // Returns the endpoint we need, maybe should return an option?  For internal trigger? Return error for now?
+        let endpoint = match message.kind {
+            hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind {
+                hotshot_types::message::ConsensusMessage::Proposal(_) => {
+                    config::post_proposal_route((*view_number).into())
+                }
+                hotshot_types::message::ConsensusMessage::Vote(_) => {
+                    config::post_vote_route((*view_number).into())
+                }
+                hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {
+                    // TODO ED Remove this once we are sure this is never hit
+                    panic!();
+                    // return Err(NetworkError::UnimplementedFeature)
+                    "InternalTrigger".to_string()
+                }
+            },
+            hotshot_types::message::MessageKind::Data(message_kind) => match message_kind {
+                hotshot_types::message::DataMessage::SubmitTransaction(_, _) => {
+                    config::post_transactions_route()
+                }
+            },
+        };
+
+        let network_msg: WebServerNetworkMessage<M>  = WebServerNetworkMessage {
+            message, 
+            endpoint,
+        };
+
+        self.0.broadcast_message(network_msg, BTreeSet::new()).await
+
     }
 
     /// Sends a direct message to a specific node
@@ -338,7 +372,7 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         ELECTION: Election<TYPES>,
-        M: NetworkMsg
+        M: NetworkMsg,
     > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, ELECTION>
     for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION, M>
 where

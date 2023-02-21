@@ -62,6 +62,7 @@ async fn centralized_server_network() {
                 >,
                 QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+                // TODO ED: Is there a way to do this without repeating all these types? 
                 Message<
                     StaticCommitteeTestTypes,
                     ValidatingProposal<
