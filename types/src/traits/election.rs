@@ -4,6 +4,7 @@
 
 use super::node_implementation::NodeType;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
+use crate::data::ProposalType;
 use crate::{data::LeafType, traits::signature_key::SignatureKey};
 use bincode::Options;
 use commit::{Commitment, Committable};
@@ -174,6 +175,14 @@ pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 's
 
     /// Returns the threshold for a specific `Membership` implementation
     fn threshold(&self) -> NonZeroU64;
+}
+
+pub trait ConsensusExchange<TYPES: NodeTypes> {
+    type Proposal: ProposalType<NodeType = TYPES>;
+    type Vote;
+    type VoteAccumulator;
+    type Certificate: SignedCertificate;
+    type Membership;
 }
 
 /// Testable implementation of an [`Election`]. Will expose a method to generate a vote token used for testing.
