@@ -1065,6 +1065,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
         // we are centralized. Should we do anything here?
         Ok(())
     }
+
+    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+        // Not required
+        Ok(())
+    }
 }
 
 /// libp2p identity communication channel
@@ -1168,6 +1173,11 @@ impl<
             TYPES::SignatureKey,
         >>::lookup_node(&self.0, pk)
         .await
+    }
+
+    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+        // Not required
+        Ok(())
     }
 }
 

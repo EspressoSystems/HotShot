@@ -191,6 +191,7 @@ struct Inner<
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
 > {
+    // TODO ED Get rid of phantom if can
     phantom: PhantomData<(KEY, ELECTIONCONFIG)>,
     // Current view number so we can poll accordingly
     // TODO ED impl "read view" trait so that we can't accidentially write this
@@ -269,6 +270,7 @@ impl<
         wait_between_polls: Duration,
         key: TYPES::SignatureKey,
     ) -> Self {
+        // TODO ED Clean this up
         let base_url = format!("{host}:{port}");
         println!("{:?}", base_url);
 
@@ -291,12 +293,11 @@ impl<
         });
         inner.connected.store(true, Ordering::Relaxed);
 
-        // TODO ED Uncomment this when ready
         // async_spawn({
         //     let inner = Arc::clone(&inner);
         //     async move {
         //         while inner.running.load(Ordering::Relaxed) {
-        //             if let Err(e) = run_background_receive(Arc::clone(&inner)).await {
+        //             if let Err(e) = CentralizedWebServerNetwork::<K, E, TYPES, PROPOSAL, VOTE>::run_background_receive(Arc::clone(&inner)).await {
         //                 error!(?e, "background thread exited");
         //             }
         //             inner.connected.store(false, Ordering::Relaxed);
@@ -308,7 +309,17 @@ impl<
             server_shutdown_signal: None,
         }
     }
+
+    // TODO ED Move to inner impl?
+    async fn run_background_receive(
+        inner: Arc<Inner<K, E, TYPES, PROPOSAL, VOTE>>,
+    ) -> Result<(), ClientError> {
+        // TODO ED Change running variable if this function closes
+        Ok(())
+    }
 }
+
+async fn poll_generic_endpoint(client: surf_disco::Client<ClientError>) {}
 
 #[async_trait]
 impl<
@@ -388,6 +399,11 @@ impl<
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         Ok(())
     }
+
+    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+        panic!();
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -405,6 +421,7 @@ where
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
+        // TODO ED Also add check that we're running?
         while !self.inner.connected.load(Ordering::Relaxed) {
             async_sleep(Duration::from_secs(1)).await;
         }
@@ -419,7 +436,7 @@ where
     /// Blocks until the network is shut down
     /// then returns true
     async fn shut_down(&self) {
-        nll_todo()
+        self.inner.running.store(false, Ordering::Relaxed);
     }
 
     /// broadcast message to some subset of nodes
@@ -451,12 +468,21 @@ where
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
     async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
+        // TODO ED Implement
         Ok((Vec::new()))
     }
 
     /// look up a node
     /// blocking
     async fn lookup_node(&self, pk: K) -> Result<(), NetworkError> {
+        Ok(())
+    }
+
+    async fn inject_consensus_info(
+        &self,
+        tuple: (u64, bool, bool),
+    ) -> Result<(), NetworkError> {
+        panic!(); 
         Ok(())
     }
 }

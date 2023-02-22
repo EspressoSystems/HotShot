@@ -161,6 +161,13 @@ pub trait CommunicationChannel<
     /// look up a node
     /// blocking
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError>;
+
+    /// Injects consensus data such as view number into the networking implementation
+    /// blocking
+    async fn inject_consensus_info(
+        &self,
+        tuple: (u64, bool, bool),
+    ) -> Result<(), NetworkError>;
 }
 
 /// common traits we would like our network messages to implement
@@ -209,6 +216,14 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     /// look up a node
     /// blocking
     async fn lookup_node(&self, pk: K) -> Result<(), NetworkError>;
+
+    /// Injects consensus data such as view number into the networking implementation
+    /// blocking
+    /// Ideally we would pass in the `Time` type, but that requires making the entire trait generic over NodeType
+    async fn inject_consensus_info(
+        &self,
+        tuple: (u64, bool, bool),
+    ) -> Result<(), NetworkError>;
 }
 
 /// Describes additional functionality needed by the test network implementation
