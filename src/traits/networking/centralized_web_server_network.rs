@@ -179,11 +179,12 @@ impl<
             .client
             .post(&message.get_endpoint())
             // TODO ED Sending whole message until we can work out the Generics for M
-            .body_binary(&message)
+            .body_binary(&message.get_message())
             .unwrap()
             .send()
             .await;
         // TODO ED Actually return result
+        println!("Result is {:?}", result);
         Ok(())
     }
 }
@@ -243,15 +244,18 @@ impl<
 
         loop {
             let endpoint = config::get_proposal_route(consensus_info.view_number.into());
+            println!("Endpoint is {}", endpoint);
             let result = self.get_message_from_web_server(endpoint).await;
             match result {
                 // TODO ED Only need the first proposal
                 Ok(Some(deserialized_messages)) => {
+                    // println!("Deserialized message is: {:?}", deserialized_messages[0]);
                     self.broadcast_poll_queue
                         .write()
                         .await
                         .push(deserialized_messages[0].clone());
                     consensus_info = consensus_update.recv().await.unwrap();
+                    // consensus_info = self.consensus_info.copied().await;
                 }
                 // TODO ED Currently should never be hit
                 Ok(None) => {
@@ -262,10 +266,14 @@ impl<
                 // Also implement better server error instead of NotImplemented
                 Err(e) => {
                     // sleep a bit before repolling
-                    // println!("{:?}", e);
+                    // println!("ERROR IS {:?}", e);
                     // TODO ED Requires us sending the endpoint along with?
                     async_sleep(self.wait_between_polls).await;
                 }
+            }
+            let new_consensus_info = consensus_update.try_recv();
+            if new_consensus_info.is_ok() {
+                consensus_info = new_consensus_info.unwrap();
             }
             // Don't do anything until we're in a new view
         }
@@ -344,6 +352,14 @@ impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<T
         self.endpoint.clone()
     }
 
+    fn get_message(&self) -> Option<Message<TYPES, PROPOSAL, VOTE>> {
+        self.message.clone()
+    }
+}
+
+impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
+    RecvMsgTrait<TYPES, PROPOSAL, VOTE> for RecvMsg<TYPES, PROPOSAL, VOTE>
+{
     fn get_message(&self) -> Option<Message<TYPES, PROPOSAL, VOTE>> {
         self.message.clone()
     }
@@ -449,7 +465,7 @@ impl<
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
-        <CentralizedWebServerNetwork<_, _, _, _, _,> as ConnectedNetwork<
+        <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
             RecvMsg<TYPES, PROPOSAL, VOTE>,
             SendMsg<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
@@ -460,7 +476,7 @@ impl<
     /// checks if the network is ready
     /// nonblocking
     async fn is_ready(&self) -> bool {
-        <CentralizedWebServerNetwork<_, _, _, _, _,> as ConnectedNetwork<
+        <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
             RecvMsg<TYPES, PROPOSAL, VOTE>,
             SendMsg<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
@@ -472,7 +488,7 @@ impl<
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
-        <CentralizedWebServerNetwork<_, _, _, _, _,> as ConnectedNetwork<
+        <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
             RecvMsg<TYPES, PROPOSAL, VOTE>,
             SendMsg<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
@@ -511,18 +527,22 @@ impl<
         &self,
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
-        let result = <CentralizedWebServerNetwork<_, _, _, _, _,> as ConnectedNetwork<
+        let result = <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
             RecvMsg<TYPES, PROPOSAL, VOTE>,
             SendMsg<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::recv_msgs(&self.0, transmit_type)
         .await;
+        
 
-        // match result {
-        //     Ok(messages) => Ok(messages),
-        //     _ => Err(NetworkError::UnimplementedFeature),
-        // }
-        Ok(Vec::new())
+        match result {
+            Ok(messages) => {
+                // println!("Received proposal message !!!!! {:?}", messages);
+
+                Ok(messages.iter().map(|x| x.get_message().unwrap()).collect())},
+            _ => Err(NetworkError::UnimplementedFeature),
+        }
+        // Ok(Vec::new())
     }
 
     /// look up a node
@@ -532,7 +552,7 @@ impl<
     }
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
-        <CentralizedWebServerNetwork<_, _, _, _, _,> as ConnectedNetwork<
+        <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
             RecvMsg<TYPES, PROPOSAL, VOTE>,
             SendMsg<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
@@ -614,7 +634,6 @@ impl<
             TransmitType::Broadcast => {
                 let mut queue = self.inner.broadcast_poll_queue.write().await;
                 Ok(queue.drain(..).collect())
-                // TODO ED Can we return a type of WebServerMesage that is just M?
                 // Ok(messages)
             }
         }
