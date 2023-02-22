@@ -183,6 +183,13 @@ impl<
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct ConsensusInfo {
+    view_number: u64,
+    is_current_leader: bool,
+    is_next_leader: bool,
+}
+
 #[derive(Debug)]
 struct Inner<
     KEY: SignatureKey,
@@ -194,10 +201,11 @@ struct Inner<
     // TODO ED Get rid of phantom if can
     phantom: PhantomData<(KEY, ELECTIONCONFIG)>,
     // Current view number so we can poll accordingly
-    // TODO ED impl "read view" trait so that we can't accidentially write this
-    view_number: Arc<SubscribableRwLock<<TYPES as NodeType>::Time>>,
-    is_current_leader: Arc<SubscribableRwLock<bool>>,
-    is_next_leader: Arc<SubscribableRwLock<bool>>,
+    // TODO ED Should we keep these as three objects or one?
+    // view_number: Arc<SubscribableRwLock<<TYPES as NodeType>::Time>>,
+    // is_current_leader: Arc<SubscribableRwLock<bool>>,
+    // is_next_leader: Arc<SubscribableRwLock<bool>>,
+    consensus_info: Arc<SubscribableRwLock<ConsensusInfo>>,
 
     // TODO Do we ever use this?
     own_key: TYPES::SignatureKey,
@@ -280,9 +288,10 @@ impl<
         let inner = Arc::new(Inner {
             phantom: PhantomData::default(),
             // Assuming this is initialized to zero
-            view_number: Arc::new(SubscribableRwLock::new(TYPES::Time::new(0))),
-            is_current_leader: Arc::new(SubscribableRwLock::new(false)),
-            is_next_leader: Arc::new(SubscribableRwLock::new(false)),
+            // view_number: Arc::new(SubscribableRwLock::new(TYPES::Time::new(0))),
+            // is_current_leader: Arc::new(SubscribableRwLock::new(false)),
+            // is_next_leader: Arc::new(SubscribableRwLock::new(false)),
+            consensus_info: Arc::new(SubscribableRwLock::new(ConsensusInfo::default())),
             broadcast_poll_queue: Default::default(),
             direct_poll_queue: Default::default(),
             running: AtomicBool::new(true),
@@ -401,8 +410,11 @@ impl<
     }
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
-        panic!();
-        Ok(())
+        <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
+            WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
+            TYPES::SignatureKey,
+        >>::inject_consensus_info(&self.0, tuple)
+        .await
     }
 }
 
@@ -478,11 +490,22 @@ where
         Ok(())
     }
 
-    async fn inject_consensus_info(
-        &self,
-        tuple: (u64, bool, bool),
-    ) -> Result<(), NetworkError> {
-        panic!(); 
+    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+        let (view_number, is_current_leader, is_next_leader) = tuple;
+
+        let new_consensus_info = ConsensusInfo {
+            view_number,
+            is_current_leader,
+            is_next_leader,
+        };
+        self.inner.consensus_info.modify(|old_consensus_info| {
+            // This should never happen
+            if new_consensus_info.view_number < old_consensus_info.view_number {
+                panic!(); 
+            }
+            *old_consensus_info = new_consensus_info;
+        }).await;
+
         Ok(())
     }
 }
