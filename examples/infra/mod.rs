@@ -1,6 +1,6 @@
 use std::{
     cmp,
-    collections::{VecDeque, BTreeSet},
+    collections::{BTreeSet, VecDeque},
     fs, mem,
     net::{IpAddr, SocketAddr},
     num::NonZeroUsize,
@@ -267,11 +267,15 @@ where
             {
                 let mut keys = BTreeSet::new();
                 for i in 0..config.config.total_nodes.get() {
-                    let pk = <TYPES::SignatureKey as SignatureKey>::generated_from_seed_indexed(config.seed, i as u64).0;
+                    let pk = <TYPES::SignatureKey as SignatureKey>::generated_from_seed_indexed(
+                        config.seed,
+                        i as u64,
+                    )
+                    .0;
                     keys.insert(pk);
                 }
                 keys
-            }
+            },
         )
         .await
         .map(
