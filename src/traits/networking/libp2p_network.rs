@@ -467,7 +467,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
 }
 
 #[async_trait]
-impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2pNetwork<M, K> {
+impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, M, K> for Libp2pNetwork<M, K> {
     #[instrument(name = "Libp2pNetwork::ready_blocking", skip_all)]
     async fn wait_for_ready(&self) {
         self.wait_for_ready().await;

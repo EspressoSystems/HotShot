@@ -181,7 +181,7 @@ pub trait NetworkMsg:
 /// intended to be implemented for libp2p, the centralized server,
 /// and memory network
 #[async_trait]
-pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
+pub trait ConnectedNetwork<RecvMsg: NetworkMsg, SendMsg: NetworkMsg, K: SignatureKey + 'static>:
     Clone + Send + Sync + 'static
 {
     /// Blocks until the network is successfully initialized
@@ -199,19 +199,20 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     /// blocking
     async fn broadcast_message(
         &self,
-        message: M,
+        message: SendMsg,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError>;
+    async fn direct_message(&self, message: SendMsg, recipient: K) -> Result<(), NetworkError>;
 
     /// Moves out the entire queue of received messages of 'transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError>;
+    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<RecvMsg>, NetworkError>;
+
 
     /// look up a node
     /// blocking

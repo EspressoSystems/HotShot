@@ -6,6 +6,7 @@
 // TODO ED Remove once ready to merge
 #![allow(dead_code, unused, deprecated)]
 
+use async_std::channel::Recv;
 #[cfg(feature = "async-std-executor")]
 use async_std::net::TcpStream;
 use nll::nll_todo::nll_todo;
@@ -72,7 +73,6 @@ pub struct CentralizedWebCommChannel<
     ELECTION: Election<TYPES>,
 >(
     CentralizedWebServerNetwork<
-        WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
         TYPES,
@@ -91,7 +91,6 @@ impl<
     /// Create new communication channel
     pub fn new(
         network: CentralizedWebServerNetwork<
-            WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
             TYPES::ElectionConfigType,
             TYPES,
@@ -105,7 +104,7 @@ impl<
     fn parse_post_message(
         &self,
         message: Message<TYPES, PROPOSAL, VOTE>,
-    ) -> WebServerNetworkMessage<TYPES, PROPOSAL, VOTE> {
+    ) -> SendMsg<TYPES, PROPOSAL, VOTE> {
         let view_number: TYPES::Time = message.get_view_number().into();
 
         // Returns the endpoint we need, maybe should return an option?  For internal trigger? Return error for now?
@@ -132,7 +131,7 @@ impl<
             },
         };
 
-        let network_msg: WebServerNetworkMessage<TYPES, PROPOSAL, VOTE> = WebServerNetworkMessage {
+        let network_msg: SendMsg<TYPES, PROPOSAL, VOTE> = SendMsg {
             message: Some(message),
             endpoint,
         };
@@ -144,7 +143,8 @@ impl<
 
 #[derive(Clone, Debug)]
 pub struct CentralizedWebServerNetwork<
-    M: NetworkMsg,
+    // M: NetworkMsg,
+    // Why don't we need this? TODO ED
     ///+ WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>
     KEY: SignatureKey,
     ELECTIONCONFIG: ElectionConfig,
@@ -154,27 +154,31 @@ pub struct CentralizedWebServerNetwork<
 > {
     /// The inner state
     // TODO ED What's the point of inner?
-    inner: Arc<Inner<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>>,
+    inner: Arc<Inner<KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
 // TODO ED Two impls of centralized web server network struct?  Fix
 impl<
-        M: NetworkMsg + WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>,
+        // M: NetworkMsg,
         KEY: SignatureKey,
         ELECTIONCONFIG: ElectionConfig,
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-    > CentralizedWebServerNetwork<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
+    > CentralizedWebServerNetwork<KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
 {
-    async fn post_message_to_web_server(&self, message: M) -> Result<(), NetworkError> {
+    async fn post_message_to_web_server(
+        &self,
+        message: SendMsg<TYPES, PROPOSAL, VOTE>,
+    ) -> Result<(), NetworkError> {
         let result: Result<(), ClientError> = self
             .inner
             .client
             .post(&message.get_endpoint())
-            .body_binary(&message.get_message())
+            // TODO ED Sending whole message until we can work out the Generics for M
+            .body_binary(&message)
             .unwrap()
             .send()
             .await;
@@ -192,7 +196,6 @@ pub struct ConsensusInfo {
 
 #[derive(Debug)]
 struct Inner<
-    M: NetworkMsg,
     KEY: SignatureKey,
     ELECTIONCONFIG: ElectionConfig,
     TYPES: NodeType,
@@ -211,10 +214,10 @@ struct Inner<
     // TODO Do we ever use this?
     own_key: TYPES::SignatureKey,
     // // Queue for broadcasted messages (mainly transactions and proposals)
-    broadcast_poll_queue: Arc<RwLock<Vec<M>>>,
+    broadcast_poll_queue: Arc<RwLock<Vec<RecvMsg<TYPES, PROPOSAL, VOTE>>>>,
     // // Queue for direct messages (mainly votes)
     // Should this be channels? TODO ED
-    direct_poll_queue: Arc<RwLock<Vec<M>>>,
+    direct_poll_queue: Arc<RwLock<Vec<RecvMsg<TYPES, PROPOSAL, VOTE>>>>,
     // TODO ED the same as connected?
     running: AtomicBool,
     // The network is connected to the web server and ready to go
@@ -224,13 +227,13 @@ struct Inner<
 }
 
 impl<
-        M: NetworkMsg, //+ WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>,
+        // M: NetworkMsg, //+ WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>,
         KEY: SignatureKey,
         ELECTIONCONFIG: ElectionConfig,
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-    > Inner<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
+    > Inner<KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
 {
     async fn poll_web_server_proposal(&self, num_views_ahead: u64) {
         // Subscribe to changes in consensus info
@@ -249,9 +252,17 @@ impl<
                         .push(deserialized_messages[0].clone());
                     consensus_info = consensus_update.recv().await.unwrap();
                 }
+                // TODO ED Currently should never be hit
+                Ok(None) => {
+                    async_sleep(self.wait_between_polls).await;
+                }
 
-                Err(_) | Ok(None) => {
+                // TODO ED Keeping these separate in case we want to do something different later
+                // Also implement better server error instead of NotImplemented
+                Err(e) => {
                     // sleep a bit before repolling
+                    // println!("{:?}", e);
+                    // TODO ED Requires us sending the endpoint along with?
                     async_sleep(self.wait_between_polls).await;
                 }
             }
@@ -262,7 +273,7 @@ impl<
     async fn get_message_from_web_server(
         &self,
         endpoint: String,
-    ) -> Result<Option<Vec<M>>, ClientError> {
+    ) -> Result<Option<Vec<RecvMsg<TYPES, PROPOSAL, VOTE>>>, ClientError> {
         let result: Result<Option<Vec<Vec<u8>>>, ClientError> =
             self.client.get(&endpoint).send().await;
         // TODO ED Clean this up
@@ -271,7 +282,7 @@ impl<
             Ok(Some(messages)) => {
                 let mut deserialized_messages = Vec::new();
                 messages.iter().for_each(|message| {
-                    let deserialized_message = bincode::deserialize::<M>(message).unwrap();
+                    let deserialized_message = bincode::deserialize(message).unwrap();
                     deserialized_messages.push(deserialized_message);
                 });
                 Ok(Some(deserialized_messages))
@@ -283,17 +294,29 @@ impl<
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub struct WebServerNetworkMessage<
-    TYPES: NodeType,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
-> {
+// pub struct WebServerNetworkMessage<
+//     TYPES: NodeType,
+//     PROPOSAL: ProposalType<NodeType = TYPES>,
+//     VOTE: VoteType<TYPES>,
+// > {
+//     message: Option<Message<TYPES, PROPOSAL, VOTE>>,
+//     endpoint: String,
+// }
+
+pub struct SendMsg<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
+{
     message: Option<Message<TYPES, PROPOSAL, VOTE>>,
     endpoint: String,
 }
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = ""))]
+pub struct RecvMsg<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
+{
+    message: Option<Message<TYPES, PROPOSAL, VOTE>>,
+}
 
 // Ideally you'd want it to be generic over any network msg, but for now this is fine
-pub trait WebServerNetworkMessageTrait<
+pub trait SendMsgTrait<
     TYPES: NodeType,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
@@ -303,9 +326,17 @@ pub trait WebServerNetworkMessageTrait<
     fn get_message(&self) -> Option<Message<TYPES, PROPOSAL, VOTE>>;
 }
 
+pub trait RecvMsgTrait<
+    TYPES: NodeType,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
+>
+{
+    fn get_message(&self) -> Option<Message<TYPES, PROPOSAL, VOTE>>;
+}
+
 impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
-    WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>
-    for WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>
+    SendMsgTrait<TYPES, PROPOSAL, VOTE> for SendMsg<TYPES, PROPOSAL, VOTE>
 {
     // TODO ED String doesn't impl copy?
     fn get_endpoint(&self) -> String {
@@ -318,18 +349,22 @@ impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<T
 }
 
 impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>> NetworkMsg
-    for WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>
+    for SendMsg<TYPES, PROPOSAL, VOTE>
+{
+}
+impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>> NetworkMsg
+    for RecvMsg<TYPES, PROPOSAL, VOTE>
 {
 }
 
 impl<
-        M: NetworkMsg + 'static, //+ WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>
+        // M: NetworkMsg + 'static, //+ WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
         PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
         VOTE: VoteType<TYPES> + 'static,
-    > CentralizedWebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
+    > CentralizedWebServerNetwork<K, E, TYPES, PROPOSAL, VOTE>
 {
     // TODO ED change to new
     pub fn create(
@@ -366,7 +401,7 @@ impl<
             let inner = Arc::clone(&inner);
             async move {
                 while inner.running.load(Ordering::Relaxed) {
-                    if let Err(e) = CentralizedWebServerNetwork::<M, K, E, TYPES, PROPOSAL, VOTE>::run_background_receive(Arc::clone(&inner)).await {
+                    if let Err(e) = CentralizedWebServerNetwork::<K, E, TYPES, PROPOSAL, VOTE>::run_background_receive(Arc::clone(&inner)).await {
                         error!(?e, "background thread exited");
                     }
                     inner.connected.store(false, Ordering::Relaxed);
@@ -381,7 +416,7 @@ impl<
 
     // TODO ED Move to inner impl?
     async fn run_background_receive(
-        inner: Arc<Inner<M, K, E, TYPES, PROPOSAL, VOTE>>,
+        inner: Arc<Inner<K, E, TYPES, PROPOSAL, VOTE>>,
     ) -> Result<(), ClientError> {
         // TODO ED Change running variable if this function closes
         // TODO ED Do we need this function wrapper?  We could start all of them directly
@@ -414,7 +449,7 @@ impl<
     /// into the network
     async fn wait_for_ready(&self) {
         <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
         .await;
@@ -424,7 +459,7 @@ impl<
     /// nonblocking
     async fn is_ready(&self) -> bool {
         <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -435,7 +470,8 @@ impl<
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
         <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
+            RecvMsg<TYPES, PROPOSAL, VOTE>,
+            SendMsg<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
         .await;
@@ -472,7 +508,17 @@ impl<
         &self,
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
-        Ok(Vec::new())
+        let result = <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+            Message<TYPES, PROPOSAL, VOTE>,
+            TYPES::SignatureKey,
+        >>::recv_msgs(&self.0, transmit_type)
+        .await;
+
+        match result {
+            Ok(messages) => Ok(messages.iter().map(|mut x| x.message.unwrap()).collect()),
+            _ => Err(NetworkError::UnimplementedFeature),
+        }
+        // Ok(Vec::new())
     }
 
     /// look up a node
@@ -483,7 +529,7 @@ impl<
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
         <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(&self.0, tuple)
         .await
@@ -492,13 +538,13 @@ impl<
 
 #[async_trait]
 impl<
-        M: NetworkMsg + WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>,
+        M: NetworkMsg + 'static,
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
         PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
         VOTE: VoteType<TYPES> + 'static,
-    > ConnectedNetwork<M, K> for CentralizedWebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
+    > ConnectedNetwork<M, M, K> for CentralizedWebServerNetwork<K, E, TYPES, PROPOSAL, VOTE>
 // Make this a trait?
 {
     /// Blocks until the network is successfully initialized
@@ -525,7 +571,7 @@ impl<
     /// blocking
     async fn broadcast_message(
         &self,
-        message: M,
+        message: SendMsg<TYPES, PROPOSAL, VOTE>,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
         let result = self.post_message_to_web_server(message).await;
@@ -537,7 +583,11 @@ impl<
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
+    async fn direct_message(
+        &self,
+        message: SendMsg<TYPES, PROPOSAL, VOTE>,
+        recipient: K,
+    ) -> Result<(), NetworkError> {
         let result = self.post_message_to_web_server(message).await;
 
         // TODO ED Match result
@@ -551,7 +601,15 @@ impl<
     /// blocking
     async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
         // TODO ED Implement
-        Ok((Vec::new()))
+        match transmit_type {
+            TransmitType::Direct => Ok(Vec::new()),
+            TransmitType::Broadcast => {
+                let mut queue = self.inner.broadcast_poll_queue.write().await;
+                Ok(queue.drain(..).collect())
+                // TODO ED Can we return a type of WebServerMesage that is just M?
+                // Ok(messages)
+            }
+        }
     }
 
     /// look up a node
