@@ -1,13 +1,7 @@
-mod common;
-
 use ark_bls12_381::Parameters as Param381;
 use async_lock::Mutex;
 use blake3::Hasher;
 use commit::Committable;
-use common::{
-    AppliedTestRunner, StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType,
-    VrfTestTypes,
-};
 use either::Right;
 use futures::{
     future::{join_all, LocalBoxFuture},
@@ -16,6 +10,10 @@ use futures::{
 use hotshot::{demos::vdemo::random_validating_leaf, traits::election::vrf::VrfImpl};
 use hotshot_testing::{
     test_description::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder},
+    test_types::{
+        AppliedTestRunner, StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType,
+        VrfTestTypes,
+    },
     ConsensusRoundError, RoundResult, SafetyFailedSnafu,
 };
 use hotshot_types::{

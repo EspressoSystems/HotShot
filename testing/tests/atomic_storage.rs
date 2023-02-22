@@ -1,6 +1,4 @@
 #![cfg(foo)]
-
-mod common;
 use hotshot::{
     certificate::QuorumCertificate,
     data::LeafType,

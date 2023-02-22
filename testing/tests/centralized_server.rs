@@ -1,15 +1,16 @@
-mod common;
-
 use ark_bls12_381::Parameters as Param381;
 use async_compatibility_layer::logging::shutdown_logging;
 use blake3::Hasher;
-use common::*;
 use either::Either::Right;
 use hotshot::traits::{
     election::{static_committee::StaticCommittee, vrf::VrfImpl},
     implementations::{CentralizedCommChannel, MemoryStorage},
 };
-use hotshot_testing::{test_description::GeneralTestDescriptionBuilder, TestNodeImpl};
+use hotshot_testing::{
+    test_description::GeneralTestDescriptionBuilder,
+    test_types::{StaticCommitteeTestTypes, VrfTestTypes},
+    TestNodeImpl,
+};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     vote::QuorumVote,

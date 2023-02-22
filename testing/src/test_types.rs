@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use crate::{test_description::VrfTestMetaData, TestNodeImpl, TestRunner};
 use ark_bls12_381::Parameters as Param381;
 use blake3::Hasher;
 use hotshot::{
@@ -13,7 +14,6 @@ use hotshot::{
         implementations::{MemoryCommChannel, MemoryStorage},
     },
 };
-use hotshot_testing::{test_description::VrfTestMetaData, TestNodeImpl, TestRunner};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
@@ -45,6 +45,7 @@ use serde::{Deserialize, Serialize};
     serde::Serialize,
     serde::Deserialize,
 )]
+/// vrf test types
 pub struct VrfTestTypes;
 impl NodeType for VrfTestTypes {
     // TODO (da) can this be SequencingConsensus?
@@ -78,6 +79,7 @@ impl ApplicationMetadata for StaticCommitteeMetaData {}
     serde::Serialize,
     serde::Deserialize,
 )]
+/// static committee test types
 pub struct StaticCommitteeTestTypes;
 impl NodeType for StaticCommitteeTestTypes {
     type ConsensusType = ValidatingConsensus;
@@ -142,6 +144,7 @@ pub type StaticNodeImplType = TestNodeImpl<
 /// type alias for the test runner type
 pub type AppliedTestRunner<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> =
     TestRunner<TYPES, AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP>>;
+/// applied test runner (convenient type alias)
 pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> = TestNodeImpl<
     TYPES,
     LEAF,

@@ -1,6 +1,4 @@
-mod common;
 use ark_bls12_381::Parameters as Param381;
-use common::*;
 use either::Either::Right;
 use hotshot::{
     demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
@@ -12,7 +10,10 @@ use hotshot::{
         implementations::{MemoryCommChannel, MemoryStorage},
     },
 };
-use hotshot_testing::{test_description::GeneralTestDescriptionBuilder, TestNodeImpl};
+use hotshot_testing::{
+    test_description::GeneralTestDescriptionBuilder, test_types::StaticCommitteeMetaData,
+    TestNodeImpl,
+};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{node_implementation::NodeType, state::ValidatingConsensus},

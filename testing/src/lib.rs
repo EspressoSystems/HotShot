@@ -16,6 +16,8 @@ pub mod macros;
 pub mod network_reliability;
 /// structs and infra to describe the tests to be written
 pub mod test_description;
+/// set of commonly used test types for our tests
+pub mod test_types;
 
 pub use self::launcher::TestLauncher;
 
