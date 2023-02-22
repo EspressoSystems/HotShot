@@ -237,25 +237,79 @@ impl<
         VOTE: VoteType<TYPES>,
     > Inner<KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
 {
-    async fn poll_web_server_proposal(&self, num_views_ahead: u64) {
+    async fn poll_web_server(&self, message_type: MessageType, num_views_ahead: u64) {
         // Subscribe to changes in consensus info
         let consensus_update = self.consensus_info.subscribe().await;
         let mut consensus_info = self.consensus_info.copied().await;
+        let mut vote_index: u64 = 0;
+        let mut tx_index: u64 = 0;
 
         loop {
-            let endpoint = config::get_proposal_route(consensus_info.view_number.into());
-            println!("Endpoint is {}", endpoint);
-            let result = self.get_message_from_web_server(endpoint).await;
-            match result {
+            let endpoint = match message_type {
+                MessageType::Proposal => {
+                    config::get_proposal_route(consensus_info.view_number.into())
+                }
+                MessageType::VoteTimedOut => {
+                    config::get_vote_route(consensus_info.view_number.into(), vote_index.into())
+                }
+                MessageType::Transaction => config::get_transactions_route(tx_index.into()),
+            };
+            // println!("Endpoint is {}", endpoint);
+            let possible_message = if message_type == MessageType::VoteTimedOut {
+                // are we the leader?
+                // TODO ED Can refactor this to be more readable
+
+                if consensus_info.is_next_leader {
+                    self.get_message_from_web_server(endpoint).await
+                } else {
+                    Ok(None)
+                }
+            } else {
+                self.get_message_from_web_server(endpoint).await
+            };
+
+            match possible_message {
                 // TODO ED Only need the first proposal
                 Ok(Some(deserialized_messages)) => {
-                    // println!("Deserialized message is: {:?}", deserialized_messages[0]);
-                    self.broadcast_poll_queue
-                        .write()
-                        .await
-                        .push(deserialized_messages[0].clone());
-                    consensus_info = consensus_update.recv().await.unwrap();
-                    // consensus_info = self.consensus_info.copied().await;
+                    match message_type {
+                        MessageType::Proposal => {
+                            error!("Got proposal");
+                            // println!("PROP IS: {:?}", deserialized_messages[0].clone());
+                            // println!("SIZE OF PROP IS: {:?}", size_of_val(&*deserialized_messages));
+
+                            // Only pushing the first proposal here since we will soon only be allowing 1 proposal per view
+                            self.broadcast_poll_queue
+                                .write()
+                                .await
+                                .push(deserialized_messages[0].clone());
+                            consensus_info = consensus_update.recv().await.unwrap();
+                        }
+                        MessageType::VoteTimedOut => {
+                            error!("Got vote or timed out message");
+                            // ED TODO - Stop getting votes once we've recieved a QC's worth
+
+                            let mut direct_poll_queue = self.direct_poll_queue.write().await;
+                            deserialized_messages.iter().for_each(|vote| {
+                                vote_index += 1;
+                                direct_poll_queue.push(vote.clone());
+                            });
+                        }
+                        MessageType::Transaction => {
+                            error!("Got txs");
+                            // println!("SIZE OF TX IS: {:?}", size_of_val(&*deserialized_messages));
+                            let mut lock = self.broadcast_poll_queue.write().await;
+                            deserialized_messages.iter().for_each(|tx| {
+                                tx_index += 1;
+                                lock.push(tx.clone());
+                            });
+                        } // println!("Deserialized message is: {:?}", deserialized_messages[0]);
+                          // self.broadcast_poll_queue
+                          //     .write()
+                          //     .await
+                          //     .push(deserialized_messages[0].clone());
+                          // consensus_info = consensus_update.recv().await.unwrap();
+                          // consensus_info = self.consensus_info.copied().await;
+                    }
                 }
                 // TODO ED Currently should never be hit
                 Ok(None) => {
@@ -274,6 +328,7 @@ impl<
             let new_consensus_info = consensus_update.try_recv();
             if new_consensus_info.is_ok() {
                 consensus_info = new_consensus_info.unwrap();
+                vote_index = 0;
             }
             // Don't do anything until we're in a new view
         }
@@ -437,21 +492,47 @@ impl<
     ) -> Result<(), ClientError> {
         // TODO ED Change running variable if this function closes
         // TODO ED Do we need this function wrapper?  We could start all of them directly
-        let proposal_handle =
-            async_spawn({ async move { inner.poll_web_server_proposal(0).await } });
+        let proposal_handle = async_spawn({
+            let inner_clone = inner.clone();
+            async move { inner_clone.poll_web_server(MessageType::Proposal, 0).await }
+        });
+        let vote_handle = async_spawn({
+            let inner_clone = inner.clone();
+
+            async move {
+                inner_clone
+                    .poll_web_server(MessageType::VoteTimedOut, 0)
+                    .await
+            }
+        });
+        let transaction_handle = async_spawn({
+            let inner_clone = inner.clone();
+
+            async move {
+                inner_clone
+                    .poll_web_server(MessageType::Transaction, 0)
+                    .await
+            }
+        });
 
         let mut task_handles = Vec::new();
         task_handles.push(proposal_handle);
+        task_handles.push(vote_handle);
+        task_handles.push(transaction_handle);
+        // task_handles.push(proposal_handle_plus_one);
 
-        // TODO ED Check this result
         let children_finished = futures::future::join_all(task_handles);
-        children_finished.await;
+        let result = children_finished.await;
 
         Ok(())
     }
 }
-
-async fn poll_generic_endpoint(client: surf_disco::Client<ClientError>) {}
+#[derive(PartialEq)]
+enum MessageType {
+    Transaction,
+    VoteTimedOut,
+    Proposal,
+}
 
 #[async_trait]
 impl<
@@ -533,13 +614,13 @@ impl<
             TYPES::SignatureKey,
         >>::recv_msgs(&self.0, transmit_type)
         .await;
-        
 
         match result {
             Ok(messages) => {
                 // println!("Received proposal message !!!!! {:?}", messages);
 
-                Ok(messages.iter().map(|x| x.get_message().unwrap()).collect())},
+                Ok(messages.iter().map(|x| x.get_message().unwrap()).collect())
+            }
             _ => Err(NetworkError::UnimplementedFeature),
         }
         // Ok(Vec::new())
@@ -630,7 +711,10 @@ impl<
     ) -> Result<Vec<RecvMsg<TYPES, PROPOSAL, VOTE>>, NetworkError> {
         // TODO ED Implement
         match transmit_type {
-            TransmitType::Direct => Ok(Vec::new()),
+            TransmitType::Direct => {
+                let mut queue = self.inner.direct_poll_queue.write().await;
+                Ok(queue.drain(..).collect())
+            }
             TransmitType::Broadcast => {
                 let mut queue = self.inner.broadcast_poll_queue.write().await;
                 Ok(queue.drain(..).collect())
