@@ -21,7 +21,7 @@ use hotshot_types::{
         block_contents::Transaction,
         election::Membership,
         network::CommunicationChannel,
-        node_implementation::{ApplicationMetadata, NodeType},
+        node_implementation::NodeType,
         signature_key::ed25519::Ed25519Pub,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
         State,
@@ -37,12 +37,6 @@ use std::{
     marker::PhantomData,
 };
 use tracing::error;
-
-/// application metadata stub
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct VDemoMetaData {}
-
-impl ApplicationMetadata for VDemoMetaData {}
 
 /// The account identifier type used by the demo
 ///
@@ -518,7 +512,6 @@ impl NodeType for VDemoTypes {
     type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = VDemoState;
-    type ApplicationMetadataType = VDemoMetaData;
 }
 
 /// The node implementation for the validating demo

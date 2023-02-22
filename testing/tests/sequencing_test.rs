@@ -44,7 +44,6 @@ impl NodeType for SequencingTestTypes {
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = SDemoState;
-    type ApplicationMetadataType = StaticCommitteeMetaData;
 }
 
 // stress test for libp2p

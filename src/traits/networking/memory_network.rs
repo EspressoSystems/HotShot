@@ -528,15 +528,8 @@ mod tests {
     };
     use hotshot_types::{
         data::{ValidatingLeaf, ValidatingProposal},
-        traits::{node_implementation::ApplicationMetadata, state::ValidatingConsensus},
+        traits::state::ValidatingConsensus,
     };
-    use serde::{Deserialize, Serialize};
-
-    /// application metadata stub
-    #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-    pub struct TestMetaData {}
-
-    impl ApplicationMetadata for TestMetaData {}
 
     #[derive(
         Copy,
@@ -565,7 +558,6 @@ mod tests {
         type Transaction = VDemoTransaction;
         type ElectionConfigType = StaticElectionConfig;
         type StateType = VDemoState;
-        type ApplicationMetadataType = TestMetaData;
     }
 
     type TestLeaf = ValidatingLeaf<Test>;

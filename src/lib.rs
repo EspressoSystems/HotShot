@@ -837,7 +837,7 @@ impl<
 
 #[async_trait]
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<
             TYPES,
             Leaf = SequencingLeaf<TYPES>,

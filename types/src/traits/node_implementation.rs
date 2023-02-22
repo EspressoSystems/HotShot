@@ -5,7 +5,7 @@
 #![allow(clippy::missing_docs_in_private_items)]
 #![allow(missing_docs)]
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use super::{
     block_contents::Transaction,
@@ -117,15 +117,6 @@ pub trait NodeType:
         Time = Self::Time,
         ConsensusType = Self::ConsensusType,
     >;
-
-    type ApplicationMetadataType: ApplicationMetadata + Eq + PartialEq + Send + Sync;
-}
-
-/// application specific metadata
-pub trait ApplicationMetadata
-where
-    Self: Debug + Clone + Serialize + for<'a> Deserialize<'a>,
-{
 }
 
 /// testable node implmeentation trait
