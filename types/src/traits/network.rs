@@ -180,6 +180,7 @@ pub trait NetworkMsg:
 /// exposes low level API for interacting with a network
 /// intended to be implemented for libp2p, the centralized server,
 /// and memory network
+// TODO ED Uppercae these? 
 #[async_trait]
 pub trait ConnectedNetwork<RecvMsg: NetworkMsg, SendMsg: NetworkMsg, K: SignatureKey + 'static>:
     Clone + Send + Sync + 'static

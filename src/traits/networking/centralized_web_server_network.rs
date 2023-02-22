@@ -48,6 +48,7 @@ use hotshot_types::{
 use hotshot_utils::bincode::bincode_opts;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use snafu::ResultExt;
+use std::iter::Rev;
 use std::{
     cmp,
     collections::{hash_map::Entry, BTreeSet, HashMap},
@@ -448,8 +449,9 @@ impl<
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
-        <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
+        <CentralizedWebServerNetwork<_, _, _, _, _,> as ConnectedNetwork<
+            RecvMsg<TYPES, PROPOSAL, VOTE>,
+            SendMsg<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
         .await;
@@ -458,8 +460,9 @@ impl<
     /// checks if the network is ready
     /// nonblocking
     async fn is_ready(&self) -> bool {
-        <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
+        <CentralizedWebServerNetwork<_, _, _, _, _,> as ConnectedNetwork<
+            RecvMsg<TYPES, PROPOSAL, VOTE>,
+            SendMsg<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -469,7 +472,7 @@ impl<
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
-        <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <CentralizedWebServerNetwork<_, _, _, _, _,> as ConnectedNetwork<
             RecvMsg<TYPES, PROPOSAL, VOTE>,
             SendMsg<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
@@ -508,17 +511,18 @@ impl<
         &self,
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
-        let result = <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
+        let result = <CentralizedWebServerNetwork<_, _, _, _, _,> as ConnectedNetwork<
+            RecvMsg<TYPES, PROPOSAL, VOTE>,
+            SendMsg<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::recv_msgs(&self.0, transmit_type)
         .await;
 
-        match result {
-            Ok(messages) => Ok(messages.iter().map(|mut x| x.message.unwrap()).collect()),
-            _ => Err(NetworkError::UnimplementedFeature),
-        }
-        // Ok(Vec::new())
+        // match result {
+        //     Ok(messages) => Ok(messages),
+        //     _ => Err(NetworkError::UnimplementedFeature),
+        // }
+        Ok(Vec::new())
     }
 
     /// look up a node
@@ -528,8 +532,9 @@ impl<
     }
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
-        <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
+        <CentralizedWebServerNetwork<_, _, _, _, _,> as ConnectedNetwork<
+            RecvMsg<TYPES, PROPOSAL, VOTE>,
+            SendMsg<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(&self.0, tuple)
         .await
@@ -538,13 +543,13 @@ impl<
 
 #[async_trait]
 impl<
-        M: NetworkMsg + 'static,
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
         PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
         VOTE: VoteType<TYPES> + 'static,
-    > ConnectedNetwork<M, M, K> for CentralizedWebServerNetwork<K, E, TYPES, PROPOSAL, VOTE>
+    > ConnectedNetwork<RecvMsg<TYPES, PROPOSAL, VOTE>, SendMsg<TYPES, PROPOSAL, VOTE>, K>
+    for CentralizedWebServerNetwork<K, E, TYPES, PROPOSAL, VOTE>
 // Make this a trait?
 {
     /// Blocks until the network is successfully initialized
@@ -599,7 +604,10 @@ impl<
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
+    async fn recv_msgs(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Vec<RecvMsg<TYPES, PROPOSAL, VOTE>>, NetworkError> {
         // TODO ED Implement
         match transmit_type {
             TransmitType::Direct => Ok(Vec::new()),
