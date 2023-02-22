@@ -1,6 +1,6 @@
 use std::{
     cmp,
-    collections::VecDeque,
+    collections::{VecDeque, BTreeSet},
     fs, mem,
     net::{IpAddr, SocketAddr},
     num::NonZeroUsize,
@@ -55,7 +55,6 @@ use libp2p::{
 };
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 #[allow(deprecated)]
-use nll::nll_todo::nll_todo;
 use tracing::{debug, error};
 
 /// yeesh maybe we should just implement SignatureKey for this...
@@ -263,9 +262,16 @@ where
             )),
             bs_len,
             config.node_index as usize,
-            // FIXME unsure what to do here.
-            #[allow(deprecated)]
-            nll_todo(),
+            // NOTE: this introduces an invariant that the keys are assigned using this indexed
+            // function
+            {
+                let mut keys = BTreeSet::new();
+                for i in 0..config.config.total_nodes.get() {
+                    let pk = <TYPES::SignatureKey as SignatureKey>::generated_from_seed_indexed(config.seed, i as u64).0;
+                    keys.insert(pk);
+                }
+                keys
+            }
         )
         .await
         .map(
