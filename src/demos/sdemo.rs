@@ -12,7 +12,6 @@ use hotshot_types::{
     data::{fake_commitment, ViewNumber},
     traits::{
         block_contents::Transaction,
-        node_implementation::ApplicationMetadata,
         state::{ConsensusTime, SequencingConsensus, TestableBlock, TestableState},
         Block, State,
     },
@@ -130,12 +129,6 @@ impl Committable for SDemoState {
         "SEQUENCING_DEMO_STATE".to_string()
     }
 }
-
-/// application metadata stub
-/// FIXME this is deprecated right?
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct SDemoMetaData {}
-impl ApplicationMetadata for SDemoMetaData {}
 
 impl Default for SDemoState {
     fn default() -> Self {

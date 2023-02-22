@@ -150,9 +150,6 @@ pub struct CommitmentProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
 
     /// the propser id
     pub proposer_id: EncodedPublicKey,
-
-    /// application specific metadata
-    pub application_metadata: TYPES::ApplicationMetadataType,
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
@@ -173,8 +170,6 @@ impl<TYPES: NodeType> ProposalType for DAProposal<TYPES> {
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
     for CommitmentProposal<TYPES, LEAF>
-where
-    TYPES::ApplicationMetadataType: Send + Sync,
 {
     type NodeType = TYPES;
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {

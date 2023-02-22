@@ -1083,7 +1083,6 @@ impl ElectionConfig for VRFStakeTableConfig {}
 //         data::ViewNumber,
 //         traits::{
 //             block_contents::dummy::{DummyBlock, DummyTransaction},
-//             node_implementation::ApplicationMetadata,
 //             state::{dummy::DummyState, ValidatingConsensus},
 //         },
 //     };
@@ -1095,12 +1094,6 @@ impl ElectionConfig for VRFStakeTableConfig {}
 //         vrf::blsvrf::BLSVRFScheme,
 //     };
 //     use std::{num::NonZeroUsize, time::Duration};
-
-//     /// application metadata stub
-//     #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-//     pub struct TestMetaData {}
-
-//     impl ApplicationMetadata for TestMetaData {}
 
 //     #[derive(
 //         Copy,
@@ -1129,7 +1122,6 @@ impl ElectionConfig for VRFStakeTableConfig {}
 //         type Transaction = DummyTransaction;
 //         type ElectionConfigType = VRFStakeTableConfig;
 //         type StateType = DummyState;
-//         type ApplicationMetadataType = TestMetaData;
 //     }
 
 //     fn gen_vrf_impl<LEAF: LeafType<NodeType = TestTypes>>(

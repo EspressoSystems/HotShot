@@ -29,7 +29,7 @@ use hotshot_types::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
         election::Membership,
         network::{CommunicationChannel, TestableNetworkingImplementation},
-        node_implementation::{ApplicationMetadata, NodeType, TestableNodeImplementation},
+        node_implementation::{NodeType, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState, ValidatingConsensus},
         storage::TestableStorage,
@@ -44,7 +44,6 @@ use jf_primitives::{
     },
     vrf::blsvrf::BLSVRFScheme,
 };
-use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
 use tracing::{error, info};
@@ -306,12 +305,6 @@ pub type GenRunner<TYPES, I> =
 pub type TestSetup<TYPES, TRANS, I> =
     Vec<Box<dyn FnOnce(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<Vec<TRANS>>>>;
 
-/// application metadata stub
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct VrfTestMetaData {}
-
-impl ApplicationMetadata for VrfTestMetaData {}
-
 #[derive(
     Copy,
     Clone,
@@ -336,14 +329,7 @@ impl NodeType for VrfTestTypes {
     type Transaction = DummyTransaction;
     type ElectionConfigType = VRFStakeTableConfig;
     type StateType = DummyState;
-    type ApplicationMetadataType = VrfTestMetaData;
 }
-
-/// application metadata stub
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct StaticCommitteeMetaData {}
-
-impl ApplicationMetadata for StaticCommitteeMetaData {}
 
 #[derive(
     Copy,
@@ -368,7 +354,6 @@ impl NodeType for StaticCommitteeTestTypes {
     type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = VDemoState;
-    type ApplicationMetadataType = StaticCommitteeMetaData;
 }
 
 /// type synonym for vrf committee election

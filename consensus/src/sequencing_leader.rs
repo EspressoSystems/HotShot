@@ -321,7 +321,6 @@ impl<
             justify_qc: self.high_qc.clone(),
             dac: self.cert,
             proposer_id: leaf.proposer_id,
-            application_metadata: {},
         };
 
         let message = ConsensusMessage::<
