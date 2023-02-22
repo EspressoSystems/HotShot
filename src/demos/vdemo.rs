@@ -17,7 +17,6 @@ use hotshot_types::{
     certificate::QuorumCertificate,
     constants::genesis_proposer_id,
     data::{random_commitment, LeafType, ValidatingLeaf, ValidatingProposal, ViewNumber},
-    message::QuorumVote,
     traits::{
         block_contents::Transaction,
         election::Membership,
@@ -27,6 +26,7 @@ use hotshot_types::{
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
         State,
     },
+    vote::{QuorumVote, VoteAccumulator},
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -598,6 +598,8 @@ where
     type Membership = MEMBERSHIP;
     type Proposal = ValidatingProposal<VDemoTypes, Self::Leaf>;
     type Vote = QuorumVote<VDemoTypes, Self::Leaf>;
+    type DAVoteAccumulator = VoteAccumulator<VDemoTypes, VDemoBlock>;
+    type QuorumVoteAccumulator = VoteAccumulator<VDemoTypes, Self::Leaf>;
 }
 
 /// Provides a random [`QuorumCertificate`]

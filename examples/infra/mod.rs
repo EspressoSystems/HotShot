@@ -35,7 +35,6 @@ use hotshot_centralized_server::{
 };
 use hotshot_types::{
     data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
-    message::QuorumVote,
     traits::{
         election::Membership,
         metrics::NoMetrics,
@@ -43,6 +42,7 @@ use hotshot_types::{
         node_implementation::NodeType,
         state::{TestableBlock, TestableState},
     },
+    vote::QuorumVote,
     HotShotConfig,
 };
 use libp2p::{

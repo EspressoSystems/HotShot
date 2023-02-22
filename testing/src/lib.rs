@@ -23,7 +23,6 @@ use hotshot::{
 };
 use hotshot_types::{
     data::{LeafType, ProposalType, TestableLeaf},
-    message::VoteType,
     traits::{
         election::Membership,
         metrics::NoMetrics,
@@ -33,6 +32,7 @@ use hotshot_types::{
         state::{TestableBlock, TestableState},
         storage::TestableStorage,
     },
+    vote::{VoteAccumulator, VoteType},
     HotShotConfig,
 };
 use snafu::Snafu;
@@ -614,6 +614,8 @@ where
     type Storage = STORAGE;
     type Proposal = PROPOSAL;
     type Vote = VOTE;
+    type DAVoteAccumulator = VoteAccumulator<TYPES, TYPES::BlockType>;
+    type QuorumVoteAccumulator = VoteAccumulator<TYPES, LEAF>;
 }
 
 impl<

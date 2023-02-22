@@ -11,10 +11,7 @@ use tokio::time::error::Elapsed as TimeoutError;
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 use super::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
-use crate::{
-    data::ProposalType,
-    message::{Message, VoteType},
-};
+use crate::{data::ProposalType, message::Message, vote::VoteType};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;

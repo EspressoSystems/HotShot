@@ -11,11 +11,11 @@ use hotshot_types::{
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
-    message::{DAVote, QuorumVote},
     traits::{
         election::SignedCertificate, network::CommunicationChannel, node_implementation::NodeType,
         state::ConsensusTime, storage::Storage,
     },
+    vote::{DAVote, QuorumVote},
 };
 use std::sync::{
     atomic::{AtomicBool, Ordering},

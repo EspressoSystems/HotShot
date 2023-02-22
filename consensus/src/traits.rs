@@ -4,7 +4,6 @@ use async_trait::async_trait;
 use commit::Commitment;
 use commit::Committable;
 use either::Either;
-use hotshot_types::certificate::CertificateAccumulator;
 use hotshot_types::certificate::VoteMetaData;
 use hotshot_types::certificate::{DACertificate, QuorumCertificate};
 use hotshot_types::message::ConsensusMessage;
@@ -15,12 +14,12 @@ use hotshot_types::{
     data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
-    message::{DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote},
     traits::{
         election::{Checked, ElectionError, VoteData},
         network::NetworkError,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
+    vote::{DAVote, QuorumVote, TimeoutVote, VoteAccumulator, VoteType, YesOrNoVote},
 };
 use std::num::NonZeroU64;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
@@ -350,8 +349,8 @@ pub trait ConsensusApi<
     fn accumulate_vote<C: Committable, Cert>(
         &self,
         vota_meta: VoteMetaData<TYPES, C, TYPES::VoteTokenType, TYPES::Time, LEAF>,
-        accumulator: CertificateAccumulator<TYPES::VoteTokenType, C>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Cert>
+        accumulator: VoteAccumulator<TYPES, C>,
+    ) -> Either<VoteAccumulator<TYPES, C>, Cert>
     where
         Cert: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, C>;
 
@@ -363,8 +362,8 @@ pub trait ConsensusApi<
         leaf_commitment: Commitment<LEAF>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<TYPES::VoteTokenType, LEAF>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, LEAF>, QuorumCertificate<TYPES, LEAF>>;
+        accumlator: VoteAccumulator<TYPES, LEAF>,
+    ) -> Either<VoteAccumulator<TYPES, LEAF>, QuorumCertificate<TYPES, LEAF>>;
 
     /// Add a vote for a DA QC, if the threshold is reached return the Certificate if not return the accumulator
     fn accumulate_da_vote(
@@ -374,6 +373,6 @@ pub trait ConsensusApi<
         block_commitment: Commitment<TYPES::BlockType>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, TYPES::BlockType>, DACertificate<TYPES>>;
+        accumlator: VoteAccumulator<TYPES, TYPES::BlockType>,
+    ) -> Either<VoteAccumulator<TYPES, TYPES::BlockType>, DACertificate<TYPES>>;
 }

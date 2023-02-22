@@ -12,10 +12,11 @@ use either::Left;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{DAProposal, SequencingLeaf},
-    message::{ConsensusMessage, DAVote, ProcessedConsensusMessage},
+    message::{ConsensusMessage, ProcessedConsensusMessage},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
     },
+    vote::DAVote,
 };
 use std::sync::Arc;
 use tracing::{error, info, instrument, warn};

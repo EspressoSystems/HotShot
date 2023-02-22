@@ -13,11 +13,12 @@ use either::{Left, Right};
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{CommitmentProposal, SequencingLeaf},
-    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, QuorumVote},
+    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
         Block,
     },
+    vote::QuorumVote,
 };
 use hotshot_utils::bincode::bincode_opts;
 use std::collections::HashSet;

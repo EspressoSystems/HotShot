@@ -18,9 +18,15 @@ use super::{
 };
 use crate::{
     data::{LeafType, ProposalType},
-    message::VoteType,
-    traits::{signature_key::SignatureKey, storage::Storage, Block},
+    traits::{
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        storage::Storage,
+        Block,
+    },
+    vote::{Accumulator, VoteType},
 };
+use commit::Commitment;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -45,6 +51,23 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     type Proposal: ProposalType<NodeType = TYPES>;
 
     type Vote: VoteType<TYPES>;
+
+    // TODO (da) after adding `ConsensusExchange`, we will have one accumulator, for either DA or
+    // quorum vote, in each `ConsensusExchange`.
+    type DAVoteAccumulator: Accumulator<
+        (
+            Commitment<TYPES::BlockType>,
+            (EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)),
+        ),
+        BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
+    >;
+    type QuorumVoteAccumulator: Accumulator<
+        (
+            Commitment<Self::Leaf>,
+            (EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)),
+        ),
+        BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
+    >;
 
     /// Networking type for this consensus implementation
     type Networking: CommunicationChannel<TYPES, Self::Proposal, Self::Vote, Self::Membership>;

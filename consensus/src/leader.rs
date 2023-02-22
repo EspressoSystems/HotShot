@@ -10,11 +10,12 @@ use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, Proposal, QuorumVote},
+    message::{ConsensusMessage, Proposal},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
         state::ValidatingConsensus, Block, State,
     },
+    vote::QuorumVote,
 };
 use std::{sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};

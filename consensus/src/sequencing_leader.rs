@@ -13,15 +13,14 @@ use commit::Committable;
 use either::Either;
 use either::Either::Right;
 use hotshot_types::{
-    certificate::{CertificateAccumulator, DACertificate, QuorumCertificate},
+    certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, DAProposal, SequencingLeaf},
-    message::{
-        ConsensusMessage, DAVote, InternalTrigger, ProcessedConsensusMessage, Proposal, QuorumVote,
-    },
+    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, Proposal},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
         state::SequencingConsensus, Block,
     },
+    vote::{DAVote, QuorumVote, VoteAccumulator},
 };
 use std::collections::HashMap;
 use std::num::NonZeroU64;
@@ -84,7 +83,7 @@ impl<
         block_commitment: Commitment<<TYPES as NodeType>::BlockType>,
     ) -> Option<DACertificate<TYPES>> {
         let lock = self.vote_collection_chan.lock().await;
-        let mut accumulator = CertificateAccumulator {
+        let mut accumulator = VoteAccumulator {
             vote_outcomes: HashMap::new(),
             threshold,
         };
@@ -393,7 +392,7 @@ impl<
         let mut qcs = HashSet::<QuorumCertificate<TYPES, SequencingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
-        let _accumulator = CertificateAccumulator::<TYPES::VoteTokenType, SequencingLeaf<TYPES>> {
+        let _accumulator = VoteAccumulator::<TYPES, SequencingLeaf<TYPES>> {
             vote_outcomes: HashMap::new(),
             threshold: self.api.threshold(),
         };

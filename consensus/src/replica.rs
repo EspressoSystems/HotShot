@@ -11,13 +11,12 @@ use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{
-        ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, QuorumVote, TimeoutVote,
-    },
+    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
     traits::{
         node_implementation::NodeType, signature_key::SignatureKey, state::ValidatingConsensus,
         Block, State,
     },
+    vote::{QuorumVote, TimeoutVote},
 };
 use hotshot_utils::bincode::bincode_opts;
 use std::ops::Bound::{Excluded, Included};

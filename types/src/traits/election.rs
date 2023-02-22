@@ -7,7 +7,6 @@ use super::signature_key::{EncodedPublicKey, EncodedSignature};
 use crate::{data::LeafType, traits::signature_key::SignatureKey};
 use bincode::Options;
 use commit::{Commitment, Committable};
-use either::Either;
 use hotshot_utils::bincode::bincode_opts;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
@@ -86,14 +85,6 @@ pub trait VoteToken:
 pub trait ElectionConfig:
     Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug
 {
-}
-
-/// Describes any aggreation of signatures or votes.
-pub trait Accumulator<T, U>: Sized {
-    /// accumates the val to the current state.  If
-    /// A threshold is reached we Return U (which could a certificate or similar)
-    /// else we return self and can continue accumulation items.
-    fn append(self, val: T) -> Either<Self, U>;
 }
 
 pub trait SignedCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, LEAF>

@@ -15,7 +15,7 @@ use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
     data::ProposalType,
-    message::{Message, VoteType},
+    message::Message,
     traits::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
@@ -26,6 +26,7 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
+    vote::VoteType,
 };
 use hotshot_utils::bincode::bincode_opts;
 
@@ -518,11 +519,12 @@ mod tests {
     use async_compatibility_layer::logging::setup_logging;
     use hotshot_types::{
         data::ViewNumber,
-        message::{DataMessage, MessageKind, QuorumVote},
+        message::{DataMessage, MessageKind},
         traits::{
             signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
             state::ConsensusTime,
         },
+        vote::QuorumVote,
     };
     use hotshot_types::{
         data::{ValidatingLeaf, ValidatingProposal},
