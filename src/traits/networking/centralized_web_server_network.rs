@@ -14,6 +14,7 @@ use tokio::net::TcpStream;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
+use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 use async_compatibility_layer::{
     art::{async_block_on, async_sleep, async_spawn, split_stream},
@@ -71,6 +72,7 @@ pub struct CentralizedWebCommChannel<
     ELECTION: Election<TYPES>,
 >(
     CentralizedWebServerNetwork<
+        WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
         TYPES,
@@ -89,6 +91,7 @@ impl<
     /// Create new communication channel
     pub fn new(
         network: CentralizedWebServerNetwork<
+            WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
             TYPES::ElectionConfigType,
             TYPES,
@@ -141,6 +144,8 @@ impl<
 
 #[derive(Clone, Debug)]
 pub struct CentralizedWebServerNetwork<
+    M: NetworkMsg,
+    ///+ WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>
     KEY: SignatureKey,
     ELECTIONCONFIG: ElectionConfig,
     TYPES: NodeType,
@@ -149,26 +154,22 @@ pub struct CentralizedWebServerNetwork<
 > {
     /// The inner state
     // TODO ED What's the point of inner?
-    inner: Arc<Inner<KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>>,
+    inner: Arc<Inner<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
 // TODO ED Two impls of centralized web server network struct?  Fix
 impl<
+        M: NetworkMsg + WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>,
         KEY: SignatureKey,
         ELECTIONCONFIG: ElectionConfig,
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-    > CentralizedWebServerNetwork<KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
+    > CentralizedWebServerNetwork<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
 {
-    async fn post_message_to_web_server<
-        M: NetworkMsg + WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>,
-    >(
-        &self,
-        message: M,
-    ) -> Result<(), NetworkError> {
+    async fn post_message_to_web_server(&self, message: M) -> Result<(), NetworkError> {
         let result: Result<(), ClientError> = self
             .inner
             .client
@@ -180,16 +181,90 @@ impl<
         // TODO ED Actually return result
         Ok(())
     }
+}
 
-    async fn get_message_from_web_server<
-        M: NetworkMsg + WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>,
-    >(
+#[derive(Debug, Default, Clone, Copy)]
+pub struct ConsensusInfo {
+    view_number: u64,
+    is_current_leader: bool,
+    is_next_leader: bool,
+}
+
+#[derive(Debug)]
+struct Inner<
+    M: NetworkMsg,
+    KEY: SignatureKey,
+    ELECTIONCONFIG: ElectionConfig,
+    TYPES: NodeType,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
+> {
+    // TODO ED Get rid of phantom if can
+    phantom: PhantomData<(KEY, ELECTIONCONFIG, PROPOSAL, VOTE)>,
+    // Current view number so we can poll accordingly
+    // TODO ED Should we keep these as three objects or one?
+    // view_number: Arc<SubscribableRwLock<<TYPES as NodeType>::Time>>,
+    // is_current_leader: Arc<SubscribableRwLock<bool>>,
+    // is_next_leader: Arc<SubscribableRwLock<bool>>,
+    consensus_info: Arc<SubscribableRwLock<ConsensusInfo>>,
+
+    // TODO Do we ever use this?
+    own_key: TYPES::SignatureKey,
+    // // Queue for broadcasted messages (mainly transactions and proposals)
+    broadcast_poll_queue: Arc<RwLock<Vec<M>>>,
+    // // Queue for direct messages (mainly votes)
+    // Should this be channels? TODO ED
+    direct_poll_queue: Arc<RwLock<Vec<M>>>,
+    // TODO ED the same as connected?
+    running: AtomicBool,
+    // The network is connected to the web server and ready to go
+    connected: AtomicBool,
+    client: surf_disco::Client<ClientError>,
+    wait_between_polls: Duration,
+}
+
+impl<
+        M: NetworkMsg, //+ WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>,
+        KEY: SignatureKey,
+        ELECTIONCONFIG: ElectionConfig,
+        TYPES: NodeType,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+    > Inner<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
+{
+    async fn poll_web_server_proposal(&self, num_views_ahead: u64) {
+        // Subscribe to changes in consensus info
+        let consensus_update = self.consensus_info.subscribe().await;
+        let mut consensus_info = self.consensus_info.copied().await;
+
+        loop {
+            let endpoint = config::get_proposal_route(consensus_info.view_number.into());
+            let result = self.get_message_from_web_server(endpoint).await;
+            match result {
+                // TODO ED Only need the first proposal
+                Ok(Some(deserialized_messages)) => {
+                    self.broadcast_poll_queue
+                        .write()
+                        .await
+                        .push(deserialized_messages[0].clone());
+                    consensus_info = consensus_update.recv().await.unwrap();
+                }
+
+                Err(_) | Ok(None) => {
+                    // sleep a bit before repolling
+                    async_sleep(self.wait_between_polls).await;
+                }
+            }
+            // Don't do anything until we're in a new view
+        }
+    }
+
+    async fn get_message_from_web_server(
         &self,
-        message: M,
+        endpoint: String,
     ) -> Result<Option<Vec<M>>, ClientError> {
-        // TODO ED Where to do deserialization?  Look at other impls - in recv Messages?  will unwrap to MESSAGE TYPE, So this deserializes to NetworkMsg?
         let result: Result<Option<Vec<Vec<u8>>>, ClientError> =
-            self.inner.client.get(&message.get_endpoint()).send().await;
+            self.client.get(&endpoint).send().await;
         // TODO ED Clean this up
         match result {
             Err(error) => Err(error),
@@ -204,45 +279,6 @@ impl<
             Ok(None) => Ok(None),
         }
     }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct ConsensusInfo {
-    view_number: u64,
-    is_current_leader: bool,
-    is_next_leader: bool,
-}
-
-#[derive(Debug)]
-struct Inner<
-    KEY: SignatureKey,
-    ELECTIONCONFIG: ElectionConfig,
-    TYPES: NodeType,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
-> {
-    // TODO ED Get rid of phantom if can
-    phantom: PhantomData<(KEY, ELECTIONCONFIG)>,
-    // Current view number so we can poll accordingly
-    // TODO ED Should we keep these as three objects or one?
-    // view_number: Arc<SubscribableRwLock<<TYPES as NodeType>::Time>>,
-    // is_current_leader: Arc<SubscribableRwLock<bool>>,
-    // is_next_leader: Arc<SubscribableRwLock<bool>>,
-    consensus_info: Arc<SubscribableRwLock<ConsensusInfo>>,
-
-    // TODO Do we ever use this?
-    own_key: TYPES::SignatureKey,
-    // // Queue for broadcasted messages (mainly transactions and proposals)
-    broadcast_poll_queue: Arc<RwLock<Vec<Message<TYPES, PROPOSAL, VOTE>>>>,
-    // // Queue for direct messages (mainly votes)
-    // Should this be channels? TODO ED
-    direct_poll_queue: Arc<RwLock<Vec<Message<TYPES, PROPOSAL, VOTE>>>>,
-    // TODO ED the same as connected?
-    running: AtomicBool,
-    // The network is connected to the web server and ready to go
-    connected: AtomicBool,
-    client: surf_disco::Client<ClientError>,
-    wait_between_polls: Duration,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -287,12 +323,13 @@ impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<T
 }
 
 impl<
+        M: NetworkMsg + 'static, //+ WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
         PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
         VOTE: VoteType<TYPES> + 'static,
-    > CentralizedWebServerNetwork<K, E, TYPES, PROPOSAL, VOTE>
+    > CentralizedWebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
 {
     // TODO ED change to new
     pub fn create(
@@ -325,17 +362,17 @@ impl<
         });
         inner.connected.store(true, Ordering::Relaxed);
 
-        // async_spawn({
-        //     let inner = Arc::clone(&inner);
-        //     async move {
-        //         while inner.running.load(Ordering::Relaxed) {
-        //             if let Err(e) = CentralizedWebServerNetwork::<K, E, TYPES, PROPOSAL, VOTE>::run_background_receive(Arc::clone(&inner)).await {
-        //                 error!(?e, "background thread exited");
-        //             }
-        //             inner.connected.store(false, Ordering::Relaxed);
-        //         }
-        //     }
-        // });
+        async_spawn({
+            let inner = Arc::clone(&inner);
+            async move {
+                while inner.running.load(Ordering::Relaxed) {
+                    if let Err(e) = CentralizedWebServerNetwork::<M, K, E, TYPES, PROPOSAL, VOTE>::run_background_receive(Arc::clone(&inner)).await {
+                        error!(?e, "background thread exited");
+                    }
+                    inner.connected.store(false, Ordering::Relaxed);
+                }
+            }
+        });
         Self {
             inner,
             server_shutdown_signal: None,
@@ -344,10 +381,19 @@ impl<
 
     // TODO ED Move to inner impl?
     async fn run_background_receive(
-        inner: Arc<Inner<K, E, TYPES, PROPOSAL, VOTE>>,
+        inner: Arc<Inner<M, K, E, TYPES, PROPOSAL, VOTE>>,
     ) -> Result<(), ClientError> {
         // TODO ED Change running variable if this function closes
         // TODO ED Do we need this function wrapper?  We could start all of them directly
+        let proposal_handle =
+            async_spawn({ async move { inner.poll_web_server_proposal(0).await } });
+
+        let mut task_handles = Vec::new();
+        task_handles.push(proposal_handle);
+
+        // TODO ED Check this result
+        let children_finished = futures::future::join_all(task_handles);
+        children_finished.await;
 
         Ok(())
     }
@@ -367,7 +413,7 @@ impl<
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
-        <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
+        <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
@@ -377,7 +423,7 @@ impl<
     /// checks if the network is ready
     /// nonblocking
     async fn is_ready(&self) -> bool {
-        <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
+        <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
@@ -388,7 +434,7 @@ impl<
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
-        <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
+        <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
@@ -436,7 +482,7 @@ impl<
     }
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
-        <CentralizedWebServerNetwork<_, _, _, _, _> as ConnectedNetwork<
+        <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             WebServerNetworkMessage<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(&self.0, tuple)
@@ -446,16 +492,14 @@ impl<
 
 #[async_trait]
 impl<
-        M: NetworkMsg,
+        M: NetworkMsg + WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>,
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
         PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
         VOTE: VoteType<TYPES> + 'static,
-    > ConnectedNetwork<M, K> for CentralizedWebServerNetwork<K, E, TYPES, PROPOSAL, VOTE>
+    > ConnectedNetwork<M, K> for CentralizedWebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
 // Make this a trait?
-where
-    M: WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE> + NetworkMsg,
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
