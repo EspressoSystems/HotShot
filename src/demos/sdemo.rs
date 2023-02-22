@@ -13,7 +13,7 @@ use hotshot_types::{
     traits::{
         block_contents::Transaction,
         node_implementation::ApplicationMetadata,
-        state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
+        state::{ConsensusTime, SequencingConsensus, TestableBlock, TestableState},
         Block, State,
     },
 };
@@ -219,7 +219,7 @@ impl State for SDemoState {
 
     type Time = ViewNumber;
 
-    type ConsensusType = ValidatingConsensus;
+    type ConsensusType = SequencingConsensus;
 
     fn next_block(&self) -> Self::BlockType {
         SDemoBlock::Normal(SDemoNormalBlock {

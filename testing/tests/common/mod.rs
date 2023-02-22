@@ -927,8 +927,8 @@ macro_rules! cross_all_types {
             cross_tests!(
                 [ MemoryCommChannel ],
                 [ MemoryStorage ],
-                [ VDEntryBlock  ],
-                [ VDEntryState ],
+                [ VDemoBlock  ],
+                [ VDemoState ],
                 $fn_name,
                 $e,
                 keep: $keep,
@@ -961,8 +961,8 @@ macro_rules! cross_all_types_proptest {
             cross_tests!(
                 [ MemoryCommChannel ],
                 [ MemoryStorage ], // AtomicStorage
-                [ VDEntryBlock  ],
-                [ VDEntryState ],
+                [ VDemoBlock  ],
+                [ VDemoState ],
                 $fn_name,
                 $e,
                 keep: $keep,

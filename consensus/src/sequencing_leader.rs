@@ -291,7 +291,7 @@ impl<
             DAProposal<TYPES>,
             DAVote<TYPES, SequencingLeaf<TYPES>>,
         >,
-        TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
     > ConsensusLeader<A, TYPES>
 {
     /// Run one view of the DA leader task
