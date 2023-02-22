@@ -5,8 +5,8 @@ use async_lock::Mutex;
 use blake3::Hasher;
 use commit::Committable;
 use common::{
-    AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
-    StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType, VrfTestTypes,
+    AppliedTestRunner, StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType,
+    VrfTestTypes,
 };
 use either::Right;
 use futures::{
@@ -14,7 +14,10 @@ use futures::{
     FutureExt,
 };
 use hotshot::{demos::vdemo::random_validating_leaf, traits::election::vrf::VrfImpl};
-use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
+use hotshot_testing::{
+    test_description::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder},
+    ConsensusRoundError, RoundResult, SafetyFailedSnafu,
+};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     event::EventType,

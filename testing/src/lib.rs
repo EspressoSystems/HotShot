@@ -8,10 +8,14 @@
 
 #![warn(missing_docs)]
 
-mod impls;
-mod launcher;
+/// test launcher infrastructure
+pub mod launcher;
+/// macros to generate a cross product of tests
+pub mod macros;
 /// implementations of various networking models
 pub mod network_reliability;
+/// structs and infra to describe the tests to be written
+pub mod test_description;
 
 pub use self::launcher::TestLauncher;
 

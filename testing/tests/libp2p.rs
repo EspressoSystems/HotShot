@@ -8,7 +8,7 @@ use hotshot::traits::{
     election::static_committee::StaticCommittee,
     implementations::{Libp2pCommChannel, MemoryStorage},
 };
-use hotshot_testing::TestNodeImpl;
+use hotshot_testing::{test_description::GeneralTestDescriptionBuilder, TestNodeImpl};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     vote::QuorumVote,
