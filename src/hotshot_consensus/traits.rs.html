@@ -376,14 +376,12 @@
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`ConsensusApi`] trait.
 
 </span><span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>either::Either;
-<span class="kw">use </span>hotshot_types::certificate::CertificateAccumulator;
 <span class="kw">use </span>hotshot_types::certificate::VoteMetaData;
 <span class="kw">use </span>hotshot_types::certificate::{DACertificate, QuorumCertificate};
 <span class="kw">use </span>hotshot_types::message::ConsensusMessage;
@@ -394,12 +392,12 @@
     data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
-    message::{DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote},
     traits::{
         election::{Checked, ElectionError, VoteData},
         network::NetworkError,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
     },
+    vote::{DAVote, QuorumVote, TimeoutVote, VoteAccumulator, VoteType, YesOrNoVote},
 };
 <span class="kw">use </span>std::num::NonZeroU64;
 <span class="kw">use </span>std::{num::NonZeroUsize, sync::Arc, time::Duration};
@@ -729,8 +727,8 @@
     </span><span class="kw">fn </span>accumulate_vote&lt;C: Committable, Cert&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         vota_meta: VoteMetaData&lt;TYPES, C, TYPES::VoteTokenType, TYPES::Time, LEAF&gt;,
-        accumulator: CertificateAccumulator&lt;TYPES::VoteTokenType, C&gt;,
-    ) -&gt; Either&lt;CertificateAccumulator&lt;TYPES::VoteTokenType, C&gt;, Cert&gt;
+        accumulator: VoteAccumulator&lt;TYPES, C&gt;,
+    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES, C&gt;, Cert&gt;
     <span class="kw">where
         </span>Cert: SignedCertificate&lt;TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, C&gt;;
 
@@ -742,8 +740,8 @@
         leaf_commitment: Commitment&lt;LEAF&gt;,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator&lt;TYPES::VoteTokenType, LEAF&gt;,
-    ) -&gt; Either&lt;CertificateAccumulator&lt;TYPES::VoteTokenType, LEAF&gt;, QuorumCertificate&lt;TYPES, LEAF&gt;&gt;;
+        accumlator: VoteAccumulator&lt;TYPES, LEAF&gt;,
+    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES, LEAF&gt;, QuorumCertificate&lt;TYPES, LEAF&gt;&gt;;
 
     <span class="doccomment">/// Add a vote for a DA QC, if the threshold is reached return the Certificate if not return the accumulator
     </span><span class="kw">fn </span>accumulate_da_vote(
@@ -753,8 +751,8 @@
         block_commitment: Commitment&lt;TYPES::BlockType&gt;,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator&lt;TYPES::VoteTokenType, TYPES::BlockType&gt;,
-    ) -&gt; Either&lt;CertificateAccumulator&lt;TYPES::VoteTokenType, TYPES::BlockType&gt;, DACertificate&lt;TYPES&gt;&gt;;
+        accumlator: VoteAccumulator&lt;TYPES, TYPES::BlockType&gt;,
+    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES, TYPES::BlockType&gt;, DACertificate&lt;TYPES&gt;&gt;;
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_consensus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>

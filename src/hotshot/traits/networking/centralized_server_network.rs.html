@@ -1231,6 +1231,7 @@
 <a href="#1231" id="1231">1231</a>
 <a href="#1232" id="1232">1232</a>
 <a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that attempts to connect to a centralized server.
 //!
 //! To run the server, see the `./centralized_server/` folder in this repo.
@@ -1256,7 +1257,7 @@
 };
 <span class="kw">use </span>hotshot_types::{
     data::ProposalType,
-    message::{Message, VoteType},
+    message::Message,
     traits::{
         election::{ElectionConfig, Membership},
         metrics::{Metrics, NoMetrics},
@@ -1268,6 +1269,7 @@
         node_implementation::NodeType,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     },
+    vote::VoteType,
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};

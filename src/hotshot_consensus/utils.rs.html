@@ -128,6 +128,7 @@
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Utility functions, type aliases, helper structs and enum definitions.
 
 </span><span class="kw">use </span>async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
@@ -135,8 +136,9 @@
 <span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>hotshot_types::{
     data::{LeafType, ProposalType},
-    message::{ProcessedConsensusMessage, VoteType},
+    message::ProcessedConsensusMessage,
     traits::node_implementation::NodeType,
+    vote::VoteType,
 };
 <span class="kw">use </span>std::{
     collections::BTreeMap,

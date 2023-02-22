@@ -533,6 +533,7 @@
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
 <a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`SequencingReplica`] struct used for the replica step in the consensus algorithm with DA
 //! committee, i.e. in the sequencing consensus.
 
@@ -548,11 +549,12 @@
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
     data::{CommitmentProposal, SequencingLeaf},
-    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, QuorumVote},
+    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
         Block,
     },
+    vote::QuorumVote,
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>std::collections::HashSet;

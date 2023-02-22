@@ -744,6 +744,7 @@
 <a href="#744" id="744">744</a>
 <a href="#745" id="745">745</a>
 <a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -759,7 +760,7 @@
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>hotshot_types::{
     data::ProposalType,
-    message::{Message, VoteType},
+    message::Message,
     traits::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
@@ -770,6 +771,7 @@
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
+    vote::VoteType,
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>libp2p_networking::{

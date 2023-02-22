@@ -121,6 +121,29 @@
 <a href="#121" id="121">121</a>
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -141,9 +164,15 @@
 };
 <span class="kw">use crate</span>::{
     data::{LeafType, ProposalType},
-    message::VoteType,
-    traits::{signature_key::SignatureKey, storage::Storage, Block},
+    traits::{
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        storage::Storage,
+        Block,
+    },
+    vote::{Accumulator, VoteType},
 };
+<span class="kw">use </span>commit::Commitment;
+<span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::hash::Hash;
 
@@ -168,6 +197,23 @@
     <span class="kw">type </span>Proposal: ProposalType&lt;NodeType = TYPES&gt;;
 
     <span class="kw">type </span>Vote: VoteType&lt;TYPES&gt;;
+
+    <span class="comment">// TODO (da) after adding `ConsensusExchange`, we will have one accumulator, for either DA or
+    // quorum vote, in each `ConsensusExchange`.
+    </span><span class="kw">type </span>DAVoteAccumulator: Accumulator&lt;
+        (
+            Commitment&lt;TYPES::BlockType&gt;,
+            (EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)),
+        ),
+        BTreeMap&lt;EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)&gt;,
+    &gt;;
+    <span class="kw">type </span>QuorumVoteAccumulator: Accumulator&lt;
+        (
+            Commitment&lt;<span class="self">Self</span>::Leaf&gt;,
+            (EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)),
+        ),
+        BTreeMap&lt;EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)&gt;,
+    &gt;;
 
     <span class="doccomment">/// Networking type for this consensus implementation
     </span><span class="kw">type </span>Networking: CommunicationChannel&lt;TYPES, <span class="self">Self</span>::Proposal, <span class="self">Self</span>::Vote, <span class="self">Self</span>::Membership&gt;;

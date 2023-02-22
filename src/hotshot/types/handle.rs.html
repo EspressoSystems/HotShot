@@ -483,11 +483,11 @@
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
-    message::{DAVote, QuorumVote},
     traits::{
         election::SignedCertificate, network::CommunicationChannel, node_implementation::NodeType,
         state::ConsensusTime, storage::Storage,
     },
+    vote::{DAVote, QuorumVote},
 };
 <span class="kw">use </span>std::sync::{
     atomic::{AtomicBool, Ordering},

@@ -453,7 +453,6 @@
 <a href="#453" id="453">453</a>
 <a href="#454" id="454">454</a>
 <a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
@@ -469,15 +468,14 @@
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>either::Either::Right;
 <span class="kw">use </span>hotshot_types::{
-    certificate::{CertificateAccumulator, DACertificate, QuorumCertificate},
+    certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, DAProposal, SequencingLeaf},
-    message::{
-        ConsensusMessage, DAVote, InternalTrigger, ProcessedConsensusMessage, Proposal, QuorumVote,
-    },
+    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, Proposal},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
         state::SequencingConsensus, Block,
     },
+    vote::{DAVote, QuorumVote, VoteAccumulator},
 };
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::num::NonZeroU64;
@@ -540,7 +538,7 @@
         block_commitment: Commitment&lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::BlockType&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;DACertificate&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>lock = <span class="self">self</span>.vote_collection_chan.lock().<span class="kw">await</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>accumulator = CertificateAccumulator {
+        <span class="kw">let </span><span class="kw-2">mut </span>accumulator = VoteAccumulator {
             vote_outcomes: HashMap::new(),
             threshold,
         };
@@ -849,7 +847,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>qcs = HashSet::&lt;QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;&gt;::new();
         qcs.insert(<span class="self">self</span>.generic_qc.clone());
 
-        <span class="kw">let </span>_accumulator = CertificateAccumulator::&lt;TYPES::VoteTokenType, SequencingLeaf&lt;TYPES&gt;&gt; {
+        <span class="kw">let </span>_accumulator = VoteAccumulator::&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt; {
             vote_outcomes: HashMap::new(),
             threshold: <span class="self">self</span>.api.threshold(),
         };

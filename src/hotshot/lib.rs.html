@@ -1323,14 +1323,6 @@
 <a href="#1323" id="1323">1323</a>
 <a href="#1324" id="1324">1324</a>
 <a href="#1325" id="1325">1325</a>
-<a href="#1326" id="1326">1326</a>
-<a href="#1327" id="1327">1327</a>
-<a href="#1328" id="1328">1328</a>
-<a href="#1329" id="1329">1329</a>
-<a href="#1330" id="1330">1330</a>
-<a href="#1331" id="1331">1331</a>
-<a href="#1332" id="1332">1332</a>
-<a href="#1333" id="1333">1333</a>
 </pre><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1392,31 +1384,27 @@
     DAMember, NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner,
     ViewQueue,
 };
-<span class="kw">use </span>hotshot_types::data::ProposalType;
-<span class="kw">use </span>hotshot_types::data::{DAProposal, SequencingLeaf};
-<span class="kw">use </span>hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
-<span class="kw">use </span>hotshot_types::traits::election::Accumulator;
-<span class="kw">use </span>hotshot_types::traits::election::VoteToken;
-<span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
-<span class="kw">use </span>hotshot_types::{certificate::DACertificate, message::QuorumVote};
 <span class="kw">use </span>hotshot_types::{
-    certificate::{CertificateAccumulator, VoteMetaData},
-    message::{DAVote, VoteType},
-};
-<span class="kw">use </span>hotshot_types::{
-    data::{LeafType, ValidatingLeaf, ValidatingProposal},
+    certificate::{DACertificate, VoteMetaData},
+    data::{
+        DAProposal, LeafType, ProposalType, SequencingLeaf, ValidatingLeaf, ValidatingProposal,
+    },
     error::StorageSnafu,
-    message::{ConsensusMessage, DataMessage, InternalTrigger, Message},
+    message::{
+        ConsensusMessage, DataMessage, InternalTrigger, Message, MessageKind,
+        ProcessedConsensusMessage,
+    },
     traits::{
-        election::{Checked, ElectionError, Membership, SignedCertificate, VoteData},
+        election::{Checked, ElectionError, Membership, SignedCertificate, VoteData, VoteToken},
         metrics::Metrics,
-        network::{NetworkError, TransmitType},
+        network::{CommunicationChannel, NetworkError, TransmitType},
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::{ConsensusTime, ConsensusType, SequencingConsensus, ValidatingConsensus},
         storage::StoredView,
         State,
     },
+    vote::{Accumulator, DAVote, QuorumVote, VoteAccumulator, VoteType},
     HotShotConfig,
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
@@ -2546,8 +2534,8 @@
     <span class="kw">fn </span>accumulate_vote&lt;C: Committable, Cert&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         vota_meta: VoteMetaData&lt;TYPES, C, TYPES::VoteTokenType, TYPES::Time, I::Leaf&gt;,
-        accumulator: CertificateAccumulator&lt;TYPES::VoteTokenType, C&gt;,
-    ) -&gt; Either&lt;CertificateAccumulator&lt;TYPES::VoteTokenType, C&gt;, Cert&gt;
+        accumulator: VoteAccumulator&lt;TYPES, C&gt;,
+    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES, C&gt;, Cert&gt;
     <span class="kw">where
         </span>Cert: SignedCertificate&lt;TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, C&gt;,
     {
@@ -2585,11 +2573,8 @@
         leaf_commitment: Commitment&lt;I::Leaf&gt;,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator&lt;TYPES::VoteTokenType, I::Leaf&gt;,
-    ) -&gt; Either&lt;
-        CertificateAccumulator&lt;TYPES::VoteTokenType, I::Leaf&gt;,
-        QuorumCertificate&lt;TYPES, I::Leaf&gt;,
-    &gt; {
+        accumlator: VoteAccumulator&lt;TYPES, I::Leaf&gt;,
+    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES, I::Leaf&gt;, QuorumCertificate&lt;TYPES, I::Leaf&gt;&gt; {
         <span class="kw">let </span>meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),
@@ -2607,9 +2592,8 @@
         block_commitment: Commitment&lt;TYPES::BlockType&gt;,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator&lt;TYPES::VoteTokenType, TYPES::BlockType&gt;,
-    ) -&gt; Either&lt;CertificateAccumulator&lt;TYPES::VoteTokenType, TYPES::BlockType&gt;, DACertificate&lt;TYPES&gt;&gt;
-    {
+        accumlator: VoteAccumulator&lt;TYPES, TYPES::BlockType&gt;,
+    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES, TYPES::BlockType&gt;, DACertificate&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),

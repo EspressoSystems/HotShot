@@ -153,9 +153,6 @@
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`NextValidatingLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::ConsensusApi;
@@ -163,16 +160,13 @@
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedReceiver;
 <span class="kw">use </span>async_lock::Mutex;
 <span class="kw">use </span>either::Either;
-<span class="kw">use </span>hotshot_types::certificate::CertificateAccumulator;
 <span class="kw">use </span>hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
-<span class="kw">use </span>hotshot_types::message::ProcessedConsensusMessage;
+<span class="kw">use </span>hotshot_types::message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage};
 <span class="kw">use </span>hotshot_types::traits::election::{Checked::Unchecked, VoteData};
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
 <span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
-<span class="kw">use </span>hotshot_types::{
-    certificate::QuorumCertificate,
-    message::{ConsensusMessage, InternalTrigger, QuorumVote},
-};
+<span class="kw">use </span>hotshot_types::vote::VoteAccumulator;
+<span class="kw">use </span>hotshot_types::{certificate::QuorumCertificate, vote::QuorumVote};
 <span class="kw">use </span>std::time::Instant;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -240,7 +234,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>qcs = HashSet::&lt;QuorumCertificate&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;&gt;::new();
         qcs.insert(<span class="self">self</span>.generic_qc.clone());
 
-        <span class="kw">let </span><span class="kw-2">mut </span>accumlator = CertificateAccumulator {
+        <span class="kw">let </span><span class="kw-2">mut </span>accumlator = VoteAccumulator {
             vote_outcomes: HashMap::new(),
             threshold: <span class="self">self</span>.api.threshold(),
         };

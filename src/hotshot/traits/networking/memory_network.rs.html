@@ -843,6 +843,8 @@
 <a href="#843" id="843">843</a>
 <a href="#844" id="844">844</a>
 <a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
 </pre><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -860,7 +862,7 @@
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>hotshot_types::{
     data::ProposalType,
-    message::{Message, VoteType},
+    message::Message,
     traits::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
@@ -871,6 +873,7 @@
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
+    vote::VoteType,
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 
@@ -1363,11 +1366,12 @@
     <span class="kw">use </span>async_compatibility_layer::logging::setup_logging;
     <span class="kw">use </span>hotshot_types::{
         data::ViewNumber,
-        message::{DataMessage, MessageKind, QuorumVote},
+        message::{DataMessage, MessageKind},
         traits::{
             signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
             state::ConsensusTime,
         },
+        vote::QuorumVote,
     };
     <span class="kw">use </span>hotshot_types::{
         data::{ValidatingLeaf, ValidatingProposal},

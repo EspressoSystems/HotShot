@@ -203,6 +203,7 @@
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`ValidatingLeader`] struct used for the leader step in the hotstuff consensus algorithm.
 
 </span><span class="kw">use crate</span>::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
@@ -215,11 +216,12 @@
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, Proposal, QuorumVote},
+    message::{ConsensusMessage, Proposal},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
         state::ValidatingConsensus, Block, State,
     },
+    vote::QuorumVote,
 };
 <span class="kw">use </span>std::{sync::Arc, time::Instant};
 <span class="kw">use </span>tracing::{error, info, instrument, warn};

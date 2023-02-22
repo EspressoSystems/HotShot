@@ -7,7 +7,7 @@ var sourcesIndex = JSON.parse('{\
 "hotshot_centralized_server":["",[],["client.rs","clients.rs","config.rs","lib.rs","runs.rs"]],\
 "hotshot_consensus":["",[],["da_member.rs","leader.rs","lib.rs","next_leader.rs","replica.rs","sequencing_leader.rs","sequencing_replica.rs","traits.rs","utils.rs"]],\
 "hotshot_testing":["",[["impls",[],["mod.rs"]]],["launcher.rs","lib.rs","network_reliability.rs"]],\
-"hotshot_types":["",[["traits",[["signature_key",[["ed25519",[],["ed25519_priv.rs","ed25519_pub.rs"]]],["ed25519.rs"]]],["block_contents.rs","election.rs","metrics.rs","network.rs","node_implementation.rs","signature_key.rs","state.rs","storage.rs"]]],["certificate.rs","constants.rs","data.rs","error.rs","event.rs","lib.rs","message.rs","traits.rs"]],\
+"hotshot_types":["",[["traits",[["signature_key",[["ed25519",[],["ed25519_priv.rs","ed25519_pub.rs"]]],["ed25519.rs"]]],["block_contents.rs","election.rs","metrics.rs","network.rs","node_implementation.rs","signature_key.rs","state.rs","storage.rs"]]],["certificate.rs","constants.rs","data.rs","error.rs","event.rs","lib.rs","message.rs","traits.rs","vote.rs"]],\
 "hotshot_utils":["",[],["bincode.rs","lib.rs"]],\
 "libp2p":["",[["infra",[],["mod.rs"]]],["types.rs","validator.rs"]],\
 "libp2p_networking":["",[["network",[["behaviours",[],["dht.rs","direct_message.rs","direct_message_codec.rs","exponential_backoff.rs","gossip.rs","mod.rs"]],["node",[],["config.rs","handle.rs"]]],["def.rs","error.rs","mod.rs","node.rs"]]],["lib.rs","message.rs"]],\

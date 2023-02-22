@@ -1192,7 +1192,6 @@
 };
 <span class="kw">use </span>hotshot_types::{
     data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
-    message::QuorumVote,
     traits::{
         election::Membership,
         metrics::NoMetrics,
@@ -1200,6 +1199,7 @@
         node_implementation::NodeType,
         state::{TestableBlock, TestableState},
     },
+    vote::QuorumVote,
     HotShotConfig,
 };
 <span class="kw">use </span>libp2p::{
