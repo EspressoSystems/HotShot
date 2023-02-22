@@ -99,13 +99,10 @@ impl<
         Self(network, PhantomData::default())
     }
 
-    fn parse_message(
+    fn parse_post_message(
         &self,
         message: Message<TYPES, PROPOSAL, VOTE>,
     ) -> WebServerNetworkMessage<TYPES, PROPOSAL, VOTE> {
-        // Plan:
-        // create NetworkMsg using match for endpoint
-        // Best way to map endpoints?  Enum?  Import config from web server
         let view_number: TYPES::Time = message.get_view_number().into();
 
         // Returns the endpoint we need, maybe should return an option?  For internal trigger? Return error for now?
@@ -132,8 +129,10 @@ impl<
             },
         };
 
-        let network_msg: WebServerNetworkMessage<TYPES, PROPOSAL, VOTE> =
-            WebServerNetworkMessage { message, endpoint };
+        let network_msg: WebServerNetworkMessage<TYPES, PROPOSAL, VOTE> = WebServerNetworkMessage {
+            message: Some(message),
+            endpoint,
+        };
         network_msg
 
         // TODO ED Current web server doesn't have a concept of recipients
@@ -155,6 +154,7 @@ pub struct CentralizedWebServerNetwork<
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
+// TODO ED Two impls of centralized web server network struct?  Fix
 impl<
         KEY: SignatureKey,
         ELECTIONCONFIG: ElectionConfig,
@@ -163,7 +163,7 @@ impl<
         VOTE: VoteType<TYPES>,
     > CentralizedWebServerNetwork<KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
 {
-    async fn send_message_to_web_server<
+    async fn post_message_to_web_server<
         M: NetworkMsg + WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>,
     >(
         &self,
@@ -172,7 +172,6 @@ impl<
         let result: Result<(), ClientError> = self
             .inner
             .client
-            // TODO ED update this to get actual message
             .post(&message.get_endpoint())
             .body_binary(&message.get_message())
             .unwrap()
@@ -180,6 +179,30 @@ impl<
             .await;
         // TODO ED Actually return result
         Ok(())
+    }
+
+    async fn get_message_from_web_server<
+        M: NetworkMsg + WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>,
+    >(
+        &self,
+        message: M,
+    ) -> Result<Option<Vec<M>>, ClientError> {
+        // TODO ED Where to do deserialization?  Look at other impls - in recv Messages?  will unwrap to MESSAGE TYPE, So this deserializes to NetworkMsg?
+        let result: Result<Option<Vec<Vec<u8>>>, ClientError> =
+            self.inner.client.get(&message.get_endpoint()).send().await;
+        // TODO ED Clean this up
+        match result {
+            Err(error) => Err(error),
+            Ok(Some(messages)) => {
+                let mut deserialized_messages = Vec::new();
+                messages.iter().for_each(|message| {
+                    let deserialized_message = bincode::deserialize::<M>(message).unwrap();
+                    deserialized_messages.push(deserialized_message);
+                });
+                Ok(Some(deserialized_messages))
+            }
+            Ok(None) => Ok(None),
+        }
     }
 }
 
@@ -229,7 +252,7 @@ pub struct WebServerNetworkMessage<
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
 > {
-    message: Message<TYPES, PROPOSAL, VOTE>,
+    message: Option<Message<TYPES, PROPOSAL, VOTE>>,
     endpoint: String,
 }
 
@@ -241,7 +264,7 @@ pub trait WebServerNetworkMessageTrait<
 >
 {
     fn get_endpoint(&self) -> String;
-    fn get_message(&self) -> Message<TYPES, PROPOSAL, VOTE>;
+    fn get_message(&self) -> Option<Message<TYPES, PROPOSAL, VOTE>>;
 }
 
 impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
@@ -253,7 +276,7 @@ impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<T
         self.endpoint.clone()
     }
 
-    fn get_message(&self) -> Message<TYPES, PROPOSAL, VOTE> {
+    fn get_message(&self) -> Option<Message<TYPES, PROPOSAL, VOTE>> {
         self.message.clone()
     }
 }
@@ -324,6 +347,8 @@ impl<
         inner: Arc<Inner<K, E, TYPES, PROPOSAL, VOTE>>,
     ) -> Result<(), ClientError> {
         // TODO ED Change running variable if this function closes
+        // TODO ED Do we need this function wrapper?  We could start all of them directly
+
         Ok(())
     }
 }
@@ -377,7 +402,8 @@ impl<
         message: Message<TYPES, PROPOSAL, VOTE>,
         election: &ELECTION,
     ) -> Result<(), NetworkError> {
-        let network_msg = self.parse_message(message);
+        // TODO ED Change parse post message to get endpoint or something similar?
+        let network_msg = self.parse_post_message(message);
         self.0.broadcast_message(network_msg, BTreeSet::new()).await
     }
 
@@ -388,7 +414,7 @@ impl<
         message: Message<TYPES, PROPOSAL, VOTE>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        let network_msg = self.parse_message(message);
+        let network_msg = self.parse_post_message(message);
         self.0.direct_message(network_msg, recipient).await
     }
 
@@ -458,7 +484,7 @@ where
         message: M,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
-        let result = self.send_message_to_web_server(message).await;
+        let result = self.post_message_to_web_server(message).await;
 
         // TODO ED Match result
 
@@ -468,7 +494,7 @@ where
     /// Sends a direct message to a specific node
     /// blocking
     async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError> {
-        let result = self.send_message_to_web_server(message).await;
+        let result = self.post_message_to_web_server(message).await;
 
         // TODO ED Match result
 
@@ -498,13 +524,16 @@ where
             is_current_leader,
             is_next_leader,
         };
-        self.inner.consensus_info.modify(|old_consensus_info| {
-            // This should never happen
-            if new_consensus_info.view_number < old_consensus_info.view_number {
-                panic!(); 
-            }
-            *old_consensus_info = new_consensus_info;
-        }).await;
+        self.inner
+            .consensus_info
+            .modify(|old_consensus_info| {
+                // TODO ED This should never happen, but checking anyway
+                if new_consensus_info.view_number <= old_consensus_info.view_number {
+                    panic!();
+                }
+                *old_consensus_info = new_consensus_info;
+            })
+            .await;
 
         Ok(())
     }
