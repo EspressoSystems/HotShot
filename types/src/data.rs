@@ -433,7 +433,7 @@ where
         rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <<Self::NodeType as NodeType>::BlockType as Block>::Transaction {
-        <TYPES::StateType as TestableState>::create_random_transaction(&self.state, rng, padding)
+        <TYPES::StateType as TestableState>::create_random_transaction(Some(&self.state), rng, padding)
     }
 }
 
@@ -524,11 +524,10 @@ where
 
     fn create_random_transaction(
         &self,
-        _rng: &mut dyn rand::RngCore,
-        _padding: u64,
+        rng: &mut dyn rand::RngCore,
+        padding: u64,
     ) -> <<Self::NodeType as NodeType>::BlockType as Block>::Transaction {
-        #[allow(deprecated)]
-        nll_todo()
+        TYPES::StateType::create_random_transaction(None, rng, padding)
     }
 }
 /// Fake the thing a genesis block points to. Needed to avoid infinite recursion

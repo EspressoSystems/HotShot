@@ -124,7 +124,7 @@ where
     /// otherwise panics
     /// `padding` is the bytes of padding to add to the transaction
     fn create_random_transaction(
-        &self,
+        state: Option<&Self>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <Self::BlockType as Block>::Transaction;
@@ -206,7 +206,7 @@ pub mod dummy {
     }
 
     impl TestableState for DummyState {
-        fn create_random_transaction(&self, _: &mut dyn rand::RngCore, _: u64) -> DummyTransaction {
+        fn create_random_transaction(_state: Option<&Self>, _: &mut dyn rand::RngCore, _: u64) -> DummyTransaction {
             DummyTransaction::Dummy
         }
     }
