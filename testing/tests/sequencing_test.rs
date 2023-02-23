@@ -10,10 +10,7 @@ use hotshot::{
         implementations::{MemoryCommChannel, MemoryStorage},
     },
 };
-use hotshot_testing::{
-    test_description::GeneralTestDescriptionBuilder, test_types::StaticCommitteeMetaData,
-    TestNodeImpl,
-};
+use hotshot_testing::{test_description::GeneralTestDescriptionBuilder, TestNodeImpl};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{node_implementation::NodeType, state::ValidatingConsensus},
@@ -45,7 +42,6 @@ impl NodeType for SequencingTestTypes {
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = SDemoState;
-    type ApplicationMetadataType = StaticCommitteeMetaData;
 }
 
 // stress test for libp2p

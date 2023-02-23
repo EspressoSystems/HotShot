@@ -9,14 +9,13 @@ use hotshot_types::{
     traits::{
         election::Membership,
         network::{CommunicationChannel, TestableNetworkingImplementation},
-        node_implementation::{ApplicationMetadata, NodeType, TestableNodeImplementation},
+        node_implementation::{NodeType, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState},
         storage::TestableStorage,
     },
     HotShotConfig,
 };
-use serde::{Deserialize, Serialize};
 use snafu::Snafu;
 use tracing::{error, info};
 
@@ -287,12 +286,6 @@ pub type GenRunner<TYPES, I> =
 /// type alias for doing setup for a consensus round
 pub type TestSetup<TYPES, TRANS, I> =
     Vec<Box<dyn FnOnce(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<Vec<TRANS>>>>;
-
-/// application metadata stub
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct VrfTestMetaData {}
-
-impl ApplicationMetadata for VrfTestMetaData {}
 
 impl Default for GeneralTestDescriptionBuilder {
     /// by default, just a single round

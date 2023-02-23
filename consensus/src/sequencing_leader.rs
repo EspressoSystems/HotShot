@@ -291,7 +291,7 @@ impl<
             DAProposal<TYPES>,
             DAVote<TYPES, SequencingLeaf<TYPES>>,
         >,
-        TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
     > ConsensusLeader<A, TYPES>
 {
     /// Run one view of the DA leader task
@@ -321,7 +321,6 @@ impl<
             justify_qc: self.high_qc.clone(),
             dac: self.cert,
             proposer_id: leaf.proposer_id,
-            application_metadata: {},
         };
 
         let message = ConsensusMessage::<
