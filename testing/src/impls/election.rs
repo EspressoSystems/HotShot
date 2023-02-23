@@ -23,6 +23,7 @@ pub struct StubToken {}
 
 impl VoteToken for StubToken {
     fn vote_count(&self) -> u64 {
+        println!("here vote_count");
         nll_todo()
     }
 }

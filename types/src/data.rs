@@ -22,8 +22,6 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
 use espresso_systems_common::hotshot::tag;
-#[allow(deprecated)]
-use nll::nll_todo::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
@@ -433,7 +431,11 @@ where
         rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <<Self::NodeType as NodeType>::BlockType as Block>::Transaction {
-        <TYPES::StateType as TestableState>::create_random_transaction(Some(&self.state), rng, padding)
+        <TYPES::StateType as TestableState>::create_random_transaction(
+            Some(&self.state),
+            rng,
+            padding,
+        )
     }
 }
 

@@ -476,8 +476,10 @@ where
         // If they don't match, this is probably fine since
         // it should be caught by an assertion (and the txn will be rejected anyway)
         let leaf = self.nodes[0].handle.get_decided_leaf().await;
+        println!("here in add_random_transaction");
 
         let txn = leaf.create_random_transaction(rng, 0);
+        println!("here create_random_transaction");
 
         let node = if let Some(node_id) = node_id {
             self.nodes.get(node_id).unwrap()
@@ -485,11 +487,12 @@ where
             // find a random handle to send this transaction from
             self.nodes.iter().choose(rng).unwrap()
         };
-
         node.handle
             .submit_transaction(txn.clone())
             .await
             .expect("Could not send transaction");
+            println!("here submit_transaction");
+
         txn
     }
 
@@ -501,9 +504,12 @@ where
         rng: &mut dyn rand::RngCore,
     ) -> Option<Vec<TYPES::Transaction>> {
         let mut result = Vec::new();
+        println!("here in add_random_transactions");
+
         for _ in 0..n {
             result.push(self.add_random_transaction(None, rng).await);
         }
+        println!("here done add_random_transactions");
         Some(result)
     }
 }

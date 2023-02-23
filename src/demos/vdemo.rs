@@ -388,7 +388,9 @@ impl TestableState for VDemoState {
     ) -> <Self::BlockType as Block>::Transaction {
         use rand::seq::IteratorRandom;
 
-        let non_zero_balances = state.unwrap_or_else(|_| panic!("Missing state"))
+        let state = state.unwrap_or_else(|| panic!("Missing state"));
+
+        let non_zero_balances = state
             .balances
             .iter()
             .filter(|b| *b.1 > 0)

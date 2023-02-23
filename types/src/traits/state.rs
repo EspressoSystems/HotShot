@@ -206,7 +206,11 @@ pub mod dummy {
     }
 
     impl TestableState for DummyState {
-        fn create_random_transaction(_state: Option<&Self>, _: &mut dyn rand::RngCore, _: u64) -> DummyTransaction {
+        fn create_random_transaction(
+            _state: Option<&Self>,
+            _: &mut dyn rand::RngCore,
+            _: u64,
+        ) -> DummyTransaction {
             DummyTransaction::Dummy
         }
     }
