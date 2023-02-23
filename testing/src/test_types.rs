@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::{test_description::VrfTestMetaData, TestNodeImpl, TestRunner};
+use crate::{TestNodeImpl, TestRunner};
 use ark_bls12_381::Parameters as Param381;
 use blake3::Hasher;
 use hotshot::{
@@ -18,7 +18,7 @@ use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
-        node_implementation::{ApplicationMetadata, NodeType},
+        node_implementation::NodeType,
         state::ValidatingConsensus,
     },
     vote::QuorumVote,
@@ -30,7 +30,6 @@ use jf_primitives::{
     },
     vrf::blsvrf::BLSVRFScheme,
 };
-use serde::{Deserialize, Serialize};
 
 #[derive(
     Copy,
@@ -57,14 +56,7 @@ impl NodeType for VrfTestTypes {
     type Transaction = DummyTransaction;
     type ElectionConfigType = VRFStakeTableConfig;
     type StateType = DummyState;
-    type ApplicationMetadataType = VrfTestMetaData;
 }
-
-/// application metadata stub
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct StaticCommitteeMetaData {}
-
-impl ApplicationMetadata for StaticCommitteeMetaData {}
 
 #[derive(
     Copy,
@@ -90,7 +82,6 @@ impl NodeType for StaticCommitteeTestTypes {
     type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = VDemoState;
-    type ApplicationMetadataType = StaticCommitteeMetaData;
 }
 
 /// type synonym for vrf committee election
