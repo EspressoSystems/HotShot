@@ -222,7 +222,6 @@ impl State for SDemoState {
     }
 
     fn validate_block(&self, block: &Self::BlockType, view_number: &Self::Time) -> bool {
-        println!("here block {:?}, view {:?}", block, view_number);
         match block {
             SDemoBlock::Genesis(_) => {
                 view_number == &ViewNumber::genesis() && view_number == &self.view_number
@@ -238,8 +237,6 @@ impl State for SDemoState {
         block: &Self::BlockType,
         view_number: &Self::Time,
     ) -> Result<Self, Self::Error> {
-        println!("here append");
-
         if !self.validate_block(block, view_number) {
             return Err(SDemoError::InvalidBlock);
         }

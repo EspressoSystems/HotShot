@@ -131,7 +131,6 @@ impl<
                             warn!("Invalid justify_qc in proposal! Skipping proposal.");
                             continue;
                         }
-                        println!("here replica");
 
                         // check that we can indeed create the state
                         let leaf = if let Ok(state) =

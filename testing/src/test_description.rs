@@ -348,7 +348,6 @@ where
                         runner.shutdown(id).await.unwrap();
                     }
                     let mut txns = Vec::new();
-                    println!("here in default_submitter_id_to_round");
                     for id in round_ids.clone() {
                         let new_txn = runner
                             .add_random_transaction(Some(id as usize), &mut rng)
@@ -368,7 +367,6 @@ where
         let remaining_rounds = num_rounds - rounds.len() as u64;
         // just enough to keep round going
         let mut extra_rounds = default_randomized_ids_to_round(vec![], remaining_rounds, 1);
-        println!("here done default_randomized_ids_to_round");
         rounds.append(&mut extra_rounds);
     }
 
@@ -405,7 +403,6 @@ where
                             runner.shutdown(idx).await.unwrap();
                         }
                     }
-                    println!("here in default_randomized_ids_to_round");
 
                     runner
                         .add_random_transactions(txns_per_round as usize, &mut rng)
@@ -415,7 +412,6 @@ where
                 .boxed_local()
             },
         );
-        println!("here done add_random_transactions in default_randomized_ids_to_round");
 
         rounds.push(Box::new(run_round));
     }
@@ -449,7 +445,6 @@ where
                 tx_per_round as u64,
             ),
         };
-        println!("here in default_populate_rounds");
 
         setups
             .into_iter()

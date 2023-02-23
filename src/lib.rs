@@ -1108,7 +1108,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         //         kind: MessageKind::Consensus(message),
         //     })
         //     .await
-        println!("here send_da_broadcast");
         #[allow(deprecated)]
         nll_todo()
     }
@@ -1306,7 +1305,6 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPES
     /// # Errors
     /// If we are unable to apply the genesis block to the default state
     pub fn from_genesis(genesis_block: TYPES::BlockType) -> Result<Self, HotShotError<TYPES>> {
-        println!("here from_genesis");
         let state = TYPES::StateType::default()
             .append(&genesis_block, &TYPES::Time::new(0))
             .map_err(|err| HotShotError::Misc {
