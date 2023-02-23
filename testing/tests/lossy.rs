@@ -1,16 +1,12 @@
 #![allow(clippy::type_complexity)]
-mod common;
-
 use std::sync::Arc;
 
-use common::{
-    AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
-    StaticCommitteeTestTypes, StaticNodeImplType,
-};
 use either::Either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
+    test_description::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder},
+    test_types::{AppliedTestRunner, StaticCommitteeTestTypes, StaticNodeImplType},
     ConsensusRoundError, RoundResult,
 };
 use hotshot_types::data::TestableLeaf;
