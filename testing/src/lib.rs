@@ -491,11 +491,11 @@ where
             // find a random handle to send this transaction from
             self.nodes.iter().choose(rng).unwrap()
         };
+
         node.handle
             .submit_transaction(txn.clone())
             .await
             .expect("Could not send transaction");
-
         txn
     }
 
@@ -507,7 +507,6 @@ where
         rng: &mut dyn rand::RngCore,
     ) -> Option<Vec<TYPES::Transaction>> {
         let mut result = Vec::new();
-
         for _ in 0..n {
             result.push(self.add_random_transaction(None, rng).await);
         }

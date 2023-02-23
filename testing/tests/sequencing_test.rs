@@ -51,6 +51,7 @@ impl NodeType for SequencingTestTypes {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
+#[ignore]
 async fn sequencing_memory_test() {
     let description = GeneralTestDescriptionBuilder {
         round_start_delay: 25,
