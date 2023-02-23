@@ -145,18 +145,9 @@
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 
-</span><span class="kw">use crate</span>::{test_description::VrfTestMetaData, TestNodeImpl, TestRunner};
+</span><span class="kw">use crate</span>::{TestNodeImpl, TestRunner};
 <span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>blake3::Hasher;
 <span class="kw">use </span>hotshot::{
@@ -174,7 +165,7 @@
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
-        node_implementation::{ApplicationMetadata, NodeType},
+        node_implementation::NodeType,
         state::ValidatingConsensus,
     },
     vote::QuorumVote,
@@ -186,7 +177,6 @@
     },
     vrf::blsvrf::BLSVRFScheme,
 };
-<span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="attr">#[derive(
     Copy,
@@ -213,14 +203,7 @@
     <span class="kw">type </span>Transaction = DummyTransaction;
     <span class="kw">type </span>ElectionConfigType = VRFStakeTableConfig;
     <span class="kw">type </span>StateType = DummyState;
-    <span class="kw">type </span>ApplicationMetadataType = VrfTestMetaData;
 }
-
-<span class="doccomment">/// application metadata stub
-</span><span class="attr">#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-</span><span class="kw">pub struct </span>StaticCommitteeMetaData {}
-
-<span class="kw">impl </span>ApplicationMetadata <span class="kw">for </span>StaticCommitteeMetaData {}
 
 <span class="attr">#[derive(
     Copy,
@@ -246,7 +229,6 @@
     <span class="kw">type </span>Transaction = VDemoTransaction;
     <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
     <span class="kw">type </span>StateType = VDemoState;
-    <span class="kw">type </span>ApplicationMetadataType = StaticCommitteeMetaData;
 }
 
 <span class="doccomment">/// type synonym for vrf committee election

@@ -1254,14 +1254,6 @@
 <a href="#1254" id="1254">1254</a>
 <a href="#1255" id="1255">1255</a>
 <a href="#1256" id="1256">1256</a>
-<a href="#1257" id="1257">1257</a>
-<a href="#1258" id="1258">1258</a>
-<a href="#1259" id="1259">1259</a>
-<a href="#1260" id="1260">1260</a>
-<a href="#1261" id="1261">1261</a>
-<a href="#1262" id="1262">1262</a>
-<a href="#1263" id="1263">1263</a>
-<a href="#1264" id="1264">1264</a>
 </pre><pre class="rust"><code><span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>ark_ec::bls12::Bls12Parameters;
 <span class="kw">use </span>bincode::Options;
@@ -2347,7 +2339,6 @@
 //         data::ViewNumber,
 //         traits::{
 //             block_contents::dummy::{DummyBlock, DummyTransaction},
-//             node_implementation::ApplicationMetadata,
 //             state::{dummy::DummyState, ValidatingConsensus},
 //         },
 //     };
@@ -2359,12 +2350,6 @@
 //         vrf::blsvrf::BLSVRFScheme,
 //     };
 //     use std::{num::NonZeroUsize, time::Duration};
-
-//     /// application metadata stub
-//     #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-//     pub struct TestMetaData {}
-
-//     impl ApplicationMetadata for TestMetaData {}
 
 //     #[derive(
 //         Copy,
@@ -2393,7 +2378,6 @@
 //         type Transaction = DummyTransaction;
 //         type ElectionConfigType = VRFStakeTableConfig;
 //         type StateType = DummyState;
-//         type ApplicationMetadataType = TestMetaData;
 //     }
 
 //     fn gen_vrf_impl&lt;LEAF: LeafType&lt;NodeType = TestTypes&gt;&gt;(

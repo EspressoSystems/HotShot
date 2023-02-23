@@ -452,7 +452,6 @@
 <a href="#452" id="452">452</a>
 <a href="#453" id="453">453</a>
 <a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
@@ -746,7 +745,7 @@
             DAProposal&lt;TYPES&gt;,
             DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
         &gt;,
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus, ApplicationMetadataType = ()&gt;,
+        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
     &gt; ConsensusLeader&lt;A, TYPES&gt;
 {
     <span class="doccomment">/// Run one view of the DA leader task
@@ -776,7 +775,6 @@
             justify_qc: <span class="self">self</span>.high_qc.clone(),
             dac: <span class="self">self</span>.cert,
             proposer_id: leaf.proposer_id,
-            application_metadata: {},
         };
 
         <span class="kw">let </span>message = ConsensusMessage::&lt;

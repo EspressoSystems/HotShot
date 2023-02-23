@@ -837,14 +837,6 @@
 <a href="#837" id="837">837</a>
 <a href="#838" id="838">838</a>
 <a href="#839" id="839">839</a>
-<a href="#840" id="840">840</a>
-<a href="#841" id="841">841</a>
-<a href="#842" id="842">842</a>
-<a href="#843" id="843">843</a>
-<a href="#844" id="844">844</a>
-<a href="#845" id="845">845</a>
-<a href="#846" id="846">846</a>
-<a href="#847" id="847">847</a>
 </pre><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -1375,15 +1367,8 @@
     };
     <span class="kw">use </span>hotshot_types::{
         data::{ValidatingLeaf, ValidatingProposal},
-        traits::{node_implementation::ApplicationMetadata, state::ValidatingConsensus},
+        traits::state::ValidatingConsensus,
     };
-    <span class="kw">use </span>serde::{Deserialize, Serialize};
-
-    <span class="doccomment">/// application metadata stub
-    </span><span class="attr">#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-    </span><span class="kw">pub struct </span>TestMetaData {}
-
-    <span class="kw">impl </span>ApplicationMetadata <span class="kw">for </span>TestMetaData {}
 
     <span class="attr">#[derive(
         Copy,
@@ -1412,7 +1397,6 @@
         <span class="kw">type </span>Transaction = VDemoTransaction;
         <span class="kw">type </span>ElectionConfigType = StaticElectionConfig;
         <span class="kw">type </span>StateType = VDemoState;
-        <span class="kw">type </span>ApplicationMetadataType = TestMetaData;
     }
 
     <span class="kw">type </span>TestLeaf = ValidatingLeaf&lt;Test&gt;;

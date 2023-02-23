@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":[["ApplicationMetadata","application specific metadata"],["NodeImplementation","Node implementation aggregate trait"],["NodeType","Trait with all the type definitions that are used in the current hotshot setup."],["TestableNodeImplementation","testable node implmeentation trait"]]};
+window.SIDEBAR_ITEMS = {"trait":[["NodeImplementation","Node implementation aggregate trait"],["NodeType","Trait with all the type definitions that are used in the current hotshot setup."],["TestableNodeImplementation","testable node implmeentation trait"]]};

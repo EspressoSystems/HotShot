@@ -494,13 +494,6 @@
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
-<a href="#499" id="499">499</a>
-<a href="#500" id="500">500</a>
-<a href="#501" id="501">501</a>
-<a href="#502" id="502">502</a>
-<a href="#503" id="503">503</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -512,14 +505,13 @@
     traits::{
         election::Membership,
         network::{CommunicationChannel, TestableNetworkingImplementation},
-        node_implementation::{ApplicationMetadata, NodeType, TestableNodeImplementation},
+        node_implementation::{NodeType, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState},
         storage::TestableStorage,
     },
     HotShotConfig,
 };
-<span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::Snafu;
 <span class="kw">use </span>tracing::{error, info};
 
@@ -790,12 +782,6 @@
 <span class="doccomment">/// type alias for doing setup for a consensus round
 </span><span class="kw">pub type </span>TestSetup&lt;TYPES, TRANS, I&gt; =
     Vec&lt;Box&lt;<span class="kw">dyn </span>FnOnce(<span class="kw-2">&amp;mut </span>TestRunner&lt;TYPES, I&gt;) -&gt; LocalBoxFuture&lt;Vec&lt;TRANS&gt;&gt;&gt;&gt;;
-
-<span class="doccomment">/// application metadata stub
-</span><span class="attr">#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-</span><span class="kw">pub struct </span>VrfTestMetaData {}
-
-<span class="kw">impl </span>ApplicationMetadata <span class="kw">for </span>VrfTestMetaData {}
 
 <span class="kw">impl </span>Default <span class="kw">for </span>GeneralTestDescriptionBuilder {
     <span class="doccomment">/// by default, just a single round
