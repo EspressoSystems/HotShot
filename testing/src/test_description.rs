@@ -451,7 +451,6 @@ where
         };
         println!("here in default_populate_rounds");
 
-
         setups
             .into_iter()
             .map(|setup| {

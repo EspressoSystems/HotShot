@@ -163,7 +163,7 @@ impl<
             .add_point(task_start_time.elapsed().as_secs_f64());
 
         let proposal_build_start = Instant::now();
-println!("here validating");
+        println!("here validating");
         if let Ok(new_state) = starting_state.append(&block, &self.cur_view) {
             let leaf = ValidatingLeaf {
                 view_number: self.cur_view,
