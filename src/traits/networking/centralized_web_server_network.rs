@@ -3,9 +3,6 @@
 //! To run the web server, see the `./centralized_web_server/` folder in this repo.
 //!
 
-// TODO ED Remove once ready to merge
-#![allow(dead_code, unused, deprecated)]
-
 use async_std::channel::Recv;
 #[cfg(feature = "async-std-executor")]
 use async_std::net::TcpStream;

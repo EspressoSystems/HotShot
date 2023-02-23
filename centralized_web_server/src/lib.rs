@@ -3,10 +3,11 @@ pub mod config;
 use async_compatibility_layer::channel::OneShotReceiver;
 use async_lock::RwLock;
 use clap::Args;
-use config::WEB_SERVER_PORT;
+use config::DEFAULT_WEB_SERVER_PORT;
 use futures::FutureExt;
-// use tide::http::{Url, Method, Request, Response};
+
 use std::collections::HashMap;
+use tracing::error;
 use std::io;
 use std::path::PathBuf;
 use tide_disco::api::ApiError;
@@ -20,30 +21,31 @@ use tide_disco::StatusCode;
 type State = RwLock<WebServerState>;
 type Error = ServerError;
 
-//how many views to keep in memory
+// TODO ED: Below values should be in a config file
+/// How many views to keep in memory
 const MAX_VIEWS: usize = 10;
-//how many transactions to keep in memory
+/// How many transactions to keep in memory
 const MAX_TXNS: usize = 10;
 
 #[derive(Default)]
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
 struct WebServerState {
-    //view number -> proposals
-    proposals: HashMap<u128, Vec<Vec<u8>>>,
-    //view for oldest proposals in memory
-    oldest_proposal: u128,
-    //view number -> Vec(index, vote)
-    votes: HashMap<u128, Vec<(u128, Vec<u8>)>>,
-    //view number -> highest vote index for that view number
-    vote_index: HashMap<u128, u128>,
-    //view number of oldest votes in memory
-    oldest_vote: u128,
-    //index -> transaction
-    transactions: HashMap<u128, Vec<u8>>,
-    //highest txn index
-    num_txns: u128,
-    //shutdown signal
+    /// view number -> proposals
+    proposals: HashMap<u64, Vec<Vec<u8>>>,
+    /// view for oldest proposals in memory
+    oldest_proposal: u64,
+    /// view number -> Vec(index, vote)
+    votes: HashMap<u64, Vec<(u64, Vec<u8>)>>,
+    /// view number -> highest vote index for that view number
+    vote_index: HashMap<u64, u64>,
+    /// view number of oldest votes in memory
+    oldest_vote: u64,
+    /// index -> transaction
+    transactions: HashMap<u64, Vec<u8>>,
+    /// highest transaction index
+    num_txns: u64,
+    /// shutdown signal
     shutdown: Option<OneShotReceiver<()>>,
 }
 
@@ -66,36 +68,36 @@ impl WebServerState {
     }
 }
 
+
 /// Trait defining methods needed for the `WebServerState`
 pub trait WebServerDataSource {
-    fn get_proposals(&self, view_number: u128) -> Result<Option<Vec<Vec<u8>>>, Error>;
-    fn get_votes(&self, view_number: u128, index: u128) -> Result<Option<Vec<Vec<u8>>>, Error>;
-    fn get_transactions(&self, index: u128) -> Result<Option<Vec<Vec<u8>>>, Error>;
-    fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error>;
-    fn post_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error>;
+    fn get_proposals(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    fn get_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
+    fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
 }
 
 impl WebServerDataSource for WebServerState {
     /// Return all proposals the server has received for a particular view
-    fn get_proposals(&self, view_number: u128) -> Result<Option<Vec<Vec<u8>>>, Error> {
-        // println!("Getting proposal for view {}", view_number);
+    // TODO ED: Update so that only 1 proposal is ever stored per view
+    fn get_proposals(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
         match self.proposals.get(&view_number) {
             Some(proposals) => Ok(Some(proposals.clone())),
             None => Err(ServerError {
                 status: StatusCode::NotImplemented,
-                message: "PROPOSAL NOT FOUND".to_string(),
+                message: format!("Proposal not found for view {}", view_number),
             }),
         }
     }
 
     /// Return all votes the server has received for a particular view from provided index to most recent
-    fn get_votes(&self, view_number: u128, index: u128) -> Result<Option<Vec<Vec<u8>>>, Error> {
+    fn get_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
         let votes = self.votes.get(&view_number);
         let mut ret_votes = vec![];
         if let Some(votes) = votes {
             for i in index..*self.vote_index.get(&view_number).unwrap() {
-                // println!("getting vote {:?} for view {:?}", i, view_number);
                 ret_votes.push(votes[i as usize].1.clone());
             }
         }
@@ -107,30 +109,27 @@ impl WebServerDataSource for WebServerState {
     }
 
     /// Return the transaction at the specified index (which will help with Nginx caching, but reduce performance otherwise)
-    fn get_transactions(&self, index: u128) -> Result<Option<Vec<Vec<u8>>>, Error> {
+    /// In the future we will return batches of transactions
+    fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
         let mut txns = vec![];
-        // for i in index..self.num_txns {
-        // println!("getting txn {:?}", index);
         if let Some(txn) = self.transactions.get(&index) {
             txns.push(txn.clone())
         }
-        // }
         if txns.len() > 0 {
             Ok(Some(txns))
         } else {
             Err(ServerError {
+                // TODO ED: Why does NoContent status code cause errors? 
                 status: StatusCode::NotImplemented,
-                message: "TX NOT FOUND".to_string(),
+                message: format!("Transaction not found for index {}", index),
             })
         }
     }
 
     /// Stores a received vote in the `WebServerState`
-    fn post_vote(&mut self, view_number: u128, vote: Vec<u8>) -> Result<(), Error> {
-        println!("Posting vote for view {} on the web server", view_number);
-        
+    fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error> {
 
-        // only keep vote history for MAX_VIEWS number of views
+        // Only keep vote history for MAX_VIEWS number of views
         if self.votes.len() >= MAX_VIEWS {
             self.votes.remove(&self.oldest_vote);
             while !self.votes.contains_key(&self.oldest_vote) {
@@ -148,10 +147,13 @@ impl WebServerDataSource for WebServerState {
         Ok(())
     }
     /// Stores a received proposal in the `WebServerState`
-    fn post_proposal(&mut self, view_number: u128, proposal: Vec<u8>) -> Result<(), Error> {
-        println!("posting proposal for view {} on the web server", view_number);
+    fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error> {
+        error!(
+            "Received proposal for view {}",
+            view_number
+        );
 
-        // only keep proposal history for MAX_VIEWS number of view
+        // Only keep proposal history for MAX_VIEWS number of view
         if self.proposals.len() >= MAX_VIEWS {
             self.proposals.remove(&self.oldest_proposal);
             while !self.proposals.contains_key(&self.oldest_proposal) {
@@ -166,20 +168,12 @@ impl WebServerDataSource for WebServerState {
     }
     /// Stores a received group of transactions in the `WebServerState`
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error> {
-        // println!("posting txn {:?}", self.num_txns);
-        //only keep MAX_TXNS in memory
+        // Only keep MAX_TXNS in memory
         if self.transactions.len() >= MAX_TXNS {
-            self.transactions
-                .remove(&(self.num_txns - MAX_TXNS as u128));
+            self.transactions.remove(&(self.num_txns - MAX_TXNS as u64));
         }
         self.transactions.insert(self.num_txns, txn);
         self.num_txns += 1;
-        //TODO: @kaley: we will want to have batch transaction posting (vs one at a time), a la:
-        // let starting_index = self.num_txn + 1;
-        // self.num_txn += txns.len() as u128;
-        // self.transactions.extend((starting_index..self.num_txn).zip(txns));
-        // let req = Request::new(Method::Get, Url::parse("https://example.com")?);
-        // let res: Response = app.respond(req);
 
         Ok(())
     }
@@ -213,53 +207,47 @@ where
     };
     api.get("getproposal", |req, state| {
         async move {
-            let view_number: u128 = req.integer_param("view_number")?;
+            let view_number: u64 = req.integer_param("view_number")?;
             state.get_proposals(view_number)
         }
         .boxed()
     })?
     .get("getvotes", |req, state| {
         async move {
-            let view_number: u128 = req.integer_param("view_number")?;
-            let index: u128 = req.integer_param("index")?;
+            let view_number: u64 = req.integer_param("view_number")?;
+            let index: u64 = req.integer_param("index")?;
             state.get_votes(view_number, index)
         }
         .boxed()
     })?
     .get("gettransactions", |req, state| {
         async move {
-            let index: u128 = req.integer_param("index")?;
+            let index: u64 = req.integer_param("index")?;
             state.get_transactions(index)
         }
         .boxed()
     })?
     .post("postvote", |req, state| {
         async move {
-            let view_number: u128 = req.integer_param("view_number")?;
-            // Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes
+            let view_number: u64 = req.integer_param("view_number")?;
+            // Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes automatically
             let vote = req.body_bytes();
-            // Add vote to state
             state.post_vote(view_number, vote)
         }
         .boxed()
     })?
     .post("postproposal", |req, state| {
         async move {
-            let view_number: u128 = req.integer_param("view_number")?;
-            // Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes
+            let view_number: u64 = req.integer_param("view_number")?;
             let proposal = req.body_bytes();
-            // Add proposal to state
             state.post_proposal(view_number, proposal)
         }
         .boxed()
     })?
     .post("posttransaction", |req, state| {
         async move {
-            // Using body_bytes because we don't want to deserialize; body_auto or body_json deserializes
             let txns = req.body_bytes();
-            // Add proposal to state
             state.post_transaction(txns)
-            // TODO kick off non-awaited async here?
         }
         .boxed()
     })?;
@@ -273,7 +261,7 @@ pub async fn run_web_server(shutdown_listener: Option<OneShotReceiver<()>>) -> i
     let mut app = App::<State, Error>::with_state(state);
 
     app.register_module("api", api).unwrap();
-    app.serve(format!("http://0.0.0.0:{}", WEB_SERVER_PORT))
+    app.serve(format!("http://0.0.0.0:{}", DEFAULT_WEB_SERVER_PORT))
         .await
 }
 
@@ -286,10 +274,8 @@ mod test {
 
     use super::*;
     use async_std::task::spawn;
-    use config;
     use portpicker::pick_unused_port;
     use surf_disco::error::ClientError;
-    use tide_disco::StatusCode;
 
     type State = RwLock<WebServerState>;
     type Error = ServerError;
