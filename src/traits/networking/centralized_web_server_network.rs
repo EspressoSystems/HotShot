@@ -107,7 +107,7 @@ impl<
     fn parse_post_message(
         &self,
         message: Message<TYPES, PROPOSAL, VOTE>,
-    ) -> SendMsg<TYPES, PROPOSAL, VOTE> {
+    ) -> SendMsg<Message<TYPES, PROPOSAL, VOTE>> {
         let view_number: TYPES::Time = message.get_view_number().into();
 
         // Returns the endpoint we need, maybe should return an option?  For internal trigger? Return error for now?
@@ -134,7 +134,7 @@ impl<
             },
         };
 
-        let network_msg: SendMsg<TYPES, PROPOSAL, VOTE> = SendMsg {
+        let network_msg: SendMsg<Message<TYPES, PROPOSAL, VOTE>> = SendMsg {
             message: Some(message),
             endpoint,
         };
@@ -174,7 +174,7 @@ impl<
 {
     async fn post_message_to_web_server(
         &self,
-        message: SendMsg<TYPES, PROPOSAL, VOTE>,
+        message: SendMsg<M>,
     ) -> Result<(), NetworkError> {
         let result: Result<(), ClientError> = self
             .inner
@@ -362,9 +362,9 @@ impl<
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
 
-pub struct SendMsg<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
+pub struct SendMsg<M: NetworkMsg>
 {
-    message: Option<Message<TYPES, PROPOSAL, VOTE>>,
+    message: Option<M>,
     endpoint: String,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -375,28 +375,26 @@ pub struct RecvMsg<M: NetworkMsg> {
 
 // Ideally you'd want it to be generic over any network msg, but for now this is fine
 pub trait SendMsgTrait<
-    TYPES: NodeType,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
+    M: NetworkMsg,
 >
 {
     fn get_endpoint(&self) -> String;
-    fn get_message(&self) -> Option<Message<TYPES, PROPOSAL, VOTE>>;
+    fn get_message(&self) -> Option<M>;
 }
 
 pub trait RecvMsgTrait<M: NetworkMsg> {
     fn get_message(&self) -> Option<M>;
 }
 
-impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
-    SendMsgTrait<TYPES, PROPOSAL, VOTE> for SendMsg<TYPES, PROPOSAL, VOTE>
+impl<M: NetworkMsg>
+    SendMsgTrait<M> for SendMsg<M>
 {
     // TODO ED String doesn't impl copy?
     fn get_endpoint(&self) -> String {
         self.endpoint.clone()
     }
 
-    fn get_message(&self) -> Option<Message<TYPES, PROPOSAL, VOTE>> {
+    fn get_message(&self) -> Option<M> {
         self.message.clone()
     }
 }
@@ -407,8 +405,8 @@ impl<M: NetworkMsg> RecvMsgTrait<M> for RecvMsg<M> {
     }
 }
 
-impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>> NetworkMsg
-    for SendMsg<TYPES, PROPOSAL, VOTE>
+impl<M: NetworkMsg> NetworkMsg
+    for SendMsg<M>
 {
 }
 impl<M: NetworkMsg> NetworkMsg for RecvMsg<M> {}
@@ -533,7 +531,7 @@ impl<
     async fn wait_for_ready(&self) {
         <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             RecvMsg<Message<TYPES, PROPOSAL, VOTE>>,
-            SendMsg<TYPES, PROPOSAL, VOTE>,
+            SendMsg<Message<TYPES, PROPOSAL, VOTE>>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
         .await;
@@ -544,7 +542,7 @@ impl<
     async fn is_ready(&self) -> bool {
         <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             RecvMsg<Message<TYPES, PROPOSAL, VOTE>>,
-            SendMsg<TYPES, PROPOSAL, VOTE>,
+            SendMsg<Message<TYPES, PROPOSAL, VOTE>>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -556,7 +554,7 @@ impl<
     async fn shut_down(&self) -> () {
         <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             RecvMsg<Message<TYPES, PROPOSAL, VOTE>>,
-            SendMsg<TYPES, PROPOSAL, VOTE>,
+            SendMsg<Message<TYPES, PROPOSAL, VOTE>>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
         .await;
@@ -595,7 +593,7 @@ impl<
     ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
         let result = <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             RecvMsg<Message<TYPES, PROPOSAL, VOTE>>,
-            SendMsg<TYPES, PROPOSAL, VOTE>,
+            SendMsg<Message<TYPES, PROPOSAL, VOTE>>,
             TYPES::SignatureKey,
         >>::recv_msgs(&self.0, transmit_type)
         .await;
@@ -620,7 +618,7 @@ impl<
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
         <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             RecvMsg<Message<TYPES, PROPOSAL, VOTE>>,
-            SendMsg<TYPES, PROPOSAL, VOTE>,
+            SendMsg<Message<TYPES, PROPOSAL, VOTE>>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(&self.0, tuple)
         .await
@@ -635,7 +633,7 @@ impl<
         TYPES: NodeType + 'static,
         PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
         VOTE: VoteType<TYPES> + 'static,
-    > ConnectedNetwork<RecvMsg<M>, SendMsg<TYPES, PROPOSAL, VOTE>, K>
+    > ConnectedNetwork<RecvMsg<M>, SendMsg<M>, K>
     for CentralizedWebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
 // Make this a trait?
 {
@@ -663,7 +661,7 @@ impl<
     /// blocking
     async fn broadcast_message(
         &self,
-        message: SendMsg<TYPES, PROPOSAL, VOTE>,
+        message: SendMsg<M>,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
         let result = self.post_message_to_web_server(message).await;
@@ -677,7 +675,7 @@ impl<
     /// blocking
     async fn direct_message(
         &self,
-        message: SendMsg<TYPES, PROPOSAL, VOTE>,
+        message: SendMsg<M>,
         recipient: K,
     ) -> Result<(), NetworkError> {
         let result = self.post_message_to_web_server(message).await;
