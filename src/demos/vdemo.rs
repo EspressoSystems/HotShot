@@ -380,6 +380,7 @@ impl State for VDemoState {
     }
 }
 
+#[allow(clippy::panic)]
 impl TestableState for VDemoState {
     fn create_random_transaction(
         state: Option<&Self>,
