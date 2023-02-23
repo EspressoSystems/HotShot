@@ -1,7 +1,5 @@
 #![allow(clippy::type_complexity)]
 
-mod common;
-
 #[cfg(feature = "slow-tests")]
 use common::{get_tolerance, GeneralTestDescriptionBuilder, TestDescription};
 #[cfg(feature = "slow-tests")]
@@ -11,6 +9,7 @@ use hotshot::{
     demos::vdemo::VDemoState,
     traits::implementations::{Libp2pNetwork, MemoryCommChannel, MemoryStorage}, // AtomicStorage,
 };
+use hotshot_testing::{cross_all_types, cross_all_types_proptest};
 #[cfg(feature = "slow-tests")]
 use std::{collections::HashSet, iter::FromIterator};
 
