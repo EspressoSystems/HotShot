@@ -17,14 +17,14 @@ use futures::FutureExt;
 
 use crate::config::NetworkConfig;
 
-// TODO Can probably get rid of the extra generic stuff ED
+
 #[derive(Default, Clone)]
 struct OrchestratorState<KEY, ELECTION> {
     /// Tracks the latest node index we have generated a configuration for
     latest_index: u16,
-    /// The NetworkConfig
+    /// The network configuration
     config: NetworkConfig<KEY, ELECTION>,
-    /// Whether nodes should start HotShot
+    /// Whether nodes should start their HotShot instances
     /// Will be set to true once all nodes post they are ready to start
     start: bool,
     /// The total nodes that have posted they are ready to start
@@ -45,8 +45,9 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
 }
 
 pub trait OrchestratorApi<KEY, ELECTION> {
-    fn post_getconfig(&mut self) -> Result<(NetworkConfig<KEY, ELECTION>), ServerError>;
-    fn get_start(&self) -> Result<(bool), ServerError>;
+
+    fn post_getconfig(&mut self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
+    fn get_start(&self) -> Result<bool, ServerError>;
     fn post_ready(&mut self) -> Result<(), ServerError>;
     fn post_run_results(&mut self) -> Result<(), ServerError>;
 }
@@ -56,22 +57,22 @@ where
     KEY: serde::Serialize + Clone,
     ELECTION: serde::Serialize + Clone,
 {
-    fn post_getconfig(&mut self) -> Result<(NetworkConfig<KEY, ELECTION>), ServerError> {
+    fn post_getconfig(&mut self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
         let mut config = self.config.clone();
         config.node_index = self.latest_index.into();
 
         self.latest_index += 1;
-        Ok((config))
+        Ok(config)
     }
 
-    fn get_start(&self) -> Result<(bool), ServerError> {
-        Ok((self.start))
+    fn get_start(&self) -> Result<bool, ServerError> {
+        Ok(self.start)
     }
 
-    // Assumes nodes do not post ready twice...
+    // Assumes nodes do not post 'ready' twice
     fn post_ready(&mut self) -> Result<(), ServerError> {
         self.nodes_connected += 1;
-        println!("Nodes connected {}", self.nodes_connected);
+        println!("Nodes connected: {}", self.nodes_connected);
         if self.nodes_connected >= self.config.config.known_nodes.len().try_into().unwrap() {
             self.start = true;
         }
@@ -91,29 +92,18 @@ where
     KEY: serde::Serialize,
     ELECTION: serde::Serialize,
 {
-    // let mut api = match &options.api_path {
-    //     Some(path) => Api::<State, ServerError>::from_file(path)?,
-    //     None => {
-    //         let toml = toml::from_str(include_str!("../api.toml")).map_err(|err| {
-    //             ApiError::CannotReadToml {
-    //                 reason: err.to_string(),
-    //             }
-    //         })?;
-    //         Api::<State, ServerError>::new(toml)?
-    //     }
-    // };
 
     let mut api = Api::<State, ServerError>::from_file("orchestrator/api.toml").unwrap();
-    api.post("post_getconfig", |req, state| {
+    api.post("post_getconfig", |_req, state| {
         async move { state.post_getconfig() }.boxed()
     })?
-    .post("postready", |req, state| {
+    .post("postready", |_req, state| {
         async move { state.post_ready() }.boxed()
     })?
-    .get("getstart", |req, state| {
+    .get("getstart", |_req, state| {
         async move { state.get_start() }.boxed()
     })?
-    .post("results", |req, state| {
+    .post("results", |_req, state| {
         async move { state.post_run_results() }.boxed()
     })?;
     Ok(api)
