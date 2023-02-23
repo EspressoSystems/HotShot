@@ -659,6 +659,12 @@
 <a href="#659" id="659">659</a>
 <a href="#660" id="660">660</a>
 <a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Testing harness for the hotshot repository
 //!
 //! To build a test environment you can create a [`TestLauncher`] instance. This launcher can be configured to have a custom networking layer, initial state, etc.
@@ -669,10 +675,16 @@
 
 </span><span class="attr">#![warn(missing_docs)]
 
-</span><span class="kw">mod </span>impls;
-<span class="kw">mod </span>launcher;
+</span><span class="doccomment">/// test launcher infrastructure
+</span><span class="kw">pub mod </span>launcher;
+<span class="doccomment">/// macros to generate a cross product of tests
+</span><span class="kw">pub mod </span>macros;
 <span class="doccomment">/// implementations of various networking models
 </span><span class="kw">pub mod </span>network_reliability;
+<span class="doccomment">/// structs and infra to describe the tests to be written
+</span><span class="kw">pub mod </span>test_description;
+<span class="doccomment">/// set of commonly used test types for our tests
+</span><span class="kw">pub mod </span>test_types;
 
 <span class="kw">pub use </span><span class="self">self</span>::launcher::TestLauncher;
 
