@@ -101,7 +101,7 @@ impl WebServerDataSource for WebServerState {
                 ret_votes.push(votes[i as usize].1.clone());
             }
         }
-        if ret_votes.len() > 0 {
+        if !ret_votes.is_empty() {
             Ok(Some(ret_votes))
         } else {
             Ok(None)
@@ -115,7 +115,7 @@ impl WebServerDataSource for WebServerState {
         if let Some(txn) = self.transactions.get(&index) {
             txns.push(txn.clone())
         }
-        if txns.len() > 0 {
+        if !txns.is_empty() {
             Ok(Some(txns))
         } else {
             Err(ServerError {
