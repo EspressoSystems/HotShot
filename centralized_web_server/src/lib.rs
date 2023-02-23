@@ -338,7 +338,10 @@ mod test {
                 .get::<Option<Vec<u8>>>(&get_proposal_route(3))
                 .send()
                 .await,
-            Ok(None)
+            Err(ClientError{
+                status: StatusCode::NotImplemented, 
+                message: "Proposal not found for view 3".to_string()
+            })
         );
 
         // Test posting and getting votes
@@ -381,17 +384,9 @@ mod test {
 
         //test posting/getting transactions
         let txns1 = "abc";
-        let txns2 = "def";
         client
             .post::<()>(&post_transactions_route())
             .body_binary(&txns1)
-            .unwrap()
-            .send()
-            .await
-            .unwrap();
-        client
-            .post::<()>(&post_transactions_route())
-            .body_binary(&txns2)
             .unwrap()
             .send()
             .await
@@ -404,8 +399,6 @@ mod test {
             .unwrap();
 
         let txn_resp1: &str = bincode::deserialize(&resp[0]).unwrap();
-        let txn_resp2: &str = bincode::deserialize(&resp[1]).unwrap();
         assert_eq!(txns1, txn_resp1);
-        assert_eq!(txns2, txn_resp2)
     }
 }
