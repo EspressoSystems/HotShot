@@ -283,9 +283,10 @@ impl<
             }
             // Check if there is updated consensus info
             let new_consensus_info = consensus_update.try_recv();
-            if new_consensus_info.is_ok() {
-                consensus_info = new_consensus_info.unwrap();
+            if let Ok(info) = new_consensus_info {
+                consensus_info = info;
                 vote_index = 0;
+              }
             }
         }
     }
