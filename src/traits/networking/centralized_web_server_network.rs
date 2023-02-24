@@ -7,6 +7,7 @@ use async_std::channel::Recv;
 #[cfg(feature = "async-std-executor")]
 use async_std::net::TcpStream;
 use nll::nll_todo::nll_todo;
+use surf_disco::Url;
 #[cfg(feature = "tokio-executor")]
 use tokio::net::TcpStream;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
@@ -34,7 +35,7 @@ use hotshot_types::{
         election::{Election, ElectionConfig},
         metrics::{Metrics, NoMetrics},
         network::{
-            CentralizedServerNetworkError, CommunicationChannel, ConnectedNetwork,
+            CentralizedWebServerNetworkError, CommunicationChannel, ConnectedNetwork,
             FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkError, NetworkMsg,
             TestableNetworkingImplementation, TransmitType,
         },
@@ -169,10 +170,7 @@ impl<
         VOTE: VoteType<TYPES>,
     > CentralizedWebServerNetwork<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
 {
-    async fn post_message_to_web_server(
-        &self,
-        message: SendMsg<M>,
-    ) -> Result<(), NetworkError> {
+    async fn post_message_to_web_server(&self, message: SendMsg<M>) -> Result<(), NetworkError> {
         let result: Result<(), ClientError> = self
             .inner
             .client
@@ -237,27 +235,28 @@ impl<
         VOTE: VoteType<TYPES>,
     > Inner<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
 {
+    /// Polls the web server at a given endpoint while HotShot is running
     async fn poll_web_server(&self, message_type: MessageType, num_views_ahead: u64) {
+
         // Subscribe to changes in consensus info
         let consensus_update = self.consensus_info.subscribe().await;
         let mut consensus_info = self.consensus_info.copied().await;
         let mut vote_index: u64 = 0;
         let mut tx_index: u64 = 0;
 
-        loop {
+        while self.running.load(Ordering::Relaxed) {
             let endpoint = match message_type {
                 MessageType::Proposal => {
-                    config::get_proposal_route(consensus_info.view_number.into())
+                    config::get_proposal_route(consensus_info.view_number)
                 }
                 MessageType::VoteTimedOut => {
-                    config::get_vote_route(consensus_info.view_number.into(), vote_index.into())
+                    config::get_vote_route(consensus_info.view_number, vote_index)
                 }
-                MessageType::Transaction => config::get_transactions_route(tx_index.into()),
+                MessageType::Transaction => config::get_transactions_route(tx_index),
             };
-            // println!("Endpoint is {}", endpoint);
+          
             let possible_message = if message_type == MessageType::VoteTimedOut {
-                // are we the leader?
-                // TODO ED Can refactor this to be more readable
+
 
                 if consensus_info.is_next_leader {
                     self.get_message_from_web_server(endpoint).await
@@ -289,19 +288,19 @@ impl<
                             // ED TODO - Stop getting votes once we've recieved a QC's worth
 
                             let mut direct_poll_queue = self.direct_poll_queue.write().await;
-                            deserialized_messages.iter().for_each(|vote| {
+                            for vote in deserialized_messages.iter() {
                                 vote_index += 1;
                                 direct_poll_queue.push(vote.clone());
-                            });
+                            }
                         }
                         MessageType::Transaction => {
                             error!("Got txs");
                             // println!("SIZE OF TX IS: {:?}", size_of_val(&*deserialized_messages));
                             let mut lock = self.broadcast_poll_queue.write().await;
-                            deserialized_messages.iter().for_each(|tx| {
+                            for tx in deserialized_messages.iter() {
                                 tx_index += 1;
                                 lock.push(tx.clone());
-                            });
+                            }
                         } // println!("Deserialized message is: {:?}", deserialized_messages[0]);
                           // self.broadcast_poll_queue
                           //     .write()
@@ -334,21 +333,22 @@ impl<
         }
     }
 
+    /// Sends a GET request to the webserver for some specified endpoint
+    /// Returns a vec of deserialized, received messages or an error
     async fn get_message_from_web_server(
         &self,
         endpoint: String,
     ) -> Result<Option<Vec<RecvMsg<M>>>, ClientError> {
         let result: Result<Option<Vec<Vec<u8>>>, ClientError> =
             self.client.get(&endpoint).send().await;
-        // TODO ED Clean this up
         match result {
             Err(error) => Err(error),
             Ok(Some(messages)) => {
                 let mut deserialized_messages = Vec::new();
-                messages.iter().for_each(|message| {
+                for message in &messages {
                     let deserialized_message = bincode::deserialize(message).unwrap();
                     deserialized_messages.push(deserialized_message);
-                });
+                }
                 Ok(Some(deserialized_messages))
             }
             Ok(None) => Ok(None),
@@ -358,35 +358,37 @@ impl<
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-
-pub struct SendMsg<M: NetworkMsg>
-{
+/// A message being sent to the web server
+pub struct SendMsg<M: NetworkMsg> {
+    /// The optional message, or body, to send
     message: Option<M>,
+    /// The endpoint to send the message to
     endpoint: String,
 }
+
+/// A message being received from the web server
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
 pub struct RecvMsg<M: NetworkMsg> {
+    /// The optional message being received
     message: Option<M>,
 }
 
-// Ideally you'd want it to be generic over any network msg, but for now this is fine
-pub trait SendMsgTrait<
-    M: NetworkMsg,
->
-{
+/// Trait for messages being sent to the web server
+pub trait SendMsgTrait<M: NetworkMsg> {
+    /// Returns the endpoint to send the message to
     fn get_endpoint(&self) -> String;
+    /// Returns the actual message being sent
     fn get_message(&self) -> Option<M>;
 }
 
+/// Trait for messages being received from the web server
 pub trait RecvMsgTrait<M: NetworkMsg> {
+    /// Returns the actual message being received
     fn get_message(&self) -> Option<M>;
 }
 
-impl<M: NetworkMsg>
-    SendMsgTrait<M> for SendMsg<M>
-{
-    // TODO ED String doesn't impl copy?
+impl<M: NetworkMsg> SendMsgTrait<M> for SendMsg<M> {
     fn get_endpoint(&self) -> String {
         self.endpoint.clone()
     }
@@ -402,10 +404,7 @@ impl<M: NetworkMsg> RecvMsgTrait<M> for RecvMsg<M> {
     }
 }
 
-impl<M: NetworkMsg> NetworkMsg
-    for SendMsg<M>
-{
-}
+impl<M: NetworkMsg> NetworkMsg for SendMsg<M> {}
 impl<M: NetworkMsg> NetworkMsg for RecvMsg<M> {}
 
 impl<
@@ -417,29 +416,31 @@ impl<
         VOTE: VoteType<TYPES> + 'static,
     > CentralizedWebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
 {
-    // TODO ED change to new
+    #[allow(clippy::panic)]
+    /// Creates a new instance of the `CentralizedWebServerNetwork`
+    /// # Panics
+    /// if the web server url is malformed
     pub fn create(
-        host: String,
+        host: &str,
         port: u16,
         wait_between_polls: Duration,
         key: TYPES::SignatureKey,
     ) -> Self {
-        // TODO ED Clean this up
-        let base_url = format!("{host}:{port}");
-        println!("{:?}", base_url);
+        let base_url_string = format!("http://{host}:{port}");
+        error!("Connecting to web server at {base_url_string:?}");
 
-        let base_url = format!("http://{base_url}").parse().unwrap();
-        let client = surf_disco::Client::<ClientError>::new(base_url);
+        let base_url = base_url_string.parse();
+        if base_url.is_err() {
+            error!("Web server url {:?} is malformed", base_url_string);
+        }
+
+        let client = surf_disco::Client::<ClientError>::new(base_url.unwrap());
 
         let inner = Arc::new(Inner {
             phantom: PhantomData::default(),
-            // Assuming this is initialized to zero
-            // view_number: Arc::new(SubscribableRwLock::new(TYPES::Time::new(0))),
-            // is_current_leader: Arc::new(SubscribableRwLock::new(false)),
-            // is_next_leader: Arc::new(SubscribableRwLock::new(false)),
             consensus_info: Arc::new(SubscribableRwLock::new(ConsensusInfo::default())),
-            broadcast_poll_queue: Default::default(),
-            direct_poll_queue: Default::default(),
+            broadcast_poll_queue: Arc::default(),
+            direct_poll_queue: Arc::default(),
             running: AtomicBool::new(true),
             connected: AtomicBool::new(false),
             client,
@@ -465,15 +466,15 @@ impl<
         }
     }
 
-    // TODO ED Move to inner impl?
+    /// Launches background tasks for polling the web server
     async fn run_background_receive(
         inner: Arc<Inner<M, K, E, TYPES, PROPOSAL, VOTE>>,
     ) -> Result<(), ClientError> {
-        // TODO ED Change running variable if this function closes
-        // TODO ED Do we need this function wrapper?  We could start all of them directly
         let proposal_handle = async_spawn({
             let inner_clone = inner.clone();
-            async move { inner_clone.poll_web_server(MessageType::Proposal, 0).await }
+            async move {
+                inner_clone.poll_web_server(MessageType::Proposal, 0).await;
+            }
         });
         let vote_handle = async_spawn({
             let inner_clone = inner.clone();
@@ -481,7 +482,7 @@ impl<
             async move {
                 inner_clone
                     .poll_web_server(MessageType::VoteTimedOut, 0)
-                    .await
+                    .await;
             }
         });
         let transaction_handle = async_spawn({
@@ -490,26 +491,27 @@ impl<
             async move {
                 inner_clone
                     .poll_web_server(MessageType::Transaction, 0)
-                    .await
+                    .await;
             }
         });
 
-        let mut task_handles = Vec::new();
-        task_handles.push(proposal_handle);
-        task_handles.push(vote_handle);
-        task_handles.push(transaction_handle);
-        // task_handles.push(proposal_handle_plus_one);
+        let task_handles = vec![proposal_handle, vote_handle, transaction_handle];
 
         let children_finished = futures::future::join_all(task_handles);
-        let result = children_finished.await;
+        let _result = children_finished.await;
 
         Ok(())
     }
 }
+
+/// Enum for matching messages to their type
 #[derive(PartialEq)]
 enum MessageType {
+    /// Message is a transaction
     Transaction,
+    /// Message is a vote or time out
     VoteTimedOut,
+    /// Message is a proposal
     Proposal,
 }
 
@@ -670,11 +672,7 @@ impl<
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message(
-        &self,
-        message: SendMsg<M>,
-        recipient: K,
-    ) -> Result<(), NetworkError> {
+    async fn direct_message(&self, message: SendMsg<M>, recipient: K) -> Result<(), NetworkError> {
         let result = self.post_message_to_web_server(message).await;
 
         // TODO ED Match result
@@ -718,18 +716,21 @@ impl<
             is_current_leader,
             is_next_leader,
         };
+
+        let mut result = Ok(());
         self.inner
             .consensus_info
             .modify(|old_consensus_info| {
-                // TODO ED This should never happen, but checking anyway
                 if new_consensus_info.view_number <= old_consensus_info.view_number {
-                    panic!();
+                    result = Err(NetworkError::CentralizedWebServer {
+                        source: CentralizedWebServerNetworkError::IncorrectConsensusData,
+                    });
                 }
                 *old_consensus_info = new_consensus_info;
             })
             .await;
 
-        Ok(())
+        result
     }
 }
 impl<
@@ -764,7 +765,7 @@ where
         Box::new(move |id| {
             let sender = Arc::clone(&sender);
             let mut network = CentralizedWebServerNetwork::create(
-                "0.0.0.0".to_string(),
+                "0.0.0.0",
                 9000,
                 Duration::from_millis(100),
                 known_nodes[id as usize].clone(),

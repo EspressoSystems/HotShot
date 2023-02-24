@@ -237,10 +237,9 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         let lock = hotshot.recv_network_lookup.lock().await;
 
         if let Ok(Some(cur_view)) = lock.recv().await {
-            // TODO ED Here? 
-            // TODO ED Could make view number string...
-            // Or implement from trait, which might be useful anyway? 
-            networking.inject_consensus_info(((*cur_view).into(), c_api.is_leader(cur_view).await, c_api.is_leader(cur_view + 1).await)).await; 
+
+            // Injecting consensus data into the networking implementation
+            let _result = networking.inject_consensus_info(((*cur_view), c_api.is_leader(cur_view).await, c_api.is_leader(cur_view + 1).await)).await; 
             
             let view_to_lookup = cur_view + LOOK_AHEAD;
 

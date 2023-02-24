@@ -52,6 +52,14 @@ pub enum CentralizedServerNetworkError {
     NoMessagesInQueue,
 }
 
+/// Centralized web server specific errors
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
+pub enum CentralizedWebServerNetworkError {
+    /// The injected consensus data is incorrect
+    IncorrectConsensusData,
+}
+
 /// the type of transmission
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum TransmitType {
@@ -79,6 +87,12 @@ pub enum NetworkError {
     CentralizedServer {
         /// source of error
         source: CentralizedServerNetworkError,
+    },
+
+    /// Centralized web server specific errors
+    CentralizedWebServer {
+        /// source of error
+        source: CentralizedWebServerNetworkError,
     },
     /// unimplemented functionality
     UnimplementedFeature,
@@ -164,10 +178,7 @@ pub trait CommunicationChannel<
 
     /// Injects consensus data such as view number into the networking implementation
     /// blocking
-    async fn inject_consensus_info(
-        &self,
-        tuple: (u64, bool, bool),
-    ) -> Result<(), NetworkError>;
+    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError>;
 }
 
 /// common traits we would like our network messages to implement
@@ -180,7 +191,7 @@ pub trait NetworkMsg:
 /// exposes low level API for interacting with a network
 /// intended to be implemented for libp2p, the centralized server,
 /// and memory network
-// TODO ED Uppercae these? 
+// TODO ED Uppercae these?
 #[async_trait]
 pub trait ConnectedNetwork<RecvMsg: NetworkMsg, SendMsg: NetworkMsg, K: SignatureKey + 'static>:
     Clone + Send + Sync + 'static
@@ -214,7 +225,6 @@ pub trait ConnectedNetwork<RecvMsg: NetworkMsg, SendMsg: NetworkMsg, K: Signatur
     /// blocking
     async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<RecvMsg>, NetworkError>;
 
-
     /// look up a node
     /// blocking
     async fn lookup_node(&self, pk: K) -> Result<(), NetworkError>;
@@ -222,10 +232,7 @@ pub trait ConnectedNetwork<RecvMsg: NetworkMsg, SendMsg: NetworkMsg, K: Signatur
     /// Injects consensus data such as view number into the networking implementation
     /// blocking
     /// Ideally we would pass in the `Time` type, but that requires making the entire trait generic over NodeType
-    async fn inject_consensus_info(
-        &self,
-        tuple: (u64, bool, bool),
-    ) -> Result<(), NetworkError>;
+    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError>;
 }
 
 /// Describes additional functionality needed by the test network implementation
