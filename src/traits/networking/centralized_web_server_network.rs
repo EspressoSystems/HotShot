@@ -155,13 +155,9 @@ impl<
             .unwrap()
             .send()
             .await;
-        if result.is_ok() {
-            Ok(())
-        } else {
-            Err(NetworkError::CentralizedWebServer {
-                source: CentralizedWebServerNetworkError::ClientError,
-            })
-        }
+        result.map_err(|_e| NetworkError::CentralizedWebServer {
+            source: CentralizedWebServerNetworkError::ClientError,
+        })
     }
 }
 
@@ -286,7 +282,6 @@ impl<
             if let Ok(info) = new_consensus_info {
                 consensus_info = info;
                 vote_index = 0;
-              }
             }
         }
     }
@@ -296,16 +291,23 @@ impl<
     async fn get_message_from_web_server(
         &self,
         endpoint: String,
-    ) -> Result<Option<Vec<RecvMsg<M>>>, ClientError> {
+    ) -> Result<Option<Vec<RecvMsg<M>>>, NetworkError> {
         let result: Result<Option<Vec<Vec<u8>>>, ClientError> =
             self.client.get(&endpoint).send().await;
         match result {
-            Err(error) => Err(error),
+            Err(_error) => Err(NetworkError::CentralizedWebServer {
+                source: CentralizedWebServerNetworkError::ClientError,
+            }),
             Ok(Some(messages)) => {
                 let mut deserialized_messages = Vec::new();
                 for message in &messages {
-                    let deserialized_message = bincode::deserialize(message).unwrap();
-                    deserialized_messages.push(deserialized_message);
+                    let deserialized_message = bincode::deserialize(message);
+                    if deserialized_message.is_err() {
+                        return Err(NetworkError::FailedToDeserialize {
+                            source: deserialized_message.unwrap_err(),
+                        });
+                    }
+                    deserialized_messages.push(deserialized_message.unwrap());
                 }
                 Ok(Some(deserialized_messages))
             }
@@ -397,7 +399,7 @@ impl<
 
         let inner = Arc::new(Inner {
             phantom: PhantomData,
-            consensus_info: Arc::new(SubscribableRwLock::new(ConsensusInfo::default())),
+            consensus_info: Arc::default(),
             broadcast_poll_queue: Arc::default(),
             direct_poll_queue: Arc::default(),
             running: AtomicBool::new(true),

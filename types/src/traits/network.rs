@@ -195,7 +195,7 @@ pub trait NetworkMsg:
 /// and memory network
 // TODO ED Uppercae these?
 #[async_trait]
-pub trait ConnectedNetwork<RecvMsg: NetworkMsg, SendMsg: NetworkMsg, K: SignatureKey + 'static>:
+pub trait ConnectedNetwork<RECVMSG: NetworkMsg, SENDMSG: NetworkMsg, K: SignatureKey + 'static>:
     Clone + Send + Sync + 'static
 {
     /// Blocks until the network is successfully initialized
@@ -213,19 +213,19 @@ pub trait ConnectedNetwork<RecvMsg: NetworkMsg, SendMsg: NetworkMsg, K: Signatur
     /// blocking
     async fn broadcast_message(
         &self,
-        message: SendMsg,
+        message: SENDMSG,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message(&self, message: SendMsg, recipient: K) -> Result<(), NetworkError>;
+    async fn direct_message(&self, message: SENDMSG, recipient: K) -> Result<(), NetworkError>;
 
     /// Moves out the entire queue of received messages of 'transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<RecvMsg>, NetworkError>;
+    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<RECVMSG>, NetworkError>;
 
     /// look up a node
     /// blocking

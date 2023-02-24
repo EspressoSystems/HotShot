@@ -5,8 +5,8 @@ edition = "2021"
 
 [features]
 default = []
-full-ci = ["async-std-executor"]
-tokio-ci = ["tokio-executor"]
+full-ci = ["async-std-executor", "channel-async-std"]
+tokio-ci = ["tokio-executor", "channel-tokio"]
 async-std-executor = [
     "dep:async-std",
     "hotshot-types/async-std-executor",

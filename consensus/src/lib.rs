@@ -101,7 +101,6 @@ pub struct Consensus<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub state_map: BTreeMap<TYPES::Time, View<TYPES, LEAF>>,
 
     /// cur_view from pseudocode
-    // TODO ED Update this to subscribable lock?
     pub cur_view: TYPES::Time,
 
     /// last view had a successful decide event

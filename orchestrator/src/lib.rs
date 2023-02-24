@@ -3,6 +3,7 @@ pub mod config;
 use async_lock::RwLock;
 use hotshot_types::traits::election::ElectionConfig;
 use hotshot_types::traits::signature_key::SignatureKey;
+use tracing::log::error;
 use std::io;
 use std::net::IpAddr;
 use tide_disco::Api;
@@ -70,7 +71,7 @@ where
     // Assumes nodes do not post 'ready' twice
     fn post_ready(&mut self) -> Result<(), ServerError> {
         self.nodes_connected += 1;
-        println!("Nodes connected: {}", self.nodes_connected);
+        error!("Nodes connected: {}", self.nodes_connected);
         if self.nodes_connected >= self.config.config.known_nodes.len().try_into().unwrap() {
             self.start = true;
         }
@@ -90,7 +91,7 @@ where
     KEY: serde::Serialize,
     ELECTION: serde::Serialize,
 {
-    let mut api = Api::<State, ServerError>::from_file("orchestrator/api.toml").unwrap();
+    let mut api = Api::<State, ServerError>::from_file("orchestrator/api.toml").expect("api.toml file is not found");
     api.post("post_getconfig", |_req, state| {
         async move { state.post_getconfig() }.boxed()
     })?
@@ -120,6 +121,6 @@ where
     let state: RwLock<OrchestratorState<KEY, ELECTION>> =
         RwLock::new(OrchestratorState::new(network_config));
     let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
-    app.register_module("api", api).unwrap();
+    app.register_module("api", api).expect("Error registering api");
     app.serve(format!("http://{}:{}", host, port)).await
 }
