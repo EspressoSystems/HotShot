@@ -425,7 +425,7 @@
 <span class="doccomment">/// Inner struct of the [`TaskHandle`]
 </span><span class="kw">struct </span>TaskHandleInner {
     <span class="doccomment">/// for the client to indicate &quot;increment a view&quot;
-    /// only Some in Continuous exeuction mode
+    /// only Some in Incremental exeuction mode
     /// otherwise None
     </span><span class="kw">pub </span>run_view_channels: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;()&gt;&gt;,
 
