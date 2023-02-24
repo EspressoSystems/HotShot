@@ -13,6 +13,11 @@ async-std-executor = [
     "hotshot-types/async-std-executor",
     "async-compatibility-layer/async-std-executor",
 ]
+tokio-executor = [
+    "dep:tokio",
+    "hotshot-types/tokio-executor",
+    "async-compatibility-layer/tokio-executor",
+]
 profiling = ["async-compatibility-layer/profiling"]
 channel-flume = ["hotshot-types/channel-flume", "async-compatibility-layer/channel-flume"]
 channel-tokio = ["hotshot-types/channel-tokio", "async-compatibility-layer/channel-tokio"]
@@ -39,6 +44,21 @@ tracing = "0.1.37"
 serde = { version = "1.0.147", features = ["derive"] }
 serde_json = "1.0.87"
 snafu = "0.7.3"
+tokio = { version = "1", optional = true, features = [
+    "fs",
+    "io-util",
+    "io-std",
+    "macros",
+    "net",
+    "parking_lot",
+    "process",
+    "rt",
+    "rt-multi-thread",
+    "signal",
+    "sync",
+    "time",
+    "tracing",
+] }
 toml = "0.5.9"
 
 [dev-dependencies]

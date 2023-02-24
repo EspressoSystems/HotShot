@@ -268,15 +268,18 @@ mod test {
     };
 
     use super::*;
-    use async_std::task::spawn;
+    use async_compatibility_layer::art::async_spawn;
     use portpicker::pick_unused_port;
     use surf_disco::error::ClientError;
 
     type State = RwLock<WebServerState>;
     type Error = ServerError;
 
-    #[async_std::test]
-    //KALEY TODO: refactor into smaller tests
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_web_server() {
         let port = pick_unused_port().unwrap();
         let base_url = format!("0.0.0.0:{port}");
@@ -285,7 +288,7 @@ mod test {
         let mut app = App::<State, Error>::with_state(State::new(WebServerState::new()));
 
         app.register_module("api", api).unwrap();
-        let _handle = spawn(app.serve(base_url.clone()));
+        let _handle = async_spawn(app.serve(base_url.clone()));
 
         let base_url = format!("http://{base_url}").parse().unwrap();
         let client = surf_disco::Client::<ClientError>::new(base_url);
