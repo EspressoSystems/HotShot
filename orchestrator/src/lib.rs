@@ -17,7 +17,6 @@ use futures::FutureExt;
 
 use crate::config::NetworkConfig;
 
-
 #[derive(Default, Clone)]
 struct OrchestratorState<KEY, ELECTION> {
     /// Tracks the latest node index we have generated a configuration for
@@ -45,7 +44,6 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
 }
 
 pub trait OrchestratorApi<KEY, ELECTION> {
-
     fn post_getconfig(&mut self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
     fn get_start(&self) -> Result<bool, ServerError>;
     fn post_ready(&mut self) -> Result<(), ServerError>;
@@ -92,7 +90,6 @@ where
     KEY: serde::Serialize,
     ELECTION: serde::Serialize,
 {
-
     let mut api = Api::<State, ServerError>::from_file("orchestrator/api.toml").unwrap();
     api.post("post_getconfig", |_req, state| {
         async move { state.post_getconfig() }.boxed()

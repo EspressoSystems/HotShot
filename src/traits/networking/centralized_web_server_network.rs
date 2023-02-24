@@ -17,7 +17,7 @@ use async_compatibility_layer::{
 
 use hotshot_centralized_web_server::{self, config};
 
-use async_lock::{RwLock};
+use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
     data::ProposalType,
@@ -25,9 +25,8 @@ use hotshot_types::{
     traits::{
         election::{Election, ElectionConfig},
         network::{
-            CentralizedWebServerNetworkError, CommunicationChannel, ConnectedNetwork,
-            NetworkError, NetworkMsg,
-            TestableNetworkingImplementation, TransmitType,
+            CentralizedWebServerNetworkError, CommunicationChannel, ConnectedNetwork, NetworkError,
+            NetworkMsg, TestableNetworkingImplementation, TransmitType,
         },
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -36,7 +35,7 @@ use hotshot_types::{
 use serde::{Deserialize, Serialize};
 
 use std::{
-    collections::{BTreeSet},
+    collections::BTreeSet,
     marker::PhantomData,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -45,7 +44,7 @@ use std::{
     time::Duration,
 };
 use surf_disco::error::ClientError;
-use tracing::{error};
+use tracing::{error, info};
 
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone)]
@@ -63,7 +62,7 @@ pub struct CentralizedWebCommChannel<
         PROPOSAL,
         VOTE,
     >,
-    PhantomData<(PROPOSAL, VOTE, ELECTION)>,
+    PhantomData<ELECTION>,
 );
 impl<
         TYPES: NodeType,
@@ -94,20 +93,15 @@ impl<
     ) -> SendMsg<Message<TYPES, PROPOSAL, VOTE>> {
         let view_number: TYPES::Time = message.get_view_number();
 
-        // Returns the endpoint we need, maybe should return an option?  For internal trigger? Return error for now?
         let endpoint = match message.clone().kind {
             hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind {
                 hotshot_types::message::ConsensusMessage::Proposal(_) => {
                     config::post_proposal_route(*view_number)
                 }
                 hotshot_types::message::ConsensusMessage::Vote(_) => {
-                    // We shouldn't ever reach this TODO ED
                     config::post_vote_route(*view_number)
                 }
                 hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {
-                    // TODO ED Remove this once we are sure this is never hit
-
-                    // return Err(NetworkError::UnimplementedFeature)
                     "InternalTrigger".to_string()
                 }
             },
@@ -123,8 +117,6 @@ impl<
             endpoint,
         };
         network_msg
-
-        // TODO ED Current web server doesn't have a concept of recipients
     }
 }
 
@@ -215,7 +207,7 @@ struct Inner<
 }
 
 impl<
-        M: NetworkMsg, //+ WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>,
+        M: NetworkMsg,
         KEY: SignatureKey,
         ELECTIONCONFIG: ElectionConfig,
         TYPES: NodeType,
@@ -240,36 +232,32 @@ impl<
                 MessageType::Transaction => config::get_transactions_route(tx_index),
             };
 
-            let possible_message = 
-            // If we are the next leader, poll for votes
-            if message_type == MessageType::VoteTimedOut && !consensus_info.is_next_leader {
+            let possible_message =
+                if message_type == MessageType::VoteTimedOut && !consensus_info.is_next_leader {
                     Ok(None)
-
-            } else {
-                self.get_message_from_web_server(endpoint).await
-
-            };
+                } else {
+                    self.get_message_from_web_server(endpoint).await
+                };
 
             match possible_message {
-                // TODO ED Only need the first proposal
                 Ok(Some(deserialized_messages)) => {
                     match message_type {
                         MessageType::Proposal => {
-                            error!("Got proposal");
-                            // println!("PROP IS: {:?}", deserialized_messages[0].clone());
-                            // println!("SIZE OF PROP IS: {:?}", size_of_val(&*deserialized_messages));
-
-                            // Only pushing the first proposal here since we will soon only be allowing 1 proposal per view
+                            info!("Received proposal for view {}", consensus_info.view_number);
+                            // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
                             self.broadcast_poll_queue
                                 .write()
                                 .await
                                 .push(deserialized_messages[0].clone());
+                            // Wait for the view to change before polling for proposals again
                             consensus_info = consensus_update.recv().await.unwrap();
                         }
                         MessageType::VoteTimedOut => {
-                            error!("Got vote or timed out message");
-                            // ED TODO - Stop getting votes once we've recieved a QC's worth
-
+                            info!(
+                                "Received {} votes for view {}",
+                                deserialized_messages.len(),
+                                consensus_info.view_number
+                            );
                             let mut direct_poll_queue = self.direct_poll_queue.write().await;
                             for vote in &deserialized_messages {
                                 vote_index += 1;
@@ -277,42 +265,28 @@ impl<
                             }
                         }
                         MessageType::Transaction => {
-                            error!("Got txs");
-                            // println!("SIZE OF TX IS: {:?}", size_of_val(&*deserialized_messages));
+                            info!("Received new transaction");
                             let mut lock = self.broadcast_poll_queue.write().await;
                             for tx in &deserialized_messages {
                                 tx_index += 1;
                                 lock.push(tx.clone());
                             }
-                        } // println!("Deserialized message is: {:?}", deserialized_messages[0]);
-                          // self.broadcast_poll_queue
-                          //     .write()
-                          //     .await
-                          //     .push(deserialized_messages[0].clone());
-                          // consensus_info = consensus_update.recv().await.unwrap();
-                          // consensus_info = self.consensus_info.copied().await;
+                        }
                     }
                 }
-                // TODO ED Currently should never be hit
                 Ok(None) => {
                     async_sleep(self.wait_between_polls).await;
                 }
-
-                // TODO ED Keeping these separate in case we want to do something different later
-                // Also implement better server error instead of NotImplemented
                 Err(_e) => {
-                    // sleep a bit before repolling
-                    // println!("ERROR IS {:?}", e);
-                    // TODO ED Requires us sending the endpoint along with?
                     async_sleep(self.wait_between_polls).await;
                 }
             }
+            // Check if there is updated consensus info
             let new_consensus_info = consensus_update.try_recv();
             if new_consensus_info.is_ok() {
                 consensus_info = new_consensus_info.unwrap();
                 vote_index = 0;
             }
-            // Don't do anything until we're in a new view
         }
     }
 
@@ -391,7 +365,7 @@ impl<M: NetworkMsg> NetworkMsg for SendMsg<M> {}
 impl<M: NetworkMsg> NetworkMsg for RecvMsg<M> {}
 
 impl<
-        M: NetworkMsg + 'static, //+ WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>
+        M: NetworkMsg + 'static,
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
@@ -417,6 +391,7 @@ impl<
             error!("Web server url {:?} is malformed", base_url_string);
         }
 
+        // TODO ED Wait for healthcheck
         let client = surf_disco::Client::<ClientError>::new(base_url.unwrap());
 
         let inner = Arc::new(Inner {
@@ -437,7 +412,7 @@ impl<
             async move {
                 while inner.running.load(Ordering::Relaxed) {
                     if let Err(e) = CentralizedWebServerNetwork::<M, K, E, TYPES, PROPOSAL, VOTE>::run_background_receive(Arc::clone(&inner)).await {
-                        error!(?e, "background thread exited");
+                        error!(?e, "Background polling task exited");
                     }
                     inner.connected.store(false, Ordering::Relaxed);
                 }
@@ -548,7 +523,6 @@ impl<
         message: Message<TYPES, PROPOSAL, VOTE>,
         _election: &ELECTION,
     ) -> Result<(), NetworkError> {
-        // TODO ED Change parse post message to get endpoint or something similar?
         let network_msg = self.parse_post_message(message);
         self.0.broadcast_message(network_msg, BTreeSet::new()).await
     }
@@ -580,14 +554,11 @@ impl<
         .await;
 
         match result {
-            Ok(messages) => {
-                // println!("Received proposal message !!!!! {:?}", messages);
-
-                Ok(messages.iter().map(|x| x.get_message().unwrap()).collect())
-            }
-            _ => Err(NetworkError::UnimplementedFeature),
+            Ok(messages) => Ok(messages.iter().map(|x| x.get_message().unwrap()).collect()),
+            _ => Err(NetworkError::CentralizedWebServer {
+                source: CentralizedWebServerNetworkError::ClientError,
+            }),
         }
-        // Ok(Vec::new())
     }
 
     /// look up a node
@@ -616,11 +587,9 @@ impl<
         VOTE: VoteType<TYPES> + 'static,
     > ConnectedNetwork<RecvMsg<M>, SendMsg<M>, K>
     for CentralizedWebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
-// Make this a trait?
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
-        // TODO ED Also add check that we're running?
         while !self.inner.connected.load(Ordering::Relaxed) {
             async_sleep(Duration::from_secs(1)).await;
         }
@@ -662,7 +631,6 @@ impl<
         &self,
         transmit_type: TransmitType,
     ) -> Result<Vec<RecvMsg<M>>, NetworkError> {
-        // TODO ED Implement
         match transmit_type {
             TransmitType::Direct => {
                 let mut queue = self.inner.direct_poll_queue.write().await;
@@ -671,7 +639,6 @@ impl<
             TransmitType::Broadcast => {
                 let mut queue = self.inner.broadcast_poll_queue.write().await;
                 Ok(queue.drain(..).collect())
-                // Ok(messages)
             }
         }
     }
@@ -703,7 +670,6 @@ impl<
                 *old_consensus_info = new_consensus_info;
             })
             .await;
-
         result
     }
 }
@@ -724,7 +690,6 @@ where
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
         // Start web server
-        // TODO may have a race condition if this doesn't start fully before below:
         async_spawn(hotshot_centralized_web_server::run_web_server(Some(
             server_shutdown,
         )));

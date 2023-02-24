@@ -7,7 +7,6 @@ use config::DEFAULT_WEB_SERVER_PORT;
 use futures::FutureExt;
 
 use std::collections::HashMap;
-use tracing::error;
 use std::io;
 use std::path::PathBuf;
 use tide_disco::api::ApiError;
@@ -17,6 +16,7 @@ use tide_disco::method::WriteState;
 use tide_disco::Api;
 use tide_disco::App;
 use tide_disco::StatusCode;
+use tracing::error;
 
 type State = RwLock<WebServerState>;
 type Error = ServerError;
@@ -68,7 +68,6 @@ impl WebServerState {
     }
 }
 
-
 /// Trait defining methods needed for the `WebServerState`
 pub trait WebServerDataSource {
     fn get_proposals(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
@@ -119,7 +118,7 @@ impl WebServerDataSource for WebServerState {
             Ok(Some(txns))
         } else {
             Err(ServerError {
-                // TODO ED: Why does NoContent status code cause errors? 
+                // TODO ED: Why does NoContent status code cause errors?
                 status: StatusCode::NotImplemented,
                 message: format!("Transaction not found for index {}", index),
             })
@@ -128,7 +127,6 @@ impl WebServerDataSource for WebServerState {
 
     /// Stores a received vote in the `WebServerState`
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error> {
-
         // Only keep vote history for MAX_VIEWS number of views
         if self.votes.len() >= MAX_VIEWS {
             self.votes.remove(&self.oldest_vote);
@@ -148,10 +146,7 @@ impl WebServerDataSource for WebServerState {
     }
     /// Stores a received proposal in the `WebServerState`
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error> {
-        error!(
-            "Received proposal for view {}",
-            view_number
-        );
+        error!("Received proposal for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of view
         if self.proposals.len() >= MAX_VIEWS {
@@ -338,8 +333,8 @@ mod test {
                 .get::<Option<Vec<u8>>>(&get_proposal_route(3))
                 .send()
                 .await,
-            Err(ClientError{
-                status: StatusCode::NotImplemented, 
+            Err(ClientError {
+                status: StatusCode::NotImplemented,
                 message: "Proposal not found for view 3".to_string()
             })
         );

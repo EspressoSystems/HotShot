@@ -1,24 +1,18 @@
 mod common;
 
-use ark_bls12_381::Parameters as Param381;
 use async_compatibility_layer::logging::shutdown_logging;
-use blake3::Hasher;
+
 use common::*;
 use either::Either::Right;
-use hotshot::{
-    traits::{
-        election::{static_committee::StaticCommittee, vrf::VrfImpl},
-        implementations::{CentralizedWebCommChannel, MemoryStorage},
-    },
-    types::Message,
+use hotshot::traits::{
+    election::static_committee::StaticCommittee,
+    implementations::{CentralizedWebCommChannel, MemoryStorage},
 };
 use hotshot_testing::TestNodeImpl;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     message::QuorumVote,
 };
-// use hotshot_utils::test_util::shutdown_logging;
-use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use tracing::instrument;
 
 /// Centralized web server network test
@@ -62,7 +56,6 @@ async fn centralized_server_network() {
                 >,
                 QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-
             >,
             MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

@@ -990,7 +990,6 @@ impl From<hotshot_centralized_server::Error> for Error {
     }
 }
 
-// TODO ED
 #[async_trait]
 impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static>
     ConnectedNetwork<M, M, K> for CentralizedServerNetwork<K, E>
