@@ -396,7 +396,7 @@ impl<
         let client = surf_disco::Client::<ClientError>::new(base_url.unwrap());
 
         let inner = Arc::new(Inner {
-            phantom: PhantomData::default(),
+            phantom: PhantomData,
             consensus_info: Arc::new(SubscribableRwLock::new(ConsensusInfo::default())),
             broadcast_poll_queue: Arc::default(),
             direct_poll_queue: Arc::default(),
