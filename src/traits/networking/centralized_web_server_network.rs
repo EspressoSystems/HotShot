@@ -3,66 +3,49 @@
 //! To run the web server, see the `./centralized_web_server/` folder in this repo.
 //!
 
-use async_std::channel::Recv;
 #[cfg(feature = "async-std-executor")]
-use async_std::net::TcpStream;
-use nll::nll_todo::nll_todo;
-use surf_disco::Url;
 #[cfg(feature = "tokio-executor")]
-use tokio::net::TcpStream;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 use async_compatibility_layer::async_primitives::subscribable_rwlock::ReadView;
 use async_compatibility_layer::async_primitives::subscribable_rwlock::SubscribableRwLock;
 use async_compatibility_layer::{
-    art::{async_block_on, async_sleep, async_spawn, split_stream},
-    channel::{oneshot, unbounded, OneShotSender, UnboundedReceiver, UnboundedSender},
+    art::{async_sleep, async_spawn},
+    channel::{oneshot, OneShotSender},
 };
 
-// TODO ED Do we really need this?
 use hotshot_centralized_web_server::{self, config};
-use hotshot_types::traits::state::ConsensusTime;
 
-use async_lock::{RwLock, RwLockUpgradableReadGuard};
+use async_lock::{RwLock};
 use async_trait::async_trait;
-use bincode::Options;
-use futures::{future::BoxFuture, FutureExt};
 use hotshot_types::{
     data::ProposalType,
     message::{Message, VoteType},
     traits::{
         election::{Election, ElectionConfig},
-        metrics::{Metrics, NoMetrics},
         network::{
             CentralizedWebServerNetworkError, CommunicationChannel, ConnectedNetwork,
-            FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkError, NetworkMsg,
+            NetworkError, NetworkMsg,
             TestableNetworkingImplementation, TransmitType,
         },
         node_implementation::NodeType,
-        signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
+        signature_key::{SignatureKey, TestableSignatureKey},
     },
 };
-use hotshot_utils::bincode::bincode_opts;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use snafu::ResultExt;
-use std::iter::Rev;
+use serde::{Deserialize, Serialize};
+
 use std::{
-    cmp,
-    collections::{hash_map::Entry, BTreeSet, HashMap},
+    collections::{BTreeSet},
     marker::PhantomData,
-    net::{Ipv4Addr, SocketAddr},
-    num::NonZeroUsize,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
         Arc,
     },
     time::Duration,
 };
 use surf_disco::error::ClientError;
-use tracing::{error, instrument};
-
-use super::NetworkingMetrics;
+use tracing::{error};
 
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone)]
@@ -115,11 +98,11 @@ impl<
         let endpoint = match message.clone().kind {
             hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind {
                 hotshot_types::message::ConsensusMessage::Proposal(_) => {
-                    config::post_proposal_route((*view_number))
+                    config::post_proposal_route(*view_number)
                 }
                 hotshot_types::message::ConsensusMessage::Vote(_) => {
                     // We shouldn't ever reach this TODO ED
-                    config::post_vote_route((*view_number))
+                    config::post_vote_route(*view_number)
                 }
                 hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {
                     // TODO ED Remove this once we are sure this is never hit
@@ -241,7 +224,7 @@ impl<
     > Inner<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
 {
     /// Polls the web server at a given endpoint while the client is running
-    async fn poll_web_server(&self, message_type: MessageType, num_views_ahead: u64) {
+    async fn poll_web_server(&self, message_type: MessageType, _num_views_ahead: u64) {
         // Subscribe to changes in consensus info
         let consensus_update = self.consensus_info.subscribe().await;
         let mut consensus_info = self.consensus_info.copied().await;
@@ -317,7 +300,7 @@ impl<
 
                 // TODO ED Keeping these separate in case we want to do something different later
                 // Also implement better server error instead of NotImplemented
-                Err(e) => {
+                Err(_e) => {
                     // sleep a bit before repolling
                     // println!("ERROR IS {:?}", e);
                     // TODO ED Requires us sending the endpoint along with?
@@ -563,7 +546,7 @@ impl<
     async fn broadcast_message(
         &self,
         message: Message<TYPES, PROPOSAL, VOTE>,
-        election: &ELECTION,
+        _election: &ELECTION,
     ) -> Result<(), NetworkError> {
         // TODO ED Change parse post message to get endpoint or something similar?
         let network_msg = self.parse_post_message(message);
@@ -609,7 +592,7 @@ impl<
 
     /// look up a node
     /// blocking
-    async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
+    async fn lookup_node(&self, _pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         Ok(())
     }
 
@@ -646,7 +629,7 @@ impl<
     /// checks if the network is ready
     /// nonblocking
     async fn is_ready(&self) -> bool {
-        nll_todo()
+        self.inner.connected.load(Ordering::Relaxed)
     }
 
     /// Blocks until the network is shut down
@@ -660,14 +643,14 @@ impl<
     async fn broadcast_message(
         &self,
         message: SendMsg<M>,
-        recipients: BTreeSet<K>,
+        _recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
         self.post_message_to_web_server(message).await
     }
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message(&self, message: SendMsg<M>, recipient: K) -> Result<(), NetworkError> {
+    async fn direct_message(&self, message: SendMsg<M>, _recipient: K) -> Result<(), NetworkError> {
         self.post_message_to_web_server(message).await
     }
 
@@ -767,6 +750,6 @@ where
     }
 
     fn in_flight_message_count(&self) -> Option<usize> {
-        nll_todo()
+        None
     }
 }
