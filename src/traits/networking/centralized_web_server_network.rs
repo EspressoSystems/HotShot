@@ -64,6 +64,7 @@ use tracing::{error, instrument};
 
 use super::NetworkingMetrics;
 
+/// Represents the communication channel abstraction for the web server
 #[derive(Clone)]
 pub struct CentralizedWebCommChannel<
     TYPES: NodeType,
@@ -102,25 +103,27 @@ impl<
         Self(network, PhantomData::default())
     }
 
+    /// Parses a message to find the appropriate endpoint
+    /// Returns a `SendMsg` containing the endpoint
     fn parse_post_message(
         &self,
         message: Message<TYPES, PROPOSAL, VOTE>,
     ) -> SendMsg<Message<TYPES, PROPOSAL, VOTE>> {
-        let view_number: TYPES::Time = message.get_view_number().into();
+        let view_number: TYPES::Time = message.get_view_number();
 
         // Returns the endpoint we need, maybe should return an option?  For internal trigger? Return error for now?
         let endpoint = match message.clone().kind {
             hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind {
                 hotshot_types::message::ConsensusMessage::Proposal(_) => {
-                    config::post_proposal_route((*view_number).into())
+                    config::post_proposal_route((*view_number))
                 }
                 hotshot_types::message::ConsensusMessage::Vote(_) => {
                     // We shouldn't ever reach this TODO ED
-                    config::post_vote_route((*view_number).into())
+                    config::post_vote_route((*view_number))
                 }
                 hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {
                     // TODO ED Remove this once we are sure this is never hit
-                    panic!();
+
                     // return Err(NetworkError::UnimplementedFeature)
                     "InternalTrigger".to_string()
                 }
@@ -142,25 +145,22 @@ impl<
     }
 }
 
+/// The centralized web server network state
 #[derive(Clone, Debug)]
 pub struct CentralizedWebServerNetwork<
     M: NetworkMsg,
-    // Why don't we need this? TODO ED
-    ///+ WebServerNetworkMessageTrait<TYPES, PROPOSAL, VOTE>
     KEY: SignatureKey,
     ELECTIONCONFIG: ElectionConfig,
     TYPES: NodeType,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
 > {
-    /// The inner state
-    // TODO ED What's the point of inner?
+    /// The inner, core state of the centralized web server network
     inner: Arc<Inner<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
 }
 
-// TODO ED Two impls of centralized web server network struct?  Fix
 impl<
         M: NetworkMsg,
         KEY: SignatureKey,
@@ -170,29 +170,38 @@ impl<
         VOTE: VoteType<TYPES>,
     > CentralizedWebServerNetwork<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
 {
+    /// Post a message to the web server and return the result
     async fn post_message_to_web_server(&self, message: SendMsg<M>) -> Result<(), NetworkError> {
         let result: Result<(), ClientError> = self
             .inner
             .client
             .post(&message.get_endpoint())
-            // TODO ED Sending whole message until we can work out the Generics for M
             .body_binary(&message.get_message())
             .unwrap()
             .send()
             .await;
-        // TODO ED Actually return result
-        println!("Result is {:?}", result);
-        Ok(())
+        if result.is_ok() {
+            Ok(())
+        } else {
+            Err(NetworkError::CentralizedWebServer {
+                source: CentralizedWebServerNetworkError::ClientError,
+            })
+        }
     }
 }
 
+/// Consensus info that is injected from `HotShot`
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ConsensusInfo {
+    /// The latest view number
     view_number: u64,
-    is_current_leader: bool,
+    /// Whether this node is the leader of `view_number`
+    _is_current_leader: bool,
+    /// Whether this node is the leader of the next view
     is_next_leader: bool,
 }
 
+/// Represents the core of centralized web server networking
 #[derive(Debug)]
 struct Inner<
     M: NetworkMsg,
@@ -202,27 +211,23 @@ struct Inner<
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
 > {
-    // TODO ED Get rid of phantom if can
+    /// Phantom data for generic types
     phantom: PhantomData<(KEY, ELECTIONCONFIG, PROPOSAL, VOTE)>,
-    // Current view number so we can poll accordingly
-    // TODO ED Should we keep these as three objects or one?
-    // view_number: Arc<SubscribableRwLock<<TYPES as NodeType>::Time>>,
-    // is_current_leader: Arc<SubscribableRwLock<bool>>,
-    // is_next_leader: Arc<SubscribableRwLock<bool>>,
+    /// Consensus data about the current view number, leader, and next leader
     consensus_info: Arc<SubscribableRwLock<ConsensusInfo>>,
-
-    // TODO Do we ever use this?
-    own_key: TYPES::SignatureKey,
-    // // Queue for broadcasted messages (mainly transactions and proposals)
+    /// Our own key
+    _own_key: TYPES::SignatureKey,
+    /// Queue for broadcasted messages
     broadcast_poll_queue: Arc<RwLock<Vec<RecvMsg<M>>>>,
-    // // Queue for direct messages (mainly votes)
-    // Should this be channels? TODO ED
+    /// Queue for direct messages
     direct_poll_queue: Arc<RwLock<Vec<RecvMsg<M>>>>,
-    // TODO ED the same as connected?
+    /// Client is running
     running: AtomicBool,
-    // The network is connected to the web server and ready to go
+    /// The web server connection is ready
     connected: AtomicBool,
+    /// The connectioni to the web server
     client: surf_disco::Client<ClientError>,
+    /// The duration to wait between poll attempts
     wait_between_polls: Duration,
 }
 
@@ -235,9 +240,8 @@ impl<
         VOTE: VoteType<TYPES>,
     > Inner<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
 {
-    /// Polls the web server at a given endpoint while HotShot is running
+    /// Polls the web server at a given endpoint while the client is running
     async fn poll_web_server(&self, message_type: MessageType, num_views_ahead: u64) {
-
         // Subscribe to changes in consensus info
         let consensus_update = self.consensus_info.subscribe().await;
         let mut consensus_info = self.consensus_info.copied().await;
@@ -246,25 +250,21 @@ impl<
 
         while self.running.load(Ordering::Relaxed) {
             let endpoint = match message_type {
-                MessageType::Proposal => {
-                    config::get_proposal_route(consensus_info.view_number)
-                }
+                MessageType::Proposal => config::get_proposal_route(consensus_info.view_number),
                 MessageType::VoteTimedOut => {
                     config::get_vote_route(consensus_info.view_number, vote_index)
                 }
                 MessageType::Transaction => config::get_transactions_route(tx_index),
             };
-          
-            let possible_message = if message_type == MessageType::VoteTimedOut {
 
-
-                if consensus_info.is_next_leader {
-                    self.get_message_from_web_server(endpoint).await
-                } else {
+            let possible_message = 
+            // If we are the next leader, poll for votes
+            if message_type == MessageType::VoteTimedOut && !consensus_info.is_next_leader {
                     Ok(None)
-                }
+
             } else {
                 self.get_message_from_web_server(endpoint).await
+
             };
 
             match possible_message {
@@ -288,7 +288,7 @@ impl<
                             // ED TODO - Stop getting votes once we've recieved a QC's worth
 
                             let mut direct_poll_queue = self.direct_poll_queue.write().await;
-                            for vote in deserialized_messages.iter() {
+                            for vote in &deserialized_messages {
                                 vote_index += 1;
                                 direct_poll_queue.push(vote.clone());
                             }
@@ -297,7 +297,7 @@ impl<
                             error!("Got txs");
                             // println!("SIZE OF TX IS: {:?}", size_of_val(&*deserialized_messages));
                             let mut lock = self.broadcast_poll_queue.write().await;
-                            for tx in deserialized_messages.iter() {
+                            for tx in &deserialized_messages {
                                 tx_index += 1;
                                 lock.push(tx.clone());
                             }
@@ -445,7 +445,7 @@ impl<
             connected: AtomicBool::new(false),
             client,
             wait_between_polls,
-            own_key: key,
+            _own_key: key,
         });
         inner.connected.store(true, Ordering::Relaxed);
 
@@ -517,7 +517,6 @@ enum MessageType {
 
 #[async_trait]
 impl<
-        // M: NetworkMsg,
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
@@ -663,21 +662,13 @@ impl<
         message: SendMsg<M>,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
-        let result = self.post_message_to_web_server(message).await;
-
-        // TODO ED Match result
-
-        Ok(())
+        self.post_message_to_web_server(message).await
     }
 
     /// Sends a direct message to a specific node
     /// blocking
     async fn direct_message(&self, message: SendMsg<M>, recipient: K) -> Result<(), NetworkError> {
-        let result = self.post_message_to_web_server(message).await;
-
-        // TODO ED Match result
-
-        Ok(())
+        self.post_message_to_web_server(message).await
     }
 
     /// Moves out the entire queue of received messages of 'transmit_type`
@@ -704,16 +695,16 @@ impl<
 
     /// look up a node
     /// blocking
-    async fn lookup_node(&self, pk: K) -> Result<(), NetworkError> {
+    async fn lookup_node(&self, _pk: K) -> Result<(), NetworkError> {
         Ok(())
     }
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
-        let (view_number, is_current_leader, is_next_leader) = tuple;
+        let (view_number, _is_current_leader, is_next_leader) = tuple;
 
         let new_consensus_info = ConsensusInfo {
             view_number,
-            is_current_leader,
+            _is_current_leader,
             is_next_leader,
         };
 

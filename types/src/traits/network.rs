@@ -58,6 +58,8 @@ pub enum CentralizedServerNetworkError {
 pub enum CentralizedWebServerNetworkError {
     /// The injected consensus data is incorrect
     IncorrectConsensusData,
+    /// The client returned an error
+    ClientError,
 }
 
 /// the type of transmission
