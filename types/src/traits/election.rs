@@ -4,18 +4,26 @@
 
 use super::node_implementation::NodeType;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
+use crate::certificate::CertificateAccumulator;
+use crate::certificate::{QuorumCertificate, VoteMetaData};
 use crate::data::ProposalType;
+use crate::data::ValidatingProposal;
+use crate::message::QuorumVote;
+use crate::message::VoteType;
 use crate::{data::LeafType, traits::signature_key::SignatureKey};
 use bincode::Options;
 use commit::{Commitment, Committable};
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
+use nll::nll_todo;
+use nll::nll_todo::nll_todo;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::marker::PhantomData;
 use std::num::NonZeroU64;
 
 /// Error for election problems
@@ -177,12 +185,299 @@ pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 's
     fn threshold(&self) -> NonZeroU64;
 }
 
-pub trait ConsensusExchange<TYPES: NodeTypes> {
+pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     type Proposal: ProposalType<NodeType = TYPES>;
-    type Vote;
-    type VoteAccumulator;
-    type Certificate: SignedCertificate;
-    type Membership;
+    type Vote: VoteType<TYPES>;
+    type Certificate: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>
+        + Hash
+        + Eq;
+    // type VoteAccumulator: Accumulator<TYPES::VoteTokenType, LEAF>;
+    type Membership: Membership<TYPES>;
+
+    /// Validate a QC.
+    fn is_valid_cert(&self, qc: &Self::Certificate) -> bool;
+
+    /// Validate a vote.
+    fn is_valid_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        data: VoteData<TYPES, LEAF>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool;
+
+    /// Add a vote to the accumulating signature.  Return The certificate if the vote
+    /// brings us over the threshould, Else return the accumulator.
+    fn accumulate_vote<C: Committable>(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        leaf_commitment: Commitment<C>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, C>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Self::Certificate>;
+
+    fn membership(&self) -> Self::Membership;
+
+    // TODO (DA): Move vote related functions back to ConsensusExchange trait once it is implemented.
+    // fn is_valid_dac(
+    //     &self,
+    //     dac: &<I::Leaf as LeafType>::DACertificate,
+    //     block_commitment: Commitment<TYPES::BlockType>,
+    // ) -> bool {
+    //     let stake = dac
+    //         .signatures()
+    //         .iter()
+    //         .filter(|signature| {
+    //             self.is_valid_vote(
+    //                 signature.0,
+    //                 &signature.1 .0,
+    //                 VoteData::DA(block_commitment),
+    //                 dac.view_number(),
+    //                 Checked::Unchecked(signature.1 .1.clone()),
+    //             )
+    //         })
+    //         .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
+
+    //     stake >= u64::from(self.threshold())
+    // }
+
+    // /// Validate a QC by checking its votes.
+    // fn is_valid_qc(&self, qc: &<I::Leaf as LeafType>::QuorumCertificate) -> bool {
+    //     if qc.is_genesis() && qc.view_number() == TYPES::Time::genesis() {
+    //         return true;
+    //     }
+    //     let leaf_commitment = qc.leaf_commitment();
+
+    //     let stake = qc
+    //         .signatures()
+    //         .iter()
+    //         .filter(|signature| {
+    //             self.is_valid_vote(
+    //                 signature.0,
+    //                 &signature.1 .0,
+    //                 VoteData::Yes(leaf_commitment),
+    //                 qc.view_number(),
+    //                 Checked::Unchecked(signature.1 .1.clone()),
+    //             )
+    //         })
+    //         .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
+
+    //     stake >= u64::from(self.threshold())
+    // }
+
+    // /// Validate a vote by checking its signature and token.
+    // fn is_valid_vote(
+    //     &self,
+    //     encoded_key: &EncodedPublicKey,
+    //     encoded_signature: &EncodedSignature,
+    //     data: VoteData<TYPES, I::Leaf>,
+    //     view_number: TYPES::Time,
+    //     vote_token: Checked<TYPES::VoteTokenType>,
+    // ) -> bool {
+    //     let mut is_valid_vote_token = false;
+    //     let mut is_valid_signature = false;
+    //     if let Some(key) = <TYPES::SignatureKey as SignatureKey>::from_bytes(encoded_key) {
+    //         is_valid_signature = key.validate(encoded_signature, &data.as_bytes());
+    //         let valid_vote_token =
+    //             self.inner
+    //                 .membership
+    //                 .validate_vote_token(view_number, key, vote_token);
+    //         is_valid_vote_token = match valid_vote_token {
+    //             Err(_) => {
+    //                 error!("Vote token was invalid");
+    //                 false
+    //             }
+    //             Ok(Checked::Valid(_)) => true,
+    //             Ok(Checked::Inval(_) | Checked::Unchecked(_)) => false,
+    //         };
+    //     }
+    //     is_valid_signature && is_valid_vote_token
+    // }
+    // fn accumulate_vote<C: Committable, Cert>(
+    //     &self,
+    //     vota_meta: VoteMetaData<TYPES, C, TYPES::VoteTokenType, TYPES::Time, I::Leaf>,
+    //     accumulator: VoteAccumulator<TYPES, C>,
+    // ) -> Either<VoteAccumulator<TYPES, C>, Cert>
+    // where
+    //     Cert: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, C>,
+    // {
+    //     if !self.is_valid_vote(
+    //         &vota_meta.encoded_key,
+    //         &vota_meta.encoded_signature,
+    //         vota_meta.data,
+    //         vota_meta.view_number,
+    //         // Ignoring deserialization errors below since we are getting rid of it soon
+    //         Checked::Unchecked(vota_meta.vote_token.clone()),
+    //     ) {
+    //         return Either::Left(accumulator);
+    //     }
+
+    //     match accumulator.append((
+    //         vota_meta.commitment,
+    //         (
+    //             vota_meta.encoded_key.clone(),
+    //             (vota_meta.encoded_signature.clone(), vota_meta.vote_token),
+    //         ),
+    //     )) {
+    //         Either::Left(accumulator) => Either::Left(accumulator),
+    //         Either::Right(signatures) => Either::Right(Cert::from_signatures_and_commitment(
+    //             vota_meta.view_number,
+    //             signatures,
+    //             vota_meta.commitment,
+    //         )),
+    //     }
+    // }
+
+    // fn accumulate_qc_vote(
+    //     &self,
+    //     encoded_key: &EncodedPublicKey,
+    //     encoded_signature: &EncodedSignature,
+    //     leaf_commitment: Commitment<I::Leaf>,
+    //     vote_token: TYPES::VoteTokenType,
+    //     view_number: TYPES::Time,
+    //     accumlator: VoteAccumulator<TYPES, I::Leaf>,
+    // ) -> Either<VoteAccumulator<TYPES, I::Leaf>, QuorumCertificate<TYPES, I::Leaf>> {
+    //     let meta = VoteMetaData {
+    //         encoded_key: encoded_key.clone(),
+    //         encoded_signature: encoded_signature.clone(),
+    //         commitment: leaf_commitment,
+    //         data: VoteData::Yes(leaf_commitment),
+    //         vote_token,
+    //         view_number,
+    //     };
+    //     self.accumulate_vote(meta, accumlator)
+    // }
+    // fn accumulate_da_vote(
+    //     &self,
+    //     encoded_key: &EncodedPublicKey,
+    //     encoded_signature: &EncodedSignature,
+    //     block_commitment: Commitment<TYPES::BlockType>,
+    //     vote_token: TYPES::VoteTokenType,
+    //     view_number: TYPES::Time,
+    //     accumlator: VoteAccumulator<TYPES, TYPES::BlockType>,
+    // ) -> Either<VoteAccumulator<TYPES, TYPES::BlockType>, DACertificate<TYPES>> {
+    //     let meta = VoteMetaData {
+    //         encoded_key: encoded_key.clone(),
+    //         encoded_signature: encoded_signature.clone(),
+    //         commitment: block_commitment,
+    //         data: VoteData::DA(block_commitment),
+    //         vote_token,
+    //         view_number,
+    //     };
+    //     self.accumulate_vote(meta, accumlator)
+    // }
+
+    // async fn store_leaf(
+    //     &self,
+    //     old_anchor_view: TYPES::Time,
+    //     leaf: I::Leaf,
+    // ) -> std::result::Result<(), hotshot_types::traits::storage::StorageError> {
+    //     let view_to_insert = StoredView::from(leaf);
+    //     let storage = &self.inner.storage;
+    //     storage.append_single_view(view_to_insert).await?;
+    //     storage.cleanup_storage_up_to_view(old_anchor_view).await?;
+    //     storage.commit().await?;
+    //     Ok(())
+    // }
+}
+
+pub struct CommitteeExchange<TYPES: NodeType, LEAF: LeafType, MEMBERSHIP: Membership<TYPES>> {
+    _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP)>,
+}
+
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, MEMBERSHIP: Membership<TYPES>>
+    ConsensusExchange<TYPES, LEAF> for CommitteeExchange<TYPES, LEAF, MEMBERSHIP>
+{
+    type Proposal = ValidatingProposal<TYPES, LEAF>;
+    type Vote = QuorumVote<TYPES, LEAF>;
+    // type VoteAccumulator = CertificateAccumulator<TYPES::VoteTokenType, LEAF>;
+    type Certificate = QuorumCertificate<TYPES, LEAF>;
+    type Membership = MEMBERSHIP;
+
+    /// Validate a QC.
+    fn is_valid_cert(&self, qc: &Self::Certificate) -> bool {
+        nll_todo()
+    }
+
+    /// Validate a vote.
+    fn is_valid_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        data: VoteData<TYPES, LEAF>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        nll_todo()
+    }
+
+    /// Add a vote to the accumulating signature.  Return The certificate if the vote
+    /// brings us over the threshould, Else return the accumulator.
+    fn accumulate_vote<C: Committable>(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        leaf_commitment: Commitment<C>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, C>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Self::Certificate> {
+        nll_todo()
+    }
+    fn membership(&self) -> Self::Membership {
+        nll_todo()
+    }
+}
+
+pub struct QuorumExchange<TYPES: NodeType, LEAF: LeafType, MEMBERSHIP: Membership<TYPES>> {
+    _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP)>,
+}
+
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, MEMBERSHIP: Membership<TYPES>>
+    ConsensusExchange<TYPES, LEAF> for QuorumExchange<TYPES, LEAF, MEMBERSHIP>
+{
+    type Proposal = ValidatingProposal<TYPES, LEAF>;
+    type Vote = QuorumVote<TYPES, LEAF>;
+    // type VoteAccumulator = CertificateAccumulator<TYPES::VoteTokenType, LEAF>;
+    type Certificate = LEAF::QuorumCertificate;
+    type Membership = MEMBERSHIP;
+
+    /// Validate a QC.
+    fn is_valid_cert(&self, qc: &Self::Certificate) -> bool {
+        nll_todo()
+    }
+
+    /// Validate a vote.
+    fn is_valid_vote(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        data: VoteData<TYPES, LEAF>,
+        view_number: TYPES::Time,
+        vote_token: Checked<TYPES::VoteTokenType>,
+    ) -> bool {
+        nll_todo()
+    }
+
+    /// Add a vote to the accumulating signature.  Return The certificate if the vote
+    /// brings us over the threshould, Else return the accumulator.
+    fn accumulate_vote<C: Committable>(
+        &self,
+        encoded_key: &EncodedPublicKey,
+        encoded_signature: &EncodedSignature,
+        leaf_commitment: Commitment<C>,
+        vote_token: TYPES::VoteTokenType,
+        view_number: TYPES::Time,
+        accumlator: CertificateAccumulator<TYPES::VoteTokenType, C>,
+    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Self::Certificate> {
+        nll_todo()
+    }
+    fn membership(&self) -> Self::Membership {
+        nll_todo()
+    }
 }
 
 /// Testable implementation of an [`Election`]. Will expose a method to generate a vote token used for testing.

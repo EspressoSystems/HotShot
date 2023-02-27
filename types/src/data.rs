@@ -220,15 +220,15 @@ pub trait LeafType:
         + Hash
         + PartialEq
         + Send;
-    type DACertificate: SignedCertificate<
-            <Self::NodeType as NodeType>::SignatureKey,
-            <Self::NodeType as NodeType>::Time,
-            <Self::NodeType as NodeType>::VoteTokenType,
-            <Self::NodeType as NodeType>::BlockType,
-        > + Debug
-        + Eq
-        + PartialEq
-        + Send;
+    // type DACertificate: SignedCertificate<
+    //         <Self::NodeType as NodeType>::SignatureKey,
+    //         <Self::NodeType as NodeType>::Time,
+    //         <Self::NodeType as NodeType>::VoteTokenType,
+    //         <Self::NodeType as NodeType>::BlockType,
+    //     > + Debug
+    //     + Eq
+    //     + PartialEq
+    //     + Send;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
@@ -350,7 +350,6 @@ impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
     type DeltasType = TYPES::BlockType;
     type StateCommitmentType = TYPES::StateType;
     type QuorumCertificate = QuorumCertificate<Self::NodeType, Self>;
-    type DACertificate = DACertificate<Self::NodeType>;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
@@ -447,7 +446,6 @@ impl<TYPES: NodeType> LeafType for SequencingLeaf<TYPES> {
     type DeltasType = Either<TYPES::BlockType, Commitment<TYPES::BlockType>>;
     type StateCommitmentType = ();
     type QuorumCertificate = QuorumCertificate<Self::NodeType, Self>;
-    type DACertificate = DACertificate<Self::NodeType>;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,

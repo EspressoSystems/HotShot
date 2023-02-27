@@ -8,6 +8,8 @@ use either::Either;
 use hotshot_types::certificate::CertificateAccumulator;
 use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
 use hotshot_types::message::ProcessedConsensusMessage;
+use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::election::{Checked::Unchecked, VoteData};
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::signature_key::SignatureKey;
@@ -31,12 +33,13 @@ pub struct NextValidatingLeader<
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
     >,
+    EXCHANGE: ConsensusExchange<TYPES, ValidatingLeaf<TYPES>>,
     TYPES: NodeType,
 > {
     /// id of node
     pub id: u64,
     /// generic_qc before starting this
-    pub generic_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+    pub generic_qc: EXCHANGE::Certificate,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
     pub vote_collection_chan: Arc<
@@ -54,6 +57,8 @@ pub struct NextValidatingLeader<
     pub cur_view: TYPES::Time,
     /// Limited access to the consensus protocol
     pub api: A,
+
+    pub exchange: EXCHANGE,
     /// Metrics for reporting stats
     #[debug(skip)]
     pub metrics: Arc<ConsensusMetrics>,
@@ -66,20 +71,21 @@ impl<
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         >,
+        EXCHANGE: ConsensusExchange<TYPES, ValidatingLeaf<TYPES>>,
         TYPES: NodeType,
-    > NextValidatingLeader<A, TYPES>
+    > NextValidatingLeader<A, EXCHANGE, TYPES>
 {
     /// Run one view of the next leader task
     /// # Panics
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Validating ValidatingLeader Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
+    pub async fn run_view(self) -> EXCHANGE::Certificate {
         error!("Next validating leader task started!");
 
         let vote_collection_start = Instant::now();
 
-        let mut qcs = HashSet::<QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>::new();
+        let mut qcs = HashSet::<EXCHANGE::Certificate>::new();
         qcs.insert(self.generic_qc.clone());
 
         let mut accumlator = CertificateAccumulator {
@@ -102,7 +108,7 @@ impl<
                             {
                                 continue;
                             }
-                            match self.api.accumulate_qc_vote(
+                            match self.exchange.accumulate_vote(
                                 &vote.signature.0,
                                 &vote.signature.1,
                                 vote.leaf_commitment,
@@ -122,7 +128,7 @@ impl<
                             }
                             // If the signature on the vote is invalid, assume it's sent by
                             // byzantine node and ignore.
-                            if !self.api.is_valid_vote(
+                            if !self.exchange.is_valid_vote(
                                 &vote.signature.0,
                                 &vote.signature.1,
                                 VoteData::Yes(vote.leaf_commitment),
@@ -153,6 +159,6 @@ impl<
             }
         }
 
-        qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
+        qcs.into_iter().max_by_key(|qc| qc.view_number()).unwrap()
     }
 }

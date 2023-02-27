@@ -59,7 +59,6 @@ use hotshot_consensus::{
     DAMember, NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner,
     ViewQueue,
 };
-use hotshot_types::data::ProposalType;
 use hotshot_types::data::{DAProposal, SequencingLeaf};
 use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
 use hotshot_types::traits::election::Accumulator;
@@ -70,6 +69,7 @@ use hotshot_types::{
     certificate::{CertificateAccumulator, VoteMetaData},
     message::{DAVote, VoteType},
 };
+use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
@@ -128,8 +128,11 @@ pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// This `HotShot` instance's storage backend
     storage: I::Storage,
 
-    /// This `HotShot` instance's election backend
-    membership: I::Membership,
+    /// This `HotShot` instance's way to interact with the nodes needed to form a quorum
+    quorum_exchange: I::QuorumExchange,
+
+    /// This `HotShot` instance's interaction with the DA committee to form a DA certificate.
+    comittee_exchange: I::ComitteeExchange,
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<TYPES, I::Leaf>>>>,
@@ -188,7 +191,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         networking: I::Networking,
         storage: I::Storage,
-        membership: I::Membership,
+        quorum_exchange: I::QuorumExchange,
+        comitee_exchange: I::ComitteeExchange,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
@@ -199,7 +203,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             config,
             networking,
             storage,
-            membership,
+            quorum_exchange,
+            comittee_exchange,
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
             metrics,
@@ -357,7 +362,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         networking: I::Networking,
         storage: I::Storage,
-        membership: I::Membership,
+        quorum_exchange: I::QuorumExchange,
+        comitee_exchange: I::ComitteeExchange,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<HotShotHandle<TYPES, I>, HotShotError<TYPES>>
@@ -372,7 +378,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             config,
             networking,
             storage,
-            membership,
+            quorum_exchange,
+            comitee_exchange,
             initializer,
             metrics,
         )
@@ -402,7 +409,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                 .broadcast_message(
                     Message { sender: pk, kind },
                     // TODO this is morally wrong
-                    &inner.membership.clone(),
+                    &inner.quorum_exchange.membership.clone(),
                 )
                 .await
                 .is_err()

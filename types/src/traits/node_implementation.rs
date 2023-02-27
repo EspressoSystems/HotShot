@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     block_contents::Transaction,
-    election::{ElectionConfig, Membership, VoteToken},
+    election::{ConsensusExchange, ElectionConfig, Membership, VoteToken},
     network::{CommunicationChannel, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, ConsensusType, TestableBlock, TestableState},
@@ -40,14 +40,42 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     /// Membership
     /// Time is generic here to allow multiple implementations of membership trait for difference
     /// consensus protocols
-    type Membership: Membership<TYPES> + Debug;
+    type QuorumExchange: ConsensusExchange<TYPES, Self::Leaf>;
 
-    type Proposal: ProposalType<NodeType = TYPES>;
-
-    type Vote: VoteType<TYPES>;
+    type ComitteeExchange: ConsensusExchange<TYPES, Self::Leaf>;
 
     /// Networking type for this consensus implementation
-    type Networking: CommunicationChannel<TYPES, Self::Proposal, Self::Vote, Self::Membership>;
+    type QuorumNetworking: CommunicationChannel<
+        TYPES,
+        <<Self as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            Self::Leaf,
+        >>::Proposal,
+        <<Self as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            Self::Leaf,
+        >>::Vote,
+        <<Self as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            Self::Leaf,
+        >>::Membership,
+    >;
+
+    type ComitteeNetworking: CommunicationChannel<
+        TYPES,
+        <<Self as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<
+            TYPES,
+            Self::Leaf,
+        >>::Proposal,
+        <<Self as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<
+            TYPES,
+            Self::Leaf,
+        >>::Vote,
+        <<Self as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            Self::Leaf,
+        >>::Membership,
+    >;
 }
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
@@ -111,12 +139,15 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    <Self as NodeImplementation<TYPES>>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        <Self as NodeImplementation<TYPES>>::Proposal,
-        <Self as NodeImplementation<TYPES>>::Vote,
-        <Self as NodeImplementation<TYPES>>::Membership,
-    >,
+    // <Self as NodeImplementation<TYPES>>::Networking: TestableNetworkingImplementation<
+    //     TYPES,
+    //     <Self as NodeImplementation<TYPES>>::Proposal,
+    //     <Self as NodeImplementation<TYPES>>::Vote,
+    //     <<Self as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+    //         TYPES,
+    //         <Self as NodeImplementation<TYPES>>::Leaf,
+    //     >>::Membership,
+    // >,
     <Self as NodeImplementation<TYPES>>::Storage:
         TestableStorage<TYPES, <Self as NodeImplementation<TYPES>>::Leaf>,
 {
