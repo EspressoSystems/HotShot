@@ -608,6 +608,7 @@
 <a href="#608" id="608">608</a>
 <a href="#609" id="609">609</a>
 <a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>config;
 <span class="kw">mod </span>handle;
 
@@ -639,12 +640,13 @@
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
+<span class="kw">use </span>either::Either;
 <span class="kw">use </span>futures::{select, FutureExt, StreamExt};
 <span class="kw">use </span>libp2p::{
-    core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
+    core::{muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
-        error::GossipsubHandlerError, Gossipsub, GossipsubConfigBuilder, GossipsubMessage,
-        MessageAuthenticity, MessageId, Topic, ValidationMode,
+        Behaviour <span class="kw">as </span>Gossipsub, ConfigBuilder <span class="kw">as </span>GossipsubConfigBuilder, HandlerError,
+        Message <span class="kw">as </span>GossipsubMessage, MessageAuthenticity, MessageId, Topic, ValidationMode,
     },
     identify::{
         Behaviour <span class="kw">as </span>IdentifyBehaviour, Config <span class="kw">as </span>IdentifyConfig, Event <span class="kw">as </span>IdentifyEvent,
@@ -652,7 +654,9 @@
     },
     identity::Keypair,
     kad::{store::MemoryStore, Kademlia, KademliaConfig},
-    request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
+    request_response::{
+        Behaviour <span class="kw">as </span>RequestResponse, Config <span class="kw">as </span>RequestResponseConfig, ProtocolSupport,
+    },
     swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent},
     Multiaddr, PeerId, Swarm,
 };
@@ -1020,10 +1024,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: SwarmEvent&lt;
             NetworkEventInternal,
-            EitherError&lt;
-                EitherError&lt;EitherError&lt;GossipsubHandlerError, Error&gt;, Error&gt;,
-                ConnectionHandlerUpgrErr&lt;Error&gt;,
-            &gt;,
+            Either&lt;Either&lt;Either&lt;HandlerError, Error&gt;, Error&gt;, ConnectionHandlerUpgrErr&lt;Error&gt;&gt;,
         &gt;,
         send_to_client: <span class="kw-2">&amp;</span>UnboundedSender&lt;NetworkEvent&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
@@ -1038,6 +1039,7 @@
                 endpoint,
                 num_established,
                 concurrent_dial_errors,
+                established_in: _established_in,
             } =&gt; {
                 <span class="kw">if </span>num_established &gt; ESTABLISHED_LIMIT {
                     <span class="macro">error!</span>(

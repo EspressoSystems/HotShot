@@ -638,6 +638,51 @@
 <a href="#638" id="638">638</a>
 <a href="#639" id="639">639</a>
 <a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet, VecDeque},
     num::NonZeroUsize,
@@ -648,11 +693,11 @@
 <span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>libp2p::{
     kad::{
-        store::MemoryStore, BootstrapError, BootstrapOk, GetClosestPeersOk, GetRecordOk,
-        GetRecordResult, Kademlia, KademliaEvent, ProgressStep, PutRecordResult, QueryId,
-        QueryResult, Quorum, Record,
+        handler::KademliaHandlerIn, store::MemoryStore, BootstrapError, BootstrapOk,
+        GetClosestPeersOk, GetRecordOk, GetRecordResult, Kademlia, KademliaEvent, ProgressStep,
+        PutRecordResult, QueryId, QueryResult, Quorum, Record,
     },
-    swarm::{NetworkBehaviour, NetworkBehaviourAction},
+    swarm::{NetworkBehaviour, NetworkBehaviourAction, THandlerOutEvent},
     Multiaddr, PeerId,
 };
 <span class="kw">use </span>tracing::{error, info, warn};
@@ -1148,17 +1193,15 @@
 
     <span class="kw">type </span>OutEvent = DHTEvent;
 
-    <span class="kw">fn </span>new_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::ConnectionHandler {
-        <span class="self">self</span>.kadem.new_handler()
-    }
+    <span class="comment">// fn new_handler(&amp;mut self) -&gt; Self::ConnectionHandler {
+    //     self.kadem.new_handler()
+    // }
 
-    <span class="kw">fn </span>poll(
+    </span><span class="kw">fn </span>poll(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
         params: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>libp2p::swarm::PollParameters,
-    ) -&gt; std::task::Poll&lt;
-        libp2p::swarm::NetworkBehaviourAction&lt;<span class="self">Self</span>::OutEvent, <span class="self">Self</span>::ConnectionHandler&gt;,
-    &gt; {
+    ) -&gt; Poll&lt;NetworkBehaviourAction&lt;DHTEvent, KademliaHandlerIn&lt;QueryId&gt;&gt;&gt; {
         <span class="kw">if </span><span class="macro">matches!</span>(<span class="self">self</span>.bootstrap_state.state, State::NotStarted)
             &amp;&amp; <span class="self">self</span>.bootstrap_state.backoff.is_expired()
             &amp;&amp; <span class="self">self</span>.begin_bootstrap
@@ -1218,8 +1261,8 @@
                 NetworkBehaviourAction::GenerateEvent(e) =&gt; {
                     <span class="self">self</span>.dht_handle_event(e);
                 }
-                NetworkBehaviourAction::Dial { opts, handler } =&gt; {
-                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::Dial { opts, handler });
+                NetworkBehaviourAction::Dial { opts } =&gt; {
+                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::Dial { opts });
                 }
                 NetworkBehaviourAction::NotifyHandler {
                     peer_id,
@@ -1257,10 +1300,6 @@
         Poll::Pending
     }
 
-    <span class="kw">fn </span>addresses_of_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pid: <span class="kw-2">&amp;</span>PeerId) -&gt; Vec&lt;libp2p::Multiaddr&gt; {
-        <span class="self">self</span>.kadem.addresses_of_peer(pid)
-    }
-
     <span class="kw">fn </span>on_swarm_event(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         event: libp2p::swarm::derive_prelude::FromSwarm&lt;<span class="lifetime">&#39;_</span>, <span class="self">Self</span>::ConnectionHandler&gt;,
@@ -1272,10 +1311,61 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         peer_id: PeerId,
         connection_id: libp2p::swarm::derive_prelude::ConnectionId,
-        event: &lt;&lt;<span class="self">Self</span>::ConnectionHandler <span class="kw">as </span>libp2p::swarm::IntoConnectionHandler&gt;::Handler <span class="kw">as </span>libp2p::swarm::ConnectionHandler&gt;::OutEvent,
+        event: THandlerOutEvent&lt;<span class="self">Self</span>&gt;,
     ) {
         <span class="self">self</span>.kadem
             .on_connection_handler_event(peer_id, connection_id, event);
+    }
+
+    <span class="kw">fn </span>handle_pending_inbound_connection(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        connection_id: libp2p::swarm::ConnectionId,
+        local_addr: <span class="kw-2">&amp;</span>Multiaddr,
+        remote_addr: <span class="kw-2">&amp;</span>Multiaddr,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), libp2p::swarm::ConnectionDenied&gt; {
+        <span class="self">self</span>.kadem
+            .handle_pending_inbound_connection(connection_id, local_addr, remote_addr)
+    }
+
+    <span class="kw">fn </span>handle_established_inbound_connection(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        connection_id: libp2p::swarm::ConnectionId,
+        peer: PeerId,
+        local_addr: <span class="kw-2">&amp;</span>Multiaddr,
+        remote_addr: <span class="kw-2">&amp;</span>Multiaddr,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;libp2p::swarm::THandler&lt;<span class="self">Self</span>&gt;, libp2p::swarm::ConnectionDenied&gt; {
+        <span class="self">self</span>.kadem.handle_established_inbound_connection(
+            connection_id,
+            peer,
+            local_addr,
+            remote_addr,
+        )
+    }
+
+    <span class="kw">fn </span>handle_pending_outbound_connection(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        connection_id: libp2p::swarm::ConnectionId,
+        maybe_peer: <span class="prelude-ty">Option</span>&lt;PeerId&gt;,
+        addresses: <span class="kw-2">&amp;</span>[Multiaddr],
+        effective_role: libp2p::core::Endpoint,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Multiaddr&gt;, libp2p::swarm::ConnectionDenied&gt; {
+        <span class="self">self</span>.kadem.handle_pending_outbound_connection(
+            connection_id,
+            maybe_peer,
+            addresses,
+            effective_role,
+        )
+    }
+
+    <span class="kw">fn </span>handle_established_outbound_connection(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        connection_id: libp2p::swarm::ConnectionId,
+        peer: PeerId,
+        addr: <span class="kw-2">&amp;</span>Multiaddr,
+        role_override: libp2p::core::Endpoint,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;libp2p::swarm::THandler&lt;<span class="self">Self</span>&gt;, libp2p::swarm::ConnectionDenied&gt; {
+        <span class="self">self</span>.kadem
+            .handle_established_outbound_connection(connection_id, peer, addr, role_override)
     }
 }
 </code></pre></div>

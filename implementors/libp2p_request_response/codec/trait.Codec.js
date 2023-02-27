@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"libp2p_networking":[["impl Codec for <a class=\"struct\" href=\"libp2p_networking/network/behaviours/direct_message_codec/struct.DirectMessageCodec.html\" title=\"struct libp2p_networking::network::behaviours::direct_message_codec::DirectMessageCodec\">DirectMessageCodec</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
