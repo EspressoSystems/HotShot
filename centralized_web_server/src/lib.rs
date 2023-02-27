@@ -86,7 +86,7 @@ impl WebServerDataSource for WebServerState {
             Some(proposals) => Ok(Some(proposals.clone())),
             None => Err(ServerError {
                 status: StatusCode::NotImplemented,
-                message: "Proposal not found for view view_number".to_string(),
+                message: format!("Proposal not found for view {view_number}"),
             }),
         }
     }
