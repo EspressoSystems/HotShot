@@ -245,6 +245,9 @@ impl<
             consensus.metrics.outgoing_broadcast_messages.add(1);
         }
 
+        // Drop the lock on the consensus.
+        drop(consensus);
+
         // Wait for DA votes or Timeout
         if let Some(cert) = self
             .wait_for_votes(self.cur_view, self.api.threshold(), block_commitment)
