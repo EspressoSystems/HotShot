@@ -112,11 +112,7 @@ pub trait NodeType:
     type ElectionConfigType: ElectionConfig;
 
     /// The state type that this hotshot setup is using.
-    type StateType: State<
-        BlockType = Self::BlockType,
-        Time = Self::Time,
-        ConsensusType = Self::ConsensusType,
-    >;
+    type StateType: State<BlockType = Self::BlockType, Time = Self::Time>;
 }
 
 /// testable node implmeentation trait
