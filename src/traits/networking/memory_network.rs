@@ -15,9 +15,9 @@ use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
     data::ProposalType,
-    message::{Message, VoteType},
+    message::Message,
     traits::{
-        election::Election,
+        election::Membership,
         metrics::{Metrics, NoMetrics},
         network::{
             CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation,
@@ -26,6 +26,7 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
+    vote::VoteType,
 };
 use hotshot_utils::bincode::bincode_opts;
 
@@ -293,9 +294,9 @@ impl<
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-        ELECTION: Election<TYPES>,
-    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, ELECTION>
-    for MemoryCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+        MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    for MemoryCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -453,10 +454,10 @@ pub struct MemoryCommChannel<
     TYPES: NodeType,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
-    ELECTION: Election<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
 >(
     MemoryNetwork<Message<TYPES, PROPOSAL, VOTE>, TYPES::SignatureKey>,
-    PhantomData<ELECTION>,
+    PhantomData<MEMBERSHIP>,
 );
 
 #[async_trait]
@@ -464,9 +465,9 @@ impl<
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-        ELECTION: Election<TYPES>,
-    > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
-    for MemoryCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+        MEMBERSHIP: Membership<TYPES>,
+    > CommunicationChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    for MemoryCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
 {
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
@@ -483,10 +484,10 @@ impl<
     async fn broadcast_message(
         &self,
         message: Message<TYPES, PROPOSAL, VOTE>,
-        election: &ELECTION,
+        election: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
         let recipients =
-            <ELECTION as Election<TYPES>>::get_committee(election, message.get_view_number());
+            <MEMBERSHIP as Membership<TYPES>>::get_committee(election, message.get_view_number());
         self.0.broadcast_message(message, recipients).await
     }
 
@@ -522,31 +523,23 @@ mod tests {
     use super::*;
     use crate::{
         demos::vdemo::{Addition, Subtraction, VDemoBlock, VDemoState, VDemoTransaction},
-        traits::election::static_committee::{
-            GeneralStaticCommittee, StaticElectionConfig, StaticVoteToken,
-        },
+        traits::election::static_committee::{StaticElectionConfig, StaticVoteToken},
     };
 
     use async_compatibility_layer::logging::setup_logging;
     use hotshot_types::{
         data::ViewNumber,
-        message::{DataMessage, MessageKind, QuorumVote},
+        message::{DataMessage, MessageKind},
         traits::{
             signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
             state::ConsensusTime,
         },
+        vote::QuorumVote,
     };
     use hotshot_types::{
         data::{ValidatingLeaf, ValidatingProposal},
-        traits::{node_implementation::ApplicationMetadata, state::ValidatingConsensus},
+        traits::state::ValidatingConsensus,
     };
-    use serde::{Deserialize, Serialize};
-
-    /// application metadata stub
-    #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-    pub struct TestMetaData {}
-
-    impl ApplicationMetadata for TestMetaData {}
 
     #[derive(
         Copy,
@@ -575,13 +568,11 @@ mod tests {
         type Transaction = VDemoTransaction;
         type ElectionConfigType = StaticElectionConfig;
         type StateType = VDemoState;
-        type ApplicationMetadataType = TestMetaData;
     }
 
     type TestLeaf = ValidatingLeaf<Test>;
     type TestVote = QuorumVote<Test, TestLeaf>;
-    type TestCommittee = GeneralStaticCommittee<Test, TestLeaf, Ed25519Pub>;
-    type TestProposal = ValidatingProposal<Test, TestCommittee>;
+    type TestProposal = ValidatingProposal<Test, TestLeaf>;
 
     /// fake Eq
     /// we can't compare the votetokentype for equality, so we can't

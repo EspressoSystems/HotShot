@@ -10,16 +10,14 @@ use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, Proposal, QuorumVote},
+    message::{ConsensusMessage, Proposal},
     traits::{
-        election::{Election, SignedCertificate},
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
-        state::ValidatingConsensus,
-        Block, State,
+        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
+        state::ValidatingConsensus, Block, State,
     },
+    vote::QuorumVote,
 };
-use std::{marker::PhantomData, sync::Arc, time::Instant};
+use std::{sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
 
 /// This view's validating leader
@@ -28,52 +26,38 @@ pub struct ValidatingLeader<
     A: ConsensusApi<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
     >,
     TYPES: NodeType,
-    ELECTION: Election<
-        TYPES,
-        LeafType = ValidatingLeaf<TYPES>,
-        QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-    >,
 > {
     /// id of node
     pub id: u64,
     /// Reference to consensus. Validating leader will require a read lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, ValidatingLeaf<TYPES>>>>,
     /// The `high_qc` per spec
-    pub high_qc: ELECTION::QuorumCertificate,
+    pub high_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// Lock over the transactions list
     pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
     /// Limited access to the consensus protocol
     pub api: A,
-
-    #[allow(missing_docs)]
-    #[allow(clippy::missing_docs_in_private_items)]
-    pub _pd: PhantomData<ELECTION>,
 }
 
 impl<
         A: ConsensusApi<
             TYPES,
             ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         >,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        ELECTION: Election<
-            TYPES,
-            LeafType = ValidatingLeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-        >,
-    > ValidatingLeader<A, TYPES, ELECTION>
+    > ValidatingLeader<A, TYPES>
 {
     /// Run one view of the leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Validating ValidatingLeader Task", level = "error")]
-    pub async fn run_view(self) -> ELECTION::QuorumCertificate {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
         let pk = self.api.public_key();
         error!("Validating leader task started!");
 
@@ -195,10 +179,10 @@ impl<
             let signature = self
                 .api
                 .sign_validating_or_commitment_proposal(&leaf.commit());
-            let data: ValidatingProposal<TYPES, ELECTION> = leaf.into();
+            let data: ValidatingProposal<TYPES, ValidatingLeaf<TYPES>> = leaf.into();
             let message = ConsensusMessage::<
                 TYPES,
-                ValidatingProposal<TYPES, ELECTION>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             >::Proposal(Proposal { data, signature });
             consensus

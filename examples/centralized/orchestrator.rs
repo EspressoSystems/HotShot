@@ -3,7 +3,7 @@ pub mod types;
 use clap::Parser;
 use hotshot::demos::vdemo::VDemoTypes;
 use tracing::instrument;
-use types::ThisElection;
+use types::ThisMembership;
 
 use crate::{
     infra::{run_orchestrator, CliOrchestrated},
@@ -22,5 +22,5 @@ pub mod infra;
 async fn main() {
     let args = CliOrchestrated::parse();
 
-    run_orchestrator::<VDemoTypes, ThisElection, ThisNetwork, ThisNode>(args).await;
+    run_orchestrator::<VDemoTypes, ThisMembership, ThisNetwork, ThisNode>(args).await;
 }

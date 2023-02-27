@@ -1,16 +1,12 @@
 #![allow(clippy::type_complexity)]
-mod common;
-
 use std::sync::Arc;
 
-use common::{
-    AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
-    StaticCommitteeTestTypes, StaticNodeImplType,
-};
 use either::Either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
+    test_description::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder},
+    test_types::{AppliedTestRunner, StaticCommitteeTestTypes, StaticNodeImplType},
     ConsensusRoundError, RoundResult,
 };
 use hotshot_types::data::TestableLeaf;
@@ -30,7 +26,7 @@ pub fn check_safety<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         <I as NodeImplementation<TYPES>>::Leaf,
         <I as NodeImplementation<TYPES>>::Proposal,
         <I as NodeImplementation<TYPES>>::Vote,
-        <I as NodeImplementation<TYPES>>::Election,
+        <I as NodeImplementation<TYPES>>::Membership,
     >,
     results: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
@@ -38,7 +34,7 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Election>,
+    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {

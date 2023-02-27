@@ -11,13 +11,12 @@ use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{
-        ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, QuorumVote, TimeoutVote,
-    },
+    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
     traits::{
-        election::Election, node_implementation::NodeType, signature_key::SignatureKey,
-        state::ValidatingConsensus, Block, State,
+        node_implementation::NodeType, signature_key::SignatureKey, state::ValidatingConsensus,
+        Block, State,
     },
+    vote::{QuorumVote, TimeoutVote},
 };
 use hotshot_utils::bincode::bincode_opts;
 use std::ops::Bound::{Excluded, Included};
@@ -29,15 +28,10 @@ pub struct Replica<
     A: ConsensusApi<
         TYPES,
         ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
     >,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<
-        TYPES,
-        LeafType = ValidatingLeaf<TYPES>,
-        QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-    >,
 > {
     /// id of node
     pub id: u64,
@@ -50,7 +44,7 @@ pub struct Replica<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
-                    ValidatingProposal<TYPES, ELECTION>,
+                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                     QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
                 >,
             >,
@@ -59,7 +53,7 @@ pub struct Replica<
     /// view number this view is executing in
     pub cur_view: TYPES::Time,
     /// genericQC from the pseudocode
-    pub high_qc: ELECTION::QuorumCertificate,
+    pub high_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     /// hotshot consensus api
     pub api: A,
 }
@@ -68,16 +62,11 @@ impl<
         A: ConsensusApi<
             TYPES,
             ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ELECTION>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         >,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        ELECTION: Election<
-            TYPES,
-            LeafType = ValidatingLeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-        >,
-    > Replica<A, TYPES, ELECTION>
+    > Replica<A, TYPES>
 {
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
@@ -330,7 +319,7 @@ impl<
     /// run one view of replica
     /// returns the `high_qc`
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Replica Task", level = "error")]
-    pub async fn run_view(self) -> ELECTION::QuorumCertificate {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
         info!("Replica task started!");
         let consensus = self.consensus.upgradable_read().await;
         let view_leader_key = self.api.get_leader(self.cur_view).await;

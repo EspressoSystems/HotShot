@@ -13,9 +13,9 @@ use bimap::BiHashMap;
 use bincode::Options;
 use hotshot_types::{
     data::ProposalType,
-    message::{Message, VoteType},
+    message::Message,
     traits::{
-        election::Election,
+        election::Membership,
         metrics::{Metrics, NoMetrics},
         network::{
             CommunicationChannel, ConnectedNetwork, FailedToSerializeSnafu, NetworkError,
@@ -24,6 +24,7 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
+    vote::VoteType,
 };
 use hotshot_utils::bincode::bincode_opts;
 use libp2p_networking::{
@@ -114,9 +115,9 @@ impl<
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-        ELECTION: Election<TYPES>,
-    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, ELECTION>
-    for Libp2pCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+        MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    for Libp2pCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -675,18 +676,18 @@ pub struct Libp2pCommChannel<
     TYPES: NodeType,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
-    ELECTION: Election<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
 >(
     Libp2pNetwork<Message<TYPES, PROPOSAL, VOTE>, TYPES::SignatureKey>,
-    PhantomData<ELECTION>,
+    PhantomData<MEMBERSHIP>,
 );
 
 impl<
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-        ELECTION: Election<TYPES>,
-    > Libp2pCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+        MEMBERSHIP: Membership<TYPES>,
+    > Libp2pCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// create a new libp2p communication channel
     pub fn new(
@@ -704,9 +705,9 @@ impl<
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-        ELECTION: Election<TYPES>,
-    > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
-    for Libp2pCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+        MEMBERSHIP: Membership<TYPES>,
+    > CommunicationChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    for Libp2pCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
 {
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
@@ -723,10 +724,10 @@ impl<
     async fn broadcast_message(
         &self,
         message: Message<TYPES, PROPOSAL, VOTE>,
-        election: &ELECTION,
+        membership: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
         let recipients =
-            <ELECTION as Election<TYPES>>::get_committee(election, message.get_view_number());
+            <MEMBERSHIP as Membership<TYPES>>::get_committee(membership, message.get_view_number());
         self.0.broadcast_message(message, recipients).await
     }
 

@@ -1,33 +1,32 @@
-mod common;
-
 use ark_bls12_381::Parameters as Param381;
 use async_lock::Mutex;
 use blake3::Hasher;
 use commit::Committable;
-use common::{
-    AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
-    StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType, VrfTestTypes,
-};
 use either::Right;
 use futures::{
     future::{join_all, LocalBoxFuture},
     FutureExt,
 };
-use hotshot::{
-    certificate::QuorumCertificate, demos::vdemo::random_validating_leaf,
-    traits::election::vrf::VrfImpl,
+use hotshot::{demos::vdemo::random_validating_leaf, traits::election::vrf::VrfImpl};
+use hotshot_testing::{
+    test_description::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder},
+    test_types::{
+        AppliedTestRunner, StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType,
+        VrfTestTypes,
+    },
+    ConsensusRoundError, RoundResult, SafetyFailedSnafu,
 };
-use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     event::EventType,
-    message::{ConsensusMessage, Proposal, QuorumVote},
+    message::{ConsensusMessage, Proposal},
     traits::{
-        election::{Election, SignedCertificate, TestableElection},
+        election::{Membership, SignedCertificate, TestableElection},
         node_implementation::NodeType,
         signature_key::TestableSignatureKey,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
     },
+    vote::QuorumVote,
 };
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use snafu::{ensure, OptionExt};
@@ -41,12 +40,12 @@ use tracing::{instrument, warn};
 const NUM_VIEWS: u64 = 100;
 const DEFAULT_NODE_ID: u64 = 0;
 
-type AppliedValidatingTestRunner<TYPES, ELECTION> = AppliedTestRunner<
+type AppliedValidatingTestRunner<TYPES, MEMBERSHIP> = AppliedTestRunner<
     TYPES,
     ValidatingLeaf<TYPES>,
-    ValidatingProposal<TYPES, ELECTION>,
+    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
     QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-    ELECTION,
+    MEMBERSHIP,
 >;
 
 enum QueuedMessageTense {
@@ -57,9 +56,9 @@ enum QueuedMessageTense {
 /// Returns true if `node_id` is the leader of `view_number`
 async fn is_upcoming_validating_leader<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + Debug,
+    MEMBERSHIP: Membership<TYPES> + Debug,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, ELECTION>,
+    runner: &AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
     node_id: u64,
     view_number: TYPES::Time,
 ) -> bool
@@ -76,13 +75,9 @@ where
 /// Builds and submits a random proposal for the specified view number
 async fn submit_validating_proposal<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<
-            TYPES,
-            LeafType = ValidatingLeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-        > + Debug,
+    MEMBERSHIP: Membership<TYPES> + Debug,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, ELECTION>,
+    runner: &AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
     sender_node_id: u64,
     view_number: TYPES::Time,
 ) where
@@ -110,9 +105,9 @@ async fn submit_validating_proposal<
 /// Builds and submits a random vote for the specified view number from the specified node
 async fn submit_validating_vote<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + TestableElection<TYPES> + Debug,
+    MEMBERSHIP: Membership<TYPES> + TestableElection<TYPES> + Debug,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, ELECTION>,
+    runner: &AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
     sender_node_id: u64,
     view_number: TYPES::Time,
     recipient_node_id: u64,
@@ -132,7 +127,7 @@ async fn submit_validating_vote<
         leaf.commit(),
         leaf.view_number,
         // TODO placeholder below
-        ELECTION::generate_test_vote_token(),
+        MEMBERSHIP::generate_test_vote_token(),
     );
 
     let recipient = runner
@@ -158,9 +153,9 @@ fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
 /// Checks that votes are queued correctly for views 1..NUM_VIEWS
 fn test_validating_vote_queueing_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + Debug,
+    MEMBERSHIP: Membership<TYPES> + Debug,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, ELECTION>,
+    runner: &AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
@@ -206,9 +201,9 @@ where
 /// For 1..NUM_VIEWS submit votes to each node in the network
 fn test_validating_vote_queueing_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + TestableElection<TYPES> + Debug,
+    MEMBERSHIP: Membership<TYPES> + TestableElection<TYPES> + Debug,
 >(
-    runner: &mut AppliedValidatingTestRunner<TYPES, ELECTION>,
+    runner: &mut AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -232,9 +227,9 @@ where
 /// Checks views 0..NUM_VIEWS for whether proposal messages are properly queued
 fn test_validating_proposal_queueing_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + Debug,
+    MEMBERSHIP: Membership<TYPES> + Debug,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, ELECTION>,
+    runner: &AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
@@ -282,13 +277,9 @@ where
 /// Submits proposals for 0..NUM_VIEWS rounds where `node_id` is the leader
 fn test_validating_proposal_queueing_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<
-            TYPES,
-            LeafType = ValidatingLeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-        > + Debug,
+    MEMBERSHIP: Membership<TYPES> + Debug,
 >(
-    runner: &mut AppliedValidatingTestRunner<TYPES, ELECTION>,
+    runner: &mut AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -312,13 +303,9 @@ where
 /// Submits proposals for views where `node_id` is not the leader, and submits multiple proposals for views where `node_id` is the leader
 fn test_bad_validating_proposal_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<
-            TYPES,
-            LeafType = ValidatingLeaf<TYPES>,
-            QuorumCertificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-        > + Debug,
+    MEMBERSHIP: Membership<TYPES> + Debug,
 >(
-    runner: &mut AppliedValidatingTestRunner<TYPES, ELECTION>,
+    runner: &mut AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -344,9 +331,9 @@ where
 /// Checks nodes do not queue bad proposal messages
 fn test_bad_validating_proposal_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    ELECTION: Election<TYPES, LeafType = ValidatingLeaf<TYPES>> + Debug,
+    MEMBERSHIP: Membership<TYPES> + Debug,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, ELECTION>,
+    runner: &AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
@@ -431,7 +418,7 @@ async fn test_validating_proposal_queueing() {
     test.execute().await.unwrap();
 }
 
-/// Tests that next leaders receive and queue valid VoteType<TYPES>messages properly
+/// Tests that next leaders receive and queue valid vote messages properly
 #[cfg_attr(
     feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)

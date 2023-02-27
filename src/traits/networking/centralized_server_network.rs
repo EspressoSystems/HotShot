@@ -23,9 +23,9 @@ use hotshot_centralized_server::{
 };
 use hotshot_types::{
     data::ProposalType,
-    message::{Message, VoteType},
+    message::Message,
     traits::{
-        election::{Election, ElectionConfig},
+        election::{ElectionConfig, Membership},
         metrics::{Metrics, NoMetrics},
         network::{
             CentralizedServerNetworkError, CommunicationChannel, ConnectedNetwork,
@@ -35,6 +35,7 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
     },
+    vote::VoteType,
 };
 use hotshot_utils::bincode::bincode_opts;
 use serde::{de::DeserializeOwned, Serialize};
@@ -1078,18 +1079,18 @@ pub struct CentralizedCommChannel<
     TYPES: NodeType,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
-    ELECTION: Election<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
 >(
     CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    PhantomData<(PROPOSAL, VOTE, ELECTION)>,
+    PhantomData<(PROPOSAL, VOTE, MEMBERSHIP)>,
 );
 
 impl<
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-        ELECTION: Election<TYPES>,
-    > CentralizedCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+        MEMBERSHIP: Membership<TYPES>,
+    > CentralizedCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// create new communication channel
     pub fn new(
@@ -1114,9 +1115,9 @@ impl<
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-        ELECTION: Election<TYPES>,
-    > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
-    for CentralizedCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+        MEMBERSHIP: Membership<TYPES>,
+    > CommunicationChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    for CentralizedCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
 {
     async fn wait_for_ready(&self) {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
@@ -1148,10 +1149,10 @@ impl<
     async fn broadcast_message(
         &self,
         message: Message<TYPES, PROPOSAL, VOTE>,
-        election: &ELECTION,
+        membership: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
         let view_number = message.get_view_number();
-        let recipients = <ELECTION as Election<TYPES>>::get_committee(election, view_number);
+        let recipients = <MEMBERSHIP as Membership<TYPES>>::get_committee(membership, view_number);
         self.0.broadcast_message(message, recipients).await
     }
 
@@ -1189,9 +1190,9 @@ impl<
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-        ELECTION: Election<TYPES>,
-    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, ELECTION>
-    for CentralizedCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+        MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    for CentralizedCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {

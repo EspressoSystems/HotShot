@@ -1,6 +1,4 @@
-mod common;
 use ark_bls12_381::Parameters as Param381;
-use common::*;
 use either::Either::Right;
 use hotshot::{
     demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
@@ -12,11 +10,11 @@ use hotshot::{
         implementations::{MemoryCommChannel, MemoryStorage},
     },
 };
-use hotshot_testing::TestNodeImpl;
+use hotshot_testing::{test_description::GeneralTestDescriptionBuilder, TestNodeImpl};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
-    message::QuorumVote,
     traits::{node_implementation::NodeType, state::ValidatingConsensus},
+    vote::QuorumVote,
 };
 use jf_primitives::signatures::BLSSignatureScheme;
 use tracing::instrument;
@@ -44,7 +42,6 @@ impl NodeType for SequencingTestTypes {
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = SDemoState;
-    type ApplicationMetadataType = StaticCommitteeMetaData;
 }
 
 // stress test for libp2p
@@ -73,17 +70,11 @@ async fn sequencing_test() {
         .build::<SequencingTestTypes, TestNodeImpl<
             SequencingTestTypes,
             ValidatingLeaf<SequencingTestTypes>,
-            ValidatingProposal<
-                SequencingTestTypes,
-                StaticCommittee<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
-            >,
+            ValidatingProposal<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
             QuorumVote<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
             MemoryCommChannel<
                 SequencingTestTypes,
-                ValidatingProposal<
-                    SequencingTestTypes,
-                    StaticCommittee<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
-                >,
+                ValidatingProposal<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
                 QuorumVote<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
                 StaticCommittee<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
             >,

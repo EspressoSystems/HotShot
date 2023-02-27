@@ -4,7 +4,7 @@ use tracing::instrument;
 
 pub mod types;
 
-use types::ThisElection;
+use types::ThisMembership;
 
 #[path = "../infra/mod.rs"]
 pub mod infra;
@@ -25,5 +25,5 @@ use crate::types::ThisNode;
 async fn main() {
     let args = CliOrchestrated::parse();
 
-    main_entry_point::<VDemoTypes, ThisElection, ThisNetwork, ThisNode, ThisConfig>(args).await;
+    main_entry_point::<VDemoTypes, ThisMembership, ThisNetwork, ThisNode, ThisConfig>(args).await;
 }

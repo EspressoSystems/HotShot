@@ -1,6 +1,6 @@
 use std::{
     cmp,
-    collections::VecDeque,
+    collections::{BTreeSet, VecDeque},
     fs, mem,
     net::{IpAddr, SocketAddr},
     num::NonZeroUsize,
@@ -35,14 +35,14 @@ use hotshot_centralized_server::{
 };
 use hotshot_types::{
     data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
-    message::QuorumVote,
     traits::{
-        election::Election,
+        election::Membership,
         metrics::NoMetrics,
         network::CommunicationChannel,
         node_implementation::NodeType,
         state::{TestableBlock, TestableState},
     },
+    vote::QuorumVote,
     HotShotConfig,
 };
 use libp2p::{
@@ -55,7 +55,6 @@ use libp2p::{
 };
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 #[allow(deprecated)]
-use nll::nll_todo::nll_todo;
 use tracing::{debug, error};
 
 /// yeesh maybe we should just implement SignatureKey for this...
@@ -123,32 +122,32 @@ pub struct CliOrchestrated {
 #[async_trait]
 impl<
         TYPES: NodeType,
-        ELECTION: Election<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
         NODE: NodeImplementation<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
-            Proposal = ValidatingProposal<TYPES, ELECTION>,
-            Election = ELECTION,
+            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            Membership = MEMBERSHIP,
             Networking = Libp2pCommChannel<
                 TYPES,
-                ValidatingProposal<TYPES, ELECTION>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-                ELECTION,
+                MEMBERSHIP,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
         >,
     >
     CliConfig<
         TYPES,
-        ELECTION,
+        MEMBERSHIP,
         Libp2pCommChannel<
             TYPES,
-            ValidatingProposal<TYPES, ELECTION>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-            ELECTION,
+            MEMBERSHIP,
         >,
         NODE,
-    > for Libp2pClientConfig<TYPES, ELECTION>
+    > for Libp2pClientConfig<TYPES, MEMBERSHIP>
 where
     <TYPES as NodeType>::StateType: TestableState,
     <TYPES as NodeType>::BlockType: TestableBlock,
@@ -263,17 +262,28 @@ where
             )),
             bs_len,
             config.node_index as usize,
-            // FIXME unsure what to do here.
-            #[allow(deprecated)]
-            nll_todo(),
+            // NOTE: this introduces an invariant that the keys are assigned using this indexed
+            // function
+            {
+                let mut keys = BTreeSet::new();
+                for i in 0..config.config.total_nodes.get() {
+                    let pk = <TYPES::SignatureKey as SignatureKey>::generated_from_seed_indexed(
+                        config.seed,
+                        i as u64,
+                    )
+                    .0;
+                    keys.insert(pk);
+                }
+                keys
+            },
         )
         .await
         .map(
             Libp2pCommChannel::<
                 TYPES,
-                ValidatingProposal<TYPES, ELECTION>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-                ELECTION,
+                MEMBERSHIP,
             >::new,
         )
         .unwrap();
@@ -305,9 +315,9 @@ where
         &self,
     ) -> Libp2pCommChannel<
         TYPES,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
+        MEMBERSHIP,
     > {
         self.network.clone()
     }
@@ -316,33 +326,33 @@ where
 #[async_trait]
 impl<
         TYPES: NodeType,
-        ELECTION: Election<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
         NODE: NodeImplementation<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
-            Proposal = ValidatingProposal<TYPES, ELECTION>,
+            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             Vote = QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-            Election = ELECTION,
+            Membership = MEMBERSHIP,
             Networking = CentralizedCommChannel<
                 TYPES,
-                ValidatingProposal<TYPES, ELECTION>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-                ELECTION,
+                MEMBERSHIP,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
         >,
     >
     CliConfig<
         TYPES,
-        ELECTION,
+        MEMBERSHIP,
         CentralizedCommChannel<
             TYPES,
-            ValidatingProposal<TYPES, ELECTION>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-            ELECTION,
+            MEMBERSHIP,
         >,
         NODE,
-    > for CentralizedConfig<TYPES, ELECTION>
+    > for CentralizedConfig<TYPES, MEMBERSHIP>
 where
     <TYPES as NodeType>::StateType: TestableState,
     <TYPES as NodeType>::BlockType: TestableBlock,
@@ -389,15 +399,17 @@ where
         &self,
     ) -> CentralizedCommChannel<
         TYPES,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
+        MEMBERSHIP,
     > {
         self.network.clone()
     }
 }
 
-pub struct Libp2pClientConfig<TYPES: NodeType, ELECTION: Election<TYPES>> {
+type Proposal<T> = ValidatingProposal<T, ValidatingLeaf<T>>;
+
+pub struct Libp2pClientConfig<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
     _bootstrap_nodes: Vec<(PeerId, Multiaddr)>,
     _node_type: NetworkNodeType,
     _bound_addr: Multiaddr,
@@ -407,9 +419,9 @@ pub struct Libp2pClientConfig<TYPES: NodeType, ELECTION: Election<TYPES>> {
     _socket: TcpStreamUtil,
     network: Libp2pCommChannel<
         TYPES,
-        ValidatingProposal<TYPES, ELECTION>,
+        Proposal<TYPES>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
+        MEMBERSHIP,
     >,
     //TODO do we need this? I don't think so
     _run: Run,
@@ -417,18 +429,18 @@ pub struct Libp2pClientConfig<TYPES: NodeType, ELECTION: Election<TYPES>> {
         NetworkConfig<<TYPES as NodeType>::SignatureKey, <TYPES as NodeType>::ElectionConfigType>,
 }
 
-pub enum Config<TYPES: NodeType, ELECTION: Election<TYPES>> {
-    Libp2pConfig(Libp2pClientConfig<TYPES, ELECTION>),
-    CentralizedConfig(CentralizedConfig<TYPES, ELECTION>),
+pub enum Config<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
+    Libp2pConfig(Libp2pClientConfig<TYPES, MEMBERSHIP>),
+    CentralizedConfig(CentralizedConfig<TYPES, MEMBERSHIP>),
 }
 
-pub struct CentralizedConfig<TYPES: NodeType, ELECTION: Election<TYPES>> {
+pub struct CentralizedConfig<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     network: CentralizedCommChannel<
         TYPES,
-        ValidatingProposal<TYPES, ELECTION>,
+        Proposal<TYPES>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
+        MEMBERSHIP,
     >,
     _run: Run,
 }
@@ -436,18 +448,18 @@ pub struct CentralizedConfig<TYPES: NodeType, ELECTION: Election<TYPES>> {
 #[async_trait]
 pub trait CliConfig<
     TYPES: NodeType,
-    ELECTION: Election<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
+        MEMBERSHIP,
     >,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        Proposal = ValidatingProposal<TYPES, ELECTION>,
-        Election = ELECTION,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        Membership = MEMBERSHIP,
         Networking = NETWORK,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
     >,
@@ -490,7 +502,7 @@ pub trait CliConfig<
             config.config,
             network,
             MemoryStorage::new(),
-            ELECTION::create_election(known_nodes, election_config),
+            MEMBERSHIP::create_election(known_nodes, election_config),
             initializer,
             NoMetrics::new(),
         )
@@ -622,22 +634,22 @@ pub trait CliConfig<
 
 pub async fn main_entry_point<
     TYPES: NodeType,
-    ELECTION: Election<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
+        MEMBERSHIP,
     >,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        Proposal = ValidatingProposal<TYPES, ELECTION>,
-        Election = ELECTION,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        Membership = MEMBERSHIP,
         Networking = NETWORK,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
     >,
-    CONFIG: CliConfig<TYPES, ELECTION, NETWORK, NODE>,
+    CONFIG: CliConfig<TYPES, MEMBERSHIP, NETWORK, NODE>,
 >(
     args: CliOrchestrated,
 ) where
@@ -661,25 +673,25 @@ pub async fn main_entry_point<
 
 pub async fn run_orchestrator<
     TYPES: NodeType,
-    ELECTION: Election<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
+        MEMBERSHIP,
     >,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        Proposal = ValidatingProposal<TYPES, ELECTION>,
-        Election = ELECTION,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        Membership = MEMBERSHIP,
         Networking = NETWORK,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
     >,
 >(
     CliOrchestrated { host, port }: CliOrchestrated,
 ) {
-    let configs = load_configs::<TYPES, ELECTION, NETWORK, NODE>()
+    let configs = load_configs::<TYPES, MEMBERSHIP, NETWORK, NODE>()
         .await
         .expect("Could not load configs");
 
@@ -692,18 +704,18 @@ pub async fn run_orchestrator<
 
 pub async fn load_configs<
     TYPES: NodeType,
-    ELECTION: Election<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
-        ValidatingProposal<TYPES, ELECTION>,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        ELECTION,
+        MEMBERSHIP,
     >,
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        Proposal = ValidatingProposal<TYPES, ELECTION>,
-        Election = ELECTION,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        Membership = MEMBERSHIP,
         Networking = NETWORK,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
     >,

@@ -5,11 +5,12 @@ use blake3::Hasher;
 use commit::{Commitment, Committable, RawCommitmentBuilder};
 use derivative::Derivative;
 use espresso_systems_common::hotshot::tag;
-use hotshot_types::certificate::DACertificate;
 use hotshot_types::{
     data::LeafType,
     traits::{
-        election::{Checked, Election, ElectionConfig, ElectionError, TestableElection, VoteToken},
+        election::{
+            Checked, ElectionConfig, ElectionError, Membership, TestableElection, VoteToken,
+        },
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey},
     },
@@ -420,8 +421,8 @@ where
 }
 
 // KEY is VRFPubKey
-impl<VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, TYPES, LEAF: LeafType<NodeType = TYPES>> Election<TYPES>
-    for VrfImpl<TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
+impl<VRFHASHER, VRFPARAMS, VRF, SIGSCHEME, TYPES, LEAF: LeafType<NodeType = TYPES>>
+    Membership<TYPES> for VrfImpl<TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
     SIGSCHEME: SignatureScheme<PublicParameter = (), MessageUnit = u8> + Sync + Send + 'static,
     SIGSCHEME::VerificationKey: Clone + Serialize + for<'a> Deserialize<'a> + Sync + Send,
@@ -451,12 +452,6 @@ where
 {
     // pubkey -> unit of stake
     type StakeTable = VRFStakeTable<VRF, VRFHASHER, VRFPARAMS>;
-
-    type QuorumCertificate = LEAF::QuorumCertificate;
-
-    type DACertificate = DACertificate<TYPES>;
-
-    type LeafType = LEAF;
 
     // FIXED STAKE
     // just return the state
@@ -1088,7 +1083,6 @@ impl ElectionConfig for VRFStakeTableConfig {}
 //         data::ViewNumber,
 //         traits::{
 //             block_contents::dummy::{DummyBlock, DummyTransaction},
-//             node_implementation::ApplicationMetadata,
 //             state::{dummy::DummyState, ValidatingConsensus},
 //         },
 //     };
@@ -1100,12 +1094,6 @@ impl ElectionConfig for VRFStakeTableConfig {}
 //         vrf::blsvrf::BLSVRFScheme,
 //     };
 //     use std::{num::NonZeroUsize, time::Duration};
-
-//     /// application metadata stub
-//     #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-//     pub struct TestMetaData {}
-
-//     impl ApplicationMetadata for TestMetaData {}
 
 //     #[derive(
 //         Copy,
@@ -1134,7 +1122,6 @@ impl ElectionConfig for VRFStakeTableConfig {}
 //         type Transaction = DummyTransaction;
 //         type ElectionConfigType = VRFStakeTableConfig;
 //         type StateType = DummyState;
-//         type ApplicationMetadataType = TestMetaData;
 //     }
 
 //     fn gen_vrf_impl<LEAF: LeafType<NodeType = TestTypes>>(

@@ -106,7 +106,7 @@ impl<TYPES: NodeType> TaskHandle<TYPES> {
 /// Inner struct of the [`TaskHandle`]
 struct TaskHandleInner {
     /// for the client to indicate "increment a view"
-    /// only Some in Continuous exeuction mode
+    /// only Some in Incremental exeuction mode
     /// otherwise None
     pub run_view_channels: Option<UnboundedSender<()>>,
 

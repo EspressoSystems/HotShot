@@ -1,18 +1,19 @@
-mod common;
-
 use ark_bls12_381::Parameters as Param381;
 use async_compatibility_layer::logging::shutdown_logging;
 use blake3::Hasher;
-use common::*;
 use either::Either::Right;
 use hotshot::traits::{
     election::{static_committee::StaticCommittee, vrf::VrfImpl},
     implementations::{CentralizedCommChannel, MemoryStorage},
 };
-use hotshot_testing::TestNodeImpl;
+use hotshot_testing::{
+    test_description::GeneralTestDescriptionBuilder,
+    test_types::{StaticCommitteeTestTypes, VrfTestTypes},
+    TestNodeImpl,
+};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
-    message::QuorumVote,
+    vote::QuorumVote,
 };
 // use hotshot_utils::test_util::shutdown_logging;
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
@@ -43,31 +44,11 @@ async fn centralized_server_network_vrf() {
         .build::<VrfTestTypes, TestNodeImpl<
             VrfTestTypes,
             ValidatingLeaf<VrfTestTypes>,
-            ValidatingProposal<
-                VrfTestTypes,
-                VrfImpl<
-                    VrfTestTypes,
-                    ValidatingLeaf<VrfTestTypes>,
-                    BLSSignatureScheme<Param381>,
-                    BLSVRFScheme<Param381>,
-                    Hasher,
-                    Param381,
-                >,
-            >,
+            ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
             QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
             CentralizedCommChannel<
                 VrfTestTypes,
-                ValidatingProposal<
-                    VrfTestTypes,
-                    VrfImpl<
-                        VrfTestTypes,
-                        ValidatingLeaf<VrfTestTypes>,
-                        BLSSignatureScheme<Param381>,
-                        BLSVRFScheme<Param381>,
-                        Hasher,
-                        Param381,
-                    >,
-                >,
+                ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
                 QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
                 VrfImpl<
                     VrfTestTypes,
@@ -119,19 +100,13 @@ async fn centralized_server_network() {
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
             StaticCommitteeTestTypes,
             ValidatingLeaf<StaticCommitteeTestTypes>,
-            ValidatingProposal<
-                StaticCommitteeTestTypes,
-                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-            >,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             CentralizedCommChannel<
                 StaticCommitteeTestTypes,
                 ValidatingProposal<
                     StaticCommitteeTestTypes,
-                    StaticCommittee<
-                        StaticCommitteeTestTypes,
-                        ValidatingLeaf<StaticCommitteeTestTypes>,
-                    >,
+                    ValidatingLeaf<StaticCommitteeTestTypes>,
                 >,
                 QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -172,19 +147,13 @@ async fn test_stress_centralized_server_network() {
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
             StaticCommitteeTestTypes,
             ValidatingLeaf<StaticCommitteeTestTypes>,
-            ValidatingProposal<
-                StaticCommitteeTestTypes,
-                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-            >,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             CentralizedCommChannel<
                 StaticCommitteeTestTypes,
                 ValidatingProposal<
                     StaticCommitteeTestTypes,
-                    StaticCommittee<
-                        StaticCommitteeTestTypes,
-                        ValidatingLeaf<StaticCommitteeTestTypes>,
-                    >,
+                    ValidatingLeaf<StaticCommitteeTestTypes>,
                 >,
                 QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

@@ -4,7 +4,7 @@ use tracing::instrument;
 
 use crate::{
     infra::{main_entry_point, CliOrchestrated},
-    types::{ThisConfig, ThisElection, ThisNetwork, ThisNode},
+    types::{ThisConfig, ThisMembership, ThisNetwork, ThisNode},
 };
 
 pub mod types;
@@ -21,5 +21,5 @@ pub mod infra;
 async fn main() {
     let args = CliOrchestrated::parse();
 
-    main_entry_point::<VDemoTypes, ThisElection, ThisNetwork, ThisNode, ThisConfig>(args).await;
+    main_entry_point::<VDemoTypes, ThisMembership, ThisNetwork, ThisNode, ThisConfig>(args).await;
 }
