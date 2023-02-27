@@ -2637,7 +2637,7 @@ dependencies = [
  "jf-primitives",
  "libp2p",
  "libp2p-networking",
- "libp2p-swarm-derive",
+ "libp2p-swarm-derive 0.32.0",
  "nll",
  "num",
  "rand 0.8.5",
@@ -3636,7 +3636,7 @@ dependencies = [
  "futures",
  "hotshot-utils",
  "libp2p",
- "libp2p-swarm-derive",
+ "libp2p-swarm-derive 0.32.0",
  "netlink-packet-core 0.4.2 (git+https://github.com/espressosystems/netlink.git)",
  "netlink-packet-generic",
  "netlink-packet-route 0.11.0",
@@ -3829,7 +3829,7 @@ dependencies = [
  "futures-timer",
  "instant",
  "libp2p-core 0.38.0",
- "libp2p-swarm-derive",
+ "libp2p-swarm-derive 0.31.0",
  "log",
  "pin-project",
  "rand 0.8.5",
@@ -3844,6 +3844,17 @@ name = "libp2p-swarm-derive"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d527d5827582abd44a6d80c07ff8b50b4ee238a8979e05998474179e79dc400"
+dependencies = [
+ "heck 0.4.0",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "libp2p-swarm-derive"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fba456131824ab6acd4c7bf61e9c0f0a3014b5fc9868ccb8e10d344594cdc4f"
 dependencies = [
  "heck 0.4.0",
  "quote",
