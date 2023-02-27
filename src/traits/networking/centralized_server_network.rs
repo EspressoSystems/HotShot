@@ -992,8 +992,8 @@ impl From<hotshot_centralized_server::Error> for Error {
 }
 
 #[async_trait]
-impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> ConnectedNetwork<M, K>
-    for CentralizedServerNetwork<K, E>
+impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static>
+    ConnectedNetwork<M, M, K> for CentralizedServerNetwork<K, E>
 {
     #[instrument(name = "CentralizedServer::ready_blocking", skip_all)]
     async fn wait_for_ready(&self) {
@@ -1066,6 +1066,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static> Conn
         // we are centralized. Should we do anything here?
         Ok(())
     }
+
+    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+        // Not required
+        Ok(())
+    }
 }
 
 /// libp2p identity communication channel
@@ -1117,6 +1122,7 @@ impl<
     async fn wait_for_ready(&self) {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
             Message<TYPES, PROPOSAL, VOTE>,
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
         .await;
@@ -1125,6 +1131,7 @@ impl<
     async fn is_ready(&self) -> bool {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
             Message<TYPES, PROPOSAL, VOTE>,
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -1132,6 +1139,7 @@ impl<
 
     async fn shut_down(&self) -> () {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
+            Message<TYPES, PROPOSAL, VOTE>,
             Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
@@ -1166,9 +1174,15 @@ impl<
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
             Message<TYPES, PROPOSAL, VOTE>,
+            Message<TYPES, PROPOSAL, VOTE>,
             TYPES::SignatureKey,
         >>::lookup_node(&self.0, pk)
         .await
+    }
+
+    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+        // Not required
+        Ok(())
     }
 }
 

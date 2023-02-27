@@ -1,0 +1,60 @@
+[meta]
+NAME = "hotshot_centralized_web_server"
+DESCRIPTION = "Centralized web server for HotShot"
+FORMAT_VERSION = "0.1.0"
+
+# GET the proposal for a view, where the view is passed as an argument
+[route.getproposal]
+PATH = ["proposal/:view_number"]
+":view_number" = "Integer"
+DOC = """
+Return the proposal for a given view number
+"""
+
+# POST a proposal, where the view is passed as an argument
+[route.postproposal]
+PATH = ["proposal/:view_number"]
+METHOD = "POST"
+":view_number" = "Integer"
+DOC = """
+Post the proposal for a given view_number
+"""
+
+# GET all the votes from a given index for a given view number
+[route.getvotes]
+PATH = ["votes/:view_number/:index"]
+":view_number" = "Integer"
+":index" = "Integer"
+METHOD = "GET"
+DOC = """
+Get all votes for a view number
+"""
+
+# POST a vote, where the view number is passed as an argument
+[route.postvote]
+PATH = ["votes/:view_number"]
+":view_number" = "Integer"
+METHOD = "POST"
+DOC = """
+Send a vote
+"""
+
+# GET all transactions starting at :index
+[route.gettransactions]
+PATH = ["transactions/:index"]
+":index" = "Integer"
+METHOD = "GET"
+DOC = """
+Get all transactions since given index
+"""
+
+
+# POST a transaction
+[route.posttransaction]
+PATH = ["transactions"]
+METHOD = "POST"
+DOC = """
+Post a transaction to the web server
+"""
+
+

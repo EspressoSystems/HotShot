@@ -49,6 +49,16 @@ pub enum CentralizedServerNetworkError {
     NoMessagesInQueue,
 }
 
+/// Centralized web server specific errors
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
+pub enum CentralizedWebServerNetworkError {
+    /// The injected consensus data is incorrect
+    IncorrectConsensusData,
+    /// The client returned an error
+    ClientError,
+}
+
 /// the type of transmission
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum TransmitType {
@@ -76,6 +86,12 @@ pub enum NetworkError {
     CentralizedServer {
         /// source of error
         source: CentralizedServerNetworkError,
+    },
+
+    /// Centralized web server specific errors
+    CentralizedWebServer {
+        /// source of error
+        source: CentralizedWebServerNetworkError,
     },
     /// unimplemented functionality
     UnimplementedFeature,
@@ -158,9 +174,13 @@ pub trait CommunicationChannel<
     /// look up a node
     /// blocking
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError>;
+
+    /// Injects consensus data such as view number into the networking implementation
+    /// blocking
+    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError>;
 }
 
-/// common traits we would like olur network messages to implement
+/// common traits we would like our network messages to implement
 pub trait NetworkMsg:
     Serialize + for<'a> Deserialize<'a> + Clone + std::fmt::Debug + Sync + Send + 'static
 {
@@ -171,7 +191,7 @@ pub trait NetworkMsg:
 /// intended to be implemented for libp2p, the centralized server,
 /// and memory network
 #[async_trait]
-pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
+pub trait ConnectedNetwork<RECVMSG: NetworkMsg, SENDMSG: NetworkMsg, K: SignatureKey + 'static>:
     Clone + Send + Sync + 'static
 {
     /// Blocks until the network is successfully initialized
@@ -189,23 +209,28 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     /// blocking
     async fn broadcast_message(
         &self,
-        message: M,
+        message: SENDMSG,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError>;
+    async fn direct_message(&self, message: SENDMSG, recipient: K) -> Result<(), NetworkError>;
 
     /// Moves out the entire queue of received messages of 'transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError>;
+    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<RECVMSG>, NetworkError>;
 
     /// look up a node
     /// blocking
     async fn lookup_node(&self, pk: K) -> Result<(), NetworkError>;
+
+    /// Injects consensus data such as view number into the networking implementation
+    /// blocking
+    /// Ideally we would pass in the `Time` type, but that requires making the entire trait generic over NodeType
+    async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError>;
 }
 
 /// Describes additional functionality needed by the test network implementation
