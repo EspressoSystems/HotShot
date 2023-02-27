@@ -3751,7 +3751,7 @@ dependencies = [
  "lazy_static",
  "log",
  "multiaddr 0.14.0",
- "multihash",
+ "multihash 0.16.3",
  "multistream-select",
  "parking_lot 0.12.1",
  "pin-project",
@@ -4684,7 +4684,7 @@ dependencies = [
  "bs58",
  "byteorder",
  "data-encoding",
- "multihash",
+ "multihash 0.16.3",
  "percent-encoding",
  "serde",
  "static_assertions",
@@ -6710,7 +6710,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with_macros 2.2.0",
- "time 0.3.19",
+ "time 0.3.20",
 ]
 
 [[package]]

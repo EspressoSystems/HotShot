@@ -21,7 +21,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
     data::ProposalType,
-    message::{Message},
+    message::Message,
     traits::{
         election::{ElectionConfig, Membership},
         network::{
@@ -305,7 +305,7 @@ impl<
                     let deserialized_message = bincode::deserialize(message);
                     if let Err(e) = deserialized_message {
                         return Err(NetworkError::FailedToDeserialize { source: e });
-                      }
+                    }
                     deserialized_messages.push(deserialized_message.unwrap());
                 }
                 Ok(Some(deserialized_messages))
