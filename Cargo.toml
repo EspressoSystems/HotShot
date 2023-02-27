@@ -173,7 +173,7 @@ serde = { version = "1.0.152", features = ["derive", "rc"] }
 snafu = "0.7.4"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", branch = "main" }
 tempfile = "3.4.0"
-time = "0.3.19"
+time = "0.3.20"
 toml = { version = "0.7.2", optional = true }
 tokio = { version = "1", optional = true, features = [
         "fs",
