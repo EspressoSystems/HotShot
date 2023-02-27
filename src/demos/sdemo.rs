@@ -12,11 +12,7 @@ use hotshot_types::{
     data::{fake_commitment, ViewNumber},
     traits::{
         block_contents::Transaction,
-<<<<<<< HEAD
-        state::{ConsensusTime, SequencingConsensus, TestableBlock, TestableState},
-=======
         state::{ConsensusTime, TestableBlock, TestableState},
->>>>>>> main
         Block, State,
     },
 };
