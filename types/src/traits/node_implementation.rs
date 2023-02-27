@@ -115,7 +115,6 @@ pub trait NodeType:
     type StateType: State<
         BlockType = Self::BlockType,
         Time = Self::Time,
-        ConsensusType = Self::ConsensusType,
     >;
 }
 

@@ -12,7 +12,7 @@ use hotshot_types::{
     data::{fake_commitment, ViewNumber},
     traits::{
         block_contents::Transaction,
-        state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
+        state::{ConsensusTime, TestableBlock, TestableState},
         Block, State,
     },
 };
@@ -211,8 +211,6 @@ impl State for SDemoState {
     type BlockType = SDemoBlock;
 
     type Time = ViewNumber;
-
-    type ConsensusType = ValidatingConsensus;
 
     fn next_block(&self) -> Self::BlockType {
         SDemoBlock::Normal(SDemoNormalBlock {

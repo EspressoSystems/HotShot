@@ -230,8 +230,6 @@ impl State for VDemoState {
 
     type Time = ViewNumber;
 
-    type ConsensusType = ValidatingConsensus;
-
     fn next_block(&self) -> Self::BlockType {
         VDemoBlock::Normal(VDemoNormalBlock {
             previous_state: self.commit(),
