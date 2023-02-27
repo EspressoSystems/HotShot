@@ -2,7 +2,7 @@
 
 use futures::channel::oneshot::Canceled;
 use libp2p::{
-    gossipsub::error::PublishError,
+    gossipsub::PublishError,
     kad::{GetRecordError, PutRecordError},
     swarm::DialError,
     TransportError,

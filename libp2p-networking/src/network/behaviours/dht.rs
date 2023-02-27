@@ -8,11 +8,11 @@ use std::{
 use futures::channel::oneshot::Sender;
 use libp2p::{
     kad::{
-        store::MemoryStore, BootstrapError, BootstrapOk, GetClosestPeersOk, GetRecordOk,
-        GetRecordResult, Kademlia, KademliaEvent, ProgressStep, PutRecordResult, QueryId,
-        QueryResult, Quorum, Record,
+        handler::KademliaHandlerIn, store::MemoryStore, BootstrapError, BootstrapOk,
+        GetClosestPeersOk, GetRecordOk, GetRecordResult, Kademlia, KademliaEvent, ProgressStep,
+        PutRecordResult, QueryId, QueryResult, Quorum, Record,
     },
-    swarm::{NetworkBehaviour, NetworkBehaviourAction},
+    swarm::{NetworkBehaviour, NetworkBehaviourAction, THandlerOutEvent},
     Multiaddr, PeerId,
 };
 use tracing::{error, info, warn};
@@ -508,17 +508,15 @@ impl NetworkBehaviour for DHTBehaviour {
 
     type OutEvent = DHTEvent;
 
-    fn new_handler(&mut self) -> Self::ConnectionHandler {
-        self.kadem.new_handler()
-    }
+    // fn new_handler(&mut self) -> Self::ConnectionHandler {
+    //     self.kadem.new_handler()
+    // }
 
     fn poll(
         &mut self,
         cx: &mut std::task::Context<'_>,
         params: &mut impl libp2p::swarm::PollParameters,
-    ) -> std::task::Poll<
-        libp2p::swarm::NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>,
-    > {
+    ) -> Poll<NetworkBehaviourAction<DHTEvent, KademliaHandlerIn<QueryId>>> {
         if matches!(self.bootstrap_state.state, State::NotStarted)
             && self.bootstrap_state.backoff.is_expired()
             && self.begin_bootstrap
@@ -578,8 +576,8 @@ impl NetworkBehaviour for DHTBehaviour {
                 NetworkBehaviourAction::GenerateEvent(e) => {
                     self.dht_handle_event(e);
                 }
-                NetworkBehaviourAction::Dial { opts, handler } => {
-                    return Poll::Ready(NetworkBehaviourAction::Dial { opts, handler });
+                NetworkBehaviourAction::Dial { opts } => {
+                    return Poll::Ready(NetworkBehaviourAction::Dial { opts });
                 }
                 NetworkBehaviourAction::NotifyHandler {
                     peer_id,
@@ -617,10 +615,6 @@ impl NetworkBehaviour for DHTBehaviour {
         Poll::Pending
     }
 
-    fn addresses_of_peer(&mut self, pid: &PeerId) -> Vec<libp2p::Multiaddr> {
-        self.kadem.addresses_of_peer(pid)
-    }
-
     fn on_swarm_event(
         &mut self,
         event: libp2p::swarm::derive_prelude::FromSwarm<'_, Self::ConnectionHandler>,
@@ -632,9 +626,64 @@ impl NetworkBehaviour for DHTBehaviour {
         &mut self,
         peer_id: PeerId,
         connection_id: libp2p::swarm::derive_prelude::ConnectionId,
-        event: <<Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler as libp2p::swarm::ConnectionHandler>::OutEvent,
+        event: THandlerOutEvent<Self>,
     ) {
         self.kadem
             .on_connection_handler_event(peer_id, connection_id, event);
+    }
+
+    fn new_handler(&mut self) -> Self::ConnectionHandler {
+        panic!("You must implement `handle_established_inbound_connection` and `handle_established_outbound_connection`.")
+    }
+
+    fn handle_pending_inbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        local_addr: &Multiaddr,
+        remote_addr: &Multiaddr,
+    ) -> Result<(), libp2p::swarm::ConnectionDenied> {
+        self.kadem
+            .handle_pending_inbound_connection(connection_id, local_addr, remote_addr)
+    }
+
+    fn handle_established_inbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        peer: PeerId,
+        local_addr: &Multiaddr,
+        remote_addr: &Multiaddr,
+    ) -> Result<libp2p::swarm::THandler<Self>, libp2p::swarm::ConnectionDenied> {
+        self.kadem.handle_established_inbound_connection(
+            connection_id,
+            peer,
+            local_addr,
+            remote_addr,
+        )
+    }
+
+    fn handle_pending_outbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        maybe_peer: Option<PeerId>,
+        addresses: &[Multiaddr],
+        effective_role: libp2p::core::Endpoint,
+    ) -> Result<Vec<Multiaddr>, libp2p::swarm::ConnectionDenied> {
+        self.kadem.handle_pending_outbound_connection(
+            connection_id,
+            maybe_peer,
+            addresses,
+            effective_role,
+        )
+    }
+
+    fn handle_established_outbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        peer: PeerId,
+        addr: &Multiaddr,
+        role_override: libp2p::core::Endpoint,
+    ) -> Result<libp2p::swarm::THandler<Self>, libp2p::swarm::ConnectionDenied> {
+        self.kadem
+            .handle_established_outbound_connection(connection_id, peer, addr, role_override)
     }
 }
