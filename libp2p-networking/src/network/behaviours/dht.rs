@@ -632,10 +632,6 @@ impl NetworkBehaviour for DHTBehaviour {
             .on_connection_handler_event(peer_id, connection_id, event);
     }
 
-    fn new_handler(&mut self) -> Self::ConnectionHandler {
-        panic!("You must implement `handle_established_inbound_connection` and `handle_established_outbound_connection`.")
-    }
-
     fn handle_pending_inbound_connection(
         &mut self,
         connection_id: libp2p::swarm::ConnectionId,

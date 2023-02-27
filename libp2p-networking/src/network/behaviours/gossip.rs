@@ -8,7 +8,7 @@ use libp2p::{
     swarm::{
         NetworkBehaviour, NetworkBehaviourAction, PollParameters, THandlerInEvent, THandlerOutEvent,
     },
-    PeerId,
+    Multiaddr, PeerId,
 };
 
 use tracing::{error, info, warn};
@@ -71,16 +71,6 @@ impl NetworkBehaviour for GossipBehaviour {
         self.gossipsub.on_swarm_event(event);
     }
 
-    fn on_connection_handler_event(
-        &mut self,
-        peer_id: PeerId,
-        connection_id: libp2p::swarm::derive_prelude::ConnectionId,
-        event: THandlerOutEvent<Self>,
-    ) {
-        self.gossipsub
-            .on_connection_handler_event(peer_id, connection_id, event);
-    }
-
     fn poll(
         &mut self,
         cx: &mut std::task::Context<'_>,
@@ -134,6 +124,71 @@ impl NetworkBehaviour for GossipBehaviour {
             ));
         }
         Poll::Pending
+    }
+
+    fn on_connection_handler_event(
+        &mut self,
+        peer_id: PeerId,
+        connection_id: libp2p::swarm::derive_prelude::ConnectionId,
+        event: THandlerOutEvent<Self>,
+    ) {
+        self.gossipsub
+            .on_connection_handler_event(peer_id, connection_id, event);
+    }
+
+    fn handle_pending_inbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        local_addr: &Multiaddr,
+        remote_addr: &Multiaddr,
+    ) -> Result<(), libp2p::swarm::ConnectionDenied> {
+        self.gossipsub
+            .handle_pending_inbound_connection(connection_id, local_addr, remote_addr)
+    }
+
+    fn handle_established_inbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        peer: PeerId,
+        local_addr: &Multiaddr,
+        remote_addr: &Multiaddr,
+    ) -> Result<libp2p::swarm::THandler<Self>, libp2p::swarm::ConnectionDenied> {
+        self.gossipsub.handle_established_inbound_connection(
+            connection_id,
+            peer,
+            local_addr,
+            remote_addr,
+        )
+    }
+
+    fn handle_pending_outbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        maybe_peer: Option<PeerId>,
+        addresses: &[Multiaddr],
+        effective_role: libp2p::core::Endpoint,
+    ) -> Result<Vec<Multiaddr>, libp2p::swarm::ConnectionDenied> {
+        self.gossipsub.handle_pending_outbound_connection(
+            connection_id,
+            maybe_peer,
+            addresses,
+            effective_role,
+        )
+    }
+
+    fn handle_established_outbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        peer: PeerId,
+        addr: &Multiaddr,
+        role_override: libp2p::core::Endpoint,
+    ) -> Result<libp2p::swarm::THandler<Self>, libp2p::swarm::ConnectionDenied> {
+        self.gossipsub.handle_established_outbound_connection(
+            connection_id,
+            peer,
+            addr,
+            role_override,
+        )
     }
 }
 
