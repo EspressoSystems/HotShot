@@ -4,9 +4,11 @@ use std::{
 };
 
 use libp2p::{
-    gossipsub::{Gossipsub, GossipsubEvent, IdentTopic, TopicHash},
-    swarm::{NetworkBehaviour, NetworkBehaviourAction, PollParameters},
-    PeerId,
+    gossipsub::{Behaviour, Event, IdentTopic, TopicHash},
+    swarm::{
+        NetworkBehaviour, NetworkBehaviourAction, PollParameters, THandlerInEvent, THandlerOutEvent,
+    },
+    Multiaddr, PeerId,
 };
 
 use tracing::{error, info, warn};
@@ -20,7 +22,7 @@ pub struct GossipBehaviour {
     /// The in progress gossip queries
     in_progress_gossip: VecDeque<(IdentTopic, Vec<u8>)>,
     /// The gossip behaviour
-    gossipsub: Gossipsub,
+    gossipsub: Behaviour,
     /// Output events to parent behavioru
     out_event_queue: Vec<GossipEvent>,
     /// Set of topics we are subscribed to
@@ -35,22 +37,22 @@ pub enum GossipEvent {
 }
 
 impl GossipBehaviour {
-    fn gossip_handle_event(&mut self, event: GossipsubEvent) {
+    fn gossip_handle_event(&mut self, event: Event) {
         match event {
-            GossipsubEvent::Message { message, .. } => {
+            Event::Message { message, .. } => {
                 // if we get an event from the gossipsub behaviour, push it
                 // onto the event queue (which will get popped during poll)
                 // and propagated back to the overall behaviour
                 self.out_event_queue
                     .push(GossipEvent::GossipMsg(message.data, message.topic));
             }
-            GossipsubEvent::Subscribed { topic, .. } => {
+            Event::Subscribed { topic, .. } => {
                 info!("subscribed to topic {}", topic);
             }
-            GossipsubEvent::Unsubscribed { topic, .. } => {
+            Event::Unsubscribed { topic, .. } => {
                 info!("unsubscribed to topic {}", topic);
             }
-            GossipsubEvent::GossipsubNotSupported { peer_id } => {
+            Event::GossipsubNotSupported { peer_id } => {
                 error!("gossipsub not supported on {}!", peer_id);
             }
         }
@@ -58,7 +60,7 @@ impl GossipBehaviour {
 }
 
 impl NetworkBehaviour for GossipBehaviour {
-    type ConnectionHandler = <Gossipsub as NetworkBehaviour>::ConnectionHandler;
+    type ConnectionHandler = <Behaviour as NetworkBehaviour>::ConnectionHandler;
 
     type OutEvent = GossipEvent;
 
@@ -69,25 +71,11 @@ impl NetworkBehaviour for GossipBehaviour {
         self.gossipsub.on_swarm_event(event);
     }
 
-    fn on_connection_handler_event(
-        &mut self,
-        peer_id: PeerId,
-        connection_id: libp2p::swarm::derive_prelude::ConnectionId,
-        event: <<Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler as libp2p::swarm::ConnectionHandler>::OutEvent,
-    ) {
-        self.gossipsub
-            .on_connection_handler_event(peer_id, connection_id, event);
-    }
-
-    fn new_handler(&mut self) -> Self::ConnectionHandler {
-        self.gossipsub.new_handler()
-    }
-
     fn poll(
         &mut self,
         cx: &mut std::task::Context<'_>,
         params: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
+    ) -> Poll<NetworkBehaviourAction<GossipEvent, THandlerInEvent<Self>>> {
         // retry sending shit
         if self.backoff.is_expired() {
             let published = self.drain_publish_gossips();
@@ -99,8 +87,8 @@ impl NetworkBehaviour for GossipBehaviour {
                     // add event to event queue which will be subsequently popped off.
                     self.gossip_handle_event(e);
                 }
-                NetworkBehaviourAction::Dial { opts, handler } => {
-                    return Poll::Ready(NetworkBehaviourAction::Dial { opts, handler });
+                NetworkBehaviourAction::Dial { opts } => {
+                    return Poll::Ready(NetworkBehaviourAction::Dial { opts });
                 }
                 NetworkBehaviourAction::NotifyHandler {
                     peer_id,
@@ -138,14 +126,75 @@ impl NetworkBehaviour for GossipBehaviour {
         Poll::Pending
     }
 
-    fn addresses_of_peer(&mut self, peer_id: &PeerId) -> Vec<libp2p::Multiaddr> {
-        self.gossipsub.addresses_of_peer(peer_id)
+    fn on_connection_handler_event(
+        &mut self,
+        peer_id: PeerId,
+        connection_id: libp2p::swarm::derive_prelude::ConnectionId,
+        event: THandlerOutEvent<Self>,
+    ) {
+        self.gossipsub
+            .on_connection_handler_event(peer_id, connection_id, event);
+    }
+
+    fn handle_pending_inbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        local_addr: &Multiaddr,
+        remote_addr: &Multiaddr,
+    ) -> Result<(), libp2p::swarm::ConnectionDenied> {
+        self.gossipsub
+            .handle_pending_inbound_connection(connection_id, local_addr, remote_addr)
+    }
+
+    fn handle_established_inbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        peer: PeerId,
+        local_addr: &Multiaddr,
+        remote_addr: &Multiaddr,
+    ) -> Result<libp2p::swarm::THandler<Self>, libp2p::swarm::ConnectionDenied> {
+        self.gossipsub.handle_established_inbound_connection(
+            connection_id,
+            peer,
+            local_addr,
+            remote_addr,
+        )
+    }
+
+    fn handle_pending_outbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        maybe_peer: Option<PeerId>,
+        addresses: &[Multiaddr],
+        effective_role: libp2p::core::Endpoint,
+    ) -> Result<Vec<Multiaddr>, libp2p::swarm::ConnectionDenied> {
+        self.gossipsub.handle_pending_outbound_connection(
+            connection_id,
+            maybe_peer,
+            addresses,
+            effective_role,
+        )
+    }
+
+    fn handle_established_outbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        peer: PeerId,
+        addr: &Multiaddr,
+        role_override: libp2p::core::Endpoint,
+    ) -> Result<libp2p::swarm::THandler<Self>, libp2p::swarm::ConnectionDenied> {
+        self.gossipsub.handle_established_outbound_connection(
+            connection_id,
+            peer,
+            addr,
+            role_override,
+        )
     }
 }
 
 impl GossipBehaviour {
     /// Create new gossip behavioru based on gossipsub
-    pub fn new(gossipsub: Gossipsub) -> Self {
+    pub fn new(gossipsub: Behaviour) -> Self {
         Self {
             backoff: ExponentialBackoff::default(),
             in_progress_gossip: VecDeque::default(),

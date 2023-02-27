@@ -29,12 +29,13 @@ use async_compatibility_layer::{
     art::async_spawn,
     channel::{unbounded, UnboundedReceiver, UnboundedRecvError, UnboundedSender},
 };
+use either::Either;
 use futures::{select, FutureExt, StreamExt};
 use libp2p::{
-    core::{either::EitherError, muxing::StreamMuxerBox, transport::Boxed},
+    core::{muxing::StreamMuxerBox, transport::Boxed},
     gossipsub::{
-        error::GossipsubHandlerError, Gossipsub, GossipsubConfigBuilder, GossipsubMessage,
-        MessageAuthenticity, MessageId, Topic, ValidationMode,
+        Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, HandlerError,
+        Message as GossipsubMessage, MessageAuthenticity, MessageId, Topic, ValidationMode,
     },
     identify::{
         Behaviour as IdentifyBehaviour, Config as IdentifyConfig, Event as IdentifyEvent,
@@ -42,7 +43,9 @@ use libp2p::{
     },
     identity::Keypair,
     kad::{store::MemoryStore, Kademlia, KademliaConfig},
-    request_response::{ProtocolSupport, RequestResponse, RequestResponseConfig},
+    request_response::{
+        Behaviour as RequestResponse, Config as RequestResponseConfig, ProtocolSupport,
+    },
     swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent},
     Multiaddr, PeerId, Swarm,
 };
@@ -410,10 +413,7 @@ impl NetworkNode {
         &mut self,
         event: SwarmEvent<
             NetworkEventInternal,
-            EitherError<
-                EitherError<EitherError<GossipsubHandlerError, Error>, Error>,
-                ConnectionHandlerUpgrErr<Error>,
-            >,
+            Either<Either<Either<HandlerError, Error>, Error>, ConnectionHandlerUpgrErr<Error>>,
         >,
         send_to_client: &UnboundedSender<NetworkEvent>,
     ) -> Result<(), NetworkError> {
@@ -428,6 +428,7 @@ impl NetworkNode {
                 endpoint,
                 num_established,
                 concurrent_dial_errors,
+                established_in: _established_in,
             } => {
                 if num_established > ESTABLISHED_LIMIT {
                     error!(
