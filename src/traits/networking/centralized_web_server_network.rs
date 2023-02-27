@@ -21,9 +21,9 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
     data::ProposalType,
-    message::{Message, VoteType},
+    message::{Message},
     traits::{
-        election::{Election, ElectionConfig},
+        election::{ElectionConfig, Membership},
         network::{
             CentralizedWebServerNetworkError, CommunicationChannel, ConnectedNetwork, NetworkError,
             NetworkMsg, TestableNetworkingImplementation, TransmitType,
@@ -31,6 +31,7 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
+    vote::VoteType,
 };
 use serde::{Deserialize, Serialize};
 
@@ -52,7 +53,7 @@ pub struct CentralizedWebCommChannel<
     TYPES: NodeType,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
-    ELECTION: Election<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
 >(
     CentralizedWebServerNetwork<
         Message<TYPES, PROPOSAL, VOTE>,
@@ -62,14 +63,14 @@ pub struct CentralizedWebCommChannel<
         PROPOSAL,
         VOTE,
     >,
-    PhantomData<ELECTION>,
+    PhantomData<MEMBERSHIP>,
 );
 impl<
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-        ELECTION: Election<TYPES>,
-    > CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+        MEMBERSHIP: Membership<TYPES>,
+    > CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// Create new communication channel
     pub fn new(
@@ -302,11 +303,9 @@ impl<
                 let mut deserialized_messages = Vec::new();
                 for message in &messages {
                     let deserialized_message = bincode::deserialize(message);
-                    if deserialized_message.is_err() {
-                        return Err(NetworkError::FailedToDeserialize {
-                            source: deserialized_message.unwrap_err(),
-                        });
-                    }
+                    if let Err(e) = deserialized_message {
+                        return Err(NetworkError::FailedToDeserialize { source: e });
+                      }
                     deserialized_messages.push(deserialized_message.unwrap());
                 }
                 Ok(Some(deserialized_messages))
@@ -481,9 +480,9 @@ impl<
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-        ELECTION: Election<TYPES>,
-    > CommunicationChannel<TYPES, PROPOSAL, VOTE, ELECTION>
-    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+        MEMBERSHIP: Membership<TYPES>,
+    > CommunicationChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// Blocks until node is successfully initialized
     /// into the network
@@ -524,7 +523,7 @@ impl<
     async fn broadcast_message(
         &self,
         message: Message<TYPES, PROPOSAL, VOTE>,
-        _election: &ELECTION,
+        _election: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
         let network_msg = self.parse_post_message(message);
         self.0.broadcast_message(network_msg, BTreeSet::new()).await
@@ -680,9 +679,9 @@ impl<
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-        ELECTION: Election<TYPES>,
-    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, ELECTION>
-    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, ELECTION>
+        MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {

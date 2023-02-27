@@ -1,17 +1,17 @@
-mod common;
-
 use async_compatibility_layer::logging::shutdown_logging;
 
-use common::*;
 use either::Either::Right;
 use hotshot::traits::{
     election::static_committee::StaticCommittee,
     implementations::{CentralizedWebCommChannel, MemoryStorage},
 };
-use hotshot_testing::TestNodeImpl;
+use hotshot_testing::{
+    test_description::GeneralTestDescriptionBuilder, test_types::StaticCommitteeTestTypes,
+    TestNodeImpl,
+};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
-    message::QuorumVote,
+    vote::QuorumVote,
 };
 use tracing::instrument;
 
@@ -40,19 +40,13 @@ async fn centralized_server_network() {
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
             StaticCommitteeTestTypes,
             ValidatingLeaf<StaticCommitteeTestTypes>,
-            ValidatingProposal<
-                StaticCommitteeTestTypes,
-                StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-            >,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
             CentralizedWebCommChannel<
                 StaticCommitteeTestTypes,
                 ValidatingProposal<
                     StaticCommitteeTestTypes,
-                    StaticCommittee<
-                        StaticCommitteeTestTypes,
-                        ValidatingLeaf<StaticCommitteeTestTypes>,
-                    >,
+                    ValidatingLeaf<StaticCommitteeTestTypes>,
                 >,
                 QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
                 StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

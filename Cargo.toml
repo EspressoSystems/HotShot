@@ -83,7 +83,7 @@ path = "examples/centralized/validator.rs"
 
 [[example]]
 name = "centralized-web-server"
-required-features = ["full-ci"]
+required-features = ["demo", "libp2p/rsa"]
 path = "examples/centralized_web_server/centralized_web_server.rs"
 
 [[example]]

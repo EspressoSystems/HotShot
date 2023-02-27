@@ -54,7 +54,7 @@ Get all transactions since given index
 PATH = ["transactions"]
 METHOD = "POST"
 DOC = """
-Send a transactions
+Post a transaction to the web server
 """
 
 
