@@ -3,6 +3,7 @@
 "centralized":[["impl Args for <a class=\"struct\" href=\"centralized/infra/struct.CliOrchestrated.html\" title=\"struct centralized::infra::CliOrchestrated\">CliOrchestrated</a>"]],
 "centralized_orchestrator":[["impl Args for <a class=\"struct\" href=\"centralized_orchestrator/infra/struct.CliOrchestrated.html\" title=\"struct centralized_orchestrator::infra::CliOrchestrated\">CliOrchestrated</a>"]],
 "counter":[["impl Args for <a class=\"struct\" href=\"counter/common/struct.WebUi.html\" title=\"struct counter::common::WebUi\">WebUi</a>"],["impl Args for <a class=\"struct\" href=\"counter/common/struct.EnvType.html\" title=\"struct counter::common::EnvType\">EnvType</a>"],["impl Args for <a class=\"struct\" href=\"counter/common/struct.CliOpt.html\" title=\"struct counter::common::CliOpt\">CliOpt</a>"]],
+"hotshot_centralized_web_server":[["impl Args for <a class=\"struct\" href=\"hotshot_centralized_web_server/struct.Options.html\" title=\"struct hotshot_centralized_web_server::Options\">Options</a>"]],
 "libp2p":[["impl Args for <a class=\"struct\" href=\"libp2p/infra/struct.CliOrchestrated.html\" title=\"struct libp2p::infra::CliOrchestrated\">CliOrchestrated</a>"]],
 "libp2p_orchestrator":[["impl Args for <a class=\"struct\" href=\"libp2p_orchestrator/infra/struct.CliOrchestrated.html\" title=\"struct libp2p_orchestrator::infra::CliOrchestrated\">CliOrchestrated</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

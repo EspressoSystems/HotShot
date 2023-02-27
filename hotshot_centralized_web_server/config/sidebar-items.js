@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":[["DEFAULT_WEB_SERVER_PORT",""]],"fn":[["get_proposal_route",""],["get_transactions_route",""],["get_vote_route",""],["post_proposal_route",""],["post_transactions_route",""],["post_vote_route",""]]};

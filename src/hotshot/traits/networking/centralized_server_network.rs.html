@@ -1232,6 +1232,20 @@
 <a href="#1232" id="1232">1232</a>
 <a href="#1233" id="1233">1233</a>
 <a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
+<a href="#1237" id="1237">1237</a>
+<a href="#1238" id="1238">1238</a>
+<a href="#1239" id="1239">1239</a>
+<a href="#1240" id="1240">1240</a>
+<a href="#1241" id="1241">1241</a>
+<a href="#1242" id="1242">1242</a>
+<a href="#1243" id="1243">1243</a>
+<a href="#1244" id="1244">1244</a>
+<a href="#1245" id="1245">1245</a>
+<a href="#1246" id="1246">1246</a>
+<a href="#1247" id="1247">1247</a>
+<a href="#1248" id="1248">1248</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that attempts to connect to a centralized server.
 //!
 //! To run the server, see the `./centralized_server/` folder in this repo.
@@ -2226,8 +2240,8 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>, E: ElectionConfig + <span class="lifetime">&#39;static</span>&gt; ConnectedNetwork&lt;M, K&gt;
-    <span class="kw">for </span>CentralizedServerNetwork&lt;K, E&gt;
+</span><span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>, E: ElectionConfig + <span class="lifetime">&#39;static</span>&gt;
+    ConnectedNetwork&lt;M, M, K&gt; <span class="kw">for </span>CentralizedServerNetwork&lt;K, E&gt;
 {
     <span class="attr">#[instrument(name = <span class="string">&quot;CentralizedServer::ready_blocking&quot;</span>, skip_all)]
     </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
@@ -2300,6 +2314,11 @@
         <span class="comment">// we are centralized. Should we do anything here?
         </span><span class="prelude-val">Ok</span>(())
     }
+
+    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _tuple: (u64, bool, bool)) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+        <span class="comment">// Not required
+        </span><span class="prelude-val">Ok</span>(())
+    }
 }
 
 <span class="doccomment">/// libp2p identity communication channel
@@ -2351,6 +2370,7 @@
     <span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         &lt;CentralizedServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
             Message&lt;TYPES, PROPOSAL, VOTE&gt;,
+            Message&lt;TYPES, PROPOSAL, VOTE&gt;,
             TYPES::SignatureKey,
         &gt;&gt;::wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
         .<span class="kw">await</span>;
@@ -2359,6 +2379,7 @@
     <span class="kw">async fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         &lt;CentralizedServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
             Message&lt;TYPES, PROPOSAL, VOTE&gt;,
+            Message&lt;TYPES, PROPOSAL, VOTE&gt;,
             TYPES::SignatureKey,
         &gt;&gt;::is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
         .<span class="kw">await
@@ -2366,6 +2387,7 @@
 
     <span class="kw">async fn </span>shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; () {
         &lt;CentralizedServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
+            Message&lt;TYPES, PROPOSAL, VOTE&gt;,
             Message&lt;TYPES, PROPOSAL, VOTE&gt;,
             TYPES::SignatureKey,
         &gt;&gt;::shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
@@ -2400,10 +2422,16 @@
     <span class="kw">async fn </span>lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>, pk: TYPES::SignatureKey) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         &lt;CentralizedServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
             Message&lt;TYPES, PROPOSAL, VOTE&gt;,
+            Message&lt;TYPES, PROPOSAL, VOTE&gt;,
             TYPES::SignatureKey,
         &gt;&gt;::lookup_node(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, pk)
         .<span class="kw">await
     </span>}
+
+    <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _tuple: (u64, bool, bool)) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+        <span class="comment">// Not required
+        </span><span class="prelude-val">Ok</span>(())
+    }
 }
 
 <span class="kw">impl</span>&lt;

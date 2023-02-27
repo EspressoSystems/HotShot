@@ -317,6 +317,16 @@
 <a href="#317" id="317">317</a>
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 </span><span class="kw">use crate</span>::{types::HotShotHandle, HotShot, HotShotConsensusApi, ViewRunner};
@@ -550,7 +560,17 @@
 
     <span class="kw">while </span>!shut_down.load(Ordering::Relaxed) {
         <span class="kw">let </span>lock = hotshot.recv_network_lookup.lock().<span class="kw">await</span>;
+
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cur_view)) = lock.recv().<span class="kw">await </span>{
+            <span class="comment">// Injecting consensus data into the networking implementation
+            </span><span class="kw">let </span>_result = networking
+                .inject_consensus_info((
+                    (<span class="kw-2">*</span>cur_view),
+                    c_api.is_leader(cur_view).<span class="kw">await</span>,
+                    c_api.is_leader(cur_view + <span class="number">1</span>).<span class="kw">await</span>,
+                ))
+                .<span class="kw">await</span>;
+
             <span class="kw">let </span>view_to_lookup = cur_view + LOOK_AHEAD;
 
             <span class="comment">// perform pruning
