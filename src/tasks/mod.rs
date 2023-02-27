@@ -106,7 +106,7 @@ impl<TYPES: NodeType> TaskHandle<TYPES> {
 /// Inner struct of the [`TaskHandle`]
 struct TaskHandleInner {
     /// for the client to indicate "increment a view"
-    /// only Some in Continuous exeuction mode
+    /// only Some in Incremental exeuction mode
     /// otherwise None
     pub run_view_channels: Option<UnboundedSender<()>>,
 
@@ -231,7 +231,17 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
     while !shut_down.load(Ordering::Relaxed) {
         let lock = hotshot.recv_network_lookup.lock().await;
+
         if let Ok(Some(cur_view)) = lock.recv().await {
+            // Injecting consensus data into the networking implementation
+            let _result = networking
+                .inject_consensus_info((
+                    (*cur_view),
+                    c_api.is_leader(cur_view).await,
+                    c_api.is_leader(cur_view + 1).await,
+                ))
+                .await;
+
             let view_to_lookup = cur_view + LOOK_AHEAD;
 
             // perform pruning

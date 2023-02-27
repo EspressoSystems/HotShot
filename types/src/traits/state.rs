@@ -42,8 +42,6 @@ pub trait State:
     /// Time compatibility needed for reward collection
     type Time: ConsensusTime;
 
-    type ConsensusType: ConsensusType;
-
     /// Returns an empty, template next block given this current state
     fn next_block(&self) -> Self::BlockType;
 
@@ -182,7 +180,6 @@ pub mod dummy {
 
         type BlockType = DummyBlock;
         type Time = ViewNumber;
-        type ConsensusType = ValidatingConsensus;
 
         fn next_block(&self) -> Self::BlockType {
             DummyBlock { nonce: self.nonce }

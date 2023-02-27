@@ -5,7 +5,7 @@ use libp2p::{
         upgrade::{read_length_prefixed, write_length_prefixed},
         ProtocolName,
     },
-    request_response::RequestResponseCodec,
+    request_response::Codec,
 };
 use serde::{Deserialize, Serialize};
 use std::io;
@@ -33,7 +33,7 @@ impl ProtocolName for DirectMessageProtocol {
 pub const MAX_MSG_SIZE_DM: usize = 100_000_000;
 
 #[async_trait]
-impl RequestResponseCodec for DirectMessageCodec {
+impl Codec for DirectMessageCodec {
     type Protocol = DirectMessageProtocol;
 
     type Request = DirectMessageRequest;

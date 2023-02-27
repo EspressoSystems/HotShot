@@ -322,7 +322,7 @@ where
 
 // TODO instrument these functions
 #[async_trait]
-impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for MemoryNetwork<M, K> {
+impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, M, K> for MemoryNetwork<M, K> {
     #[instrument(name = "MemoryNetwork::ready_blocking")]
     async fn wait_for_ready(&self) {}
 
@@ -441,6 +441,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         // no lookup required
         Ok(())
     }
+
+    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+        // Not required
+        Ok(())
+    }
 }
 
 /// memory identity communication channel
@@ -503,6 +508,11 @@ impl<
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         self.0.lookup_node(pk).await
+    }
+
+    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+        // Not required
+        Ok(())
     }
 }
 
