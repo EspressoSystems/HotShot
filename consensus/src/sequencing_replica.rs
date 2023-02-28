@@ -10,8 +10,9 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
 use either::{Left, Right};
+use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
-    certificate::QuorumCertificate,
+    certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, SequencingLeaf},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, QuorumVote},
     traits::{
@@ -24,7 +25,6 @@ use std::collections::HashSet;
 use std::ops::Bound::{Excluded, Included};
 use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
-
 /// This view's replica for sequencing consensus.
 #[derive(Debug, Clone)]
 pub struct SequencingReplica<
@@ -34,6 +34,8 @@ pub struct SequencingReplica<
         CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
         QuorumVote<TYPES, SequencingLeaf<TYPES>>,
     >,
+    DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
+    QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
     TYPES: NodeType,
 > {
     /// ID of node.
@@ -59,6 +61,9 @@ pub struct SequencingReplica<
     pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// HotShot consensus API.
     pub api: A,
+
+    pub da_exchange: DA,
+    pub quorum_exchange: QUORUM,
 }
 
 impl<
@@ -68,8 +73,14 @@ impl<
             CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
             QuorumVote<TYPES, SequencingLeaf<TYPES>>,
         >,
+        DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Certificate = DACertificate<TYPES>>,
+        QUORUM: ConsensusExchange<
+            TYPES,
+            SequencingLeaf<TYPES>,
+            Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+        >,
         TYPES: NodeType,
-    > SequencingReplica<A, TYPES>
+    > SequencingReplica<A, DA, QUORUM, TYPES>
 {
     // TODO (da) Move this function so that it can be used by leader, replica, and committee member logic.
     /// Returns the parent leaf of the proposal we are voting on
@@ -177,7 +188,10 @@ impl<
                                 let leaf_commitment = leaf.commit();
 
                                 // Validate the `justify_qc`.
-                                if !self.api.is_valid_qc(&justify_qc) {
+                                if !self
+                                    .quorum_exchange
+                                    .is_valid_cert(&justify_qc, leaf_commitment)
+                                {
                                     invalid_qc = true;
                                     warn!("Invalid justify_qc in proposal!.");
                                     message = self.api.create_no_message(
@@ -188,7 +202,10 @@ impl<
                                     );
                                 }
                                 // Validate the DAC.
-                                else if !self.api.is_valid_dac(&p.data.dac, block_commitment) {
+                                else if !self
+                                    .da_exchange
+                                    .is_valid_cert(&p.data.dac, block_commitment)
+                                {
                                     warn!("Invalid DAC in proposal! Skipping proposal.");
                                     message = self.api.create_no_message(
                                         justify_qc_commitment,
@@ -350,7 +367,7 @@ impl<
 
     /// Run one view of the replica for sequencing consensus.
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing Replica Task", level = "error")]
-    pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
+    pub async fn run_view(self) -> QUORUM::Certificate {
         info!("Sequencing replica task started!");
         let view_leader_key = self.api.get_leader(self.cur_view).await;
         let consensus = self.consensus.upgradable_read().await;

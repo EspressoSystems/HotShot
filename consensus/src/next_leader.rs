@@ -71,7 +71,11 @@ impl<
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         >,
-        EXCHANGE: ConsensusExchange<TYPES, ValidatingLeaf<TYPES>>,
+        EXCHANGE: ConsensusExchange<
+            TYPES,
+            ValidatingLeaf<TYPES>,
+            Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        >,
         TYPES: NodeType,
     > NextValidatingLeader<A, EXCHANGE, TYPES>
 {

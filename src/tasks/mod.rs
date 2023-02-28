@@ -8,6 +8,7 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use hotshot_consensus::ConsensusApi;
+use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     constants::LOOK_AHEAD,
     traits::{
@@ -222,7 +223,7 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     shut_down: Arc<AtomicBool>,
 ) {
     info!("Launching network lookup task");
-    let networking = hotshot.inner.networking.clone();
+    let networking = hotshot.inner.quorum_exchange.network().clone();
     let c_api = HotShotConsensusApi {
         inner: hotshot.inner.clone(),
     };
@@ -285,7 +286,7 @@ pub async fn network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         "Launching network processing task for {:?} messages",
         transmit_type
     );
-    let networking = &hotshot.inner.networking;
+    let networking = &hotshot.inner.quorum_exchange.network();
     let mut incremental_backoff_ms = 10;
     while !shut_down.load(Ordering::Relaxed) {
         let queue = match networking.recv_msgs(transmit_type).await {

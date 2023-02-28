@@ -8,6 +8,7 @@ use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
+use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
@@ -15,7 +16,10 @@ use hotshot_types::{
         ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, QuorumVote, TimeoutVote,
     },
     traits::{
-        node_implementation::NodeType, signature_key::SignatureKey, state::ValidatingConsensus,
+        election::{Membership, QuorumExchange},
+        node_implementation::NodeType,
+        signature_key::SignatureKey,
+        state::ValidatingConsensus,
         Block, State,
     },
 };
@@ -32,6 +36,7 @@ pub struct Replica<
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
     >,
+    EXCHANGE: ConsensusExchange<TYPES, ValidatingLeaf<TYPES>>,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
 > {
     /// id of node
@@ -45,8 +50,8 @@ pub struct Replica<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
-                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+                    EXCHANGE::Proposal,
+                    EXCHANGE::Vote,
                 >,
             >,
         >,
@@ -57,6 +62,8 @@ pub struct Replica<
     pub high_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     /// hotshot consensus api
     pub api: A,
+
+    pub exchange: EXCHANGE,
 }
 
 impl<
@@ -66,8 +73,14 @@ impl<
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         >,
+        EXCHANGE: ConsensusExchange<
+            TYPES,
+            ValidatingLeaf<TYPES>,
+            Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        >,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    > Replica<A, TYPES>
+    > Replica<A, EXCHANGE, TYPES>
 {
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
@@ -127,7 +140,10 @@ impl<
                         }
 
                         // check that the justify_qc is valid
-                        if !self.api.is_valid_qc(&justify_qc) {
+                        if !self
+                            .exchange
+                            .is_valid_cert(&justify_qc, justify_qc.leaf_commitment)
+                        {
                             invalid_qcs += 1;
                             warn!("Invalid justify_qc in proposal! Skipping proposal.");
                             continue;

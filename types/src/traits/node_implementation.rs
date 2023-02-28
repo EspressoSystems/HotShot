@@ -43,39 +43,6 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     type QuorumExchange: ConsensusExchange<TYPES, Self::Leaf>;
 
     type ComitteeExchange: ConsensusExchange<TYPES, Self::Leaf>;
-
-    /// Networking type for this consensus implementation
-    type QuorumNetworking: CommunicationChannel<
-        TYPES,
-        <<Self as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-            TYPES,
-            Self::Leaf,
-        >>::Proposal,
-        <<Self as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-            TYPES,
-            Self::Leaf,
-        >>::Vote,
-        <<Self as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-            TYPES,
-            Self::Leaf,
-        >>::Membership,
-    >;
-
-    type ComitteeNetworking: CommunicationChannel<
-        TYPES,
-        <<Self as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<
-            TYPES,
-            Self::Leaf,
-        >>::Proposal,
-        <<Self as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<
-            TYPES,
-            Self::Leaf,
-        >>::Vote,
-        <<Self as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-            TYPES,
-            Self::Leaf,
-        >>::Membership,
-    >;
 }
 
 /// Trait with all the type definitions that are used in the current hotshot setup.

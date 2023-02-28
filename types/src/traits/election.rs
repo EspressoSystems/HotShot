@@ -8,8 +8,9 @@ use crate::certificate::CertificateAccumulator;
 use crate::certificate::{QuorumCertificate, VoteMetaData};
 use crate::data::ProposalType;
 use crate::data::ValidatingProposal;
-use crate::message::QuorumVote;
 use crate::message::VoteType;
+use crate::message::{ConsensusMessage, QuorumVote};
+use crate::traits::network::CommunicationChannel;
 use crate::{data::LeafType, traits::signature_key::SignatureKey};
 use bincode::Options;
 use commit::{Commitment, Committable};
@@ -185,7 +186,9 @@ pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 's
     fn threshold(&self) -> NonZeroU64;
 }
 
-pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
+pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>:
+    Send + Sync
+{
     type Proposal: ProposalType<NodeType = TYPES>;
     type Vote: VoteType<TYPES>;
     type Certificate: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>
@@ -193,9 +196,12 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
         + Eq;
     // type VoteAccumulator: Accumulator<TYPES::VoteTokenType, LEAF>;
     type Membership: Membership<TYPES>;
+    type Networking: CommunicationChannel<TYPES, Self::Proposal, Self::Vote, Self::Membership>;
+
+    fn network(&self) -> &Self::Networking;
 
     /// Validate a QC.
-    fn is_valid_cert(&self, qc: &Self::Certificate) -> bool;
+    fn is_valid_cert<C: Committable>(&self, qc: &Self::Certificate, comit: Commitment<C>) -> bool;
 
     /// Validate a vote.
     fn is_valid_vote(
@@ -384,21 +390,46 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     // }
 }
 
-pub struct CommitteeExchange<TYPES: NodeType, LEAF: LeafType, MEMBERSHIP: Membership<TYPES>> {
+pub struct CommitteeExchange<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
+    NETWORK: CommunicationChannel<
+        TYPES,
+        ValidatingProposal<TYPES, LEAF>,
+        QuorumVote<TYPES, LEAF>,
+        MEMBERSHIP,
+    >,
+> {
+    network: NETWORK,
     _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP)>,
 }
 
-impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, MEMBERSHIP: Membership<TYPES>>
-    ConsensusExchange<TYPES, LEAF> for CommitteeExchange<TYPES, LEAF, MEMBERSHIP>
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+        NETWORK: CommunicationChannel<
+            TYPES,
+            ValidatingProposal<TYPES, LEAF>,
+            QuorumVote<TYPES, LEAF>,
+            MEMBERSHIP,
+        >,
+    > ConsensusExchange<TYPES, LEAF> for CommitteeExchange<TYPES, LEAF, MEMBERSHIP, NETWORK>
 {
     type Proposal = ValidatingProposal<TYPES, LEAF>;
     type Vote = QuorumVote<TYPES, LEAF>;
     // type VoteAccumulator = CertificateAccumulator<TYPES::VoteTokenType, LEAF>;
     type Certificate = QuorumCertificate<TYPES, LEAF>;
     type Membership = MEMBERSHIP;
+    type Networking = NETWORK;
+
+    fn network(&self) -> &NETWORK {
+        &self.network
+    }
 
     /// Validate a QC.
-    fn is_valid_cert(&self, qc: &Self::Certificate) -> bool {
+    fn is_valid_cert<C: Committable>(&self, qc: &Self::Certificate, commit: Commitment<C>) -> bool {
         nll_todo()
     }
 
@@ -432,21 +463,44 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, MEMBERSHIP: Membership<T
     }
 }
 
-pub struct QuorumExchange<TYPES: NodeType, LEAF: LeafType, MEMBERSHIP: Membership<TYPES>> {
+pub struct QuorumExchange<
+    TYPES: NodeType,
+    LEAF: LeafType<NodeType = TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
+    NETWORK: CommunicationChannel<
+        TYPES,
+        ValidatingProposal<TYPES, LEAF>,
+        QuorumVote<TYPES, LEAF>,
+        MEMBERSHIP,
+    >,
+> {
+    network: NETWORK,
     _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP)>,
 }
 
-impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, MEMBERSHIP: Membership<TYPES>>
-    ConsensusExchange<TYPES, LEAF> for QuorumExchange<TYPES, LEAF, MEMBERSHIP>
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+        NETWORK: CommunicationChannel<
+            TYPES,
+            ValidatingProposal<TYPES, LEAF>,
+            QuorumVote<TYPES, LEAF>,
+            MEMBERSHIP,
+        >,
+    > ConsensusExchange<TYPES, LEAF> for QuorumExchange<TYPES, LEAF, MEMBERSHIP, NETWORK>
 {
     type Proposal = ValidatingProposal<TYPES, LEAF>;
     type Vote = QuorumVote<TYPES, LEAF>;
-    // type VoteAccumulator = CertificateAccumulator<TYPES::VoteTokenType, LEAF>;
     type Certificate = LEAF::QuorumCertificate;
     type Membership = MEMBERSHIP;
+    type Networking = NETWORK;
 
+    fn network(&self) -> &NETWORK {
+        &self.network
+    }
     /// Validate a QC.
-    fn is_valid_cert(&self, qc: &Self::Certificate) -> bool {
+    fn is_valid_cert<C: Committable>(&self, qc: &Self::Certificate, commit: Commitment<C>) -> bool {
         nll_todo()
     }
 

@@ -13,6 +13,7 @@ use crate::traits::{
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
+use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::{
     certificate::QuorumCertificate,
     constants::genesis_proposer_id,
@@ -594,10 +595,9 @@ where
 {
     type Leaf = ValidatingLeaf<VDemoTypes>;
     type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
-    type Networking = NET;
-    type Membership = MEMBERSHIP;
-    type Proposal = ValidatingProposal<VDemoTypes, Self::Leaf>;
-    type Vote = QuorumVote<VDemoTypes, Self::Leaf>;
+    type QuorumExchange = QuorumExchange<VDemoTypes, Self::Leaf, MEMBERSHIP, NET>;
+    // TODO Remove this, it's unused validating consensus
+    type ComitteeExchange = QuorumExchange<VDemoTypes, Self::Leaf, MEMBERSHIP, NET>;
 }
 
 /// Provides a random [`QuorumCertificate`]

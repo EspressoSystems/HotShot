@@ -13,8 +13,8 @@ use hotshot_types::{
     event::EventType,
     message::{DAVote, QuorumVote},
     traits::{
-        election::SignedCertificate, network::CommunicationChannel, node_implementation::NodeType,
-        state::ConsensusTime, storage::Storage,
+        election::ConsensusExchange, election::SignedCertificate, network::CommunicationChannel,
+        node_implementation::NodeType, state::ConsensusTime, storage::Storage,
     },
 };
 use std::sync::{
@@ -67,6 +67,30 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone for HotShotH
         }
     }
 }
+
+type QuorumNetwork<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
+    TYPES,
+>>::QuorumExchange as ConsensusExchange<
+    TYPES,
+    I::Leaf,
+>>::Networking;
+
+type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
+type ComitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+    <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
+type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
+    TYPES,
+>>::QuorumExchange as ConsensusExchange<
+    TYPES,
+    I::Leaf,
+>>::Proposal;
+type ComitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
+    TYPES,
+>>::ComitteeExchange as ConsensusExchange<
+    TYPES,
+    I::Leaf,
+>>::Proposal;
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPES, I> {
     /// Will return the next event in the queue
@@ -237,14 +261,25 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
 
     /// Provides a reference to the underlying networking interface for this [`HotShot`], allowing access to
     /// networking stats.
-    pub fn networking(&self) -> &I::Networking {
-        &self.hotshot.inner.networking
+    pub fn networking(&self) -> &QuorumNetwork<TYPES, I> {
+        &self.hotshot.inner.quorum_exchange.network()
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
     pub async fn shut_down(self) {
         self.shut_down.store(true, Ordering::Relaxed);
-        self.hotshot.inner.networking.shut_down().await;
+        self.hotshot
+            .inner
+            .comittee_exchange
+            .network()
+            .shut_down()
+            .await;
+        self.hotshot
+            .inner
+            .quorum_exchange
+            .network()
+            .shut_down()
+            .await;
         self.hotshot
             .inner
             .background_task_handle
@@ -359,7 +394,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I::Proposal, DAVote<TYPES, I::Leaf>> {
+    ) -> ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, DAVote<TYPES, I::Leaf>> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -378,7 +413,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I::Proposal, QuorumVote<TYPES, I::Leaf>> {
+    ) -> ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVote<TYPES, I::Leaf>> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -397,7 +432,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I::Proposal, QuorumVote<TYPES, I::Leaf>> {
+    ) -> ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVote<TYPES, I::Leaf>> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -415,7 +450,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         justify_qc: <I::Leaf as LeafType>::QuorumCertificate,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I::Proposal, QuorumVote<TYPES, I::Leaf>> {
+    ) -> ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVote<TYPES, I::Leaf>> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -426,7 +461,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_broadcast_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES, I::Proposal, I::Vote>,
+        msg: ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
     ) {
         let _result = self.hotshot.send_broadcast_message(msg).await;
     }
@@ -435,7 +470,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_direct_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES, I::Proposal, I::Vote>,
+        msg: ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
         recipient: TYPES::SignatureKey,
     ) {
         let _result = self.hotshot.send_direct_message(msg, recipient).await;

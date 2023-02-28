@@ -12,6 +12,7 @@ use commit::Commitment;
 use commit::Committable;
 use either::Either;
 use either::Either::Right;
+use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     certificate::{CertificateAccumulator, DACertificate, QuorumCertificate},
     data::{CommitmentProposal, DAProposal, SequencingLeaf},
@@ -27,7 +28,6 @@ use std::collections::HashMap;
 use std::num::NonZeroU64;
 use std::{collections::HashSet, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
-
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
 pub struct DALeader<
@@ -37,6 +37,8 @@ pub struct DALeader<
         DAProposal<TYPES>,
         DAVote<TYPES, SequencingLeaf<TYPES>>,
     >,
+    DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
+    QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
     TYPES: NodeType,
 > {
     /// id of node
@@ -51,6 +53,10 @@ pub struct DALeader<
     pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
     /// Limited access to the consensus protocol
     pub api: A,
+
+    pub da_exchange: DA,
+
+    pub quorum_exchange: QUORUM,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
     pub vote_collection_chan: Arc<
@@ -72,8 +78,10 @@ impl<
             DAProposal<TYPES>,
             DAVote<TYPES, SequencingLeaf<TYPES>>,
         >,
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    > DALeader<A, TYPES>
+        DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Certificate = DACertificate<TYPES>>,
+        QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
+        TYPES: NodeType,
+    > DALeader<A, DA, QUORUM, TYPES>
 {
     /// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
     /// TODO: Refactor this to use new `Elecetion` trait and call accumulate
@@ -102,7 +110,7 @@ impl<
                     if vote.block_commitment != block_commitment {
                         continue;
                     }
-                    match self.api.accumulate_da_vote(
+                    match self.da_exchange.accumulate_vote(
                         &vote.signature.0,
                         &vote.signature.1,
                         vote.block_commitment,
