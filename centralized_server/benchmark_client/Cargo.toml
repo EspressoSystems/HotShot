@@ -10,6 +10,10 @@ default = []
 tokio-ci = ["tokio-executor"]
 full-ci = ["async-std-executor"]
 
+# for symmetry's sake
+channel-async-std = []
+channel-tokio = []
+
 tokio-executor = [
     "tokio",
     "hotshot-centralized-server/tokio-executor",

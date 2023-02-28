@@ -2,14 +2,174 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot",
+                    "traits::networking::memory_network::tests::broadcast_queue"
+                ],
+                "filter": {
+                    "name": "hotshot",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug traits::networking::memory_network::tests::broadcast_queue test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot",
+                    "traits::networking::memory_network::tests::direct_queue"
+                ],
+                "filter": {
+                    "name": "hotshot",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug traits::networking::memory_network::tests::direct_queue test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot",
+                    "traits::networking::memory_network::tests::spawn_double"
+                ],
+                "filter": {
+                    "name": "hotshot",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug traits::networking::memory_network::tests::spawn_double test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot",
+                    "traits::networking::memory_network::tests::spawn_single"
+                ],
+                "filter": {
+                    "name": "hotshot",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug traits::networking::memory_network::tests::spawn_single test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot",
+                    "traits::networking::memory_network::tests::test_in_flight_message_count"
+                ],
+                "filter": {
+                    "name": "hotshot",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug traits::networking::memory_network::tests::test_in_flight_message_count test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot",
+                    "traits::storage::memory_storage::test::memory_storage"
+                ],
+                "filter": {
+                    "name": "hotshot",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug traits::storage::memory_storage::test::memory_storage test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot-centralized-server",
+                    "run_results_can_be_serialized"
+                ],
+                "filter": {
+                    "name": "hotshot-centralized-server",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug run_results_can_be_serialized test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot-centralized-web-server",
+                    "test::test_web_server"
+                ],
+                "filter": {
+                    "name": "hotshot-centralized-web-server",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test::test_web_server test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "centralized_server_network"
                 ],
                 "filter": {
@@ -22,14 +182,14 @@
             "name": "Debug centralized_server_network test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "centralized_server_network_vrf"
                 ],
                 "filter": {
@@ -42,14 +202,14 @@
             "name": "Debug centralized_server_network_vrf test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "test_stress_centralized_server_network"
                 ],
                 "filter": {
@@ -62,14 +222,34 @@
             "name": "Debug test_stress_centralized_server_network test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
+                    "centralized_server_network"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug centralized_server_network test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "test_bad_proposal"
                 ],
                 "filter": {
@@ -82,14 +262,14 @@
             "name": "Debug test_bad_proposal test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "test_chain_height"
                 ],
                 "filter": {
@@ -102,14 +282,14 @@
             "name": "Debug test_chain_height test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "test_decide_leaf_chain"
                 ],
                 "filter": {
@@ -122,14 +302,14 @@
             "name": "Debug test_decide_leaf_chain test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "test_max_propose"
                 ],
                 "filter": {
@@ -142,14 +322,14 @@
             "name": "Debug test_max_propose test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "test_min_propose"
                 ],
                 "filter": {
@@ -162,14 +342,14 @@
             "name": "Debug test_min_propose test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "test_single_node_network"
                 ],
                 "filter": {
@@ -182,14 +362,14 @@
             "name": "Debug test_single_node_network test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "test_validating_proposal_queueing"
                 ],
                 "filter": {
@@ -202,14 +382,14 @@
             "name": "Debug test_validating_proposal_queueing test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "test_vote_queueing"
                 ],
                 "filter": {
@@ -222,14 +402,14 @@
             "name": "Debug test_vote_queueing test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "double_permanent_failure::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::double_permanent_failure"
                 ],
                 "filter": {
@@ -242,14 +422,14 @@
             "name": "Debug double_permanent_failure::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::double_permanent_failure test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "single_permanent_failure::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::single_permanent_failure"
                 ],
                 "filter": {
@@ -262,14 +442,14 @@
             "name": "Debug single_permanent_failure::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::single_permanent_failure test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "libp2p_network"
                 ],
                 "filter": {
@@ -282,14 +462,14 @@
             "name": "Debug libp2p_network test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "test_stress_libp2p_network"
                 ],
                 "filter": {
@@ -302,14 +482,14 @@
             "name": "Debug test_stress_libp2p_network test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "test_asynchronous_network"
                 ],
                 "filter": {
@@ -322,14 +502,14 @@
             "name": "Debug test_asynchronous_network test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "test_no_loss_network"
                 ],
                 "filter": {
@@ -342,14 +522,14 @@
             "name": "Debug test_no_loss_network test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "test_partially_synchronous_network"
                 ],
                 "filter": {
@@ -362,14 +542,14 @@
             "name": "Debug test_partially_synchronous_network test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "test_synchronous_network"
                 ],
                 "filter": {
@@ -382,14 +562,14 @@
             "name": "Debug test_synchronous_network test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "sequencing_test"
                 ],
                 "filter": {
@@ -402,14 +582,14 @@
             "name": "Debug sequencing_test test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "ten_tx_five_nodes::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::ten_tx_five_nodes"
                 ],
                 "filter": {
@@ -422,14 +602,14 @@
             "name": "Debug ten_tx_five_nodes::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::ten_tx_five_nodes test"
         },
         {
-            "type": "codelldb",
+            "type": "lldb",
             "request": "launch",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--package=hotshot-testing",
                     "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
                     "ten_tx_seven_nodes::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::ten_tx_seven_nodes"
                 ],
                 "filter": {
@@ -440,6 +620,366 @@
             "program": "${cargo:program}",
             "cwd": "${workspaceFolder}",
             "name": "Debug ten_tx_seven_nodes::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::ten_tx_seven_nodes test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot-types",
+                    "traits::metrics::test::test"
+                ],
+                "filter": {
+                    "name": "hotshot-types",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug traits::metrics::test::test test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot-types",
+                    "traits::signature_key::ed25519::tests::base64_deserialize"
+                ],
+                "filter": {
+                    "name": "hotshot-types",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug traits::signature_key::ed25519::tests::base64_deserialize test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot-types",
+                    "traits::signature_key::ed25519::tests::serialize_key"
+                ],
+                "filter": {
+                    "name": "hotshot-types",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug traits::signature_key::ed25519::tests::serialize_key test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot-types",
+                    "traits::signature_key::ed25519::tests::signature_should_validate"
+                ],
+                "filter": {
+                    "name": "hotshot-types",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug traits::signature_key::ed25519::tests::signature_should_validate test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "test_coverage_dht_many_rounds"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_coverage_dht_many_rounds test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "test_coverage_dht_one_round"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_coverage_dht_one_round test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "test_coverage_gossip_many_rounds"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_coverage_gossip_many_rounds test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "test_coverage_gossip_one_round"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_coverage_gossip_one_round test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "test_coverage_intersperse_many_rounds"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_coverage_intersperse_many_rounds test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "test_coverage_request_response_many_rounds"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_coverage_request_response_many_rounds test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "test_coverage_request_response_one_round"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_coverage_request_response_one_round test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "test_stress_dht_many_rounds"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_stress_dht_many_rounds test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "test_stress_dht_one_round"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_stress_dht_one_round test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "test_stress_gossip_many_rounds"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_stress_gossip_many_rounds test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "test_stress_gossip_one_round"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_stress_gossip_one_round test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "test_stress_intersperse_many_rounds"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_stress_intersperse_many_rounds test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "test_stress_request_response_many_rounds"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_stress_request_response_many_rounds test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "test_stress_request_response_one_round"
+                ],
+                "filter": {
+                    "name": "libp2p-networking",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_stress_request_response_one_round test"
         }
     ]
 }
