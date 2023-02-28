@@ -72,7 +72,7 @@ impl NodeType for SequencingTestTypes {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
-async fn sequencing_memory_test() {
+async fn sequencing_memory_network_test() {
     let builder = description_build();
 
     builder
@@ -134,7 +134,7 @@ async fn sequencing_libp2p_test() {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
-async fn sequencing_centralized_test() {
+async fn sequencing_centralized_server_test() {
     let builder = description_build();
 
     builder
