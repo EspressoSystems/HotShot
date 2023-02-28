@@ -126,5 +126,5 @@ where
     let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
     app.register_module("api", api.unwrap())
         .expect("Error registering api");
-    app.serve(format!("http://{}:{}", host, port)).await
+    app.serve(format!("http://{host}:{port}")).await
 }

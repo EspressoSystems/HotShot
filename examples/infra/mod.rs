@@ -538,7 +538,7 @@ pub trait CliConfig<
                 // TODO make this u64...
                 let txn =
                     <<TYPES as NodeType>::StateType as TestableState>::create_random_transaction(
-                        &state,
+                        Some(&state),
                         &mut txn_rng,
                         padding as u64,
                     );

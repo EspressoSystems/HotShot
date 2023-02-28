@@ -92,13 +92,13 @@ where
 {
     /// Safety check before round is set up and run
     /// to ensure consistent state
-    pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, I>>,
+    pub safety_check_pre: Option<RoundPreSafetyCheck<TYPES, I>>,
 
     /// Round set up
     pub setup_round: Option<RoundSetup<TYPES, TYPES::Transaction, I>>,
 
     /// Safety check after round is complete
-    pub safety_check_pre: Option<RoundPreSafetyCheck<TYPES, I>>,
+    pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, I>>,
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I>

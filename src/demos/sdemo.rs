@@ -222,7 +222,7 @@ impl State for SDemoState {
     fn validate_block(&self, block: &Self::BlockType, view_number: &Self::Time) -> bool {
         match block {
             SDemoBlock::Genesis(_) => {
-                view_number > &ViewNumber::genesis() && *view_number > self.view_number
+                view_number == &ViewNumber::genesis() && view_number == &self.view_number
             }
             SDemoBlock::Normal(n) => {
                 n.previous_state == self.commit() && self.view_number < *view_number
@@ -251,7 +251,7 @@ impl State for SDemoState {
 
 impl TestableState for SDemoState {
     fn create_random_transaction(
-        &self,
+        _state: Option<&Self>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <Self::BlockType as Block>::Transaction {

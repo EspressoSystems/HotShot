@@ -24,14 +24,14 @@ test_async_std_all:
 
 test_pkg := "hotshot-testing"
 
-test_name := "sequencing_test"
+test_name := "sequencing_memory_test"
 
 test_async_std_pkg_all pkg=test_pkg:
   cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --package={{pkg}} --no-fail-fast -- --test-threads=1 --nocapture
 
 
 test_async_std_pkg_test name=test_name:
-  cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --workspace --no-fail-fast _nodes -- --test-threads=1 --nocapture
+  cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --workspace --no-fail-fast _nodes -- --test-threads=1 --nocapture {{name}}
 
 check: check_tokio check_tokio_flume check_async_std check_async_std_flume
 

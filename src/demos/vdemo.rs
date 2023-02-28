@@ -378,15 +378,18 @@ impl State for VDemoState {
     }
 }
 
+#[allow(clippy::panic)]
 impl TestableState for VDemoState {
     fn create_random_transaction(
-        &self,
+        state: Option<&Self>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <Self::BlockType as Block>::Transaction {
         use rand::seq::IteratorRandom;
 
-        let non_zero_balances = self
+        let state = state.unwrap_or_else(|| panic!("Missing state"));
+
+        let non_zero_balances = state
             .balances
             .iter()
             .filter(|b| *b.1 > 0)
@@ -398,7 +401,7 @@ impl TestableState for VDemoState {
         );
 
         let input_account = non_zero_balances.iter().choose(rng).unwrap().0;
-        let output_account = self.balances.keys().choose(rng).unwrap();
+        let output_account = state.balances.keys().choose(rng).unwrap();
         let amount = rng.gen_range(0..100);
 
         VDemoTransaction {

@@ -86,7 +86,7 @@ impl WebServerDataSource for WebServerState {
             Some(proposals) => Ok(Some(proposals.clone())),
             None => Err(ServerError {
                 status: StatusCode::NotImplemented,
-                message: format!("Proposal not found for view {}", view_number),
+                message: format!("Proposal not found for view {view_number}"),
             }),
         }
     }
@@ -120,7 +120,7 @@ impl WebServerDataSource for WebServerState {
             Err(ServerError {
                 // TODO ED: Why does NoContent status code cause errors?
                 status: StatusCode::NotImplemented,
-                message: format!("Transaction not found for index {}", index),
+                message: format!("Transaction not found for index {index}"),
             })
         }
     }
@@ -256,7 +256,7 @@ pub async fn run_web_server(shutdown_listener: Option<OneShotReceiver<()>>) -> i
     let mut app = App::<State, Error>::with_state(state);
 
     app.register_module("api", api).unwrap();
-    app.serve(format!("http://0.0.0.0:{}", DEFAULT_WEB_SERVER_PORT))
+    app.serve(format!("http://0.0.0.0:{DEFAULT_WEB_SERVER_PORT}"))
         .await
 }
 
