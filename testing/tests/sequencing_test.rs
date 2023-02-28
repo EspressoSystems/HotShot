@@ -7,7 +7,9 @@ use hotshot::{
             static_committee::{StaticCommittee, StaticElectionConfig, StaticVoteToken},
             vrf::JfPubKey,
         },
-        implementations::{MemoryCommChannel, MemoryStorage},
+        implementations::{
+            CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
+        },
     },
 };
 use hotshot_testing::{test_description::GeneralTestDescriptionBuilder, TestNodeImpl};
@@ -73,6 +75,90 @@ async fn sequencing_memory_test() {
             DAProposal<SequencingTestTypes>,
             DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
             MemoryCommChannel<
+                SequencingTestTypes,
+                DAProposal<SequencingTestTypes>,
+                DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+                StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            >,
+            MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+        >>()
+        .execute()
+        .await
+        .unwrap();
+}
+
+// Test the libp2p network with sequencing consensus.
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+#[instrument]
+#[ignore]
+async fn sequencing_libp2p_test() {
+    let description = GeneralTestDescriptionBuilder {
+        round_start_delay: 25,
+        num_bootstrap_nodes: 5,
+        timeout_ratio: (11, 10),
+        total_nodes: 10,
+        start_nodes: 10,
+        num_succeeds: 20,
+        txn_ids: Right(1),
+        next_view_timeout: 10000,
+        start_delay: 120000,
+        ..GeneralTestDescriptionBuilder::default()
+    };
+
+    description
+        .build::<SequencingTestTypes, TestNodeImpl<
+            SequencingTestTypes,
+            SequencingLeaf<SequencingTestTypes>,
+            DAProposal<SequencingTestTypes>,
+            DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            Libp2pCommChannel<
+                SequencingTestTypes,
+                DAProposal<SequencingTestTypes>,
+                DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+                StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            >,
+            MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+        >>()
+        .execute()
+        .await
+        .unwrap();
+}
+
+// Test the centralized server network with sequencing consensus.
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+#[instrument]
+#[ignore]
+async fn sequencing_centralized_test() {
+    let description = GeneralTestDescriptionBuilder {
+        round_start_delay: 25,
+        num_bootstrap_nodes: 5,
+        timeout_ratio: (11, 10),
+        total_nodes: 10,
+        start_nodes: 10,
+        num_succeeds: 20,
+        txn_ids: Right(1),
+        next_view_timeout: 10000,
+        start_delay: 120000,
+        ..GeneralTestDescriptionBuilder::default()
+    };
+
+    description
+        .build::<SequencingTestTypes, TestNodeImpl<
+            SequencingTestTypes,
+            SequencingLeaf<SequencingTestTypes>,
+            DAProposal<SequencingTestTypes>,
+            DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            CentralizedCommChannel<
                 SequencingTestTypes,
                 DAProposal<SequencingTestTypes>,
                 DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
