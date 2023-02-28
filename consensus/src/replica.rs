@@ -1,6 +1,7 @@
 //! Contains the [`Replica`] struct used for the replica step in the hotstuff consensus algorithm.
 
 use crate::{
+    traits::QuorumProposal,
     utils::{Terminator, View, ViewInner},
     Consensus, ConsensusApi,
 };
@@ -9,6 +10,7 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
 use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
@@ -24,20 +26,17 @@ use hotshot_types::{
     },
 };
 use hotshot_utils::bincode::bincode_opts;
+use std::marker::PhantomData;
 use std::ops::Bound::{Excluded, Included};
 use std::{collections::HashSet, sync::Arc};
 use tracing::{error, info, instrument, warn};
 /// This view's replica
 #[derive(Debug, Clone)]
 pub struct Replica<
-    A: ConsensusApi<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-    >,
-    EXCHANGE: ConsensusExchange<TYPES, ValidatingLeaf<TYPES>>,
+    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+    I: NodeImplementation<TYPES>,
+    EXCHANGE: ConsensusExchange<TYPES, I::Leaf, Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>,
 > {
     /// id of node
     pub id: u64,
@@ -50,8 +49,8 @@ pub struct Replica<
             UnboundedReceiver<
                 ProcessedConsensusMessage<
                     TYPES,
-                    EXCHANGE::Proposal,
-                    EXCHANGE::Vote,
+                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                    QuorumVote<TYPES, I::Leaf>,
                 >,
             >,
         >,
@@ -64,23 +63,15 @@ pub struct Replica<
     pub api: A,
 
     pub exchange: EXCHANGE,
+    _pd: PhantomData<I>,
 }
 
 impl<
-        A: ConsensusApi<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        >,
-        EXCHANGE: ConsensusExchange<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        >,
+        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    > Replica<A, EXCHANGE, TYPES>
+        I: NodeImplementation<TYPES>,
+        EXCHANGE: ConsensusExchange<TYPES, I::Leaf, Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>,
+    > Replica<A, TYPES, I, EXCHANGE>
 {
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
@@ -290,7 +281,7 @@ impl<
                                         // send timedout message to the next leader
                                         if let Err(e) = self
                                             .api
-                                            .send_direct_message(next_leader.clone(), timed_out_msg)
+                                            .send_direct_message::<QuorumProposal<TYPES, I>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(next_leader.clone(), timed_out_msg)
                                             .await
                                         {
                                             consensus.metrics.failed_to_send_messages.add(1);

@@ -1,6 +1,7 @@
 //! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
+use crate::traits::QuorumProposal;
 use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_compatibility_layer::{
@@ -13,6 +14,7 @@ use commit::Committable;
 use either::Either;
 use either::Either::Right;
 use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     certificate::{CertificateAccumulator, DACertificate, QuorumCertificate},
     data::{CommitmentProposal, DAProposal, SequencingLeaf},
@@ -25,21 +27,18 @@ use hotshot_types::{
     },
 };
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use std::{collections::HashSet, sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
 pub struct DALeader<
-    A: ConsensusApi<
-        TYPES,
-        SequencingLeaf<TYPES>,
-        DAProposal<TYPES>,
-        DAVote<TYPES, SequencingLeaf<TYPES>>,
-    >,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
     QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
     TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
 > {
     /// id of node
     pub id: u64,
@@ -70,18 +69,15 @@ pub struct DALeader<
             >,
         >,
     >,
+    _pd: PhantomData<I>,
 }
 impl<
-        A: ConsensusApi<
-            TYPES,
-            SequencingLeaf<TYPES>,
-            DAProposal<TYPES>,
-            DAVote<TYPES, SequencingLeaf<TYPES>>,
-        >,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Certificate = DACertificate<TYPES>>,
         QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
         TYPES: NodeType,
-    > DALeader<A, DA, QUORUM, TYPES>
+        I: NodeImplementation<TYPES>,
+    > DALeader<A, DA, QUORUM, TYPES, I>
 {
     /// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
     /// TODO: Refactor this to use new `Elecetion` trait and call accumulate
@@ -268,13 +264,9 @@ impl<
 /// Implemenation of the consensus leader for a DA/Sequencing consensus.  Handles sending out a proposal to the entire network
 /// For now this step happens after the `DALeader` completes it's proposal and collects enough votes.
 pub struct ConsensusLeader<
-    A: ConsensusApi<
-        TYPES,
-        SequencingLeaf<TYPES>,
-        DAProposal<TYPES>,
-        DAVote<TYPES, SequencingLeaf<TYPES>>,
-    >,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
 > {
     /// id of node
     pub id: u64,
@@ -292,16 +284,13 @@ pub struct ConsensusLeader<
     pub parent: SequencingLeaf<TYPES>,
     /// Limited access to the consensus protocol
     pub api: A,
+    _pd: PhantomData<I>,
 }
 impl<
-        A: ConsensusApi<
-            TYPES,
-            SequencingLeaf<TYPES>,
-            DAProposal<TYPES>,
-            DAVote<TYPES, SequencingLeaf<TYPES>>,
-        >,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
-    > ConsensusLeader<A, TYPES>
+        I: NodeImplementation<TYPES>,
+    > ConsensusLeader<A, TYPES, I>
 {
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
@@ -341,7 +330,7 @@ impl<
             data: proposal,
             signature,
         });
-        if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
+        if let Err(e) = self.api.send_broadcast_message(message.clone()).await {
             warn!(?message, ?e, "Could not broadcast leader proposal");
         }
         self.high_qc
@@ -350,13 +339,9 @@ impl<
 
 /// Implenting the next leader.  Collect votes on the previous leaders proposal and return the QC
 pub struct ConsensusNextLeader<
-    A: ConsensusApi<
-        TYPES,
-        SequencingLeaf<TYPES>,
-        DAProposal<TYPES>,
-        DAVote<TYPES, SequencingLeaf<TYPES>>,
-    >,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
 > {
     /// id of node
     pub id: u64,
@@ -382,16 +367,13 @@ pub struct ConsensusNextLeader<
             >,
         >,
     >,
+    _pd: PhantomData<I>,
 }
 impl<
-        A: ConsensusApi<
-            TYPES,
-            SequencingLeaf<TYPES>,
-            DAProposal<TYPES>,
-            DAVote<TYPES, SequencingLeaf<TYPES>>,
-        >,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    > ConsensusNextLeader<A, TYPES>
+        I: NodeImplementation<TYPES>,
+    > ConsensusNextLeader<A, TYPES, I>
 {
     /// Run one view of the next leader, collect votes and build a QC for the last views `CommitmentProposal`
     /// # Panics

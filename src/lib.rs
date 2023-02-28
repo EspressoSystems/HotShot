@@ -59,7 +59,6 @@ use hotshot_consensus::{
     DAMember, NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner,
     ViewQueue,
 };
-use hotshot_types::{data::{DAProposal, SequencingLeaf}, traits::election::QuorumExchange};
 use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
 use hotshot_types::traits::election::Accumulator;
 use hotshot_types::traits::election::VoteToken;
@@ -70,6 +69,10 @@ use hotshot_types::{
     message::{DAVote, VoteType},
 };
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
+use hotshot_types::{
+    data::{DAProposal, SequencingLeaf},
+    traits::election::QuorumExchange,
+};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
@@ -144,22 +147,22 @@ pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     metrics: Box<dyn Metrics>,
 }
 
-type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
+pub type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
     TYPES,
 >>::QuorumExchange as ConsensusExchange<
     TYPES,
     I::Leaf,
 >>::Proposal;
-type ComitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
+pub type ComitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
     TYPES,
 >>::ComitteeExchange as ConsensusExchange<
     TYPES,
     I::Leaf,
 >>::Proposal;
 
-type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+pub type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
-type ComitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+pub type ComitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
     <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
 /// Thread safe, shared view of a `HotShot`
 #[derive(Clone)]
@@ -715,10 +718,7 @@ pub trait ViewRunner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 #[async_trait]
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = ValidatingLeaf<TYPES>,
-        >,
+        I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
     > ViewRunner<TYPES, I> for HotShot<ValidatingConsensus, TYPES, I>
 {
     #[instrument(skip(hotshot), fields(id = hotshot.id), name = "Validating View Runner Task", level = "error")]
@@ -809,8 +809,17 @@ impl<
             high_qc: high_qc.clone(),
             api: c_api.clone(),
             exchange: c_api.inner.quorum_exchange,
+            _pd: PhantomData,
         };
-        let replica_handle = async_spawn(async move { replica.run_view().await });
+        let replica_handle = async_spawn(async move {
+            Replica::<
+                HotShotConsensusApi<TYPES, I>,
+                <I as NodeImplementation<TYPES>>::QuorumExchange,
+                TYPES,
+                I,
+            >::run_view()
+            .await
+        });
         task_handles.push(replica_handle);
 
         if c_api.is_leader(cur_view).await {
@@ -821,6 +830,7 @@ impl<
                 cur_view,
                 transactions: txns,
                 api: c_api.clone(),
+                _pd: PhantomData,
             };
             let leader_handle = async_spawn(async move { leader.run_view().await });
             task_handles.push(leader_handle);
@@ -835,9 +845,10 @@ impl<
                 cur_view,
                 api: c_api.clone(),
                 metrics,
+                _pd: PhantomData,
             };
             let next_leader_handle = async_spawn(async move {
-                NextValidatingLeader::<HotShotConsensusApi<TYPES, I>, TYPES>::run_view(next_leader)
+                NextValidatingLeader::<HotShotConsensusApi<TYPES, I>, I::QuorumExchange, TYPES, I>::run_view(next_leader)
                     .await
             });
             task_handles.push(next_leader_handle);
@@ -1058,12 +1069,7 @@ struct HotShotConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
-    hotshot_consensus::ConsensusApi<
-        TYPES,
-        I::Leaf,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-    > for HotShotConsensusApi<TYPES, I>
+    hotshot_consensus::ConsensusApi<TYPES, I::Leaf, I> for HotShotConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes
@@ -1108,10 +1114,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         false
     }
 
-    async fn send_direct_message(
+    async fn send_direct_message<
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+    >(
         &self,
         recipient: TYPES::SignatureKey,
-        message: ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
+        message: ConsensusMessage<TYPES, PROPOSAL, VOTE>,
     ) -> std::result::Result<(), NetworkError> {
         let inner = self.inner.clone();
         debug!(?message, ?recipient, "send_direct_message");
@@ -1130,9 +1139,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         Ok(())
     }
 
-    async fn send_broadcast_message(
+    async fn send_broadcast_message<
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+    >(
         &self,
-        message: ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
+        message: ConsensusMessage<TYPES, PROPOSAL, VOTE>,
     ) -> std::result::Result<(), NetworkError> {
         debug!(?message, "send_broadcast_message");
         self.inner
@@ -1149,12 +1161,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         Ok(())
     }
 
-    async fn send_da_broadcast<
-        DAPROPOSAL: ProposalType<NodeType = TYPES>,
-        DAVOTE: VoteType<TYPES>,
-    >(
+    async fn send_da_broadcast(
         &self,
-        _message: ConsensusMessage<TYPES, DAPROPOSAL, DAVOTE>,
+        _message: ConsensusMessage<TYPES, ComitteeProposal<TYPES, I>, ComitteeVote<TYPES, I>>,
     ) -> std::result::Result<(), NetworkError> {
         // TODO: Should look like this code but it won't work due to only 1 Proposal and 1 Vote
         // type being associated with self.inner.networking.

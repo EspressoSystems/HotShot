@@ -11,12 +11,14 @@ use hotshot_types::message::ProcessedConsensusMessage;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::election::{Checked::Unchecked, VoteData};
+use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::{
     certificate::QuorumCertificate,
     message::{ConsensusMessage, InternalTrigger, QuorumVote},
 };
+use std::marker::PhantomData;
 use std::time::Instant;
 use std::{
     collections::{HashMap, HashSet},
@@ -27,14 +29,10 @@ use tracing::{error, instrument, warn};
 /// The next view's validating leader
 #[derive(custom_debug::Debug, Clone)]
 pub struct NextValidatingLeader<
-    A: ConsensusApi<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-    >,
+    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     EXCHANGE: ConsensusExchange<TYPES, ValidatingLeaf<TYPES>>,
     TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
 > {
     /// id of node
     pub id: u64,
@@ -62,22 +60,20 @@ pub struct NextValidatingLeader<
     /// Metrics for reporting stats
     #[debug(skip)]
     pub metrics: Arc<ConsensusMetrics>,
+
+    _pd: PhantomData<I>,
 }
 
 impl<
-        A: ConsensusApi<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        >,
+        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
         EXCHANGE: ConsensusExchange<
             TYPES,
             ValidatingLeaf<TYPES>,
             Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
         >,
         TYPES: NodeType,
-    > NextValidatingLeader<A, EXCHANGE, TYPES>
+        I: NodeImplementation<TYPES>,
+    > NextValidatingLeader<A, EXCHANGE, TYPES, I>
 {
     /// Run one view of the next leader task
     /// # Panics

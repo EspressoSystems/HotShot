@@ -7,6 +7,7 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use commit::Committable;
+use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
@@ -16,19 +17,15 @@ use hotshot_types::{
         state::ValidatingConsensus, Block, State,
     },
 };
+use std::marker::PhantomData;
 use std::{sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
-
 /// This view's validating leader
 #[derive(Debug, Clone)]
 pub struct ValidatingLeader<
-    A: ConsensusApi<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-    >,
+    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
 > {
     /// id of node
     pub id: u64,
@@ -42,17 +39,14 @@ pub struct ValidatingLeader<
     pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
     /// Limited access to the consensus protocol
     pub api: A,
+    _pd: PhantomData<I>,
 }
 
 impl<
-        A: ConsensusApi<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        >,
+        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    > ValidatingLeader<A, TYPES>
+        I: NodeImplementation<TYPES>,
+    > ValidatingLeader<A, TYPES, I>
 {
     /// Run one view of the leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Validating ValidatingLeader Task", level = "error")]

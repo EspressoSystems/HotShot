@@ -11,6 +11,7 @@ use bincode::Options;
 use commit::Committable;
 use either::{Left, Right};
 use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, SequencingLeaf},
@@ -22,21 +23,18 @@ use hotshot_types::{
 };
 use hotshot_utils::bincode::bincode_opts;
 use std::collections::HashSet;
+use std::marker::PhantomData;
 use std::ops::Bound::{Excluded, Included};
 use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 /// This view's replica for sequencing consensus.
 #[derive(Debug, Clone)]
 pub struct SequencingReplica<
-    A: ConsensusApi<
-        TYPES,
-        SequencingLeaf<TYPES>,
-        CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
-        QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-    >,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
     QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
     TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
 > {
     /// ID of node.
     pub id: u64,
@@ -64,15 +62,11 @@ pub struct SequencingReplica<
 
     pub da_exchange: DA,
     pub quorum_exchange: QUORUM,
+    _pd: PhantomData<I>,
 }
 
 impl<
-        A: ConsensusApi<
-            TYPES,
-            SequencingLeaf<TYPES>,
-            CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
-            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-        >,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Certificate = DACertificate<TYPES>>,
         QUORUM: ConsensusExchange<
             TYPES,
@@ -80,7 +74,8 @@ impl<
             Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         >,
         TYPES: NodeType,
-    > SequencingReplica<A, DA, QUORUM, TYPES>
+        I: NodeImplementation<TYPES>,
+    > SequencingReplica<A, DA, QUORUM, TYPES, I>
 {
     // TODO (da) Move this function so that it can be used by leader, replica, and committee member logic.
     /// Returns the parent leaf of the proposal we are voting on

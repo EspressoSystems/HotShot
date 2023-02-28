@@ -14,22 +14,21 @@ use hotshot_types::{
     data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, DAVote, ProcessedConsensusMessage},
     traits::{
-        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
+        election::SignedCertificate,
+        node_implementation::{NodeImplementation, NodeType},
+        signature_key::SignatureKey,
     },
 };
+use std::marker::PhantomData;
 use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 
 /// This view's DA committee member.
 #[derive(Debug, Clone)]
 pub struct DAMember<
-    A: ConsensusApi<
-        TYPES,
-        SequencingLeaf<TYPES>,
-        DAProposal<TYPES>,
-        DAVote<TYPES, SequencingLeaf<TYPES>>,
-    >,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
 > {
     /// ID of node.
     pub id: u64,
@@ -54,17 +53,15 @@ pub struct DAMember<
     pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// HotShot consensus API.
     pub api: A,
+
+    _pd: PhantomData<I>,
 }
 
 impl<
-        A: ConsensusApi<
-            TYPES,
-            SequencingLeaf<TYPES>,
-            DAProposal<TYPES>,
-            DAVote<TYPES, SequencingLeaf<TYPES>>,
-        >,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         TYPES: NodeType,
-    > DAMember<A, TYPES>
+        I: NodeImplementation<TYPES>,
+    > DAMember<A, TYPES, I>
 {
     /// Returns the parent leaf of the proposal we are voting on
     async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {

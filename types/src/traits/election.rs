@@ -201,7 +201,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>:
     fn network(&self) -> &Self::Networking;
 
     /// Validate a QC.
-    fn is_valid_cert<C: Committable>(&self, qc: &Self::Certificate, comit: Commitment<C>) -> bool;
+    fn is_valid_cert<C: Committable>(&self, qc: &Self::Certificate, commit: Commitment<C>) -> bool;
 
     /// Validate a vote.
     fn is_valid_vote(
