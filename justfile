@@ -33,6 +33,9 @@ test_async_std_pkg_all pkg=test_pkg:
 test_async_std_pkg_test name=test_name:
   cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --workspace --no-fail-fast _nodes -- --test-threads=1 --nocapture
 
+list_tests_json:
+  cargo test --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --package=hotshot-testing --no-fail-fast -- --test-threads=1 --nocapture -Zunstable-options --format json
+
 check: check_tokio check_tokio_flume check_async_std check_async_std_flume
 
 check_tokio:

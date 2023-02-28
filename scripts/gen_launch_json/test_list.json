@@ -1,0 +1,66 @@
+{ "type": "suite", "event": "started", "test_count": 0 }
+{ "type": "suite", "event": "ok", "passed": 0, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0, "exec_time": 0.000068584 }
+{ "type": "suite", "event": "started", "test_count": 0 }
+{ "type": "suite", "event": "ok", "passed": 0, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0, "exec_time": 0.0000205 }
+{ "type": "suite", "event": "started", "test_count": 3 }
+{ "type": "test", "event": "started", "name": "centralized_server_network" }
+{ "type": "test", "name": "centralized_server_network", "event": "ok" }
+{ "type": "test", "event": "started", "name": "centralized_server_network_vrf" }
+{ "type": "test", "name": "centralized_server_network_vrf", "event": "ok" }
+{ "type": "test", "event": "started", "name": "test_stress_centralized_server_network" }
+{ "type": "test", "name": "test_stress_centralized_server_network", "event": "ignored" }
+{ "type": "suite", "event": "ok", "passed": 2, "failed": 0, "ignored": 1, "measured": 0, "filtered_out": 0, "exec_time": 61.772623625 }
+{ "type": "suite", "event": "started", "test_count": 8 }
+{ "type": "test", "event": "started", "name": "test_bad_proposal" }
+{ "type": "test", "name": "test_bad_proposal", "event": "ignored" }
+{ "type": "test", "event": "started", "name": "test_chain_height" }
+{ "type": "test", "name": "test_chain_height", "event": "ok" }
+{ "type": "test", "event": "started", "name": "test_decide_leaf_chain" }
+{ "type": "test", "name": "test_decide_leaf_chain", "event": "ok" }
+{ "type": "test", "event": "started", "name": "test_max_propose" }
+{ "type": "test", "name": "test_max_propose", "event": "ignored" }
+{ "type": "test", "event": "started", "name": "test_min_propose" }
+{ "type": "test", "name": "test_min_propose", "event": "ignored" }
+{ "type": "test", "event": "started", "name": "test_single_node_network" }
+{ "type": "test", "name": "test_single_node_network", "event": "ok" }
+{ "type": "test", "event": "started", "name": "test_validating_proposal_queueing" }
+{ "type": "test", "name": "test_validating_proposal_queueing", "event": "ignored" }
+{ "type": "test", "event": "started", "name": "test_vote_queueing" }
+{ "type": "test", "name": "test_vote_queueing", "event": "ignored" }
+{ "type": "suite", "event": "ok", "passed": 3, "failed": 0, "ignored": 5, "measured": 0, "filtered_out": 0, "exec_time": 181.941518542 }
+{ "type": "suite", "event": "started", "test_count": 2 }
+{ "type": "test", "event": "started", "name": "double_permanent_failure::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::double_permanent_failure" }
+{ "type": "test", "name": "double_permanent_failure::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::double_permanent_failure", "event": "ok" }
+{ "type": "test", "event": "started", "name": "single_permanent_failure::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::single_permanent_failure" }
+{ "type": "test", "name": "single_permanent_failure::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::single_permanent_failure", "event": "ok" }
+{ "type": "suite", "event": "ok", "passed": 2, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0, "exec_time": 13.837310958 }
+{ "type": "suite", "event": "started", "test_count": 2 }
+{ "type": "test", "event": "started", "name": "libp2p_network" }
+{ "type": "test", "name": "libp2p_network", "event": "ok" }
+{ "type": "test", "event": "started", "name": "test_stress_libp2p_network" }
+{ "type": "test", "name": "test_stress_libp2p_network", "event": "ignored" }
+{ "type": "suite", "event": "ok", "passed": 1, "failed": 0, "ignored": 1, "measured": 0, "filtered_out": 0, "exec_time": 202.316343791 }
+{ "type": "suite", "event": "started", "test_count": 4 }
+{ "type": "test", "event": "started", "name": "test_asynchronous_network" }
+{ "type": "test", "name": "test_asynchronous_network", "event": "ignored" }
+{ "type": "test", "event": "started", "name": "test_no_loss_network" }
+{ "type": "test", "name": "test_no_loss_network", "event": "ok" }
+{ "type": "test", "event": "started", "name": "test_partially_synchronous_network" }
+{ "type": "test", "name": "test_partially_synchronous_network", "event": "ignored" }
+{ "type": "test", "event": "started", "name": "test_synchronous_network" }
+{ "type": "test", "name": "test_synchronous_network", "event": "ok" }
+{ "type": "suite", "event": "ok", "passed": 2, "failed": 0, "ignored": 2, "measured": 0, "filtered_out": 0, "exec_time": 0.958921083 }
+{ "type": "suite", "event": "started", "test_count": 0 }
+{ "type": "suite", "event": "ok", "passed": 0, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0, "exec_time": 0.000031541 }
+{ "type": "suite", "event": "started", "test_count": 1 }
+{ "type": "test", "event": "started", "name": "sequencing_test" }
+{ "type": "test", "name": "sequencing_test", "event": "ignored" }
+{ "type": "suite", "event": "ok", "passed": 0, "failed": 0, "ignored": 1, "measured": 0, "filtered_out": 0, "exec_time": 0.000049375 }
+{ "type": "suite", "event": "started", "test_count": 2 }
+{ "type": "test", "event": "started", "name": "ten_tx_five_nodes::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::ten_tx_five_nodes" }
+{ "type": "test", "name": "ten_tx_five_nodes::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::ten_tx_five_nodes", "event": "ok" }
+{ "type": "test", "event": "started", "name": "ten_tx_seven_nodes::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::ten_tx_seven_nodes" }
+{ "type": "test", "name": "ten_tx_seven_nodes::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::ten_tx_seven_nodes", "event": "ok" }
+{ "type": "suite", "event": "ok", "passed": 2, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0, "exec_time": 6.252721625 }
+{ "type": "suite", "event": "started", "test_count": 0 }
+{ "type": "suite", "event": "ok", "passed": 0, "failed": 0, "ignored": 0, "measured": 0, "filtered_out": 0, "exec_time": 0.000124541 }

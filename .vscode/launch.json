@@ -1,403 +1,445 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "lldb",
+            "type": "codelldb",
             "request": "launch",
-            "name": "Debug unit tests in library 'libp2p-networking'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--lib",
-                    "--package=libp2p-networking"
-                ],
-                "filter": {
-                    "name": "libp2p-networking",
-                    "kind": "lib"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug example 'clichat'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--example=clichat",
-                    "--package=libp2p-networking"
-                ],
-                "filter": {
-                    "name": "clichat",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in example 'clichat'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--example=clichat",
-                    "--package=libp2p-networking"
-                ],
-                "filter": {
-                    "name": "clichat",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug example 'counter'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--example=counter",
-                    "--package=libp2p-networking"
-                ],
-                "filter": {
-                    "name": "counter",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in example 'counter'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--example=counter",
-                    "--package=libp2p-networking"
-                ],
-                "filter": {
-                    "name": "counter",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug integration test 'counter'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--test=counter",
-                    "--package=libp2p-networking"
-                ],
-                "filter": {
-                    "name": "counter",
-                    "kind": "test"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in library 'hotshot-types'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--lib",
-                    "--package=hotshot-types"
-                ],
-                "filter": {
-                    "name": "hotshot-types",
-                    "kind": "lib"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in library 'hotshot-consensus'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--lib",
-                    "--package=hotshot-consensus"
-                ],
-                "filter": {
-                    "name": "hotshot-consensus",
-                    "kind": "lib"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in library 'hotshot-testing'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--lib",
-                    "--package=hotshot-testing"
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "centralized_server_network"
                 ],
                 "filter": {
                     "name": "hotshot-testing",
                     "kind": "lib"
                 }
             },
-            "args": [],
-            "cwd": "${workspaceFolder}"
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug centralized_server_network test"
         },
         {
-            "type": "lldb",
+            "type": "codelldb",
             "request": "launch",
-            "name": "Debug integration test 'lossy'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--test=lossy",
-                    "--package=hotshot-testing"
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "centralized_server_network_vrf"
                 ],
                 "filter": {
-                    "name": "lossy",
-                    "kind": "test"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug integration test 'atomic_storage'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--test=atomic_storage",
-                    "--package=hotshot-testing"
-                ],
-                "filter": {
-                    "name": "atomic_storage",
-                    "kind": "test"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug integration test 'random_tests'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--test=random_tests",
-                    "--package=hotshot-testing"
-                ],
-                "filter": {
-                    "name": "random_tests",
-                    "kind": "test"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug integration test 'libp2p'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--test=libp2p",
-                    "--package=hotshot-testing"
-                ],
-                "filter": {
-                    "name": "libp2p",
-                    "kind": "test"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug integration test 'smoke'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--test=smoke",
-                    "--package=hotshot-testing"
-                ],
-                "filter": {
-                    "name": "smoke",
-                    "kind": "test"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug integration test 'query_data'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--test=query_data",
-                    "--package=hotshot-testing"
-                ],
-                "filter": {
-                    "name": "query_data",
-                    "kind": "test"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug integration test 'failures'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--test=failures",
-                    "--package=hotshot-testing"
-                ],
-                "filter": {
-                    "name": "failures",
-                    "kind": "test"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in library 'hotshot'",
-            "cargo": {
-                "args": [
-                    "test",
-                    "--no-run",
-                    "--lib",
-                    "--package=hotshot"
-                ],
-                "filter": {
-                    "name": "hotshot",
+                    "name": "hotshot-testing",
                     "kind": "lib"
                 }
             },
-            "args": [],
-            "cwd": "${workspaceFolder}"
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug centralized_server_network_vrf test"
         },
         {
-            "type": "lldb",
+            "type": "codelldb",
             "request": "launch",
-            "name": "Debug example 'multi-machine-libp2p'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--example=multi-machine-libp2p",
-                    "--package=hotshot"
-                ],
-                "filter": {
-                    "name": "multi-machine-libp2p",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in example 'multi-machine-libp2p'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--example=multi-machine-libp2p",
-                    "--package=hotshot"
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "test_stress_centralized_server_network"
                 ],
                 "filter": {
-                    "name": "multi-machine-libp2p",
-                    "kind": "example"
+                    "name": "hotshot-testing",
+                    "kind": "lib"
                 }
             },
-            "args": [],
-            "cwd": "${workspaceFolder}"
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_stress_centralized_server_network test"
         },
         {
-            "type": "lldb",
+            "type": "codelldb",
             "request": "launch",
-            "name": "Debug example 'multi-machine'",
-            "cargo": {
-                "args": [
-                    "build",
-                    "--example=multi-machine",
-                    "--package=hotshot"
-                ],
-                "filter": {
-                    "name": "multi-machine",
-                    "kind": "example"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug unit tests in example 'multi-machine'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--example=multi-machine",
-                    "--package=hotshot"
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "test_bad_proposal"
                 ],
                 "filter": {
-                    "name": "multi-machine",
-                    "kind": "example"
+                    "name": "hotshot-testing",
+                    "kind": "lib"
                 }
             },
-            "args": [],
-            "cwd": "${workspaceFolder}"
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_bad_proposal test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "test_chain_height"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_chain_height test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "test_decide_leaf_chain"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_decide_leaf_chain test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "test_max_propose"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_max_propose test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "test_min_propose"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_min_propose test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "test_single_node_network"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_single_node_network test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "test_validating_proposal_queueing"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_validating_proposal_queueing test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "test_vote_queueing"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_vote_queueing test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "double_permanent_failure::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::double_permanent_failure"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug double_permanent_failure::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::double_permanent_failure test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "single_permanent_failure::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::single_permanent_failure"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug single_permanent_failure::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::single_permanent_failure test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "libp2p_network"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug libp2p_network test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "test_stress_libp2p_network"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_stress_libp2p_network test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "test_asynchronous_network"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_asynchronous_network test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "test_no_loss_network"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_no_loss_network test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "test_partially_synchronous_network"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_partially_synchronous_network test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "test_synchronous_network"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug test_synchronous_network test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "sequencing_test"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug sequencing_test test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "ten_tx_five_nodes::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::ten_tx_five_nodes"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug ten_tx_five_nodes::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::ten_tx_five_nodes test"
+        },
+        {
+            "type": "codelldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=hotshot-testing",
+                    "--features=full-ci,channel-async-std",
+                    "ten_tx_seven_nodes::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::ten_tx_seven_nodes"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug ten_tx_seven_nodes::MemoryCommChannel::MemoryStorage::VDEntryBlock::VDEntryState::ten_tx_seven_nodes test"
         }
     ]
 }
