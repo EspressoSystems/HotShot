@@ -21,6 +21,24 @@ use hotshot_types::{
 use jf_primitives::signatures::BLSSignatureScheme;
 use tracing::instrument;
 
+// Test the libp2p network with sequencing consensus.
+#[instrument]
+#[ignore]
+fn description_build() -> GeneralTestDescriptionBuilder {
+    GeneralTestDescriptionBuilder {
+        round_start_delay: 25,
+        num_bootstrap_nodes: 5,
+        timeout_ratio: (11, 10),
+        total_nodes: 10,
+        start_nodes: 10,
+        num_succeeds: 20,
+        txn_ids: Right(1),
+        next_view_timeout: 10000,
+        start_delay: 120000,
+        ..GeneralTestDescriptionBuilder::default()
+    }
+}
+
 #[derive(
     Copy,
     Clone,
@@ -55,20 +73,9 @@ impl NodeType for SequencingTestTypes {
 #[instrument]
 #[ignore]
 async fn sequencing_memory_test() {
-    let description = GeneralTestDescriptionBuilder {
-        round_start_delay: 25,
-        num_bootstrap_nodes: 5,
-        timeout_ratio: (11, 10),
-        total_nodes: 10,
-        start_nodes: 10,
-        num_succeeds: 20,
-        txn_ids: Right(1),
-        next_view_timeout: 10000,
-        start_delay: 120000,
-        ..GeneralTestDescriptionBuilder::default()
-    };
+    let builder = description_build();
 
-    description
+    builder
         .build::<SequencingTestTypes, TestNodeImpl<
             SequencingTestTypes,
             SequencingLeaf<SequencingTestTypes>,
@@ -97,20 +104,9 @@ async fn sequencing_memory_test() {
 #[instrument]
 #[ignore]
 async fn sequencing_libp2p_test() {
-    let description = GeneralTestDescriptionBuilder {
-        round_start_delay: 25,
-        num_bootstrap_nodes: 5,
-        timeout_ratio: (11, 10),
-        total_nodes: 10,
-        start_nodes: 10,
-        num_succeeds: 20,
-        txn_ids: Right(1),
-        next_view_timeout: 10000,
-        start_delay: 120000,
-        ..GeneralTestDescriptionBuilder::default()
-    };
+    let builder = description_build();
 
-    description
+    builder
         .build::<SequencingTestTypes, TestNodeImpl<
             SequencingTestTypes,
             SequencingLeaf<SequencingTestTypes>,
@@ -139,20 +135,9 @@ async fn sequencing_libp2p_test() {
 #[instrument]
 #[ignore]
 async fn sequencing_centralized_test() {
-    let description = GeneralTestDescriptionBuilder {
-        round_start_delay: 25,
-        num_bootstrap_nodes: 5,
-        timeout_ratio: (11, 10),
-        total_nodes: 10,
-        start_nodes: 10,
-        num_succeeds: 20,
-        txn_ids: Right(1),
-        next_view_timeout: 10000,
-        start_delay: 120000,
-        ..GeneralTestDescriptionBuilder::default()
-    };
+    let builder = description_build();
 
-    description
+    builder
         .build::<SequencingTestTypes, TestNodeImpl<
             SequencingTestTypes,
             SequencingLeaf<SequencingTestTypes>,
