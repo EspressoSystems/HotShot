@@ -26,23 +26,23 @@
 </pre><pre class="rust"><code><span class="kw">pub const </span>DEFAULT_WEB_SERVER_PORT: u16 = <span class="number">9000</span>;
 
 <span class="kw">pub fn </span>get_proposal_route(view_number: u64) -&gt; String {
-    <span class="macro">format!</span>(<span class="string">&quot;api/proposal/{}&quot;</span>, view_number)
+    <span class="macro">format!</span>(<span class="string">&quot;api/proposal/{view_number}&quot;</span>)
 }
 
 <span class="kw">pub fn </span>post_proposal_route(view_number: u64) -&gt; String {
-    <span class="macro">format!</span>(<span class="string">&quot;api/proposal/{}&quot;</span>, view_number)
+    <span class="macro">format!</span>(<span class="string">&quot;api/proposal/{view_number}&quot;</span>)
 }
 
 <span class="kw">pub fn </span>get_vote_route(view_number: u64, index: u64) -&gt; String {
-    <span class="macro">format!</span>(<span class="string">&quot;api/votes/{}/{}&quot;</span>, view_number, index)
+    <span class="macro">format!</span>(<span class="string">&quot;api/votes/{view_number}/{index}&quot;</span>)
 }
 
 <span class="kw">pub fn </span>post_vote_route(view_number: u64) -&gt; String {
-    <span class="macro">format!</span>(<span class="string">&quot;api/votes/{}&quot;</span>, view_number)
+    <span class="macro">format!</span>(<span class="string">&quot;api/votes/{view_number}&quot;</span>)
 }
 
 <span class="kw">pub fn </span>get_transactions_route(index: u64) -&gt; String {
-    <span class="macro">format!</span>(<span class="string">&quot;api/transactions/{}&quot;</span>, index)
+    <span class="macro">format!</span>(<span class="string">&quot;api/transactions/{index}&quot;</span>)
 }
 
 <span class="kw">pub fn </span>post_transactions_route() -&gt; String {

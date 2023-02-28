@@ -727,6 +727,7 @@
 <a href="#727" id="727">727</a>
 <a href="#728" id="728">728</a>
 <a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
@@ -751,8 +752,6 @@
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>espresso_systems_common::hotshot::tag;
-<span class="attr">#[allow(deprecated)]
-</span><span class="kw">use </span>nll::nll_todo::nll_todo;
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{fmt::Debug, hash::Hash};
@@ -1162,7 +1161,11 @@
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
     ) -&gt; &lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction {
-        &lt;TYPES::StateType <span class="kw">as </span>TestableState&gt;::create_random_transaction(<span class="kw-2">&amp;</span><span class="self">self</span>.state, rng, padding)
+        &lt;TYPES::StateType <span class="kw">as </span>TestableState&gt;::create_random_transaction(
+            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.state),
+            rng,
+            padding,
+        )
     }
 }
 
@@ -1253,11 +1256,10 @@
 
     <span class="kw">fn </span>create_random_transaction(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
-        _padding: u64,
+        rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
+        padding: u64,
     ) -&gt; &lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction {
-        <span class="attr">#[allow(deprecated)]
-        </span>nll_todo()
+        TYPES::StateType::create_random_transaction(<span class="prelude-val">None</span>, rng, padding)
     }
 }
 <span class="doccomment">/// Fake the thing a genesis block points to. Needed to avoid infinite recursion

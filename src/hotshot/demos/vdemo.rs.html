@@ -631,6 +631,9 @@
 <a href="#631" id="631">631</a>
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Validating (vanilla) consensus demo
 //!
 //! This module provides an implementation of the `HotShot` suite of traits that implements a
@@ -1011,16 +1014,19 @@
     </span>}
 }
 
-<span class="kw">impl </span>TestableState <span class="kw">for </span>VDemoState {
+<span class="attr">#[allow(clippy::panic)]
+</span><span class="kw">impl </span>TestableState <span class="kw">for </span>VDemoState {
     <span class="kw">fn </span>create_random_transaction(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        state: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>&gt;,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
     ) -&gt; &lt;<span class="self">Self</span>::BlockType <span class="kw">as </span>Block&gt;::Transaction {
         <span class="kw">use </span>rand::seq::IteratorRandom;
 
-        <span class="kw">let </span>non_zero_balances = <span class="self">self
-            </span>.balances
+        <span class="kw">let </span>state = state.unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;Missing state&quot;</span>));
+
+        <span class="kw">let </span>non_zero_balances = state
+            .balances
             .iter()
             .filter(|b| <span class="kw-2">*</span>b.<span class="number">1 </span>&gt; <span class="number">0</span>)
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -1031,7 +1037,7 @@
         </span>);
 
         <span class="kw">let </span>input_account = non_zero_balances.iter().choose(rng).unwrap().<span class="number">0</span>;
-        <span class="kw">let </span>output_account = <span class="self">self</span>.balances.keys().choose(rng).unwrap();
+        <span class="kw">let </span>output_account = state.balances.keys().choose(rng).unwrap();
         <span class="kw">let </span>amount = rng.gen_range(<span class="number">0</span>..<span class="number">100</span>);
 
         VDemoTransaction {

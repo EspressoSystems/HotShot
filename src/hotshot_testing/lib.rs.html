@@ -759,13 +759,13 @@
 {
     <span class="doccomment">/// Safety check before round is set up and run
     /// to ensure consistent state
-    </span><span class="kw">pub </span>safety_check_post: <span class="prelude-ty">Option</span>&lt;RoundPostSafetyCheck&lt;TYPES, I&gt;&gt;,
+    </span><span class="kw">pub </span>safety_check_pre: <span class="prelude-ty">Option</span>&lt;RoundPreSafetyCheck&lt;TYPES, I&gt;&gt;,
 
     <span class="doccomment">/// Round set up
     </span><span class="kw">pub </span>setup_round: <span class="prelude-ty">Option</span>&lt;RoundSetup&lt;TYPES, TYPES::Transaction, I&gt;&gt;,
 
     <span class="doccomment">/// Safety check after round is complete
-    </span><span class="kw">pub </span>safety_check_pre: <span class="prelude-ty">Option</span>&lt;RoundPreSafetyCheck&lt;TYPES, I&gt;&gt;,
+    </span><span class="kw">pub </span>safety_check_post: <span class="prelude-ty">Option</span>&lt;RoundPostSafetyCheck&lt;TYPES, I&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; Default <span class="kw">for </span>Round&lt;TYPES, I&gt;

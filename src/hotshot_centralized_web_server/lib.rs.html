@@ -488,7 +488,7 @@
             <span class="prelude-val">Some</span>(proposals) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(proposals.clone())),
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(ServerError {
                 status: StatusCode::NotImplemented,
-                message: <span class="macro">format!</span>(<span class="string">&quot;Proposal not found for view {}&quot;</span>, view_number),
+                message: <span class="macro">format!</span>(<span class="string">&quot;Proposal not found for view {view_number}&quot;</span>),
             }),
         }
     }
@@ -522,7 +522,7 @@
             <span class="prelude-val">Err</span>(ServerError {
                 <span class="comment">// TODO ED: Why does NoContent status code cause errors?
                 </span>status: StatusCode::NotImplemented,
-                message: <span class="macro">format!</span>(<span class="string">&quot;Transaction not found for index {}&quot;</span>, index),
+                message: <span class="macro">format!</span>(<span class="string">&quot;Transaction not found for index {index}&quot;</span>),
             })
         }
     }
@@ -658,7 +658,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;State, Error&gt;::with_state(state);
 
     app.register_module(<span class="string">&quot;api&quot;</span>, api).unwrap();
-    app.serve(<span class="macro">format!</span>(<span class="string">&quot;http://0.0.0.0:{}&quot;</span>, DEFAULT_WEB_SERVER_PORT))
+    app.serve(<span class="macro">format!</span>(<span class="string">&quot;http://0.0.0.0:{DEFAULT_WEB_SERVER_PORT}&quot;</span>))
         .<span class="kw">await
 </span>}
 

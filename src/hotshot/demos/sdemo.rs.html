@@ -485,7 +485,7 @@
     <span class="kw">fn </span>validate_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockType, view_number: <span class="kw-2">&amp;</span><span class="self">Self</span>::Time) -&gt; bool {
         <span class="kw">match </span>block {
             SDemoBlock::Genesis(<span class="kw">_</span>) =&gt; {
-                view_number &gt; <span class="kw-2">&amp;</span>ViewNumber::genesis() &amp;&amp; <span class="kw-2">*</span>view_number &gt; <span class="self">self</span>.view_number
+                view_number == <span class="kw-2">&amp;</span>ViewNumber::genesis() &amp;&amp; view_number == <span class="kw-2">&amp;</span><span class="self">self</span>.view_number
             }
             SDemoBlock::Normal(n) =&gt; {
                 n.previous_state == <span class="self">self</span>.commit() &amp;&amp; <span class="self">self</span>.view_number &lt; <span class="kw-2">*</span>view_number
@@ -514,7 +514,7 @@
 
 <span class="kw">impl </span>TestableState <span class="kw">for </span>SDemoState {
     <span class="kw">fn </span>create_random_transaction(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _state: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>&gt;,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
     ) -&gt; &lt;<span class="self">Self</span>::BlockType <span class="kw">as </span>Block&gt;::Transaction {

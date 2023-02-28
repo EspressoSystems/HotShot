@@ -1705,7 +1705,7 @@
                 <span class="comment">// TODO make this u64...
                 </span><span class="kw">let </span>txn =
                     &lt;&lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType <span class="kw">as </span>TestableState&gt;::create_random_transaction(
-                        <span class="kw-2">&amp;</span>state,
+                        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>state),
                         <span class="kw-2">&amp;mut </span>txn_rng,
                         padding <span class="kw">as </span>u64,
                     );
