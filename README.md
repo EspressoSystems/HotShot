@@ -237,7 +237,9 @@ lua require('dap.ext.vscode').load_launchjs(nil, { ["codelldb"] = {"rust"} })
 
 Finally, place a breakpoint and run `:DapContinue` to begin debugging.
 
-NOTE: Do NOT configure dap at all with rust-tools.
+NOTE: Do NOT configure dap at all with rust-tools. Do it manually.
+
+[Example configuration](https://github.com/DieracDelta/vimconfig/blob/master/modules/lsp.nix#L280).
 
 ## Vscode
 
