@@ -34,7 +34,7 @@ pub type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as 
     TYPES,
     I::Leaf,
 >>::Proposal;
-pub type ComitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
+pub type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
     TYPES,
 >>::ComitteeExchange as ConsensusExchange<
     TYPES,
@@ -43,7 +43,7 @@ pub type ComitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I a
 
 pub type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
-pub type ComitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+pub type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
     <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
 
 // FIXME these should be nonzero u64s
@@ -186,7 +186,7 @@ pub trait ConsensusApi<
     /// Send a broadcast to the DA comitee, stub for now
     async fn send_da_broadcast(
         &self,
-        message: ConsensusMessage<TYPES, ComitteeProposal<TYPES, I>, ComitteeVote<TYPES, I>>,
+        message: ConsensusMessage<TYPES, CommitteeProposal<TYPES, I>, CommitteeVote<TYPES, I>>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Sign a DA proposal.
@@ -277,9 +277,9 @@ pub trait ConsensusApi<
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, ComitteeProposal<TYPES, I>, DAVote<TYPES, LEAF>> {
+    ) -> ConsensusMessage<TYPES, CommitteeProposal<TYPES, I>, DAVote<TYPES, LEAF>> {
         let signature = self.sign_da_vote(block_commitment);
-        ConsensusMessage::<TYPES, ComitteeProposal<TYPES, I>, DAVote<TYPES, LEAF>>::Vote(DAVote {
+        ConsensusMessage::<TYPES, CommitteeProposal<TYPES, I>, DAVote<TYPES, LEAF>>::Vote(DAVote {
             justify_qc_commitment,
             signature,
             block_commitment,

@@ -77,7 +77,7 @@ type QuorumNetwork<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeI
 
 type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
-type ComitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
     <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
 type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
     TYPES,
@@ -85,7 +85,7 @@ type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as Node
     TYPES,
     I::Leaf,
 >>::Proposal;
-type ComitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
+type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
     TYPES,
 >>::ComitteeExchange as ConsensusExchange<
     TYPES,
@@ -394,7 +394,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, ComitteeProposal<TYPES, I>, DAVote<TYPES, I::Leaf>> {
+    ) -> ConsensusMessage<TYPES, CommitteeProposal<TYPES, I>, DAVote<TYPES, I::Leaf>> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };

@@ -9,7 +9,6 @@ use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
-use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -25,6 +24,7 @@ use hotshot_types::{
         Block, State,
     },
 };
+use hotshot_types::{message::Proposal, traits::election::ConsensusExchange};
 use hotshot_utils::bincode::bincode_opts;
 use std::marker::PhantomData;
 use std::ops::Bound::{Excluded, Included};
@@ -36,7 +36,13 @@ pub struct Replica<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     I: NodeImplementation<TYPES>,
-    EXCHANGE: ConsensusExchange<TYPES, I::Leaf, Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>,
+    EXCHANGE: ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        Vote = QuorumVote<TYPES, I::Leaf>,
+    >,
 > {
     /// id of node
     pub id: u64,
@@ -47,11 +53,7 @@ pub struct Replica<
     pub proposal_collection_chan: Arc<
         Mutex<
             UnboundedReceiver<
-                ProcessedConsensusMessage<
-                    TYPES,
-                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                    QuorumVote<TYPES, I::Leaf>,
-                >,
+                ProcessedConsensusMessage<TYPES, EXCHANGE::Proposal, QuorumVote<TYPES, I::Leaf>>,
             >,
         >,
     >,
@@ -70,7 +72,13 @@ impl<
         A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
         I: NodeImplementation<TYPES>,
-        EXCHANGE: ConsensusExchange<TYPES, I::Leaf, Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>,
+        EXCHANGE: ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            Vote = QuorumVote<TYPES, I::Leaf>,
+        >,
     > Replica<A, TYPES, I, EXCHANGE>
 {
     /// portion of the replica task that spins until a valid QC can be signed or

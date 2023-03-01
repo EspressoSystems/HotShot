@@ -31,6 +31,7 @@ use std::hash::Hash;
 ///
 /// It is recommended you implement this trait on a zero sized type, as `HotShot`does not actually
 /// store or keep a reference to any value implementing this trait.
+
 pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'static {
     type Leaf: LeafType<NodeType = TYPES>;
 
@@ -44,6 +45,24 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
 
     type ComitteeExchange: ConsensusExchange<TYPES, Self::Leaf>;
 }
+
+pub type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
+    TYPES,
+>>::QuorumExchange as ConsensusExchange<
+    TYPES,
+    I::Leaf,
+>>::Proposal;
+pub type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
+    TYPES,
+>>::ComitteeExchange as ConsensusExchange<
+    TYPES,
+    I::Leaf,
+>>::Proposal;
+
+pub type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
+pub type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+    <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
 pub trait NodeType:

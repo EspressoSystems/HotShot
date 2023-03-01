@@ -153,7 +153,7 @@ pub type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as 
     TYPES,
     I::Leaf,
 >>::Proposal;
-pub type ComitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
+pub type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
     TYPES,
 >>::ComitteeExchange as ConsensusExchange<
     TYPES,
@@ -162,7 +162,7 @@ pub type ComitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I a
 
 pub type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
-pub type ComitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+pub type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
     <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
 /// Thread safe, shared view of a `HotShot`
 #[derive(Clone)]
@@ -511,8 +511,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                     return;
                 }
 
-                let chan: ViewQueue<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>> =
-                    Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
+                let chan: ViewQueue<
+                    TYPES,
+                    ValidatingProposal<TYPES, I::Leaf>,
+                    QuorumVote<TYPES, I::Leaf>,
+                > = Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
 
                 if !chan.has_received_proposal.swap(true, Ordering::Relaxed)
                     && chan
@@ -671,7 +674,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             '_,
             SendToTasks<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
         >,
-    ) -> ViewQueue<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>> {
+    ) -> ViewQueue<TYPES, ValidatingProposal<TYPES, I::Leaf>, QuorumVote<TYPES, I::Leaf>> {
         // check if we have the entry
         // if we don't, insert
         if let Some(vq) = channel_map.channel_map.get(&view_num) {
@@ -679,7 +682,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         } else {
             let mut channel_map = RwLockUpgradableReadGuard::<
                 '_,
-                SendToTasks<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
+                SendToTasks<TYPES, ValidatingProposal<TYPES, I::Leaf>, QuorumVote<TYPES, I::Leaf>>,
             >::upgrade(channel_map)
             .await;
             let new_view_queue = ViewQueue::default();
@@ -902,12 +905,7 @@ impl<
 #[async_trait]
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = SequencingLeaf<TYPES>,
-            // Proposal = DAProposal<TYPES>,
-            // Vote = DAVote<TYPES, SequencingLeaf<TYPES>>,
-        >,
+        I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
     > ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
 {
     // #[instrument]
@@ -1163,7 +1161,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
 
     async fn send_da_broadcast(
         &self,
-        _message: ConsensusMessage<TYPES, ComitteeProposal<TYPES, I>, ComitteeVote<TYPES, I>>,
+        _message: ConsensusMessage<TYPES, CommitteeProposal<TYPES, I>, CommitteeVote<TYPES, I>>,
     ) -> std::result::Result<(), NetworkError> {
         // TODO: Should look like this code but it won't work due to only 1 Proposal and 1 Vote
         // type being associated with self.inner.networking.

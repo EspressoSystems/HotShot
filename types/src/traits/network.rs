@@ -109,12 +109,19 @@ pub enum NetworkError {
     /// unable to cancel a request, the request has already been cancelled
     UnableToCancel,
 }
+/// common traits we would like olur network messages to implement
+
+pub trait NetworkMsg:
+    Serialize + for<'a> Deserialize<'a> + Clone + std::fmt::Debug + Sync + Send + 'static
+{
+}
 
 /// API for interacting directly with a consensus committee
 /// intended to be implemented for both DA and for validating consensus committees
 #[async_trait]
 pub trait CommunicationChannel<
     TYPES: NodeType,
+    MESSAGE: NetworkMsg,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
@@ -137,7 +144,7 @@ pub trait CommunicationChannel<
     /// blocking
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, PROPOSAL, VOTE>,
+        message: M,
         election: &MEMBERSHIP,
     ) -> Result<(), NetworkError>;
 
@@ -145,7 +152,7 @@ pub trait CommunicationChannel<
     /// blocking
     async fn direct_message(
         &self,
-        message: Message<TYPES, PROPOSAL, VOTE>,
+        message: M,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError>;
 
@@ -156,18 +163,13 @@ pub trait CommunicationChannel<
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError>;
+    ) -> Result<Vec<M>, NetworkError>;
 
     /// look up a node
     /// blocking
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError>;
 }
 
-/// common traits we would like olur network messages to implement
-pub trait NetworkMsg:
-    Serialize + for<'a> Deserialize<'a> + Clone + std::fmt::Debug + Sync + Send + 'static
-{
-}
 
 /// represents a networking implmentration
 /// exposes low level API for interacting with a network
