@@ -528,7 +528,9 @@ impl<
         let network_msg = self.parse_post_message(message);
         match network_msg {
             Ok(network_msg) => self.0.broadcast_message(network_msg, BTreeSet::new()).await,
-            Err(network_msg) => Err(NetworkError::CentralizedWebServer { source: network_msg })
+            Err(network_msg) => Err(NetworkError::CentralizedWebServer {
+                source: network_msg,
+            }),
         }
     }
 
@@ -542,7 +544,9 @@ impl<
         let network_msg = self.parse_post_message(message);
         match network_msg {
             Ok(network_msg) => self.0.direct_message(network_msg, recipient).await,
-            Err(network_msg) => Err(NetworkError::CentralizedWebServer { source: network_msg }),
+            Err(network_msg) => Err(NetworkError::CentralizedWebServer {
+                source: network_msg,
+            }),
         }
     }
 
