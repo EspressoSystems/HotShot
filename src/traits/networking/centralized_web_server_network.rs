@@ -542,7 +542,7 @@ impl<
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         if let Some(network_msg) = self.parse_post_message(message) {
-            return self.0.direct_message(network_msg, recipient).await;
+            self.0.direct_message(network_msg, recipient).await
         } else {
             Err(NetworkError::CentralizedWebServer {
                 source: CentralizedWebServerNetworkError::EndpointError,
