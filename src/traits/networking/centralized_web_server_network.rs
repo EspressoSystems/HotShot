@@ -91,7 +91,7 @@ impl<
     fn parse_post_message(
         &self,
         message: Message<TYPES, PROPOSAL, VOTE>,
-    ) -> Option<SendMsg<Message<TYPES, PROPOSAL, VOTE>>> {
+    ) -> Result<SendMsg<Message<TYPES, PROPOSAL, VOTE>>, CentralizedWebServerNetworkError> {
         let view_number: TYPES::Time = message.get_view_number();
 
         let endpoint = match message.clone().kind {
@@ -103,7 +103,7 @@ impl<
                     config::post_vote_route(*view_number)
                 }
                 hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {
-                    "InternalTrigger".to_string()
+                    return Err(CentralizedWebServerNetworkError::EndpointError)
                 }
             },
             hotshot_types::message::MessageKind::Data(message_kind) => match message_kind {
@@ -117,7 +117,7 @@ impl<
             message: Some(message),
             endpoint,
         };
-        Some(network_msg)
+        Ok(network_msg)
     }
 }
 
@@ -525,12 +525,10 @@ impl<
         message: Message<TYPES, PROPOSAL, VOTE>,
         _election: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
-        if let Some(network_msg) = self.parse_post_message(message) {
-            self.0.broadcast_message(network_msg, BTreeSet::new()).await
-        } else {
-            Err(NetworkError::CentralizedWebServer {
-                source: CentralizedWebServerNetworkError::EndpointError,
-            })
+        let network_msg = self.parse_post_message(message);
+        match network_msg {
+            Ok(network_msg) => self.0.broadcast_message(network_msg, BTreeSet::new()).await,
+            Err(network_msg) => Err(NetworkError::CentralizedWebServer { source: network_msg })
         }
     }
 
@@ -541,12 +539,10 @@ impl<
         message: Message<TYPES, PROPOSAL, VOTE>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        if let Some(network_msg) = self.parse_post_message(message) {
-            self.0.direct_message(network_msg, recipient).await
-        } else {
-            Err(NetworkError::CentralizedWebServer {
-                source: CentralizedWebServerNetworkError::EndpointError,
-            })
+        let network_msg = self.parse_post_message(message);
+        match network_msg {
+            Ok(network_msg) => self.0.direct_message(network_msg, recipient).await,
+            Err(network_msg) => Err(NetworkError::CentralizedWebServer { source: network_msg }),
         }
     }
 
