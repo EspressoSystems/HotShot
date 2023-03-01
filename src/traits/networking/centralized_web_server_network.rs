@@ -91,7 +91,7 @@ impl<
     fn parse_post_message(
         &self,
         message: Message<TYPES, PROPOSAL, VOTE>,
-    ) -> SendMsg<Message<TYPES, PROPOSAL, VOTE>> {
+    ) -> Option<SendMsg<Message<TYPES, PROPOSAL, VOTE>>> {
         let view_number: TYPES::Time = message.get_view_number();
 
         let endpoint = match message.clone().kind {
@@ -117,7 +117,7 @@ impl<
             message: Some(message),
             endpoint,
         };
-        network_msg
+        Some(network_msg)
     }
 }
 
@@ -525,8 +525,13 @@ impl<
         message: Message<TYPES, PROPOSAL, VOTE>,
         _election: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
-        let network_msg = self.parse_post_message(message);
-        self.0.broadcast_message(network_msg, BTreeSet::new()).await
+        if let Some(network_msg) = self.parse_post_message(message) {
+            self.0.broadcast_message(network_msg, BTreeSet::new()).await
+        } else {
+            Err(NetworkError::CentralizedWebServer {
+                source: CentralizedWebServerNetworkError::EndpointError,
+            })
+        }
     }
 
     /// Sends a direct message to a specific node
@@ -536,8 +541,13 @@ impl<
         message: Message<TYPES, PROPOSAL, VOTE>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        let network_msg = self.parse_post_message(message);
-        self.0.direct_message(network_msg, recipient).await
+        if let Some(network_msg) = self.parse_post_message(message) {
+            return self.0.direct_message(network_msg, recipient).await;
+        } else {
+            Err(NetworkError::CentralizedWebServer {
+                source: CentralizedWebServerNetworkError::EndpointError,
+            })
+        }
     }
 
     /// Moves out the entire queue of received messages of 'transmit_type`

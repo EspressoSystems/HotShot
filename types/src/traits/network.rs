@@ -57,6 +57,8 @@ pub enum CentralizedWebServerNetworkError {
     IncorrectConsensusData,
     /// The client returned an error
     ClientError,
+    /// Endpoint parsed incorrectly
+    EndpointError,
 }
 
 /// the type of transmission
