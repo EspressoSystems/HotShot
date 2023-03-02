@@ -720,6 +720,16 @@
 <a href="#720" id="720">720</a>
 <a href="#721" id="721">721</a>
 <a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a centralized web server.
 //!
 //! To run the web server, see the `./centralized_web_server/` folder in this repo.
@@ -813,10 +823,10 @@
     </span><span class="kw">fn </span>parse_post_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Message&lt;TYPES, PROPOSAL, VOTE&gt;,
-    ) -&gt; SendMsg&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;SendMsg&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;, CentralizedWebServerNetworkError&gt; {
         <span class="kw">let </span>view_number: TYPES::Time = message.get_view_number();
 
-        <span class="kw">let </span>endpoint = <span class="kw">match </span>message.clone().kind {
+        <span class="kw">let </span>endpoint = <span class="kw">match </span><span class="kw-2">&amp;</span>message.kind {
             hotshot_types::message::MessageKind::Consensus(message_kind) =&gt; <span class="kw">match </span>message_kind {
                 hotshot_types::message::ConsensusMessage::Proposal(<span class="kw">_</span>) =&gt; {
                     config::post_proposal_route(<span class="kw-2">*</span>view_number)
@@ -825,7 +835,7 @@
                     config::post_vote_route(<span class="kw-2">*</span>view_number)
                 }
                 hotshot_types::message::ConsensusMessage::InternalTrigger(<span class="kw">_</span>) =&gt; {
-                    <span class="string">&quot;InternalTrigger&quot;</span>.to_string()
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(CentralizedWebServerNetworkError::EndpointError)
                 }
             },
             hotshot_types::message::MessageKind::Data(message_kind) =&gt; <span class="kw">match </span>message_kind {
@@ -839,7 +849,7 @@
             message: <span class="prelude-val">Some</span>(message),
             endpoint,
         };
-        network_msg
+        <span class="prelude-val">Ok</span>(network_msg)
     }
 }
 
@@ -1248,8 +1258,13 @@
         _election: <span class="kw-2">&amp;</span>MEMBERSHIP,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>network_msg = <span class="self">self</span>.parse_post_message(message);
-        <span class="self">self</span>.<span class="number">0</span>.broadcast_message(network_msg, BTreeSet::new()).<span class="kw">await
-    </span>}
+        <span class="kw">match </span>network_msg {
+            <span class="prelude-val">Ok</span>(network_msg) =&gt; <span class="self">self</span>.<span class="number">0</span>.broadcast_message(network_msg, BTreeSet::new()).<span class="kw">await</span>,
+            <span class="prelude-val">Err</span>(network_msg) =&gt; <span class="prelude-val">Err</span>(NetworkError::CentralizedWebServer {
+                source: network_msg,
+            }),
+        }
+    }
 
     <span class="doccomment">/// Sends a direct message to a specific node
     /// blocking
@@ -1259,8 +1274,13 @@
         recipient: TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>network_msg = <span class="self">self</span>.parse_post_message(message);
-        <span class="self">self</span>.<span class="number">0</span>.direct_message(network_msg, recipient).<span class="kw">await
-    </span>}
+        <span class="kw">match </span>network_msg {
+            <span class="prelude-val">Ok</span>(network_msg) =&gt; <span class="self">self</span>.<span class="number">0</span>.direct_message(network_msg, recipient).<span class="kw">await</span>,
+            <span class="prelude-val">Err</span>(network_msg) =&gt; <span class="prelude-val">Err</span>(NetworkError::CentralizedWebServer {
+                source: network_msg,
+            }),
+        }
+    }
 
     <span class="doccomment">/// Moves out the entire queue of received messages of &#39;transmit_type`
     ///
