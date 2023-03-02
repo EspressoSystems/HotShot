@@ -13,6 +13,13 @@ use syn::{
     Token, Type, TypePath, Visibility,
 };
 
+// TODO remove
+#[derive(Debug, Clone)]
+enum SupportedConsensusTypes {
+    ValidatingConsensus,
+    SequencingConsensus,
+}
+
 /// Parses the following syntax, which aligns with the input of the real
 /// `lazy_static` crate.
 ///
@@ -30,18 +37,22 @@ struct CrossTestData {
     time_types: ExprArray,
     demo_types: ExprArray,
     signature_key_types: ExprArray,
-    vote_types: ExprArray,
+    // vote_types: ExprArray,
+    comm_channels: ExprArray,
+    storages: ExprArray,
     test_name: Ident,
     test_description: Expr,
     slow: LitBool,
 }
 
 struct TestData {
-    consensus_type: ExprPath,
+    consensus_type: SupportedConsensusTypes,
     time_type: ExprPath,
     demo_types: ExprTuple,
     signature_key_type: ExprPath,
-    vote_type: ExprTuple,
+    comm_channel: ExprPath,
+    storage: ExprPath,
+    // vote_type: ExprTuple,
     test_name: Ident,
     test_description: Expr,
     slow: LitBool,
@@ -49,21 +60,25 @@ struct TestData {
 
 impl TestData {
     fn new(
-        consensus_type: ExprPath,
+        consensus_type: SupportedConsensusTypes,
         time_type: ExprPath,
         demo_types: ExprTuple,
         signature_key_type: ExprPath,
-        vote_type: ExprTuple,
+        comm_channel: ExprPath,
+        storage: ExprPath,
+        // vote_type: ExprTuple,
         test_name: Ident,
         test_description: Expr,
         slow: LitBool,
-    ) -> Self {
+        ) -> Self {
         Self {
             consensus_type,
             time_type,
             demo_types,
             signature_key_type,
-            vote_type,
+            comm_channel,
+            storage,
+            // vote_type,
             test_name,
             test_description,
             slow,
@@ -76,21 +91,15 @@ impl TestData {
             time_type,
             demo_types,
             signature_key_type,
-            vote_type,
+            // vote_type,
             test_name,
             test_description,
             slow,
+            comm_channel,
+            storage,
         } = self;
 
-        let consensus_str = consensus_type
-            .path
-            .segments
-            .iter()
-            .fold("".to_string(), |mut acc, s| {
-                acc.push_str(&s.ident.to_string().to_lowercase());
-                acc
-            })
-            .to_lowercase();
+        let consensus_str = format!("{consensus_type:?}");
 
         let time_str = time_type
             .path
@@ -100,7 +109,7 @@ impl TestData {
                 acc.push_str(&s.ident.to_string().to_lowercase());
                 acc
             })
-            .to_lowercase();
+        .to_lowercase();
 
         let demo_str = demo_types
             .elems
@@ -109,14 +118,14 @@ impl TestData {
                 Expr::Path(p) => Some(p),
                 _ => None,
             })
-            .fold("".to_string(), |mut acc, s| {
-                acc.push_str(&s.path.segments.iter().fold("".to_string(), |mut acc, s| {
-                    acc.push_str(&s.ident.to_string().to_lowercase());
-                    acc
-                }));
+        .fold("".to_string(), |mut acc, s| {
+            acc.push_str(&s.path.segments.iter().fold("".to_string(), |mut acc, s| {
+                acc.push_str(&s.ident.to_string().to_lowercase());
                 acc
-            })
-            .to_lowercase();
+            }));
+            acc
+        })
+        .to_lowercase();
 
         let (demo_block, demo_state, demo_transaction) = {
             let mut demos = demo_types.elems.iter();
@@ -134,50 +143,53 @@ impl TestData {
                 acc.push_str(&s.ident.to_string().to_lowercase());
                 acc
             })
-            .to_lowercase();
-
-        let vote_type_str = vote_type
-            .elems
-            .iter()
-            .filter_map(|x| match x {
-                Expr::Path(p) => Some(p),
-                _ => None,
-            })
-            .fold("".to_string(), |mut acc, s| {
-                acc.push_str(&s.path.segments.iter().fold("".to_string(), |mut acc, s| {
-                    acc.push_str(&s.ident.to_string().to_lowercase());
-                    acc
-                }));
-                acc
-            })
-            .to_lowercase();
-
-        let (vote_token, vote_config) = {
-            let mut demos = vote_type.elems.iter();
-            let d1 = demos.next().unwrap();
-            let d2 = demos.next().unwrap();
-            (d1, d2)
-        };
-
-        let test_name_str = test_name.to_string().to_lowercase();
+        .to_lowercase();
 
         let mod_name = format_ident!(
-            "{}_{}_{}_{}_{}",
+            "{}_{}_{}_{}",
             consensus_str,
             time_str,
             demo_str,
             signature_key_str,
-            vote_type_str
         );
 
-        //     .path.segments.iter().fold("".to_string(), |mut acc, s| {
-        //     acc.push_str(&s.ident.to_string().to_lowercase());
-        //     acc
-        // });
+        let slow_attribute = if slow.value() {
+            quote! { #[cfg(feature = "slow-tests")] }
+        } else { quote! {} };
+
+        let (consensus_type, leaf, vote, proposal) = match consensus_type {
+            SupportedConsensusTypes::SequencingConsensus => {
+                let consensus_type = quote! { hotshot_types::traits::state::SequencingConsensus };
+                let leaf = quote! {
+                    hotshot_types::data::SequencingLeaf<TestTypes>
+                };
+                let vote = quote! {
+                    hotshot_types::vote::DAVote<TestTypes, #leaf>
+                };
+                let proposal = quote! {
+                    hotshot_types::data::DAProposal<TestTypes>
+                };
+                (consensus_type, leaf, vote, proposal)
+            },
+            SupportedConsensusTypes::ValidatingConsensus => {
+                let consensus_type = quote! { hotshot_types::traits::state::ValidatingConsensus };
+                let leaf = quote! {
+                    hotshot_types::data::ValidatingLeaf<TestTypes>
+                };
+                let vote = quote! {
+                    hotshot_types::vote::QuorumVote<TestTypes, #leaf>
+                };
+                let proposal = quote! {
+                    hotshot_types::data::ValidatingProposal<TestTypes, #leaf>
+                };
+                (consensus_type, leaf, vote, proposal)
+            },
+        };
 
         quote! {
 
             pub mod #mod_name {
+                use super::*;
                 #[derive(
                     Copy,
                     Clone,
@@ -190,9 +202,8 @@ impl TestData {
                     Ord,
                     serde::Serialize,
                     serde::Deserialize,
-                )]
-                pub struct Stub;
-                impl hotshot_types::traits::node_implementation::ApplicationMetadata for Stub {}
+                    )]
+                    pub struct Stub;
 
                 #[derive(
                     Copy,
@@ -206,8 +217,8 @@ impl TestData {
                     Ord,
                     serde::Serialize,
                     serde::Deserialize,
-                )]
-                struct TestTypes;
+                    )]
+                    struct TestTypes;
                 impl hotshot_types::traits::node_implementation::NodeType for TestTypes {
                     type ConsensusType = #consensus_type;
                     type Time = #time_type;
@@ -215,26 +226,41 @@ impl TestData {
                     type SignatureKey = #signature_key_type;
                     type Transaction = #demo_transaction;
                     type StateType = #demo_state;
-                    type VoteTokenType = #vote_token<#signature_key_type>;
-                    // valid assumption that it takes in a signature key? not sure.
-                    type ElectionConfigType = #vote_config;
-
-                    // we're nuking this lol
-                    type ApplicationMetadataType = Stub;
-
+                    type VoteTokenType = hotshot::traits::election::static_committee::StaticVoteToken<Self::SignatureKey>;
+                    type ElectionConfigType = hotshot::traits::election::static_committee::StaticElectionConfig;
                 }
 
+                type CommitteeMembership = hotshot::traits::election::static_committee::GeneralStaticCommittee<TestTypes, #leaf, #signature_key_type>;
 
-                #[test]
-                // #slow
-                fn #test_name() {
-                    // let test_type = hotshot_testing::TestDescription<
-                    //     TestTypes,
-                    //     hotshot_testing::TestNodeImpl<
-                    //         #
-                    //     >
-                    // >;
-                }
+
+                #slow_attribute
+                #[cfg_attr(
+                    feature = "tokio-executor",
+                    tokio::test(flavor = "multi_thread", worker_threads = 2)
+                    )]
+                    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+                    #[tracing::instrument]
+                    async fn #test_name() {
+                        let description = #test_description;
+
+                        description.build::<
+                            TestTypes, hotshot_testing::TestNodeImpl<
+                            TestTypes,
+                            #leaf,
+                            #proposal,
+                            #vote,
+                            #comm_channel<
+                                TestTypes,
+                                #proposal,
+                                #vote,
+                                CommitteeMembership,
+                            >,
+                            #storage<TestTypes, #leaf>,
+                            CommitteeMembership,
+                        >
+                            >().execute().await.unwrap();
+
+                    }
             }
 
         }
@@ -251,9 +277,12 @@ mod keywords {
     syn::custom_keyword!(TestName);
     syn::custom_keyword!(TestDescription);
     syn::custom_keyword!(Slow);
+    syn::custom_keyword!(CommChannel);
+    syn::custom_keyword!(Storage);
 }
 
 impl Parse for CrossTestData {
+    // TODO make order not matter.
     fn parse(input: ParseStream) -> Result<Self> {
         let _ = input.parse::<keywords::ConsensusType>()?;
         input.parse::<Token![:]>()?;
@@ -275,9 +304,19 @@ impl Parse for CrossTestData {
         let signature_key_types = input.parse::<ExprArray>()?;
         input.parse::<Token![,]>()?;
 
-        let _ = input.parse::<keywords::Vote>()?;
+        // let _ = input.parse::<keywords::Vote>()?;
+        // input.parse::<Token![:]>()?;
+        // let vote_types = input.parse::<ExprArray>()?;
+        // input.parse::<Token![,]>()?;
+
+        let _ = input.parse::<keywords::CommChannel>()?;
         input.parse::<Token![:]>()?;
-        let vote_types = input.parse::<ExprArray>()?;
+        let comm_channels = input.parse::<ExprArray>()?;
+        input.parse::<Token![,]>()?;
+
+        let _ = input.parse::<keywords::Storage>()?;
+        input.parse::<Token![:]>()?;
+        let storages = input.parse::<ExprArray>()?;
         input.parse::<Token![,]>()?;
 
         let _ = input.parse::<keywords::TestName>()?;
@@ -313,11 +352,13 @@ impl Parse for CrossTestData {
         // }
 
         Ok(CrossTestData {
+            comm_channels,
+            storages,
             consensus_types,
             time_types,
             demo_types,
             signature_key_types,
-            vote_types,
+            // vote_types,
             test_name,
             test_description,
             slow,
@@ -350,72 +391,84 @@ pub fn cross_tests(input: TokenStream) -> TokenStream {
 
     let mut tokens = TokenStream::new();
 
-    for consensus_type in test_spec
-        .consensus_types
+    let consensus_types = test_spec.consensus_types.elems.iter().filter_map(
+        |expr| {
+            if let Expr::Path(expr_path) = expr {
+                if let Some(ident) = expr_path.path.get_ident() {
+                    return if ident == "SequencingConsensus" {
+                        Some(SupportedConsensusTypes::SequencingConsensus)
+                    } else if ident == "ValidatingConsensus" {
+                        Some(SupportedConsensusTypes::ValidatingConsensus)
+                    } else {
+                        panic!("Unsupported consensus type: {ident:?}")
+                    }
+                } else {
+                    return None;
+                }
+            } else {
+                return None;
+            }
+        }
+        ).collect::<Vec<_>>();
+
+    let demo_types = test_spec
+        .demo_types
         .elems
         .iter()
         .filter_map(|t| match t {
-            Expr::Path(p) => Some(p),
+            Expr::Tuple(p) => Some(p),
             _ => None,
-        })
-    {
-        for time_type in test_spec.time_types.elems.iter().filter_map(|t| match t {
-            Expr::Path(p) => Some(p),
-            _ => None,
-        }) {
-            for demo_type in test_spec
-                .demo_types
-                .clone()
-                .elems
-                .iter()
-                .filter_map(|t| match t {
-                    Expr::Tuple(p) => Some(p),
-                    _ => None,
-                })
-            {
-                for signature_key_type in
-                    test_spec
-                        .signature_key_types
-                        .elems
-                        .iter()
-                        .filter_map(|t| match t {
-                            Expr::Path(p) => Some(p),
-                            _ => None,
-                        })
-                {
-                    for vote_type in test_spec.vote_types.elems.iter().filter_map(|t| match t {
-                        Expr::Tuple(p) => Some(p),
+        }).collect::<Vec<_>>();
+
+    if demo_types.len() != consensus_types.len() {
+        panic!("Demo types length did not match consensus types length!");
+    }
+
+    let comm_channels = test_spec.comm_channels.elems.iter().filter_map(|t| match t {
+        Expr::Path(p) => Some(p),
+        _ => None,
+    });
+
+    let storages = test_spec.storages.elems.iter().filter_map(|t| match t {
+        Expr::Path(p) => Some(p),
+        _ => None,
+    });
+
+
+    for (consensus_type, demo_type) in consensus_types.into_iter().zip(demo_types.iter()) {
+        for comm_channel in comm_channels.clone() {
+            for storage in storages.clone() {
+                for time_type in test_spec.time_types.elems.iter().filter_map(|t| match t {
+                    Expr::Path(p) => Some(p),
                         _ => None,
-                    }) {
+                }) {
+                    for signature_key_type in
+                        test_spec
+                            .signature_key_types
+                            .elems
+                            .iter()
+                            .filter_map(|t| match t {
+                                Expr::Path(p) => Some(p),
+                                _ => None,
+                            })
+                    {
+                        let comm_channel = comm_channel.clone();
                         let test_data = TestData::new(
                             consensus_type.clone(),
                             time_type.clone(),
-                            demo_type.clone(),
+                            demo_type.clone().clone(),
                             signature_key_type.clone(),
-                            vote_type.clone(),
+                            comm_channel,
+                            storage.clone(),
+                            // vote_type.clone(),
                             test_spec.test_name.clone(),
                             test_spec.test_description.clone(),
                             test_spec.slow.clone(),
-                        );
+                            );
                         let test = test_data.generate_test();
 
-                        // let test_name = format!("{}_{}_{}_{}_{}", test_spec.test_name, consensus_type, time_type, demo_type, signature_key_type, vote_type);
-                        // let test_description = format!("{} {} {} {} {}", test_spec.test_description, consensus_type, time_type, demo_type, signature_key_type, vote_type);
-                        // let test = quote! {
-                        //   #[test]
-                        //   #[cfg_attr(not(feature = "slow_tests"), ignore)]
-                        //   fn #test_name() {
-                        //     let consensus_type = #consensus_type;
-                        //     let time_type = #time_type;
-                        //     let demo_type = #demo_type;
-                        //     let signature_key_type = #signature_key_type;
-                        //     let vote_type = #vote_type;
-                        //     let test_description = #test_description;
-                        //     let slow = #test_spec.slow;
-                        //     run_test(consensus_type, time_type, demo_type, signature_key_type, vote_type, test_description, slow);
-                        //   }
-                        // };
                         tokens.extend(test);
+
                     }
                 }
             }

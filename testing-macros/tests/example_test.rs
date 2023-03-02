@@ -1,23 +1,20 @@
 use hotshot_testing_macros::cross_tests;
-
-// cross_tests!(
-//     ConsensusType: [ ValidatingConsensus, SequencingConsensus ],
-//     Time: [ ViewNumber ],
-//     DemoType: [ (SDemoBlock, SDemoState, SDemoTransaction), (VDemoBlock, VDemoState, VDemoTransaction) ],
-//     SignatureKey: [ Ed25519Pub ],
-//     Vote: [ (StaticVoteToken, StaticElectionConfig) ],
-//     TestName: example_test,
-//     TestDescription: GeneralTestDescriptionBuilder::default(),
-//     slow: $slow,
-// );
+use hotshot_types::data::ViewNumber;
+use hotshot::demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction};
+use hotshot::demos::vdemo::{VDemoBlock, VDemoState, VDemoTransaction};
+use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
+use hotshot::traits::implementations::{MemoryCommChannel, MemoryStorage};
+use hotshot_testing::test_description::GeneralTestDescriptionBuilder;
 
 cross_tests!(
-    ConsensusType: [ hotshot_types::traits::state::ValidatingConsensus, hotshot_types::traits::state::SequencingConsensus ],
-    Time: [ hotshot_types::data::ViewNumber ],
-    DemoType: [ (hotshot::demos::sdemo::SDemoBlock, hotshot::demos::sdemo::SDemoState, hotshot::demos::sdemo::SDemoTransaction), (hotshot::demos::vdemo::VDemoBlock, hotshot::demos::vdemo::VDemoState, hotshot::demos::vdemo::VDemoTransaction) ],
-    SignatureKey: [ hotshot_types::traits::signature_key::ed25519::Ed25519Pub ],
-    Vote: [ (hotshot::traits::election::static_committee::StaticVoteToken, hotshot::traits::election::static_committee::StaticElectionConfig) ],
-    TestName: example_test,
+    ConsensusType: [ ValidatingConsensus, SequencingConsensus ],
+    Time: [ ViewNumber ],
+    DemoType: [ (SDemoBlock, SDemoState, SDemoTransaction), (VDemoBlock, VDemoState, VDemoTransaction) ],
+    SignatureKey: [ Ed25519Pub ],
+    CommChannel: [ MemoryCommChannel ],
+    Storage: [ MemoryStorage ],
+    TestName: example_test2,
     TestDescription: GeneralTestDescriptionBuilder::default(),
     Slow: false,
 );
+

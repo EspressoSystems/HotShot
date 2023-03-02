@@ -3079,7 +3079,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "blake3",
- "commit",
+ "commit 0.2.2",
  "either",
  "futures",
  "hotshot",
