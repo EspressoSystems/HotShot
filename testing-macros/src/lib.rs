@@ -33,7 +33,6 @@ enum SupportedConsensusTypes {
 ///         static ref USERNAME: Regex = Regex::new("^[a-z0-9_-]{3,16}$").unwrap();
 ///     }
 struct CrossTestData {
-    consensus_types: ExprArray,
     time_types: ExprArray,
     demo_types: ExprArray,
     signature_key_types: ExprArray,
@@ -114,6 +113,7 @@ impl TestData {
         let demo_str = demo_types
             .elems
             .iter()
+            .skip(1) // skip first element, which we've already processed
             .filter_map(|x| match x {
                 Expr::Path(p) => Some(p),
                 _ => None,
@@ -128,7 +128,7 @@ impl TestData {
         .to_lowercase();
 
         let (demo_block, demo_state, demo_transaction) = {
-            let mut demos = demo_types.elems.iter();
+            let mut demos = demo_types.elems.iter().skip(1); // first ele in consensustype
             let d1 = demos.next().unwrap();
             let d2 = demos.next().unwrap();
             let d3 = demos.next().unwrap();
@@ -269,7 +269,6 @@ impl TestData {
 }
 
 mod keywords {
-    syn::custom_keyword!(ConsensusType);
     syn::custom_keyword!(Time);
     syn::custom_keyword!(DemoType);
     syn::custom_keyword!(SignatureKey);
@@ -284,11 +283,6 @@ mod keywords {
 impl Parse for CrossTestData {
     // TODO make order not matter.
     fn parse(input: ParseStream) -> Result<Self> {
-        let _ = input.parse::<keywords::ConsensusType>()?;
-        input.parse::<Token![:]>()?;
-        let consensus_types = input.parse::<ExprArray>()?;
-        input.parse::<Token![,]>()?;
-
         let _ = input.parse::<keywords::Time>()?;
         input.parse::<Token![:]>()?;
         let time_types = input.parse::<ExprArray>()?;
@@ -303,11 +297,6 @@ impl Parse for CrossTestData {
         input.parse::<Token![:]>()?;
         let signature_key_types = input.parse::<ExprArray>()?;
         input.parse::<Token![,]>()?;
-
-        // let _ = input.parse::<keywords::Vote>()?;
-        // input.parse::<Token![:]>()?;
-        // let vote_types = input.parse::<ExprArray>()?;
-        // input.parse::<Token![,]>()?;
 
         let _ = input.parse::<keywords::CommChannel>()?;
         input.parse::<Token![:]>()?;
@@ -354,7 +343,6 @@ impl Parse for CrossTestData {
         Ok(CrossTestData {
             comm_channels,
             storages,
-            consensus_types,
             time_types,
             demo_types,
             signature_key_types,
@@ -391,23 +379,27 @@ pub fn cross_tests(input: TokenStream) -> TokenStream {
 
     let mut tokens = TokenStream::new();
 
-    let consensus_types = test_spec.consensus_types.elems.iter().filter_map(
+    let consensus_types = test_spec.demo_types.elems.iter().filter_map(
         |expr| {
-            if let Expr::Path(expr_path) = expr {
-                if let Some(ident) = expr_path.path.get_ident() {
-                    return if ident == "SequencingConsensus" {
-                        Some(SupportedConsensusTypes::SequencingConsensus)
-                    } else if ident == "ValidatingConsensus" {
-                        Some(SupportedConsensusTypes::ValidatingConsensus)
+            if let Expr::Tuple(tuple) = expr {
+
+                let first_ele = tuple.elems.iter().next().expect("First element of array must be the consensus type.");
+                if let Expr::Path(expr_path) = first_ele {
+                    if let Some(ident) = expr_path.path.get_ident() {
+                        return if ident == "SequencingConsensus" {
+                            Some(SupportedConsensusTypes::SequencingConsensus)
+                        } else if ident == "ValidatingConsensus" {
+                            Some(SupportedConsensusTypes::ValidatingConsensus)
+                        } else {
+                            panic!("Unsupported consensus type: {ident:?}")
+                        }
                     } else {
-                        panic!("Unsupported consensus type: {ident:?}")
+                        return None;
                     }
-                } else {
-                    return None;
                 }
-            } else {
                 return None;
-            }
+            };
+            return None;
         }
         ).collect::<Vec<_>>();
 

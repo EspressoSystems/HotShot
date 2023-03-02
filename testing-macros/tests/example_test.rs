@@ -7,9 +7,8 @@ use hotshot::traits::implementations::{MemoryCommChannel, MemoryStorage};
 use hotshot_testing::test_description::GeneralTestDescriptionBuilder;
 
 cross_tests!(
-    ConsensusType: [ ValidatingConsensus, SequencingConsensus ],
     Time: [ ViewNumber ],
-    DemoType: [ (SDemoBlock, SDemoState, SDemoTransaction), (VDemoBlock, VDemoState, VDemoTransaction) ],
+    DemoType: [ (SequencingConsensus, SDemoBlock, SDemoState, SDemoTransaction), (ValidatingConsensus, VDemoBlock, VDemoState, VDemoTransaction) ],
     SignatureKey: [ Ed25519Pub ],
     CommChannel: [ MemoryCommChannel ],
     Storage: [ MemoryStorage ],
@@ -17,4 +16,3 @@ cross_tests!(
     TestDescription: GeneralTestDescriptionBuilder::default(),
     Slow: false,
 );
-
