@@ -973,7 +973,7 @@ version = "0.1.0"
 dependencies = [
  "async-compatibility-layer",
  "async-std",
- "clap 4.1.7",
+ "clap 4.1.8",
  "futures",
  "hotshot-centralized-server",
  "hotshot-types",
@@ -1271,9 +1271,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.1.7"
+version = "4.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f3061d6db6d8fcbbd4b05e057f2acace52e64e96b498c08c2d7a4e65addd340"
+checksum = "c3d7ae14b20b94cb02149ed21a86c423859cbe18dc7ed69845cace50e52b40a5"
 dependencies = [
  "bitflags",
  "clap_derive",
@@ -1286,9 +1286,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.1.7"
+version = "4.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34d122164198950ba84a918270a3bb3f7ededd25e15f7451673d986f55bd2667"
+checksum = "44bec8e5c9d09e439c4335b1af0abaab56dcf3b94999a936e1bb47b9134288f0"
 dependencies = [
  "heck 0.4.1",
  "proc-macro-error",
@@ -2907,7 +2907,7 @@ dependencies = [
  "bimap",
  "bincode",
  "blake3",
- "clap 4.1.7",
+ "clap 4.1.8",
  "commit 0.2.2",
  "custom_debug",
  "dashmap",
@@ -2976,7 +2976,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bincode",
- "clap 4.1.7",
+ "clap 4.1.8",
  "commit 0.1.0",
  "futures",
  "hotshot-types",
@@ -3024,7 +3024,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bincode",
- "clap 4.1.7",
+ "clap 4.1.8",
  "commit 0.1.0",
  "futures",
  "hotshot-types",
@@ -4088,7 +4088,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
- "clap 4.1.7",
+ "clap 4.1.8",
  "color-eyre",
  "custom_debug",
  "derive_builder 0.12.0",
@@ -7362,7 +7362,7 @@ version = "0.2.0"
 source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.2.1#4ba55dd2f9aaa63601db03a621ea2a1b50d18292"
 dependencies = [
  "base64 0.13.1",
- "clap 4.1.7",
+ "clap 4.1.8",
  "console_error_panic_hook",
  "crc-any",
  "futures-channel",
@@ -7515,7 +7515,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bincode",
- "clap 4.1.7",
+ "clap 4.1.8",
  "config",
  "derive_more",
  "dirs",
@@ -7562,7 +7562,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bincode",
- "clap 4.1.7",
+ "clap 4.1.8",
  "config",
  "derive_more",
  "dirs",
@@ -7710,9 +7710,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.25.0"
+version = "1.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8e00990ebabbe4c14c08aca901caed183ecd5c09562a12c824bb53d3c3fd3af"
+checksum = "03201d01c3c27a29c8a5cee5b55a93ddae1ccf6f08f65365c2c918f8c1b76f64"
 dependencies = [
  "autocfg",
  "bytes 1.4.0",
@@ -7726,7 +7726,7 @@ dependencies = [
  "socket2",
  "tokio-macros",
  "tracing",
- "windows-sys 0.42.0",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]

@@ -1,5 +1,4 @@
 use ark_bls12_381::Parameters as Param381;
-use either::Either::Right;
 use hotshot::{
     demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
     traits::{
@@ -21,24 +20,6 @@ use hotshot_types::{
 use jf_primitives::signatures::BLSSignatureScheme;
 use tracing::instrument;
 
-// Test the libp2p network with sequencing consensus.
-#[instrument]
-#[ignore]
-fn description_build() -> GeneralTestDescriptionBuilder {
-    GeneralTestDescriptionBuilder {
-        round_start_delay: 25,
-        num_bootstrap_nodes: 5,
-        timeout_ratio: (11, 10),
-        total_nodes: 10,
-        start_nodes: 10,
-        num_succeeds: 20,
-        txn_ids: Right(1),
-        next_view_timeout: 10000,
-        start_delay: 120000,
-        ..GeneralTestDescriptionBuilder::default()
-    }
-}
-
 #[derive(
     Copy,
     Clone,
@@ -58,7 +39,7 @@ impl NodeType for SequencingTestTypes {
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
     type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
-    type VoteTokenType = StaticVoteToken<JfPubKey<BLSSignatureScheme<Param381>>>;
+    type VoteTokenType = StaticVoteToken<Self::SignatureKey>;
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = SDemoState;
@@ -73,7 +54,7 @@ impl NodeType for SequencingTestTypes {
 #[instrument]
 #[ignore]
 async fn sequencing_memory_network_test() {
-    let builder = description_build();
+    let builder = GeneralTestDescriptionBuilder::default_multiple_rounds();
 
     builder
         .build::<SequencingTestTypes, TestNodeImpl<
@@ -104,7 +85,7 @@ async fn sequencing_memory_network_test() {
 #[instrument]
 #[ignore]
 async fn sequencing_libp2p_test() {
-    let builder = description_build();
+    let builder = GeneralTestDescriptionBuilder::default_multiple_rounds();
 
     builder
         .build::<SequencingTestTypes, TestNodeImpl<
@@ -135,7 +116,7 @@ async fn sequencing_libp2p_test() {
 #[instrument]
 #[ignore]
 async fn sequencing_centralized_server_test() {
-    let builder = description_build();
+    let builder = GeneralTestDescriptionBuilder::default_multiple_rounds();
 
     builder
         .build::<SequencingTestTypes, TestNodeImpl<
