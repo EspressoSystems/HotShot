@@ -91,10 +91,10 @@ impl<
     fn parse_post_message(
         &self,
         message: Message<TYPES, PROPOSAL, VOTE>,
-    ) -> SendMsg<Message<TYPES, PROPOSAL, VOTE>> {
+    ) -> Result<SendMsg<Message<TYPES, PROPOSAL, VOTE>>, CentralizedWebServerNetworkError> {
         let view_number: TYPES::Time = message.get_view_number();
 
-        let endpoint = match message.clone().kind {
+        let endpoint = match &message.kind {
             hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind {
                 hotshot_types::message::ConsensusMessage::Proposal(_) => {
                     config::post_proposal_route(*view_number)
@@ -103,7 +103,7 @@ impl<
                     config::post_vote_route(*view_number)
                 }
                 hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {
-                    "InternalTrigger".to_string()
+                    return Err(CentralizedWebServerNetworkError::EndpointError)
                 }
             },
             hotshot_types::message::MessageKind::Data(message_kind) => match message_kind {
@@ -117,7 +117,7 @@ impl<
             message: Some(message),
             endpoint,
         };
-        network_msg
+        Ok(network_msg)
     }
 }
 
@@ -526,7 +526,12 @@ impl<
         _election: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
         let network_msg = self.parse_post_message(message);
-        self.0.broadcast_message(network_msg, BTreeSet::new()).await
+        match network_msg {
+            Ok(network_msg) => self.0.broadcast_message(network_msg, BTreeSet::new()).await,
+            Err(network_msg) => Err(NetworkError::CentralizedWebServer {
+                source: network_msg,
+            }),
+        }
     }
 
     /// Sends a direct message to a specific node
@@ -537,7 +542,12 @@ impl<
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         let network_msg = self.parse_post_message(message);
-        self.0.direct_message(network_msg, recipient).await
+        match network_msg {
+            Ok(network_msg) => self.0.direct_message(network_msg, recipient).await,
+            Err(network_msg) => Err(NetworkError::CentralizedWebServer {
+                source: network_msg,
+            }),
+        }
     }
 
     /// Moves out the entire queue of received messages of 'transmit_type`
