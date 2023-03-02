@@ -3070,6 +3070,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "hotshot-testing-macros"
+version = "0.1.0"
+dependencies = [
+ "ark-bls12-381",
+ "async-compatibility-layer",
+ "async-lock",
+ "async-std",
+ "async-trait",
+ "blake3",
+ "commit",
+ "either",
+ "futures",
+ "hotshot",
+ "hotshot-consensus",
+ "hotshot-testing",
+ "hotshot-types",
+ "jf-primitives",
+ "nll",
+ "proc-macro2",
+ "proptest",
+ "quote",
+ "rand 0.8.5",
+ "serde",
+ "snafu",
+ "syn",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "hotshot-types"
 version = "0.1.0"
 dependencies = [

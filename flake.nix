@@ -167,6 +167,7 @@
 
         buildDeps = with pkgs;
           [
+            cargo-expand
             cargo-audit
             nixpkgs-fmt
             git-chglog
