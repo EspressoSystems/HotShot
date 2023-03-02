@@ -8,7 +8,6 @@ use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
-use hotshot_types::message::Message;
 use hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposal};
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -24,6 +23,7 @@ use hotshot_types::{
         Block, State,
     },
 };
+use hotshot_types::{message::Message, traits::election::QuorumExchangeType};
 use hotshot_types::{message::Proposal, traits::election::ConsensusExchange};
 use hotshot_utils::bincode::bincode_opts;
 use std::marker::PhantomData;
@@ -37,14 +37,6 @@ pub struct Replica<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     I: NodeImplementation<TYPES>,
-    EXCHANGE: ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-        Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        Vote = QuorumVote<TYPES, I::Leaf>,
-    >,
 > {
     /// id of node
     pub id: u64,
@@ -61,7 +53,7 @@ pub struct Replica<
     /// hotshot consensus api
     pub api: A,
 
-    pub exchange: EXCHANGE,
+    pub exchange: I::QuorumExchange,
     _pd: PhantomData<I>,
 }
 
@@ -69,18 +61,16 @@ impl<
         A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
         I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
-        EXCHANGE: ConsensusExchange<
+    > Replica<A, TYPES, I>
+where
+    I::QuorumExchange: ConsensusExchange<
             TYPES,
             I::Leaf,
-            Message<TYPES, I>,
-            Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            I::Message,
+            Proposal = ValidatingProposal<TYPES, I::Leaf>,
             Vote = QuorumVote<TYPES, I::Leaf>,
-        >,
-    > Replica<A, TYPES, I, EXCHANGE>
-where
-    I::QuorumExchange:
-        ConsensusExchange<TYPES, I::Leaf, I::Message, Proposal = ValidatingProposal<TYPES, I::Leaf>, Vote = QuorumVote<TYPES, I::Leaf>>,
+            Certificate = QuorumCertificate<TYPES, I::Leaf>,
+        > + QuorumExchangeType<TYPES, I::Leaf, I::Message>,
 {
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
@@ -101,8 +91,7 @@ where
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
-                if Into::<ConsensusMessage<_, _>>::into(msg.clone()).view_number()
-                    != self.cur_view
+                if Into::<ConsensusMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view
                 {
                     continue;
                 }
@@ -225,7 +214,7 @@ where
                                 info!("We were chosen for committee on {:?}", self.cur_view);
 
                                 // Generate and send vote
-                                let message = self.api.create_yes_message(
+                                let message = self.exchange.create_yes_message(
                                     leaf.justify_qc.commit(),
                                     leaf_commitment,
                                     self.cur_view,
@@ -257,7 +246,7 @@ where
 
                                 consensus.metrics.number_of_timeouts.add(1);
 
-                                let signature = self.api.sign_timeout_vote(self.cur_view);
+                                let signature = self.exchange.sign_timeout_vote(self.cur_view);
                                 let vote_token = self.api.make_vote_token(self.cur_view);
 
                                 match vote_token {
@@ -311,7 +300,16 @@ where
                             }
                         }
                     }
+                    ProcessedConsensusMessage::DAProposal(_, _) => {
+                        warn!("Replica receieved a DA Proposal message. This is not what the replica expects. Skipping.");
+                        continue;
+                    }
                     ProcessedConsensusMessage::Vote(_, _) => {
+                        // should only be for leader, never replica
+                        warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
+                        continue;
+                    }
+                    ProcessedConsensusMessage::DAVote(_, _) => {
                         // should only be for leader, never replica
                         warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
                         continue;

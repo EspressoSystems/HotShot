@@ -14,7 +14,9 @@ use hotshot_types::{
     data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, DAVote, ProcessedConsensusMessage},
     traits::{
-        election::{ConsensusExchange, SignedCertificate},
+        election::{
+            CommitteeExchange, CommitteeExchangeType, ConsensusExchange, SignedCertificate,
+        },
         node_implementation::{CommitteeProposal, CommitteeVote, NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
@@ -45,17 +47,24 @@ pub struct DAMember<
     /// HotShot consensus API.
     pub api: A,
 
+    pub exchange: I::ComitteeExchange,
+
     _pd: PhantomData<I>,
 }
 
 impl<
         A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
+        I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
     > DAMember<A, TYPES, I>
 where
-    I::ComitteeExchange:
-        ConsensusExchange<TYPES, I::Leaf, I::Message, Proposal = DAProposal<TYPES>>,
+    I::ComitteeExchange: ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            I::Message,
+            Proposal = DAProposal<TYPES>,
+            Vote = DAVote<TYPES, SequencingLeaf<TYPES>>,
+        > + CommitteeExchangeType<TYPES, I::Leaf, I::Message>,
 {
     /// Returns the parent leaf of the proposal we are voting on
     async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
@@ -139,7 +148,7 @@ where
                                 info!("We were chosen for DA committee on {:?}", self.cur_view);
 
                                 // Generate and send vote
-                                let message = self.api.create_da_message(
+                                let message = self.exchange.create_da_message(
                                     self.high_qc.commit(),
                                     block_commitment,
                                     self.cur_view,

@@ -1,5 +1,7 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
+use crate::Message;
+use crate::QuorumCertificate;
 use crate::{
     traits::{NetworkError::ShutDown, NodeImplementation},
     types::{Event, HotShotError::NetworkFault},
@@ -185,7 +187,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
             if anchor_leaf.view_number == TYPES::Time::genesis() {
                 let leaf: I::Leaf = I::Leaf::from_stored_view(anchor_leaf);
-                let mut qc = <I::Leaf as LeafType>::QuorumCertificate::genesis();
+                let mut qc = QuorumCertificate::<TYPES, I::Leaf>::genesis();
                 qc.set_leaf_commitment(leaf.commit());
                 let event = Event {
                     view_number: TYPES::Time::genesis(),
@@ -398,7 +400,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     /// Wrapper around `HotShotConsensusApi`'s `create_da_message` function
     pub fn create_da_message(
         &self,
-        justify_qc_commitment: Commitment<<I::Leaf as LeafType>::QuorumCertificate>,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, I::Leaf>>,
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
@@ -417,7 +419,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     /// Wrapper around `HotShotConsensusApi`'s `create_yes_message` function
     pub fn create_yes_message(
         &self,
-        justify_qc_commitment: Commitment<<I::Leaf as LeafType>::QuorumCertificate>,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, I::Leaf>>,
         leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
@@ -436,7 +438,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     /// Wrapper around `HotShotConsensusApi`'s `create_no_message` function
     pub fn create_no_message(
         &self,
-        justify_qc_commitment: Commitment<<I::Leaf as LeafType>::QuorumCertificate>,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, I::Leaf>>,
         leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
@@ -455,7 +457,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     /// Wrapper around `HotShotConsensusApi`'s `create_timeout_message` function
     pub fn create_timeout_message(
         &self,
-        justify_qc: <I::Leaf as LeafType>::QuorumCertificate,
+        justify_qc: QuorumCertificate<TYPES, I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVote<TYPES, I::Leaf>> {

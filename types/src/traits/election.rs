@@ -2,7 +2,7 @@
 #![allow(clippy::missing_docs_in_private_items)]
 #![allow(missing_docs)]
 
-use super::node_implementation::NodeType;
+use super::node_implementation::{NodeImplementation, NodeType};
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
 use crate::certificate::CertificateAccumulator;
 use crate::certificate::{DACertificate, QuorumCertificate, VoteMetaData};
@@ -10,12 +10,13 @@ use crate::data::DAProposal;
 use crate::data::ProposalType;
 use crate::data::ValidatingProposal;
 use crate::message::VoteType;
-use crate::message::{ConsensusMessage, DAVote, QuorumVote};
+use crate::message::{ConsensusMessage, DAVote, QuorumVote, TimeoutVote, YesOrNoVote};
 use crate::traits::network::CommunicationChannel;
 use crate::traits::network::NetworkMsg;
 use crate::{data::LeafType, traits::signature_key::SignatureKey};
 use async_tungstenite::tungstenite::Message;
 use bincode::Options;
+use blake3::traits::digest::typenum::Le;
 use commit::{Commitment, Committable};
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
@@ -393,6 +394,26 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
     // }
 }
 
+pub trait CommitteeExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M: NetworkMsg>:
+    ConsensusExchange<TYPES, LEAF, M>
+{
+    fn sign_da_proposal(&self, block_commitment: &Commitment<TYPES::BlockType>)
+        -> EncodedSignature;
+    fn sign_da_vote(
+        &self,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> (EncodedPublicKey, EncodedSignature);
+    fn create_da_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
+        &self,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
+        block_commitment: Commitment<TYPES::BlockType>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, I>
+    where
+        I::ComitteeExchange:
+            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = DAVote<TYPES, I::Leaf>>;
+}
 pub struct CommitteeExchange<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
@@ -401,7 +422,63 @@ pub struct CommitteeExchange<
     M: NetworkMsg,
 > {
     network: NETWORK,
+    public_key: TYPES::SignatureKey,
+    private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP, M)>,
+}
+
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+        NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES, LEAF>, MEMBERSHIP>,
+        M: NetworkMsg,
+    > CommitteeExchangeType<TYPES, LEAF, M>
+    for CommitteeExchange<TYPES, LEAF, MEMBERSHIP, NETWORK, M>
+{
+    /// Sign a DA proposal.
+    fn sign_da_proposal(
+        &self,
+        block_commitment: &Commitment<TYPES::BlockType>,
+    ) -> EncodedSignature {
+        let signature = TYPES::SignatureKey::sign(&self.private_key, block_commitment.as_ref());
+        signature
+    }
+    /// Sign a vote on DA proposal.
+    ///
+    /// The block commitment and the type of the vote (DA) are signed, which is the minimum amount
+    /// of information necessary for checking that this node voted on that block.
+    fn sign_da_vote(
+        &self,
+        block_commitment: Commitment<TYPES::BlockType>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            &VoteData::<TYPES, LEAF>::DA(block_commitment).as_bytes(),
+        );
+        (self.public_key.to_bytes(), signature)
+    }
+    /// Create a message with a vote on DA proposal.
+    fn create_da_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
+        &self,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
+        block_commitment: Commitment<TYPES::BlockType>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, I>
+    where
+        I::ComitteeExchange:
+            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = DAVote<TYPES, I::Leaf>>,
+    {
+        let signature = self.sign_da_vote(block_commitment);
+        ConsensusMessage::<TYPES, I>::DAVote(DAVote {
+            justify_qc_commitment,
+            signature,
+            block_commitment,
+            current_view,
+            vote_token,
+        })
+    }
 }
 
 impl<
@@ -457,6 +534,79 @@ impl<
     }
 }
 
+pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M: NetworkMsg>:
+    ConsensusExchange<TYPES, LEAF, M>
+{
+    /// Create a message with a positive vote on validating or commitment proposal.
+    fn create_yes_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
+        &self,
+        justify_qc_commitment: Commitment<Self::Certificate>,
+        leaf_commitment: Commitment<LEAF>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, I>
+    where
+        <Self as ConsensusExchange<TYPES, LEAF, M>>::Certificate: commit::Committable,
+        I::QuorumExchange:
+            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = QuorumVote<TYPES, LEAF>>;
+    /// Sign a validating or commitment proposal.
+    fn sign_validating_or_commitment_proposal<I: NodeImplementation<TYPES>>(
+        &self,
+        leaf_commitment: &Commitment<LEAF>,
+    ) -> EncodedSignature;
+
+    /// Sign a positive vote on validating or commitment proposal.
+    ///
+    /// The leaf commitment and the type of the vote (yes) are signed, which is the minimum amount
+    /// of information necessary for any user of the subsequently constructed QC to check that this
+    /// node voted `Yes` on that leaf. The leaf is expected to be reconstructed based on other
+    /// information in the yes vote.
+    fn sign_yes_vote(
+        &self,
+        leaf_commitment: Commitment<LEAF>,
+    ) -> (EncodedPublicKey, EncodedSignature);
+
+    /// Sign a neagtive vote on validating or commitment proposal.
+    ///
+    /// The leaf commitment and the type of the vote (no) are signed, which is the minimum amount
+    /// of information necessary for any user of the subsequently constructed QC to check that this
+    /// node voted `No` on that leaf.
+    fn sign_no_vote(
+        &self,
+        leaf_commitment: Commitment<LEAF>,
+    ) -> (EncodedPublicKey, EncodedSignature);
+
+    /// Sign a timeout vote.
+    ///
+    /// We only sign the view number, which is the minimum amount of information necessary for
+    /// checking that this node timed out on that view.
+    ///
+    /// This also allows for the high QC included with the vote to be spoofed in a MITM scenario,
+    /// but it is outside our threat model.
+    fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature);
+    /// Create a message with a negative vote on validating or commitment proposal.
+    fn create_no_message<I: NodeImplementation<TYPES>>(
+        &self,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
+        leaf_commitment: Commitment<LEAF>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, I>
+    where
+        I::QuorumExchange:
+            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = QuorumVote<TYPES, LEAF>>;
+
+    /// Create a message with a timeout vote on validating or commitment proposal.
+    fn create_timeout_message<I: NodeImplementation<TYPES>>(
+        &self,
+        justify_qc: QuorumCertificate<TYPES, LEAF>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, I>
+    where
+        I::QuorumExchange:
+            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = QuorumVote<TYPES, LEAF>>;
+}
 pub struct QuorumExchange<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
@@ -471,7 +621,143 @@ pub struct QuorumExchange<
     M: NetworkMsg,
 > {
     network: NETWORK,
-    _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP, M)>,
+    public_key: TYPES::SignatureKey,
+    private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    _pd: PhantomData<(LEAF, MEMBERSHIP, M)>,
+}
+
+impl<
+        TYPES: NodeType,
+        LEAF: LeafType<NodeType = TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+        NETWORK: CommunicationChannel<
+            TYPES,
+            M,
+            ValidatingProposal<TYPES, LEAF>,
+            QuorumVote<TYPES, LEAF>,
+            MEMBERSHIP,
+        >,
+        M: NetworkMsg,
+    > QuorumExchangeType<TYPES, LEAF, M> for QuorumExchange<TYPES, LEAF, MEMBERSHIP, NETWORK, M>
+{
+    /// Create a message with a positive vote on validating or commitment proposal.
+    fn create_yes_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
+        &self,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
+        leaf_commitment: Commitment<LEAF>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, I>
+    where
+        I::QuorumExchange:
+            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = QuorumVote<TYPES, LEAF>>,
+    {
+        let signature = self.sign_yes_vote(leaf_commitment);
+        ConsensusMessage::<TYPES, I>::Vote(QuorumVote::Yes(YesOrNoVote {
+            justify_qc_commitment,
+            signature,
+            leaf_commitment,
+            current_view,
+            vote_token,
+        }))
+    }
+    /// Sign a validating or commitment proposal.
+    fn sign_validating_or_commitment_proposal<I: NodeImplementation<TYPES>>(
+        &self,
+        leaf_commitment: &Commitment<LEAF>,
+    ) -> EncodedSignature {
+        let signature = TYPES::SignatureKey::sign(&self.private_key, leaf_commitment.as_ref());
+        signature
+    }
+
+    /// Sign a positive vote on validating or commitment proposal.
+    ///
+    /// The leaf commitment and the type of the vote (yes) are signed, which is the minimum amount
+    /// of information necessary for any user of the subsequently constructed QC to check that this
+    /// node voted `Yes` on that leaf. The leaf is expected to be reconstructed based on other
+    /// information in the yes vote.
+    fn sign_yes_vote(
+        &self,
+        leaf_commitment: Commitment<LEAF>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            &VoteData::<TYPES, LEAF>::Yes(leaf_commitment).as_bytes(),
+        );
+        (self.public_key.to_bytes(), signature)
+    }
+
+    /// Sign a neagtive vote on validating or commitment proposal.
+    ///
+    /// The leaf commitment and the type of the vote (no) are signed, which is the minimum amount
+    /// of information necessary for any user of the subsequently constructed QC to check that this
+    /// node voted `No` on that leaf.
+    fn sign_no_vote(
+        &self,
+        leaf_commitment: Commitment<LEAF>,
+    ) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            &VoteData::<TYPES, LEAF>::No(leaf_commitment).as_bytes(),
+        );
+        (self.public_key.to_bytes(), signature)
+    }
+
+    /// Sign a timeout vote.
+    ///
+    /// We only sign the view number, which is the minimum amount of information necessary for
+    /// checking that this node timed out on that view.
+    ///
+    /// This also allows for the high QC included with the vote to be spoofed in a MITM scenario,
+    /// but it is outside our threat model.
+    fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
+        let signature = TYPES::SignatureKey::sign(
+            &self.private_key,
+            &VoteData::<TYPES, LEAF>::Timeout(view_number).as_bytes(),
+        );
+        (self.public_key.to_bytes(), signature)
+    }
+    /// Create a message with a negative vote on validating or commitment proposal.
+    fn create_no_message<I: NodeImplementation<TYPES>>(
+        &self,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
+        leaf_commitment: Commitment<LEAF>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, I>
+    where
+        I::QuorumExchange:
+            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = QuorumVote<TYPES, LEAF>>,
+    {
+        let signature = self.sign_no_vote(leaf_commitment);
+        ConsensusMessage::<TYPES, I>::Vote(QuorumVote::No(YesOrNoVote {
+            justify_qc_commitment,
+            signature,
+            leaf_commitment,
+            current_view,
+            vote_token,
+        }))
+    }
+
+    /// Create a message with a timeout vote on validating or commitment proposal.
+    fn create_timeout_message<I: NodeImplementation<TYPES>>(
+        &self,
+        justify_qc: QuorumCertificate<TYPES, LEAF>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, I>
+    where
+        I::QuorumExchange:
+            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = QuorumVote<TYPES, LEAF>>,
+    {
+        let signature = self.sign_timeout_vote(current_view);
+        ConsensusMessage::<TYPES, I>::Vote(QuorumVote::Timeout(TimeoutVote {
+            justify_qc,
+            signature,
+            current_view,
+            vote_token,
+        }))
+    }
 }
 
 impl<
@@ -490,7 +776,7 @@ impl<
 {
     type Proposal = ValidatingProposal<TYPES, LEAF>;
     type Vote = QuorumVote<TYPES, LEAF>;
-    type Certificate = LEAF::QuorumCertificate;
+    type Certificate = QuorumCertificate<TYPES, LEAF>;
     type Membership = MEMBERSHIP;
     type Networking = NETWORK;
 

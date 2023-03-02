@@ -7,7 +7,10 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use commit::Committable;
-use hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposal, QuorumVoteType};
+use hotshot_types::traits::election::{ConsensusExchange, QuorumExchangeType};
+use hotshot_types::traits::node_implementation::{
+    NodeImplementation, QuorumProposal, QuorumVoteType,
+};
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
@@ -17,7 +20,6 @@ use hotshot_types::{
         state::ValidatingConsensus, Block, State,
     },
 };
-use hotshot_types::traits::election::ConsensusExchange;
 use std::marker::PhantomData;
 use std::{sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
@@ -40,6 +42,8 @@ pub struct ValidatingLeader<
     pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
     /// Limited access to the consensus protocol
     pub api: A,
+
+    pub exchange: I::QuorumExchange,
     _pd: PhantomData<I>,
 }
 
@@ -49,8 +53,8 @@ impl<
         I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
     > ValidatingLeader<A, TYPES, I>
 where
-    I::QuorumExchange:
-        ConsensusExchange<TYPES, I::Leaf, I::Message, Proposal = ValidatingProposal<TYPES, I::Leaf>>,
+    I::QuorumExchange: ConsensusExchange<TYPES, I::Leaf, I::Message, Proposal = ValidatingProposal<TYPES, I::Leaf>>
+        + QuorumExchangeType<TYPES, I::Leaf, I::Message>,
 {
     /// Run one view of the leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Validating ValidatingLeader Task", level = "error")]
@@ -174,8 +178,8 @@ where
                 proposer_id: pk.to_bytes(),
             };
             let signature = self
-                .api
-                .sign_validating_or_commitment_proposal(&leaf.commit());
+                .exchange
+                .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
             let data: ValidatingProposal<TYPES, ValidatingLeaf<TYPES>> = leaf.into();
             let message = ConsensusMessage::<TYPES, I>::Proposal(Proposal { data, signature });
             consensus
@@ -184,7 +188,13 @@ where
                 .add_point(proposal_build_start.elapsed().as_secs_f64());
             info!("Sending out proposal {:?}", message);
 
-            if let Err(e) = self.api.send_broadcast_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(message.clone()).await {
+            if let Err(e) = self
+                .api
+                .send_broadcast_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(
+                    message.clone(),
+                )
+                .await
+            {
                 consensus.metrics.failed_to_send_messages.add(1);
                 warn!(?message, ?e, "Could not broadcast leader proposal");
             } else {

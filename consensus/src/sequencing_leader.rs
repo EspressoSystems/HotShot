@@ -13,8 +13,13 @@ use commit::Committable;
 use either::Either;
 use either::Either::Right;
 use hotshot_types::message::Message;
+use hotshot_types::traits::election::CommitteeExchangeType;
 use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposal};
+use hotshot_types::traits::election::QuorumExchangeType;
+use hotshot_types::traits::node_implementation::{CommitteeProposal, CommitteeVote};
+use hotshot_types::traits::node_implementation::{
+    NodeImplementation, QuorumProposal, QuorumVoteType,
+};
 use hotshot_types::{
     certificate::{CertificateAccumulator, DACertificate, QuorumCertificate},
     data::{CommitmentProposal, DAProposal, SequencingLeaf},
@@ -35,8 +40,8 @@ use tracing::{error, info, instrument, warn};
 #[derive(Debug, Clone)]
 pub struct DALeader<
     A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
-    QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
+    // DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
+    // QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
 > {
@@ -53,9 +58,9 @@ pub struct DALeader<
     /// Limited access to the consensus protocol
     pub api: A,
 
-    pub da_exchange: DA,
+    pub da_exchange: I::ComitteeExchange,
 
-    pub quorum_exchange: QUORUM,
+    pub quorum_exchange: I::QuorumExchange,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
     pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
@@ -63,16 +68,25 @@ pub struct DALeader<
 }
 impl<
         A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-        DA: ConsensusExchange<
-            TYPES,
-            SequencingLeaf<TYPES>,
-            Message<TYPES, I>,
-            Certificate = DACertificate<TYPES>,
-        >,
-        QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
         TYPES: NodeType,
         I: NodeImplementation<TYPES>,
-    > DALeader<A, DA, QUORUM, TYPES, I>
+    > DALeader<A, TYPES, I>
+where
+    I::QuorumExchange: ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        I::Message,
+        Proposal = CommitmentProposal<TYPES, I::Leaf>,
+        Vote = QuorumVote<TYPES, I::Leaf>,
+    >,
+    I::ComitteeExchange: ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            I::Message,
+            Proposal = DAProposal<TYPES>,
+            Vote = DAVote<TYPES, I::Leaf>,
+            Certificate = DACertificate<TYPES>,
+        > + CommitteeExchangeType<TYPES, I::Leaf, I::Message>,
 {
     /// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
     /// TODO: Refactor this to use new `Elecetion` trait and call accumulate
@@ -94,6 +108,10 @@ impl<
             }
             match msg {
                 ProcessedConsensusMessage::Vote(vote, sender) => {
+                    warn!("The leader received an unexpext Quorum Vote!");
+                    continue;
+                }
+                ProcessedConsensusMessage::DAVote(vote, sender) => {
                     if vote.signature.0 != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
                     {
                         continue;
@@ -124,6 +142,9 @@ impl<
                     }
                 },
                 ProcessedConsensusMessage::Proposal(_p, _sender) => {
+                    warn!("The next leader has received an unexpected proposal!");
+                }
+                ProcessedConsensusMessage::DAProposal(_p, _sender) => {
                     warn!("The next leader has received an unexpected proposal!");
                 }
             }
@@ -227,18 +248,20 @@ impl<
         let block_commitment = block.commit();
 
         let consensus = self.consensus.read().await;
-        let signature = self.api.sign_da_proposal(&block.commit());
+        let signature = self.da_exchange.sign_da_proposal(&block.commit());
         let data: DAProposal<TYPES> = DAProposal {
             deltas: block.clone(),
             view_number: self.cur_view,
         };
-        let message = ConsensusMessage::<
-            TYPES,
-            DAProposal<TYPES>,
-            DAVote<TYPES, SequencingLeaf<TYPES>>,
-        >::Proposal(Proposal { data, signature });
+        let message = ConsensusMessage::<TYPES, I>::DAProposal(Proposal { data, signature });
         // Brodcast DA proposal
-        if let Err(e) = self.api.send_broadcast_message(message.clone()).await {
+        if let Err(e) = self
+            .api
+            .send_broadcast_message::<CommitteeProposal<TYPES, I>, CommitteeVote<TYPES, I>>(
+                message.clone(),
+            )
+            .await
+        {
             consensus.metrics.failed_to_send_messages.add(1);
             warn!(?message, ?e, "Could not broadcast leader proposal");
         } else {
@@ -279,13 +302,32 @@ pub struct ConsensusLeader<
     pub parent: SequencingLeaf<TYPES>,
     /// Limited access to the consensus protocol
     pub api: A,
+
+    pub quorum_exchange: I::QuorumExchange,
+
     _pd: PhantomData<I>,
 }
 impl<
         A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
-        I: NodeImplementation<TYPES>,
+        I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
     > ConsensusLeader<A, TYPES, I>
+where
+    I::QuorumExchange: ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            I::Message,
+            Proposal = CommitmentProposal<TYPES, I::Leaf>,
+            // Vote = QuorumVote<TYPES, I::Leaf>,
+        > + QuorumExchangeType<TYPES, I::Leaf, I::Message>,
+    I::ComitteeExchange: ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            I::Message,
+            // Proposal = DAProposal<TYPES>,
+            // Vote = DAVote<TYPES, I::Leaf>,
+            // Certificate = DACertificate<TYPES>,
+        > + CommitteeExchangeType<TYPES, I::Leaf, I::Message>,
 {
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
@@ -304,8 +346,8 @@ impl<
             proposer_id: self.api.public_key().to_bytes(),
         };
         let signature = self
-            .api
-            .sign_validating_or_commitment_proposal(&leaf.commit());
+            .quorum_exchange
+            .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
         // TODO: DA cert is sent as part of the proposal here, we should split this out so we don't have to wait for it.
         let proposal = CommitmentProposal {
             block_commitment,
@@ -317,15 +359,17 @@ impl<
             application_metadata: {},
         };
 
-        let message = ConsensusMessage::<
-            TYPES,
-            CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
-            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-        >::Proposal(Proposal {
+        let message = ConsensusMessage::<TYPES, I>::Proposal(Proposal {
             data: proposal,
             signature,
         });
-        if let Err(e) = self.api.send_broadcast_message(message.clone()).await {
+        if let Err(e) = self
+            .api
+            .send_broadcast_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(
+                message.clone(),
+            )
+            .await
+        {
             warn!(?message, ?e, "Could not broadcast leader proposal");
         }
         self.high_qc
@@ -376,7 +420,7 @@ impl<
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
             // If the message is for a different view number, skip it.
-            if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number() != self.cur_view {
+            if Into::<ConsensusMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view {
                 continue;
             }
             // TODO (da) restore the code below after supporting two vote types. Currently it

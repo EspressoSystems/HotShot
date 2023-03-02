@@ -3,6 +3,7 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
+use crate::certificate::QuorumCertificate;
 use crate::{
     data::{LeafType, ProposalType},
     traits::{
@@ -213,7 +214,7 @@ pub struct DAVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// TODO we should remove this
     /// this is correct, but highly inefficient
     /// we should check a cache, and if that fails request the qc
-    pub justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
+    pub justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
     pub signature: (EncodedPublicKey, EncodedSignature),
@@ -232,7 +233,7 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// TODO we should remove this
     /// this is correct, but highly inefficient
     /// we should check a cache, and if that fails request the qc
-    pub justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
+    pub justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
     pub signature: (EncodedPublicKey, EncodedSignature),
@@ -249,7 +250,7 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 #[serde(bound(deserialize = ""))]
 pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The justification qc for this view
-    pub justify_qc: LEAF::QuorumCertificate,
+    pub justify_qc: QuorumCertificate<TYPES, LEAF>,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
     pub signature: (EncodedPublicKey, EncodedSignature),

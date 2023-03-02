@@ -2,6 +2,7 @@
 #![allow(missing_docs)]
 
 use super::{node_implementation::NodeType, signature_key::EncodedPublicKey};
+use crate::certificate::QuorumCertificate;
 use crate::{
     data::LeafType,
     traits::{election::SignedCertificate, Block},
@@ -11,7 +12,6 @@ use commit::Commitment;
 use derivative::Derivative;
 use snafu::Snafu;
 use std::collections::{BTreeMap, BTreeSet};
-
 /// Errors that can occur in the storage layer.
 #[derive(Clone, Debug, Snafu)]
 #[snafu(visibility(pub))]
@@ -133,7 +133,7 @@ pub struct StoredView<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The parent of this view
     pub parent: Commitment<LEAF>,
     /// The justify QC of this view. See the hotstuff paper for more information on this.
-    pub justify_qc: LEAF::QuorumCertificate,
+    pub justify_qc: QuorumCertificate<TYPES, LEAF>,
     /// The state of this view
     pub state: LEAF::StateCommitmentType,
     /// The deltas of this view
@@ -157,7 +157,7 @@ where
     ///
     /// Note that this will set the `parent` to `LeafHash::default()`, so this will not have a parent.
     pub fn from_qc_block_and_state(
-        qc: LEAF::QuorumCertificate,
+        qc: QuorumCertificate<TYPES, LEAF>,
         deltas: LEAF::DeltasType,
         state: LEAF::StateCommitmentType,
         height: u64,

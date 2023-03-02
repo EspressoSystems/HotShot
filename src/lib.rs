@@ -81,7 +81,9 @@ use hotshot_types::{
         election::{Checked, ElectionError, Membership, SignedCertificate, VoteData},
         metrics::Metrics,
         network::{NetworkError, TransmitType},
-        node_implementation::NodeType,
+        node_implementation::{
+            CommitteeProposal, CommitteeVote, NodeType, QuorumProposal, QuorumVoteType,
+        },
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::{ConsensusTime, ConsensusType, SequencingConsensus, ValidatingConsensus},
         storage::StoredView,
@@ -1198,7 +1200,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> HotShotInitializer<TYPES
                 context: err.to_string(),
             })?;
         let time = TYPES::Time::genesis();
-        let justify_qc = LEAF::QuorumCertificate::genesis();
+        let justify_qc = QuorumCertificate::<TYPES, LEAF>::genesis();
 
         Ok(Self {
             inner: LEAF::new(time, justify_qc, genesis_block, state),
