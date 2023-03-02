@@ -127,13 +127,7 @@ impl TestData {
         })
         .to_lowercase();
 
-        let (demo_block, demo_state, demo_transaction) = {
-            let mut demos = demo_types.elems.iter().skip(1); // first ele in consensustype
-            let d1 = demos.next().unwrap();
-            let d2 = demos.next().unwrap();
-            let d3 = demos.next().unwrap();
-            (d1, d2, d3)
-        };
+        let demo_state = demo_types.elems.iter().skip(1).next().unwrap();
 
         let signature_key_str = signature_key_type
             .path
@@ -222,9 +216,9 @@ impl TestData {
                 impl hotshot_types::traits::node_implementation::NodeType for TestTypes {
                     type ConsensusType = #consensus_type;
                     type Time = #time_type;
-                    type BlockType = #demo_block;
+                    type BlockType = <#demo_state as hotshot_types::traits::State>::BlockType;
                     type SignatureKey = #signature_key_type;
-                    type Transaction = #demo_transaction;
+                    type Transaction = <<#demo_state as hotshot_types::traits::State>::BlockType as hotshot_types::traits::Block>::Transaction;
                     type StateType = #demo_state;
                     type VoteTokenType = hotshot::traits::election::static_committee::StaticVoteToken<Self::SignatureKey>;
                     type ElectionConfigType = hotshot::traits::election::static_committee::StaticElectionConfig;
@@ -426,6 +420,8 @@ pub fn cross_tests(input: TokenStream) -> TokenStream {
         _ => None,
     });
 
+    // TODO better error handling instead of `None`. We want to fail loudly
+
 
     for (consensus_type, demo_type) in consensus_types.into_iter().zip(demo_types.iter()) {
         for comm_channel in comm_channels.clone() {
@@ -452,7 +448,6 @@ pub fn cross_tests(input: TokenStream) -> TokenStream {
                             signature_key_type.clone(),
                             comm_channel,
                             storage.clone(),
-                            // vote_type.clone(),
                             test_spec.test_name.clone(),
                             test_spec.test_description.clone(),
                             test_spec.slow.clone(),

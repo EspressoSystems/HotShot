@@ -8,7 +8,7 @@ use hotshot_testing::test_description::GeneralTestDescriptionBuilder;
 
 cross_tests!(
     Time: [ ViewNumber ],
-    DemoType: [ (SequencingConsensus, SDemoBlock, SDemoState, SDemoTransaction), (ValidatingConsensus, VDemoBlock, VDemoState, VDemoTransaction) ],
+    DemoType: [ (SequencingConsensus, SDemoState), (ValidatingConsensus, VDemoState) ],
     SignatureKey: [ Ed25519Pub ],
     CommChannel: [ MemoryCommChannel ],
     Storage: [ MemoryStorage ],
