@@ -68,29 +68,37 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone for HotShotH
     }
 }
 
-type QuorumNetwork<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
-    TYPES,
->>::QuorumExchange as ConsensusExchange<
-    TYPES,
-    I::Leaf,
->>::Networking;
+type QuorumNetwork<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking;
 
 type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Vote;
 type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
-    <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
-type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
-    TYPES,
->>::QuorumExchange as ConsensusExchange<
-    TYPES,
-    I::Leaf,
->>::Proposal;
-type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
-    TYPES,
->>::ComitteeExchange as ConsensusExchange<
-    TYPES,
-    I::Leaf,
->>::Proposal;
+    <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Vote;
+type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Proposal;
+type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+    <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Proposal;
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPES, I> {
     /// Will return the next event in the queue

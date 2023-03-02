@@ -14,8 +14,8 @@ use hotshot_types::{
     data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, DAVote, ProcessedConsensusMessage},
     traits::{
-        election::SignedCertificate,
-        node_implementation::{NodeImplementation, NodeType},
+        election::{ConsensusExchange, SignedCertificate},
+        node_implementation::{CommitteeProposal, CommitteeVote, NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
 };
@@ -36,17 +36,8 @@ pub struct DAMember<
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// Channel for accepting leader proposals and timeouts messages.
     #[allow(clippy::type_complexity)]
-    pub proposal_collection_chan: Arc<
-        Mutex<
-            UnboundedReceiver<
-                ProcessedConsensusMessage<
-                    TYPES,
-                    DAProposal<TYPES>,
-                    DAVote<TYPES, SequencingLeaf<TYPES>>,
-                >,
-            >,
-        >,
-    >,
+    pub proposal_collection_chan:
+        Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// The High QC.
@@ -62,6 +53,9 @@ impl<
         TYPES: NodeType,
         I: NodeImplementation<TYPES>,
     > DAMember<A, TYPES, I>
+where
+    I::ComitteeExchange:
+        ConsensusExchange<TYPES, I::Leaf, I::Message, Proposal = DAProposal<TYPES>>,
 {
     /// Returns the parent leaf of the proposal we are voting on
     async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
@@ -103,13 +97,12 @@ impl<
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // If the message is for a different view number, skip it.
-                if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number()
-                    != self.cur_view
+                if Into::<ConsensusMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view
                 {
                     continue;
                 }
                 match msg {
-                    ProcessedConsensusMessage::Proposal(p, sender) => {
+                    ProcessedConsensusMessage::DAProposal(p, sender) => {
                         if view_leader_key != sender {
                             continue;
                         }
@@ -156,7 +149,7 @@ impl<
                                 info!("Sending vote to the leader {:?}", message);
 
                                 let consensus = self.consensus.read().await;
-                                if self.api.send_direct_message(sender, message).await.is_err() {
+                                if self.api.send_direct_message::<CommitteeProposal<TYPES, I>, CommitteeVote<TYPES, I>>(sender, message).await.is_err() {
                                     consensus.metrics.failed_to_send_messages.add(1);
                                     warn!("Failed to send vote to the leader");
                                 } else {
@@ -173,6 +166,15 @@ impl<
                     ProcessedConsensusMessage::Vote(_, _) => {
                         // Should only be for DA leader, never member.
                         warn!("DA committee member receieved a vote message. This is not what the member expects. Skipping.");
+                        continue;
+                    }
+                    ProcessedConsensusMessage::DAVote(_, _) => {
+                        // Should only be for DA leader, never member.
+                        warn!("DA committee member receieved a vote message. This is not what the member expects. Skipping.");
+                        continue;
+                    }
+                    ProcessedConsensusMessage::Proposal(_, _) => {
+                        warn!("DA committee member receieved a Non DA Proposal message. This is not what the member expects. Skipping.");
                         continue;
                     }
                 }

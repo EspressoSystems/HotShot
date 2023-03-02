@@ -11,8 +11,9 @@ use hotshot_types::data::DAProposal;
 use hotshot_types::data::ValidatingProposal;
 use hotshot_types::message::ConsensusMessage;
 use hotshot_types::traits::election::SignedCertificate;
-use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::node_implementation::{
+    CommitteeProposal, CommitteeVote, NodeImplementation, NodeType, QuorumProposal,
+};
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
     data::{LeafType, ProposalType},
@@ -27,24 +28,6 @@ use hotshot_types::{
 };
 use std::num::NonZeroU64;
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
-
-pub type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
-    TYPES,
->>::QuorumExchange as ConsensusExchange<
-    TYPES,
-    I::Leaf,
->>::Proposal;
-pub type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
-    TYPES,
->>::ComitteeExchange as ConsensusExchange<
-    TYPES,
-    I::Leaf,
->>::Proposal;
-
-pub type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
-pub type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
-    <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
 
 // FIXME these should be nonzero u64s
 /// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
@@ -102,7 +85,7 @@ pub trait ConsensusApi<
     async fn send_direct_message<PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>(
         &self,
         recipient: TYPES::SignatureKey,
-        message: ConsensusMessage<TYPES, PROPOSAL, VOTE>,
+        message: ConsensusMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Send a broadcast message to the entire network.
@@ -111,7 +94,7 @@ pub trait ConsensusApi<
         VOTE: VoteType<TYPES>,
     >(
         &self,
-        message: ConsensusMessage<TYPES, PROPOSAL, VOTE>,
+        message: ConsensusMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Notify the system of an event within `hotshot-consensus`.
@@ -186,7 +169,7 @@ pub trait ConsensusApi<
     /// Send a broadcast to the DA comitee, stub for now
     async fn send_da_broadcast(
         &self,
-        message: ConsensusMessage<TYPES, CommitteeProposal<TYPES, I>, CommitteeVote<TYPES, I>>,
+        message: ConsensusMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Sign a DA proposal.
@@ -277,9 +260,9 @@ pub trait ConsensusApi<
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, CommitteeProposal<TYPES, I>, DAVote<TYPES, LEAF>> {
+    ) -> ConsensusMessage<TYPES, I> {
         let signature = self.sign_da_vote(block_commitment);
-        ConsensusMessage::<TYPES, CommitteeProposal<TYPES, I>, DAVote<TYPES, LEAF>>::Vote(DAVote {
+        ConsensusMessage::<TYPES, I>::DAVote(DAVote {
             justify_qc_commitment,
             signature,
             block_commitment,
@@ -295,17 +278,15 @@ pub trait ConsensusApi<
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVote<TYPES, LEAF>> {
+    ) -> ConsensusMessage<TYPES, I> {
         let signature = self.sign_yes_vote(leaf_commitment);
-        ConsensusMessage::<TYPES, QuorumProposal<TYPES, I>, QuorumVote<TYPES, LEAF>>::Vote(
-            QuorumVote::Yes(YesOrNoVote {
-                justify_qc_commitment,
-                signature,
-                leaf_commitment,
-                current_view,
-                vote_token,
-            }),
-        )
+        ConsensusMessage::<TYPES, I>::Vote(QuorumVote::Yes(YesOrNoVote {
+            justify_qc_commitment,
+            signature,
+            leaf_commitment,
+            current_view,
+            vote_token,
+        }))
     }
 
     /// Create a message with a negative vote on validating or commitment proposal.
@@ -315,17 +296,15 @@ pub trait ConsensusApi<
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVote<TYPES, LEAF>> {
+    ) -> ConsensusMessage<TYPES, I> {
         let signature = self.sign_no_vote(leaf_commitment);
-        ConsensusMessage::<TYPES, QuorumProposal<TYPES, I>, QuorumVote<TYPES, LEAF>>::Vote(
-            QuorumVote::No(YesOrNoVote {
-                justify_qc_commitment,
-                signature,
-                leaf_commitment,
-                current_view,
-                vote_token,
-            }),
-        )
+        ConsensusMessage::<TYPES, I>::Vote(QuorumVote::No(YesOrNoVote {
+            justify_qc_commitment,
+            signature,
+            leaf_commitment,
+            current_view,
+            vote_token,
+        }))
     }
 
     /// Create a message with a timeout vote on validating or commitment proposal.
@@ -334,15 +313,13 @@ pub trait ConsensusApi<
         justify_qc: LEAF::QuorumCertificate,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVote<TYPES, LEAF>> {
+    ) -> ConsensusMessage<TYPES, I> {
         let signature = self.sign_timeout_vote(current_view);
-        ConsensusMessage::<TYPES, QuorumProposal<TYPES, I>, QuorumVote<TYPES, LEAF>>::Vote(
-            QuorumVote::Timeout(TimeoutVote {
-                justify_qc,
-                signature,
-                current_view,
-                vote_token,
-            }),
-        )
+        ConsensusMessage::<TYPES, I>::Vote(QuorumVote::Timeout(TimeoutVote {
+            justify_qc,
+            signature,
+            current_view,
+            vote_token,
+        }))
     }
 }

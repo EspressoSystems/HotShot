@@ -20,7 +20,7 @@ use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU64, ops::Deref};
 /// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA comittee, not the entire network. It is used
 /// to prove that the data will be made available to those outside of the DA committee.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Hash)]
 pub struct DACertificate<TYPES: NodeType> {
     /// The view number this quorum certificate was generated during
     ///

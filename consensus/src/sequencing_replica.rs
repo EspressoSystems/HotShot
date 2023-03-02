@@ -10,6 +10,7 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
 use either::{Left, Right};
+use hotshot_types::message::Message;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
@@ -31,8 +32,8 @@ use tracing::{error, info, instrument, warn};
 #[derive(Debug, Clone)]
 pub struct SequencingReplica<
     A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
-    QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
+    DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
+    QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
 > {
@@ -42,17 +43,8 @@ pub struct SequencingReplica<
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// Channel for accepting leader proposals and timeouts messages.
     #[allow(clippy::type_complexity)]
-    pub proposal_collection_chan: Arc<
-        Mutex<
-            UnboundedReceiver<
-                ProcessedConsensusMessage<
-                    TYPES,
-                    CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
-                    QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-                >,
-            >,
-        >,
-    >,
+    pub proposal_collection_chan:
+        Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// The High QC.
@@ -67,10 +59,16 @@ pub struct SequencingReplica<
 
 impl<
         A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-        DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Certificate = DACertificate<TYPES>>,
+        DA: ConsensusExchange<
+            TYPES,
+            SequencingLeaf<TYPES>,
+            Message<TYPES, I>,
+            Certificate = DACertificate<TYPES>,
+        >,
         QUORUM: ConsensusExchange<
             TYPES,
             SequencingLeaf<TYPES>,
+            Message<TYPES, I>,
             Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         >,
         TYPES: NodeType,

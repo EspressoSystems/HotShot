@@ -21,17 +21,16 @@ use std::fmt::Debug;
 
 /// The vote sent by consensus messages.
 pub trait VoteType<TYPES: NodeType>:
-    Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync
+    Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq
 {
     /// The view this vote was cast for.
     fn current_view(&self) -> TYPES::Time;
 }
 
 /// Incoming message
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(bound(deserialize = ""))]
-pub struct Message<TYPES: NodeType, I: NodeImplementation<TYPES>>
-{
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "", serialize = ""))]
+pub struct Message<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The sender of this message
     pub sender: TYPES::SignatureKey,
 
@@ -39,14 +38,9 @@ pub struct Message<TYPES: NodeType, I: NodeImplementation<TYPES>>
     pub kind: MessageKind<TYPES, I>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkMsg
-    for Message<TYPES, I>
-{
-}
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkMsg for Message<TYPES, I> {}
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
-    Message<TYPES, I>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Message<TYPES, I> {
     /// get the view number out of a message
     pub fn get_view_number(&self) -> TYPES::Time {
         match &self.kind {
@@ -67,8 +61,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
 // data from the kind enum.
 /// Enum representation of any message type
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(bound(deserialize = ""))]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "", serialize = ""))]
 pub enum MessageKind<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Messages related to the consensus protocol
     Consensus(ConsensusMessage<TYPES, I>),
@@ -102,7 +96,7 @@ pub enum InternalTrigger<TYPES: NodeType> {
 }
 
 /// a processed consensus message
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
 pub enum ProcessedConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Leader's proposal
@@ -144,8 +138,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProcessedConsensusMessage<TY
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(bound(deserialize = ""))]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "", serialize = ""))]
 /// Messages related to the consensus protocol
 pub enum ConsensusMessage<
     TYPES: NodeType,

@@ -5,13 +5,16 @@
 use super::node_implementation::NodeType;
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
 use crate::certificate::CertificateAccumulator;
-use crate::certificate::{QuorumCertificate, VoteMetaData};
+use crate::certificate::{DACertificate, QuorumCertificate, VoteMetaData};
+use crate::data::DAProposal;
 use crate::data::ProposalType;
 use crate::data::ValidatingProposal;
 use crate::message::VoteType;
-use crate::message::{ConsensusMessage, QuorumVote};
+use crate::message::{ConsensusMessage, DAVote, QuorumVote};
 use crate::traits::network::CommunicationChannel;
+use crate::traits::network::NetworkMsg;
 use crate::{data::LeafType, traits::signature_key::SignatureKey};
+use async_tungstenite::tungstenite::Message;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use either::Either;
@@ -186,7 +189,7 @@ pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 's
     fn threshold(&self) -> NonZeroU64;
 }
 
-pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>:
+pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M: NetworkMsg>:
     Send + Sync
 {
     type Proposal: ProposalType<NodeType = TYPES>;
@@ -196,7 +199,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>:
         + Eq;
     // type VoteAccumulator: Accumulator<TYPES::VoteTokenType, LEAF>;
     type Membership: Membership<TYPES>;
-    type Networking: CommunicationChannel<TYPES, Self::Proposal, Self::Vote, Self::Membership>;
+    type Networking: CommunicationChannel<TYPES, M, Self::Proposal, Self::Vote, Self::Membership>;
 
     fn network(&self) -> &Self::Networking;
 
@@ -394,33 +397,24 @@ pub struct CommitteeExchange<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
     MEMBERSHIP: Membership<TYPES>,
-    NETWORK: CommunicationChannel<
-        TYPES,
-        ValidatingProposal<TYPES, LEAF>,
-        QuorumVote<TYPES, LEAF>,
-        MEMBERSHIP,
-    >,
+    NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES, LEAF>, MEMBERSHIP>,
+    M: NetworkMsg,
 > {
     network: NETWORK,
-    _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP)>,
+    _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP, M)>,
 }
 
 impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-        NETWORK: CommunicationChannel<
-            TYPES,
-            ValidatingProposal<TYPES, LEAF>,
-            QuorumVote<TYPES, LEAF>,
-            MEMBERSHIP,
-        >,
-    > ConsensusExchange<TYPES, LEAF> for CommitteeExchange<TYPES, LEAF, MEMBERSHIP, NETWORK>
+        NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES, LEAF>, MEMBERSHIP>,
+        M: NetworkMsg,
+    > ConsensusExchange<TYPES, LEAF, M> for CommitteeExchange<TYPES, LEAF, MEMBERSHIP, NETWORK, M>
 {
-    type Proposal = ValidatingProposal<TYPES, LEAF>;
-    type Vote = QuorumVote<TYPES, LEAF>;
-    // type VoteAccumulator = CertificateAccumulator<TYPES::VoteTokenType, LEAF>;
-    type Certificate = QuorumCertificate<TYPES, LEAF>;
+    type Proposal = DAProposal<TYPES>;
+    type Vote = DAVote<TYPES, LEAF>;
+    type Certificate = DACertificate<TYPES>;
     type Membership = MEMBERSHIP;
     type Networking = NETWORK;
 
@@ -469,13 +463,15 @@ pub struct QuorumExchange<
     MEMBERSHIP: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
+        M,
         ValidatingProposal<TYPES, LEAF>,
         QuorumVote<TYPES, LEAF>,
         MEMBERSHIP,
     >,
+    M: NetworkMsg,
 > {
     network: NETWORK,
-    _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP)>,
+    _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP, M)>,
 }
 
 impl<
@@ -484,11 +480,13 @@ impl<
         MEMBERSHIP: Membership<TYPES>,
         NETWORK: CommunicationChannel<
             TYPES,
+            M,
             ValidatingProposal<TYPES, LEAF>,
             QuorumVote<TYPES, LEAF>,
             MEMBERSHIP,
         >,
-    > ConsensusExchange<TYPES, LEAF> for QuorumExchange<TYPES, LEAF, MEMBERSHIP, NETWORK>
+        M: NetworkMsg,
+    > ConsensusExchange<TYPES, LEAF, M> for QuorumExchange<TYPES, LEAF, MEMBERSHIP, NETWORK, M>
 {
     type Proposal = ValidatingProposal<TYPES, LEAF>;
     type Vote = QuorumVote<TYPES, LEAF>;

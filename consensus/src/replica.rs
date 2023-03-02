@@ -1,7 +1,6 @@
 //! Contains the [`Replica`] struct used for the replica step in the hotstuff consensus algorithm.
 
 use crate::{
-    traits::QuorumProposal,
     utils::{Terminator, View, ViewInner},
     Consensus, ConsensusApi,
 };
@@ -9,7 +8,8 @@ use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
-use hotshot_types::traits::node_implementation::NodeImplementation;
+use hotshot_types::message::Message;
+use hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposal};
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
@@ -30,6 +30,7 @@ use std::marker::PhantomData;
 use std::ops::Bound::{Excluded, Included};
 use std::{collections::HashSet, sync::Arc};
 use tracing::{error, info, instrument, warn};
+
 /// This view's replica
 #[derive(Debug, Clone)]
 pub struct Replica<
@@ -39,6 +40,7 @@ pub struct Replica<
     EXCHANGE: ConsensusExchange<
         TYPES,
         I::Leaf,
+        Message<TYPES, I>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Vote = QuorumVote<TYPES, I::Leaf>,
@@ -50,13 +52,8 @@ pub struct Replica<
     pub consensus: Arc<RwLock<Consensus<TYPES, ValidatingLeaf<TYPES>>>>,
     /// channel for accepting leader proposals and timeouts messages
     #[allow(clippy::type_complexity)]
-    pub proposal_collection_chan: Arc<
-        Mutex<
-            UnboundedReceiver<
-                ProcessedConsensusMessage<TYPES, EXCHANGE::Proposal, QuorumVote<TYPES, I::Leaf>>,
-            >,
-        >,
-    >,
+    pub proposal_collection_chan:
+        Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
     /// view number this view is executing in
     pub cur_view: TYPES::Time,
     /// genericQC from the pseudocode
@@ -71,15 +68,19 @@ pub struct Replica<
 impl<
         A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<TYPES>,
+        I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
         EXCHANGE: ConsensusExchange<
             TYPES,
             I::Leaf,
+            Message<TYPES, I>,
             Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
             Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             Vote = QuorumVote<TYPES, I::Leaf>,
         >,
     > Replica<A, TYPES, I, EXCHANGE>
+where
+    I::QuorumExchange:
+        ConsensusExchange<TYPES, I::Leaf, I::Message, Proposal = ValidatingProposal<TYPES, I::Leaf>, Vote = QuorumVote<TYPES, I::Leaf>>,
 {
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
@@ -100,7 +101,7 @@ impl<
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
-                if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number()
+                if Into::<ConsensusMessage<_, _>>::into(msg.clone()).view_number()
                     != self.cur_view
                 {
                     continue;
@@ -236,7 +237,7 @@ impl<
                                 info!("Sending vote to next leader {:?}", message);
                                 if self
                                     .api
-                                    .send_direct_message(next_leader, message)
+                                    .send_direct_message::<QuorumProposal<TYPES, I>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(next_leader, message)
                                     .await
                                     .is_err()
                                 {

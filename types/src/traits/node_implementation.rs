@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     block_contents::Transaction,
     election::{ConsensusExchange, ElectionConfig, Membership, VoteToken},
-    network::{CommunicationChannel, TestableNetworkingImplementation},
+    network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, ConsensusType, TestableBlock, TestableState},
     storage::TestableStorage,
@@ -33,6 +33,7 @@ use std::hash::Hash;
 /// store or keep a reference to any value implementing this trait.
 
 pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'static {
+    type Message: NetworkMsg;
     type Leaf: LeafType<NodeType = TYPES>;
 
     /// Storage type for this consensus implementation
@@ -41,28 +42,36 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     /// Membership
     /// Time is generic here to allow multiple implementations of membership trait for difference
     /// consensus protocols
-    type QuorumExchange: ConsensusExchange<TYPES, Self::Leaf>;
+    type QuorumExchange: ConsensusExchange<TYPES, Self::Leaf, Self::Message>;
 
-    type ComitteeExchange: ConsensusExchange<TYPES, Self::Leaf>;
+    type ComitteeExchange: ConsensusExchange<TYPES, Self::Leaf, Self::Message>;
 }
 
-pub type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
-    TYPES,
->>::QuorumExchange as ConsensusExchange<
-    TYPES,
-    I::Leaf,
->>::Proposal;
-pub type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
-    TYPES,
->>::ComitteeExchange as ConsensusExchange<
-    TYPES,
-    I::Leaf,
->>::Proposal;
+pub type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        I::Message,
+    >>::Proposal;
+pub type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+    <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        I::Message,
+    >>::Proposal;
 
 pub type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        I::Message,
+    >>::Vote;
 pub type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
-    <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
+    <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        I::Message,
+    >>::Vote;
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
 pub trait NodeType:

@@ -7,6 +7,7 @@ use async_lock::Mutex;
 use either::Either;
 use hotshot_types::certificate::CertificateAccumulator;
 use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
+use hotshot_types::message::Message;
 use hotshot_types::message::ProcessedConsensusMessage;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::SignedCertificate;
@@ -30,7 +31,7 @@ use tracing::{error, instrument, warn};
 #[derive(custom_debug::Debug, Clone)]
 pub struct NextValidatingLeader<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
-    EXCHANGE: ConsensusExchange<TYPES, ValidatingLeaf<TYPES>>,
+    EXCHANGE: ConsensusExchange<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
 > {
@@ -40,17 +41,7 @@ pub struct NextValidatingLeader<
     pub generic_qc: EXCHANGE::Certificate,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
-    pub vote_collection_chan: Arc<
-        Mutex<
-            UnboundedReceiver<
-                ProcessedConsensusMessage<
-                    TYPES,
-                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-                >,
-            >,
-        >,
-    >,
+    pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// Limited access to the consensus protocol
@@ -69,11 +60,15 @@ impl<
         EXCHANGE: ConsensusExchange<
             TYPES,
             ValidatingLeaf<TYPES>,
+            Message<TYPES, I>,
             Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
         >,
         TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
+        I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
     > NextValidatingLeader<A, EXCHANGE, TYPES, I>
+where
+    I::QuorumExchange:
+        ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = QuorumVote<TYPES, I::Leaf>>,
 {
     /// Run one view of the next leader task
     /// # Panics
@@ -96,7 +91,7 @@ impl<
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
             // If the message is for a different view number, skip it.
-            if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number() != self.cur_view {
+            if Into::<ConsensusMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view {
                 continue;
             }
             match msg {
@@ -155,6 +150,12 @@ impl<
                 },
                 ProcessedConsensusMessage::Proposal(_p, _sender) => {
                     warn!("The next leader has received an unexpected proposal!");
+                }
+                ProcessedConsensusMessage::DAProposal(_p, _sender) => {
+                    warn!("The next leader has received an unexpected DA proposal!");
+                }
+                ProcessedConsensusMessage::DAVote(_, _sender) => {
+                    warn!("The next leader has received an unexpected vote for a DA proposal!");
                 }
             }
         }

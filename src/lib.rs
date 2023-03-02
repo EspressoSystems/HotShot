@@ -147,23 +147,6 @@ pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     metrics: Box<dyn Metrics>,
 }
 
-pub type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
-    TYPES,
->>::QuorumExchange as ConsensusExchange<
-    TYPES,
-    I::Leaf,
->>::Proposal;
-pub type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> = <<I as NodeImplementation<
-    TYPES,
->>::ComitteeExchange as ConsensusExchange<
-    TYPES,
-    I::Leaf,
->>::Proposal;
-
-pub type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
-pub type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
-    <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<TYPES, I::Leaf>>::Vote;
 /// Thread safe, shared view of a `HotShot`
 #[derive(Clone)]
 pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
@@ -312,24 +295,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     pub async fn timeout_view(
         &self,
         current_view: TYPES::Time,
-        send_replica: UnboundedSender<
-            ProcessedConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
-        >,
-        send_next_leader: Option<
-            UnboundedSender<
-                ProcessedConsensusMessage<
-                    TYPES,
-                    QuorumProposal<TYPES, I>,
-                    QuorumVoteType<TYPES, I>,
-                >,
-            >,
-        >,
+        send_replica: UnboundedSender<ProcessedConsensusMessage<TYPES, I>>,
+        send_next_leader: Option<UnboundedSender<ProcessedConsensusMessage<TYPES, I>>>,
     ) {
-        let msg = ProcessedConsensusMessage::<
-            TYPES,
-            QuorumProposal<TYPES, I>,
-            QuorumVoteType<TYPES, I>,
-        >::InternalTrigger(InternalTrigger::Timeout(current_view));
+        let msg = ProcessedConsensusMessage::<TYPES, I>::InternalTrigger(InternalTrigger::Timeout(
+            current_view,
+        ));
         if let Some(chan) = send_next_leader {
             if chan.send(msg.clone()).await.is_err() {
                 warn!("Error timing out next leader task");
@@ -1011,6 +982,7 @@ impl<
             cur_view,
             high_qc: high_qc.clone(),
             api: c_api.clone(),
+            _pd: PhantomData,
         };
         let member_handle = async_spawn(async move { da_member.run_view().await });
         task_handles.push(member_handle);

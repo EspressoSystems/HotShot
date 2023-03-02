@@ -1,7 +1,6 @@
 //! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
-use crate::traits::QuorumProposal;
 use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_compatibility_layer::{
@@ -13,8 +12,9 @@ use commit::Commitment;
 use commit::Committable;
 use either::Either;
 use either::Either::Right;
+use hotshot_types::message::Message;
 use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::node_implementation::NodeImplementation;
+use hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposal};
 use hotshot_types::{
     certificate::{CertificateAccumulator, DACertificate, QuorumCertificate},
     data::{CommitmentProposal, DAProposal, SequencingLeaf},
@@ -35,8 +35,8 @@ use tracing::{error, info, instrument, warn};
 #[derive(Debug, Clone)]
 pub struct DALeader<
     A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
-    QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
+    DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
+    QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
 > {
@@ -58,23 +58,18 @@ pub struct DALeader<
     pub quorum_exchange: QUORUM,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
-    pub vote_collection_chan: Arc<
-        Mutex<
-            UnboundedReceiver<
-                ProcessedConsensusMessage<
-                    TYPES,
-                    DAProposal<TYPES>,
-                    DAVote<TYPES, SequencingLeaf<TYPES>>,
-                >,
-            >,
-        >,
-    >,
+    pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
     _pd: PhantomData<I>,
 }
 impl<
         A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-        DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Certificate = DACertificate<TYPES>>,
-        QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>>,
+        DA: ConsensusExchange<
+            TYPES,
+            SequencingLeaf<TYPES>,
+            Message<TYPES, I>,
+            Certificate = DACertificate<TYPES>,
+        >,
+        QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
         TYPES: NodeType,
         I: NodeImplementation<TYPES>,
     > DALeader<A, DA, QUORUM, TYPES, I>
@@ -94,7 +89,7 @@ impl<
         };
 
         while let Ok(msg) = lock.recv().await {
-            if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number() != cur_view {
+            if Into::<ConsensusMessage<_, _>>::into(msg.clone()).view_number() != cur_view {
                 continue;
             }
             match msg {
@@ -356,17 +351,7 @@ pub struct ConsensusNextLeader<
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
     // TODO (da): Change this chan to have CommitmentProposal and QuorumVote.
-    pub vote_collection_chan: Arc<
-        Mutex<
-            UnboundedReceiver<
-                ProcessedConsensusMessage<
-                    TYPES,
-                    DAProposal<TYPES>,
-                    DAVote<TYPES, SequencingLeaf<TYPES>>,
-                >,
-            >,
-        >,
-    >,
+    pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
     _pd: PhantomData<I>,
 }
 impl<

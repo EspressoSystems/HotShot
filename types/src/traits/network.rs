@@ -121,7 +121,7 @@ pub trait NetworkMsg:
 #[async_trait]
 pub trait CommunicationChannel<
     TYPES: NodeType,
-    MESSAGE: NetworkMsg,
+    M: NetworkMsg,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
@@ -160,16 +160,12 @@ pub trait CommunicationChannel<
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs(
-        &self,
-        transmit_type: TransmitType,
-    ) -> Result<Vec<M>, NetworkError>;
+    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError>;
 
     /// look up a node
     /// blocking
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError>;
 }
-
 
 /// represents a networking implmentration
 /// exposes low level API for interacting with a network
@@ -216,10 +212,11 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 /// Describes additional functionality needed by the test network implementation
 pub trait TestableNetworkingImplementation<
     TYPES: NodeType,
+    M: NetworkMsg,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
->: CommunicationChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+>: CommunicationChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// generates a network given an expected node count
     fn generator(
