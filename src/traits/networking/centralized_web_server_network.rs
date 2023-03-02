@@ -94,7 +94,7 @@ impl<
     ) -> Result<SendMsg<Message<TYPES, PROPOSAL, VOTE>>, CentralizedWebServerNetworkError> {
         let view_number: TYPES::Time = message.get_view_number();
 
-        let endpoint = match message.clone().kind {
+        let endpoint = match &message.kind {
             hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind {
                 hotshot_types::message::ConsensusMessage::Proposal(_) => {
                     config::post_proposal_route(*view_number)
