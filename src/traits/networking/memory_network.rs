@@ -15,7 +15,7 @@ use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
     data::ProposalType,
-    message::{Message, VoteType},
+    message::Message,
     traits::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
@@ -26,6 +26,7 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
+    vote::VoteType,
 };
 use hotshot_utils::bincode::bincode_opts;
 
@@ -321,7 +322,7 @@ where
 
 // TODO instrument these functions
 #[async_trait]
-impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for MemoryNetwork<M, K> {
+impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, M, K> for MemoryNetwork<M, K> {
     #[instrument(name = "MemoryNetwork::ready_blocking")]
     async fn wait_for_ready(&self) {}
 
@@ -440,6 +441,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
         // no lookup required
         Ok(())
     }
+
+    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+        // Not required
+        Ok(())
+    }
 }
 
 /// memory identity communication channel
@@ -503,6 +509,11 @@ impl<
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         self.0.lookup_node(pk).await
     }
+
+    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+        // Not required
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -518,23 +529,17 @@ mod tests {
     use async_compatibility_layer::logging::setup_logging;
     use hotshot_types::{
         data::ViewNumber,
-        message::{DataMessage, MessageKind, QuorumVote},
+        message::{DataMessage, MessageKind},
         traits::{
             signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
             state::ConsensusTime,
         },
+        vote::QuorumVote,
     };
     use hotshot_types::{
         data::{ValidatingLeaf, ValidatingProposal},
-        traits::{node_implementation::ApplicationMetadata, state::ValidatingConsensus},
+        traits::state::ValidatingConsensus,
     };
-    use serde::{Deserialize, Serialize};
-
-    /// application metadata stub
-    #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-    pub struct TestMetaData {}
-
-    impl ApplicationMetadata for TestMetaData {}
 
     #[derive(
         Copy,
@@ -563,7 +568,6 @@ mod tests {
         type Transaction = VDemoTransaction;
         type ElectionConfigType = StaticElectionConfig;
         type StateType = VDemoState;
-        type ApplicationMetadataType = TestMetaData;
     }
 
     type TestLeaf = ValidatingLeaf<Test>;

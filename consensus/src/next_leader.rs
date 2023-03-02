@@ -5,7 +5,6 @@ use crate::ConsensusMetrics;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
 use either::Either;
-use hotshot_types::certificate::CertificateAccumulator;
 use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
 use hotshot_types::message::Message;
 use hotshot_types::message::ProcessedConsensusMessage;
@@ -15,9 +14,11 @@ use hotshot_types::traits::election::{Checked::Unchecked, VoteData};
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
 use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_types::vote::VoteAccumulator;
 use hotshot_types::{
     certificate::QuorumCertificate,
-    message::{ConsensusMessage, InternalTrigger, QuorumVote},
+    message::{ConsensusMessage, InternalTrigger},
+    vote::QuorumVote,
 };
 use std::marker::PhantomData;
 use std::time::Instant;
@@ -83,7 +84,7 @@ where
         let mut qcs = HashSet::<EXCHANGE::Certificate>::new();
         qcs.insert(self.generic_qc.clone());
 
-        let mut accumlator = CertificateAccumulator {
+        let mut accumlator = VoteAccumulator {
             vote_outcomes: HashMap::new(),
             threshold: self.api.threshold(),
         };

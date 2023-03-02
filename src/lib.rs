@@ -65,7 +65,7 @@ use hotshot_types::traits::election::VoteToken;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{certificate::DACertificate, message::QuorumVote};
 use hotshot_types::{
-    certificate::{CertificateAccumulator, VoteMetaData},
+    certificate::{VoteAccumulator, VoteMetaData},
     message::{DAVote, VoteType},
 };
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
@@ -76,9 +76,12 @@ use hotshot_types::{
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
-    message::{ConsensusMessage, DataMessage, InternalTrigger, Message},
+    message::{
+        ConsensusMessage, DataMessage, InternalTrigger, Message, MessageKind,
+        ProcessedConsensusMessage,
+    },
     traits::{
-        election::{Checked, ElectionError, Membership, SignedCertificate, VoteData},
+        election::{Checked, ElectionError, Membership, SignedCertificate, VoteData, VoteToken},
         metrics::Metrics,
         network::{NetworkError, TransmitType},
         node_implementation::{
@@ -89,6 +92,7 @@ use hotshot_types::{
         storage::StoredView,
         State,
     },
+    vote::{Accumulator, DAVote, QuorumVote, VoteAccumulator, VoteType},
     HotShotConfig,
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -166,12 +170,10 @@ pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementat
     // TODO (da) split this into `replica_channel_map` and `da_member_channel_map` after
     // refactoring `HotShot`.
     /// for sending/recv-ing things with the replica task
-    replica_channel_map:
-        Arc<RwLock<SendToTasks<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>>>,
+    replica_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
 
     /// for sending/recv-ing things with the next leader task
-    next_leader_channel_map:
-        Arc<RwLock<SendToTasks<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>>>,
+    next_leader_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
 
     /// for sending messages to network lookup task
     send_network_lookup: UnboundedSender<Option<TYPES::Time>>,
@@ -466,7 +468,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     )]
     async fn handle_broadcast_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
+        msg: ConsensusMessage<TYPES, I>,
         sender: TYPES::SignatureKey,
     ) {
         // TODO validate incoming data message based on sender signature key
@@ -484,11 +486,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                     return;
                 }
 
-                let chan: ViewQueue<
-                    TYPES,
-                    ValidatingProposal<TYPES, I::Leaf>,
-                    QuorumVote<TYPES, I::Leaf>,
-                > = Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
+                let chan: ViewQueue<TYPES, I> =
+                    Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
 
                 if !chan.has_received_proposal.swap(true, Ordering::Relaxed)
                     && chan
@@ -536,7 +535,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     #[instrument(skip(self), name = "Handle direct consensus message", level = "error")]
     async fn handle_direct_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
+        msg: ConsensusMessage<TYPES, I>,
         sender: TYPES::SignatureKey,
     ) {
         // We can only recv from a replicas
@@ -647,7 +646,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             '_,
             SendToTasks<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
         >,
-    ) -> ViewQueue<TYPES, ValidatingProposal<TYPES, I::Leaf>, QuorumVote<TYPES, I::Leaf>> {
+    ) -> ViewQueue<TYPES, I> {
         // check if we have the entry
         // if we don't, insert
         if let Some(vq) = channel_map.channel_map.get(&view_num) {
@@ -678,7 +677,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             '_,
             SendToTasks<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
         >,
-    ) -> ViewQueue<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>> {
+    ) -> ViewQueue<TYPES, I> {
         channel_map.channel_map.entry(view_num).or_default().clone()
     }
 }
@@ -877,7 +876,7 @@ impl<
 
 #[async_trait]
 impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
     > ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
 {

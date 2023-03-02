@@ -11,21 +11,22 @@ use bincode::Options;
 use commit::Committable;
 use either::{Left, Right};
 use hotshot_types::data::DAProposal;
-use hotshot_types::message::DAVote;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::node_implementation::NodeImplementation;
+use hotshot_types::traits::node_implementation::QuorumProposal;
 use hotshot_types::traits::node_implementation::QuorumVoteType;
+use hotshot_types::vote::DAVote;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, SequencingLeaf},
-    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, QuorumVote},
+    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
         Block,
     },
+    vote::QuorumVote,
 };
-use hotshot_types::{message::Message, traits::node_implementation::QuorumProposal};
 use hotshot_utils::bincode::bincode_opts;
 use std::collections::HashSet;
 use std::marker::PhantomData;

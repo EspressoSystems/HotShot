@@ -12,8 +12,7 @@ use hotshot_types::{
     data::{fake_commitment, ViewNumber},
     traits::{
         block_contents::Transaction,
-        node_implementation::ApplicationMetadata,
-        state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
+        state::{ConsensusTime, TestableBlock, TestableState},
         Block, State,
     },
 };
@@ -131,12 +130,6 @@ impl Committable for SDemoState {
     }
 }
 
-/// application metadata stub
-/// FIXME this is deprecated right?
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct SDemoMetaData {}
-impl ApplicationMetadata for SDemoMetaData {}
-
 impl Default for SDemoState {
     fn default() -> Self {
         Self {
@@ -219,8 +212,6 @@ impl State for SDemoState {
 
     type Time = ViewNumber;
 
-    type ConsensusType = ValidatingConsensus;
-
     fn next_block(&self) -> Self::BlockType {
         SDemoBlock::Normal(SDemoNormalBlock {
             previous_state: self.commit(),
@@ -231,7 +222,7 @@ impl State for SDemoState {
     fn validate_block(&self, block: &Self::BlockType, view_number: &Self::Time) -> bool {
         match block {
             SDemoBlock::Genesis(_) => {
-                view_number > &ViewNumber::genesis() && *view_number > self.view_number
+                view_number == &ViewNumber::genesis() && view_number == &self.view_number
             }
             SDemoBlock::Normal(n) => {
                 n.previous_state == self.commit() && self.view_number < *view_number
@@ -260,7 +251,7 @@ impl State for SDemoState {
 
 impl TestableState for SDemoState {
     fn create_random_transaction(
-        &self,
+        _state: Option<&Self>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <Self::BlockType as Block>::Transaction {

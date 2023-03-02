@@ -1,0 +1,156 @@
+use hotshot_types::{ExecutionType, HotShotConfig};
+use std::{net::IpAddr, num::NonZeroUsize, time::Duration};
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+
+pub struct CentralizedWebServerConfig {
+    pub host: IpAddr,
+    pub port: u16,
+    pub wait_between_polls: Duration,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct NetworkConfig<KEY, ELECTION> {
+    pub rounds: usize,
+    pub transactions_per_round: usize,
+    pub node_index: u64,
+    pub seed: [u8; 32],
+    pub padding: usize,
+    pub start_delay_seconds: u64,
+    pub key_type_name: String,
+    pub election_config_type_name: String,
+    pub config: HotShotConfig<KEY, ELECTION>,
+    pub centralized_web_server_config: Option<CentralizedWebServerConfig>,
+}
+
+impl<K, E> Default for NetworkConfig<K, E> {
+    fn default() -> Self {
+        Self {
+            rounds: default_rounds(),
+            transactions_per_round: default_transactions_per_round(),
+            node_index: 0,
+            seed: [0u8; 32],
+            padding: default_padding(),
+            config: default_config().into(),
+            start_delay_seconds: 60,
+            key_type_name: std::any::type_name::<K>().to_string(),
+            election_config_type_name: std::any::type_name::<E>().to_string(),
+            centralized_web_server_config: None,
+        }
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct NetworkConfigFile {
+    #[serde(default = "default_rounds")]
+    pub rounds: usize,
+    #[serde(default = "default_transactions_per_round")]
+    pub transactions_per_round: usize,
+    #[serde(default)]
+    pub node_index: u64,
+    #[serde(default)]
+    pub seed: [u8; 32],
+    #[serde(default = "default_padding")]
+    pub padding: usize,
+    #[serde(default = "default_start_delay_seconds")]
+    pub start_delay_seconds: u64,
+    #[serde(default = "default_config")]
+    pub config: HotShotConfigFile,
+    #[serde(default = "default_web_server_config")]
+    pub centralized_web_server_config: Option<CentralizedWebServerConfig>,
+}
+
+fn default_web_server_config() -> Option<CentralizedWebServerConfig> {
+    None
+}
+
+impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
+    fn from(val: NetworkConfigFile) -> Self {
+        NetworkConfig {
+            rounds: val.rounds,
+            transactions_per_round: val.transactions_per_round,
+            node_index: 0,
+            seed: val.seed,
+            padding: val.padding,
+            config: val.config.into(),
+            key_type_name: std::any::type_name::<K>().to_string(),
+            election_config_type_name: std::any::type_name::<E>().to_string(),
+            start_delay_seconds: val.start_delay_seconds,
+            centralized_web_server_config: val.centralized_web_server_config,
+        }
+    }
+}
+
+/// Holds configuration for a `HotShot`
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct HotShotConfigFile {
+    /// Total number of nodes in the network
+    pub total_nodes: NonZeroUsize,
+    /// Maximum transactions per block
+    pub max_transactions: NonZeroUsize,
+    /// Minimum transactions per block
+    pub min_transactions: usize,
+    /// Base duration for next-view timeout, in milliseconds
+    pub next_view_timeout: u64,
+    /// The exponential backoff ration for the next-view timeout
+    pub timeout_ratio: (u64, u64),
+    /// The delay a leader inserts before starting pre-commit, in milliseconds
+    pub round_start_delay: u64,
+    /// Delay after init before starting consensus, in milliseconds
+    pub start_delay: u64,
+    /// Number of network bootstrap nodes
+    pub num_bootstrap: usize,
+    /// The minimum amount of time a leader has to wait to start a round
+    pub propose_min_round_time: Duration,
+    /// The maximum amount of time a leader can wait to start a round
+    pub propose_max_round_time: Duration,
+}
+
+impl<K, E> From<HotShotConfigFile> for HotShotConfig<K, E> {
+    fn from(val: HotShotConfigFile) -> Self {
+        HotShotConfig {
+            execution_type: ExecutionType::Continuous,
+            total_nodes: val.total_nodes,
+            max_transactions: val.max_transactions,
+            min_transactions: val.min_transactions,
+            known_nodes: Vec::new(),
+            next_view_timeout: val.next_view_timeout,
+            timeout_ratio: val.timeout_ratio,
+            round_start_delay: val.round_start_delay,
+            start_delay: val.start_delay,
+            num_bootstrap: val.num_bootstrap,
+            propose_min_round_time: val.propose_min_round_time,
+            propose_max_round_time: val.propose_max_round_time,
+            election_config: None,
+        }
+    }
+}
+
+// This is hacky, blame serde for not having something like `default_value = "10"`
+fn default_rounds() -> usize {
+    10
+}
+fn default_transactions_per_round() -> usize {
+    10
+}
+fn default_padding() -> usize {
+    100
+}
+fn default_config() -> HotShotConfigFile {
+    HotShotConfigFile {
+        total_nodes: NonZeroUsize::new(10).unwrap(),
+        max_transactions: NonZeroUsize::new(100).unwrap(),
+        min_transactions: 0,
+        next_view_timeout: 10000,
+        timeout_ratio: (11, 10),
+        round_start_delay: 1,
+        start_delay: 1,
+        propose_min_round_time: Duration::from_secs(0),
+        propose_max_round_time: Duration::from_secs(10),
+        num_bootstrap: 7,
+    }
+}
+
+fn default_start_delay_seconds() -> u64 {
+    60
+}

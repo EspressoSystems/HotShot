@@ -129,21 +129,13 @@ mod test {
     use hotshot_types::traits::block_contents::dummy::*;
     use hotshot_types::traits::node_implementation::NodeType;
     use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
+    use hotshot_types::traits::state::ConsensusTime;
     use hotshot_types::traits::state::ValidatingConsensus;
     use hotshot_types::traits::Block;
-    use hotshot_types::traits::{node_implementation::ApplicationMetadata, state::ConsensusTime};
-    use serde::{Deserialize, Serialize};
     use std::collections::BTreeMap;
     use std::fmt::Debug;
     use std::hash::Hash;
-
     use tracing::instrument;
-
-    /// application metadata stub
-    #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-    pub struct DummyMetaData {}
-
-    impl ApplicationMetadata for DummyMetaData {}
 
     #[derive(
         Copy,
@@ -170,7 +162,6 @@ mod test {
         type Transaction = <DummyBlock as Block>::Transaction;
         type ElectionConfigType = StaticElectionConfig;
         type StateType = DummyState;
-        type ApplicationMetadataType = DummyMetaData;
     }
 
     #[instrument(skip(rng))]

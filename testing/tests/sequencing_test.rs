@@ -1,6 +1,4 @@
-mod common;
 use ark_bls12_381::Parameters as Param381;
-use common::*;
 use either::Either::Right;
 use hotshot::{
     demos::sdemo::{SDemoBlock, SDemoState, SDemoTransaction},
@@ -12,11 +10,11 @@ use hotshot::{
         implementations::{MemoryCommChannel, MemoryStorage},
     },
 };
-use hotshot_testing::TestNodeImpl;
+use hotshot_testing::{test_description::GeneralTestDescriptionBuilder, TestNodeImpl};
 use hotshot_types::{
-    data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
-    message::QuorumVote,
-    traits::{node_implementation::NodeType, state::ValidatingConsensus},
+    data::{DAProposal, SequencingLeaf, ViewNumber},
+    traits::{node_implementation::NodeType, state::SequencingConsensus},
+    vote::DAVote,
 };
 use jf_primitives::signatures::BLSSignatureScheme;
 use tracing::instrument;
@@ -36,7 +34,7 @@ use tracing::instrument;
 )]
 pub struct SequencingTestTypes;
 impl NodeType for SequencingTestTypes {
-    type ConsensusType = ValidatingConsensus;
+    type ConsensusType = SequencingConsensus;
     type Time = ViewNumber;
     type BlockType = SDemoBlock;
     type SignatureKey = JfPubKey<BLSSignatureScheme<Param381>>;
@@ -44,10 +42,9 @@ impl NodeType for SequencingTestTypes {
     type Transaction = SDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = SDemoState;
-    type ApplicationMetadataType = StaticCommitteeMetaData;
 }
 
-// stress test for libp2p
+// Test the memory network with sequencing consensus.
 #[cfg_attr(
     feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)
@@ -55,34 +52,34 @@ impl NodeType for SequencingTestTypes {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 #[ignore]
-async fn sequencing_test() {
+async fn sequencing_memory_test() {
     let description = GeneralTestDescriptionBuilder {
         round_start_delay: 25,
-        num_bootstrap_nodes: 15,
-        timeout_ratio: (1, 1),
-        total_nodes: 100,
-        start_nodes: 100,
-        num_succeeds: 5,
+        num_bootstrap_nodes: 5,
+        timeout_ratio: (11, 10),
+        total_nodes: 10,
+        start_nodes: 10,
+        num_succeeds: 20,
         txn_ids: Right(1),
-        next_view_timeout: 2000,
-        start_delay: 20000,
+        next_view_timeout: 10000,
+        start_delay: 120000,
         ..GeneralTestDescriptionBuilder::default()
     };
 
     description
         .build::<SequencingTestTypes, TestNodeImpl<
             SequencingTestTypes,
-            ValidatingLeaf<SequencingTestTypes>,
-            ValidatingProposal<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
-            QuorumVote<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
+            SequencingLeaf<SequencingTestTypes>,
+            DAProposal<SequencingTestTypes>,
+            DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
             MemoryCommChannel<
                 SequencingTestTypes,
-                ValidatingProposal<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
-                QuorumVote<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
-                StaticCommittee<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
+                DAProposal<SequencingTestTypes>,
+                DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+                StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
             >,
-            MemoryStorage<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
-            StaticCommittee<SequencingTestTypes, ValidatingLeaf<SequencingTestTypes>>,
+            MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
         >>()
         .execute()
         .await

@@ -12,9 +12,7 @@ use hotshot_types::traits::node_implementation::{NodeImplementation, QuorumPropo
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{
-        ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, QuorumVote, TimeoutVote,
-    },
+    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
     traits::{
         election::{Membership, QuorumExchange},
         node_implementation::NodeType,
@@ -22,6 +20,7 @@ use hotshot_types::{
         state::ValidatingConsensus,
         Block, State,
     },
+    vote::{QuorumVote, TimeoutVote},
 };
 use hotshot_types::{message::Message, traits::election::QuorumExchangeType};
 use hotshot_types::{message::Proposal, traits::election::ConsensusExchange};

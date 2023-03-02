@@ -13,7 +13,7 @@ use bimap::BiHashMap;
 use bincode::Options;
 use hotshot_types::{
     data::ProposalType,
-    message::{Message, VoteType},
+    message::Message,
     traits::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
@@ -24,6 +24,7 @@ use hotshot_types::{
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
     },
+    vote::VoteType,
 };
 use hotshot_utils::bincode::bincode_opts;
 use libp2p_networking::{
@@ -467,7 +468,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
 }
 
 #[async_trait]
-impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2pNetwork<M, K> {
+impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, M, K> for Libp2pNetwork<M, K> {
     #[instrument(name = "Libp2pNetwork::ready_blocking", skip_all)]
     async fn wait_for_ready(&self) {
         self.wait_for_ready().await;
@@ -662,6 +663,11 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2p
 
         Ok(())
     }
+
+    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+        // Not required
+        Ok(())
+    }
 }
 
 /// libp2p identity communication channel
@@ -742,5 +748,10 @@ impl<
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         self.0.lookup_node(pk).await
+    }
+
+    async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
+        // Not required
+        Ok(())
     }
 }

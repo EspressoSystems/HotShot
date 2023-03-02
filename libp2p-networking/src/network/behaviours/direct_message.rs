@@ -5,9 +5,9 @@ use std::{
 
 use libp2p::{
     request_response::{
-        RequestId, RequestResponse, RequestResponseEvent, RequestResponseMessage, ResponseChannel,
+        handler::RequestProtocol, Behaviour, Event, Message, RequestId, ResponseChannel,
     },
-    swarm::{NetworkBehaviour, NetworkBehaviourAction},
+    swarm::{NetworkBehaviour, NetworkBehaviourAction, THandlerOutEvent},
     Multiaddr, PeerId,
 };
 use tracing::{error, info};
@@ -33,7 +33,7 @@ pub struct DMRequest {
 /// usage: direct message peer
 pub struct DMBehaviour {
     /// The wrapped behaviour
-    request_response: RequestResponse<DirectMessageCodec>,
+    request_response: Behaviour<DirectMessageCodec>,
     /// In progress queries
     in_progress_rr: HashMap<RequestId, DMRequest>,
     /// Failed queries to be retried
@@ -52,12 +52,9 @@ pub enum DMEvent {
 }
 
 impl DMBehaviour {
-    fn handle_dm_event(
-        &mut self,
-        event: RequestResponseEvent<DirectMessageRequest, DirectMessageResponse>,
-    ) {
+    fn handle_dm_event(&mut self, event: Event<DirectMessageRequest, DirectMessageResponse>) {
         match event {
-            RequestResponseEvent::InboundFailure {
+            Event::InboundFailure {
                 peer,
                 request_id,
                 error,
@@ -71,7 +68,7 @@ impl DMBehaviour {
                     self.failed_rr.push_back(req);
                 }
             }
-            RequestResponseEvent::OutboundFailure {
+            Event::OutboundFailure {
                 peer,
                 request_id,
                 error,
@@ -85,8 +82,8 @@ impl DMBehaviour {
                     self.failed_rr.push_back(req);
                 }
             }
-            RequestResponseEvent::Message { message, peer, .. } => match message {
-                RequestResponseMessage::Request {
+            Event::Message { message, peer, .. } => match message {
+                Message::Request {
                     request: DirectMessageRequest(msg),
                     channel,
                     ..
@@ -97,7 +94,7 @@ impl DMBehaviour {
                     self.out_event_queue
                         .push(DMEvent::DirectRequest(msg, peer, channel));
                 }
-                RequestResponseMessage::Response {
+                Message::Response {
                     request_id,
                     response: DirectMessageResponse(msg),
                 } => {
@@ -111,7 +108,7 @@ impl DMBehaviour {
                     }
                 }
             },
-            e @ RequestResponseEvent::ResponseSent { .. } => {
+            e @ Event::ResponseSent { .. } => {
                 info!(?e, " sending response");
             }
         }
@@ -119,8 +116,7 @@ impl DMBehaviour {
 }
 
 impl NetworkBehaviour for DMBehaviour {
-    type ConnectionHandler =
-        <RequestResponse<DirectMessageCodec> as NetworkBehaviour>::ConnectionHandler;
+    type ConnectionHandler = <Behaviour<DirectMessageCodec> as NetworkBehaviour>::ConnectionHandler;
 
     type OutEvent = DMEvent;
 
@@ -135,23 +131,17 @@ impl NetworkBehaviour for DMBehaviour {
         &mut self,
         peer_id: PeerId,
         connection_id: libp2p::swarm::derive_prelude::ConnectionId,
-        event: <<Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler as libp2p::swarm::ConnectionHandler>::OutEvent,
+        event: THandlerOutEvent<Self>,
     ) {
         self.request_response
             .on_connection_handler_event(peer_id, connection_id, event);
-    }
-
-    fn new_handler(&mut self) -> Self::ConnectionHandler {
-        self.request_response.new_handler()
     }
 
     fn poll(
         &mut self,
         cx: &mut std::task::Context<'_>,
         params: &mut impl libp2p::swarm::PollParameters,
-    ) -> std::task::Poll<
-        libp2p::swarm::NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>,
-    > {
+    ) -> Poll<NetworkBehaviourAction<DMEvent, RequestProtocol<DirectMessageCodec>>> {
         while let Some(req) = self.failed_rr.pop_front() {
             if req.backoff.is_expired() {
                 self.add_direct_request(req);
@@ -167,8 +157,8 @@ impl NetworkBehaviour for DMBehaviour {
                 NetworkBehaviourAction::GenerateEvent(e) => {
                     self.handle_dm_event(e);
                 }
-                NetworkBehaviourAction::Dial { opts, handler } => {
-                    return Poll::Ready(NetworkBehaviourAction::Dial { opts, handler });
+                NetworkBehaviourAction::Dial { opts } => {
+                    return Poll::Ready(NetworkBehaviourAction::Dial { opts });
                 }
                 NetworkBehaviourAction::NotifyHandler {
                     peer_id,
@@ -206,14 +196,64 @@ impl NetworkBehaviour for DMBehaviour {
         Poll::Pending
     }
 
-    fn addresses_of_peer(&mut self, pid: &PeerId) -> Vec<libp2p::Multiaddr> {
-        self.request_response.addresses_of_peer(pid)
+    fn handle_pending_inbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        local_addr: &Multiaddr,
+        remote_addr: &Multiaddr,
+    ) -> Result<(), libp2p::swarm::ConnectionDenied> {
+        self.request_response.handle_pending_inbound_connection(
+            connection_id,
+            local_addr,
+            remote_addr,
+        )
+    }
+
+    fn handle_established_inbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        peer: PeerId,
+        local_addr: &Multiaddr,
+        remote_addr: &Multiaddr,
+    ) -> Result<libp2p::swarm::THandler<Self>, libp2p::swarm::ConnectionDenied> {
+        self.request_response.handle_established_inbound_connection(
+            connection_id,
+            peer,
+            local_addr,
+            remote_addr,
+        )
+    }
+
+    fn handle_pending_outbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        maybe_peer: Option<PeerId>,
+        addresses: &[Multiaddr],
+        effective_role: libp2p::core::Endpoint,
+    ) -> Result<Vec<Multiaddr>, libp2p::swarm::ConnectionDenied> {
+        self.request_response.handle_pending_outbound_connection(
+            connection_id,
+            maybe_peer,
+            addresses,
+            effective_role,
+        )
+    }
+
+    fn handle_established_outbound_connection(
+        &mut self,
+        connection_id: libp2p::swarm::ConnectionId,
+        peer: PeerId,
+        addr: &Multiaddr,
+        role_override: libp2p::core::Endpoint,
+    ) -> Result<libp2p::swarm::THandler<Self>, libp2p::swarm::ConnectionDenied> {
+        self.request_response
+            .handle_established_outbound_connection(connection_id, peer, addr, role_override)
     }
 }
 
 impl DMBehaviour {
     /// Create new behaviour based on request response
-    pub fn new(request_response: RequestResponse<DirectMessageCodec>) -> Self {
+    pub fn new(request_response: Behaviour<DirectMessageCodec>) -> Self {
         Self {
             request_response,
             in_progress_rr: HashMap::default(),

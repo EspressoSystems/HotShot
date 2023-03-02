@@ -1,30 +1,32 @@
-mod common;
-
 use ark_bls12_381::Parameters as Param381;
 use async_lock::Mutex;
 use blake3::Hasher;
 use commit::Committable;
-use common::{
-    AppliedTestRunner, DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder,
-    StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType, VrfTestTypes,
-};
 use either::Right;
 use futures::{
     future::{join_all, LocalBoxFuture},
     FutureExt,
 };
 use hotshot::{demos::vdemo::random_validating_leaf, traits::election::vrf::VrfImpl};
-use hotshot_testing::{ConsensusRoundError, RoundResult, SafetyFailedSnafu};
+use hotshot_testing::{
+    test_description::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder},
+    test_types::{
+        AppliedTestRunner, StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType,
+        VrfTestTypes,
+    },
+    ConsensusRoundError, RoundResult, SafetyFailedSnafu,
+};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     event::EventType,
-    message::{ConsensusMessage, Proposal, QuorumVote},
+    message::{ConsensusMessage, Proposal},
     traits::{
         election::{Membership, SignedCertificate, TestableElection},
         node_implementation::NodeType,
         signature_key::TestableSignatureKey,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
     },
+    vote::QuorumVote,
 };
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use snafu::{ensure, OptionExt};
@@ -416,7 +418,7 @@ async fn test_validating_proposal_queueing() {
     test.execute().await.unwrap();
 }
 
-/// Tests that next leaders receive and queue valid VoteType<TYPES>messages properly
+/// Tests that next leaders receive and queue valid vote messages properly
 #[cfg_attr(
     feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)

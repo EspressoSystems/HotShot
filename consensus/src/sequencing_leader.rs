@@ -21,15 +21,14 @@ use hotshot_types::traits::node_implementation::{
     NodeImplementation, QuorumProposal, QuorumVoteType,
 };
 use hotshot_types::{
-    certificate::{CertificateAccumulator, DACertificate, QuorumCertificate},
+    certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, DAProposal, SequencingLeaf},
-    message::{
-        ConsensusMessage, DAVote, InternalTrigger, ProcessedConsensusMessage, Proposal, QuorumVote,
-    },
+    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, Proposal},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
         state::SequencingConsensus, Block,
     },
+    vote::{DAVote, QuorumVote, VoteAccumulator},
 };
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -97,7 +96,7 @@ where
         block_commitment: Commitment<<TYPES as NodeType>::BlockType>,
     ) -> Option<DACertificate<TYPES>> {
         let lock = self.vote_collection_chan.lock().await;
-        let mut accumulator = CertificateAccumulator {
+        let mut accumulator = VoteAccumulator {
             vote_outcomes: HashMap::new(),
             threshold,
         };
@@ -268,6 +267,9 @@ where
             consensus.metrics.outgoing_broadcast_messages.add(1);
         }
 
+        // Drop the lock on the consensus.
+        drop(consensus);
+
         // Wait for DA votes or Timeout
         if let Some(cert) = self
             .wait_for_votes(self.cur_view, self.api.threshold(), block_commitment)
@@ -309,7 +311,7 @@ pub struct ConsensusLeader<
 }
 impl<
         A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-        TYPES: NodeType<ConsensusType = SequencingConsensus, ApplicationMetadataType = ()>,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
     > ConsensusLeader<A, TYPES, I>
 where
@@ -356,7 +358,6 @@ where
             justify_qc: self.high_qc.clone(),
             dac: self.cert,
             proposer_id: leaf.proposer_id,
-            application_metadata: {},
         };
 
         let message = ConsensusMessage::<TYPES, I>::Proposal(Proposal {
@@ -412,7 +413,7 @@ impl<
         let mut qcs = HashSet::<QuorumCertificate<TYPES, SequencingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
-        let _accumulator = CertificateAccumulator::<TYPES::VoteTokenType, SequencingLeaf<TYPES>> {
+        let _accumulator = VoteAccumulator::<TYPES, SequencingLeaf<TYPES>> {
             vote_outcomes: HashMap::new(),
             threshold: self.api.threshold(),
         };

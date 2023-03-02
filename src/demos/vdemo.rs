@@ -18,16 +18,16 @@ use hotshot_types::{
     certificate::QuorumCertificate,
     constants::genesis_proposer_id,
     data::{random_commitment, LeafType, ValidatingLeaf, ValidatingProposal, ViewNumber},
-    message::QuorumVote,
     traits::{
         block_contents::Transaction,
         election::Membership,
         network::CommunicationChannel,
-        node_implementation::{ApplicationMetadata, NodeType},
+        node_implementation::NodeType,
         signature_key::ed25519::Ed25519Pub,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
         State,
     },
+    vote::{QuorumVote, VoteAccumulator},
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -38,12 +38,6 @@ use std::{
     marker::PhantomData,
 };
 use tracing::error;
-
-/// application metadata stub
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct VDemoMetaData {}
-
-impl ApplicationMetadata for VDemoMetaData {}
 
 /// The account identifier type used by the demo
 ///
@@ -237,8 +231,6 @@ impl State for VDemoState {
 
     type Time = ViewNumber;
 
-    type ConsensusType = ValidatingConsensus;
-
     fn next_block(&self) -> Self::BlockType {
         VDemoBlock::Normal(VDemoNormalBlock {
             previous_state: self.commit(),
@@ -387,15 +379,18 @@ impl State for VDemoState {
     }
 }
 
+#[allow(clippy::panic)]
 impl TestableState for VDemoState {
     fn create_random_transaction(
-        &self,
+        state: Option<&Self>,
         rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <Self::BlockType as Block>::Transaction {
         use rand::seq::IteratorRandom;
 
-        let non_zero_balances = self
+        let state = state.unwrap_or_else(|| panic!("Missing state"));
+
+        let non_zero_balances = state
             .balances
             .iter()
             .filter(|b| *b.1 > 0)
@@ -407,7 +402,7 @@ impl TestableState for VDemoState {
         );
 
         let input_account = non_zero_balances.iter().choose(rng).unwrap().0;
-        let output_account = self.balances.keys().choose(rng).unwrap();
+        let output_account = state.balances.keys().choose(rng).unwrap();
         let amount = rng.gen_range(0..100);
 
         VDemoTransaction {
@@ -519,7 +514,6 @@ impl NodeType for VDemoTypes {
     type Transaction = VDemoTransaction;
     type ElectionConfigType = StaticElectionConfig;
     type StateType = VDemoState;
-    type ApplicationMetadataType = VDemoMetaData;
 }
 
 /// The node implementation for the validating demo

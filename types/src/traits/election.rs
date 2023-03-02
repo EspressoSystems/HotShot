@@ -4,23 +4,20 @@
 
 use super::node_implementation::{NodeImplementation, NodeType};
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
-use crate::certificate::CertificateAccumulator;
-use crate::certificate::{DACertificate, QuorumCertificate, VoteMetaData};
+use crate::certificate::{DACertificate, QuorumCertificate};
 use crate::data::DAProposal;
 use crate::data::ProposalType;
 use crate::data::ValidatingProposal;
-use crate::message::VoteType;
-use crate::message::{ConsensusMessage, DAVote, QuorumVote, TimeoutVote, YesOrNoVote};
+use crate::message::ConsensusMessage;
 use crate::traits::network::CommunicationChannel;
 use crate::traits::network::NetworkMsg;
+use crate::vote::VoteAccumulator;
+use crate::vote::{DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote};
 use crate::{data::LeafType, traits::signature_key::SignatureKey};
-use async_tungstenite::tungstenite::Message;
 use bincode::Options;
-use blake3::traits::digest::typenum::Le;
 use commit::{Commitment, Committable};
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
-use nll::nll_todo;
 use nll::nll_todo::nll_todo;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
@@ -30,7 +27,6 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
-
 /// Error for election problems
 #[derive(Snafu, Debug)]
 pub enum ElectionError {
@@ -100,14 +96,6 @@ pub trait VoteToken:
 pub trait ElectionConfig:
     Default + Clone + Serialize + DeserializeOwned + Sync + Send + core::fmt::Debug
 {
-}
-
-/// Describes any aggreation of signatures or votes.
-pub trait Accumulator<T, U>: Sized {
-    /// accumates the val to the current state.  If
-    /// A threshold is reached we Return U (which could a certificate or similar)
-    /// else we return self and can continue accumulation items.
-    fn append(self, val: T) -> Either<Self, U>;
 }
 
 pub trait SignedCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, LEAF>
@@ -226,8 +214,8 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
         leaf_commitment: Commitment<C>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<TYPES::VoteTokenType, C>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Self::Certificate>;
+        accumlator: VoteAccumulator<TYPES::VoteTokenType, C>,
+    ) -> Either<VoteAccumulator<TYPES::VoteTokenType, C>, Self::Certificate>;
 
     fn membership(&self) -> Self::Membership;
 
@@ -525,8 +513,8 @@ impl<
         leaf_commitment: Commitment<C>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<TYPES::VoteTokenType, C>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Self::Certificate> {
+        accumlator: VoteAccumulator<TYPES::VoteTokenType, C>,
+    ) -> Either<VoteAccumulator<TYPES::VoteTokenType, C>, Self::Certificate> {
         nll_todo()
     }
     fn membership(&self) -> Self::Membership {
@@ -809,8 +797,8 @@ impl<
         leaf_commitment: Commitment<C>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: CertificateAccumulator<TYPES::VoteTokenType, C>,
-    ) -> Either<CertificateAccumulator<TYPES::VoteTokenType, C>, Self::Certificate> {
+        accumlator: VoteAccumulator<TYPES::VoteTokenType, C>,
+    ) -> Either<VoteAccumulator<TYPES::VoteTokenType, C>, Self::Certificate> {
         nll_todo()
     }
     fn membership(&self) -> Self::Membership {

@@ -12,7 +12,7 @@ use either::Left;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{DAProposal, SequencingLeaf},
-    message::{ConsensusMessage, DAVote, ProcessedConsensusMessage},
+    message::{ConsensusMessage, ProcessedConsensusMessage},
     traits::{
         election::{
             CommitteeExchange, CommitteeExchangeType, ConsensusExchange, SignedCertificate,
@@ -20,6 +20,7 @@ use hotshot_types::{
         node_implementation::{CommitteeProposal, CommitteeVote, NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
+    vote::DAVote,
 };
 use std::marker::PhantomData;
 use std::sync::Arc;

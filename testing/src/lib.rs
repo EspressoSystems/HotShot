@@ -8,10 +8,16 @@
 
 #![warn(missing_docs)]
 
-mod impls;
-mod launcher;
+/// test launcher infrastructure
+pub mod launcher;
+/// macros to generate a cross product of tests
+pub mod macros;
 /// implementations of various networking models
 pub mod network_reliability;
+/// structs and infra to describe the tests to be written
+pub mod test_description;
+/// set of commonly used test types for our tests
+pub mod test_types;
 
 pub use self::launcher::TestLauncher;
 
@@ -23,7 +29,6 @@ use hotshot::{
 };
 use hotshot_types::{
     data::{LeafType, ProposalType, TestableLeaf},
-    message::VoteType,
     traits::{
         election::Membership,
         metrics::NoMetrics,
@@ -33,6 +38,7 @@ use hotshot_types::{
         state::{TestableBlock, TestableState},
         storage::TestableStorage,
     },
+    vote::{VoteAccumulator, VoteType},
     HotShotConfig,
 };
 use snafu::Snafu;
@@ -86,13 +92,13 @@ where
 {
     /// Safety check before round is set up and run
     /// to ensure consistent state
-    pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, I>>,
+    pub safety_check_pre: Option<RoundPreSafetyCheck<TYPES, I>>,
 
     /// Round set up
     pub setup_round: Option<RoundSetup<TYPES, TYPES::Transaction, I>>,
 
     /// Safety check after round is complete
-    pub safety_check_pre: Option<RoundPreSafetyCheck<TYPES, I>>,
+    pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, I>>,
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I>
@@ -614,6 +620,8 @@ where
     type Storage = STORAGE;
     type Proposal = PROPOSAL;
     type Vote = VOTE;
+    type DAVoteAccumulator = VoteAccumulator<TYPES, TYPES::BlockType>;
+    type QuorumVoteAccumulator = VoteAccumulator<TYPES, LEAF>;
 }
 
 impl<

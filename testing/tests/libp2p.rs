@@ -1,17 +1,16 @@
-mod common;
-
-use common::*;
-
 use either::Either::Right;
 
 use hotshot::traits::{
     election::static_committee::StaticCommittee,
     implementations::{Libp2pCommChannel, MemoryStorage},
 };
-use hotshot_testing::TestNodeImpl;
+use hotshot_testing::{
+    test_description::GeneralTestDescriptionBuilder, test_types::StaticCommitteeTestTypes,
+    TestNodeImpl,
+};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
-    message::QuorumVote,
+    vote::QuorumVote,
 };
 use tracing::instrument;
 

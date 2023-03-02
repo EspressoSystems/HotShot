@@ -5,7 +5,7 @@
 #![allow(clippy::missing_docs_in_private_items)]
 #![allow(missing_docs)]
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use super::{
     block_contents::Transaction,
@@ -18,9 +18,15 @@ use super::{
 };
 use crate::{
     data::{LeafType, ProposalType},
-    message::VoteType,
-    traits::{signature_key::SignatureKey, storage::Storage, Block},
+    traits::{
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        storage::Storage,
+        Block,
+    },
+    vote::{Accumulator, VoteType},
 };
+use commit::Commitment;
+use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -112,20 +118,7 @@ pub trait NodeType:
     type ElectionConfigType: ElectionConfig;
 
     /// The state type that this hotshot setup is using.
-    type StateType: State<
-        BlockType = Self::BlockType,
-        Time = Self::Time,
-        ConsensusType = Self::ConsensusType,
-    >;
-
-    type ApplicationMetadataType: ApplicationMetadata + Eq + PartialEq + Send + Sync;
-}
-
-/// application specific metadata
-pub trait ApplicationMetadata
-where
-    Self: Debug + Clone + Serialize + for<'a> Deserialize<'a>,
-{
+    type StateType: State<BlockType = Self::BlockType, Time = Self::Time>;
 }
 
 /// testable node implmeentation trait

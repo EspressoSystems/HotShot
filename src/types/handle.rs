@@ -13,11 +13,11 @@ use hotshot_types::{
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
-    message::{DAVote, QuorumVote},
     traits::{
         election::ConsensusExchange, election::SignedCertificate, network::CommunicationChannel,
         node_implementation::NodeType, state::ConsensusTime, storage::Storage,
     },
+    vote::{DAVote, QuorumVote},
 };
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -469,10 +469,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
 
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
     #[cfg(feature = "hotshot-testing")]
-    pub async fn send_broadcast_consensus_message(
-        &self,
-        msg: ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
-    ) {
+    pub async fn send_broadcast_consensus_message(&self, msg: ConsensusMessage<TYPES, I>) {
         let _result = self.hotshot.send_broadcast_message(msg).await;
     }
 
@@ -480,7 +477,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_direct_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
+        msg: ConsensusMessage<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) {
         let _result = self.hotshot.send_direct_message(msg, recipient).await;

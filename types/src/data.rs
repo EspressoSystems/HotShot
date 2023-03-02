@@ -22,8 +22,6 @@ use commit::{Commitment, Committable};
 use derivative::Derivative;
 use either::Either;
 use espresso_systems_common::hotshot::tag;
-#[allow(deprecated)]
-use nll::nll_todo::nll_todo;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
@@ -150,9 +148,6 @@ pub struct CommitmentProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
 
     /// the propser id
     pub proposer_id: EncodedPublicKey,
-
-    /// application specific metadata
-    pub application_metadata: TYPES::ApplicationMetadataType,
 }
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
@@ -173,8 +168,6 @@ impl<TYPES: NodeType> ProposalType for DAProposal<TYPES> {
 
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
     for CommitmentProposal<TYPES, LEAF>
-where
-    TYPES::ApplicationMetadataType: Send + Sync,
 {
     type NodeType = TYPES;
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time {
@@ -427,7 +420,11 @@ where
         rng: &mut dyn rand::RngCore,
         padding: u64,
     ) -> <<Self::NodeType as NodeType>::BlockType as Block>::Transaction {
-        <TYPES::StateType as TestableState>::create_random_transaction(&self.state, rng, padding)
+        <TYPES::StateType as TestableState>::create_random_transaction(
+            Some(&self.state),
+            rng,
+            padding,
+        )
     }
 }
 
@@ -516,11 +513,10 @@ where
 
     fn create_random_transaction(
         &self,
-        _rng: &mut dyn rand::RngCore,
-        _padding: u64,
+        rng: &mut dyn rand::RngCore,
+        padding: u64,
     ) -> <<Self::NodeType as NodeType>::BlockType as Block>::Transaction {
-        #[allow(deprecated)]
-        nll_todo()
+        TYPES::StateType::create_random_transaction(None, rng, padding)
     }
 }
 /// Fake the thing a genesis block points to. Needed to avoid infinite recursion
