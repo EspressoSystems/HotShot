@@ -56,14 +56,14 @@ pub struct DALeader<
     pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
     /// Limited access to the consensus protocol
     pub api: A,
+ 
+    pub da_exchange: Arc<I::ComitteeExchange>,
 
-    pub da_exchange: I::ComitteeExchange,
-
-    pub quorum_exchange: I::QuorumExchange,
+    pub quorum_exchange: Arc<I::QuorumExchange>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
     pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
-    _pd: PhantomData<I>,
+    pub _pd: PhantomData<I>,
 }
 impl<
         A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
@@ -309,9 +309,9 @@ pub struct ConsensusLeader<
     /// Limited access to the consensus protocol
     pub api: A,
 
-    pub quorum_exchange: I::QuorumExchange,
+    pub quorum_exchange: Arc<I::QuorumExchange>,
 
-    _pd: PhantomData<I>,
+    pub _pd: PhantomData<I>,
 }
 impl<
         A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
@@ -402,9 +402,9 @@ pub struct ConsensusNextLeader<
     // TODO (da): Change this chan to have CommitmentProposal and QuorumVote.
     pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
 
-    pub quorum_exchange: I::QuorumExchange,
+    pub quorum_exchange: Arc<I::QuorumExchange>,
 
-    _pd: PhantomData<I>,
+    pub _pd: PhantomData<I>,
 }
 impl<
         A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,

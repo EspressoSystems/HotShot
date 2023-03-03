@@ -49,9 +49,9 @@ pub struct DAMember<
     /// HotShot consensus API.
     pub api: A,
 
-    pub exchange: I::ComitteeExchange,
+    pub exchange: Arc<I::ComitteeExchange>,
 
-    _pd: PhantomData<I>,
+    pub _pd: PhantomData<I>,
 }
 
 impl<

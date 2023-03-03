@@ -52,8 +52,8 @@ pub struct Replica<
     /// hotshot consensus api
     pub api: A,
 
-    pub exchange: I::QuorumExchange,
-    _pd: PhantomData<I>,
+    pub exchange: Arc<I::QuorumExchange>,
+    pub _pd: PhantomData<I>,
 }
 
 impl<

@@ -58,7 +58,7 @@ pub struct SequencingReplica<
 
     pub da_exchange: I::ComitteeExchange,
     pub quorum_exchange: I::QuorumExchange,
-    _pd: PhantomData<I>,
+    pub _pd: PhantomData<I>,
 }
 
 impl<

@@ -135,10 +135,10 @@ pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     storage: I::Storage,
 
     /// This `HotShot` instance's way to interact with the nodes needed to form a quorum
-    quorum_exchange: I::QuorumExchange,
+    quorum_exchange: Arc<I::QuorumExchange>,
 
     /// This `HotShot` instance's interaction with the DA committee to form a DA certificate.
-    committee_exchange: I::ComitteeExchange,
+    committee_exchange: Arc<I::ComitteeExchange>,
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<TYPES, I::Leaf>>>>,
@@ -216,8 +216,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             config,
             // networking,
             storage,
-            quorum_exchange,
-            committee_exchange,
+            quorum_exchange: Arc::new(quorum_exchange),
+            committee_exchange: Arc::new(committee_exchange),
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
             metrics,
@@ -386,7 +386,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             private_key,
             node_id,
             config,
-            // networking,
             storage,
             quorum_exchange,
             committee_exchange,
@@ -502,6 +501,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             ConsensusMessage::Vote(_) => {
                 warn!("Received a broadcast for a vote message. This shouldn't be possible.");
             }
+            ConsensusMessage::DAVote(_) => {
+                warn!("Received a broadcast for a vote message. This shouldn't be possible.");
+            }
+            ConsensusMessage::DAProposal(_) => {
+                // TODD(DA) Handle DA PRoposal
+                warn!("Received a broadcast for DA proposal");
+            }
         };
     }
 
@@ -566,6 +572,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                     error!("Failed to send to next leader!");
                 }
             }
+            ConsensusMessage::DAProposal(_) | ConsensusMessage::DAVote(_) => todo!()
         }
     }
 
@@ -772,7 +779,7 @@ where
             cur_view,
             high_qc: high_qc.clone(),
             api: c_api.clone(),
-            exchange: c_api.inner.quorum_exchange,
+            exchange: c_api.inner.quorum_exchange.clone(),
             _pd: PhantomData,
         };
         let replica_handle = async_spawn(async move {
@@ -788,7 +795,7 @@ where
                 cur_view,
                 transactions: txns,
                 api: c_api.clone(),
-                exchange: c_api.inner.quorum_exchange,
+                exchange: c_api.inner.quorum_exchange.clone(),
                 _pd: PhantomData,
             };
             let leader_handle = async_spawn(async move { leader.run_view().await });
@@ -803,12 +810,12 @@ where
                 vote_collection_chan: recv_next_leader.unwrap(),
                 cur_view,
                 api: c_api.clone(),
-                exchange: c_api.inner.quorum_exchange,
+                exchange: c_api.inner.quorum_exchange.clone(),
                 metrics,
                 _pd: PhantomData,
             };
             let next_leader_handle = async_spawn(async move {
-                NextValidatingLeader::<HotShotConsensusApi<TYPES, I>, I::QuorumExchange, TYPES, I>::run_view(next_leader)
+                NextValidatingLeader::<HotShotConsensusApi<TYPES, I>, TYPES, I>::run_view(next_leader)
                     .await
             });
             task_handles.push(next_leader_handle);
@@ -943,8 +950,8 @@ where
                 cur_view,
                 transactions: txns,
                 api: c_api.clone(),
-                da_exchange: c_api.inner.committee_exchange,
-                quorum_exchange: c_api.inner.quorum_exchange,
+                da_exchange: c_api.inner.committee_exchange.clone(),
+                quorum_exchange: c_api.inner.quorum_exchange.clone(),
                 vote_collection_chan: recv_da_vote,
                 _pd: PhantomData,
             };
@@ -964,7 +971,7 @@ where
                     parent,
                     cur_view,
                     api: api.clone(),
-                    quorum_exchange: c_api.inner.quorum_exchange,
+                    quorum_exchange: api.inner.quorum_exchange.clone(),
                     _pd: PhantomData,
                 };
                 consensus_leader.run_view().await
@@ -979,7 +986,7 @@ where
                 api: c_api.clone(),
                 generic_qc: high_qc.clone(),
                 vote_collection_chan: recv_commitment_vote_chan,
-                quorum_exchange: c_api.inner.quorum_exchange,
+                quorum_exchange: c_api.inner.quorum_exchange.clone(),
                 _pd: PhantomData,
             };
             let next_leader_handle = async_spawn(async move { next_leader.run_view().await });
@@ -992,7 +999,7 @@ where
             cur_view,
             high_qc: high_qc.clone(),
             api: c_api.clone(),
-            exchange: c_api.inner.committee_exchange,
+            exchange: c_api.inner.committee_exchange.clone(),
             _pd: PhantomData,
         };
         let member_handle = async_spawn(async move { da_member.run_view().await });

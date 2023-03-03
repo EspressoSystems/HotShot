@@ -32,14 +32,13 @@ use tracing::{error, instrument, warn};
 #[derive(custom_debug::Debug, Clone)]
 pub struct NextValidatingLeader<
     A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
-    EXCHANGE: ConsensusExchange<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
 > {
     /// id of node
     pub id: u64,
     /// generic_qc before starting this
-    pub generic_qc: EXCHANGE::Certificate,
+    pub generic_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
     pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
@@ -48,40 +47,34 @@ pub struct NextValidatingLeader<
     /// Limited access to the consensus protocol
     pub api: A,
 
-    pub exchange: EXCHANGE,
+    pub exchange: Arc<I::QuorumExchange>,
     /// Metrics for reporting stats
     #[debug(skip)]
     pub metrics: Arc<ConsensusMetrics>,
 
-    _pd: PhantomData<I>,
+    pub _pd: PhantomData<I>,
 }
 
 impl<
         A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
-        EXCHANGE: ConsensusExchange<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            Message<TYPES, I>,
-            Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-        >,
         TYPES: NodeType,
         I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
-    > NextValidatingLeader<A, EXCHANGE, TYPES, I>
+    > NextValidatingLeader<A, TYPES, I>
 where
     I::QuorumExchange:
-        ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, I::Leaf>>,
+        ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, I::Leaf>, Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>,
 {
     /// Run one view of the next leader task
     /// # Panics
     /// While we are unwrapping, this function can logically never panic
     /// unless there is a bug in std
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Validating ValidatingLeader Task", level = "error")]
-    pub async fn run_view(self) -> EXCHANGE::Certificate {
+    pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
         error!("Next validating leader task started!");
 
         let vote_collection_start = Instant::now();
 
-        let mut qcs = HashSet::<EXCHANGE::Certificate>::new();
+        let mut qcs = HashSet::<QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
         let mut accumlator = VoteAccumulator {
