@@ -19,14 +19,71 @@ enum SupportedConsensusTypes {
 /// description of a crosstest
 #[derive(derive_builder::Builder, Debug, Clone)]
 struct CrossTestData {
+    /// consensus time impls
     time_types: ExprArray,
+    /// demo type list of tuples
     demo_types: ExprArray,
+    /// signature key impls
     signature_key_types: ExprArray,
+    /// communication channel impls
     comm_channels: ExprArray,
+    /// storage impls
     storages: ExprArray,
+    /// name of the test
     test_name: Ident,
+    /// test description/spec
     test_description: Expr,
+    /// whether or not to hide behind slow feature flag
     slow: LitBool,
+}
+
+/// we internally choose types
+#[derive(derive_builder::Builder, Debug, Clone)]
+struct CrossAllTypesSpec {
+    /// name of the test
+    test_name: Ident,
+    /// test description/spec
+    test_description: Expr,
+    /// whether or not to hide behind slow feature flag
+    slow: LitBool,
+}
+
+impl Parse for CrossAllTypesSpec {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let mut description = CrossAllTypesSpecBuilder::create_empty();
+        while !description.is_ready() {
+            if input.peek(keywords::TestName) {
+                let _ = input.parse::<keywords::TestName>()?;
+                input.parse::<Token![:]>()?;
+                let test_name = input.parse::<Ident>()?;
+                description.test_name(test_name);
+            } else if input.peek(keywords::TestDescription) {
+                let _ = input.parse::<keywords::TestDescription>()?;
+                input.parse::<Token![:]>()?;
+                let test_description = input.parse::<Expr>()?;
+                description.test_description(test_description);
+            } else if input.peek(keywords::Slow) {
+                let _ = input.parse::<keywords::Slow>()?;
+                input.parse::<Token![:]>()?;
+                let slow = input.parse::<LitBool>()?;
+                description.slow(slow);
+            } else {
+                panic!("Unexpected token. Expected one f: Time, DemoType, SignatureKey, CommChannel, Storage, TestName, TestDescription, Slow");
+            }
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+            }
+        }
+        description
+            .build()
+            .map_err(|e| syn::Error::new(proc_macro2::Span::call_site(), format!("{}", e)))
+    }
+}
+
+impl CrossAllTypesSpecBuilder {
+    fn is_ready(&self) -> bool {
+        self.test_name.is_some() && self.test_description.is_some() && self.slow.is_some()
+    }
 }
 
 impl CrossTestDataBuilder {
@@ -306,35 +363,7 @@ impl Parse for CrossTestData {
     }
 }
 
-/// Generate a cartesian product of tests across all types
-/// Arguments:
-/// - `DemoType: [(ConsensusTypeName1, DemoStateType1), (ConsensusTypeName2, DemoStateType2) ...]` - a list of tuples of cusonsensus state + `State` implementations
-/// - `SignatureKey: [SignatureKey1, SignatureKey2, ...]` - a list of `SignatureKey` implementations
-/// - `CommChannel: [CommChannel1, CommChannel2, ..]` - a list of `CommunicationChannel` implementations
-/// - `Time: [ Time1, Time2, ...]` - a list of `ConsensusTime` implementations]`
-/// - `TestName: example_test` - the name of the test
-/// - `TestDescription: { some_test_description_expression }` - the `TestDescription` to use
-/// - `Storage: Storage1, Storage2, ...` - a list of `Storage` implementations to use
-/// - `Slow`: whether or not this set of tests are hidden behind the `slow` feature flag
-/// Example usage:
-/// ```
-/// hotshot_testing_macros::cross_tests!(
-///     DemoType: [ (SequencingConsensus, hotshot::demos::sdemo::SDemoState), (ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
-///     SignatureKey: [ hotshot_types::traits::signature_key::ed25519::Ed25519Pub ],
-///     CommChannel: [ hotshot::traits::implementations::MemoryCommChannel, hotshot::traits::implementations::Libp2pCommChannel, hotshot::traits::implementations::CentralizedCommChannel ],
-///     Time: [ hotshot_types::data::ViewNumber ],
-///     TestName: example_test,
-///     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder::default(),
-///     Storage: [ hotshot::traits::implementations::MemoryStorage ],
-///     Slow: false,
-/// );
-/// ```
-#[proc_macro]
-pub fn cross_tests(input: TokenStream) -> TokenStream {
-    let test_spec = parse_macro_input!(input as CrossTestData);
-
-    let mut tokens = TokenStream::new();
-
+fn cross_tests_internal(test_spec: CrossTestData) -> TokenStream {
     let demo_types = test_spec
         .demo_types
         .elems
@@ -364,6 +393,8 @@ pub fn cross_tests(input: TokenStream) -> TokenStream {
         let Expr::Path(p) = t else { panic!("Expected Path for Signature Key Type! Got {:?}", t) };
         p
     });
+
+    let mut result = quote! {};
 
     for demo_type in demo_types.clone() {
         let mut demo_mod = quote! {};
@@ -432,7 +463,77 @@ pub fn cross_tests(input: TokenStream) -> TokenStream {
                 #demo_mod
             }
         };
-        tokens.extend(Into::<TokenStream>::into(demo_result));
+        result.extend(demo_result);
     }
-    tokens
+    let name = test_spec.test_name;
+    quote! {
+        pub mod #name {
+            use super::*;
+            #result
+        }
+    }
+    .into()
+}
+
+/// Generate a cartesian product of tests across all types
+/// Arguments:
+/// - `DemoType: [(ConsensusTypeName1, DemoStateType1), (ConsensusTypeName2, DemoStateType2) ...]` - a list of tuples of cusonsensus state + `State` implementations
+/// - `SignatureKey: [SignatureKey1, SignatureKey2, ...]` - a list of `SignatureKey` implementations
+/// - `CommChannel: [CommChannel1, CommChannel2, ..]` - a list of `CommunicationChannel` implementations
+/// - `Time: [ Time1, Time2, ...]` - a list of `ConsensusTime` implementations]`
+/// - `TestName: example_test` - the name of the test
+/// - `TestDescription: { some_test_description_expression }` - the `TestDescription` to use
+/// - `Storage: Storage1, Storage2, ...` - a list of `Storage` implementations to use
+/// - `Slow`: whether or not this set of tests are hidden behind the `slow` feature flag
+/// Example usage:
+/// ```
+/// hotshot_testing_macros::cross_tests!(
+///     DemoType: [ (SequencingConsensus, hotshot::demos::sdemo::SDemoState), (ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
+///     SignatureKey: [ hotshot_types::traits::signature_key::ed25519::Ed25519Pub ],
+///     CommChannel: [ hotshot::traits::implementations::MemoryCommChannel, hotshot::traits::implementations::Libp2pCommChannel, hotshot::traits::implementations::CentralizedCommChannel ],
+///     Storage: [ hotshot::traits::implementations::MemoryStorage ],
+///     Time: [ hotshot_types::data::ViewNumber ],
+///     TestName: example_test,
+///     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder::default(),
+///     Slow: false,
+/// );
+/// ```
+#[proc_macro]
+pub fn cross_tests(input: TokenStream) -> TokenStream {
+    let test_spec = parse_macro_input!(input as CrossTestData);
+    cross_tests_internal(test_spec)
+}
+
+/// Generate a cartesian product of tests across all impls known to `hotshot_types`
+/// Arguments:
+/// - `TestName: example_test` - the name of the test
+/// - `TestDescription: { some_test_description_expression }` - the `TestDescription` to use
+/// - `Slow`: whether or not this set of tests are hidden behind the `slow` feature flag
+/// Example usage:
+/// ```
+/// hotshot_testing_macros::cross_all_tests!(
+///     TestName: example_test,
+///     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder::default(),
+///     Slow: false,
+/// );
+/// ```
+#[proc_macro]
+pub fn cross_all_types(input: TokenStream) -> TokenStream {
+    let CrossAllTypesSpec {
+        test_name,
+        test_description,
+        slow,
+    } = parse_macro_input!(input as CrossAllTypesSpec);
+    let tokens = quote! {
+            DemoType: [ (SequencingConsensus, hotshot::demos::sdemo::SDemoState), (ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
+            SignatureKey: [ hotshot_types::traits::signature_key::ed25519::Ed25519Pub ],
+            CommChannel: [ hotshot::traits::implementations::MemoryCommChannel, hotshot::traits::implementations::Libp2pCommChannel, hotshot::traits::implementations::CentralizedCommChannel ],
+            Time: [ hotshot_types::data::ViewNumber ],
+            Storage: [ hotshot::traits::implementations::MemoryStorage ],
+            TestName: #test_name,
+            TestDescription: #test_description,
+            Slow: #slow,
+    }.into();
+    let test_spec = parse_macro_input!(tokens as CrossTestData);
+    cross_tests_internal(test_spec)
 }
