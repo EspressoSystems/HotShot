@@ -28,7 +28,7 @@ channel-async-std = [
 
 [dependencies]
 async-compatibility-layer = { git = "https://github.com/EspressoSystems/async-compatibility-layer.git", tag = "1.0.1", default-features = false, features = [ "logging-utils" ] }
-async-lock = "2.6"
+async-lock = "2.7"
 async-std = { version = "1.12", optional = true }
 async-trait = "0.1.64"
 # TODO ed: Delete this dependency after https://github.com/EspressoSystems/HotShot/issues/614 is finished
