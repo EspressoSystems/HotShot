@@ -61,8 +61,13 @@ impl<
         I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
     > NextValidatingLeader<A, TYPES, I>
 where
-    I::QuorumExchange:
-        ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, I::Leaf>, Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>>,
+    I::QuorumExchange: ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+        Vote = QuorumVote<TYPES, I::Leaf>,
+        Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+    >,
 {
     /// Run one view of the next leader task
     /// # Panics

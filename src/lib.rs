@@ -572,7 +572,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                     error!("Failed to send to next leader!");
                 }
             }
-            ConsensusMessage::DAProposal(_) | ConsensusMessage::DAVote(_) => todo!()
+            ConsensusMessage::DAProposal(_) | ConsensusMessage::DAVote(_) => todo!(),
         }
     }
 
@@ -815,8 +815,10 @@ where
                 _pd: PhantomData,
             };
             let next_leader_handle = async_spawn(async move {
-                NextValidatingLeader::<HotShotConsensusApi<TYPES, I>, TYPES, I>::run_view(next_leader)
-                    .await
+                NextValidatingLeader::<HotShotConsensusApi<TYPES, I>, TYPES, I>::run_view(
+                    next_leader,
+                )
+                .await
             });
             task_handles.push(next_leader_handle);
         }
@@ -1121,7 +1123,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     ) -> std::result::Result<(), NetworkError> {
         debug!(?message, "send_broadcast_message");
         self.inner
-            .quorum_exchange.network()
+            .quorum_exchange
+            .network()
             .broadcast_message(
                 Message {
                     sender: self.inner.public_key.clone(),

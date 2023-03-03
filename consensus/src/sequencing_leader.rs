@@ -56,7 +56,7 @@ pub struct DALeader<
     pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
     /// Limited access to the consensus protocol
     pub api: A,
- 
+
     pub da_exchange: Arc<I::ComitteeExchange>,
 
     pub quorum_exchange: Arc<I::QuorumExchange>,
