@@ -27,6 +27,7 @@ use hotshot_types::{
     },
     vote::QuorumVote,
 };
+use hotshot_types::message::Message;
 use hotshot_utils::bincode::bincode_opts;
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -69,19 +70,19 @@ where
     I::QuorumExchange: ConsensusExchange<
             TYPES,
             I::Leaf,
-            I::Message,
+            Message<TYPES, I>,
             Proposal = CommitmentProposal<TYPES, I::Leaf>,
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
             Vote = QuorumVote<TYPES, I::Leaf>,
-        > + QuorumExchangeType<TYPES, I::Leaf, I::Message>,
+        > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
     I::ComitteeExchange: ConsensusExchange<
             TYPES,
             I::Leaf,
-            I::Message,
+            Message<TYPES, I>,
             Proposal = DAProposal<TYPES>,
             Certificate = DACertificate<TYPES>,
             Vote = DAVote<TYPES, I::Leaf>,
-        > + CommitteeExchangeType<TYPES, I::Leaf, I::Message>,
+        > + CommitteeExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     // TODO (da) Move this function so that it can be used by leader, replica, and committee member logic.
     /// Returns the parent leaf of the proposal we are voting on

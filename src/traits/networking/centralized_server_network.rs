@@ -1084,7 +1084,7 @@ pub struct CentralizedCommChannel<
     MEMBERSHIP: Membership<TYPES>,
 >(
     CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    PhantomData<(PROPOSAL, VOTE, MEMBERSHIP)>,
+    PhantomData<(PROPOSAL, VOTE, MEMBERSHIP, I)>,
 );
 
 impl<

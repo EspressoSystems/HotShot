@@ -682,7 +682,7 @@ pub struct Libp2pCommChannel<
     MEMBERSHIP: Membership<TYPES>,
 >(
     Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
-    PhantomData<MEMBERSHIP>,
+    PhantomData<(I, PROPOSAL, VOTE, MEMBERSHIP)>,
 );
 
 impl<

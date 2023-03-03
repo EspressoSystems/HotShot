@@ -127,7 +127,7 @@ pub enum NetworkError {
 /// common traits we would like olur network messages to implement
 
 pub trait NetworkMsg:
-    Serialize + for<'a> Deserialize<'a> + Clone + Sync + Send + 'static
+    Serialize + for<'a> Deserialize<'a> + Clone + Sync + Send + std::fmt::Debug + 'static
 {
 }
 

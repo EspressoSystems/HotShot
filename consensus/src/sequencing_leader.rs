@@ -74,18 +74,18 @@ where
     I::QuorumExchange: ConsensusExchange<
         TYPES,
         I::Leaf,
-        I::Message,
+        Message<TYPES, I>,
         Proposal = CommitmentProposal<TYPES, I::Leaf>,
         Vote = QuorumVote<TYPES, I::Leaf>,
     >,
     I::ComitteeExchange: ConsensusExchange<
             TYPES,
             I::Leaf,
-            I::Message,
+            Message<TYPES, I>,
             Proposal = DAProposal<TYPES>,
             Vote = DAVote<TYPES, I::Leaf>,
             Certificate = DACertificate<TYPES>,
-        > + CommitteeExchangeType<TYPES, I::Leaf, I::Message>,
+        > + CommitteeExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
     /// TODO: Refactor this to use new `Elecetion` trait and call accumulate
@@ -318,18 +318,18 @@ where
     I::QuorumExchange: ConsensusExchange<
             TYPES,
             I::Leaf,
-            I::Message,
+            Message<TYPES, I>,
             Proposal = CommitmentProposal<TYPES, I::Leaf>,
             // Vote = QuorumVote<TYPES, I::Leaf>,
-        > + QuorumExchangeType<TYPES, I::Leaf, I::Message>,
+        > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
     I::ComitteeExchange: ConsensusExchange<
             TYPES,
             I::Leaf,
-            I::Message,
+            Message<TYPES, I>,
             // Proposal = DAProposal<TYPES>,
             // Vote = DAVote<TYPES, I::Leaf>,
             // Certificate = DACertificate<TYPES>,
-        > + CommitteeExchangeType<TYPES, I::Leaf, I::Message>,
+        > + CommitteeExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]

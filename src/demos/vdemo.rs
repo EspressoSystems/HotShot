@@ -529,7 +529,7 @@ where
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         MEMBERSHIP,
     >,
-    MEMBERSHIP: Membership<VDemoTypes>;
+    MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug;
 
 impl<NET, MEMBERSHIP> VDemoNode<NET, MEMBERSHIP>
 where
@@ -540,7 +540,7 @@ where
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         MEMBERSHIP,
     >,
-    MEMBERSHIP: Membership<VDemoTypes>,
+    MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug,
 {
     /// Create a new `VDemoNode`
     pub fn new() -> Self {
@@ -557,7 +557,7 @@ where
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         MEMBERSHIP,
     >,
-    MEMBERSHIP: Membership<VDemoTypes>,
+    MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("VDemoNode")
@@ -575,7 +575,7 @@ where
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         MEMBERSHIP,
     >,
-    MEMBERSHIP: Membership<VDemoTypes>,
+    MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug,
 {
     fn default() -> Self {
         Self::new()

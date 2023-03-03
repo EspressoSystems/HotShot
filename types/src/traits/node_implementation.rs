@@ -29,6 +29,7 @@ use commit::Commitment;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
+use crate::message::Message;
 
 /// Node implementation aggregate trait
 ///
@@ -39,7 +40,7 @@ use std::hash::Hash;
 /// store or keep a reference to any value implementing this trait.
 
 pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'static {
-    type Message: NetworkMsg;
+    // type Message: NetworkMsg;
     type Leaf: LeafType<NodeType = TYPES>;
 
     /// Storage type for this consensus implementation
@@ -48,35 +49,35 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     /// Membership
     /// Time is generic here to allow multiple implementations of membership trait for difference
     /// consensus protocols
-    type QuorumExchange: ConsensusExchange<TYPES, Self::Leaf, Self::Message>;
+    type QuorumExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
 
-    type ComitteeExchange: ConsensusExchange<TYPES, Self::Leaf, Self::Message>;
+    type ComitteeExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
 }
 
 pub type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
         I::Leaf,
-        I::Message,
+        Message<TYPES, I>,
     >>::Proposal;
 pub type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
     <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<
         TYPES,
         I::Leaf,
-        I::Message,
+        Message<TYPES, I>,
     >>::Proposal;
 
 pub type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
         I::Leaf,
-        I::Message,
+        Message<TYPES, I>,
     >>::Vote;
 pub type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
     <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<
         TYPES,
         I::Leaf,
-        I::Message,
+        Message<TYPES, I>,
     >>::Vote;
 
 /// Trait with all the type definitions that are used in the current hotshot setup.

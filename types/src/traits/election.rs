@@ -19,6 +19,7 @@ use commit::{Commitment, Committable};
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
 use nll::nll_todo::nll_todo;
+use crate::message::Message;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
@@ -400,7 +401,7 @@ pub trait CommitteeExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES
     ) -> ConsensusMessage<TYPES, I>
     where
         I::ComitteeExchange:
-            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = DAVote<TYPES, I::Leaf>>;
+            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = DAVote<TYPES, I::Leaf>>;
 }
 pub struct CommitteeExchange<
     TYPES: NodeType,
@@ -456,7 +457,7 @@ impl<
     ) -> ConsensusMessage<TYPES, I>
     where
         I::ComitteeExchange:
-            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = DAVote<TYPES, I::Leaf>>,
+            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = DAVote<TYPES, I::Leaf>>,
     {
         let signature = self.sign_da_vote(block_commitment);
         ConsensusMessage::<TYPES, I>::DAVote(DAVote {
@@ -536,7 +537,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     where
         <Self as ConsensusExchange<TYPES, LEAF, M>>::Certificate: commit::Committable,
         I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = QuorumVote<TYPES, LEAF>>;
+            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>;
     /// Sign a validating or commitment proposal.
     fn sign_validating_or_commitment_proposal<I: NodeImplementation<TYPES>>(
         &self,
@@ -582,7 +583,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     ) -> ConsensusMessage<TYPES, I>
     where
         I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = QuorumVote<TYPES, LEAF>>;
+            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>;
 
     /// Create a message with a timeout vote on validating or commitment proposal.
     fn create_timeout_message<I: NodeImplementation<TYPES>>(
@@ -593,7 +594,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     ) -> ConsensusMessage<TYPES, I>
     where
         I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = QuorumVote<TYPES, LEAF>>;
+            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>;
 }
 pub struct QuorumExchange<
     TYPES: NodeType,
@@ -638,7 +639,7 @@ impl<
     ) -> ConsensusMessage<TYPES, I>
     where
         I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = QuorumVote<TYPES, LEAF>>,
+            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>,
     {
         let signature = self.sign_yes_vote(leaf_commitment);
         ConsensusMessage::<TYPES, I>::Vote(QuorumVote::Yes(YesOrNoVote {
@@ -715,7 +716,7 @@ impl<
     ) -> ConsensusMessage<TYPES, I>
     where
         I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = QuorumVote<TYPES, LEAF>>,
+            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>,
     {
         let signature = self.sign_no_vote(leaf_commitment);
         ConsensusMessage::<TYPES, I>::Vote(QuorumVote::No(YesOrNoVote {
@@ -736,7 +737,7 @@ impl<
     ) -> ConsensusMessage<TYPES, I>
     where
         I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = QuorumVote<TYPES, LEAF>>,
+            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>,
     {
         let signature = self.sign_timeout_vote(current_view);
         ConsensusMessage::<TYPES, I>::Vote(QuorumVote::Timeout(TimeoutVote {

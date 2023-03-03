@@ -460,7 +460,7 @@ pub struct MemoryCommChannel<
     MEMBERSHIP: Membership<TYPES>,
 >(
     MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
-    PhantomData<MEMBERSHIP>,
+    PhantomData<(I, PROPOSAL, VOTE, MEMBERSHIP)>,
 );
 
 #[async_trait]
@@ -562,6 +562,7 @@ mod tests {
         serde::Deserialize,
     )]
     struct Test {}
+    #[derive(Clone, Debug)]
     struct TestImpl {}
 
     // impl NetworkMsg for Test {}
@@ -584,7 +585,6 @@ mod tests {
     impl NodeImplementation<Test> for TestImpl {
         type QuorumExchange = QuorumExchange<Test, TestLeaf, TestMembership, TestNetwork, Message<Test, Self>>;
         type ComitteeExchange = Self::QuorumExchange;
-        type Message = Message<Test, Self>;
         type Leaf = TestLeaf;
         type Storage = MemoryStorage<Test, TestLeaf>;
     }

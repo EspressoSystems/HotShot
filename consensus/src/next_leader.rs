@@ -69,7 +69,7 @@ impl<
     > NextValidatingLeader<A, EXCHANGE, TYPES, I>
 where
     I::QuorumExchange:
-        ConsensusExchange<TYPES, I::Leaf, I::Message, Vote = QuorumVote<TYPES, I::Leaf>>,
+        ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, I::Leaf>>,
 {
     /// Run one view of the next leader task
     /// # Panics

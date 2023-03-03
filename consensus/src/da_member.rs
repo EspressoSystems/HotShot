@@ -25,6 +25,7 @@ use hotshot_types::{
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
+use hotshot_types::message::Message;
 
 /// This view's DA committee member.
 #[derive(Debug, Clone)]
@@ -62,10 +63,10 @@ where
     I::ComitteeExchange: ConsensusExchange<
             TYPES,
             I::Leaf,
-            I::Message,
+            Message<TYPES, I>,
             Proposal = DAProposal<TYPES>,
             Vote = DAVote<TYPES, SequencingLeaf<TYPES>>,
-        > + CommitteeExchangeType<TYPES, I::Leaf, I::Message>,
+        > + CommitteeExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Returns the parent leaf of the proposal we are voting on
     async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {

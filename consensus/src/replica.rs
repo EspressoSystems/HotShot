@@ -65,11 +65,11 @@ where
     I::QuorumExchange: ConsensusExchange<
             TYPES,
             I::Leaf,
-            I::Message,
+            Message<TYPES, I>,
             Proposal = ValidatingProposal<TYPES, I::Leaf>,
             Vote = QuorumVote<TYPES, I::Leaf>,
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
-        > + QuorumExchangeType<TYPES, I::Leaf, I::Message>,
+        > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
