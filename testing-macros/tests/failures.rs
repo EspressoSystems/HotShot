@@ -1,11 +1,9 @@
-#![allow(clippy::type_complexity)]
-
-use hotshot_testing::cross_all_types;
+use hotshot_testing_macros::cross_all_types;
 
 // This test simulates a single permanent failed node
 cross_all_types!(
-    single_permanent_failure,
-    hotshot_testing::test_description::GeneralTestDescriptionBuilder {
+    TestName: single_permanent_failure,
+    TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder {
         total_nodes: 7,
         start_nodes: 7,
         num_succeeds: 10,
@@ -16,17 +14,15 @@ cross_all_types!(
         failure_threshold: 5,
         ..hotshot_testing::test_description::GeneralTestDescriptionBuilder::default()
     },
-    keep: true,
-    slow: false
-
+    Slow: false,
 );
 
 // This test simulates two permanent failed nodes
 //
 // With n=7, this is the maximum failures that the network can tolerate
 cross_all_types!(
-    double_permanent_failure,
-    hotshot_testing::test_description::GeneralTestDescriptionBuilder {
+    TestName: double_permanent_failure,
+    TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder {
         total_nodes: 7,
         start_nodes: 7,
         num_succeeds: 10,
@@ -36,7 +32,5 @@ cross_all_types!(
         failure_threshold: 5,
         ..hotshot_testing::test_description::GeneralTestDescriptionBuilder::default()
     },
-    keep: true,
-    slow: false
-
+    Slow: false,
 );
