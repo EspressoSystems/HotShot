@@ -49,7 +49,6 @@ impl CrossTestDataBuilder {
 }
 
 struct TestData {
-    consensus_type: SupportedConsensusTypes,
     time_type: ExprPath,
     demo_types: ExprTuple,
     signature_key_type: ExprPath,
@@ -63,7 +62,6 @@ struct TestData {
 
 impl TestData {
     fn new(
-        consensus_type: SupportedConsensusTypes,
         time_type: ExprPath,
         demo_types: ExprTuple,
         signature_key_type: ExprPath,
@@ -75,7 +73,6 @@ impl TestData {
         slow: LitBool,
         ) -> Self {
         Self {
-            consensus_type,
             time_type,
             demo_types,
             signature_key_type,
@@ -90,11 +87,9 @@ impl TestData {
 
     fn generate_test(&self) -> TokenStream {
         let TestData {
-            consensus_type,
             time_type,
             demo_types,
             signature_key_type,
-            // vote_type,
             test_name,
             test_description,
             slow,
@@ -102,7 +97,26 @@ impl TestData {
             storage,
         } = self;
 
-        let consensus_str = format!("{consensus_type:?}");
+        let (supported_consensus_type, demo_state) = {
+            let mut tuple = demo_types.elems.iter();
+            let first_ele = tuple.next().expect("First element of tuple must be the consensus type.");
+
+            let Expr::Path(expr_path) = first_ele else { panic!("Expected path expr, got {:?}", first_ele) };
+            let Some(ident) = expr_path.path.get_ident() else { panic!("Expected ident, got {:?}", expr_path.path) };
+            let consensus_type =
+                if ident == "SequencingConsensus" {
+                    SupportedConsensusTypes::SequencingConsensus
+                } else if ident == "ValidatingConsensus" {
+                    SupportedConsensusTypes::ValidatingConsensus
+                } else {
+                    panic!("Unsupported consensus type: {ident:?}")
+                };
+
+            let demo_state = tuple.next().expect("Seecond element of tuple must state type");
+            (consensus_type, demo_state)
+        };
+
+        let consensus_str = format!("{supported_consensus_type:?}");
 
         let time_str = time_type
             .path
@@ -114,7 +128,8 @@ impl TestData {
             })
         .to_lowercase();
 
-        let demo_str = demo_types
+        let demo_str =
+            demo_types
             .elems
             .iter()
             .skip(1) // skip first element, which we've already processed
@@ -130,8 +145,6 @@ impl TestData {
             acc
         })
         .to_lowercase();
-
-        let demo_state = demo_types.elems.iter().skip(1).next().unwrap();
 
         let signature_key_str = signature_key_type
             .path
@@ -155,7 +168,7 @@ impl TestData {
             quote! { #[cfg(feature = "slow-tests")] }
         } else { quote! {} };
 
-        let (consensus_type, leaf, vote, proposal) = match consensus_type {
+        let (consensus_type, leaf, vote, proposal) = match supported_consensus_type {
             SupportedConsensusTypes::SequencingConsensus => {
                 let consensus_type = quote! { hotshot_types::traits::state::SequencingConsensus };
                 let leaf = quote! {
@@ -255,8 +268,7 @@ impl TestData {
                             >,
                             #storage<TestTypes, #leaf>,
                             CommitteeMembership,
-                        >
-                            >().execute().await.unwrap();
+                        >>().execute().await.unwrap();
 
                     }
             }
@@ -341,81 +353,53 @@ pub fn cross_tests(input: TokenStream) -> TokenStream {
 
     let mut tokens = TokenStream::new();
 
-    let consensus_types = test_spec.demo_types.elems.iter().filter_map(
-        |expr| {
-            let Expr::Tuple(tuple) = expr else { panic!("Expected Tuple! Got {:?}", expr) };
-            let first_ele = tuple.elems.iter().next().expect("First element of array must be the consensus type.");
-            let Expr::Path(expr_path) = first_ele else { panic!("Expected path expr, got {:?}", first_ele) };
-            let Some(ident) = expr_path.path.get_ident() else { panic!("Expected ident, got {:?}", expr_path.path) };
-            if ident == "SequencingConsensus" {
-                Some(SupportedConsensusTypes::SequencingConsensus)
-            } else if ident == "ValidatingConsensus" {
-                Some(SupportedConsensusTypes::ValidatingConsensus)
-            } else {
-                panic!("Unsupported consensus type: {ident:?}")
-            }
-        }
-        ).collect::<Vec<_>>();
-
     let demo_types = test_spec
         .demo_types
         .elems
         .iter()
-        .filter_map(|t| match t {
-            Expr::Tuple(p) => Some(p),
-            _ => None,
+        .filter_map(|t| {
+            let Expr::Tuple(p) = t else { panic!("Expected Tuple! Got {:?}", t) };
+            Some(p)
         }).collect::<Vec<_>>();
 
-    if demo_types.len() != consensus_types.len() {
-        panic!("Demo types length did not match consensus types length!");
-    }
+    let comm_channels = test_spec.comm_channels.elems.iter()
+        .filter_map(|t| {
+            let Expr::Path(p) = t else { panic!("Expected Path for Comm Channel! Got {:?}", t) };
+            Some(p)
+        });
 
-    let comm_channels = test_spec.comm_channels.elems.iter().filter_map(|t| match t {
-        Expr::Path(p) => Some(p),
-        _ => None,
+    let storages = test_spec.storages.elems.iter().filter_map(|t|{
+        let Expr::Path(p) = t else { panic!("Expected Path for Storage! Got {:?}", t) };
+        Some(p)
     });
 
-    let storages = test_spec.storages.elems.iter().filter_map(|t| match t {
-        Expr::Path(p) => Some(p),
-        _ => None,
+    let time_types = test_spec.time_types.elems.iter().filter_map(|t|{
+        let Expr::Path(p) = t else { panic!("Expected Path for Time Type! Got {:?}", t) };
+        Some(p)
     });
 
-    // TODO better error handling instead of `None`. We want to fail loudly
+    let signature_key_types = test_spec.signature_key_types.elems.iter().filter_map(|t|{
+        let Expr::Path(p) = t else { panic!("Expected Path for Signature Key Type! Got {:?}", t) };
+        Some(p)
+    });
 
-
-    for (consensus_type, demo_type) in consensus_types.into_iter().zip(demo_types.iter()) {
+    for demo_type in demo_types.clone() {
         for comm_channel in comm_channels.clone() {
             for storage in storages.clone() {
-                for time_type in test_spec.time_types.elems.iter().filter_map(|t| match t {
-                    Expr::Path(p) => Some(p),
-                        _ => None,
-                }) {
-                    for signature_key_type in
-                        test_spec
-                            .signature_key_types
-                            .elems
-                            .iter()
-                            .filter_map(|t| match t {
-                                Expr::Path(p) => Some(p),
-                                _ => None,
-                            })
-                    {
-                        let comm_channel = comm_channel.clone();
+                for time_type in time_types.clone() {
+                    for signature_key_type in signature_key_types.clone() {
                         let test_data = TestData::new(
-                            consensus_type.clone(),
                             time_type.clone(),
                             demo_type.clone().clone(),
                             signature_key_type.clone(),
-                            comm_channel,
+                            comm_channel.clone(),
                             storage.clone(),
                             test_spec.test_name.clone(),
                             test_spec.test_description.clone(),
                             test_spec.slow.clone(),
                             );
                         let test = test_data.generate_test();
-
                         tokens.extend(test);
-
                     }
                 }
             }
