@@ -318,7 +318,7 @@ impl Parse for CrossTestData {
 /// - `Slow`: whether or not this set of tests are hidden behind the `slow` feature flag
 /// Example usage:
 /// ```
-/// cross_tests!(
+/// hotshot_testing_macros::cross_tests!(
 ///     DemoType: [ (SequencingConsensus, hotshot::demos::sdemo::SDemoState), (ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
 ///     SignatureKey: [ hotshot_types::traits::signature_key::ed25519::Ed25519Pub ],
 ///     CommChannel: [ hotshot::traits::implementations::MemoryCommChannel, hotshot::traits::implementations::Libp2pCommChannel, hotshot::traits::implementations::CentralizedCommChannel ],
