@@ -3080,6 +3080,7 @@ dependencies = [
  "async-trait",
  "blake3",
  "commit 0.2.2",
+ "derive_builder 0.12.0",
  "either",
  "futures",
  "hotshot",

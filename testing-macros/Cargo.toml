@@ -90,6 +90,7 @@ serde = { version = "1.0.152", features = ["derive"] }
 quote = "1.0.23"
 syn = { version = "1.0.108", features = ["full", "extra-traits"] }
 proc-macro2 = "1.0.51"
+derive_builder = "0.12.0"
 
 [dev-dependencies]
 async-lock = "2.6"

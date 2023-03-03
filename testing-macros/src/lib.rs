@@ -1,4 +1,6 @@
 extern crate proc_macro;
+use std::fmt::Display;
+
 use hotshot_testing::test_description::GeneralTestDescriptionBuilder;
 use nll::nll_todo::nll_todo;
 use proc_macro::TokenStream;
@@ -20,28 +22,30 @@ enum SupportedConsensusTypes {
     SequencingConsensus,
 }
 
-/// Parses the following syntax, which aligns with the input of the real
-/// `lazy_static` crate.
-///
-///     lazy_static! {
-///         $VISIBILITY static ref $NAME: $TYPE = $EXPR;
-///     }
-///
-/// For example:
-///
-///     lazy_static! {
-///         static ref USERNAME: Regex = Regex::new("^[a-z0-9_-]{3,16}$").unwrap();
-///     }
+/// description of a crosstest
+#[derive(derive_builder::Builder, Debug, Clone)]
 struct CrossTestData {
     time_types: ExprArray,
     demo_types: ExprArray,
     signature_key_types: ExprArray,
-    // vote_types: ExprArray,
     comm_channels: ExprArray,
     storages: ExprArray,
     test_name: Ident,
     test_description: Expr,
     slow: LitBool,
+}
+
+impl CrossTestDataBuilder {
+    fn is_ready(&self) -> bool {
+        self.time_types.is_some()
+            && self.demo_types.is_some()
+            && self.signature_key_types.is_some()
+            && self.comm_channels.is_some()
+            && self.storages.is_some()
+            && self.test_name.is_some()
+            && self.test_description.is_some()
+            && self.slow.is_some()
+    }
 }
 
 struct TestData {
@@ -277,92 +281,60 @@ mod keywords {
 impl Parse for CrossTestData {
     // TODO make order not matter.
     fn parse(input: ParseStream) -> Result<Self> {
-        let _ = input.parse::<keywords::Time>()?;
-        input.parse::<Token![:]>()?;
-        let time_types = input.parse::<ExprArray>()?;
-        input.parse::<Token![,]>()?;
 
-        let _ = input.parse::<keywords::DemoType>()?;
-        input.parse::<Token![:]>()?;
-        let demo_types = input.parse::<ExprArray>()?;
-        input.parse::<Token![,]>()?;
 
-        let _ = input.parse::<keywords::SignatureKey>()?;
-        input.parse::<Token![:]>()?;
-        let signature_key_types = input.parse::<ExprArray>()?;
-        input.parse::<Token![,]>()?;
+        let mut description = CrossTestDataBuilder::create_empty();
 
-        let _ = input.parse::<keywords::CommChannel>()?;
-        input.parse::<Token![:]>()?;
-        let comm_channels = input.parse::<ExprArray>()?;
-        input.parse::<Token![,]>()?;
-
-        let _ = input.parse::<keywords::Storage>()?;
-        input.parse::<Token![:]>()?;
-        let storages = input.parse::<ExprArray>()?;
-        input.parse::<Token![,]>()?;
-
-        let _ = input.parse::<keywords::TestName>()?;
-        input.parse::<Token![:]>()?;
-        let test_name = input.parse::<Ident>()?;
-        input.parse::<Token![,]>()?;
-
-        let _ = input.parse::<keywords::TestDescription>()?;
-        input.parse::<Token![:]>()?;
-        let test_description = input.parse::<Expr>()?;
-        input.parse::<Token![,]>()?;
-
-        let _ = input.parse::<keywords::Slow>()?;
-        input.parse::<Token![:]>()?;
-        let slow = input.parse::<LitBool>()?;
-        // consume the rest of the input stream, it's ok if this fails
-        let _ = input.parse::<Token![,]>();
-
-        // check_ty_match(r.clone(), "ConsensusType")?;
-        // let types = input.parse::<Punctuated<Type, Token![,]>>()?;
-
-        // let r = format!("{:#?}", consensus_types);
-        // let cursor = input.cursor();
-        // let r = format!("{:?}", cursor.literal().map(|x| x.0));
-        // eprintln!("{:?}", r);
-        // for i in 0..3 {
-        // let p = input.peek(Token![:]);
-        // input.pee
-        // }
-        // while !(input.peek(Token![:]) && !input.peek(Token![::])) {
-        //     let tokens = input.parse::<TokenTree>();
-        //     eprintln!("{:#?}", tokens);
-        // }
-
-        Ok(CrossTestData {
-            comm_channels,
-            storages,
-            time_types,
-            demo_types,
-            signature_key_types,
-            // vote_types,
-            test_name,
-            test_description,
-            slow,
-        })
-
-        // Err(syn::Error::new(proc_macro2::Span::call_site(), r))
-        // Err(syn::Error::new(proc_macro2::Span::call_site(), "We're not done yet!"))
-
-        // let ty = input.parse::<Type>()?;
-        // input.parse::<Token![:]>()?;
-        // let name: Ident = input.parse()?;
-        // input.parse::<Token![:]>()?;
-        // let ty: Type = input.parse()?;
-        // input.parse::<Token![=]>()?;
-        // let init: Expr = input.parse()?;
-        // input.parse::<Token![;]>()?;
-        // Ok(LazyStatic {
-        //     visibility,
-        //     name,
-        //     ty,
-        //     init,
-        // })
+        while !description.is_ready() {
+            if input.peek(keywords::Time) {
+                let _ = input.parse::<keywords::Time>()?;
+                input.parse::<Token![:]>()?;
+                let time_types = input.parse::<ExprArray>()?;
+                description.time_types(time_types);
+            }
+            else if input.peek(keywords::DemoType) {
+                let _ = input.parse::<keywords::DemoType>()?;
+                input.parse::<Token![:]>()?;
+                let demo_types = input.parse::<ExprArray>()?;
+                description.demo_types(demo_types);
+            } else if input.peek(keywords::SignatureKey) {
+                let _ = input.parse::<keywords::SignatureKey>()?;
+                input.parse::<Token![:]>()?;
+                let signature_key_types = input.parse::<ExprArray>()?;
+                description.signature_key_types(signature_key_types);
+            } else if input.peek(keywords::CommChannel) {
+                let _ = input.parse::<keywords::CommChannel>()?;
+                input.parse::<Token![:]>()?;
+                let comm_channels = input.parse::<ExprArray>()?;
+                description.comm_channels(comm_channels);
+            } else if input.peek(keywords::Storage) {
+                let _ = input.parse::<keywords::Storage>()?;
+                input.parse::<Token![:]>()?;
+                let storages = input.parse::<ExprArray>()?;
+                description.storages(storages);
+            } else if input.peek(keywords::TestName) {
+                let _ = input.parse::<keywords::TestName>()?;
+                input.parse::<Token![:]>()?;
+                let test_name = input.parse::<Ident>()?;
+                description.test_name(test_name);
+            } else if input.peek(keywords::TestDescription) {
+                let _ = input.parse::<keywords::TestDescription>()?;
+                input.parse::<Token![:]>()?;
+                let test_description = input.parse::<Expr>()?;
+                description.test_description(test_description);
+            } else if input.peek(keywords::Slow) {
+                let _ = input.parse::<keywords::Slow>()?;
+                input.parse::<Token![:]>()?;
+                let slow = input.parse::<LitBool>()?;
+                description.slow(slow);
+            } else {
+                panic!("Unexpected token. Expected one f: Time, DemoType, SignatureKey, CommChannel, Storage, TestName, TestDescription, Slow");
+            }
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+            }
+        }
+        description.build().map_err(|e| syn::Error::new(proc_macro2::Span::call_site(), format!("{}", e)))
     }
 }
 
