@@ -318,22 +318,14 @@ impl Parse for CrossTestData {
 /// - `Slow`: whether or not this set of tests are hidden behind the `slow` feature flag
 /// Example usage:
 /// ```
-///
-/// use hotshot_testing_macros::cross_tests;
-/// use hotshot_types::data::ViewNumber;
-/// use hotshot::{demos::sdemo::SDemoState, traits::implementations::Libp2pCommChannel};
-/// use hotshot::demos::vdemo::VDemoState;
-/// use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
-/// use hotshot::traits::implementations::{MemoryCommChannel, MemoryStorage, CentralizedCommChannel};
-/// use hotshot_testing::test_description::GeneralTestDescriptionBuilder;
 /// cross_tests!(
-///     DemoType: [ (SequencingConsensus, SDemoState), (ValidatingConsensus, VDemoState) ],
-///     SignatureKey: [ Ed25519Pub ],
-///     CommChannel: [ MemoryCommChannel, Libp2pCommChannel, CentralizedCommChannel ],
-///     Time: [ ViewNumber ],
+///     DemoType: [ (SequencingConsensus, hotshot::demos::sdemo::SDemoState), (ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
+///     SignatureKey: [ hotshot_types::traits::signature_key::ed25519::Ed25519Pub ],
+///     CommChannel: [ hotshot::traits::implementations::MemoryCommChannel, hotshot::traits::implementations::Libp2pCommChannel, hotshot::traits::implementations::CentralizedCommChannel ],
+///     Time: [ hotshot_types::data::ViewNumber ],
 ///     TestName: example_test,
-///     TestDescription: GeneralTestDescriptionBuilder::default(),
-///     Storage: [ MemoryStorage ],
+///     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder::default(),
+///     Storage: [ hotshot::traits::implementations::MemoryStorage ],
 ///     Slow: false,
 /// );
 /// ```
