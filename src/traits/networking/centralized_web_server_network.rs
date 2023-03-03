@@ -14,6 +14,7 @@ use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
     channel::{oneshot, OneShotSender},
 };
+use hotshot_types::traits::node_implementation::NodeImplementation;
 
 use hotshot_centralized_web_server::{self, config};
 
@@ -51,31 +52,33 @@ use tracing::{error, info};
 #[derive(Clone)]
 pub struct CentralizedWebCommChannel<
     TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
     CentralizedWebServerNetwork<
-        Message<TYPES, PROPOSAL, VOTE>,
+        Message<TYPES, I>,
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
         TYPES,
         PROPOSAL,
         VOTE,
     >,
-    PhantomData<MEMBERSHIP>,
+    PhantomData<(MEMBERSHIP, I)>,
 );
 impl<
         TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    > CentralizedWebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// Create new communication channel
     pub fn new(
         network: CentralizedWebServerNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
             TYPES::ElectionConfigType,
             TYPES,
@@ -90,8 +93,8 @@ impl<
     /// Returns a `SendMsg` containing the endpoint
     fn parse_post_message(
         &self,
-        message: Message<TYPES, PROPOSAL, VOTE>,
-    ) -> Result<SendMsg<Message<TYPES, PROPOSAL, VOTE>>, CentralizedWebServerNetworkError> {
+        message: Message<TYPES, I>,
+    ) -> Result<SendMsg<Message<TYPES, I>>, CentralizedWebServerNetworkError> {
         let view_number: TYPES::Time = message.get_view_number();
 
         let endpoint = match &message.kind {
@@ -99,7 +102,13 @@ impl<
                 hotshot_types::message::ConsensusMessage::Proposal(_) => {
                     config::post_proposal_route(*view_number)
                 }
+                hotshot_types::message::ConsensusMessage::DAProposal(_) => {
+                    config::post_proposal_route(*view_number)
+                }
                 hotshot_types::message::ConsensusMessage::Vote(_) => {
+                    config::post_vote_route(*view_number)
+                }
+                hotshot_types::message::ConsensusMessage::DAVote(_) => {
                     config::post_vote_route(*view_number)
                 }
                 hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {
@@ -113,7 +122,7 @@ impl<
             },
         };
 
-        let network_msg: SendMsg<Message<TYPES, PROPOSAL, VOTE>> = SendMsg {
+        let network_msg: SendMsg<Message<TYPES, I>> = SendMsg {
             message: Some(message),
             endpoint,
         };
@@ -478,18 +487,19 @@ enum MessageType {
 #[async_trait]
 impl<
         TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > CommunicationChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
-    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    for CentralizedWebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
         <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, PROPOSAL, VOTE>>,
-            SendMsg<Message<TYPES, PROPOSAL, VOTE>>,
+            RecvMsg<Message<TYPES, I>>,
+            SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
         .await;
@@ -499,8 +509,8 @@ impl<
     /// nonblocking
     async fn is_ready(&self) -> bool {
         <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, PROPOSAL, VOTE>>,
-            SendMsg<Message<TYPES, PROPOSAL, VOTE>>,
+            RecvMsg<Message<TYPES, I>>,
+            SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -511,8 +521,8 @@ impl<
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
         <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, PROPOSAL, VOTE>>,
-            SendMsg<Message<TYPES, PROPOSAL, VOTE>>,
+            RecvMsg<Message<TYPES, I>>,
+            SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
         .await;
@@ -522,7 +532,7 @@ impl<
     /// blocking
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, PROPOSAL, VOTE>,
+        message: Message<TYPES, I>,
         _election: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
         let network_msg = self.parse_post_message(message);
@@ -538,7 +548,7 @@ impl<
     /// blocking
     async fn direct_message(
         &self,
-        message: Message<TYPES, PROPOSAL, VOTE>,
+        message: Message<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         let network_msg = self.parse_post_message(message);
@@ -557,10 +567,10 @@ impl<
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
         let result = <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, PROPOSAL, VOTE>>,
-            SendMsg<Message<TYPES, PROPOSAL, VOTE>>,
+            RecvMsg<Message<TYPES, I>>,
+            SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
         >>::recv_msgs(&self.0, transmit_type)
         .await;
@@ -581,8 +591,8 @@ impl<
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
         <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, PROPOSAL, VOTE>>,
-            SendMsg<Message<TYPES, PROPOSAL, VOTE>>,
+            RecvMsg<Message<TYPES, I>>,
+            SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(&self.0, tuple)
         .await
@@ -687,11 +697,12 @@ impl<
 }
 impl<
         TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
-    for CentralizedWebCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    for CentralizedWebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {

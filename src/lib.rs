@@ -59,15 +59,9 @@ use hotshot_consensus::{
     DAMember, NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner,
     ViewQueue,
 };
-use hotshot_types::message::{MessageKind, ProcessedConsensusMessage};
-use hotshot_types::traits::election::Accumulator;
-use hotshot_types::traits::election::VoteToken;
+use hotshot_types::certificate::DACertificate;
+use hotshot_types::certificate::VoteMetaData;
 use hotshot_types::traits::network::CommunicationChannel;
-use hotshot_types::{certificate::DACertificate, message::QuorumVote};
-use hotshot_types::{
-    certificate::{VoteAccumulator, VoteMetaData},
-    message::{DAVote, VoteType},
-};
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
 use hotshot_types::{
     data::{DAProposal, SequencingLeaf},
@@ -411,7 +405,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     /// Will return any errors that the underlying `broadcast_message` can return.
     pub async fn send_broadcast_message(
         &self,
-        kind: impl Into<MessageKind<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>>,
+        kind: impl Into<MessageKind<TYPES, I>>,
     ) -> std::result::Result<(), NetworkError> {
         let inner = self.inner.clone();
         let pk = self.inner.public_key.clone();
@@ -443,7 +437,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     /// Will return any errors that the underlying `message_node` can return.
     pub async fn send_direct_message(
         &self,
-        kind: impl Into<MessageKind<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>>,
+        kind: impl Into<MessageKind<TYPES, I>>,
         recipient: TYPES::SignatureKey,
     ) -> std::result::Result<(), NetworkError> {
         self.inner
@@ -509,11 +503,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     }
 
     /// decide which handler to call based on the message variant and `transmit_type`
-    async fn handle_message(
-        &self,
-        item: Message<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
-        transmit_type: TransmitType,
-    ) {
+    async fn handle_message(&self, item: Message<TYPES, I>, transmit_type: TransmitType) {
         match (item.kind, transmit_type) {
             (MessageKind::Consensus(msg), TransmitType::Broadcast) => {
                 self.handle_broadcast_consensus_message(msg, item.sender)
@@ -642,21 +632,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     /// doesn't exist, or creates entry. Then returns a clone of the entry
     pub async fn create_or_obtain_chan_from_read(
         view_num: TYPES::Time,
-        channel_map: RwLockUpgradableReadGuard<
-            '_,
-            SendToTasks<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
-        >,
+        channel_map: RwLockUpgradableReadGuard<'_, SendToTasks<TYPES, I>>,
     ) -> ViewQueue<TYPES, I> {
         // check if we have the entry
         // if we don't, insert
         if let Some(vq) = channel_map.channel_map.get(&view_num) {
             vq.clone()
         } else {
-            let mut channel_map = RwLockUpgradableReadGuard::<
-                '_,
-                SendToTasks<TYPES, ValidatingProposal<TYPES, I::Leaf>, QuorumVote<TYPES, I::Leaf>>,
-            >::upgrade(channel_map)
-            .await;
+            let mut channel_map =
+                RwLockUpgradableReadGuard::<'_, SendToTasks<TYPES, I>>::upgrade(channel_map).await;
             let new_view_queue = ViewQueue::default();
             let vq = new_view_queue.clone();
             // NOTE: the read lock is held until all other read locks are DROPPED and
@@ -673,10 +657,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     /// doesn't exist, or creates entry. Then returns a clone of the entry
     pub async fn create_or_obtain_chan_from_write(
         view_num: TYPES::Time,
-        mut channel_map: RwLockWriteGuard<
-            '_,
-            SendToTasks<TYPES, QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>,
-        >,
+        mut channel_map: RwLockWriteGuard<'_, SendToTasks<TYPES, I>>,
     ) -> ViewQueue<TYPES, I> {
         channel_map.channel_map.entry(view_num).or_default().clone()
     }
@@ -1091,13 +1072,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     >(
         &self,
         recipient: TYPES::SignatureKey,
-        message: ConsensusMessage<TYPES, PROPOSAL, VOTE>,
+        message: ConsensusMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError> {
         let inner = self.inner.clone();
         debug!(?message, ?recipient, "send_direct_message");
         async_spawn_local(async move {
             inner
-                .networking
+                .quorum_exhcang
+                .network()
                 .direct_message(
                     Message {
                         sender: inner.public_key.clone(),
@@ -1115,7 +1097,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         VOTE: VoteType<TYPES>,
     >(
         &self,
-        message: ConsensusMessage<TYPES, PROPOSAL, VOTE>,
+        message: ConsensusMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError> {
         debug!(?message, "send_broadcast_message");
         self.inner
@@ -1134,7 +1116,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
 
     async fn send_da_broadcast(
         &self,
-        _message: ConsensusMessage<TYPES, CommitteeProposal<TYPES, I>, CommitteeVote<TYPES, I>>,
+        _message: ConsensusMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError> {
         // TODO: Should look like this code but it won't work due to only 1 Proposal and 1 Vote
         // type being associated with self.inner.networking.

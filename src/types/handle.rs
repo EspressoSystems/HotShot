@@ -404,7 +404,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, CommitteeProposal<TYPES, I>, DAVote<TYPES, I::Leaf>> {
+    ) -> ConsensusMessage<TYPES, I> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -423,7 +423,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVote<TYPES, I::Leaf>> {
+    ) -> ConsensusMessage<TYPES, I> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -442,7 +442,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVote<TYPES, I::Leaf>> {
+    ) -> ConsensusMessage<TYPES, I> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
@@ -460,7 +460,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         justify_qc: QuorumCertificate<TYPES, I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, QuorumProposal<TYPES, I>, QuorumVote<TYPES, I::Leaf>> {
+    ) -> ConsensusMessage<TYPES, I> {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };

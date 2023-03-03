@@ -30,6 +30,7 @@ use hotshot_types::{
 };
 use hotshot_utils::bincode::bincode_opts;
 
+use crate::NodeImplementation;
 use rand::Rng;
 use snafu::ResultExt;
 use std::{
@@ -292,11 +293,12 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
 
 impl<
         TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
-    for MemoryCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -452,22 +454,24 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, M, K> for Mem
 #[derive(Clone)]
 pub struct MemoryCommChannel<
     TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    MemoryNetwork<Message<TYPES, PROPOSAL, VOTE>, TYPES::SignatureKey>,
+    MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
     PhantomData<MEMBERSHIP>,
 );
 
 #[async_trait]
 impl<
         TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > CommunicationChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
-    for MemoryCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
@@ -483,7 +487,7 @@ impl<
 
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, PROPOSAL, VOTE>,
+        message: Message<TYPES, I>,
         election: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
         let recipients =
@@ -493,7 +497,7 @@ impl<
 
     async fn direct_message(
         &self,
-        message: Message<TYPES, PROPOSAL, VOTE>,
+        message: Message<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
@@ -502,7 +506,7 @@ impl<
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 
@@ -523,14 +527,16 @@ mod tests {
     use super::*;
     use crate::{
         demos::vdemo::{Addition, Subtraction, VDemoBlock, VDemoState, VDemoTransaction},
-        traits::election::static_committee::{StaticElectionConfig, StaticVoteToken},
+        traits::election::static_committee::{StaticElectionConfig, StaticVoteToken, GeneralStaticCommittee},
     };
 
+    use crate::traits::implementations::MemoryStorage;
     use async_compatibility_layer::logging::setup_logging;
     use hotshot_types::{
         data::ViewNumber,
         message::{DataMessage, MessageKind},
         traits::{
+            election::ConsensusExchange,
             signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
             state::ConsensusTime,
         },
@@ -540,7 +546,8 @@ mod tests {
         data::{ValidatingLeaf, ValidatingProposal},
         traits::state::ValidatingConsensus,
     };
-
+    use hotshot_types::traits::election::QuorumExchange;
+    
     #[derive(
         Copy,
         Clone,
@@ -555,6 +562,7 @@ mod tests {
         serde::Deserialize,
     )]
     struct Test {}
+    struct TestImpl {}
 
     // impl NetworkMsg for Test {}
 
@@ -570,6 +578,17 @@ mod tests {
         type StateType = VDemoState;
     }
 
+    type TestMembership = GeneralStaticCommittee<Test, TestLeaf, Ed25519Pub>;
+    type TestNetwork = MemoryCommChannel<Test, TestImpl, TestProposal, TestVote, TestMembership>;
+
+    impl NodeImplementation<Test> for TestImpl {
+        type QuorumExchange = QuorumExchange<Test, TestLeaf, TestMembership, TestNetwork, Message<Test, Self>>;
+        type ComitteeExchange = Self::QuorumExchange;
+        type Message = Message<Test, Self>;
+        type Leaf = TestLeaf;
+        type Storage = MemoryStorage<Test, TestLeaf>;
+    }
+
     type TestLeaf = ValidatingLeaf<Test>;
     type TestVote = QuorumVote<Test, TestLeaf>;
     type TestProposal = ValidatingProposal<Test, TestLeaf>;
@@ -579,10 +598,7 @@ mod tests {
     /// derive EQ on `VoteType<TYPES>` and thereby message
     /// we are only sending data messages, though so we compare key and
     /// data message
-    fn fake_message_eq(
-        message_1: Message<Test, TestProposal, TestVote>,
-        message_2: Message<Test, TestProposal, TestVote>,
-    ) {
+    fn fake_message_eq(message_1: Message<Test, TestImpl>, message_2: Message<Test, TestImpl>) {
         assert_eq!(message_1.sender, message_2.sender);
         if let MessageKind::Data(DataMessage::SubmitTransaction(d_1, _)) = message_1.kind {
             if let MessageKind::Data(DataMessage::SubmitTransaction(d_2, _)) = message_2.kind {
@@ -600,11 +616,7 @@ mod tests {
     }
 
     /// create a message
-    fn gen_messages(
-        num_messages: u64,
-        seed: u64,
-        pk: Ed25519Pub,
-    ) -> Vec<Message<Test, TestProposal, TestVote>> {
+    fn gen_messages(num_messages: u64, seed: u64, pk: Ed25519Pub) -> Vec<Message<Test, TestImpl>> {
         let mut messages = Vec::new();
         for i in 0..num_messages {
             let message = Message {
@@ -639,9 +651,8 @@ mod tests {
     #[instrument]
     async fn spawn_single() {
         setup_logging();
-        let group: Arc<
-            MasterMap<Message<Test, TestProposal, TestVote>, <Test as NodeType>::SignatureKey>,
-        > = MasterMap::new();
+        let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
+            MasterMap::new();
         trace!(?group);
         let pub_key = get_pubkey();
         let _network = MemoryNetwork::new(pub_key, NoMetrics::new(), group, Option::None);
@@ -656,9 +667,8 @@ mod tests {
     #[instrument]
     async fn spawn_double() {
         setup_logging();
-        let group: Arc<
-            MasterMap<Message<Test, TestProposal, TestVote>, <Test as NodeType>::SignatureKey>,
-        > = MasterMap::new();
+        let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
+            MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
         let _network_1 =
@@ -680,17 +690,15 @@ mod tests {
         // Create some dummy messages
 
         // Make and connect the networking instances
-        let group: Arc<
-            MasterMap<Message<Test, TestProposal, TestVote>, <Test as NodeType>::SignatureKey>,
-        > = MasterMap::new();
+        let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
+            MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
         let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
         let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
 
-        let first_messages: Vec<Message<Test, TestProposal, TestVote>> =
-            gen_messages(5, 100, pub_key_1);
+        let first_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);
 
         // Test 1 -> 2
         // Send messages
@@ -708,8 +716,7 @@ mod tests {
             fake_message_eq(sent_message, recv_message);
         }
 
-        let second_messages: Vec<Message<Test, TestProposal, TestVote>> =
-            gen_messages(5, 200, pub_key_2);
+        let second_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 200, pub_key_2);
 
         // Test 2 -> 1
         // Send messages
@@ -739,17 +746,15 @@ mod tests {
     async fn broadcast_queue() {
         setup_logging();
         // Make and connect the networking instances
-        let group: Arc<
-            MasterMap<Message<Test, TestProposal, TestVote>, <Test as NodeType>::SignatureKey>,
-        > = MasterMap::new();
+        let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
+            MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
         let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
         let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
 
-        let first_messages: Vec<Message<Test, TestProposal, TestVote>> =
-            gen_messages(5, 100, pub_key_1);
+        let first_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);
 
         // Test 1 -> 2
         // Send messages
@@ -770,8 +775,7 @@ mod tests {
             fake_message_eq(sent_message, recv_message);
         }
 
-        let second_messages: Vec<Message<Test, TestProposal, TestVote>> =
-            gen_messages(5, 200, pub_key_2);
+        let second_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 200, pub_key_2);
 
         // Test 2 -> 1
         // Send messages
@@ -804,7 +808,7 @@ mod tests {
         // setup_logging();
         //
         // let group: Arc<
-        //     MasterMap<Message<Test, TestProposal, TestVote>, <Test as NodeType>::SignatureKey>,
+        //     MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>,
         // > = MasterMap::new();
         // trace!(?group);
         // let pub_key_1 = get_pubkey();
@@ -813,7 +817,7 @@ mod tests {
         // let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
         //
         // // Create some dummy messages
-        // let messages: Vec<Message<Test, TestProposal, TestVote>> = gen_messages(5, 100, pub_key_1);
+        // let messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);
         //
         // // assert_eq!(network1.in_flight_message_count(), Some(0));
         // // assert_eq!(network2.in_flight_message_count(), Some(0));

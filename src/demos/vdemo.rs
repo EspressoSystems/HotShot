@@ -13,6 +13,7 @@ use crate::traits::{
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
+use hotshot_types::message::Message;
 use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -523,6 +524,7 @@ pub struct VDemoNode<NET, MEMBERSHIP>(PhantomData<NET>, PhantomData<MEMBERSHIP>)
 where
     NET: CommunicationChannel<
         VDemoTypes,
+        Message<VDemoTypes, VDemoNode<NET, MEMBERSHIP>>,
         ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         MEMBERSHIP,
@@ -533,6 +535,7 @@ impl<NET, MEMBERSHIP> VDemoNode<NET, MEMBERSHIP>
 where
     NET: CommunicationChannel<
         VDemoTypes,
+        Message<VDemoTypes, VDemoNode<NET, MEMBERSHIP>>,
         ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         MEMBERSHIP,
@@ -549,6 +552,7 @@ impl<NET, MEMBERSHIP> Debug for VDemoNode<NET, MEMBERSHIP>
 where
     NET: CommunicationChannel<
         VDemoTypes,
+        Message<VDemoTypes, VDemoNode<NET, MEMBERSHIP>>,
         ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         MEMBERSHIP,
@@ -566,6 +570,7 @@ impl<NET, MEMBERSHIP> Default for VDemoNode<NET, MEMBERSHIP>
 where
     NET: CommunicationChannel<
         VDemoTypes,
+        Message<VDemoTypes, VDemoNode<NET, MEMBERSHIP>>,
         ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         MEMBERSHIP,
@@ -581,6 +586,7 @@ impl<NET, MEMBERSHIP> NodeImplementation<VDemoTypes> for VDemoNode<NET, MEMBERSH
 where
     NET: CommunicationChannel<
         VDemoTypes,
+        Message<VDemoTypes, VDemoNode<NET, MEMBERSHIP>>,
         ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
         MEMBERSHIP,
@@ -589,9 +595,21 @@ where
 {
     type Leaf = ValidatingLeaf<VDemoTypes>;
     type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
-    type QuorumExchange = QuorumExchange<VDemoTypes, Self::Leaf, MEMBERSHIP, NET>;
+    type QuorumExchange = QuorumExchange<
+        VDemoTypes,
+        Self::Leaf,
+        MEMBERSHIP,
+        NET,
+        Message<VDemoTypes, VDemoNode<NET, MEMBERSHIP>>,
+    >;
     // TODO Remove this, it's unused validating consensus
-    type ComitteeExchange = QuorumExchange<VDemoTypes, Self::Leaf, MEMBERSHIP, NET>;
+    type ComitteeExchange = QuorumExchange<
+        VDemoTypes,
+        Self::Leaf,
+        MEMBERSHIP,
+        NET,
+        Message<VDemoTypes, VDemoNode<NET, MEMBERSHIP>>,
+    >;
 }
 
 /// Provides a random [`QuorumCertificate`]
