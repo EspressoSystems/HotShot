@@ -279,10 +279,7 @@ mod keywords {
 }
 
 impl Parse for CrossTestData {
-    // TODO make order not matter.
     fn parse(input: ParseStream) -> Result<Self> {
-
-
         let mut description = CrossTestDataBuilder::create_empty();
 
         while !description.is_ready() {
@@ -341,31 +338,22 @@ impl Parse for CrossTestData {
 #[proc_macro]
 pub fn cross_tests(input: TokenStream) -> TokenStream {
     let test_spec = parse_macro_input!(input as CrossTestData);
-    // panic!("{:#?}", test_spec.demo_types);
 
     let mut tokens = TokenStream::new();
 
     let consensus_types = test_spec.demo_types.elems.iter().filter_map(
         |expr| {
-            if let Expr::Tuple(tuple) = expr {
-
-                let first_ele = tuple.elems.iter().next().expect("First element of array must be the consensus type.");
-                if let Expr::Path(expr_path) = first_ele {
-                    if let Some(ident) = expr_path.path.get_ident() {
-                        return if ident == "SequencingConsensus" {
-                            Some(SupportedConsensusTypes::SequencingConsensus)
-                        } else if ident == "ValidatingConsensus" {
-                            Some(SupportedConsensusTypes::ValidatingConsensus)
-                        } else {
-                            panic!("Unsupported consensus type: {ident:?}")
-                        }
-                    } else {
-                        return None;
-                    }
-                }
-                return None;
-            };
-            return None;
+            let Expr::Tuple(tuple) = expr else { panic!("Expected Tuple! Got {:?}", expr) };
+            let first_ele = tuple.elems.iter().next().expect("First element of array must be the consensus type.");
+            let Expr::Path(expr_path) = first_ele else { panic!("Expected path expr, got {:?}", first_ele) };
+            let Some(ident) = expr_path.path.get_ident() else { panic!("Expected ident, got {:?}", expr_path.path) };
+            if ident == "SequencingConsensus" {
+                Some(SupportedConsensusTypes::SequencingConsensus)
+            } else if ident == "ValidatingConsensus" {
+                Some(SupportedConsensusTypes::ValidatingConsensus)
+            } else {
+                panic!("Unsupported consensus type: {ident:?}")
+            }
         }
         ).collect::<Vec<_>>();
 
@@ -434,6 +422,4 @@ pub fn cross_tests(input: TokenStream) -> TokenStream {
         }
     }
     tokens
-
-    // panic!("{:#?}", tokens.to_string());
 }
