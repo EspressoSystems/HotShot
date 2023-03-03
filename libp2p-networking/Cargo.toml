@@ -3,11 +3,7 @@ description = "Libp2p Networking Layer"
 name = "libp2p-networking"
 version = "0.1.0"
 edition = "2021"
-authors = [
-    "Nathan McCarty <nathan.mccarty@translucence.net>",
-    "Victor Koenders <vkoenders@espressosys.com>",
-    "Justin Restivo <justin@espressosys.com",
-]
+authors = ["Espresso Systems <hello@espressosys.com>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 

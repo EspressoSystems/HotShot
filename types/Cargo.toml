@@ -1,5 +1,5 @@
 [package]
-authors = ["Nathan McCarty <nathan.mccarty@translucence.net>"]
+authors = ["Espresso Systems <hello@espressosys.com>"]
 description = "Types and traits for the HotShot consesus module"
 edition = "2021"
 name = "hotshot-types"

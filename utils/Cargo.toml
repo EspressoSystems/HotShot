@@ -1,5 +1,5 @@
 [package]
-authors = ["Nathan McCarty <nathan.mccarty@translucence.net>"]
+authors = ["Espresso Systems <hello@espressosys.com>"]
 description = "Accompanying utilities used by hotshot."
 edition = "2021"
 name = "hotshot-utils"

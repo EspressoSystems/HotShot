@@ -3,7 +3,7 @@ name = "hotshot-testing"
 version = "0.1.0"
 edition = "2021"
 description = "Types and traits for the HotShot consesus module"
-authors = ["Victor Koenders <vkoenders@espressosys.com>"]
+authors = ["Espresso Systems <hello@espressosys.com>"]
 
 [features]
 default = []
