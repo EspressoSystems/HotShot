@@ -9,6 +9,7 @@ use crate::data::DAProposal;
 use crate::data::ProposalType;
 use crate::data::ValidatingProposal;
 use crate::message::ConsensusMessage;
+use crate::message::Message;
 use crate::traits::network::CommunicationChannel;
 use crate::traits::network::NetworkMsg;
 use crate::vote::VoteAccumulator;
@@ -19,7 +20,6 @@ use commit::{Commitment, Committable};
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
 use nll::nll_todo::nll_todo;
-use crate::message::Message;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
@@ -192,7 +192,20 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
     type Networking: CommunicationChannel<TYPES, M, Self::Proposal, Self::Vote, Self::Membership>;
 
     fn network(&self) -> &Self::Networking;
+    fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
+        self.membership().get_leader(view_number)
+    }
+    fn is_leader(&self, view_number: TYPES::Time) -> bool {
+        &self.get_leader(view_number) == self.public_key()
+    }
+    fn threshold(&self) -> NonZeroU64 {
+        self.membership().threshold()
+    }
 
+    fn make_vote_token(
+        &self,
+        view_number: TYPES::Time,
+    ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError>;
     /// Validate a QC.
     fn is_valid_cert<C: Committable>(&self, qc: &Self::Certificate, commit: Commitment<C>) -> bool;
 
@@ -219,6 +232,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, C>, Self::Certificate>;
 
     fn membership(&self) -> Self::Membership;
+    fn public_key(&self) -> &TYPES::SignatureKey;
 
     // TODO (DA): Move vote related functions back to ConsensusExchange trait once it is implemented.
     // fn is_valid_dac(
@@ -411,6 +425,7 @@ pub struct CommitteeExchange<
     M: NetworkMsg,
 > {
     network: NETWORK,
+    membership: MEMBERSHIP,
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP, M)>,
@@ -487,6 +502,13 @@ impl<
     fn network(&self) -> &NETWORK {
         &self.network
     }
+    fn make_vote_token(
+        &self,
+        view_number: TYPES::Time,
+    ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError> {
+        self.membership
+            .make_vote_token(view_number, &self.private_key)
+    }
 
     /// Validate a QC.
     fn is_valid_cert<C: Committable>(&self, qc: &Self::Certificate, commit: Commitment<C>) -> bool {
@@ -520,6 +542,9 @@ impl<
     }
     fn membership(&self) -> Self::Membership {
         nll_todo()
+    }
+    fn public_key(&self) -> &TYPES::SignatureKey {
+        &self.public_key
     }
 }
 
@@ -610,6 +635,7 @@ pub struct QuorumExchange<
     M: NetworkMsg,
 > {
     network: NETWORK,
+    membership: MEMBERSHIP,
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     _pd: PhantomData<(LEAF, MEMBERSHIP, M)>,
@@ -772,6 +798,15 @@ impl<
     fn network(&self) -> &NETWORK {
         &self.network
     }
+
+    fn make_vote_token(
+        &self,
+        view_number: TYPES::Time,
+    ) -> std::result::Result<std::option::Option<TYPES::VoteTokenType>, ElectionError> {
+        self.membership
+            .make_vote_token(view_number, &self.private_key)
+    }
+
     /// Validate a QC.
     fn is_valid_cert<C: Committable>(&self, qc: &Self::Certificate, commit: Commitment<C>) -> bool {
         nll_todo()
@@ -804,6 +839,9 @@ impl<
     }
     fn membership(&self) -> Self::Membership {
         nll_todo()
+    }
+    fn public_key(&self) -> &TYPES::SignatureKey {
+        &self.public_key
     }
 }
 

@@ -16,6 +16,7 @@ use super::{
     storage::TestableStorage,
     State,
 };
+use crate::message::Message;
 use crate::{
     data::{LeafType, ProposalType},
     traits::{
@@ -29,7 +30,6 @@ use commit::Commitment;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 use std::hash::Hash;
-use crate::message::Message;
 
 /// Node implementation aggregate trait
 ///

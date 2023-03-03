@@ -272,7 +272,11 @@ where
 
         // Wait for DA votes or Timeout
         if let Some(cert) = self
-            .wait_for_votes(self.cur_view, self.api.threshold(), block_commitment)
+            .wait_for_votes(
+                self.cur_view,
+                self.da_exchange.threshold(),
+                block_commitment,
+            )
             .await
         {
             return Some((cert, block, parent_leaf));
@@ -397,6 +401,9 @@ pub struct ConsensusNextLeader<
     #[allow(clippy::type_complexity)]
     // TODO (da): Change this chan to have CommitmentProposal and QuorumVote.
     pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
+
+    pub quorum_exchange: I::QuorumExchange,
+
     _pd: PhantomData<I>,
 }
 impl<
@@ -415,7 +422,7 @@ impl<
 
         let _accumulator = VoteAccumulator::<TYPES, SequencingLeaf<TYPES>> {
             vote_outcomes: HashMap::new(),
-            threshold: self.api.threshold(),
+            threshold: self.quorum_exchange.threshold(),
         };
 
         let lock = self.vote_collection_chan.lock().await;

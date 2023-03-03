@@ -238,8 +238,8 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             let _result = networking
                 .inject_consensus_info((
                     (*cur_view),
-                    c_api.is_leader(cur_view).await,
-                    c_api.is_leader(cur_view + 1).await,
+                    c_api.inner.quorum_exchange.is_leader(cur_view),
+                    c_api.inner.quorum_exchange.is_leader(cur_view + 1),
                 ))
                 .await;
 
@@ -264,7 +264,7 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                 .collect();
 
             // logic to look ahead
-            if !c_api.is_leader(view_to_lookup).await {
+            if !c_api.inner.quorum_exchange.is_leader(view_to_lookup) {
                 let is_done = Arc::new(AtomicBool::new(false));
                 completion_map.insert(view_to_lookup, is_done.clone());
                 let c_api = c_api.clone();
@@ -272,7 +272,7 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                 async_spawn_local(async move {
                     info!("starting lookup for {:?}", view_to_lookup);
                     let _result = networking
-                        .lookup_node(c_api.get_leader(view_to_lookup).await)
+                        .lookup_node(c_api.inner.quorum_exchange.get_leader(view_to_lookup))
                         .await;
                     info!("finished lookup for {:?}", view_to_lookup);
                 });

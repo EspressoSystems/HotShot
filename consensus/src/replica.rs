@@ -197,7 +197,7 @@ where
                         }
 
                         let leaf_commitment = leaf.commit();
-                        let vote_token = self.api.make_vote_token(self.cur_view);
+                        let vote_token = self.exchange.make_vote_token(self.cur_view);
 
                         match vote_token {
                             Err(e) => {
@@ -220,7 +220,7 @@ where
                                     vote_token,
                                 );
 
-                                let next_leader = self.api.get_leader(self.cur_view + 1).await;
+                                let next_leader = self.exchange.get_leader(self.cur_view + 1);
 
                                 info!("Sending vote to next leader {:?}", message);
                                 if self
@@ -241,12 +241,12 @@ where
                     ProcessedConsensusMessage::InternalTrigger(trigger) => {
                         match trigger {
                             InternalTrigger::Timeout(_) => {
-                                let next_leader = self.api.get_leader(self.cur_view + 1).await;
+                                let next_leader = self.exchange.get_leader(self.cur_view + 1);
 
                                 consensus.metrics.number_of_timeouts.add(1);
 
                                 let signature = self.exchange.sign_timeout_vote(self.cur_view);
-                                let vote_token = self.api.make_vote_token(self.cur_view);
+                                let vote_token = self.exchange.make_vote_token(self.cur_view);
 
                                 match vote_token {
                                     Err(e) => {
@@ -336,7 +336,7 @@ where
     pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
         info!("Replica task started!");
         let consensus = self.consensus.upgradable_read().await;
-        let view_leader_key = self.api.get_leader(self.cur_view).await;
+        let view_leader_key = self.exchange.get_leader(self.cur_view);
 
         let (consensus, maybe_leaf) = self.find_valid_msg(view_leader_key, consensus).await;
 

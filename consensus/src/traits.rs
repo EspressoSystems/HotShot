@@ -42,9 +42,6 @@ pub trait ConsensusApi<
     /// Total number of nodes in the network. Also known as `n`.
     fn total_nodes(&self) -> NonZeroUsize;
 
-    /// The amount of stake required to reach a decision. See implementation of `Membership` for more details.
-    fn threshold(&self) -> NonZeroU64;
-
     /// The minimum amount of time a leader has to wait before sending a propose
     fn propose_min_round_time(&self) -> Duration;
 
@@ -64,16 +61,6 @@ pub trait ConsensusApi<
 
     /// Returns the minimum transactions that must be in a block
     fn min_transactions(&self) -> usize;
-
-    /// Generates and encodes a vote token
-    #[allow(clippy::type_complexity)]
-    fn make_vote_token(
-        &self,
-        view_number: TYPES::Time,
-    ) -> Result<Option<TYPES::VoteTokenType>, ElectionError>;
-
-    /// Returns the `I::SignatureKey` of the leader for the given round and stage
-    async fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
 
     /// Returns `true` if hotstuff should start the given round. A round can also be started manually by sending `NewView` to the leader.
     ///
@@ -106,11 +93,6 @@ pub trait ConsensusApi<
     fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey;
 
     // Utility functions
-
-    /// returns `true` if the current node is a leader for the given `view_number`
-    async fn is_leader(&self, view_number: TYPES::Time) -> bool {
-        &self.get_leader(view_number).await == self.public_key()
-    }
 
     /// notifies client of an error
     async fn send_view_error(&self, view_number: TYPES::Time, error: Arc<HotShotError<TYPES>>) {

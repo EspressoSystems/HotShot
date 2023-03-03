@@ -7,6 +7,7 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use commit::Committable;
+use hotshot_types::message::Message;
 use hotshot_types::traits::election::{ConsensusExchange, QuorumExchangeType};
 use hotshot_types::traits::node_implementation::{
     NodeImplementation, QuorumProposal, QuorumVoteType,
@@ -21,7 +22,6 @@ use hotshot_types::{
     },
     vote::QuorumVote,
 };
-use hotshot_types::message::Message;
 use std::marker::PhantomData;
 use std::{sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
@@ -55,8 +55,12 @@ impl<
         I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
     > ValidatingLeader<A, TYPES, I>
 where
-    I::QuorumExchange: ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Proposal = ValidatingProposal<TYPES, I::Leaf>>
-        + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::QuorumExchange: ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Proposal = ValidatingProposal<TYPES, I::Leaf>,
+        > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Run one view of the leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Validating ValidatingLeader Task", level = "error")]

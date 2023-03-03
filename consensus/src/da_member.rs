@@ -9,6 +9,7 @@ use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use commit::Committable;
 use either::Left;
+use hotshot_types::message::Message;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{DAProposal, SequencingLeaf},
@@ -25,7 +26,6 @@ use hotshot_types::{
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
-use hotshot_types::message::Message;
 
 /// This view's DA committee member.
 #[derive(Debug, Clone)]
@@ -135,7 +135,7 @@ where
                             continue;
                         }
 
-                        let vote_token = self.api.make_vote_token(self.cur_view);
+                        let vote_token = self.exchange.make_vote_token(self.cur_view);
                         match vote_token {
                             Err(e) => {
                                 error!(
@@ -201,7 +201,7 @@ where
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "DA Member Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
         info!("DA Committee Member task started!");
-        let view_leader_key = self.api.get_leader(self.cur_view).await;
+        let view_leader_key = self.exchange.get_leader(self.cur_view);
 
         let maybe_leaf = self.find_valid_msg(view_leader_key).await;
 

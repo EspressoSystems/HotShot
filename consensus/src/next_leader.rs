@@ -86,7 +86,7 @@ where
 
         let mut accumlator = VoteAccumulator {
             vote_outcomes: HashMap::new(),
-            threshold: self.api.threshold(),
+            threshold: self.exchange.threshold(),
         };
 
         let lock = self.vote_collection_chan.lock().await;

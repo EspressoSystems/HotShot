@@ -11,6 +11,7 @@ use bincode::Options;
 use commit::Committable;
 use either::{Left, Right};
 use hotshot_types::data::DAProposal;
+use hotshot_types::message::Message;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::node_implementation::NodeImplementation;
@@ -27,7 +28,6 @@ use hotshot_types::{
     },
     vote::QuorumVote,
 };
-use hotshot_types::message::Message;
 use hotshot_utils::bincode::bincode_opts;
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -143,7 +143,7 @@ where
                         }
 
                         let mut valid_leaf = None;
-                        let vote_token = self.api.make_vote_token(self.cur_view);
+                        let vote_token = self.quorum_exchange.make_vote_token(self.cur_view);
                         match vote_token {
                             Err(e) => {
                                 error!(
@@ -275,7 +275,8 @@ where
                                 }
 
                                 info!("Sending vote to next leader {:?}", message);
-                                let next_leader = self.api.get_leader(self.cur_view + 1).await;
+                                let next_leader =
+                                    self.quorum_exchange.get_leader(self.cur_view + 1);
                                 if self
                                     .api
                                     .send_direct_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(next_leader, message)
@@ -294,11 +295,13 @@ where
                     ProcessedConsensusMessage::InternalTrigger(trigger) => {
                         match trigger {
                             InternalTrigger::Timeout(_) => {
-                                let next_leader = self.api.get_leader(self.cur_view + 1).await;
+                                let next_leader =
+                                    self.quorum_exchange.get_leader(self.cur_view + 1);
 
                                 consensus.metrics.number_of_timeouts.add(1);
 
-                                let vote_token = self.api.make_vote_token(self.cur_view);
+                                let vote_token =
+                                    self.quorum_exchange.make_vote_token(self.cur_view);
 
                                 match vote_token {
                                     Err(e) => {
@@ -379,7 +382,7 @@ where
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing Replica Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
         info!("Sequencing replica task started!");
-        let view_leader_key = self.api.get_leader(self.cur_view).await;
+        let view_leader_key = self.quorum_exchange.get_leader(self.cur_view);
         let consensus = self.consensus.upgradable_read().await;
 
         let (consensus, maybe_leaf) = self.find_valid_msg(view_leader_key, consensus).await;

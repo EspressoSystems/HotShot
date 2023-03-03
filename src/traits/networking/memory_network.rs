@@ -527,11 +527,14 @@ mod tests {
     use super::*;
     use crate::{
         demos::vdemo::{Addition, Subtraction, VDemoBlock, VDemoState, VDemoTransaction},
-        traits::election::static_committee::{StaticElectionConfig, StaticVoteToken, GeneralStaticCommittee},
+        traits::election::static_committee::{
+            GeneralStaticCommittee, StaticElectionConfig, StaticVoteToken,
+        },
     };
 
     use crate::traits::implementations::MemoryStorage;
     use async_compatibility_layer::logging::setup_logging;
+    use hotshot_types::traits::election::QuorumExchange;
     use hotshot_types::{
         data::ViewNumber,
         message::{DataMessage, MessageKind},
@@ -546,8 +549,7 @@ mod tests {
         data::{ValidatingLeaf, ValidatingProposal},
         traits::state::ValidatingConsensus,
     };
-    use hotshot_types::traits::election::QuorumExchange;
-    
+
     #[derive(
         Copy,
         Clone,
@@ -583,7 +585,8 @@ mod tests {
     type TestNetwork = MemoryCommChannel<Test, TestImpl, TestProposal, TestVote, TestMembership>;
 
     impl NodeImplementation<Test> for TestImpl {
-        type QuorumExchange = QuorumExchange<Test, TestLeaf, TestMembership, TestNetwork, Message<Test, Self>>;
+        type QuorumExchange =
+            QuorumExchange<Test, TestLeaf, TestMembership, TestNetwork, Message<Test, Self>>;
         type ComitteeExchange = Self::QuorumExchange;
         type Leaf = TestLeaf;
         type Storage = MemoryStorage<Test, TestLeaf>;
