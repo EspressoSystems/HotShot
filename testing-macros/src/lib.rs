@@ -511,7 +511,7 @@ pub fn cross_tests(input: TokenStream) -> TokenStream {
 /// - `Slow`: whether or not this set of tests are hidden behind the `slow` feature flag
 /// Example usage:
 /// ```
-/// hotshot_testing_macros::cross_all_tests!(
+/// hotshot_testing_macros::cross_all_types!(
 ///     TestName: example_test,
 ///     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder::default(),
 ///     Slow: false,
