@@ -1,21 +1,15 @@
 extern crate proc_macro;
-use std::fmt::Display;
 
-use hotshot_testing::test_description::GeneralTestDescriptionBuilder;
-use nll::nll_todo::nll_todo;
 use proc_macro::TokenStream;
-use proc_macro2::TokenTree;
+use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::parse::Result;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input,
-    punctuated::Punctuated,
-    Attribute, DeriveInput, Expr, ExprArray, ExprPath, ExprStruct, ExprTuple, Ident, LitBool, Path,
-    Token, Type, TypePath, Visibility,
+    parse_macro_input, Expr, ExprArray, ExprPath, ExprTuple, Ident, LitBool, Token,
 };
 
-// TODO remove
+/// Supported consensus types by macro
 #[derive(Debug, Clone)]
 enum SupportedConsensusTypes {
     ValidatingConsensus,
@@ -48,44 +42,56 @@ impl CrossTestDataBuilder {
     }
 }
 
+/// requisite data to generate a single test
+#[derive(derive_builder::Builder, Debug, Clone)]
 struct TestData {
     time_type: ExprPath,
     demo_types: ExprTuple,
     signature_key_type: ExprPath,
     comm_channel: ExprPath,
     storage: ExprPath,
-    // vote_type: ExprTuple,
     test_name: Ident,
     test_description: Expr,
     slow: LitBool,
 }
 
-impl TestData {
-    fn new(
-        time_type: ExprPath,
-        demo_types: ExprTuple,
-        signature_key_type: ExprPath,
-        comm_channel: ExprPath,
-        storage: ExprPath,
-        // vote_type: ExprTuple,
-        test_name: Ident,
-        test_description: Expr,
-        slow: LitBool,
-        ) -> Self {
-        Self {
-            time_type,
-            demo_types,
-            signature_key_type,
-            comm_channel,
-            storage,
-            // vote_type,
-            test_name,
-            test_description,
-            slow,
-        }
-    }
+/// trait make a string lower and snake case
+trait ToLowerSnakeStr {
+    /// make a lower and snake case string
+    fn to_lower_snake_str(&self) -> String;
+}
 
-    fn generate_test(&self) -> TokenStream {
+impl ToLowerSnakeStr for ExprPath {
+    fn to_lower_snake_str(&self) -> String {
+        self.path
+            .segments
+            .iter()
+            .fold("".to_string(), |mut acc, s| {
+                acc.push_str(&s.ident.to_string().to_lowercase());
+                acc.push('_');
+                acc
+            })
+            .to_lowercase()
+    }
+}
+
+impl ToLowerSnakeStr for ExprTuple {
+    fn to_lower_snake_str(&self) -> String {
+        self.elems
+            .iter()
+            .map(|x| {
+                let Expr::Path(expr_path) = x else { panic!("Expected path expr, got {:?}", x) };
+                expr_path
+            })
+            .fold("".to_string(), |mut acc, s| {
+                acc.push_str(&s.to_lower_snake_str());
+                acc
+            })
+    }
+}
+
+impl TestData {
+    fn generate_test(&self) -> TokenStream2 {
         let TestData {
             time_type,
             demo_types,
@@ -99,74 +105,31 @@ impl TestData {
 
         let (supported_consensus_type, demo_state) = {
             let mut tuple = demo_types.elems.iter();
-            let first_ele = tuple.next().expect("First element of tuple must be the consensus type.");
+            let first_ele = tuple
+                .next()
+                .expect("First element of tuple must be the consensus type.");
 
             let Expr::Path(expr_path) = first_ele else { panic!("Expected path expr, got {:?}", first_ele) };
             let Some(ident) = expr_path.path.get_ident() else { panic!("Expected ident, got {:?}", expr_path.path) };
-            let consensus_type =
-                if ident == "SequencingConsensus" {
-                    SupportedConsensusTypes::SequencingConsensus
-                } else if ident == "ValidatingConsensus" {
-                    SupportedConsensusTypes::ValidatingConsensus
-                } else {
-                    panic!("Unsupported consensus type: {ident:?}")
-                };
+            let consensus_type = if ident == "SequencingConsensus" {
+                SupportedConsensusTypes::SequencingConsensus
+            } else if ident == "ValidatingConsensus" {
+                SupportedConsensusTypes::ValidatingConsensus
+            } else {
+                panic!("Unsupported consensus type: {ident:?}")
+            };
 
-            let demo_state = tuple.next().expect("Seecond element of tuple must state type");
+            let demo_state = tuple
+                .next()
+                .expect("Seecond element of tuple must state type");
             (consensus_type, demo_state)
         };
 
-        let consensus_str = format!("{supported_consensus_type:?}");
-
-        let time_str = time_type
-            .path
-            .segments
-            .iter()
-            .fold("".to_string(), |mut acc, s| {
-                acc.push_str(&s.ident.to_string().to_lowercase());
-                acc
-            })
-        .to_lowercase();
-
-        let demo_str =
-            demo_types
-            .elems
-            .iter()
-            .skip(1) // skip first element, which we've already processed
-            .filter_map(|x| match x {
-                Expr::Path(p) => Some(p),
-                _ => None,
-            })
-        .fold("".to_string(), |mut acc, s| {
-            acc.push_str(&s.path.segments.iter().fold("".to_string(), |mut acc, s| {
-                acc.push_str(&s.ident.to_string().to_lowercase());
-                acc
-            }));
-            acc
-        })
-        .to_lowercase();
-
-        let signature_key_str = signature_key_type
-            .path
-            .segments
-            .iter()
-            .fold("".to_string(), |mut acc, s| {
-                acc.push_str(&s.ident.to_string().to_lowercase());
-                acc
-            })
-        .to_lowercase();
-
-        let mod_name = format_ident!(
-            "{}_{}_{}_{}",
-            consensus_str,
-            time_str,
-            demo_str,
-            signature_key_str,
-        );
-
         let slow_attribute = if slow.value() {
             quote! { #[cfg(feature = "slow-tests")] }
-        } else { quote! {} };
+        } else {
+            quote! {}
+        };
 
         let (consensus_type, leaf, vote, proposal) = match supported_consensus_type {
             SupportedConsensusTypes::SequencingConsensus => {
@@ -181,7 +144,7 @@ impl TestData {
                     hotshot_types::data::DAProposal<TestTypes>
                 };
                 (consensus_type, leaf, vote, proposal)
-            },
+            }
             SupportedConsensusTypes::ValidatingConsensus => {
                 let consensus_type = quote! { hotshot_types::traits::state::ValidatingConsensus };
                 let leaf = quote! {
@@ -194,13 +157,11 @@ impl TestData {
                     hotshot_types::data::ValidatingProposal<TestTypes, #leaf>
                 };
                 (consensus_type, leaf, vote, proposal)
-            },
+            }
         };
 
         quote! {
 
-            pub mod #mod_name {
-                use super::*;
                 #[derive(
                     Copy,
                     Clone,
@@ -269,15 +230,12 @@ impl TestData {
                             #storage<TestTypes, #leaf>,
                             CommitteeMembership,
                         >>().execute().await.unwrap();
-
                     }
-            }
-
         }
-        .into()
     }
 }
 
+/// macro specific custom keywords
 mod keywords {
     syn::custom_keyword!(Time);
     syn::custom_keyword!(DemoType);
@@ -300,8 +258,7 @@ impl Parse for CrossTestData {
                 input.parse::<Token![:]>()?;
                 let time_types = input.parse::<ExprArray>()?;
                 description.time_types(time_types);
-            }
-            else if input.peek(keywords::DemoType) {
+            } else if input.peek(keywords::DemoType) {
                 let _ = input.parse::<keywords::DemoType>()?;
                 input.parse::<Token![:]>()?;
                 let demo_types = input.parse::<ExprArray>()?;
@@ -343,10 +300,43 @@ impl Parse for CrossTestData {
                 input.parse::<Token![,]>()?;
             }
         }
-        description.build().map_err(|e| syn::Error::new(proc_macro2::Span::call_site(), format!("{}", e)))
+        description
+            .build()
+            .map_err(|e| syn::Error::new(proc_macro2::Span::call_site(), format!("{}", e)))
     }
 }
 
+/// Generate a cartesian product of tests across all types
+/// Arguments:
+/// - `DemoType: [(ConsensusTypeName1, DemoStateType1), (ConsensusTypeName2, DemoStateType2) ...]` - a list of tuples of cusonsensus state + `State` implementations
+/// - `SignatureKey: [SignatureKey1, SignatureKey2, ...]` - a list of `SignatureKey` implementations
+/// - `CommChannel: [CommChannel1, CommChannel2, ..]` - a list of `CommunicationChannel` implementations
+/// - `Time: [ Time1, Time2, ...]` - a list of `ConsensusTime` implementations]`
+/// - `TestName: example_test` - the name of the test
+/// - `TestDescription: { some_test_description_expression }` - the `TestDescription` to use
+/// - `Storage: Storage1, Storage2, ...` - a list of `Storage` implementations to use
+/// - `Slow`: whether or not this set of tests are hidden behind the `slow` feature flag
+/// Example usage:
+/// ```
+///
+/// use hotshot_testing_macros::cross_tests;
+/// use hotshot_types::data::ViewNumber;
+/// use hotshot::{demos::sdemo::SDemoState, traits::implementations::Libp2pCommChannel};
+/// use hotshot::demos::vdemo::VDemoState;
+/// use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
+/// use hotshot::traits::implementations::{MemoryCommChannel, MemoryStorage, CentralizedCommChannel};
+/// use hotshot_testing::test_description::GeneralTestDescriptionBuilder;
+/// cross_tests!(
+///     DemoType: [ (SequencingConsensus, SDemoState), (ValidatingConsensus, VDemoState) ],
+///     SignatureKey: [ Ed25519Pub ],
+///     CommChannel: [ MemoryCommChannel, Libp2pCommChannel, CentralizedCommChannel ],
+///     Time: [ ViewNumber ],
+///     TestName: example_test,
+///     TestDescription: GeneralTestDescriptionBuilder::default(),
+///     Storage: [ MemoryStorage ],
+///     Slow: false,
+/// );
+/// ```
 #[proc_macro]
 pub fn cross_tests(input: TokenStream) -> TokenStream {
     let test_spec = parse_macro_input!(input as CrossTestData);
@@ -357,53 +347,100 @@ pub fn cross_tests(input: TokenStream) -> TokenStream {
         .demo_types
         .elems
         .iter()
-        .filter_map(|t| {
+        .map(|t| {
             let Expr::Tuple(p) = t else { panic!("Expected Tuple! Got {:?}", t) };
-            Some(p)
-        }).collect::<Vec<_>>();
+            p
+        })
+        .collect::<Vec<_>>();
 
-    let comm_channels = test_spec.comm_channels.elems.iter()
-        .filter_map(|t| {
-            let Expr::Path(p) = t else { panic!("Expected Path for Comm Channel! Got {:?}", t) };
-            Some(p)
-        });
+    let comm_channels = test_spec.comm_channels.elems.iter().map(|t| {
+        let Expr::Path(p) = t else { panic!("Expected Path for Comm Channel! Got {:?}", t) };
+        p
+    });
 
-    let storages = test_spec.storages.elems.iter().filter_map(|t|{
+    let storages = test_spec.storages.elems.iter().map(|t| {
         let Expr::Path(p) = t else { panic!("Expected Path for Storage! Got {:?}", t) };
-        Some(p)
+        p
     });
 
-    let time_types = test_spec.time_types.elems.iter().filter_map(|t|{
+    let time_types = test_spec.time_types.elems.iter().map(|t| {
         let Expr::Path(p) = t else { panic!("Expected Path for Time Type! Got {:?}", t) };
-        Some(p)
+        p
     });
 
-    let signature_key_types = test_spec.signature_key_types.elems.iter().filter_map(|t|{
+    let signature_key_types = test_spec.signature_key_types.elems.iter().map(|t| {
         let Expr::Path(p) = t else { panic!("Expected Path for Signature Key Type! Got {:?}", t) };
-        Some(p)
+        p
     });
 
     for demo_type in demo_types.clone() {
+        let mut demo_mod = quote! {};
         for comm_channel in comm_channels.clone() {
+            let mut comm_mod = quote! {};
             for storage in storages.clone() {
+                let mut storage_mod = quote! {};
                 for time_type in time_types.clone() {
+                    let mut time_mod = quote! {};
                     for signature_key_type in signature_key_types.clone() {
-                        let test_data = TestData::new(
-                            time_type.clone(),
-                            demo_type.clone().clone(),
-                            signature_key_type.clone(),
-                            comm_channel.clone(),
-                            storage.clone(),
-                            test_spec.test_name.clone(),
-                            test_spec.test_description.clone(),
-                            test_spec.slow.clone(),
-                            );
+                        let test_data = TestDataBuilder::create_empty()
+                            .time_type(time_type.clone())
+                            .demo_types(demo_type.clone())
+                            .signature_key_type(signature_key_type.clone())
+                            .comm_channel(comm_channel.clone())
+                            .storage(storage.clone())
+                            .test_name(test_spec.test_name.clone())
+                            .test_description(test_spec.test_description.clone())
+                            .slow(test_spec.slow.clone())
+                            .build()
+                            .unwrap();
                         let test = test_data.generate_test();
-                        tokens.extend(test);
+
+                        let signature_key_str =
+                            format_ident!("{}", signature_key_type.to_lower_snake_str());
+                        let sig_result = quote! {
+                            pub mod #signature_key_str {
+                                use super::*;
+                                #test
+                            }
+                        };
+                        time_mod.extend(sig_result);
                     }
+
+                    let time_str = format_ident!("{}", time_type.to_lower_snake_str());
+                    let time_result = quote! {
+                        pub mod #time_str {
+                            use super::*;
+                            #time_mod
+                        }
+                    };
+                    storage_mod.extend(time_result);
                 }
+                let storage_str = format_ident!("{}", storage.to_lower_snake_str());
+                let storage_result = quote! {
+                    pub mod #storage_str {
+                        use super::*;
+                        #storage_mod
+                    }
+                };
+                comm_mod.extend(storage_result);
             }
+            let comm_channel_str = format_ident!("{}", comm_channel.to_lower_snake_str());
+            let comm_result = quote! {
+                pub mod #comm_channel_str {
+                    use super::*;
+                    #comm_mod
+                }
+            };
+            demo_mod.extend(comm_result);
         }
+        let demo_str = format_ident!("{}", demo_type.to_lower_snake_str());
+        let demo_result = quote! {
+            pub mod #demo_str {
+                use super::*;
+                #demo_mod
+            }
+        };
+        tokens.extend(Into::<TokenStream>::into(demo_result));
     }
     tokens
 }
