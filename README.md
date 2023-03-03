@@ -222,7 +222,30 @@ rust_tools.setup(
 )
 ```
 
+# Debugging
+
+We support the [CodeLLDB Debugger](https://github.com/vadimcn/vscode-lldb).
+
+## Neovim
+
+Install [`dap`](https://github.com/mfussenegger/nvim-dap) and [`rust-tools`](https://github.com/simrat39/rust-tools.nvim). Install the CodeLLDB debugger listed above.
+Follow the instructions [here](https://github.com/mfussenegger/nvim-dap/discussions/671#discussioncomment-4286738) to configure the adapter. To add our project-local configurations, run:
+
+```
+lua require('dap.ext.vscode').load_launchjs(nil, { ["codelldb"] = {"rust"} })
+```
+
+Finally, place a breakpoint and run `:DapContinue` to begin debugging.
+
+NOTE: Do NOT configure dap at all with rust-tools. Do it manually.
+
+[Example configuration](https://github.com/DieracDelta/vimconfig/blob/master/modules/lsp.nix#L280).
+
+## Vscode
+
+Install the extension and load the `launch.json` file. Then run the desired test target.
+
 # License
 
 ## Copyright
-`HotShot` was developed by Espresso Systems. While we plan to adopt an open source license, we have not yet selected one. As such, all rights are reserved for the time being. Please reach out to us if you have thoughts on licensing.  
+`HotShot` was developed by Espresso Systems. While we plan to adopt an open source license, we have not yet selected one. As such, all rights are reserved for the time being. Please reach out to us if you have thoughts on licensing.

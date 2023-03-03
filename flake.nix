@@ -169,6 +169,7 @@
           [
             curl.out
             cargo-expand
+            cargo-workspaces
             cargo-audit
             nixpkgs-fmt
             git-chglog
