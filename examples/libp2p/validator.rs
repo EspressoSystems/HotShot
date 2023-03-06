@@ -9,7 +9,7 @@ use crate::{
 
 pub mod types;
 
-#[path = "../infra2/mod.rs"]
+#[path = "../infra/mod.rs"]
 pub mod infra;
 
 #[cfg_attr(

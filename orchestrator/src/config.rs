@@ -1,5 +1,5 @@
 use hotshot_types::{ExecutionType, HotShotConfig};
-use std::net::{SocketAddr, Ipv4Addr};
+use std::net::{Ipv4Addr, SocketAddr};
 use std::{net::IpAddr, num::NonZeroUsize, time::Duration};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]

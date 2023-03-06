@@ -1,4 +1,3 @@
-#![allow(unused)]
 pub mod types;
 
 use clap::Parser;
@@ -12,7 +11,7 @@ use crate::{
     types::{ThisNetwork, ThisNode},
 };
 
-#[path = "../infra2/mod.rs"]
+#[path = "../infra/mod.rs"]
 pub mod infra;
 
 #[cfg_attr(
