@@ -66,6 +66,59 @@ pub struct GeneralTestDescriptionBuilder {
     pub propose_max_round_time: Duration,
 }
 
+impl Default for GeneralTestDescriptionBuilder {
+    /// by default, just a single round
+    fn default() -> Self {
+        Self {
+            total_nodes: 5,
+            start_nodes: 5,
+            num_succeeds: 1,
+            failure_threshold: 0,
+            txn_ids: Right(1),
+            next_view_timeout: 10000,
+            timeout_ratio: (11, 10),
+            round_start_delay: 1,
+            start_delay: 1,
+            ids_to_shut_down: Vec::new(),
+            network_reliability: None,
+            num_bootstrap_nodes: 5,
+            propose_min_round_time: Duration::new(0, 0),
+            propose_max_round_time: Duration::new(5, 0),
+            max_transactions: NonZeroUsize::new(999999).unwrap(),
+            min_transactions: 0,
+        }
+    }
+}
+
+impl GeneralTestDescriptionBuilder {
+    /// Default constructor for multiple rounds.
+    pub fn default_multiple_rounds() -> Self {
+        GeneralTestDescriptionBuilder {
+            round_start_delay: 25,
+            total_nodes: 10,
+            start_nodes: 10,
+            num_succeeds: 20,
+            start_delay: 120000,
+            ..GeneralTestDescriptionBuilder::default()
+        }
+    }
+
+    /// Default constructor for stress testing.
+    pub fn default_stress() -> Self {
+        GeneralTestDescriptionBuilder {
+            round_start_delay: 25,
+            num_bootstrap_nodes: 15,
+            timeout_ratio: (1, 1),
+            total_nodes: 100,
+            start_nodes: 100,
+            num_succeeds: 5,
+            next_view_timeout: 2000,
+            start_delay: 20000,
+            ..GeneralTestDescriptionBuilder::default()
+        }
+    }
+}
+
 /// fine-grained spec of test
 /// including what should be run every round
 /// and how to generate more rounds
@@ -286,30 +339,6 @@ pub type GenRunner<TYPES, I> =
 /// type alias for doing setup for a consensus round
 pub type TestSetup<TYPES, TRANS, I> =
     Vec<Box<dyn FnOnce(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<Vec<TRANS>>>>;
-
-impl Default for GeneralTestDescriptionBuilder {
-    /// by default, just a single round
-    fn default() -> Self {
-        Self {
-            total_nodes: 5,
-            start_nodes: 5,
-            num_succeeds: 1,
-            failure_threshold: 0,
-            txn_ids: Right(1),
-            next_view_timeout: 10000,
-            timeout_ratio: (11, 10),
-            round_start_delay: 1,
-            start_delay: 1,
-            ids_to_shut_down: Vec::new(),
-            network_reliability: None,
-            num_bootstrap_nodes: 5,
-            propose_min_round_time: Duration::new(0, 0),
-            propose_max_round_time: Duration::new(5, 0),
-            max_transactions: NonZeroUsize::new(999999).unwrap(),
-            min_transactions: 0,
-        }
-    }
-}
 
 /// given a description of rounds, generates such rounds
 /// args

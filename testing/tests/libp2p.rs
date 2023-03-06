@@ -1,5 +1,3 @@
-use either::Either::Right;
-
 use hotshot::traits::{
     election::static_committee::StaticCommittee,
     implementations::{Libp2pCommChannel, MemoryStorage},
@@ -22,18 +20,7 @@ use tracing::instrument;
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn libp2p_network() {
-    let description = GeneralTestDescriptionBuilder {
-        round_start_delay: 25,
-        num_bootstrap_nodes: 5,
-        timeout_ratio: (11, 10),
-        total_nodes: 10,
-        start_nodes: 10,
-        num_succeeds: 20,
-        txn_ids: Right(1),
-        next_view_timeout: 10000,
-        start_delay: 120000,
-        ..GeneralTestDescriptionBuilder::default()
-    };
+    let description = GeneralTestDescriptionBuilder::default_multiple_rounds();
 
     description
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
@@ -67,18 +54,7 @@ async fn libp2p_network() {
 #[instrument]
 #[ignore]
 async fn test_stress_libp2p_network() {
-    let description = GeneralTestDescriptionBuilder {
-        round_start_delay: 25,
-        num_bootstrap_nodes: 15,
-        timeout_ratio: (1, 1),
-        total_nodes: 100,
-        start_nodes: 100,
-        num_succeeds: 5,
-        txn_ids: Right(1),
-        next_view_timeout: 2000,
-        start_delay: 20000,
-        ..GeneralTestDescriptionBuilder::default()
-    };
+    let description = GeneralTestDescriptionBuilder::default_stress();
 
     description
         .build::<StaticCommitteeTestTypes, TestNodeImpl<
