@@ -184,19 +184,22 @@ pub trait Run<
     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
 {
-    async fn initalize_run() {}
+    fn new(
+        run_config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        network: NETWORK,
+    ) -> Self;
 
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> NETWORK;
 
-    async fn initialize_hotshot() {}
+    async fn initialize_hotshot(&self) {}
 
-    async fn start_hotshot() {}
+    async fn start_hotshot(&self) {}
 
-    fn get_network() {}
+    fn get_network(&self) -> NETWORK;
 
-    fn get_config() {}
+    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>;
 }
 
 // TODO ED Perhaps reinstate in future
@@ -310,6 +313,21 @@ where
     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
 {
+    fn new(
+        run_config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+        network: CentralizedWebCommChannel<
+            TYPES,
+            Proposal<TYPES>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        >,
+    ) -> Self {
+        WebServerRun {
+            config: run_config,
+            network,
+        }
+    }
+
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> CentralizedWebCommChannel<
@@ -345,6 +363,19 @@ where
             pub_key,
         ));
         network
+    }
+
+    fn get_network(&self) -> CentralizedWebCommChannel<
+        TYPES,
+        Proposal<TYPES>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+        MEMBERSHIP,
+    > {
+        self.network.clone()
+    }
+
+    fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
+        self.config.clone()
     }
 }
 
@@ -437,6 +468,7 @@ pub async fn main_entry_point<
         .get_config_from_orchestrator::<TYPES>()
         .await;
 
-    let network = RUN::initialize_networking(run_config).await;
-    
+    let network = RUN::initialize_networking(run_config.clone()).await;
+
+    let run = RUN::new(run_config, network);
 }
