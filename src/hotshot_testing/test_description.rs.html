@@ -494,6 +494,35 @@
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
 
 <span class="kw">use </span>async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -560,6 +589,59 @@
     </span><span class="kw">pub </span>propose_min_round_time: Duration,
     <span class="doccomment">/// The maximum amount of time a leader can wait to start a round
     </span><span class="kw">pub </span>propose_max_round_time: Duration,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>GeneralTestDescriptionBuilder {
+    <span class="doccomment">/// by default, just a single round
+    </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            total_nodes: <span class="number">5</span>,
+            start_nodes: <span class="number">5</span>,
+            num_succeeds: <span class="number">1</span>,
+            failure_threshold: <span class="number">0</span>,
+            txn_ids: Right(<span class="number">1</span>),
+            next_view_timeout: <span class="number">10000</span>,
+            timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
+            round_start_delay: <span class="number">1</span>,
+            start_delay: <span class="number">1</span>,
+            ids_to_shut_down: Vec::new(),
+            network_reliability: <span class="prelude-val">None</span>,
+            num_bootstrap_nodes: <span class="number">5</span>,
+            propose_min_round_time: Duration::new(<span class="number">0</span>, <span class="number">0</span>),
+            propose_max_round_time: Duration::new(<span class="number">5</span>, <span class="number">0</span>),
+            max_transactions: NonZeroUsize::new(<span class="number">999999</span>).unwrap(),
+            min_transactions: <span class="number">0</span>,
+        }
+    }
+}
+
+<span class="kw">impl </span>GeneralTestDescriptionBuilder {
+    <span class="doccomment">/// Default constructor for multiple rounds.
+    </span><span class="kw">pub fn </span>default_multiple_rounds() -&gt; <span class="self">Self </span>{
+        GeneralTestDescriptionBuilder {
+            round_start_delay: <span class="number">25</span>,
+            total_nodes: <span class="number">10</span>,
+            start_nodes: <span class="number">10</span>,
+            num_succeeds: <span class="number">20</span>,
+            start_delay: <span class="number">120000</span>,
+            ..GeneralTestDescriptionBuilder::default()
+        }
+    }
+
+    <span class="doccomment">/// Default constructor for stress testing.
+    </span><span class="kw">pub fn </span>default_stress() -&gt; <span class="self">Self </span>{
+        GeneralTestDescriptionBuilder {
+            round_start_delay: <span class="number">25</span>,
+            num_bootstrap_nodes: <span class="number">15</span>,
+            timeout_ratio: (<span class="number">1</span>, <span class="number">1</span>),
+            total_nodes: <span class="number">100</span>,
+            start_nodes: <span class="number">100</span>,
+            num_succeeds: <span class="number">5</span>,
+            next_view_timeout: <span class="number">2000</span>,
+            start_delay: <span class="number">20000</span>,
+            ..GeneralTestDescriptionBuilder::default()
+        }
+    }
 }
 
 <span class="doccomment">/// fine-grained spec of test
@@ -782,30 +864,6 @@
 <span class="doccomment">/// type alias for doing setup for a consensus round
 </span><span class="kw">pub type </span>TestSetup&lt;TYPES, TRANS, I&gt; =
     Vec&lt;Box&lt;<span class="kw">dyn </span>FnOnce(<span class="kw-2">&amp;mut </span>TestRunner&lt;TYPES, I&gt;) -&gt; LocalBoxFuture&lt;Vec&lt;TRANS&gt;&gt;&gt;&gt;;
-
-<span class="kw">impl </span>Default <span class="kw">for </span>GeneralTestDescriptionBuilder {
-    <span class="doccomment">/// by default, just a single round
-    </span><span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            total_nodes: <span class="number">5</span>,
-            start_nodes: <span class="number">5</span>,
-            num_succeeds: <span class="number">1</span>,
-            failure_threshold: <span class="number">0</span>,
-            txn_ids: Right(<span class="number">1</span>),
-            next_view_timeout: <span class="number">10000</span>,
-            timeout_ratio: (<span class="number">11</span>, <span class="number">10</span>),
-            round_start_delay: <span class="number">1</span>,
-            start_delay: <span class="number">1</span>,
-            ids_to_shut_down: Vec::new(),
-            network_reliability: <span class="prelude-val">None</span>,
-            num_bootstrap_nodes: <span class="number">5</span>,
-            propose_min_round_time: Duration::new(<span class="number">0</span>, <span class="number">0</span>),
-            propose_max_round_time: Duration::new(<span class="number">5</span>, <span class="number">0</span>),
-            max_transactions: NonZeroUsize::new(<span class="number">999999</span>).unwrap(),
-            min_transactions: <span class="number">0</span>,
-        }
-    }
-}
 
 <span class="doccomment">/// given a description of rounds, generates such rounds
 /// args
