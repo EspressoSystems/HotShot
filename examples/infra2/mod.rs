@@ -1,5 +1,6 @@
-#![allow(unused)] 
+#![allow(unused)]
 
+use async_std::task::sleep;
 use std::{
     cmp,
     collections::{BTreeSet, VecDeque},
@@ -10,7 +11,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use async_std::task::sleep;
+
 use surf_disco::{error::ClientError, Error};
 
 use async_compatibility_layer::{
@@ -24,13 +25,18 @@ use hotshot::{
     demos::vdemo::VDemoTypes,
     traits::{
         implementations::{
-            CentralizedWebCommChannel, CentralizedWebServerNetwork, Libp2pCommChannel, Libp2pNetwork,
-            MemoryStorage,
+            CentralizedWebCommChannel, CentralizedWebServerNetwork, Libp2pCommChannel,
+            Libp2pNetwork, MemoryStorage,
         },
         NetworkError, NodeImplementation, Storage,
     },
     types::{HotShotHandle, SignatureKey},
     HotShot, ViewRunner,
+};
+use hotshot_orchestrator::{
+    self,
+    // TODO ED Rename this once we get rid of old file
+    config::{NetworkConfig, NetworkConfigFile},
 };
 use hotshot_types::{
     data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
@@ -44,14 +50,16 @@ use hotshot_types::{
     vote::QuorumVote,
     HotShotConfig,
 };
-use hotshot_orchestrator::{
-    self,
-    // TODO ED Rename this once we get rid of old file
-    config::{NetworkConfig as OtherNetworkConfig, NetworkConfigFile as OtherNetworkConfigFile},
+use libp2p::{
+    identity::{
+        ed25519::{Keypair as EdKeypair, SecretKey},
+        Keypair,
+    },
+    multiaddr::{self, Protocol},
+    Multiaddr, PeerId,
 };
+use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 use tracing::{debug, error};
-
-
 
 #[derive(Parser, Debug, Clone)]
 #[command(
@@ -72,14 +80,14 @@ pub struct OrchestratorArgs {
 // This only reads one file, unlike the old server that read multiple.  We didn't use that featuree anyway
 pub fn load_config_from_file<TYPES: NodeType>(
     config_file: String,
-) -> OtherNetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
+) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
     let config_file_as_string: String = fs::read_to_string(config_file.as_str())
         .expect(format!("Could not read config file located at {config_file}").as_str());
-    let config_toml: OtherNetworkConfigFile =
-        toml::from_str::<OtherNetworkConfigFile>(&config_file_as_string)
+    let config_toml: NetworkConfigFile =
+        toml::from_str::<NetworkConfigFile>(&config_file_as_string)
             .expect("Unable to convert config file to TOML");
 
-    let mut config: OtherNetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> =
+    let mut config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> =
         config_toml.into();
 
     // Generate keys
@@ -112,20 +120,22 @@ pub async fn run_orchestrator<
         Networking = NETWORK,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
     >,
->(OrchestratorArgs{
-    host,
-    port,
-    config_file,
-}: OrchestratorArgs) {
+>(
+    OrchestratorArgs {
+        host,
+        port,
+        config_file,
+    }: OrchestratorArgs,
+) {
     println!("Starting orchestrator",);
     let run_config = load_config_from_file::<TYPES>(config_file);
 
     println!("{:?}", run_config);
-    let _result =
-        hotshot_orchestrator::run_orchestrator::<TYPES::SignatureKey, TYPES::ElectionConfigType>(run_config, host, port).await;
-
-
-
+    let _result = hotshot_orchestrator::run_orchestrator::<
+        TYPES::SignatureKey,
+        TYPES::ElectionConfigType,
+    >(run_config, host, port)
+    .await;
 }
 
 // VALIDATOR
@@ -142,6 +152,161 @@ pub struct ValidatorArgs {
     /// The port the orchestrator runs on
     port: u16,
 }
+
+#[async_trait]
+pub trait Run<
+    TYPES: NodeType,
+    MEMBERSHIP: Membership<TYPES>,
+    NETWORK: CommunicationChannel<
+        TYPES,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+        MEMBERSHIP,
+    >,
+    NODE: NodeImplementation<
+        TYPES,
+        Leaf = ValidatingLeaf<TYPES>,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        Membership = MEMBERSHIP,
+        Networking = NETWORK,
+        Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
+    >,
+> where
+    <TYPES as NodeType>::StateType: TestableState,
+    <TYPES as NodeType>::BlockType: TestableBlock,
+    ValidatingLeaf<TYPES>: TestableLeaf,
+    HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
+    Self: Sync,
+{
+    async fn connect_to_orchestrator() {}
+
+    // Will block until the config is returned --> Could make this a function as arg to a generic wait function
+    async fn get_config_from_orchestrator() {}
+
+    async fn wait_for_fn_from_orchestrator() {}
+
+    // Also wait for networking to be ready using the CommChannel function (see other file for example)
+    // TODO ED Make separate impls of this
+    async fn initialize_networking() {
+
+    }
+
+    async fn initialize_hotshot() {}
+
+    async fn start_hotshot() {}
+}
+
+// TODO ED Perhaps reinstate in future
+// pub enum RunType<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
+//     Libp2pRun(Libp2pRun<TYPES, MEMBERSHIP>),
+//     WebServerRun(WebServerRun<TYPES, MEMBERSHIP>),
+// }
+
+type Proposal<T> = ValidatingProposal<T, ValidatingLeaf<T>>;
+
+pub struct Libp2pRun<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
+    _bootstrap_nodes: Vec<(PeerId, Multiaddr)>,
+    _node_type: NetworkNodeType,
+    _bound_addr: Multiaddr,
+    /// for libp2p layer
+    _identity: Keypair,
+
+    // _socket: TcpStreamUtil,
+    network: Libp2pCommChannel<
+        TYPES,
+        Proposal<TYPES>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+        MEMBERSHIP,
+    >,
+    config:
+        NetworkConfig<<TYPES as NodeType>::SignatureKey, <TYPES as NodeType>::ElectionConfigType>,
+}
+
+#[async_trait]
+impl<
+        TYPES: NodeType,
+        MEMBERSHIP: Membership<TYPES>,
+        NODE: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            Membership = MEMBERSHIP,
+            Networking = Libp2pCommChannel<
+                TYPES,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+            >,
+            Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
+        >,
+    >
+    Run<
+        TYPES,
+        MEMBERSHIP,
+        Libp2pCommChannel<
+            TYPES,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        >,
+        NODE,
+    > for Libp2pRun<TYPES, MEMBERSHIP>
+where
+    <TYPES as NodeType>::StateType: TestableState,
+    <TYPES as NodeType>::BlockType: TestableBlock,
+    ValidatingLeaf<TYPES>: TestableLeaf,
+    HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
+    Self: Sync,
+{
+}
+
+pub struct WebServerRun<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
+    config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    network: CentralizedWebCommChannel<
+        TYPES,
+        Proposal<TYPES>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+        MEMBERSHIP,
+    >,
+}
+
+#[async_trait]
+impl<
+        TYPES: NodeType,
+        MEMBERSHIP: Membership<TYPES>,
+        NODE: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            Vote = QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            Membership = MEMBERSHIP,
+            Networking = CentralizedWebCommChannel<
+                TYPES,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+            >,
+            Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
+        >,
+    >
+    Run<
+        TYPES,
+        MEMBERSHIP,
+        CentralizedWebCommChannel<
+            TYPES,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        >,
+        NODE,
+    > for WebServerRun<TYPES, MEMBERSHIP>
+where
+    <TYPES as NodeType>::StateType: TestableState,
+    <TYPES as NodeType>::BlockType: TestableBlock,
+    ValidatingLeaf<TYPES>: TestableLeaf,
+    HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
+    Self: Sync,
+{}
 
 pub async fn main_entry_point<
     TYPES: NodeType,
@@ -160,6 +325,7 @@ pub async fn main_entry_point<
         Networking = NETWORK,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
     >,
+    CONFIG: Run<TYPES, MEMBERSHIP, NETWORK, NODE>,
 >(
     args: ValidatorArgs,
 ) where

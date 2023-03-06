@@ -9,6 +9,7 @@ use hotshot_types::{
     traits::node_implementation::NodeType,
     vote::QuorumVote,
 };
+use crate::infra::WebServerRun;
 
 // use crate::infra::CentralizedConfig;
 
@@ -19,4 +20,5 @@ pub type ThisNetwork = CentralizedWebCommChannel<VDemoTypes, ThisProposal, ThisV
 pub type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
 pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
 pub type ThisNode = VDemoNode<ThisNetwork, ThisMembership>;
-// pub type ThisConfig = CentralizedConfig<VDemoTypes, ThisMembership>;
+// TODO ED Run makes more sense to me than Config
+pub type ThisRun = WebServerRun<VDemoTypes, ThisMembership>;
