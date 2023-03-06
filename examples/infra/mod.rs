@@ -494,6 +494,7 @@ pub trait CliConfig<
 
         let network = self.get_network();
         let election_config = config.config.election_config.clone().unwrap();
+        println!("{:?}", election_config);
 
         let hotshot = HotShot::init(
             pk,

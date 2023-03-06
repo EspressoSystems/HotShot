@@ -106,6 +106,7 @@ pub fn load_config_from_file<TYPES: NodeType>(
             .0
         })
         .collect();
+   
     config
 }
 
@@ -208,8 +209,9 @@ pub trait Run<
         let known_nodes = config.config.known_nodes.clone();
 
         let network = self.get_network();
-        let election_config = config.config.election_config.clone().unwrap();
-
+        let election_config = config.config.election_config.clone().unwrap_or_else(|| {
+            NODE::Membership::default_election_config(config.config.total_nodes.get() as u64)
+        });
         let hotshot = HotShot::init(
             pk,
             sk,
@@ -639,8 +641,8 @@ pub async fn main_entry_point<
 
     let (state, hotshot) = run.initialize_state_and_hotshot().await; 
 
-    orchestrator_client.wait_for_all_nodes_ready(run_config.node_index);
+    orchestrator_client.wait_for_all_nodes_ready(run_config.node_index).await;
 
 
-    run.run_hotshot(hotshot); 
+    run.run_hotshot(hotshot).await; 
 }
