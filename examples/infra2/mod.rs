@@ -1,16 +1,21 @@
 #![allow(unused)]
+use futures::FutureExt;
 
 use async_std::task::sleep;
+use futures::Future;
 use std::{
     cmp,
     collections::{BTreeSet, VecDeque},
-    fs, mem,
+    fs,
+    marker::PhantomData,
+    mem,
     net::{IpAddr, SocketAddr},
     num::NonZeroUsize,
     str::FromStr,
     sync::Arc,
     time::{Duration, Instant},
 };
+use surf_disco::Client;
 
 use surf_disco::{error::ClientError, Error};
 
@@ -178,18 +183,16 @@ pub trait Run<
     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
 {
-    async fn connect_to_orchestrator() {}
+    // async fn connect_to_orchestrator() {}
 
-    // Will block until the config is returned --> Could make this a function as arg to a generic wait function
-    async fn get_config_from_orchestrator() {}
+    // // Will block until the config is returned --> Could make this a function as arg to a generic wait function
+    // async fn get_config_from_orchestrator() {}
 
-    async fn wait_for_fn_from_orchestrator() {}
+    // async fn wait_for_fn_from_orchestrator() {}
 
     // Also wait for networking to be ready using the CommChannel function (see other file for example)
-    // TODO ED Make separate impls of this
-    async fn initialize_networking() {
-
-    }
+    // TODO ED Make separate impls of this, should return the Run struct
+    async fn initialize_networking() {}
 
     async fn initialize_hotshot() {}
 
@@ -306,7 +309,48 @@ where
     ValidatingLeaf<TYPES>: TestableLeaf,
     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
-{}
+{
+}
+
+pub struct OrchestratorClient {
+    client: surf_disco::Client<ClientError>,
+    // membership: PhantomData<(TYPES)>,
+}
+
+impl OrchestratorClient {
+    async fn connect_to_orchestrator(args: ValidatorArgs) -> Self {
+        let base_url = format!("{0}:{1}", args.host, args.port);
+        let base_url = format!("http://{base_url}").parse().unwrap();
+        let client = surf_disco::Client::<ClientError>::new(base_url);
+        // TODO ED insert healthcheck here
+        OrchestratorClient {
+            client,
+            // membership: PhantomData<(TYPES)>::default()
+        }
+    }
+
+    // Will block until the config is returned --> Could make this a function as arg to a generic wait function
+    async fn get_config_from_orchestrator<TYPES: NodeType>(self) {
+        let f =  |client: Client<ClientError>| {async move {
+            let config: Result<
+                NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+                ClientError,
+            > = client.post("api/config").send().await;
+            config
+        }.boxed()};
+        self.wait_for_fn_from_orchestrator(f).await;
+    }
+
+
+    async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(self, f:  F)
+    where
+        F: FnOnce(Client<ClientError>) -> Fut,
+        Fut: Future<Output = GEN>,
+    {
+        // TODO ED Add while loop here, change bool to GEN type, and return GEN Type
+        f(self.client).await;
+    }
+}
 
 pub async fn main_entry_point<
     TYPES: NodeType,
@@ -338,4 +382,10 @@ pub async fn main_entry_point<
     setup_backtrace();
 
     print!("Running validator");
+
+    let orchestrator_client: OrchestratorClient =
+        OrchestratorClient::connect_to_orchestrator(args).await;
+    orchestrator_client
+        .get_config_from_orchestrator::<TYPES>()
+        .await;
 }
