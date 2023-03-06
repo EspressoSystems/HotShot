@@ -331,7 +331,7 @@ impl OrchestratorClient {
 
     // Will block until the config is returned --> Could make this a function as arg to a generic wait function
     async fn get_config_from_orchestrator<TYPES: NodeType>(self) {
-        let f =  |client: Client<ClientError>| {async move {
+        let mut f =  |client: Client<ClientError>| {async move {
             let config: Result<
                 NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
                 ClientError,
@@ -342,13 +342,30 @@ impl OrchestratorClient {
     }
 
 
-    async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(self, f:  F)
+    async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(self, mut f:  F) -> GEN
     where
-        F: FnOnce(Client<ClientError>) -> Fut,
-        Fut: Future<Output = GEN>,
+        F: Fn(Client<ClientError>) -> Fut,
+        Fut: Future<Output = Result<GEN, ClientError>>,
     {
-        // TODO ED Add while loop here, change bool to GEN type, and return GEN Type
-        f(self.client).await;
+        // let mut result = f(self.client).await;
+        // // TODO ED Add while loop here, change bool to GEN type, and return GEN Type
+        // while result.is_err() {
+        //     println!("Sleeping"); 
+        //     async_sleep(Duration::from_millis(250));
+        //     result = f(self.client).await;
+        // }
+        let result = loop {
+            // TODO ED Move this outside the loop
+            let client = self.client.clone();
+            let res = f(client).await;
+            match res {
+                Ok(x) => break x,
+                Err(x) => (), 
+            }
+
+        };
+        result
+
     }
 }
 
