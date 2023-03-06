@@ -1,10 +1,14 @@
 use super::{Generator, TestRunner};
 use crate::TestableLeaf;
-use hotshot::types::SignatureKey;
+use hotshot::types::{Message, SignatureKey};
+use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::node_implementation::{
+    QuorumMembership, QuorumNetwork, QuorumProposal, QuorumVoteType,
+};
 use hotshot_types::{
     traits::{
         network::TestableNetworkingImplementation,
-        node_implementation::{NodeType, TestableNodeImplementation},
+        node_implementation::{NodeImplementation, NodeType, TestableNodeImplementation},
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState},
         storage::TestableStorage,
@@ -19,10 +23,20 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
-    pub(super) network: Generator<I::Networking>,
+    pub(super) network: Generator<QuorumNetwork<TYPES, I>>,
     pub(super) storage: Generator<I::Storage>,
     pub(super) block: Generator<TYPES::BlockType>,
     pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
@@ -33,7 +47,17 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     /// Create a new launcher.
@@ -82,13 +106,23 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
 {
     /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_network(
         self,
-        network: impl Fn(u64, TYPES::SignatureKey) -> I::Networking + 'static,
+        network: impl Fn(u64, TYPES::SignatureKey) -> QuorumNetwork<TYPES, I> + 'static,
     ) -> TestLauncher<TYPES, I> {
         TestLauncher {
             network: Box::new({
@@ -157,7 +191,17 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {

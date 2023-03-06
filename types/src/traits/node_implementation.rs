@@ -80,6 +80,19 @@ pub type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
         Message<TYPES, I>,
     >>::Vote;
 
+pub type QuorumNetwork<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking;
+pub type QuorumMembership<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Membership;
+
 /// Trait with all the type definitions that are used in the current hotshot setup.
 pub trait NodeType:
     Clone
@@ -128,15 +141,6 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    // <Self as NodeImplementation<TYPES>>::Networking: TestableNetworkingImplementation<
-    //     TYPES,
-    //     <Self as NodeImplementation<TYPES>>::Proposal,
-    //     <Self as NodeImplementation<TYPES>>::Vote,
-    //     <<Self as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-    //         TYPES,
-    //         <Self as NodeImplementation<TYPES>>::Leaf,
-    //     >>::Membership,
-    // >,
     <Self as NodeImplementation<TYPES>>::Storage:
         TestableStorage<TYPES, <Self as NodeImplementation<TYPES>>::Leaf>,
 {

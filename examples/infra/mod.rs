@@ -1,14 +1,3 @@
-use std::{
-    cmp,
-    collections::{BTreeSet, VecDeque},
-    fs, mem,
-    net::{IpAddr, SocketAddr},
-    num::NonZeroUsize,
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, Instant},
-};
-
 use async_compatibility_layer::{
     art::{async_sleep, TcpStream},
     logging::{setup_backtrace, setup_logging},
@@ -33,6 +22,7 @@ use hotshot_centralized_server::{
     FromServer, NetworkConfig, Run, RunResults, Server, TcpStreamUtil, TcpStreamUtilWithRecv,
     TcpStreamUtilWithSend, ToServer,
 };
+use hotshot_types::message::Message;
 use hotshot_types::{
     data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
     traits::{
@@ -54,6 +44,16 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+use std::{
+    cmp,
+    collections::{BTreeSet, VecDeque},
+    fs, mem,
+    net::{IpAddr, SocketAddr},
+    num::NonZeroUsize,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 #[allow(deprecated)]
 use tracing::{debug, error};
 
@@ -130,6 +130,7 @@ impl<
             Membership = MEMBERSHIP,
             Networking = Libp2pCommChannel<
                 TYPES,
+                NODE,
                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
                 MEMBERSHIP,
@@ -142,12 +143,13 @@ impl<
         MEMBERSHIP,
         Libp2pCommChannel<
             TYPES,
+            NODE,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         >,
         NODE,
-    > for Libp2pClientConfig<TYPES, MEMBERSHIP>
+    > for Libp2pClientConfig<TYPES, NODE, MEMBERSHIP>
 where
     <TYPES as NodeType>::StateType: TestableState,
     <TYPES as NodeType>::BlockType: TestableBlock,
@@ -409,7 +411,11 @@ where
 
 type Proposal<T> = ValidatingProposal<T, ValidatingLeaf<T>>;
 
-pub struct Libp2pClientConfig<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
+pub struct Libp2pClientConfig<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
+> {
     _bootstrap_nodes: Vec<(PeerId, Multiaddr)>,
     _node_type: NetworkNodeType,
     _bound_addr: Multiaddr,
@@ -419,6 +425,7 @@ pub struct Libp2pClientConfig<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
     _socket: TcpStreamUtil,
     network: Libp2pCommChannel<
         TYPES,
+        Message<TYPES, I>,
         Proposal<TYPES>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -429,15 +436,20 @@ pub struct Libp2pClientConfig<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
         NetworkConfig<<TYPES as NodeType>::SignatureKey, <TYPES as NodeType>::ElectionConfigType>,
 }
 
-pub enum Config<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
-    Libp2pConfig(Libp2pClientConfig<TYPES, MEMBERSHIP>),
-    CentralizedConfig(CentralizedConfig<TYPES, MEMBERSHIP>),
+pub enum Config<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>> {
+    Libp2pConfig(Libp2pClientConfig<TYPES, I, MEMBERSHIP>),
+    CentralizedConfig(CentralizedConfig<TYPES, I, MEMBERSHIP>),
 }
 
-pub struct CentralizedConfig<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
+pub struct CentralizedConfig<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
+> {
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     network: CentralizedCommChannel<
         TYPES,
+        Message<TYPES, I>,
         Proposal<TYPES>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -451,6 +463,7 @@ pub trait CliConfig<
     MEMBERSHIP: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
+        Message<TYPES, NODE>,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,

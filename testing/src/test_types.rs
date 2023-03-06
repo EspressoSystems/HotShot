@@ -84,6 +84,8 @@ impl NodeType for StaticCommitteeTestTypes {
     type StateType = VDemoState;
 }
 
+struct StandardNodeImplType {}
+
 /// type synonym for vrf committee election
 /// with in-memory network
 pub type StandardNodeImplType = TestNodeImpl<
@@ -93,6 +95,7 @@ pub type StandardNodeImplType = TestNodeImpl<
     QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
     MemoryCommChannel<
         VrfTestTypes,
+        Self,
         ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
         QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
         VrfImpl<
@@ -124,6 +127,7 @@ pub type StaticNodeImplType = TestNodeImpl<
     QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     MemoryCommChannel<
         StaticCommitteeTestTypes,
+        Self,
         ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

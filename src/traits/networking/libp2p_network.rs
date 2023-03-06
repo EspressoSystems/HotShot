@@ -12,6 +12,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
+use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
     message::Message,
@@ -114,12 +115,12 @@ pub struct Libp2pNetwork<M: NetworkMsg, K: SignatureKey + 'static> {
 
 impl<
         TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
+        M: NetworkMsg + ViewMessage<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > TestableNetworkingImplementation<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
+    for Libp2pCommChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -676,25 +677,25 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, M, K> for Lib
 #[derive(Clone)]
 pub struct Libp2pCommChannel<
     TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
+    M: NetworkMsg + ViewMessage<TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
-    PhantomData<(I, PROPOSAL, VOTE, MEMBERSHIP)>,
+    Libp2pNetwork<M, TYPES::SignatureKey>,
+    PhantomData<(M, PROPOSAL, VOTE, MEMBERSHIP)>,
 );
 
 impl<
         TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
+        M: NetworkMsg + ViewMessage<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > Libp2pCommChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// create a new libp2p communication channel
-    pub fn new(network: Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>) -> Self {
+    pub fn new(network: Libp2pNetwork<M, TYPES::SignatureKey>) -> Self {
         Self(network, PhantomData::default())
     }
 }
@@ -705,12 +706,12 @@ impl<
 #[async_trait]
 impl<
         TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
+        M: NetworkMsg + ViewMessage<TYPES> + ViewMessage<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > CommunicationChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
+    for Libp2pCommChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
 {
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
@@ -726,7 +727,7 @@ impl<
 
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, I>,
+        message: M,
         membership: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
         let recipients =
@@ -736,16 +737,13 @@ impl<
 
     async fn direct_message(
         &self,
-        message: Message<TYPES, I>,
+        message: M,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
     }
 
-    async fn recv_msgs(
-        &self,
-        transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
+    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 

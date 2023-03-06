@@ -131,6 +131,10 @@ pub trait NetworkMsg:
 {
 }
 
+pub trait ViewMessage<TYPES: NodeType> {
+    fn get_view_number(&self) -> TYPES::Time;
+}
+
 /// API for interacting directly with a consensus committee
 /// intended to be implemented for both DA and for validating consensus committees
 #[async_trait]

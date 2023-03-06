@@ -520,43 +520,22 @@ impl NodeType for VDemoTypes {
 /// The node implementation for the validating demo
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
-pub struct VDemoNode<NET, MEMBERSHIP>(PhantomData<NET>, PhantomData<MEMBERSHIP>)
+pub struct VDemoNode<MEMBERSHIP>(PhantomData<MEMBERSHIP>)
 where
-    NET: CommunicationChannel<
-        VDemoTypes,
-        Message<VDemoTypes, VDemoNode<NET, MEMBERSHIP>>,
-        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        MEMBERSHIP,
-    >,
     MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug;
 
-impl<NET, MEMBERSHIP> VDemoNode<NET, MEMBERSHIP>
+impl<MEMBERSHIP> VDemoNode<MEMBERSHIP>
 where
-    NET: CommunicationChannel<
-        VDemoTypes,
-        Message<VDemoTypes, VDemoNode<NET, MEMBERSHIP>>,
-        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        MEMBERSHIP,
-    >,
     MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug,
 {
     /// Create a new `VDemoNode`
     pub fn new() -> Self {
-        VDemoNode(PhantomData, PhantomData)
+        VDemoNode(PhantomData)
     }
 }
 
-impl<NET, MEMBERSHIP> Debug for VDemoNode<NET, MEMBERSHIP>
+impl<MEMBERSHIP> Debug for VDemoNode<MEMBERSHIP>
 where
-    NET: CommunicationChannel<
-        VDemoTypes,
-        Message<VDemoTypes, VDemoNode<NET, MEMBERSHIP>>,
-        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        MEMBERSHIP,
-    >,
     MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -566,50 +545,13 @@ where
     }
 }
 
-impl<NET, MEMBERSHIP> Default for VDemoNode<NET, MEMBERSHIP>
+impl<MEMBERSHIP> Default for VDemoNode<MEMBERSHIP>
 where
-    NET: CommunicationChannel<
-        VDemoTypes,
-        Message<VDemoTypes, VDemoNode<NET, MEMBERSHIP>>,
-        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        MEMBERSHIP,
-    >,
     MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug,
 {
     fn default() -> Self {
         Self::new()
     }
-}
-
-impl<NET, MEMBERSHIP> NodeImplementation<VDemoTypes> for VDemoNode<NET, MEMBERSHIP>
-where
-    NET: CommunicationChannel<
-        VDemoTypes,
-        Message<VDemoTypes, VDemoNode<NET, MEMBERSHIP>>,
-        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        MEMBERSHIP,
-    >,
-    MEMBERSHIP: Membership<VDemoTypes> + Debug,
-{
-    type Leaf = ValidatingLeaf<VDemoTypes>;
-    type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
-    type QuorumExchange = QuorumExchange<
-        VDemoTypes,
-        Self::Leaf,
-        MEMBERSHIP,
-        NET,
-        Message<VDemoTypes, VDemoNode<NET, MEMBERSHIP>>,
-    >;
-    // TODO Remove this, it's unused validating consensus
-    type ComitteeExchange = QuorumExchange<
-        VDemoTypes,
-        Self::Leaf,
-        MEMBERSHIP,
-        NET,
-        Message<VDemoTypes, VDemoNode<NET, MEMBERSHIP>>,
-    >;
 }
 
 /// Provides a random [`QuorumCertificate`]

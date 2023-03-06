@@ -27,6 +27,10 @@ use hotshot::{
     types::{HotShotHandle, SignatureKey},
     HotShot, HotShotError, HotShotInitializer, ViewRunner, H_256,
 };
+use hotshot_types::message::Message;
+use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::election::QuorumExchange;
+use hotshot_types::traits::node_implementation::QuorumNetwork;
 use hotshot_types::{
     data::{LeafType, ProposalType, TestableLeaf},
     traits::{
@@ -106,7 +110,12 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    // I::QuorumExchange: ConsensusExchange<
+    //     TYPES,
+    //     I::Leaf,
+    //     Message<TYPES, I>,
+    //     Networking = TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    // >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -121,15 +130,20 @@ where
 
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
-pub struct TestRunner<TYPES, I>
+pub struct TestRunner<TYPES, I: NodeImplementation<TYPES>>
 where
     TYPES: NodeType,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
-    I: NodeImplementation<TYPES>,
+    // I::QuorumExchange: ConsensusExchange<
+    //     TYPES,
+    //     I::Leaf,
+    //     Message<TYPES, I>,
+    //     Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    // >,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
-    network_generator: Generator<I::Networking>,
+    network_generator: Generator<QuorumNetwork<TYPES, I>>,
     storage_generator: Generator<I::Storage>,
     default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     nodes: Vec<Node<TYPES, I>>,
@@ -147,7 +161,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    // I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -210,7 +224,7 @@ where
     /// For a simpler way to add nodes to this runner, see `add_nodes`
     pub async fn add_node_with_config(
         &mut self,
-        network: I::Networking,
+        network: QuorumNetwork<TYPES, I>,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
@@ -391,7 +405,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    // I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -462,7 +476,7 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    // I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -611,17 +625,16 @@ where
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     MEMBERSHIP: Membership<TYPES> + Debug,
-    NETWORK: TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, MEMBERSHIP>,
+    NETWORK:
+        TestableNetworkingImplementation<TYPES, Message<TYPES, Self>, PROPOSAL, VOTE, MEMBERSHIP>,
     STORAGE: Storage<TYPES, LEAF>,
 {
+    type QuorumExchange =
+        QuorumExchange<TYPES, Self::Leaf, MEMBERSHIP, NETWORK, Message<TYPES, Self>>;
+    // TODO seperate this part
+    type ComitteeExchange = Self::QuorumExchange;
     type Leaf = LEAF;
-    type Networking = NETWORK;
-    type Membership = MEMBERSHIP;
     type Storage = STORAGE;
-    type Proposal = PROPOSAL;
-    type Vote = VOTE;
-    type DAVoteAccumulator = VoteAccumulator<TYPES, TYPES::BlockType>;
-    type QuorumVoteAccumulator = VoteAccumulator<TYPES, LEAF>;
 }
 
 impl<
@@ -640,7 +653,8 @@ where
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
     MEMBERSHIP: Membership<TYPES>,
-    NETWORK: TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, MEMBERSHIP>,
+    NETWORK:
+        TestableNetworkingImplementation<TYPES, Message<TYPES, Self>, PROPOSAL, VOTE, MEMBERSHIP>,
     STORAGE: TestableStorage<TYPES, LEAF>,
 {
 }

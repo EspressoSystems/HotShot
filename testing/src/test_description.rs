@@ -1,28 +1,32 @@
 use std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
 
+use crate::{
+    ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
+    TestRunner,
+};
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use either::Either::{self, Left, Right};
 use futures::{future::LocalBoxFuture, FutureExt};
-use hotshot::{traits::NetworkReliability, HotShot, HotShotError, ViewRunner};
+use hotshot::{traits::NetworkReliability, types::Message, HotShot, HotShotError, ViewRunner};
+use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     data::TestableLeaf,
     traits::{
         election::Membership,
         network::{CommunicationChannel, TestableNetworkingImplementation},
-        node_implementation::{NodeType, TestableNodeImplementation},
+        node_implementation::{
+            NodeImplementation, NodeType, QuorumMembership, QuorumProposal, QuorumVoteType,
+            TestableNodeImplementation,
+        },
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState},
         storage::TestableStorage,
     },
+    vote::QuorumVote,
     HotShotConfig,
 };
 use snafu::Snafu;
 use tracing::{error, info};
-
-use crate::{
-    ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
-    TestRunner,
-};
 
 ///! public infra for describing tests
 
@@ -74,7 +78,17 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -114,7 +128,17 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -188,7 +212,17 @@ impl GeneralTestDescriptionBuilder {
         TYPES::BlockType: TestableBlock,
         TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
         TYPES::SignatureKey: TestableSignatureKey,
-        I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+        >>::Networking: TestableNetworkingImplementation<
+            TYPES,
+            Message<TYPES, I>,
+            QuorumProposal<TYPES, I>,
+            QuorumVoteType<TYPES, I>,
+            QuorumMembership<TYPES, I>,
+        >,
         I::Storage: TestableStorage<TYPES, I::Leaf>,
         I::Leaf: TestableLeaf<NodeType = TYPES>,
     {
@@ -206,7 +240,17 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -248,7 +292,12 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    // I::QuorumExchange: ConsensusExchange<
+    //     TYPES,
+    //     I::Leaf,
+    //     Message<TYPES, I>,
+    //     Networking = TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    // >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -326,7 +375,17 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -386,7 +445,17 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -424,7 +493,17 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {

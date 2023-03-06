@@ -31,6 +31,7 @@ use hotshot_types::{
 use hotshot_utils::bincode::bincode_opts;
 
 use crate::NodeImplementation;
+use hotshot_types::traits::network::ViewMessage;
 use rand::Rng;
 use snafu::ResultExt;
 use std::{

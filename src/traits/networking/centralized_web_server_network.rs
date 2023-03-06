@@ -36,6 +36,7 @@ use hotshot_types::{
 };
 use serde::{Deserialize, Serialize};
 
+use hotshot_types::traits::network::ViewMessage;
 use std::{
     collections::BTreeSet,
     marker::PhantomData,
@@ -47,7 +48,6 @@ use std::{
 };
 use surf_disco::error::ClientError;
 use tracing::{error, info};
-
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone)]
 pub struct CentralizedWebCommChannel<

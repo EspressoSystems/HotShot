@@ -4,6 +4,7 @@
 //! `HotShot` nodes can send among themselves.
 
 use crate::certificate::QuorumCertificate;
+use crate::traits::network::ViewMessage;
 use crate::{
     data::{LeafType, ProposalType},
     traits::{
@@ -33,9 +34,9 @@ pub struct Message<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkMsg for Message<TYPES, I> {}
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Message<TYPES, I> {
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Message<TYPES, I> {
     /// get the view number out of a message
-    pub fn get_view_number(&self) -> TYPES::Time {
+    fn get_view_number(&self) -> TYPES::Time {
         match &self.kind {
             MessageKind::Consensus(c) => match c {
                 ConsensusMessage::Proposal(p) => p.data.get_view_number(),
