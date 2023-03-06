@@ -1,5 +1,6 @@
 #![allow(unused)]
 use futures::FutureExt;
+use hotshot_orchestrator::config::CentralizedWebServerConfig;
 
 use async_std::task::sleep;
 use futures::Future;
@@ -183,20 +184,19 @@ pub trait Run<
     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
 {
-    // async fn connect_to_orchestrator() {}
+    async fn initalize_run() {}
 
-    // // Will block until the config is returned --> Could make this a function as arg to a generic wait function
-    // async fn get_config_from_orchestrator() {}
-
-    // async fn wait_for_fn_from_orchestrator() {}
-
-    // Also wait for networking to be ready using the CommChannel function (see other file for example)
-    // TODO ED Make separate impls of this, should return the Run struct
-    async fn initialize_networking() {}
+    async fn initialize_networking(
+        config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    ) -> NETWORK;
 
     async fn initialize_hotshot() {}
 
     async fn start_hotshot() {}
+
+    fn get_network() {}
+
+    fn get_config() {}
 }
 
 // TODO ED Perhaps reinstate in future
@@ -225,43 +225,43 @@ pub struct Libp2pRun<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
         NetworkConfig<<TYPES as NodeType>::SignatureKey, <TYPES as NodeType>::ElectionConfigType>,
 }
 
-#[async_trait]
-impl<
-        TYPES: NodeType,
-        MEMBERSHIP: Membership<TYPES>,
-        NODE: NodeImplementation<
-            TYPES,
-            Leaf = ValidatingLeaf<TYPES>,
-            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-            Membership = MEMBERSHIP,
-            Networking = Libp2pCommChannel<
-                TYPES,
-                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-                MEMBERSHIP,
-            >,
-            Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
-        >,
-    >
-    Run<
-        TYPES,
-        MEMBERSHIP,
-        Libp2pCommChannel<
-            TYPES,
-            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-            MEMBERSHIP,
-        >,
-        NODE,
-    > for Libp2pRun<TYPES, MEMBERSHIP>
-where
-    <TYPES as NodeType>::StateType: TestableState,
-    <TYPES as NodeType>::BlockType: TestableBlock,
-    ValidatingLeaf<TYPES>: TestableLeaf,
-    HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
-    Self: Sync,
-{
-}
+// #[async_trait]
+// impl<
+//         TYPES: NodeType,
+//         MEMBERSHIP: Membership<TYPES>,
+//         NODE: NodeImplementation<
+//             TYPES,
+//             Leaf = ValidatingLeaf<TYPES>,
+//             Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+//             Membership = MEMBERSHIP,
+//             Networking = Libp2pCommChannel<
+//                 TYPES,
+//                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+//                 QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+//                 MEMBERSHIP,
+//             >,
+//             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
+//         >,
+//     >
+//     Run<
+//         TYPES,
+//         MEMBERSHIP,
+//         Libp2pCommChannel<
+//             TYPES,
+//             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+//             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+//             MEMBERSHIP,
+//         >,
+//         NODE,
+//     > for Libp2pRun<TYPES, MEMBERSHIP>
+// where
+//     <TYPES as NodeType>::StateType: TestableState,
+//     <TYPES as NodeType>::BlockType: TestableBlock,
+//     ValidatingLeaf<TYPES>: TestableLeaf,
+//     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
+//     Self: Sync,
+// {
+// }
 
 pub struct WebServerRun<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
@@ -310,6 +310,42 @@ where
     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
 {
+    async fn initialize_networking(
+        config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    ) -> CentralizedWebCommChannel<
+        TYPES,
+        Proposal<TYPES>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+        MEMBERSHIP,
+    > {
+        // TODO ED Retrun networking
+
+        // Generate our own key
+        let (pub_key, _priv_key) =
+            <<TYPES as NodeType>::SignatureKey as SignatureKey>::generated_from_seed_indexed(
+                config.seed,
+                config.node_index,
+            );
+
+        let CentralizedWebServerConfig {
+            host,
+            port,
+            wait_between_polls,
+        }: CentralizedWebServerConfig = config.centralized_web_server_config.unwrap();
+
+        let network: CentralizedWebCommChannel<
+            TYPES,
+            Proposal<TYPES>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        > = CentralizedWebCommChannel::new(CentralizedWebServerNetwork::create(
+            &host.to_string(),
+            port,
+            wait_between_polls,
+            pub_key,
+        ));
+        network
+    }
 }
 
 pub struct OrchestratorClient {
@@ -330,42 +366,37 @@ impl OrchestratorClient {
     }
 
     // Will block until the config is returned --> Could make this a function as arg to a generic wait function
-    async fn get_config_from_orchestrator<TYPES: NodeType>(self) {
-        let mut f =  |client: Client<ClientError>| {async move {
-            let config: Result<
-                NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-                ClientError,
-            > = client.post("api/config").send().await;
-            config
-        }.boxed()};
-        self.wait_for_fn_from_orchestrator(f).await;
+    async fn get_config_from_orchestrator<TYPES: NodeType>(
+        self,
+    ) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
+        let mut f = |client: Client<ClientError>| {
+            async move {
+                let config: Result<
+                    NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+                    ClientError,
+                > = client.post("api/config").send().await;
+                config
+            }
+            .boxed()
+        };
+        self.wait_for_fn_from_orchestrator(f).await
     }
 
-
-    async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(self, mut f:  F) -> GEN
+    async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(self, mut f: F) -> GEN
     where
         F: Fn(Client<ClientError>) -> Fut,
         Fut: Future<Output = Result<GEN, ClientError>>,
     {
-        // let mut result = f(self.client).await;
-        // // TODO ED Add while loop here, change bool to GEN type, and return GEN Type
-        // while result.is_err() {
-        //     println!("Sleeping"); 
-        //     async_sleep(Duration::from_millis(250));
-        //     result = f(self.client).await;
-        // }
         let result = loop {
             // TODO ED Move this outside the loop
             let client = self.client.clone();
             let res = f(client).await;
             match res {
                 Ok(x) => break x,
-                Err(x) => (), 
+                Err(x) => (/* TODO ED Wait here */ ),
             }
-
         };
         result
-
     }
 }
 
@@ -386,7 +417,7 @@ pub async fn main_entry_point<
         Networking = NETWORK,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
     >,
-    CONFIG: Run<TYPES, MEMBERSHIP, NETWORK, NODE>,
+    RUN: Run<TYPES, MEMBERSHIP, NETWORK, NODE>,
 >(
     args: ValidatorArgs,
 ) where
@@ -402,7 +433,10 @@ pub async fn main_entry_point<
 
     let orchestrator_client: OrchestratorClient =
         OrchestratorClient::connect_to_orchestrator(args).await;
-    orchestrator_client
+    let run_config = orchestrator_client
         .get_config_from_orchestrator::<TYPES>()
         .await;
+
+    let network = RUN::initialize_networking(run_config).await;
+    
 }
