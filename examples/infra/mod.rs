@@ -1,15 +1,10 @@
-use futures::FutureExt;
-use hotshot_orchestrator::config::CentralizedWebServerConfig;
-
-use async_std::task::sleep;
 use futures::Future;
+use futures::FutureExt;
 use std::{
     cmp,
     collections::{BTreeSet, VecDeque},
-    fs,
-    marker::PhantomData,
-    mem,
-    net::{IpAddr, SocketAddr},
+    fs, mem,
+    net::IpAddr,
     num::NonZeroUsize,
     str::FromStr,
     sync::Arc,
@@ -17,31 +12,31 @@ use std::{
 };
 use surf_disco::Client;
 
-use surf_disco::{error::ClientError, Error};
+use surf_disco::error::ClientError;
 
 use async_compatibility_layer::{
-    art::{async_sleep, TcpStream},
+    art::async_sleep,
     logging::{setup_backtrace, setup_logging},
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
 use clap::Parser;
 use hotshot::{
-    demos::vdemo::VDemoTypes,
     traits::{
         implementations::{
             CentralizedWebCommChannel, CentralizedWebServerNetwork, Libp2pCommChannel,
             Libp2pNetwork, MemoryStorage,
         },
-        NetworkError, NodeImplementation, Storage,
+        NodeImplementation, Storage,
     },
     types::{HotShotHandle, SignatureKey},
     HotShot, ViewRunner,
 };
 use hotshot_orchestrator::{
     self,
-    config::{NetworkConfig, NetworkConfigFile},
+    config::{CentralizedWebServerConfig, NetworkConfig, NetworkConfigFile},
 };
+
 use hotshot_types::{
     data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
     traits::{
@@ -63,14 +58,16 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-use tracing::{debug, error};
+use tracing::error;
+
+// ORCHESTRATOR
 
 #[derive(Parser, Debug, Clone)]
 #[command(
     name = "Multi-machine consensus",
     about = "Simulates consensus among multiple machines"
 )]
-
+/// Arguments passed to the orchestrator
 pub struct OrchestratorArgs {
     /// The address the orchestrator runs on
     host: IpAddr,
@@ -80,13 +77,12 @@ pub struct OrchestratorArgs {
     config_file: String,
 }
 
-// TODO ED Does this need to actually return a result? Doesn't seem like it
-// This only reads one file, unlike the old server that read multiple.  We didn't use that featuree anyway
+/// Reads a network configuration from a given filepath
 pub fn load_config_from_file<TYPES: NodeType>(
     config_file: String,
 ) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
     let config_file_as_string: String = fs::read_to_string(config_file.as_str())
-        .expect(format!("Could not read config file located at {config_file}").as_str());
+        .unwrap_or_else(|_| panic!("Could not read config file located at {config_file}"));
     let config_toml: NetworkConfigFile =
         toml::from_str::<NetworkConfigFile>(&config_file_as_string)
             .expect("Unable to convert config file to TOML");
@@ -94,7 +90,7 @@ pub fn load_config_from_file<TYPES: NodeType>(
     let mut config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> =
         config_toml.into();
 
-    // Generate keys
+    // Generate network's public keys
     config.config.known_nodes = (0..config.config.total_nodes.get())
         .map(|node_id| {
             TYPES::SignatureKey::generated_from_seed_indexed(
@@ -108,6 +104,7 @@ pub fn load_config_from_file<TYPES: NodeType>(
     config
 }
 
+/// Runs the orchestrator
 pub async fn run_orchestrator<
     TYPES: NodeType,
     MEMBERSHIP: Membership<TYPES>,
@@ -132,10 +129,8 @@ pub async fn run_orchestrator<
         config_file,
     }: OrchestratorArgs,
 ) {
-    println!("Starting orchestrator",);
+    error!("Starting orchestrator",);
     let run_config = load_config_from_file::<TYPES>(config_file);
-
-    println!("{:?}", run_config);
     let _result = hotshot_orchestrator::run_orchestrator::<
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
@@ -150,7 +145,7 @@ pub async fn run_orchestrator<
     name = "Multi-machine consensus",
     about = "Simulates consensus among multiple machines"
 )]
-
+/// Arguments passed to the validator
 pub struct ValidatorArgs {
     /// The address the orchestrator runs on
     host: IpAddr,
@@ -158,6 +153,7 @@ pub struct ValidatorArgs {
     port: u16,
 }
 
+/// Defines the behavior of a "run" of the network with a given configuration
 #[async_trait]
 pub trait Run<
     TYPES: NodeType,
@@ -183,10 +179,12 @@ pub trait Run<
     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
 {
+    /// Initializes networking, returns self
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> Self;
 
+    /// Initializes the genesis state and HotShot instance; does not start HotShot consensus
     async fn initialize_state_and_hotshot(&self) -> (TYPES::StateType, HotShotHandle<TYPES, NODE>) {
         let genesis_block = TYPES::BlockType::genesis();
         let initializer =
@@ -194,21 +192,20 @@ pub trait Run<
                 genesis_block,
             )
             .unwrap();
-
         let config = self.get_config();
-
-        let (pk, sk) =
+        let (pub_key, secret_key) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
         let known_nodes = config.config.known_nodes.clone();
-
         let network = self.get_network();
-        // TODO ED This will always be default
+
+        // Since we do not currently pass the election config type in the NetworkConfig, this will always be the default election config
         let election_config = config.config.election_config.clone().unwrap_or_else(|| {
             NODE::Membership::default_election_config(config.config.total_nodes.get() as u64)
         });
+
         let hotshot = HotShot::init(
-            pk,
-            sk,
+            pub_key,
+            secret_key,
             config.node_index,
             config.config,
             network,
@@ -218,12 +215,13 @@ pub trait Run<
             NoMetrics::new(),
         )
         .await
-        .expect("Could not init hotshot");
+        .expect("Could not initialize hotshot");
 
         let state = hotshot.storage().get_anchored_view().await.unwrap().state;
         (state, hotshot)
     }
 
+    /// Starts HotShot consensus, returns when consensus has finished
     async fn run_hotshot(&self, mut hotshot: HotShotHandle<TYPES, NODE>) {
         let NetworkConfig {
             padding,
@@ -241,12 +239,11 @@ pub trait Run<
 
         // This assumes that no node will be a leader more than 5x the expected number of times they should be the leader
         // FIXME  is this a reasonable assumption when we start doing DA?
+        // TODO ED: In the future we should have each node generate transactions every round to simulate a more realistic network
         let tx_to_gen = transactions_per_round * (cmp::max(rounds / total_nodes, 1) + 5);
-        error!("Generated {} transactions", tx_to_gen);
         {
             let mut txn_rng = rand::thread_rng();
             for _ in 0..tx_to_gen {
-                // TODO make this u64...
                 let txn =
                     <<TYPES as NodeType>::StateType as TestableState>::create_random_transaction(
                         Some(&state),
@@ -256,8 +253,9 @@ pub trait Run<
                 txns.push_back(txn);
             }
         }
+        error!("Generated {} transactions", tx_to_gen);
 
-        error!("Adjusted padding size is = {:?}", adjusted_padding);
+        error!("Adjusted padding size is {:?} bytes", adjusted_padding);
         let mut timed_out_views: u64 = 0;
         let mut round = 1;
         let mut total_transactions = 0;
@@ -267,12 +265,9 @@ pub trait Run<
         error!("Starting hotshot!");
         hotshot.start().await;
         while round <= rounds {
-            debug!(?round);
             error!("Round {}:", round);
 
             let num_submitted = if node_index == ((round % total_nodes) as u64) {
-                tracing::info!("Generating txn for round {}", round);
-
                 for _ in 0..transactions_per_round {
                     let txn = txns.pop_front().unwrap();
                     tracing::info!("Submitting txn on round {}", round);
@@ -285,16 +280,11 @@ pub trait Run<
             error!("Submitting {} transactions", num_submitted);
 
             // Start consensus
-            error!("  - Waiting for consensus to occur");
-            debug!("Waiting for consensus to occur");
-
             let view_results = hotshot.collect_round_events().await;
 
             match view_results {
                 Ok((state, blocks)) => {
-                    if let Some(state) = state.get(0) {
-                        debug!("  - State: {state:?}");
-                    }
+                    if let Some(_state) = state.get(0) {}
                     for block in blocks {
                         total_transactions += block.txn_count();
                     }
@@ -309,33 +299,24 @@ pub trait Run<
         }
 
         let total_time_elapsed = start.elapsed();
-        let _expected_transactions = transactions_per_round * rounds;
         let total_size = total_transactions * (padding as u64);
-        error!("All {rounds} rounds completed in {total_time_elapsed:?}");
-        error!("{timed_out_views} rounds timed out");
 
-        // This assumes all submitted transactions make it through consensus:
-        error!(
-            "{} total bytes submitted in {:?}",
-            total_size, total_time_elapsed
-        );
-        debug!("All rounds completed");
+        // This assumes all transactions that were submitted made it through consensus, and does not account for the genesis block
+        error!("All {rounds} rounds completed in {total_time_elapsed:?}. {timed_out_views} rounds timed out. {total_size} total bytes submitted");
     }
 
+    /// Returns the network for this run
     fn get_network(&self) -> NETWORK;
 
+    /// Returns the config for this run
     fn get_config(&self) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>;
 }
-
-// TODO ED Perhaps reinstate in future
-// pub enum RunType<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
-//     Libp2pRun(Libp2pRun<TYPES, MEMBERSHIP>),
-//     WebServerRun(WebServerRun<TYPES, MEMBERSHIP>),
-// }
 
 type Proposal<T> = ValidatingProposal<T, ValidatingLeaf<T>>;
 
 // LIBP2P
+
+/// Represents a libp2p-based run
 pub struct Libp2pRun<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
     _bootstrap_nodes: Vec<(PeerId, Multiaddr)>,
     _node_type: NetworkNodeType,
@@ -343,7 +324,6 @@ pub struct Libp2pRun<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
     /// for libp2p layer
     _identity: Keypair,
 
-    // _socket: TcpStreamUtil,
     network: Libp2pCommChannel<
         TYPES,
         Proposal<TYPES>,
@@ -391,16 +371,6 @@ pub const LIBP2P_BOOTSTRAPS_LOCAL_IPS: &[&str] = &[
     "127.0.0.1:9104",
     "127.0.0.1:9105",
     "127.0.0.1:9106",
-];
-
-pub const LIBP2P_BOOTSTRAPS_REMOTE_IPS: &[&str] = &[
-    "0.ap-south-1.cluster.aws.espresso.network:9000",
-    "1.ap-south-1.cluster.aws.espresso.network:9000",
-    "0.us-east-2.cluster.aws.espresso.network:9000",
-    "1.us-east-2.cluster.aws.espresso.network:9000",
-    "2.us-east-2.cluster.aws.espresso.network:9000",
-    "0.us-west-2.cluster.aws.espresso.network:9000",
-    "1.us-west-2.cluster.aws.espresso.network:9000",
 ];
 
 #[async_trait]
@@ -451,7 +421,7 @@ where
         let libp2p_config = config
             .libp2p_config
             .take()
-            .expect("Server is not configured as a libp2p server");
+            .expect("Configuration is not for a Libp2p network");
         let bs_len = libp2p_config.bootstrap_nodes.len();
         let bootstrap_nodes: Vec<(PeerId, Multiaddr)> = libp2p_config
             .bootstrap_nodes
@@ -483,6 +453,7 @@ where
         )
         .parse()
         .unwrap();
+
         // generate network
         let mut config_builder = NetworkNodeConfigBuilder::default();
         assert!(config.config.total_nodes.get() > 2);
@@ -557,7 +528,6 @@ where
             // _socket: stream,
             network,
         }
-        // network
     }
 
     fn get_config(
@@ -579,6 +549,9 @@ where
     }
 }
 
+// WEB SERVER
+
+/// Represents a web server-based run
 pub struct WebServerRun<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     network: CentralizedWebCommChannel<
@@ -629,8 +602,6 @@ where
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> WebServerRun<TYPES, MEMBERSHIP> {
-        // TODO ED Retrun networking
-
         // Generate our own key
         let (pub_key, _priv_key) =
             <<TYPES as NodeType>::SignatureKey as SignatureKey>::generated_from_seed_indexed(
@@ -638,12 +609,14 @@ where
                 config.node_index,
             );
 
+        // Get the configuration for the web server
         let CentralizedWebServerConfig {
             host,
             port,
             wait_between_polls,
         }: CentralizedWebServerConfig = config.clone().centralized_web_server_config.unwrap();
 
+        // Create the network
         let network: CentralizedWebCommChannel<
             TYPES,
             Proposal<TYPES>,
@@ -674,24 +647,23 @@ where
     }
 }
 
+/// Holds the client connection to the orchestrator
 pub struct OrchestratorClient {
     client: surf_disco::Client<ClientError>,
-    // membership: PhantomData<(TYPES)>,
 }
 
 impl OrchestratorClient {
+    /// Creates the client that connects to the orchestrator
     async fn connect_to_orchestrator(args: ValidatorArgs) -> Self {
         let base_url = format!("{0}:{1}", args.host, args.port);
         let base_url = format!("http://{base_url}").parse().unwrap();
         let client = surf_disco::Client::<ClientError>::new(base_url);
-        // TODO ED insert healthcheck here
-        OrchestratorClient {
-            client,
-            // membership: PhantomData<(TYPES)>::default()
-        }
+        // TODO ED: Add healthcheck wait here
+        OrchestratorClient { client }
     }
 
-    // Will block until the config is returned --> Could make this a function as arg to a generic wait function
+    // Returns the run configuration from the orchestrator
+    // Will block until the configuration is returned
     async fn get_config_from_orchestrator<TYPES: NodeType>(
         &self,
     ) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
@@ -708,14 +680,9 @@ impl OrchestratorClient {
         self.wait_for_fn_from_orchestrator(f).await
     }
 
+    /// Tells the orchestrator this validator is ready to start
+    /// Blocks until the orchestrator indicates all nodes are ready to start
     async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
-        // let result: Result<(), ServerError> = client
-        // .post("api/ready")
-        // .body_json(&node_index)
-        // .unwrap()
-        // .send()
-        // .await;
-
         let send_ready_f = |client: Client<ClientError>| {
             async move {
                 let result: Result<_, ClientError> = client
@@ -728,7 +695,8 @@ impl OrchestratorClient {
             }
             .boxed()
         };
-        let _result: () = self.wait_for_fn_from_orchestrator(send_ready_f).await;
+        let _result: Result<(), ClientError> =
+            self.wait_for_fn_from_orchestrator(send_ready_f).await;
 
         let wait_for_all_nodes_ready_f = |client: Client<ClientError>| {
             async move { client.get("api/start").send().await }.boxed()
@@ -737,24 +705,28 @@ impl OrchestratorClient {
             .await
     }
 
-    async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, mut f: F) -> GEN
+    /// Generic function that waits for the orchestrator to return a non-error
+    /// Returns whatever type the given function returns
+    async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, f: F) -> GEN
     where
         F: Fn(Client<ClientError>) -> Fut,
         Fut: Future<Output = Result<GEN, ClientError>>,
     {
         let result = loop {
-            // TODO ED Move this outside the loop
             let client = self.client.clone();
             let res = f(client).await;
             match res {
                 Ok(x) => break x,
-                Err(_x) => ({async_sleep(Duration::from_millis(250)).await;} ),
+                Err(_x) => {
+                    async_sleep(Duration::from_millis(250)).await;
+                }
             }
         };
         result
     }
 }
 
+/// Main entry point for validators
 pub async fn main_entry_point<
     TYPES: NodeType,
     MEMBERSHIP: Membership<TYPES>,
@@ -784,7 +756,7 @@ pub async fn main_entry_point<
     setup_logging();
     setup_backtrace();
 
-    print!("Running validator");
+    error!("Starting validator");
 
     let orchestrator_client: OrchestratorClient =
         OrchestratorClient::connect_to_orchestrator(args).await;
@@ -793,9 +765,6 @@ pub async fn main_entry_point<
         .await;
 
     let run = RUN::initialize_networking(run_config.clone()).await;
-
-    // let run = RUN::new(run_config.clone(), network);
-
     let (_state, hotshot) = run.initialize_state_and_hotshot().await;
 
     orchestrator_client
