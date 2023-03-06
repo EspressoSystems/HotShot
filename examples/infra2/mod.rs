@@ -106,7 +106,7 @@ pub fn load_config_from_file<TYPES: NodeType>(
             .0
         })
         .collect();
-   
+
     config
 }
 
@@ -185,14 +185,9 @@ pub trait Run<
     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
 {
-    fn new(
-        run_config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-        network: NETWORK,
-    ) -> Self;
-
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    ) -> NETWORK;
+    ) -> Self;
 
     async fn initialize_state_and_hotshot(&self) -> (TYPES::StateType, HotShotHandle<TYPES, NODE>) {
         let genesis_block = TYPES::BlockType::genesis();
@@ -341,6 +336,7 @@ pub trait Run<
 
 type Proposal<T> = ValidatingProposal<T, ValidatingLeaf<T>>;
 
+// LIBP2P
 pub struct Libp2pRun<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
     _bootstrap_nodes: Vec<(PeerId, Multiaddr)>,
     _node_type: NetworkNodeType,
@@ -359,43 +355,230 @@ pub struct Libp2pRun<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
         NetworkConfig<<TYPES as NodeType>::SignatureKey, <TYPES as NodeType>::ElectionConfigType>,
 }
 
-// #[async_trait]
-// impl<
-//         TYPES: NodeType,
-//         MEMBERSHIP: Membership<TYPES>,
-//         NODE: NodeImplementation<
-//             TYPES,
-//             Leaf = ValidatingLeaf<TYPES>,
-//             Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-//             Membership = MEMBERSHIP,
-//             Networking = Libp2pCommChannel<
-//                 TYPES,
-//                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-//                 QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-//                 MEMBERSHIP,
-//             >,
-//             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
-//         >,
-//     >
-//     Run<
-//         TYPES,
-//         MEMBERSHIP,
-//         Libp2pCommChannel<
-//             TYPES,
-//             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-//             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-//             MEMBERSHIP,
-//         >,
-//         NODE,
-//     > for Libp2pRun<TYPES, MEMBERSHIP>
-// where
-//     <TYPES as NodeType>::StateType: TestableState,
-//     <TYPES as NodeType>::BlockType: TestableBlock,
-//     ValidatingLeaf<TYPES>: TestableLeaf,
-//     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
-//     Self: Sync,
-// {
-// }
+/// yeesh maybe we should just implement SignatureKey for this...
+pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&seed);
+    hasher.update(&index.to_le_bytes());
+    let new_seed = *hasher.finalize().as_bytes();
+    let sk_bytes = SecretKey::from_bytes(new_seed).unwrap();
+    let ed_kp = <EdKeypair as From<SecretKey>>::from(sk_bytes);
+    Keypair::Ed25519(ed_kp)
+}
+
+/// libp2p helper function
+/// convert node string into multi addr
+/// node string of the form: "$IP:$PORT"
+pub fn parse_dns(s: &str) -> Result<Multiaddr, multiaddr::Error> {
+    let mut i = s.split(':');
+    let ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
+    let port = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
+    Multiaddr::from_str(&format!("/dns/{ip}/tcp/{port}"))
+}
+
+/// libp2p helper function
+pub fn parse_ip(s: &str) -> Result<Multiaddr, multiaddr::Error> {
+    let mut i = s.split(':');
+    let ip = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
+    let port = i.next().ok_or(multiaddr::Error::InvalidMultiaddr)?;
+    Multiaddr::from_str(&format!("/ip4/{ip}/tcp/{port}"))
+}
+
+pub const LIBP2P_BOOTSTRAPS_LOCAL_IPS: &[&str] = &[
+    "127.0.0.1:9100",
+    "127.0.0.1:9101",
+    "127.0.0.1:9102",
+    "127.0.0.1:9103",
+    "127.0.0.1:9104",
+    "127.0.0.1:9105",
+    "127.0.0.1:9106",
+];
+
+pub const LIBP2P_BOOTSTRAPS_REMOTE_IPS: &[&str] = &[
+    "0.ap-south-1.cluster.aws.espresso.network:9000",
+    "1.ap-south-1.cluster.aws.espresso.network:9000",
+    "0.us-east-2.cluster.aws.espresso.network:9000",
+    "1.us-east-2.cluster.aws.espresso.network:9000",
+    "2.us-east-2.cluster.aws.espresso.network:9000",
+    "0.us-west-2.cluster.aws.espresso.network:9000",
+    "1.us-west-2.cluster.aws.espresso.network:9000",
+];
+
+#[async_trait]
+impl<
+        TYPES: NodeType,
+        MEMBERSHIP: Membership<TYPES>,
+        NODE: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            Membership = MEMBERSHIP,
+            Networking = Libp2pCommChannel<
+                TYPES,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+            >,
+            Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
+        >,
+    >
+    Run<
+        TYPES,
+        MEMBERSHIP,
+        Libp2pCommChannel<
+            TYPES,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        >,
+        NODE,
+    > for Libp2pRun<TYPES, MEMBERSHIP>
+where
+    <TYPES as NodeType>::StateType: TestableState,
+    <TYPES as NodeType>::BlockType: TestableBlock,
+    ValidatingLeaf<TYPES>: TestableLeaf,
+    HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
+    Self: Sync,
+{
+    async fn initialize_networking(
+        config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    ) -> Libp2pRun<TYPES, MEMBERSHIP> {
+        let (pubkey, _privkey) =
+        <<TYPES as NodeType>::SignatureKey as SignatureKey>::generated_from_seed_indexed(
+            config.seed,
+            config.node_index,
+        );
+        let  mut config = config; 
+        let libp2p_config = config
+            .libp2p_config
+            .take()
+            .expect("Server is not configured as a libp2p server");
+        let bs_len = libp2p_config.bootstrap_nodes.len();
+        let bootstrap_nodes: Vec<(PeerId, Multiaddr)> = libp2p_config
+            .bootstrap_nodes
+            .iter()
+            .map(|(addr, pair)| {
+                let kp = Keypair::from_protobuf_encoding(pair).unwrap();
+                let peer_id = PeerId::from_public_key(&kp.public());
+                let mut multiaddr = Multiaddr::from(addr.ip());
+                multiaddr.push(Protocol::Tcp(addr.port()));
+                (peer_id, multiaddr)
+            })
+            .collect();
+        let identity = libp2p_generate_indexed_identity(config.seed, config.node_index);
+        let node_type = if (config.node_index as usize) < bs_len {
+            NetworkNodeType::Bootstrap
+        } else {
+            NetworkNodeType::Regular
+        };
+        let node_index = config.node_index;
+        let bound_addr = format!(
+            "/{}/{}/tcp/{}",
+            if libp2p_config.public_ip.is_ipv4() {
+                "ip4"
+            } else {
+                "ip6"
+            },
+            libp2p_config.public_ip,
+            libp2p_config.base_port + node_index as u16
+        )
+        .parse()
+        .unwrap();
+        // generate network
+        let mut config_builder = NetworkNodeConfigBuilder::default();
+        assert!(config.config.total_nodes.get() > 2);
+        let replicated_nodes = NonZeroUsize::new(config.config.total_nodes.get() - 2).unwrap();
+        config_builder.replication_factor(replicated_nodes);
+        config_builder.identity(identity.clone());
+        let mesh_params =
+            // NOTE I'm arbitrarily choosing these.
+            match node_type {
+                NetworkNodeType::Bootstrap => MeshParams {
+                    mesh_n_high: libp2p_config.bootstrap_mesh_n_high,
+                    mesh_n_low: libp2p_config.bootstrap_mesh_n_low,
+                    mesh_outbound_min: libp2p_config.bootstrap_mesh_outbound_min,
+                    mesh_n: libp2p_config.bootstrap_mesh_n,
+                },
+                NetworkNodeType::Regular => MeshParams {
+                    mesh_n_high: libp2p_config.mesh_n_high,
+                    mesh_n_low: libp2p_config.mesh_n_low,
+                    mesh_outbound_min: libp2p_config.mesh_outbound_min,
+                    mesh_n: libp2p_config.mesh_n,
+                },
+                NetworkNodeType::Conductor => unreachable!(),
+            };
+        config_builder.mesh_params(Some(mesh_params));
+
+        let node_config = config_builder.build().unwrap();
+        let network = Libp2pNetwork::new(
+            NoMetrics::new(),
+            node_config,
+            pubkey.clone(),
+            Arc::new(RwLock::new(
+                bootstrap_nodes
+                    .iter()
+                    .map(|(peer_id, addr)| (Some(*peer_id), addr.clone()))
+                    .collect(),
+            )),
+            bs_len,
+            config.node_index as usize,
+            // NOTE: this introduces an invariant that the keys are assigned using this indexed
+            // function
+            {
+                let mut keys = BTreeSet::new();
+                for i in 0..config.config.total_nodes.get() {
+                    let pk = <TYPES::SignatureKey as SignatureKey>::generated_from_seed_indexed(
+                        config.seed,
+                        i as u64,
+                    )
+                    .0;
+                    keys.insert(pk);
+                }
+                keys
+            },
+        )
+        .await
+        .map(
+            Libp2pCommChannel::<
+                TYPES,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+            >::new,
+        )
+        .unwrap();
+
+        Libp2pRun {
+            config,
+        
+            _bootstrap_nodes: bootstrap_nodes,
+            _node_type: node_type,
+            _identity: identity,
+            _bound_addr: bound_addr,
+            // _socket: stream,
+            network,
+        }
+        // network
+    }
+
+    fn get_config(
+        &self,
+    ) -> NetworkConfig<<TYPES as NodeType>::SignatureKey, <TYPES as NodeType>::ElectionConfigType>
+    {
+        self.config.clone()
+    }
+
+    fn get_network(
+        &self,
+    ) -> Libp2pCommChannel<
+        TYPES,
+        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+        MEMBERSHIP,
+    > {
+        self.network.clone()
+    }
+}
 
 pub struct WebServerRun<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
@@ -444,29 +627,9 @@ where
     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
     Self: Sync,
 {
-    fn new(
-        run_config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-        network: CentralizedWebCommChannel<
-            TYPES,
-            Proposal<TYPES>,
-            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-            MEMBERSHIP,
-        >,
-    ) -> Self {
-        WebServerRun {
-            config: run_config,
-            network,
-        }
-    }
-
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    ) -> CentralizedWebCommChannel<
-        TYPES,
-        Proposal<TYPES>,
-        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        MEMBERSHIP,
-    > {
+    ) -> WebServerRun<TYPES, MEMBERSHIP> {
         // TODO ED Retrun networking
 
         // Generate our own key
@@ -480,7 +643,7 @@ where
             host,
             port,
             wait_between_polls,
-        }: CentralizedWebServerConfig = config.centralized_web_server_config.unwrap();
+        }: CentralizedWebServerConfig = config.clone().centralized_web_server_config.unwrap();
 
         let network: CentralizedWebCommChannel<
             TYPES,
@@ -493,7 +656,7 @@ where
             wait_between_polls,
             pub_key,
         ));
-        network
+        WebServerRun { config, network }
     }
 
     fn get_network(
@@ -547,37 +710,32 @@ impl OrchestratorClient {
     }
 
     async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
-
         // let result: Result<(), ServerError> = client
         // .post("api/ready")
         // .body_json(&node_index)
         // .unwrap()
         // .send()
         // .await;
-        
 
         let mut send_ready_f = |client: Client<ClientError>| {
             async move {
-        
-                let result: Result<_, ClientError> = client.post("api/ready")
-                .body_json(&node_index)
-                .unwrap()
-                .send()
-                .await; 
-            result
-                
+                let result: Result<_, ClientError> = client
+                    .post("api/ready")
+                    .body_json(&node_index)
+                    .unwrap()
+                    .send()
+                    .await;
+                result
             }
             .boxed()
         };
         let _result: () = self.wait_for_fn_from_orchestrator(send_ready_f).await;
 
         let mut wait_for_all_nodes_ready_f = |client: Client<ClientError>| {
-            async move {
-               client.get("api/start").send().await
-            }
-            .boxed()
+            async move { client.get("api/start").send().await }.boxed()
         };
-        self.wait_for_fn_from_orchestrator(wait_for_all_nodes_ready_f).await
+        self.wait_for_fn_from_orchestrator(wait_for_all_nodes_ready_f)
+            .await
     }
 
     async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, mut f: F) -> GEN
@@ -635,14 +793,15 @@ pub async fn main_entry_point<
         .get_config_from_orchestrator::<TYPES>()
         .await;
 
-    let network = RUN::initialize_networking(run_config.clone()).await;
+    let run = RUN::initialize_networking(run_config.clone()).await;
 
-    let run = RUN::new(run_config.clone(), network);
+    // let run = RUN::new(run_config.clone(), network);
 
-    let (state, hotshot) = run.initialize_state_and_hotshot().await; 
+    let (state, hotshot) = run.initialize_state_and_hotshot().await;
 
-    orchestrator_client.wait_for_all_nodes_ready(run_config.node_index).await;
+    orchestrator_client
+        .wait_for_all_nodes_ready(run_config.node_index)
+        .await;
 
-
-    run.run_hotshot(hotshot).await; 
+    run.run_hotshot(hotshot).await;
 }
