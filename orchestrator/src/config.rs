@@ -77,6 +77,7 @@ impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
             election_config_type_name: std::any::type_name::<E>().to_string(),
             start_delay_seconds: val.start_delay_seconds,
             centralized_web_server_config: val.centralized_web_server_config,
+            
         }
     }
 }

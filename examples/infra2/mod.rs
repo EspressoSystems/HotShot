@@ -193,9 +193,138 @@ pub trait Run<
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> NETWORK;
 
-    async fn initialize_hotshot(&self) {}
+    async fn initialize_state_and_hotshot(&self) -> (TYPES::StateType, HotShotHandle<TYPES, NODE>) {
+        let genesis_block = TYPES::BlockType::genesis();
+        let initializer =
+            hotshot::HotShotInitializer::<TYPES, ValidatingLeaf<TYPES>>::from_genesis(
+                genesis_block,
+            )
+            .unwrap();
 
-    async fn start_hotshot(&self) {}
+        let config = self.get_config();
+
+        let (pk, sk) =
+            TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
+        let known_nodes = config.config.known_nodes.clone();
+
+        let network = self.get_network();
+        let election_config = config.config.election_config.clone().unwrap();
+
+        let hotshot = HotShot::init(
+            pk,
+            sk,
+            config.node_index,
+            config.config,
+            network,
+            MemoryStorage::new(),
+            MEMBERSHIP::create_election(known_nodes, election_config),
+            initializer,
+            NoMetrics::new(),
+        )
+        .await
+        .expect("Could not init hotshot");
+
+        let state = hotshot.storage().get_anchored_view().await.unwrap().state;
+        (state, hotshot)
+    }
+
+    async fn run_hotshot(&self, mut hotshot: HotShotHandle<TYPES, NODE>) {
+        let NetworkConfig {
+            padding,
+            rounds,
+            transactions_per_round,
+            node_index,
+            config: HotShotConfig { total_nodes, .. },
+            ..
+        } = self.get_config();
+
+        let size = mem::size_of::<TYPES::Transaction>();
+        let adjusted_padding = if padding < size { 0 } else { padding - size };
+        let mut txns: VecDeque<TYPES::Transaction> = VecDeque::new();
+        let state = hotshot.get_state().await;
+
+        // This assumes that no node will be a leader more than 5x the expected number of times they should be the leader
+        // FIXME  is this a reasonable assumption when we start doing DA?
+        let tx_to_gen = transactions_per_round * (cmp::max(rounds / total_nodes, 1) + 5);
+        error!("Generated {} transactions", tx_to_gen);
+        {
+            let mut txn_rng = rand::thread_rng();
+            for _ in 0..tx_to_gen {
+                // TODO make this u64...
+                let txn =
+                    <<TYPES as NodeType>::StateType as TestableState>::create_random_transaction(
+                        Some(&state),
+                        &mut txn_rng,
+                        padding as u64,
+                    );
+                txns.push_back(txn);
+            }
+        }
+
+        error!("Adjusted padding size is = {:?}", adjusted_padding);
+        let mut timed_out_views: u64 = 0;
+        let mut round = 1;
+        let mut total_transactions = 0;
+
+        let start = Instant::now();
+
+        error!("Starting hotshot!");
+        hotshot.start().await;
+        while round <= rounds {
+            debug!(?round);
+            error!("Round {}:", round);
+
+            let num_submitted = if node_index == ((round % total_nodes) as u64) {
+                tracing::info!("Generating txn for round {}", round);
+
+                for _ in 0..transactions_per_round {
+                    let txn = txns.pop_front().unwrap();
+                    tracing::info!("Submitting txn on round {}", round);
+                    hotshot.submit_transaction(txn).await.unwrap();
+                }
+                transactions_per_round
+            } else {
+                0
+            };
+            error!("Submitting {} transactions", num_submitted);
+
+            // Start consensus
+            error!("  - Waiting for consensus to occur");
+            debug!("Waiting for consensus to occur");
+
+            let view_results = hotshot.collect_round_events().await;
+
+            match view_results {
+                Ok((state, blocks)) => {
+                    if let Some(state) = state.get(0) {
+                        debug!("  - State: {state:?}");
+                    }
+                    for block in blocks {
+                        total_transactions += block.txn_count();
+                    }
+                }
+                Err(e) => {
+                    timed_out_views += 1;
+                    error!("View: {:?}, failed with : {:?}", round, e);
+                }
+            }
+
+            round += 1;
+        }
+
+        let total_time_elapsed = start.elapsed();
+        let expected_transactions = transactions_per_round * rounds;
+        let total_size = total_transactions * (padding as u64);
+        error!("All {rounds} rounds completed in {total_time_elapsed:?}");
+        error!("{timed_out_views} rounds timed out");
+
+        // This assumes all submitted transactions make it through consensus:
+        error!(
+            "{} total bytes submitted in {:?}",
+            total_size, total_time_elapsed
+        );
+        debug!("All rounds completed");
+    }
 
     fn get_network(&self) -> NETWORK;
 
@@ -365,7 +494,9 @@ where
         network
     }
 
-    fn get_network(&self) -> CentralizedWebCommChannel<
+    fn get_network(
+        &self,
+    ) -> CentralizedWebCommChannel<
         TYPES,
         Proposal<TYPES>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
@@ -398,7 +529,7 @@ impl OrchestratorClient {
 
     // Will block until the config is returned --> Could make this a function as arg to a generic wait function
     async fn get_config_from_orchestrator<TYPES: NodeType>(
-        self,
+        &self,
     ) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
         let mut f = |client: Client<ClientError>| {
             async move {
@@ -413,7 +544,41 @@ impl OrchestratorClient {
         self.wait_for_fn_from_orchestrator(f).await
     }
 
-    async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(self, mut f: F) -> GEN
+    async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
+
+        // let result: Result<(), ServerError> = client
+        // .post("api/ready")
+        // .body_json(&node_index)
+        // .unwrap()
+        // .send()
+        // .await;
+        
+
+        let mut send_ready_f = |client: Client<ClientError>| {
+            async move {
+        
+                let result: Result<_, ClientError> = client.post("api/ready")
+                .body_json(&node_index)
+                .unwrap()
+                .send()
+                .await; 
+            result
+                
+            }
+            .boxed()
+        };
+        let _result: () = self.wait_for_fn_from_orchestrator(send_ready_f).await;
+
+        let mut wait_for_all_nodes_ready_f = |client: Client<ClientError>| {
+            async move {
+               client.get("api/start").send().await
+            }
+            .boxed()
+        };
+        self.wait_for_fn_from_orchestrator(wait_for_all_nodes_ready_f).await
+    }
+
+    async fn wait_for_fn_from_orchestrator<F, Fut, GEN>(&self, mut f: F) -> GEN
     where
         F: Fn(Client<ClientError>) -> Fut,
         Fut: Future<Output = Result<GEN, ClientError>>,
@@ -470,5 +635,12 @@ pub async fn main_entry_point<
 
     let network = RUN::initialize_networking(run_config.clone()).await;
 
-    let run = RUN::new(run_config, network);
+    let run = RUN::new(run_config.clone(), network);
+
+    let (state, hotshot) = run.initialize_state_and_hotshot().await; 
+
+    orchestrator_client.wait_for_all_nodes_ready(run_config.node_index);
+
+
+    run.run_hotshot(hotshot); 
 }
