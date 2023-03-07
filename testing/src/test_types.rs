@@ -12,17 +12,21 @@ use hotshot::{
             vrf::{JfPubKey, VRFStakeTableConfig, VRFVoteToken, VrfImpl},
         },
         implementations::{MemoryCommChannel, MemoryStorage},
+        NodeImplementation,
     },
+    types::VoteType,
 };
 use hotshot_types::{
-    data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
+    data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
+        election::{Membership, QuorumExchange},
         node_implementation::NodeType,
         state::ValidatingConsensus,
     },
     vote::QuorumVote,
 };
+use hotshot_types::message::Message;
 use jf_primitives::{
     signatures::{
         bls::{BLSSignature, BLSVerKey},
@@ -86,55 +90,103 @@ impl NodeType for StaticCommitteeTestTypes {
 
 struct StandardNodeImplType {}
 
-/// type synonym for vrf committee election
-/// with in-memory network
-pub type StandardNodeImplType = TestNodeImpl<
+type VrfMembership = VrfImpl<
     VrfTestTypes,
     ValidatingLeaf<VrfTestTypes>,
-    ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-    QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-    MemoryCommChannel<
-        VrfTestTypes,
-        Self,
-        ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-        QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-        VrfImpl<
-            VrfTestTypes,
-            ValidatingLeaf<VrfTestTypes>,
-            BLSSignatureScheme<Param381>,
-            BLSVRFScheme<Param381>,
-            Hasher,
-            Param381,
-        >,
-    >,
-    MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-    VrfImpl<
-        VrfTestTypes,
-        ValidatingLeaf<VrfTestTypes>,
-        BLSSignatureScheme<Param381>,
-        BLSVRFScheme<Param381>,
-        Hasher,
-        Param381,
-    >,
+    BLSSignatureScheme<Param381>,
+    BLSVRFScheme<Param381>,
+    Hasher,
+    Param381,
 >;
 
-/// type synonym for static committee
-/// with in-memory network
-pub type StaticNodeImplType = TestNodeImpl<
+type VrfCommunication = MemoryCommChannel<
+    VrfTestTypes,
+    StandardNodeImplType,
+    ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+    QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+    VrfMembership,
+>;
+
+struct StaticNodeImplType {}
+
+type StaticMembership =
+    StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
+
+type StaticCommunication = MemoryCommChannel<
     StaticCommitteeTestTypes,
-    ValidatingLeaf<StaticCommitteeTestTypes>,
+    StaticNodeImplType,
     ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-    MemoryCommChannel<
-        StaticCommitteeTestTypes,
-        Self,
-        ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-        QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-        StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-    >,
-    MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
 >;
+
+impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
+    type Storage = MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>;
+    type Leaf = ValidatingLeaf<VrfTestTypes>;
+    type QuorumExchange =
+        QuorumExchange<VrfTestTypes, ValidatingLeaf<VrfTestTypes>, VrfMembership, VrfCommunication, Message<VrfTestTypes, Self>>;
+}
+/// type synonym for vrf committee election
+/// with in-memory network
+// pub type StandardNodeImplType = TestNodeImpl<
+//     VrfTestTypes,
+//     ValidatingLeaf<VrfTestTypes>,
+//     ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+//     QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+//     MemoryCommChannel<
+//         VrfTestTypes,
+//         ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+//         QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+//         VrfImpl<
+//             VrfTestTypes,
+//             ValidatingLeaf<VrfTestTypes>,
+//             BLSSignatureScheme<Param381>,
+//             BLSVRFScheme<Param381>,
+//             Hasher,
+//             Param381,
+//         >,
+//     >,
+//     MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+//     VrfImpl<
+//         VrfTestTypes,
+//         ValidatingLeaf<VrfTestTypes>,
+//         BLSSignatureScheme<Param381>,
+//         BLSVRFScheme<Param381>,
+//         Hasher,
+//         Param381,
+//     >,
+// >;
+
+/// type synonym for static committee
+
+impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
+    type Storage =
+        MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
+    type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
+    type QuorumExchange = QuorumExchange<
+        StaticCommitteeTestTypes,
+        ValidatingLeaf<StaticCommitteeTestTypes>,
+        StaticMembership,
+        StaticCommunication,
+        Message<StaticCommitteeTestTypes, Self>
+    >;
+}
+/// with in-memory network
+// pub type StaticNodeImplType = TestNodeImpl<
+//     StaticCommitteeTestTypes,
+//     ValidatingLeaf<StaticCommitteeTestTypes>,
+//     ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+//     QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+//     MemoryCommChannel<
+//         StaticCommitteeTestTypes,
+//         Self,
+//         ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+//         QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+//         StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+//     >,
+//     MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+//     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+// >;
 
 /// type alias for the test runner type
 pub type AppliedTestRunner<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> =
@@ -145,7 +197,7 @@ pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> = TestNode
     LEAF,
     PROPOSAL,
     VOTE,
-    MemoryCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>,
+    MemoryCommChannel<TYPES, Self, PROPOSAL, VOTE, MEMBERSHIP>,
     MemoryStorage<TYPES, LEAF>,
     MEMBERSHIP,
 >;
