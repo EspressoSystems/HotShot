@@ -12,8 +12,6 @@ use hotshot_types::{
     vote::QuorumVote,
 };
 
-// use crate::infra::CentralizedConfig;
-
 pub type ThisLeaf = ValidatingLeaf<VDemoTypes>;
 pub type ThisMembership =
     GeneralStaticCommittee<VDemoTypes, ThisLeaf, <VDemoTypes as NodeType>::SignatureKey>;
@@ -22,5 +20,4 @@ pub type ThisNetwork =
 pub type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
 pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
 pub type ThisNode = VDemoNode<ThisNetwork, ThisMembership>;
-// TODO ED Run makes more sense to me than Config
 pub type ThisRun = WebServerRun<VDemoTypes, ThisMembership>;

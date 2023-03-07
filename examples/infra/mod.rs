@@ -185,13 +185,15 @@ pub trait Run<
     ) -> Self;
 
     /// Initializes the genesis state and HotShot instance; does not start HotShot consensus
+    /// # Panics if it cannot generate a genesis block, fails to initialize HotShot, or cannot
+    /// get the anchored view
     async fn initialize_state_and_hotshot(&self) -> (TYPES::StateType, HotShotHandle<TYPES, NODE>) {
         let genesis_block = TYPES::BlockType::genesis();
         let initializer =
             hotshot::HotShotInitializer::<TYPES, ValidatingLeaf<TYPES>>::from_genesis(
                 genesis_block,
             )
-            .unwrap();
+            .expect("Couldn't generate genesis block");
         let config = self.get_config();
         let (pub_key, secret_key) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
@@ -217,7 +219,12 @@ pub trait Run<
         .await
         .expect("Could not initialize hotshot");
 
-        let state = hotshot.storage().get_anchored_view().await.unwrap().state;
+        let state = hotshot
+            .storage()
+            .get_anchored_view()
+            .await
+            .expect("Couldn't get HotShot's anchored view")
+            .state;
         (state, hotshot)
     }
 
@@ -682,6 +689,7 @@ impl OrchestratorClient {
 
     /// Tells the orchestrator this validator is ready to start
     /// Blocks until the orchestrator indicates all nodes are ready to start
+    #[allow(clippy::let_unit_value)]
     async fn wait_for_all_nodes_ready(&self, node_index: u64) -> bool {
         let send_ready_f = |client: Client<ClientError>| {
             async move {
@@ -695,8 +703,7 @@ impl OrchestratorClient {
             }
             .boxed()
         };
-        let _result: Result<(), ClientError> =
-            self.wait_for_fn_from_orchestrator(send_ready_f).await;
+        () = self.wait_for_fn_from_orchestrator(send_ready_f).await;
 
         let wait_for_all_nodes_ready_f = |client: Client<ClientError>| {
             async move { client.get("api/start").send().await }.boxed()
