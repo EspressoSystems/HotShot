@@ -631,36 +631,27 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
 pub struct QuorumExchange<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
     MEMBERSHIP: Membership<TYPES>,
-    NETWORK: CommunicationChannel<
-        TYPES,
-        M,
-        ValidatingProposal<TYPES, LEAF>,
-        QuorumVote<TYPES, LEAF>,
-        MEMBERSHIP,
-    >,
+    NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, QuorumVote<TYPES, LEAF>, MEMBERSHIP>,
     M: NetworkMsg,
 > {
     network: NETWORK,
     membership: MEMBERSHIP,
     public_key: TYPES::SignatureKey,
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
-    _pd: PhantomData<(LEAF, MEMBERSHIP, M)>,
+    _pd: PhantomData<(LEAF, PROPOSAL, MEMBERSHIP, M)>,
 }
 
 impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-        NETWORK: CommunicationChannel<
-            TYPES,
-            M,
-            ValidatingProposal<TYPES, LEAF>,
-            QuorumVote<TYPES, LEAF>,
-            MEMBERSHIP,
-        >,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, QuorumVote<TYPES, LEAF>, MEMBERSHIP>,
         M: NetworkMsg,
-    > QuorumExchangeType<TYPES, LEAF, M> for QuorumExchange<TYPES, LEAF, MEMBERSHIP, NETWORK, M>
+    > QuorumExchangeType<TYPES, LEAF, M>
+    for QuorumExchange<TYPES, LEAF, PROPOSAL, MEMBERSHIP, NETWORK, M>
 {
     /// Create a message with a positive vote on validating or commitment proposal.
     fn create_yes_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
@@ -785,18 +776,14 @@ impl<
 impl<
         TYPES: NodeType,
         LEAF: LeafType<NodeType = TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-        NETWORK: CommunicationChannel<
-            TYPES,
-            M,
-            ValidatingProposal<TYPES, LEAF>,
-            QuorumVote<TYPES, LEAF>,
-            MEMBERSHIP,
-        >,
+        NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, QuorumVote<TYPES, LEAF>, MEMBERSHIP>,
         M: NetworkMsg,
-    > ConsensusExchange<TYPES, LEAF, M> for QuorumExchange<TYPES, LEAF, MEMBERSHIP, NETWORK, M>
+    > ConsensusExchange<TYPES, LEAF, M>
+    for QuorumExchange<TYPES, LEAF, PROPOSAL, MEMBERSHIP, NETWORK, M>
 {
-    type Proposal = ValidatingProposal<TYPES, LEAF>;
+    type Proposal = PROPOSAL;
     type Vote = QuorumVote<TYPES, LEAF>;
     type Certificate = QuorumCertificate<TYPES, LEAF>;
     type Membership = MEMBERSHIP;

@@ -129,6 +129,7 @@ impl<
             QuorumExchange = QuorumExchange<
                 TYPES,
                 ValidatingLeaf<TYPES>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 MEMBERSHIP,
                 Libp2pCommChannel<
                     TYPES,
@@ -341,6 +342,7 @@ impl<
             QuorumExchange = QuorumExchange<
                 TYPES,
                 ValidatingLeaf<TYPES>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 MEMBERSHIP,
                 CentralizedCommChannel<
                     TYPES,
@@ -486,6 +488,7 @@ pub trait CliConfig<
         QuorumExchange = QuorumExchange<
             TYPES,
             ValidatingLeaf<TYPES>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
             NETWORK,
             Message<TYPES, NODE>,
@@ -677,6 +680,7 @@ pub async fn main_entry_point<
         QuorumExchange = QuorumExchange<
             TYPES,
             ValidatingLeaf<TYPES>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
             NETWORK,
             Message<TYPES, NODE>,
@@ -721,6 +725,7 @@ pub async fn run_orchestrator<
         QuorumExchange = QuorumExchange<
             TYPES,
             ValidatingLeaf<TYPES>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
             NETWORK,
             Message<TYPES, NODE>,
@@ -757,6 +762,7 @@ pub async fn load_configs<
         QuorumExchange = QuorumExchange<
             TYPES,
             ValidatingLeaf<TYPES>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
             NETWORK,
             Message<TYPES, NODE>,

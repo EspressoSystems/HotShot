@@ -87,6 +87,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     type QuorumExchange = QuorumExchange<
         SequencingTestTypes,
         Self::Leaf,
+        CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
         StaticMembership,
         StaticQuroumComm,
         Message<SequencingTestTypes, Self>,
@@ -145,6 +146,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
     type QuorumExchange = QuorumExchange<
         SequencingTestTypes,
         Self::Leaf,
+        CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
         StaticMembership,
         StaticQuroumCommP2p,
         Message<SequencingTestTypes, Self>,
@@ -202,6 +204,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
     type QuorumExchange = QuorumExchange<
         SequencingTestTypes,
         Self::Leaf,
+        CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
         StaticMembership,
         StaticQuroumCommCentral,
         Message<SequencingTestTypes, Self>,

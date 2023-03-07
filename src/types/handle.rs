@@ -343,6 +343,34 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
             .sign_validating_or_commitment_proposal::<I>(leaf_commitment)
     }
 
+    #[cfg(feature = "hotshot-testing")]
+    pub fn create_yes_message(
+        &self,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, I::Leaf>>,
+        leaf_commitment: Commitment<I::Leaf>,
+        current_view: TYPES::Time,
+        vote_token: TYPES::VoteTokenType,
+    ) -> ConsensusMessage<TYPES, I>
+    where
+        I::QuorumExchange: QuorumExchangeType<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Certificate = QuorumCertificate<TYPES, I::Leaf>,
+            Vote = QuorumVote<TYPES, I::Leaf>,
+        >,
+    {
+        let api = HotShotConsensusApi {
+            inner: self.hotshot.inner.clone(),
+        };
+        api.inner.quorum_exchange.create_yes_message(
+            justify_qc_commitment,
+            leaf_commitment,
+            current_view,
+            vote_token,
+        )
+    }
+
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_broadcast_consensus_message(&self, msg: ConsensusMessage<TYPES, I>) {

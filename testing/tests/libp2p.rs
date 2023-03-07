@@ -39,6 +39,7 @@ impl NodeImplementation<StaticCommitteeTestTypes> for Libp2pImpl {
     type QuorumExchange = QuorumExchange<
         StaticCommitteeTestTypes,
         ValidatingLeaf<StaticCommitteeTestTypes>,
+        ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         StaticMembership,
         StaticCommunication,
         Message<StaticCommitteeTestTypes, Libp2pImpl>,

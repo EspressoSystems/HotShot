@@ -128,6 +128,7 @@ impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
     type QuorumExchange = QuorumExchange<
         VrfTestTypes,
         ValidatingLeaf<VrfTestTypes>,
+        ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
         VrfMembership,
         VrfCommunication,
         Message<VrfTestTypes, Self>,
@@ -142,6 +143,7 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
     type QuorumExchange = QuorumExchange<
         StaticCommitteeTestTypes,
         ValidatingLeaf<StaticCommitteeTestTypes>,
+        ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         StaticMembership,
         StaticCommunication,
         Message<StaticCommitteeTestTypes, Self>,
@@ -151,6 +153,7 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
 
 impl TestableNodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {}
 impl TestableNodeImplementation<VrfTestTypes> for StandardNodeImplType {}
+
 // /// type alias for the test runner type
 pub type AppliedTestRunner<TYPES, I> = TestRunner<TYPES, I>;
 

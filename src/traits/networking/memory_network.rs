@@ -587,8 +587,14 @@ mod tests {
     type TestNetwork = MemoryCommChannel<Test, TestImpl, TestProposal, TestVote, TestMembership>;
 
     impl NodeImplementation<Test> for TestImpl {
-        type QuorumExchange =
-            QuorumExchange<Test, TestLeaf, TestMembership, TestNetwork, Message<Test, Self>>;
+        type QuorumExchange = QuorumExchange<
+            Test,
+            TestLeaf,
+            TestProposal,
+            TestMembership,
+            TestNetwork,
+            Message<Test, Self>,
+        >;
         type ComitteeExchange = Self::QuorumExchange;
         type Leaf = TestLeaf;
         type Storage = MemoryStorage<Test, TestLeaf>;

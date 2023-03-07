@@ -48,6 +48,7 @@ impl NodeImplementation<VrfTestTypes> for VrfCentralizedImp {
     type QuorumExchange = QuorumExchange<
         VrfTestTypes,
         ValidatingLeaf<VrfTestTypes>,
+        ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
         VrfMembership,
         VrfCommunication,
         Message<VrfTestTypes, Self>,
@@ -96,6 +97,7 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
     type QuorumExchange = QuorumExchange<
         StaticCommitteeTestTypes,
         ValidatingLeaf<StaticCommitteeTestTypes>,
+        ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
         StaticMembership,
         StaticCommunication,
         Message<StaticCommitteeTestTypes, Self>,

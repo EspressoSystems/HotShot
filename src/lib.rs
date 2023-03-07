@@ -135,7 +135,7 @@ pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     storage: I::Storage,
 
     /// This `HotShot` instance's way to interact with the nodes needed to form a quorum
-    quorum_exchange: Arc<I::QuorumExchange>,
+    pub quorum_exchange: Arc<I::QuorumExchange>,
 
     /// This `HotShot` instance's interaction with the DA committee to form a DA certificate.
     committee_exchange: Arc<I::ComitteeExchange>,
