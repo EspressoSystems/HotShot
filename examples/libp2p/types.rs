@@ -1,4 +1,4 @@
-use crate::infra::Libp2pClientConfig;
+use crate::infra::Libp2pRun;
 use hotshot::{
     demos::vdemo::{VDemoNode, VDemoTypes},
     traits::{
@@ -18,4 +18,4 @@ pub type ThisNetwork = Libp2pCommChannel<VDemoTypes, ThisProposal, ThisVote, Thi
 pub type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
 pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
 pub type ThisNode = VDemoNode<ThisNetwork, ThisMembership>;
-pub type ThisConfig = Libp2pClientConfig<VDemoTypes, ThisMembership>;
+pub type ThisRun = Libp2pRun<VDemoTypes, ThisMembership>;
