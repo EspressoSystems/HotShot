@@ -6,8 +6,9 @@ readme = "README.md"
 edition = "2021"
 
 [features]
-default = ["full-ci"]
+default = []
 full-ci = ["async-std-executor", "channel-async-std"]
+tokio-ci = ["tokio-executor", "channel-tokio"]
 async-std-executor = [
     "dep:async-std",
     "hotshot-types/async-std-executor",
