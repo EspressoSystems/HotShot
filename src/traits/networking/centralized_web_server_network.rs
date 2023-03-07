@@ -213,7 +213,7 @@ impl<
     > Inner<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
 {
     /// Polls the web server at a given endpoint while the client is running
-    async fn poll_web_server(&self, message_type: MessageType, _num_views_ahead: u64) {
+    async fn poll_web_server(&self, message_type: MessageType, _num_views_ahead: u64) -> Result<(), NetworkError> {
         // Subscribe to changes in consensus info
         let consensus_update = self.consensus_info.subscribe().await;
         let mut consensus_info = self.consensus_info.copied().await;
@@ -285,6 +285,9 @@ impl<
                 vote_index = 0;
             }
         }
+        Err(NetworkError::CentralizedWebServer {
+            source: CentralizedWebServerNetworkError::ClientDisconnected,
+        })
     }
 
     /// Sends a GET request to the webserver for some specified endpoint
@@ -433,34 +436,40 @@ impl<
         let proposal_handle = async_spawn({
             let inner_clone = inner.clone();
             async move {
-                inner_clone.poll_web_server(MessageType::Proposal, 0).await;
+                if let Err(e) = inner_clone.poll_web_server(MessageType::Proposal, 0).await {
+                    error!("Background receive proposal polling encountered an error: {:?}", e)
+                }
             }
         });
         let vote_handle = async_spawn({
             let inner_clone = inner.clone();
 
             async move {
-                inner_clone
+                if let Err(e) = inner_clone
                     .poll_web_server(MessageType::VoteTimedOut, 0)
-                    .await;
+                    .await {
+                        error!("Background receive vote polling encountered an error: {:?}", e)
+                    }
             }
         });
         let transaction_handle = async_spawn({
             let inner_clone = inner.clone();
 
             async move {
-                inner_clone
+                if let Err(e) = inner_clone
                     .poll_web_server(MessageType::Transaction, 0)
-                    .await;
+                    .await {
+                        error!("Background receive transaction polling encountered an error: {:?}", e)
+                    }
             }
         });
 
         let task_handles = vec![proposal_handle, vote_handle, transaction_handle];
 
-        let children_finished = futures::future::join_all(task_handles);
-        let _result = children_finished.await;
+        let _children_finished = futures::future::join_all(task_handles).await;
 
         Ok(())
+
     }
 }
 
