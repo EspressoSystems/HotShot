@@ -71,7 +71,7 @@ lint_tokio_flume:
 
 lint_async_std:
   echo Linting with async std executor
-  cargo clippy --workspace --all-targets --no-default-features --features=async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std --bins --tests --examples
+  cargo clippy --workspace --all-targets --no-default-features --features=async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std,slow-tests --bins --tests --examples
 
 lint_async_std_flume:
   echo Linting with async std executor and flume

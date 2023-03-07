@@ -1,12 +1,7 @@
 #[cfg(feature = "slow-tests")]
-use common::{get_tolerance, GeneralTestDescriptionBuilder, TestDescription};
+use either::Either::Right;
 #[cfg(feature = "slow-tests")]
-use either::Either::{Left, Right};
-#[cfg(feature = "slow-tests")]
-use hotshot::{
-    demos::vdemo::VDemoState,
-    traits::implementations::{Libp2pNetwork, MemoryCommChannel, MemoryStorage},
-};
+use hotshot_testing::test_description::{get_tolerance, GeneralTestDescriptionBuilder};
 use hotshot_testing_macros::cross_all_types;
 #[cfg(feature = "slow-tests")]
 use std::{collections::HashSet, iter::FromIterator};
@@ -126,6 +121,8 @@ cross_all_types!(
     },
     Slow: true
 );
+
+// TODO re-enable these tests if we decide to use proptest
 //
 // cross_all_types_proptes!(
 //     test_large_num_nodes_random,

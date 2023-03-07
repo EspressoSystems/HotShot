@@ -2,7 +2,7 @@ use hotshot_testing_macros::cross_all_types;
 
 // This test simulates a single permanent failed node
 cross_all_types!(
-    TestName: single_permanent_failure,
+    TestName: single_permanent_failure_slow,
     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder {
         total_nodes: 7,
         start_nodes: 7,
@@ -14,14 +14,14 @@ cross_all_types!(
         failure_threshold: 5,
         ..hotshot_testing::test_description::GeneralTestDescriptionBuilder::default()
     },
-    Slow: false,
+    Slow: true,
 );
 
 // This test simulates two permanent failed nodes
 //
 // With n=7, this is the maximum failures that the network can tolerate
 cross_all_types!(
-    TestName: double_permanent_failure,
+    TestName: double_permanent_failure_slow,
     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder {
         total_nodes: 7,
         start_nodes: 7,
@@ -32,5 +32,5 @@ cross_all_types!(
         failure_threshold: 5,
         ..hotshot_testing::test_description::GeneralTestDescriptionBuilder::default()
     },
-    Slow: false,
+    Slow: true,
 );
