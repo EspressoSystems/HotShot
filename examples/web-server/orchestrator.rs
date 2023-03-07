@@ -1,13 +1,15 @@
+pub mod types;
+
 use clap::Parser;
 use hotshot::demos::vdemo::VDemoTypes;
 use tracing::instrument;
+use types::ThisMembership;
 
+use crate::infra::OrchestratorArgs;
 use crate::{
-    infra::{main_entry_point, CliOrchestrated},
-    types::{ThisConfig, ThisMembership, ThisNetwork, ThisNode},
+    infra::run_orchestrator,
+    types::{ThisNetwork, ThisNode},
 };
-
-pub mod types;
 
 #[path = "../infra/mod.rs"]
 pub mod infra;
@@ -19,7 +21,7 @@ pub mod infra;
 #[cfg_attr(feature = "async-std-executor", async_std::main)]
 #[instrument]
 async fn main() {
-    let args = CliOrchestrated::parse();
+    let args = OrchestratorArgs::parse();
 
-    main_entry_point::<VDemoTypes, ThisMembership, ThisNetwork, ThisNode, ThisConfig>(args).await;
+    run_orchestrator::<VDemoTypes, ThisMembership, ThisNetwork, ThisNode>(args).await;
 }
