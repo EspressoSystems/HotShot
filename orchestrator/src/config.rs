@@ -96,7 +96,7 @@ pub struct NetworkConfigFile {
     #[serde(default = "default_start_delay_seconds")]
     pub start_delay_seconds: u64,
     #[serde(default)]
-    pub libp2p_config: Option<Libp2pConfig>,
+    pub libp2p_config: Option<Libp2pConfigFile>,
     #[serde(default = "default_config")]
     pub config: HotShotConfigFile,
     #[serde(default = "default_web_server_config")]
