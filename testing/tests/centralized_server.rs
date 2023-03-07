@@ -90,7 +90,8 @@ type StaticCommunication = CentralizedCommChannel<
 >;
 
 impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
-    type Storage = MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<VrfTestTypes>>;
+    type Storage =
+        MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
     type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
     type QuorumExchange = QuorumExchange<
         StaticCommitteeTestTypes,

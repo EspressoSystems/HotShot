@@ -190,7 +190,7 @@ type StaticDACommCentral = CentralizedCommChannel<
 
 type StaticQuroumCommCentral = Libp2pCommChannel<
     SequencingTestTypes,
-    SequencingCentralImpl,
+    Message<SequencingTestTypes, SequencingCentralImpl>,
     CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     StaticMembership,

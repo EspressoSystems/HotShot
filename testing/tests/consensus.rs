@@ -117,6 +117,7 @@ async fn submit_validating_proposal<
         QuorumMembership<TYPES, I>,
     >,
     <I as NodeImplementation<TYPES>>::Leaf: TestableLeaf<NodeType = TYPES>,
+    I::QuroumExchange: QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     let mut rng = rand::thread_rng();
     let handle = runner.get_handle(sender_node_id).unwrap();

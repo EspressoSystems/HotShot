@@ -9,6 +9,7 @@ use crate::{
 };
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use commit::Committable;
+use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::{
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
@@ -326,18 +327,21 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `sign_validating_or_commitment_proposal` function
-    // #[cfg(feature = "hotshot-testing")]
-    // pub fn sign_validating_or_commitment_proposal(
-    //     &self,
-    //     leaf_commitment: &Commitment<I::Leaf>,
-    // ) -> EncodedSignature {
-    //     let api = HotShotConsensusApi {
-    //         inner: self.hotshot.inner.clone(),
-    //     };
-    //     api.inner
-    //         .quorum_exchange
-    //         .sign_validating_or_commitment_proposal(leaf_commitment)
-    // }
+    #[cfg(feature = "hotshot-testing")]
+    pub fn sign_validating_or_commitment_proposal(
+        &self,
+        leaf_commitment: &Commitment<I::Leaf>,
+    ) -> EncodedSignature
+    where
+        I::QuorumExchange: QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
+    {
+        let api = HotShotConsensusApi {
+            inner: self.hotshot.inner.clone(),
+        };
+        api.inner
+            .quorum_exchange
+            .sign_validating_or_commitment_proposal::<I>(leaf_commitment)
+    }
 
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
     #[cfg(feature = "hotshot-testing")]
