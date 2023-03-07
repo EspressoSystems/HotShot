@@ -46,6 +46,7 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
 }
 
 pub trait OrchestratorApi<KEY, ELECTION> {
+    fn post_identity(&mut self, identity: &str) -> Result<u16, ServerError>; 
     fn post_getconfig(&mut self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
     fn get_start(&self) -> Result<bool, ServerError>;
     fn post_ready(&mut self) -> Result<(), ServerError>;
@@ -57,11 +58,28 @@ where
     KEY: serde::Serialize + Clone,
     ELECTION: serde::Serialize + Clone,
 {
+    fn post_identity(&mut self, identity: &str) -> Result<u16, ServerError> {
+
+        let node_index = self.latest_index; 
+        self.latest_index += 1;
+
+        // TODO https://github.com/EspressoSystems/HotShot/issues/850
+        if usize::from(node_index) >= self.config.config.total_nodes.get() {
+            return Err(ServerError { status: tide_disco::StatusCode::BadRequest, message: "Network has reached capacity".to_string() })
+        }
+        Ok(node_index)
+    }
+
+
     fn post_getconfig(&mut self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
         let mut config = self.config.clone();
-        config.node_index = self.latest_index.into();
+        if config.libp2p_config.is_some() {
 
-        self.latest_index += 1;
+        }
+        // config.node_index = self.latest_index.into();
+
+        // self.latest_index += 1;
+        // TODO ED
         Ok(config)
     }
 
@@ -94,7 +112,13 @@ where
 {
     let mut api = Api::<State, ServerError>::from_file("orchestrator/api.toml")
         .expect("api.toml file is not found");
-    api.post("post_getconfig", |_req, state| {
+    api.post("postidentity", |req, state| {
+        async move { 
+            println!("{:?}", req);
+            let identity = req.string_param("identity")?; 
+            state.post_identity(identity) }.boxed()
+    })?
+    .post("post_getconfig", |_req, state| {
         async move { state.post_getconfig() }.boxed()
     })?
     .post("postready", |_req, state| {
@@ -127,4 +151,26 @@ where
     app.register_module("api", api.unwrap())
         .expect("Error registering api");
     app.serve(format!("http://{host}:{port}")).await
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use async_compatibility_layer::art::async_spawn;
+    use portpicker::pick_unused_port;
+    use surf_disco::error::ClientError;
+
+    type State = RwLock<WebServerState>;
+    type Error = ServerError;
+
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_identity_api() {
+
+        // TODO ED
+
+     }
 }
