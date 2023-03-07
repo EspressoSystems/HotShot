@@ -22,7 +22,6 @@ use hotshot_centralized_server::{
     FromServer, NetworkConfig, Run, RunResults, Server, TcpStreamUtil, TcpStreamUtilWithRecv,
     TcpStreamUtilWithSend, ToServer,
 };
-use hotshot_types::message::Message;
 use hotshot_types::{
     data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
     traits::{
@@ -35,6 +34,7 @@ use hotshot_types::{
     vote::QuorumVote,
     HotShotConfig,
 };
+use hotshot_types::{message::Message, traits::election::QuorumExchange};
 use libp2p::{
     identity::{
         ed25519::{Keypair as EdKeypair, SecretKey},
@@ -126,14 +126,18 @@ impl<
         NODE: NodeImplementation<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
-            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-            Membership = MEMBERSHIP,
-            Networking = Libp2pCommChannel<
+            QuorumExchange = QuorumExchange<
                 TYPES,
-                NODE,
-                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+                ValidatingLeaf<TYPES>,
                 MEMBERSHIP,
+                Libp2pCommChannel<
+                    TYPES,
+                    Message<TYPES, NODE>,
+                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+                    MEMBERSHIP,
+                >,
+                Message<TYPES, NODE>,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
         >,
@@ -143,7 +147,7 @@ impl<
         MEMBERSHIP,
         Libp2pCommChannel<
             TYPES,
-            NODE,
+            Message<TYPES, NODE>,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
@@ -283,6 +287,7 @@ where
         .map(
             Libp2pCommChannel::<
                 TYPES,
+                Message<TYPES, NODE>,
                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
                 MEMBERSHIP,
@@ -317,6 +322,7 @@ where
         &self,
     ) -> Libp2pCommChannel<
         TYPES,
+        Message<TYPES, NODE>,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -332,14 +338,18 @@ impl<
         NODE: NodeImplementation<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
-            Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-            Vote = QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-            Membership = MEMBERSHIP,
-            Networking = CentralizedCommChannel<
+            QuorumExchange = QuorumExchange<
                 TYPES,
-                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+                ValidatingLeaf<TYPES>,
                 MEMBERSHIP,
+                CentralizedCommChannel<
+                    TYPES,
+                    NODE,
+                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+                    MEMBERSHIP,
+                >,
+                Message<TYPES, NODE>,
             >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
         >,
@@ -349,12 +359,13 @@ impl<
         MEMBERSHIP,
         CentralizedCommChannel<
             TYPES,
+            NODE,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         >,
         NODE,
-    > for CentralizedConfig<TYPES, MEMBERSHIP>
+    > for CentralizedConfig<TYPES, NODE, MEMBERSHIP>
 where
     <TYPES as NodeType>::StateType: TestableState,
     <TYPES as NodeType>::BlockType: TestableBlock,
@@ -401,6 +412,7 @@ where
         &self,
     ) -> CentralizedCommChannel<
         TYPES,
+        Message<TYPES, NODE>,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -449,7 +461,7 @@ pub struct CentralizedConfig<
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     network: CentralizedCommChannel<
         TYPES,
-        Message<TYPES, I>,
+        I,
         Proposal<TYPES>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -471,9 +483,13 @@ pub trait CliConfig<
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        Membership = MEMBERSHIP,
-        Networking = NETWORK,
+        QuorumExchange = QuorumExchange<
+            TYPES,
+            ValidatingLeaf<TYPES>,
+            MEMBERSHIP,
+            NETWORK,
+            Message<TYPES, NODE>,
+        >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
     >,
 > where
@@ -650,6 +666,7 @@ pub async fn main_entry_point<
     MEMBERSHIP: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
+        Message<TYPES, NODE>,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -657,9 +674,13 @@ pub async fn main_entry_point<
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        Membership = MEMBERSHIP,
-        Networking = NETWORK,
+        QuorumExchange = QuorumExchange<
+            TYPES,
+            ValidatingLeaf<TYPES>,
+            MEMBERSHIP,
+            NETWORK,
+            Message<TYPES, NODE>,
+        >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
     >,
     CONFIG: CliConfig<TYPES, MEMBERSHIP, NETWORK, NODE>,
@@ -689,6 +710,7 @@ pub async fn run_orchestrator<
     MEMBERSHIP: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
+        Message<TYPES, NODE>,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -696,9 +718,13 @@ pub async fn run_orchestrator<
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        Membership = MEMBERSHIP,
-        Networking = NETWORK,
+        QuorumExchange = QuorumExchange<
+            TYPES,
+            ValidatingLeaf<TYPES>,
+            MEMBERSHIP,
+            NETWORK,
+            Message<TYPES, NODE>,
+        >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
     >,
 >(
@@ -720,6 +746,7 @@ pub async fn load_configs<
     MEMBERSHIP: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
+        Message<TYPES, NODE>,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -727,9 +754,13 @@ pub async fn load_configs<
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        Membership = MEMBERSHIP,
-        Networking = NETWORK,
+        QuorumExchange = QuorumExchange<
+            TYPES,
+            ValidatingLeaf<TYPES>,
+            MEMBERSHIP,
+            NETWORK,
+            Message<TYPES, NODE>,
+        >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
     >,
 >() -> Result<Vec<NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>>, std::io::Error> {

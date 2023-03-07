@@ -16,6 +16,7 @@ use hotshot::{
     },
     types::VoteType,
 };
+use hotshot_types::message::Message;
 use hotshot_types::{
     data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
@@ -26,7 +27,6 @@ use hotshot_types::{
     },
     vote::QuorumVote,
 };
-use hotshot_types::message::Message;
 use jf_primitives::{
     signatures::{
         bls::{BLSSignature, BLSVerKey},
@@ -88,6 +88,7 @@ impl NodeType for StaticCommitteeTestTypes {
     type StateType = VDemoState;
 }
 
+#[derive(Clone, Debug)]
 struct StandardNodeImplType {}
 
 type VrfMembership = VrfImpl<
@@ -107,6 +108,7 @@ type VrfCommunication = MemoryCommChannel<
     VrfMembership,
 >;
 
+#[derive(Clone, Debug)]
 struct StaticNodeImplType {}
 
 type StaticMembership =
@@ -123,8 +125,13 @@ type StaticCommunication = MemoryCommChannel<
 impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
     type Storage = MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>;
     type Leaf = ValidatingLeaf<VrfTestTypes>;
-    type QuorumExchange =
-        QuorumExchange<VrfTestTypes, ValidatingLeaf<VrfTestTypes>, VrfMembership, VrfCommunication, Message<VrfTestTypes, Self>>;
+    type QuorumExchange = QuorumExchange<
+        VrfTestTypes,
+        ValidatingLeaf<VrfTestTypes>,
+        VrfMembership,
+        VrfCommunication,
+        Message<VrfTestTypes, Self>,
+    >;
 }
 /// type synonym for vrf committee election
 /// with in-memory network
@@ -168,36 +175,34 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
         ValidatingLeaf<StaticCommitteeTestTypes>,
         StaticMembership,
         StaticCommunication,
-        Message<StaticCommitteeTestTypes, Self>
+        Message<StaticCommitteeTestTypes, Self>,
     >;
 }
-/// with in-memory network
-// pub type StaticNodeImplType = TestNodeImpl<
-//     StaticCommitteeTestTypes,
-//     ValidatingLeaf<StaticCommitteeTestTypes>,
-//     ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-//     QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-//     MemoryCommChannel<
-//         StaticCommitteeTestTypes,
-//         Self,
-//         ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-//         QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-//         StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-//     >,
-//     MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-//     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-// >;
 
-/// type alias for the test runner type
-pub type AppliedTestRunner<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> =
-    TestRunner<TYPES, AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP>>;
-/// applied test runner (convenient type alias)
-pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> = TestNodeImpl<
-    TYPES,
-    LEAF,
-    PROPOSAL,
-    VOTE,
-    MemoryCommChannel<TYPES, Self, PROPOSAL, VOTE, MEMBERSHIP>,
-    MemoryStorage<TYPES, LEAF>,
-    MEMBERSHIP,
->;
+// impl fmt::Debug for StaticNodeImplType
+// {
+//     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+//         fmt.debug_struct("TestNodeImpl")
+//             // .field("network", &std::any::type_name::<<Self as TestableNodeImplementation>::Networking>())
+//             // .field("storage", &std::any::type_name::<<Self as TestableNodeImplementation>::Storage>())
+//             // .field("state", &std::any::type_name::<<Self as TestableNodeImplementation>::StateType>())
+//             // .field("election", &std::any::type_name::<<Self as TestableNodeImplementation>::Election>())
+//             // .field("key", &std::any::type_name::<<Self as TestableNodeImplementation>::SignatureKey>())
+//             .finish_non_exhaustive()
+//     }
+// }
+
+// /// type alias for the test runner type
+// pub type AppliedTestRunner<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> =
+//     TestRunner<TYPES, AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP>>;
+
+// /// applied test runner (convenient type alias)
+// pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> = TestNodeImpl<
+//     TYPES,
+//     LEAF,
+//     PROPOSAL,
+//     VOTE,
+//     MemoryCommChannel<TYPES, Self, PROPOSAL, VOTE, MEMBERSHIP>,
+//     MemoryStorage<TYPES, LEAF>,
+//     MEMBERSHIP,
+// >;

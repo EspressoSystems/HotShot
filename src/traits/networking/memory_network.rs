@@ -535,7 +535,7 @@ mod tests {
 
     use crate::traits::implementations::MemoryStorage;
     use async_compatibility_layer::logging::setup_logging;
-    use hotshot_types::traits::election::QuorumExchange;
+    use hotshot_types::traits::election::{QuorumExchange, CommitteeExchange};
     use hotshot_types::{
         data::ViewNumber,
         message::{DataMessage, MessageKind},
@@ -550,6 +550,7 @@ mod tests {
         data::{ValidatingLeaf, ValidatingProposal},
         traits::state::ValidatingConsensus,
     };
+    use nll::nll_todo;
 
     #[derive(
         Copy,

@@ -27,7 +27,7 @@ use hotshot::{
     types::{HotShotHandle, SignatureKey},
     HotShot, HotShotError, HotShotInitializer, ViewRunner, H_256,
 };
-use hotshot_types::message::Message;
+use hotshot_types::{message::Message, traits::election::CommitteeExchange};
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::traits::node_implementation::QuorumNetwork;
