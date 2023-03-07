@@ -5043,7 +5043,7 @@ dependencies = [
 [[package]]
 name = "nll"
 version = "1.0.0"
-source = "git+https://github.com/EspressoSystems/nll.git#77c54f67f92dcd0a68d052614ce99ac6edd2ae33"
+source = "git+https://github.com/EspressoSystems/nll.git#6dada0ef22f4936d17d59cd5b29342166d8d4287"
 
 [[package]]
 name = "nohash-hasher"
