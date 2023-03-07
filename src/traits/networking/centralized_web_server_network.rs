@@ -289,9 +289,7 @@ impl<
                 vote_index = 0;
             }
         }
-        Err(NetworkError::CentralizedWebServer {
-            source: CentralizedWebServerNetworkError::ClientDisconnected,
-        })
+        Err(NetworkError::ShutDown)
     }
 
     /// Sends a GET request to the webserver for some specified endpoint
