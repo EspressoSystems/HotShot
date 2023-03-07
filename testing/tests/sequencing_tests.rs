@@ -9,12 +9,27 @@ use hotshot::{
         implementations::{
             CentralizedCommChannel, Libp2pCommChannel, MemoryCommChannel, MemoryStorage,
         },
+        NodeImplementation,
     },
 };
-use hotshot_testing::{test_description::GeneralTestDescriptionBuilder, TestNodeImpl};
+use hotshot_testing::test_description::GeneralTestDescriptionBuilder;
+use hotshot_types::message::Message;
+use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::node_implementation::{
+    QuorumMembership, QuorumProposal, QuorumVoteType,
+};
+use hotshot_types::traits::storage::TestableStorage;
+use hotshot_types::vote::QuorumVote;
+use hotshot_types::{
+    data::CommitmentProposal, traits::node_implementation::TestableNodeImplementation,
+};
 use hotshot_types::{
     data::{DAProposal, SequencingLeaf, ViewNumber},
-    traits::{node_implementation::NodeType, state::SequencingConsensus},
+    traits::{
+        election::{CommitteeExchange, QuorumExchange},
+        node_implementation::NodeType,
+        state::SequencingConsensus,
+    },
     vote::DAVote,
 };
 use jf_primitives::signatures::BLSSignatureScheme;
@@ -45,6 +60,48 @@ impl NodeType for SequencingTestTypes {
     type StateType = SDemoState;
 }
 
+#[derive(Clone, Debug)]
+struct SequencingMemoryImpl {}
+
+type StaticMembership = StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
+
+type StaticDAComm = MemoryCommChannel<
+    SequencingTestTypes,
+    SequencingMemoryImpl,
+    DAProposal<SequencingTestTypes>,
+    DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    StaticMembership,
+>;
+
+type StaticQuroumComm = MemoryCommChannel<
+    SequencingTestTypes,
+    SequencingMemoryImpl,
+    CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    StaticMembership,
+>;
+
+impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
+    type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
+    type Leaf = SequencingLeaf<SequencingTestTypes>;
+    type QuorumExchange = QuorumExchange<
+        SequencingTestTypes,
+        Self::Leaf,
+        StaticMembership,
+        StaticQuroumComm,
+        Message<SequencingTestTypes, Self>,
+    >;
+    type ComitteeExchange = CommitteeExchange<
+        SequencingTestTypes,
+        Self::Leaf,
+        StaticMembership,
+        StaticDAComm,
+        Message<SequencingTestTypes, Self>,
+    >;
+}
+
+impl TestableNodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {}
+
 // Test the memory network with sequencing consensus.
 #[cfg_attr(
     feature = "tokio-executor",
@@ -57,24 +114,50 @@ async fn sequencing_memory_network_test() {
     let builder = GeneralTestDescriptionBuilder::default_multiple_rounds();
 
     builder
-        .build::<SequencingTestTypes, TestNodeImpl<
-            SequencingTestTypes,
-            SequencingLeaf<SequencingTestTypes>,
-            DAProposal<SequencingTestTypes>,
-            DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-            MemoryCommChannel<
-                SequencingTestTypes,
-                DAProposal<SequencingTestTypes>,
-                DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-                StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-            >,
-            MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-            StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-        >>()
+        .build::<SequencingTestTypes, SequencingMemoryImpl>()
         .execute()
         .await
         .unwrap();
 }
+
+#[derive(Clone, Debug)]
+struct SequencingLibP2PImpl {}
+
+type StaticDACommP2p = Libp2pCommChannel<
+    SequencingTestTypes,
+    Message<SequencingTestTypes, SequencingLibP2PImpl>,
+    DAProposal<SequencingTestTypes>,
+    DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    StaticMembership,
+>;
+
+type StaticQuroumCommP2p = Libp2pCommChannel<
+    SequencingTestTypes,
+    Message<SequencingTestTypes, SequencingLibP2PImpl>,
+    CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    StaticMembership,
+>;
+
+impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
+    type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
+    type Leaf = SequencingLeaf<SequencingTestTypes>;
+    type QuorumExchange = QuorumExchange<
+        SequencingTestTypes,
+        Self::Leaf,
+        StaticMembership,
+        StaticQuroumCommP2p,
+        Message<SequencingTestTypes, Self>,
+    >;
+    type ComitteeExchange = CommitteeExchange<
+        SequencingTestTypes,
+        Self::Leaf,
+        StaticMembership,
+        StaticDACommP2p,
+        Message<SequencingTestTypes, Self>,
+    >;
+}
+impl TestableNodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {}
 
 // Test the libp2p network with sequencing consensus.
 #[cfg_attr(
@@ -88,24 +171,50 @@ async fn sequencing_libp2p_test() {
     let builder = GeneralTestDescriptionBuilder::default_multiple_rounds();
 
     builder
-        .build::<SequencingTestTypes, TestNodeImpl<
-            SequencingTestTypes,
-            SequencingLeaf<SequencingTestTypes>,
-            DAProposal<SequencingTestTypes>,
-            DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-            Libp2pCommChannel<
-                SequencingTestTypes,
-                DAProposal<SequencingTestTypes>,
-                DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-                StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-            >,
-            MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-            StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-        >>()
+        .build::<SequencingTestTypes, SequencingLibP2PImpl>()
         .execute()
         .await
         .unwrap();
 }
+
+#[derive(Clone, Debug)]
+struct SequencingCentralImpl {}
+
+type StaticDACommCentral = CentralizedCommChannel<
+    SequencingTestTypes,
+    SequencingCentralImpl,
+    DAProposal<SequencingTestTypes>,
+    DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    StaticMembership,
+>;
+
+type StaticQuroumCommCentral = Libp2pCommChannel<
+    SequencingTestTypes,
+    SequencingCentralImpl,
+    CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+    StaticMembership,
+>;
+
+impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
+    type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
+    type Leaf = SequencingLeaf<SequencingTestTypes>;
+    type QuorumExchange = QuorumExchange<
+        SequencingTestTypes,
+        Self::Leaf,
+        StaticMembership,
+        StaticQuroumCommCentral,
+        Message<SequencingTestTypes, Self>,
+    >;
+    type ComitteeExchange = CommitteeExchange<
+        SequencingTestTypes,
+        Self::Leaf,
+        StaticMembership,
+        StaticDACommCentral,
+        Message<SequencingTestTypes, Self>,
+    >;
+}
+impl TestableNodeImplementation<SequencingTestTypes> for SequencingCentralImpl {}
 
 // Test the centralized server network with sequencing consensus.
 #[cfg_attr(
@@ -119,20 +228,7 @@ async fn sequencing_centralized_server_test() {
     let builder = GeneralTestDescriptionBuilder::default_multiple_rounds();
 
     builder
-        .build::<SequencingTestTypes, TestNodeImpl<
-            SequencingTestTypes,
-            SequencingLeaf<SequencingTestTypes>,
-            DAProposal<SequencingTestTypes>,
-            DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-            CentralizedCommChannel<
-                SequencingTestTypes,
-                DAProposal<SequencingTestTypes>,
-                DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-                StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-            >,
-            MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-            StaticCommittee<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-        >>()
+        .build::<SequencingTestTypes, SequencingCentralImpl>()
         .execute()
         .await
         .unwrap();

@@ -27,7 +27,7 @@ use hotshot_types::{
     traits::{
         election::Membership,
         metrics::NoMetrics,
-        network::CommunicationChannel,
+        network::{CommunicationChannel, NetworkMsg},
         node_implementation::NodeType,
         state::{TestableBlock, TestableState},
     },
@@ -448,10 +448,10 @@ pub struct Libp2pClientConfig<
         NetworkConfig<<TYPES as NodeType>::SignatureKey, <TYPES as NodeType>::ElectionConfigType>,
 }
 
-pub enum Config<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>> {
-    Libp2pConfig(Libp2pClientConfig<TYPES, I, MEMBERSHIP>),
-    CentralizedConfig(CentralizedConfig<TYPES, I, MEMBERSHIP>),
-}
+// pub enum Config<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>> {
+//     Libp2pConfig(Libp2pClientConfig<TYPES, I, MEMBERSHIP>),
+//     CentralizedConfig(CentralizedConfig<TYPES, I, MEMBERSHIP>),
+// }
 
 pub struct CentralizedConfig<
     TYPES: NodeType,

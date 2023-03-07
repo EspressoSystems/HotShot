@@ -6,8 +6,8 @@ use hotshot::{
     },
 };
 use hotshot_types::message::Message;
-use hotshot_types::traits::election::{Membership, CommitteeExchange};
 use hotshot_types::traits::election::QuorumExchange;
+use hotshot_types::traits::election::{CommitteeExchange, Membership};
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},

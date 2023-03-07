@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::{TestNodeImpl, TestRunner};
+use crate::TestRunner;
 use ark_bls12_381::Parameters as Param381;
 use blake3::Hasher;
 use hotshot::{
@@ -16,7 +16,6 @@ use hotshot::{
     },
     types::VoteType,
 };
-use hotshot_types::message::Message;
 use hotshot_types::{
     data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
@@ -27,6 +26,7 @@ use hotshot_types::{
     },
     vote::QuorumVote,
 };
+use hotshot_types::{message::Message, traits::node_implementation::TestableNodeImplementation};
 use jf_primitives::{
     signatures::{
         bls::{BLSSignature, BLSVerKey},
@@ -89,9 +89,9 @@ impl NodeType for StaticCommitteeTestTypes {
 }
 
 #[derive(Clone, Debug)]
-struct StandardNodeImplType {}
+pub struct StandardNodeImplType {}
 
-type VrfMembership = VrfImpl<
+pub type VrfMembership = VrfImpl<
     VrfTestTypes,
     ValidatingLeaf<VrfTestTypes>,
     BLSSignatureScheme<Param381>,
@@ -100,7 +100,7 @@ type VrfMembership = VrfImpl<
     Param381,
 >;
 
-type VrfCommunication = MemoryCommChannel<
+pub type VrfCommunication = MemoryCommChannel<
     VrfTestTypes,
     StandardNodeImplType,
     ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
@@ -109,7 +109,7 @@ type VrfCommunication = MemoryCommChannel<
 >;
 
 #[derive(Clone, Debug)]
-struct StaticNodeImplType {}
+pub struct StaticNodeImplType {}
 
 type StaticMembership =
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
@@ -132,39 +132,8 @@ impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
         VrfCommunication,
         Message<VrfTestTypes, Self>,
     >;
+    type ComitteeExchange = Self::QuorumExchange;
 }
-/// type synonym for vrf committee election
-/// with in-memory network
-// pub type StandardNodeImplType = TestNodeImpl<
-//     VrfTestTypes,
-//     ValidatingLeaf<VrfTestTypes>,
-//     ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-//     QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-//     MemoryCommChannel<
-//         VrfTestTypes,
-//         ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-//         QuorumVote<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-//         VrfImpl<
-//             VrfTestTypes,
-//             ValidatingLeaf<VrfTestTypes>,
-//             BLSSignatureScheme<Param381>,
-//             BLSVRFScheme<Param381>,
-//             Hasher,
-//             Param381,
-//         >,
-//     >,
-//     MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-//     VrfImpl<
-//         VrfTestTypes,
-//         ValidatingLeaf<VrfTestTypes>,
-//         BLSSignatureScheme<Param381>,
-//         BLSVRFScheme<Param381>,
-//         Hasher,
-//         Param381,
-//     >,
-// >;
-
-/// type synonym for static committee
 
 impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
     type Storage =
@@ -177,24 +146,13 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
         StaticCommunication,
         Message<StaticCommitteeTestTypes, Self>,
     >;
+    type ComitteeExchange = Self::QuorumExchange;
 }
 
-// impl fmt::Debug for StaticNodeImplType
-// {
-//     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-//         fmt.debug_struct("TestNodeImpl")
-//             // .field("network", &std::any::type_name::<<Self as TestableNodeImplementation>::Networking>())
-//             // .field("storage", &std::any::type_name::<<Self as TestableNodeImplementation>::Storage>())
-//             // .field("state", &std::any::type_name::<<Self as TestableNodeImplementation>::StateType>())
-//             // .field("election", &std::any::type_name::<<Self as TestableNodeImplementation>::Election>())
-//             // .field("key", &std::any::type_name::<<Self as TestableNodeImplementation>::SignatureKey>())
-//             .finish_non_exhaustive()
-//     }
-// }
-
+impl TestableNodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {}
+impl TestableNodeImplementation<VrfTestTypes> for StandardNodeImplType {}
 // /// type alias for the test runner type
-// pub type AppliedTestRunner<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> =
-//     TestRunner<TYPES, AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP>>;
+pub type AppliedTestRunner<TYPES, I> = TestRunner<TYPES, I>;
 
 // /// applied test runner (convenient type alias)
 // pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> = TestNodeImpl<

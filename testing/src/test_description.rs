@@ -201,7 +201,11 @@ where
             self.total_nodes,
             self.num_bootstrap_nodes,
             self.min_transactions,
-            I::Membership::default_election_config(self.total_nodes as u64),
+            <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+                TYPES,
+                I::Leaf,
+                Message<TYPES, I>,
+            >>::Membership::default_election_config(self.total_nodes as u64),
         );
         // modify runner to recognize timing params
         let set_timing_params =
@@ -345,12 +349,17 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
     TYPES::SignatureKey: TestableSignatureKey,
-    // I::QuorumExchange: ConsensusExchange<
-    //     TYPES,
-    //     I::Leaf,
-    //     Message<TYPES, I>,
-    //     Networking = TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    // >,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {

@@ -191,6 +191,8 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
     type Membership: Membership<TYPES>;
     type Networking: CommunicationChannel<TYPES, M, Self::Proposal, Self::Vote, Self::Membership>;
 
+    fn create(keys: Vec<TYPES::SignatureKey>, config: TYPES::ElectionConfigType) -> Self;
+
     fn network(&self) -> &Self::Networking;
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         self.membership().get_leader(view_number)
@@ -499,6 +501,11 @@ impl<
     type Membership = MEMBERSHIP;
     type Networking = NETWORK;
 
+    fn create(keys: Vec<TYPES::SignatureKey>, config: TYPES::ElectionConfigType) -> Self {
+        let membership =
+            <Self as ConsensusExchange<TYPES, LEAF, M>>::Membership::create_election(keys, config);
+        nll_todo()
+    }
     fn network(&self) -> &NETWORK {
         &self.network
     }
@@ -794,6 +801,12 @@ impl<
     type Certificate = QuorumCertificate<TYPES, LEAF>;
     type Membership = MEMBERSHIP;
     type Networking = NETWORK;
+
+    fn create(keys: Vec<TYPES::SignatureKey>, config: TYPES::ElectionConfigType) -> Self {
+        let membership =
+            <Self as ConsensusExchange<TYPES, LEAF, M>>::Membership::create_election(keys, config);
+        nll_todo()
+    }
 
     fn network(&self) -> &NETWORK {
         &self.network

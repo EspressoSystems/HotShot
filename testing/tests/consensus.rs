@@ -7,7 +7,10 @@ use futures::{
     future::{join_all, LocalBoxFuture},
     FutureExt,
 };
-use hotshot::{demos::vdemo::random_validating_leaf, traits::election::vrf::VrfImpl};
+use hotshot::{
+    demos::vdemo::random_validating_leaf,
+    traits::{election::vrf::VrfImpl, NodeImplementation},
+};
 use hotshot_testing::{
     test_description::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder},
     test_types::{
@@ -16,18 +19,26 @@ use hotshot_testing::{
     },
     ConsensusRoundError, RoundResult, SafetyFailedSnafu,
 };
+use hotshot_types::traits::node_implementation::{
+    QuorumMembership, QuorumProposal, QuorumVoteType,
+};
+use hotshot_types::traits::storage::TestableStorage;
+
+use hotshot_types::data::TestableLeaf;
+use hotshot_types::traits::node_implementation::TestableNodeImplementation;
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     event::EventType,
     message::{ConsensusMessage, Proposal},
     traits::{
-        election::{Membership, SignedCertificate, TestableElection},
+        election::{ConsensusExchange, Membership, SignedCertificate, TestableElection},
         node_implementation::NodeType,
         signature_key::TestableSignatureKey,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
     },
     vote::QuorumVote,
 };
+use hotshot_types::{message::Message, traits::network::TestableNetworkingImplementation};
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use snafu::{ensure, OptionExt};
 use std::fmt::Debug;
@@ -40,13 +51,7 @@ use tracing::{instrument, warn};
 const NUM_VIEWS: u64 = 100;
 const DEFAULT_NODE_ID: u64 = 0;
 
-type AppliedValidatingTestRunner<TYPES, MEMBERSHIP> = AppliedTestRunner<
-    TYPES,
-    ValidatingLeaf<TYPES>,
-    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-    MEMBERSHIP,
->;
+type AppliedValidatingTestRunner<TYPES, I> = AppliedTestRunner<TYPES, I>;
 
 enum QueuedMessageTense {
     Past(Option<usize>),
@@ -56,9 +61,9 @@ enum QueuedMessageTense {
 /// Returns true if `node_id` is the leader of `view_number`
 async fn is_upcoming_validating_leader<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    MEMBERSHIP: Membership<TYPES> + Debug,
+    I: TestableNodeImplementation<TYPES>,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
+    runner: &AppliedValidatingTestRunner<TYPES, I>,
     node_id: u64,
     view_number: TYPES::Time,
 ) -> bool
@@ -66,6 +71,20 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+    <I as NodeImplementation<TYPES>>::Storage:
+        TestableStorage<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
+    <I as NodeImplementation<TYPES>>::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     let handle = runner.get_handle(node_id).unwrap();
     let leader = handle.get_leader(view_number).await;
@@ -75,15 +94,29 @@ where
 /// Builds and submits a random proposal for the specified view number
 async fn submit_validating_proposal<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    MEMBERSHIP: Membership<TYPES> + Debug,
+    I: TestableNodeImplementation<TYPES>,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
+    runner: &AppliedValidatingTestRunner<TYPES, I>,
     sender_node_id: u64,
     view_number: TYPES::Time,
 ) where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+    <I as NodeImplementation<TYPES>>::Storage:
+        TestableStorage<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
+    <I as NodeImplementation<TYPES>>::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     let mut rng = rand::thread_rng();
     let handle = runner.get_handle(sender_node_id).unwrap();
@@ -105,9 +138,9 @@ async fn submit_validating_proposal<
 /// Builds and submits a random vote for the specified view number from the specified node
 async fn submit_validating_vote<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    MEMBERSHIP: Membership<TYPES> + TestableElection<TYPES> + Debug,
+    I: TestableNodeImplementation<TYPES>,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
+    runner: &AppliedValidatingTestRunner<TYPES, I>,
     sender_node_id: u64,
     view_number: TYPES::Time,
     recipient_node_id: u64,
@@ -115,6 +148,20 @@ async fn submit_validating_vote<
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+    <I as NodeImplementation<TYPES>>::Storage:
+        TestableStorage<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
+    <I as NodeImplementation<TYPES>>::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     let mut rng = rand::thread_rng();
     let handle = runner.get_handle(sender_node_id).unwrap();
@@ -127,7 +174,11 @@ async fn submit_validating_vote<
         leaf.commit(),
         leaf.view_number,
         // TODO placeholder below
-        MEMBERSHIP::generate_test_vote_token(),
+        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+        >>::Membership::generate_test_vote_token(),
     );
 
     let recipient = runner
@@ -153,15 +204,29 @@ fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
 /// Checks that votes are queued correctly for views 1..NUM_VIEWS
 fn test_validating_vote_queueing_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    MEMBERSHIP: Membership<TYPES> + Debug,
+    I: TestableNodeImplementation<TYPES>,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
+    runner: &AppliedValidatingTestRunner<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+    <I as NodeImplementation<TYPES>>::Storage:
+        TestableStorage<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
+    <I as NodeImplementation<TYPES>>::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;
@@ -201,14 +266,28 @@ where
 /// For 1..NUM_VIEWS submit votes to each node in the network
 fn test_validating_vote_queueing_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    MEMBERSHIP: Membership<TYPES> + TestableElection<TYPES> + Debug,
+    I: TestableNodeImplementation<TYPES>,
 >(
-    runner: &mut AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
+    runner: &mut AppliedValidatingTestRunner<TYPES, I>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+    <I as NodeImplementation<TYPES>>::Storage:
+        TestableStorage<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
+    <I as NodeImplementation<TYPES>>::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;
@@ -227,15 +306,29 @@ where
 /// Checks views 0..NUM_VIEWS for whether proposal messages are properly queued
 fn test_validating_proposal_queueing_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    MEMBERSHIP: Membership<TYPES> + Debug,
+    I: TestableNodeImplementation<TYPES>,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
+    runner: &AppliedValidatingTestRunner<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+    <I as NodeImplementation<TYPES>>::Storage:
+        TestableStorage<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
+    <I as NodeImplementation<TYPES>>::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;
@@ -277,14 +370,28 @@ where
 /// Submits proposals for 0..NUM_VIEWS rounds where `node_id` is the leader
 fn test_validating_proposal_queueing_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    MEMBERSHIP: Membership<TYPES> + Debug,
+    I: TestableNodeImplementation<TYPES>,
 >(
-    runner: &mut AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
+    runner: &mut AppliedValidatingTestRunner<TYPES, I>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+    <I as NodeImplementation<TYPES>>::Storage:
+        TestableStorage<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
+    <I as NodeImplementation<TYPES>>::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;
@@ -303,14 +410,28 @@ where
 /// Submits proposals for views where `node_id` is not the leader, and submits multiple proposals for views where `node_id` is the leader
 fn test_bad_validating_proposal_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    MEMBERSHIP: Membership<TYPES> + Debug,
+    I: TestableNodeImplementation<TYPES>,
 >(
-    runner: &mut AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
+    runner: &mut AppliedValidatingTestRunner<TYPES, I>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+    <I as NodeImplementation<TYPES>>::Storage:
+        TestableStorage<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
+    <I as NodeImplementation<TYPES>>::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;
@@ -331,15 +452,29 @@ where
 /// Checks nodes do not queue bad proposal messages
 fn test_bad_validating_proposal_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    MEMBERSHIP: Membership<TYPES> + Debug,
+    I: TestableNodeImplementation<TYPES>,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, MEMBERSHIP>,
+    runner: &AppliedValidatingTestRunner<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
 where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
+    <I as NodeImplementation<TYPES>>::Storage:
+        TestableStorage<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
+    <I as NodeImplementation<TYPES>>::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;

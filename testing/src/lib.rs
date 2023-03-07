@@ -27,10 +27,12 @@ use hotshot::{
     types::{HotShotHandle, SignatureKey},
     HotShot, HotShotError, HotShotInitializer, ViewRunner, H_256,
 };
-use hotshot_types::{message::Message, traits::election::CommitteeExchange};
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::traits::node_implementation::QuorumNetwork;
+use hotshot_types::traits::node_implementation::{
+    QuorumMembership, QuorumProposal, QuorumVoteType,
+};
 use hotshot_types::{
     data::{LeafType, ProposalType, TestableLeaf},
     traits::{
@@ -45,6 +47,7 @@ use hotshot_types::{
     vote::{VoteAccumulator, VoteType},
     HotShotConfig,
 };
+use hotshot_types::{message::Message, traits::election::CommitteeExchange};
 use snafu::Snafu;
 use std::{collections::HashMap, fmt, fmt::Debug, marker::PhantomData};
 use tracing::{debug, error, info, warn};
@@ -93,6 +96,17 @@ where
     <TYPES as NodeType>::BlockType: TestableBlock,
     <TYPES as NodeType>::StateType: TestableState,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
 {
     /// Safety check before round is set up and run
     /// to ensure consistent state
@@ -110,12 +124,17 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    // I::QuorumExchange: ConsensusExchange<
-    //     TYPES,
-    //     I::Leaf,
-    //     Message<TYPES, I>,
-    //     Networking = TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    // >,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -135,12 +154,17 @@ where
     TYPES: NodeType,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
-    // I::QuorumExchange: ConsensusExchange<
-    //     TYPES,
-    //     I::Leaf,
-    //     Message<TYPES, I>,
-    //     Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    // >,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     network_generator: Generator<QuorumNetwork<TYPES, I>>,
@@ -161,7 +185,17 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    // I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -239,16 +273,23 @@ where
         let private_key = TYPES::SignatureKey::generate_test_key(node_id);
         let public_key = TYPES::SignatureKey::from_private(&private_key);
         let election_config = config.election_config.clone().unwrap_or_else(|| {
-            I::Membership::default_election_config(config.total_nodes.get() as u64)
+            <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+                TYPES,
+                I::Leaf,
+                Message<TYPES, I>,
+            >>::Membership::default_election_config(config.total_nodes.get() as u64)
         });
+        let quorum_exchange =
+            I::QuorumExchange::create(known_nodes.clone(), election_config.clone());
+        let committee_exchange = I::ComitteeExchange::create(known_nodes, election_config);
         let handle = HotShot::init(
             public_key,
             private_key,
             node_id,
             config,
-            network,
             storage,
-            I::Membership::create_election(known_nodes, election_config),
+            quorum_exchange,
+            committee_exchange,
             initializer,
             NoMetrics::new(),
         )
@@ -405,7 +446,17 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    // I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -476,7 +527,17 @@ where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
     TYPES::SignatureKey: TestableSignatureKey,
-    // I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
+    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        QuorumProposal<TYPES, I>,
+        QuorumVoteType<TYPES, I>,
+        QuorumMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -582,100 +643,100 @@ pub enum ConsensusTestError {
     TooManyFailures,
 }
 
-/// An implementation of [`NodeImplementation`] for testing.
-pub struct TestNodeImpl<
-    TYPES: NodeType,
-    LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
-    NETWORK,
-    STORAGE,
-    MEMBERSHIP,
-> {
-    _pd: PhantomData<(TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP)>,
-}
+// /// An implementation of [`NodeImplementation`] for testing.
+// pub struct TestNodeImpl<
+//     TYPES: NodeType,
+//     LEAF: LeafType<NodeType = TYPES>,
+//     PROPOSAL: ProposalType<NodeType = TYPES>,
+//     VOTE: VoteType<TYPES>,
+//     NETWORK,
+//     STORAGE,
+//     MEMBERSHIP,
+// > {
+//     _pd: PhantomData<(TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP)>,
+// }
 
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        NETWORK,
-        STORAGE,
-        MEMBERSHIP,
-    > Clone for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP>
-{
-    fn clone(&self) -> Self {
-        Self { _pd: PhantomData }
-    }
-}
+// impl<
+//         TYPES: NodeType,
+//         LEAF: LeafType<NodeType = TYPES>,
+//         PROPOSAL: ProposalType<NodeType = TYPES>,
+//         VOTE: VoteType<TYPES>,
+//         NETWORK,
+//         STORAGE,
+//         MEMBERSHIP,
+//     > Clone for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP>
+// {
+//     fn clone(&self) -> Self {
+//         Self { _pd: PhantomData }
+//     }
+// }
 
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        NETWORK,
-        STORAGE,
-        MEMBERSHIP,
-    > NodeImplementation<TYPES>
-    for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    MEMBERSHIP: Membership<TYPES> + Debug,
-    NETWORK:
-        TestableNetworkingImplementation<TYPES, Message<TYPES, Self>, PROPOSAL, VOTE, MEMBERSHIP>,
-    STORAGE: Storage<TYPES, LEAF>,
-{
-    type QuorumExchange =
-        QuorumExchange<TYPES, Self::Leaf, MEMBERSHIP, NETWORK, Message<TYPES, Self>>;
-    // TODO seperate this part
-    type ComitteeExchange = Self::QuorumExchange;
-    type Leaf = LEAF;
-    type Storage = STORAGE;
-}
+// impl<
+//         TYPES: NodeType,
+//         LEAF: LeafType<NodeType = TYPES>,
+//         PROPOSAL: ProposalType<NodeType = TYPES>,
+//         VOTE: VoteType<TYPES>,
+//         NETWORK,
+//         STORAGE,
+//         MEMBERSHIP,
+//     > NodeImplementation<TYPES>
+//     for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP>
+// where
+//     TYPES::BlockType: TestableBlock,
+//     TYPES::StateType: TestableState,
+//     TYPES::SignatureKey: TestableSignatureKey,
+//     MEMBERSHIP: Membership<TYPES> + Debug,
+//     NETWORK:
+//         TestableNetworkingImplementation<TYPES, Message<TYPES, Self>, PROPOSAL, VOTE, MEMBERSHIP>,
+//     STORAGE: Storage<TYPES, LEAF>,
+// {
+//     type QuorumExchange =
+//         QuorumExchange<TYPES, Self::Leaf, MEMBERSHIP, NETWORK, Message<TYPES, Self>>;
+//     // TODO seperate this part
+//     type ComitteeExchange = Self::QuorumExchange;
+//     type Leaf = LEAF;
+//     type Storage = STORAGE;
+// }
 
-impl<
-        TYPES,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        NETWORK,
-        STORAGE,
-        MEMBERSHIP: Membership<TYPES> + Debug,
-    > TestableNodeImplementation<TYPES>
-    for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP>
-where
-    TYPES: NodeType,
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    MEMBERSHIP: Membership<TYPES>,
-    NETWORK:
-        TestableNetworkingImplementation<TYPES, Message<TYPES, Self>, PROPOSAL, VOTE, MEMBERSHIP>,
-    STORAGE: TestableStorage<TYPES, LEAF>,
-{
-}
+// impl<
+//         TYPES,
+//         LEAF: LeafType<NodeType = TYPES>,
+//         PROPOSAL: ProposalType<NodeType = TYPES>,
+//         VOTE: VoteType<TYPES>,
+//         NETWORK,
+//         STORAGE,
+//         MEMBERSHIP: Membership<TYPES> + Debug,
+//     > TestableNodeImplementation<TYPES>
+//     for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP>
+// where
+//     TYPES: NodeType,
+//     TYPES::BlockType: TestableBlock,
+//     TYPES::StateType: TestableState,
+//     TYPES::SignatureKey: TestableSignatureKey,
+//     MEMBERSHIP: Membership<TYPES>,
+//     NETWORK:
+//         TestableNetworkingImplementation<TYPES, Message<TYPES, Self>, PROPOSAL, VOTE, MEMBERSHIP>,
+//     STORAGE: TestableStorage<TYPES, LEAF>,
+// {
+// }
 
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        NETWORK,
-        STORAGE,
-        MEMBERSHIP,
-    > fmt::Debug for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP>
-{
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("TestNodeImpl")
-            // .field("network", &std::any::type_name::<<Self as TestableNodeImplementation>::Networking>())
-            // .field("storage", &std::any::type_name::<<Self as TestableNodeImplementation>::Storage>())
-            // .field("state", &std::any::type_name::<<Self as TestableNodeImplementation>::StateType>())
-            // .field("election", &std::any::type_name::<<Self as TestableNodeImplementation>::Election>())
-            // .field("key", &std::any::type_name::<<Self as TestableNodeImplementation>::SignatureKey>())
-            .finish_non_exhaustive()
-    }
-}
+// impl<
+//         TYPES: NodeType,
+//         LEAF: LeafType<NodeType = TYPES>,
+//         PROPOSAL: ProposalType<NodeType = TYPES>,
+//         VOTE: VoteType<TYPES>,
+//         NETWORK,
+//         STORAGE,
+//         MEMBERSHIP,
+//     > fmt::Debug for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP>
+// {
+//     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+//         fmt.debug_struct("TestNodeImpl")
+//             // .field("network", &std::any::type_name::<<Self as TestableNodeImplementation>::Networking>())
+//             // .field("storage", &std::any::type_name::<<Self as TestableNodeImplementation>::Storage>())
+//             // .field("state", &std::any::type_name::<<Self as TestableNodeImplementation>::StateType>())
+//             // .field("election", &std::any::type_name::<<Self as TestableNodeImplementation>::Election>())
+//             // .field("key", &std::any::type_name::<<Self as TestableNodeImplementation>::SignatureKey>())
+//             .finish_non_exhaustive()
+//     }
+// }

@@ -91,7 +91,11 @@ where
         };
 
         Self {
-            network: I::Networking::generator(expected_node_count, num_bootstrap_nodes),
+            network: <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+                TYPES,
+                I::Leaf,
+                Message<TYPES, I>,
+            >>::Networking::generator(expected_node_count, num_bootstrap_nodes),
             storage: Box::new(|_| I::Storage::construct_tmp_storage().unwrap()),
             block: Box::new(|_| TYPES::BlockType::genesis()),
             config,
