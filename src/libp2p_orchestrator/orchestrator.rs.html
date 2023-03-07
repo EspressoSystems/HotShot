@@ -24,6 +24,7 @@
 <a href="#24" id="24">24</a>
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>types;
 
 <span class="kw">use </span>clap::Parser;
@@ -31,8 +32,9 @@
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">use </span>types::ThisMembership;
 
+<span class="kw">use </span><span class="kw">crate</span>::infra::OrchestratorArgs;
 <span class="kw">use crate</span>::{
-    infra::{run_orchestrator, CliOrchestrated},
+    infra::run_orchestrator,
     types::{ThisNetwork, ThisNode},
 };
 
@@ -46,7 +48,7 @@
 #[cfg_attr(feature = <span class="string">&quot;async-std-executor&quot;</span>, async_std::main)]
 #[instrument]
 </span><span class="kw">async fn </span>main() {
-    <span class="kw">let </span>args = CliOrchestrated::parse();
+    <span class="kw">let </span>args = OrchestratorArgs::parse();
 
     run_orchestrator::&lt;VDemoTypes, ThisMembership, ThisNetwork, ThisNode&gt;(args).<span class="kw">await</span>;
 }

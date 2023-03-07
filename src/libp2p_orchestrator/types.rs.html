@@ -19,7 +19,7 @@
 <a href="#19" id="19">19</a>
 <a href="#20" id="20">20</a>
 <a href="#21" id="21">21</a>
-</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::Libp2pClientConfig;
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::infra::Libp2pRun;
 <span class="kw">use </span>hotshot::{
     demos::vdemo::{VDemoNode, VDemoTypes},
     traits::{
@@ -39,6 +39,6 @@
 <span class="kw">pub type </span>ThisProposal = ValidatingProposal&lt;VDemoTypes, ThisLeaf&gt;;
 <span class="kw">pub type </span>ThisVote = QuorumVote&lt;VDemoTypes, ThisLeaf&gt;;
 <span class="kw">pub type </span>ThisNode = VDemoNode&lt;ThisNetwork, ThisMembership&gt;;
-<span class="kw">pub type </span>ThisConfig = Libp2pClientConfig&lt;VDemoTypes, ThisMembership&gt;;
+<span class="kw">pub type </span>ThisRun = Libp2pRun&lt;VDemoTypes, ThisMembership&gt;;
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="libp2p_orchestrator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>

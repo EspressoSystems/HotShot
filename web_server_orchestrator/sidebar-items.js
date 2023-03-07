@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["Args",""]],"fn":[["main",""]]};
+window.SIDEBAR_ITEMS = {"fn":[["main",""]],"mod":[["infra",""],["types",""]]};
