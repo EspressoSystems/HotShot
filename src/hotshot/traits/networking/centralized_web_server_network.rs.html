@@ -730,6 +730,27 @@
 <a href="#730" id="730">730</a>
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a centralized web server.
 //!
 //! To run the web server, see the `./centralized_web_server/` folder in this repo.
@@ -945,7 +966,11 @@
     &gt; Inner&lt;M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE&gt;
 {
     <span class="doccomment">/// Polls the web server at a given endpoint while the client is running
-    </span><span class="kw">async fn </span>poll_web_server(<span class="kw-2">&amp;</span><span class="self">self</span>, message_type: MessageType, _num_views_ahead: u64) {
+    </span><span class="kw">async fn </span>poll_web_server(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message_type: MessageType,
+        _num_views_ahead: u64,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// Subscribe to changes in consensus info
         </span><span class="kw">let </span>consensus_update = <span class="self">self</span>.consensus_info.subscribe().<span class="kw">await</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>consensus_info = <span class="self">self</span>.consensus_info.copied().<span class="kw">await</span>;
@@ -1017,6 +1042,7 @@
                 vote_index = <span class="number">0</span>;
             }
         }
+        <span class="prelude-val">Err</span>(NetworkError::ShutDown)
     }
 
     <span class="doccomment">/// Sends a GET request to the webserver for some specified endpoint
@@ -1165,32 +1191,48 @@
         <span class="kw">let </span>proposal_handle = async_spawn({
             <span class="kw">let </span>inner_clone = inner.clone();
             <span class="kw">async move </span>{
-                inner_clone.poll_web_server(MessageType::Proposal, <span class="number">0</span>).<span class="kw">await</span>;
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inner_clone.poll_web_server(MessageType::Proposal, <span class="number">0</span>).<span class="kw">await </span>{
+                    <span class="macro">error!</span>(
+                        <span class="string">&quot;Background receive proposal polling encountered an error: {:?}&quot;</span>,
+                        e
+                    );
+                }
             }
         });
         <span class="kw">let </span>vote_handle = async_spawn({
             <span class="kw">let </span>inner_clone = inner.clone();
 
             <span class="kw">async move </span>{
-                inner_clone
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inner_clone
                     .poll_web_server(MessageType::VoteTimedOut, <span class="number">0</span>)
-                    .<span class="kw">await</span>;
+                    .<span class="kw">await
+                </span>{
+                    <span class="macro">error!</span>(
+                        <span class="string">&quot;Background receive vote polling encountered an error: {:?}&quot;</span>,
+                        e
+                    );
+                }
             }
         });
         <span class="kw">let </span>transaction_handle = async_spawn({
             <span class="kw">let </span>inner_clone = inner.clone();
 
             <span class="kw">async move </span>{
-                inner_clone
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = inner_clone
                     .poll_web_server(MessageType::Transaction, <span class="number">0</span>)
-                    .<span class="kw">await</span>;
+                    .<span class="kw">await
+                </span>{
+                    <span class="macro">error!</span>(
+                        <span class="string">&quot;Background receive transaction polling encountered an error: {:?}&quot;</span>,
+                        e
+                    );
+                }
             }
         });
 
         <span class="kw">let </span>task_handles = <span class="macro">vec!</span>[proposal_handle, vote_handle, transaction_handle];
 
-        <span class="kw">let </span>children_finished = futures::future::join_all(task_handles);
-        <span class="kw">let </span>_result = children_finished.<span class="kw">await</span>;
+        <span class="kw">let </span>_children_finished = futures::future::join_all(task_handles).<span class="kw">await</span>;
 
         <span class="prelude-val">Ok</span>(())
     }
