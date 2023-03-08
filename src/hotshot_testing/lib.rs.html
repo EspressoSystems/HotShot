@@ -677,8 +677,6 @@
 
 </span><span class="doccomment">/// test launcher infrastructure
 </span><span class="kw">pub mod </span>launcher;
-<span class="doccomment">/// macros to generate a cross product of tests
-</span><span class="kw">pub mod </span>macros;
 <span class="doccomment">/// implementations of various networking models
 </span><span class="kw">pub mod </span>network_reliability;
 <span class="doccomment">/// structs and infra to describe the tests to be written
@@ -1324,12 +1322,14 @@
 {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
         fmt.debug_struct(<span class="string">&quot;TestNodeImpl&quot;</span>)
-            <span class="comment">// .field(&quot;network&quot;, &amp;std::any::type_name::&lt;&lt;Self as TestableNodeImplementation&gt;::Networking&gt;())
-            // .field(&quot;storage&quot;, &amp;std::any::type_name::&lt;&lt;Self as TestableNodeImplementation&gt;::Storage&gt;())
-            // .field(&quot;state&quot;, &amp;std::any::type_name::&lt;&lt;Self as TestableNodeImplementation&gt;::StateType&gt;())
-            // .field(&quot;election&quot;, &amp;std::any::type_name::&lt;&lt;Self as TestableNodeImplementation&gt;::Election&gt;())
-            // .field(&quot;key&quot;, &amp;std::any::type_name::&lt;&lt;Self as TestableNodeImplementation&gt;::SignatureKey&gt;())
-            </span>.finish_non_exhaustive()
+            .field(<span class="string">&quot;Types&quot;</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;TYPES&gt;())
+            .field(<span class="string">&quot;Leaf&quot;</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;LEAF&gt;())
+            .field(<span class="string">&quot;Proposal&quot;</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;PROPOSAL&gt;())
+            .field(<span class="string">&quot;Vote&quot;</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;VOTE&gt;())
+            .field(<span class="string">&quot;Network&quot;</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;NETWORK&gt;())
+            .field(<span class="string">&quot;STORAGE&quot;</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;STORAGE&gt;())
+            .field(<span class="string">&quot;MEMBERSHIP&quot;</span>, <span class="kw-2">&amp;</span>std::any::type_name::&lt;MEMBERSHIP&gt;())
+            .finish_non_exhaustive()
     }
 }
 </code></pre></div>
