@@ -126,6 +126,101 @@
             "request": "launch",
             "cargo": {
                 "args": [
+                    "build",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot",
+                    "--example=libp2p-validator"
+                ],
+                "filter": {
+                    "kind": "example",
+                    "name": "libp2p-validator"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug libp2p-validator example"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot",
+                    "--example=libp2p-orchestrator"
+                ],
+                "filter": {
+                    "kind": "example",
+                    "name": "libp2p-orchestrator"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug libp2p-orchestrator example"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot",
+                    "--example=web-server-orchestrator"
+                ],
+                "filter": {
+                    "kind": "example",
+                    "name": "web-server-orchestrator"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug web-server-orchestrator example"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot",
+                    "--example=web-server"
+                ],
+                "filter": {
+                    "kind": "example",
+                    "name": "web-server"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug web-server example"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot",
+                    "--example=web-server-validator"
+                ],
+                "filter": {
+                    "kind": "example",
+                    "name": "web-server-validator"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug web-server-validator example"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
                     "test",
                     "--no-run",
                     "--features=full-ci,channel-async-std",
@@ -570,7 +665,7 @@
                     "--no-run",
                     "--features=full-ci,channel-async-std",
                     "--package=hotshot-testing",
-                    "sequencing_test"
+                    "sequencing_centralized_server_test"
                 ],
                 "filter": {
                     "name": "hotshot-testing",
@@ -579,7 +674,47 @@
             },
             "program": "${cargo:program}",
             "cwd": "${workspaceFolder}",
-            "name": "Debug sequencing_test test"
+            "name": "Debug sequencing_centralized_server_test test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
+                    "sequencing_libp2p_test"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug sequencing_libp2p_test test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--features=full-ci,channel-async-std",
+                    "--package=hotshot-testing",
+                    "sequencing_memory_network_test"
+                ],
+                "filter": {
+                    "name": "hotshot-testing",
+                    "kind": "lib"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug sequencing_memory_network_test test"
         },
         {
             "type": "lldb",
@@ -980,6 +1115,25 @@
             "program": "${cargo:program}",
             "cwd": "${workspaceFolder}",
             "name": "Debug test_stress_request_response_one_round test"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--features=full-ci,channel-async-std",
+                    "--package=libp2p-networking",
+                    "--example=counter"
+                ],
+                "filter": {
+                    "kind": "example",
+                    "name": "counter"
+                }
+            },
+            "program": "${cargo:program}",
+            "cwd": "${workspaceFolder}",
+            "name": "Debug counter example"
         }
     ]
 }
