@@ -26,7 +26,7 @@ type StaticMembership =
 
 type StaticCommunication = Libp2pCommChannel<
     StaticCommitteeTestTypes,
-    Message<StaticCommitteeTestTypes, Libp2pImpl>,
+    Libp2pImpl,
     ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     QuorumVote<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

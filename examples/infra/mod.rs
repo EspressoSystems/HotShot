@@ -54,6 +54,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
+use hotshot_types::traits::election::ConsensusExchange;
 #[allow(deprecated)]
 use tracing::{debug, error};
 
@@ -133,7 +134,7 @@ impl<
                 MEMBERSHIP,
                 Libp2pCommChannel<
                     TYPES,
-                    Message<TYPES, NODE>,
+                    NODE,
                     ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                     QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
                     MEMBERSHIP,
@@ -148,7 +149,7 @@ impl<
         MEMBERSHIP,
         Libp2pCommChannel<
             TYPES,
-            Message<TYPES, NODE>,
+            NODE,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
@@ -288,7 +289,7 @@ where
         .map(
             Libp2pCommChannel::<
                 TYPES,
-                Message<TYPES, NODE>,
+                NODE,
                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
                 MEMBERSHIP,
@@ -323,7 +324,7 @@ where
         &self,
     ) -> Libp2pCommChannel<
         TYPES,
-        Message<TYPES, NODE>,
+        NODE,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -414,7 +415,7 @@ where
         &self,
     ) -> CentralizedCommChannel<
         TYPES,
-        Message<TYPES, NODE>,
+        NODE,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -439,7 +440,7 @@ pub struct Libp2pClientConfig<
     _socket: TcpStreamUtil,
     network: Libp2pCommChannel<
         TYPES,
-        Message<TYPES, I>,
+        I,
         Proposal<TYPES>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -526,15 +527,17 @@ pub trait CliConfig<
 
         let network = self.get_network();
         let election_config = config.config.election_config.clone().unwrap();
-
+        let quorum_exchange =
+            NODE::QuorumExchange::create(known_nodes.clone(), election_config.clone());
+        let committee_exchange = NODE::ComitteeExchange::create(known_nodes, election_config);
         let hotshot = HotShot::init(
             pk,
             sk,
             config.node_index,
             config.config,
-            network,
             MemoryStorage::new(),
-            MEMBERSHIP::create_election(known_nodes, election_config),
+            quorum_exchange,
+            committee_exchange,
             initializer,
             NoMetrics::new(),
         )

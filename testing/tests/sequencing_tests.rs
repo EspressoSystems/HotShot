@@ -126,7 +126,7 @@ struct SequencingLibP2PImpl {}
 
 type StaticDACommP2p = Libp2pCommChannel<
     SequencingTestTypes,
-    Message<SequencingTestTypes, SequencingLibP2PImpl>,
+    SequencingLibP2PImpl,
     DAProposal<SequencingTestTypes>,
     DAVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     StaticMembership,
@@ -134,7 +134,7 @@ type StaticDACommP2p = Libp2pCommChannel<
 
 type StaticQuroumCommP2p = Libp2pCommChannel<
     SequencingTestTypes,
-    Message<SequencingTestTypes, SequencingLibP2PImpl>,
+    SequencingLibP2PImpl,
     CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     StaticMembership,
@@ -192,7 +192,7 @@ type StaticDACommCentral = CentralizedCommChannel<
 
 type StaticQuroumCommCentral = Libp2pCommChannel<
     SequencingTestTypes,
-    Message<SequencingTestTypes, SequencingCentralImpl>,
+   SequencingCentralImpl,
     CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     QuorumVote<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
     StaticMembership,

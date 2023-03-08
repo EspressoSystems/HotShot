@@ -115,12 +115,12 @@ pub struct Libp2pNetwork<M: NetworkMsg, K: SignatureKey + 'static> {
 
 impl<
         TYPES: NodeType,
-        M: NetworkMsg + ViewMessage<TYPES>,
+        I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
-    for Libp2pCommChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -677,25 +677,25 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, M, K> for Lib
 #[derive(Clone)]
 pub struct Libp2pCommChannel<
     TYPES: NodeType,
-    M: NetworkMsg + ViewMessage<TYPES>,
+    I: NodeImplementation<TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    Libp2pNetwork<M, TYPES::SignatureKey>,
-    PhantomData<(M, PROPOSAL, VOTE, MEMBERSHIP)>,
+    Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
+    PhantomData<(TYPES, I, PROPOSAL, VOTE, MEMBERSHIP)>,
 );
 
 impl<
         TYPES: NodeType,
-        M: NetworkMsg + ViewMessage<TYPES>,
+        I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > Libp2pCommChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
+    > Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// create a new libp2p communication channel
-    pub fn new(network: Libp2pNetwork<M, TYPES::SignatureKey>) -> Self {
+    pub fn new(network: Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>) -> Self {
         Self(network, PhantomData::default())
     }
 }
@@ -706,12 +706,12 @@ impl<
 #[async_trait]
 impl<
         TYPES: NodeType,
-        M: NetworkMsg + ViewMessage<TYPES> + ViewMessage<TYPES>,
+        I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > CommunicationChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
-    for Libp2pCommChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
+    > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
@@ -727,7 +727,7 @@ impl<
 
     async fn broadcast_message(
         &self,
-        message: M,
+        message: Message<TYPES, I>,
         membership: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
         let recipients =
@@ -737,13 +737,13 @@ impl<
 
     async fn direct_message(
         &self,
-        message: M,
+        message: Message<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
     }
 
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
+    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 
