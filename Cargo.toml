@@ -253,4 +253,5 @@ members = [
         "testing",
         "types",
         "utils",
+        "testing-macros"
 ]

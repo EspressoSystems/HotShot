@@ -10,8 +10,6 @@
 
 /// test launcher infrastructure
 pub mod launcher;
-/// macros to generate a cross product of tests
-pub mod macros;
 /// implementations of various networking models
 pub mod network_reliability;
 /// structs and infra to describe the tests to be written
@@ -657,11 +655,13 @@ impl<
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt.debug_struct("TestNodeImpl")
-            // .field("network", &std::any::type_name::<<Self as TestableNodeImplementation>::Networking>())
-            // .field("storage", &std::any::type_name::<<Self as TestableNodeImplementation>::Storage>())
-            // .field("state", &std::any::type_name::<<Self as TestableNodeImplementation>::StateType>())
-            // .field("election", &std::any::type_name::<<Self as TestableNodeImplementation>::Election>())
-            // .field("key", &std::any::type_name::<<Self as TestableNodeImplementation>::SignatureKey>())
+            .field("Types", &std::any::type_name::<TYPES>())
+            .field("Leaf", &std::any::type_name::<LEAF>())
+            .field("Proposal", &std::any::type_name::<PROPOSAL>())
+            .field("Vote", &std::any::type_name::<VOTE>())
+            .field("Network", &std::any::type_name::<NETWORK>())
+            .field("STORAGE", &std::any::type_name::<STORAGE>())
+            .field("MEMBERSHIP", &std::any::type_name::<MEMBERSHIP>())
             .finish_non_exhaustive()
     }
 }

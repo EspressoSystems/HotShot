@@ -17,10 +17,10 @@ jobs:
     strategy:
       matrix:
         features:
-          - "async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std"
-          - "async-std-executor,demo,docs,doc-images,hotshot-testing,channel-flume"
-          - "tokio-executor,demo,docs,doc-images,hotshot-testing,channel-tokio"
-          - "tokio-executor,demo,docs,doc-images,hotshot-testing,channel-flume"
+          - "async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std,slow-tests"
+          - "async-std-executor,demo,docs,doc-images,hotshot-testing,channel-flume,slow-tests"
+          - "tokio-executor,demo,docs,doc-images,hotshot-testing,channel-tokio,slow-tests"
+          - "tokio-executor,demo,docs,doc-images,hotshot-testing,channel-flume,slow-tests"
     steps:
       - uses: styfle/cancel-workflow-action@0.11.0
         name: Cancel Outdated Builds

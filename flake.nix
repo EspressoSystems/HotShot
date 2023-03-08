@@ -167,6 +167,8 @@
 
         buildDeps = with pkgs;
           [
+            curl.out
+            cargo-expand
             cargo-workspaces
             cargo-audit
             nixpkgs-fmt
