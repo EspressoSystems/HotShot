@@ -69,7 +69,7 @@ async fn is_upcoming_validating_leader<
     node_id: u64,
     view_number: TYPES::Time,
 ) -> bool
- where
+where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
@@ -114,7 +114,7 @@ async fn submit_validating_proposal<
     runner: &AppliedValidatingTestRunner<TYPES, I>,
     sender_node_id: u64,
     view_number: TYPES::Time,
-)  where
+) where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
@@ -250,7 +250,7 @@ fn test_validating_vote_queueing_post_safety_check<
     runner: &AppliedValidatingTestRunner<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
- where
+where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
@@ -324,7 +324,7 @@ fn test_validating_vote_queueing_round_setup<
 >(
     runner: &mut AppliedValidatingTestRunner<TYPES, I>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
- where
+where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
@@ -378,7 +378,7 @@ fn test_validating_proposal_queueing_post_safety_check<
     runner: &AppliedValidatingTestRunner<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
- where
+where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
@@ -454,7 +454,7 @@ fn test_validating_proposal_queueing_round_setup<
 >(
     runner: &mut AppliedValidatingTestRunner<TYPES, I>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
- where
+where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
@@ -507,7 +507,7 @@ fn test_bad_validating_proposal_round_setup<
 >(
     runner: &mut AppliedValidatingTestRunner<TYPES, I>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
- where
+where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
@@ -563,7 +563,7 @@ fn test_bad_validating_proposal_post_safety_check<
     runner: &AppliedValidatingTestRunner<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
- where
+where
     TYPES::SignatureKey: TestableSignatureKey,
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,

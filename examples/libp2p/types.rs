@@ -23,13 +23,8 @@ pub struct NodeImpl {}
 pub type ThisLeaf = ValidatingLeaf<VDemoTypes>;
 pub type ThisMembership =
     GeneralStaticCommittee<VDemoTypes, ThisLeaf, <VDemoTypes as NodeType>::SignatureKey>;
-pub type ThisNetwork = Libp2pCommChannel<
-    VDemoTypes,
-    NodeImpl,
-    ThisProposal,
-    ThisVote,
-    ThisMembership,
->;
+pub type ThisNetwork =
+    Libp2pCommChannel<VDemoTypes, NodeImpl, ThisProposal, ThisVote, ThisMembership>;
 
 pub type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
 pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
@@ -39,6 +34,13 @@ pub type ThisConfig = Libp2pClientConfig<VDemoTypes, ThisNode, ThisMembership>;
 impl NodeImplementation<VDemoTypes> for NodeImpl {
     type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
     type Leaf = ValidatingLeaf<VDemoTypes>;
-    type QuorumExchange = QuorumExchange<VDemoTypes, Self::Leaf, ThisProposal, ThisMembership, ThisNetwork, Message<VDemoTypes, Self>>;
+    type QuorumExchange = QuorumExchange<
+        VDemoTypes,
+        Self::Leaf,
+        ThisProposal,
+        ThisMembership,
+        ThisNetwork,
+        Message<VDemoTypes, Self>,
+    >;
     type ComitteeExchange = Self::QuorumExchange;
 }

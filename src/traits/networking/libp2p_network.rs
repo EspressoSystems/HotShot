@@ -743,7 +743,10 @@ impl<
         self.0.direct_message(message, recipient).await
     }
 
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
+    async fn recv_msgs(
+        &self,
+        transmit_type: TransmitType,
+    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 

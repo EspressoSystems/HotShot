@@ -22,6 +22,7 @@ use hotshot_centralized_server::{
     FromServer, NetworkConfig, Run, RunResults, Server, TcpStreamUtil, TcpStreamUtilWithRecv,
     TcpStreamUtilWithSend, ToServer,
 };
+use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
     traits::{
@@ -54,7 +55,6 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use hotshot_types::traits::election::ConsensusExchange;
 #[allow(deprecated)]
 use tracing::{debug, error};
 

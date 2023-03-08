@@ -34,6 +34,13 @@ pub type ThisConfig = CentralizedConfig<VDemoTypes, ThisNode, ThisMembership>;
 impl NodeImplementation<VDemoTypes> for NodeImpl {
     type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
     type Leaf = ValidatingLeaf<VDemoTypes>;
-    type QuorumExchange = QuorumExchange<VDemoTypes, Self::Leaf, ThisProposal, ThisMembership, ThisNetwork, Message<VDemoTypes, Self>>;
+    type QuorumExchange = QuorumExchange<
+        VDemoTypes,
+        Self::Leaf,
+        ThisProposal,
+        ThisMembership,
+        ThisNetwork,
+        Message<VDemoTypes, Self>,
+    >;
     type ComitteeExchange = Self::QuorumExchange;
 }
