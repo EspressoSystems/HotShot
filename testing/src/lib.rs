@@ -29,9 +29,8 @@ use hotshot::{
 };
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchange;
-use hotshot_types::traits::node_implementation::QuorumNetwork;
 use hotshot_types::traits::node_implementation::{
-    QuorumMembership, QuorumProposal, QuorumVoteType,
+    CommitteeNetwork, QuorumMembership, QuorumNetwork, QuorumProposal, QuorumVoteType,
 };
 use hotshot_types::{
     data::{LeafType, ProposalType, TestableLeaf},
@@ -279,9 +278,20 @@ where
                 Message<TYPES, I>,
             >>::Membership::default_election_config(config.total_nodes.get() as u64)
         });
-        let quorum_exchange =
-            I::QuorumExchange::create(known_nodes.clone(), election_config.clone());
-        let committee_exchange = I::ComitteeExchange::create(known_nodes, election_config);
+        let quorum_exchange = I::QuorumExchange::create(
+            known_nodes.clone(),
+            election_config.clone(),
+            network.clone(),
+            public_key.clone(),
+            private_key.clone(),
+        );
+        let committee_exchange = I::CommitteeExchange::create(
+            known_nodes,
+            election_config,
+            network,
+            public_key.clone(),
+            private_key.clone(),
+        );
         let handle = HotShot::init(
             public_key,
             private_key,
@@ -693,7 +703,7 @@ pub enum ConsensusTestError {
 //     type QuorumExchange =
 //         QuorumExchange<TYPES, Self::Leaf, MEMBERSHIP, NETWORK, Message<TYPES, Self>>;
 //     // TODO seperate this part
-//     type ComitteeExchange = Self::QuorumExchange;
+//     type CommitteeExchange = Self::QuorumExchange;
 //     type Leaf = LEAF;
 //     type Storage = STORAGE;
 // }

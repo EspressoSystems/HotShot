@@ -23,6 +23,7 @@ use hotshot_centralized_server::{
     TcpStreamUtilWithSend, ToServer,
 };
 use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::node_implementation::QuorumNetwork;
 use hotshot_types::{
     data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
     traits::{
@@ -527,9 +528,15 @@ pub trait CliConfig<
 
         let network = self.get_network();
         let election_config = config.config.election_config.clone().unwrap();
-        let quorum_exchange =
-            NODE::QuorumExchange::create(known_nodes.clone(), election_config.clone());
-        let committee_exchange = NODE::ComitteeExchange::create(known_nodes, election_config);
+        let quorum_exchange = NODE::QuorumExchange::create(
+            known_nodes.clone(),
+            election_config.clone(),
+            network.clone(),
+            pk.clone(),
+            sk.clone(),
+        );
+        let committee_exchange =
+            NODE::CommitteeExchange::create(known_nodes, election_config, network, pk.clone(), sk.clone());
         let hotshot = HotShot::init(
             pk,
             sk,
@@ -698,6 +705,12 @@ pub async fn main_entry_point<
     <TYPES as NodeType>::BlockType: TestableBlock,
     ValidatingLeaf<TYPES>: TestableLeaf,
     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
+    NODE::CommitteeExchange: ConsensusExchange<
+        TYPES,
+        NODE::Leaf,
+        Message<TYPES, NODE>,
+        Networking = QuorumNetwork<TYPES, NODE>,
+    >,
     CONFIG: Sync,
 {
     setup_logging();

@@ -6,9 +6,9 @@ use super::node_implementation::{NodeImplementation, NodeType};
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
 use crate::certificate::VoteMetaData;
 use crate::certificate::{DACertificate, QuorumCertificate};
-use crate::data::{DAProposal, ValidatingLeaf};
 use crate::data::ProposalType;
 use crate::data::ValidatingProposal;
+use crate::data::{DAProposal, ValidatingLeaf};
 use crate::message::ConsensusMessage;
 use crate::message::Message;
 use crate::traits::network::CommunicationChannel;
@@ -196,7 +196,13 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
     type Networking: CommunicationChannel<TYPES, M, Self::Proposal, Self::Vote, Self::Membership>;
     type Commitment: Committable;
 
-    fn create(keys: Vec<TYPES::SignatureKey>, config: TYPES::ElectionConfigType) -> Self;
+    fn create(
+        keys: Vec<TYPES::SignatureKey>,
+        config: TYPES::ElectionConfigType,
+        network: Self::Networking,
+        pk: TYPES::SignatureKey,
+        sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    ) -> Self;
 
     fn network(&self) -> &Self::Networking;
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
@@ -217,7 +223,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
             .make_vote_token(view_number, self.private_key())
     }
 
-    fn vote_data(&self, commit:  Commitment<Self::Commitment>) -> VoteData<TYPES, LEAF>; 
+    fn vote_data(&self, commit: Commitment<Self::Commitment>) -> VoteData<TYPES, LEAF>;
 
     /// Validate a QC.
     fn is_valid_cert(&self, qc: &Self::Certificate, commit: Commitment<Self::Commitment>) -> bool {
@@ -343,7 +349,7 @@ pub trait CommitteeExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES
         vote_token: TYPES::VoteTokenType,
     ) -> ConsensusMessage<TYPES, I>
     where
-        I::ComitteeExchange:
+        I::CommitteeExchange:
             ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = DAVote<TYPES, I::Leaf>>;
 }
 pub struct CommitteeExchange<
@@ -400,7 +406,7 @@ impl<
         vote_token: TYPES::VoteTokenType,
     ) -> ConsensusMessage<TYPES, I>
     where
-        I::ComitteeExchange:
+        I::CommitteeExchange:
             ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = DAVote<TYPES, I::Leaf>>,
     {
         let signature = self.sign_da_vote(block_commitment);
@@ -429,10 +435,22 @@ impl<
     type Networking = NETWORK;
     type Commitment = TYPES::BlockType;
 
-    fn create(keys: Vec<TYPES::SignatureKey>, config: TYPES::ElectionConfigType) -> Self {
+    fn create(
+        keys: Vec<TYPES::SignatureKey>,
+        config: TYPES::ElectionConfigType,
+        network: Self::Networking,
+        pk: TYPES::SignatureKey,
+        sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    ) -> Self {
         let membership =
             <Self as ConsensusExchange<TYPES, LEAF, M>>::Membership::create_election(keys, config);
-        nll_todo()
+        Self {
+            network,
+            membership,
+            public_key: pk,
+            private_key: sk,
+            _pd: PhantomData,
+        }
     }
     fn network(&self) -> &NETWORK {
         &self.network
@@ -448,7 +466,6 @@ impl<
     fn vote_data(&self, commit: Commitment<Self::Commitment>) -> VoteData<TYPES, LEAF> {
         VoteData::DA(commit)
     }
-
 
     /// Add a vote to the accumulating signature.  Return The certificate if the vote
     /// brings us over the threshould, Else return the accumulator.
@@ -717,17 +734,29 @@ impl<
     type Networking = NETWORK;
     type Commitment = LEAF;
 
-    fn create(keys: Vec<TYPES::SignatureKey>, config: TYPES::ElectionConfigType) -> Self {
+    fn create(
+        keys: Vec<TYPES::SignatureKey>,
+        config: TYPES::ElectionConfigType,
+        network: Self::Networking,
+        pk: TYPES::SignatureKey,
+        sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    ) -> Self {
         let membership =
             <Self as ConsensusExchange<TYPES, LEAF, M>>::Membership::create_election(keys, config);
-        nll_todo()
+        Self {
+            network,
+            membership,
+            public_key: pk,
+            private_key: sk,
+            _pd: PhantomData,
+        }
     }
 
     fn network(&self) -> &NETWORK {
         &self.network
     }
-    
-    fn vote_data(&self, commit:  Commitment<Self::Commitment>) -> VoteData<TYPES, LEAF> {
+
+    fn vote_data(&self, commit: Commitment<Self::Commitment>) -> VoteData<TYPES, LEAF> {
         VoteData::Yes(commit)
     }
 
