@@ -51,7 +51,7 @@ pub trait SignatureKey:
     + Ord
 {
     /// The private key type for this signature algorithm
-    type PrivateKey: Send + Sync + Sized;
+    type PrivateKey: Send + Sync + Sized + Clone;
     // Signature type represented as a vec/slice of bytes to let the implementer handle the nuances
     // of serialization, to avoid Cryptographic pitfalls
     /// Validate a signature

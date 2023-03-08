@@ -595,7 +595,7 @@ mod tests {
             TestNetwork,
             Message<Test, Self>,
         >;
-        type ComitteeExchange = Self::QuorumExchange;
+        type CommitteeExchange = Self::QuorumExchange;
         type Leaf = TestLeaf;
         type Storage = MemoryStorage<Test, TestLeaf>;
     }

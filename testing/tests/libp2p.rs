@@ -44,7 +44,7 @@ impl NodeImplementation<StaticCommitteeTestTypes> for Libp2pImpl {
         StaticCommunication,
         Message<StaticCommitteeTestTypes, Libp2pImpl>,
     >;
-    type ComitteeExchange = Self::QuorumExchange;
+    type CommitteeExchange = Self::QuorumExchange;
 }
 impl TestableNodeImplementation<StaticCommitteeTestTypes> for Libp2pImpl {}
 

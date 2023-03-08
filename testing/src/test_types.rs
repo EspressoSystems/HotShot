@@ -133,7 +133,7 @@ impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
         VrfCommunication,
         Message<VrfTestTypes, Self>,
     >;
-    type ComitteeExchange = Self::QuorumExchange;
+    type CommitteeExchange = Self::QuorumExchange;
 }
 
 impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
@@ -148,7 +148,7 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
         StaticCommunication,
         Message<StaticCommitteeTestTypes, Self>,
     >;
-    type ComitteeExchange = Self::QuorumExchange;
+    type CommitteeExchange = Self::QuorumExchange;
 }
 
 impl TestableNodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {}

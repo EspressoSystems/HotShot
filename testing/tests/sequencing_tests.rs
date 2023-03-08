@@ -92,7 +92,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
         StaticQuroumComm,
         Message<SequencingTestTypes, Self>,
     >;
-    type ComitteeExchange = CommitteeExchange<
+    type CommitteeExchange = CommitteeExchange<
         SequencingTestTypes,
         Self::Leaf,
         StaticMembership,
@@ -151,7 +151,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
         StaticQuroumCommP2p,
         Message<SequencingTestTypes, Self>,
     >;
-    type ComitteeExchange = CommitteeExchange<
+    type CommitteeExchange = CommitteeExchange<
         SequencingTestTypes,
         Self::Leaf,
         StaticMembership,
@@ -209,7 +209,7 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
         StaticQuroumCommCentral,
         Message<SequencingTestTypes, Self>,
     >;
-    type ComitteeExchange = CommitteeExchange<
+    type CommitteeExchange = CommitteeExchange<
         SequencingTestTypes,
         Self::Leaf,
         StaticMembership,

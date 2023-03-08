@@ -44,7 +44,7 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
         StaticCommunication,
         Message<StaticCommitteeTestTypes, Self>,
     >;
-    type ComitteeExchange = Self::QuorumExchange;
+    type CommitteeExchange = Self::QuorumExchange;
 }
 
 impl TestableNodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {}

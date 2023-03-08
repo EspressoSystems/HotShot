@@ -51,7 +51,7 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     /// consensus protocols
     type QuorumExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
 
-    type ComitteeExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
+    type CommitteeExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
 }
 
 pub type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
@@ -61,7 +61,7 @@ pub type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
         Message<TYPES, I>,
     >>::Proposal;
 pub type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
-    <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<
+    <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
         I::Leaf,
         Message<TYPES, I>,
@@ -74,7 +74,7 @@ pub type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
         Message<TYPES, I>,
     >>::Vote;
 pub type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
-    <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<
+    <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
         I::Leaf,
         Message<TYPES, I>,

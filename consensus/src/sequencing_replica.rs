@@ -56,7 +56,7 @@ pub struct SequencingReplica<
     /// HotShot consensus API.
     pub api: A,
 
-    pub da_exchange: I::ComitteeExchange,
+    pub da_exchange: I::CommitteeExchange,
     pub quorum_exchange: I::QuorumExchange,
     pub _pd: PhantomData<I>,
 }
@@ -76,7 +76,7 @@ where
             Vote = QuorumVote<TYPES, I::Leaf>,
             Commitment = SequencingLeaf<TYPES>,
         > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
-    I::ComitteeExchange: ConsensusExchange<
+    I::CommitteeExchange: ConsensusExchange<
             TYPES,
             I::Leaf,
             Message<TYPES, I>,

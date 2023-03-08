@@ -85,7 +85,7 @@ type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
         Message<TYPES, I>,
     >>::Vote;
 type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
-    <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<
+    <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
         I::Leaf,
         Message<TYPES, I>,
@@ -97,7 +97,7 @@ type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
         Message<TYPES, I>,
     >>::Proposal;
 type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
-    <<I as NodeImplementation<TYPES>>::ComitteeExchange as ConsensusExchange<
+    <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
         I::Leaf,
         Message<TYPES, I>,

@@ -30,7 +30,7 @@ use hotshot::{
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::traits::node_implementation::{
-    CommitteeNetwork, QuorumMembership, QuorumNetwork, QuorumProposal, QuorumVoteType,
+    QuorumMembership, QuorumNetwork, QuorumProposal, QuorumVoteType,
 };
 use hotshot_types::{
     data::{LeafType, ProposalType, TestableLeaf},

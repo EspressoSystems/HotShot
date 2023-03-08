@@ -57,7 +57,7 @@ pub struct DALeader<
     /// Limited access to the consensus protocol
     pub api: A,
 
-    pub da_exchange: Arc<I::ComitteeExchange>,
+    pub da_exchange: Arc<I::CommitteeExchange>,
 
     pub quorum_exchange: Arc<I::QuorumExchange>,
     /// channel through which the leader collects votes
@@ -78,7 +78,7 @@ where
         Proposal = CommitmentProposal<TYPES, I::Leaf>,
         Vote = QuorumVote<TYPES, I::Leaf>,
     >,
-    I::ComitteeExchange: ConsensusExchange<
+    I::CommitteeExchange: ConsensusExchange<
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
@@ -327,7 +327,7 @@ where
             Proposal = CommitmentProposal<TYPES, I::Leaf>,
             // Vote = QuorumVote<TYPES, I::Leaf>,
         > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
-    I::ComitteeExchange: ConsensusExchange<
+    I::CommitteeExchange: ConsensusExchange<
             TYPES,
             I::Leaf,
             Message<TYPES, I>,

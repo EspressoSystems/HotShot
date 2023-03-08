@@ -138,7 +138,7 @@ pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub quorum_exchange: Arc<I::QuorumExchange>,
 
     /// This `HotShot` instance's interaction with the DA committee to form a DA certificate.
-    pub committee_exchange: Arc<I::ComitteeExchange>,
+    pub committee_exchange: Arc<I::CommitteeExchange>,
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<TYPES, I::Leaf>>>>,
@@ -205,7 +205,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         // networking: I::Networking,
         storage: I::Storage,
         quorum_exchange: I::QuorumExchange,
-        committee_exchange: I::ComitteeExchange,
+        committee_exchange: I::CommitteeExchange,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
@@ -373,7 +373,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         storage: I::Storage,
         quorum_exchange: I::QuorumExchange,
-        committee_exchange: I::ComitteeExchange,
+        committee_exchange: I::CommitteeExchange,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<HotShotHandle<TYPES, I>, HotShotError<TYPES>>
@@ -884,7 +884,7 @@ where
             Vote = QuorumVote<TYPES, I::Leaf>,
             Commitment = SequencingLeaf<TYPES>,
         > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
-    I::ComitteeExchange: ConsensusExchange<
+    I::CommitteeExchange: ConsensusExchange<
             TYPES,
             I::Leaf,
             Message<TYPES, I>,

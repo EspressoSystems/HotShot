@@ -42,5 +42,5 @@ impl NodeImplementation<VDemoTypes> for NodeImpl {
         ThisNetwork,
         Message<VDemoTypes, Self>,
     >;
-    type ComitteeExchange = Self::QuorumExchange;
+    type CommitteeExchange = Self::QuorumExchange;
 }

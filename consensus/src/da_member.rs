@@ -49,7 +49,7 @@ pub struct DAMember<
     /// HotShot consensus API.
     pub api: A,
 
-    pub exchange: Arc<I::ComitteeExchange>,
+    pub exchange: Arc<I::CommitteeExchange>,
 
     pub _pd: PhantomData<I>,
 }
@@ -60,7 +60,7 @@ impl<
         I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
     > DAMember<A, TYPES, I>
 where
-    I::ComitteeExchange: ConsensusExchange<
+    I::CommitteeExchange: ConsensusExchange<
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
