@@ -138,7 +138,7 @@ pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub quorum_exchange: Arc<I::QuorumExchange>,
 
     /// This `HotShot` instance's interaction with the DA committee to form a DA certificate.
-    committee_exchange: Arc<I::ComitteeExchange>,
+    pub committee_exchange: Arc<I::ComitteeExchange>,
 
     /// Sender for [`Event`]s
     event_sender: RwLock<Option<BroadcastSender<Event<TYPES, I::Leaf>>>>,
@@ -688,6 +688,7 @@ where
             Proposal = ValidatingProposal<TYPES, I::Leaf>,
             Vote = QuorumVote<TYPES, I::Leaf>,
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
+            Commitment = ValidatingLeaf<TYPES>,
         > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     #[instrument(skip(hotshot), fields(id = hotshot.id), name = "Validating View Runner Task", level = "error")]
@@ -881,6 +882,7 @@ where
             Proposal = CommitmentProposal<TYPES, I::Leaf>,
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
             Vote = QuorumVote<TYPES, I::Leaf>,
+            Commitment = SequencingLeaf<TYPES>,
         > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
     I::ComitteeExchange: ConsensusExchange<
             TYPES,
@@ -889,6 +891,7 @@ where
             Proposal = DAProposal<TYPES>,
             Certificate = DACertificate<TYPES>,
             Vote = DAVote<TYPES, I::Leaf>,
+            Commitment = TYPES::BlockType,
         > + CommitteeExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     // #[instrument]
@@ -1139,19 +1142,22 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
 
     async fn send_da_broadcast(
         &self,
-        _message: ConsensusMessage<TYPES, I>,
+        message: ConsensusMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError> {
-        // TODO: Should look like this code but it won't work due to only 1 Proposal and 1 Vote
-        // type being associated with self.inner.networking.
-        // self.inner
-        //     .networking
-        //     .broadcast_message(Message {
-        //         sender: self.inner.public_key.clone(),
-        //         kind: MessageKind::Consensus(message),
-        //     })
-        //     .await
-        #[allow(deprecated)]
-        nll_todo()
+        debug!(?message, "send_da_broadcast_message");
+        self.inner
+            .committee_exchange
+            .network()
+            .broadcast_message(
+                Message {
+                    sender: self.inner.public_key.clone(),
+                    kind: message.into(),
+                },
+                // TODO this is morally wrong!
+                &self.inner.committee_exchange.membership().clone(),
+            )
+            .await?;
+        Ok(())
     }
 
     async fn send_event(&self, event: Event<TYPES, I::Leaf>) {

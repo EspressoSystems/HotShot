@@ -85,6 +85,7 @@ where
             Proposal = DAProposal<TYPES>,
             Vote = DAVote<TYPES, I::Leaf>,
             Certificate = DACertificate<TYPES>,
+            Commitment = TYPES::BlockType,
         > + CommitteeExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time

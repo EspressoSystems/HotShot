@@ -9,6 +9,7 @@ use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
 use hotshot_types::message::Message;
 use hotshot_types::message::ProcessedConsensusMessage;
 use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::election::{Checked::Unchecked, VoteData};
 use hotshot_types::traits::node_implementation::NodeImplementation;
@@ -61,12 +62,20 @@ impl<
         I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
     > NextValidatingLeader<A, TYPES, I>
 where
-    I::QuorumExchange: ConsensusExchange<
-        TYPES,
-        I::Leaf,
+    // I::QuorumExchange: ConsensusExchange<
+    //     TYPES,
+    //     I::Leaf,
+    //     Message<TYPES, I>,
+    //     Vote = QuorumVote<TYPES, I::Leaf>,
+    //     Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+    // >,
+    I::QuorumExchange: QuorumExchangeType<
+        TYPES, 
+        ValidatingLeaf<TYPES>, 
         Message<TYPES, I>,
         Vote = QuorumVote<TYPES, I::Leaf>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        Commitment = ValidatingLeaf<TYPES>,
     >,
 {
     /// Run one view of the next leader task

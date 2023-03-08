@@ -74,6 +74,7 @@ where
             Proposal = CommitmentProposal<TYPES, I::Leaf>,
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
             Vote = QuorumVote<TYPES, I::Leaf>,
+            Commitment = SequencingLeaf<TYPES>,
         > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
     I::ComitteeExchange: ConsensusExchange<
             TYPES,
@@ -82,6 +83,7 @@ where
             Proposal = DAProposal<TYPES>,
             Certificate = DACertificate<TYPES>,
             Vote = DAVote<TYPES, I::Leaf>,
+            Commitment = TYPES::BlockType,
         > + CommitteeExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     // TODO (da) Move this function so that it can be used by leader, replica, and committee member logic.

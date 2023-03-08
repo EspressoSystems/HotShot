@@ -69,6 +69,7 @@ where
             Proposal = ValidatingProposal<TYPES, I::Leaf>,
             Vote = QuorumVote<TYPES, I::Leaf>,
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
+            Commitment = ValidatingLeaf<TYPES>,
         > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// portion of the replica task that spins until a valid QC can be signed or
