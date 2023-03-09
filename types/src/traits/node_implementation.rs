@@ -54,55 +54,55 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     type CommitteeExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
 }
 
-pub type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+pub type QuorumProposal<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Proposal;
-pub type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+pub type CommitteeProposal<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Proposal;
 
-pub type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+pub type QuorumVoteType<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Vote;
-pub type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+pub type CommitteeVote<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Vote;
 
-pub type QuorumNetwork<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+pub type QuorumNetwork<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Networking;
-pub type CommitteeNetwork<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+pub type CommitteeNetwork<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Networking;
 
-pub type QuorumMembership<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+pub type QuorumMembership<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Membership;
-pub type CommitteeMembership<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+pub type CommitteeMembership<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Membership;
 

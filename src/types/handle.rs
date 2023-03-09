@@ -72,35 +72,35 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone for HotShotH
     }
 }
 
-type QuorumNetwork<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+type QuorumNetwork<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Networking;
 
-type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+type QuorumVoteType<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Vote;
-type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+type CommitteeVote<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Vote;
-type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+type QuorumProposal<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Proposal;
-type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+type CommitteeProposal<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Proposal;
 
