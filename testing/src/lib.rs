@@ -30,7 +30,7 @@ use hotshot::{
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::traits::node_implementation::{
-    QuorumMembership, QuorumNetwork, QuorumProposal, QuorumVoteType,
+    CommitteeNetwork, QuorumMembership, QuorumNetwork, QuorumProposal, QuorumVoteType,
 };
 use hotshot_types::{
     data::{LeafType, ProposalType, TestableLeaf},
@@ -166,7 +166,8 @@ where
     >,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
-    network_generator: Generator<QuorumNetwork<TYPES, I>>,
+    quorum_network_generator: Generator<QuorumNetwork<TYPES, I>>,
+    committee_network_generator: Generator<CommitteeNetwork<TYPES, I>>,
     storage_generator: Generator<I::Storage>,
     default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     nodes: Vec<Node<TYPES, I>>,
@@ -200,7 +201,8 @@ where
 {
     pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
-            network_generator: launcher.network,
+            quorum_network_generator: launcher.quorum_network,
+            committee_network_generator: launcher.committee_network,
             storage_generator: launcher.storage,
             default_node_config: launcher.config,
             nodes: Vec::new(),
@@ -224,14 +226,21 @@ where
         let mut results = vec![];
         for _i in 0..count {
             let node_id = self.next_node_id;
-            let network = (self.network_generator)(node_id);
+            let quorum_network = (self.quorum_network_generator)(node_id);
+            let committee_network = (self.committee_network_generator)(node_id);
             let storage = (self.storage_generator)(node_id);
             let config = self.default_node_config.clone();
             let initializer =
                 HotShotInitializer::<TYPES, I::Leaf>::from_genesis(TYPES::BlockType::genesis())
                     .unwrap();
             let node_id = self
-                .add_node_with_config(network, storage, initializer, config)
+                .add_node_with_config(
+                    quorum_network,
+                    committee_network,
+                    storage,
+                    initializer,
+                    config,
+                )
                 .await;
             results.push(node_id);
         }
@@ -257,7 +266,8 @@ where
     /// For a simpler way to add nodes to this runner, see `add_nodes`
     pub async fn add_node_with_config(
         &mut self,
-        network: QuorumNetwork<TYPES, I>,
+        quorum_network: QuorumNetwork<TYPES, I>,
+        committee_network: CommitteeNetwork<TYPES, I>,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
@@ -281,14 +291,14 @@ where
         let quorum_exchange = I::QuorumExchange::create(
             known_nodes.clone(),
             election_config.clone(),
-            network.clone(),
+            quorum_network,
             public_key.clone(),
             private_key.clone(),
         );
         let committee_exchange = I::CommitteeExchange::create(
             known_nodes,
             election_config,
-            network,
+            committee_network,
             public_key.clone(),
             private_key.clone(),
         );

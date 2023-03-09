@@ -15,8 +15,8 @@ use hotshot_types::{
         election::Membership,
         network::{CommunicationChannel, TestableNetworkingImplementation},
         node_implementation::{
-            NodeImplementation, NodeType, QuorumMembership, QuorumProposal, QuorumVoteType,
-            TestableNodeImplementation,
+            CommitteeMembership, CommitteeProposal, CommitteeVote, NodeImplementation, NodeType,
+            QuorumMembership, QuorumProposal, QuorumVoteType, TestableNodeImplementation,
         },
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState},
@@ -192,6 +192,18 @@ where
         QuorumVoteType<TYPES, I>,
         QuorumMembership<TYPES, I>,
     >,
+
+    <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking: TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        CommitteeProposal<TYPES, I>,
+        CommitteeVote<TYPES, I>,
+        CommitteeMembership<TYPES, I>,
+    >,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
@@ -244,7 +256,8 @@ where
         runner.add_nodes(self.start_nodes).await;
 
         for (idx, node) in runner.nodes().collect::<Vec<_>>().iter().enumerate().rev() {
-            node.networking().wait_for_ready().await;
+            node.quorum_network().wait_for_ready().await;
+            node.committee_network().wait_for_ready().await;
             info!("EXECUTOR: NODE {:?} IS READY", idx);
         }
 

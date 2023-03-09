@@ -86,8 +86,21 @@ pub type QuorumNetwork<TYPES: NodeType, I: NodeImplementation<TYPES>> =
         I::Leaf,
         Message<TYPES, I>,
     >>::Networking;
+pub type CommitteeNetwork<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+    <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Networking;
+
 pub type QuorumMembership<TYPES: NodeType, I: NodeImplementation<TYPES>> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I>,
+    >>::Membership;
+pub type CommitteeMembership<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+    <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
         I::Leaf,
         Message<TYPES, I>,

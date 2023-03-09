@@ -535,8 +535,13 @@ pub trait CliConfig<
             pk.clone(),
             sk.clone(),
         );
-        let committee_exchange =
-            NODE::CommitteeExchange::create(known_nodes, election_config, network, pk.clone(), sk.clone());
+        let committee_exchange = NODE::CommitteeExchange::create(
+            known_nodes,
+            election_config,
+            network,
+            pk.clone(),
+            sk.clone(),
+        );
         let hotshot = HotShot::init(
             pk,
             sk,

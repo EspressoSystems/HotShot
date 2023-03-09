@@ -70,8 +70,8 @@ where
     //     Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     // >,
     I::QuorumExchange: QuorumExchangeType<
-        TYPES, 
-        ValidatingLeaf<TYPES>, 
+        TYPES,
+        ValidatingLeaf<TYPES>,
         Message<TYPES, I>,
         Vote = QuorumVote<TYPES, I::Leaf>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,

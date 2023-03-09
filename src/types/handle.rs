@@ -10,6 +10,7 @@ use crate::{
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use commit::Committable;
 use hotshot_types::traits::election::QuorumExchangeType;
+use hotshot_types::traits::node_implementation::CommitteeNetwork;
 use hotshot_types::{
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
@@ -270,10 +271,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         &self.storage
     }
 
-    /// Provides a reference to the underlying networking interface for this [`HotShot`], allowing access to
-    /// networking stats.
-    pub fn networking(&self) -> &QuorumNetwork<TYPES, I> {
+    /// Provides a reference to the underlying quorum networking interface for this [`HotShot`],
+    /// allowing access to networking stats.
+    pub fn quorum_network(&self) -> &QuorumNetwork<TYPES, I> {
         &self.hotshot.inner.quorum_exchange.network()
+    }
+
+    /// Provides a reference to the underlying committee networking interface for this [`HotShot`],
+    /// allowing access to networking stats.
+    pub fn committee_network(&self) -> &CommitteeNetwork<TYPES, I> {
+        &self.hotshot.inner.committee_exchange.network()
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
