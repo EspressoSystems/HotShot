@@ -14,14 +14,17 @@ POST a node's identity (IP address and port) to the orchestrator.  Returns the n
 
 # POST retrieve the network configuration
 [route.post_getconfig]
-PATH = ["config"]
+PATH = ["config/:node_index"]
 METHOD = "POST"
+":node_index" = "Integer"
 DOC = """
 Get networking configuration needed for nodes to initialize HotShot and themselves. See `config.rs` for more information. 
-This must be a POST request so we can update the OrchestratorState in the server accordingly
+This must be a POST request so we can update the OrchestratorState in the server accordingly.  Must use the node_index previously 
+received from the 'identity' endpoint
 """
 
 # POST whether the node is ready to begin the run
+# TODO ED Use the node index parameter
 [route.postready]
 PATH = ["ready"]
 METHOD = "POST"

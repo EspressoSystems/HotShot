@@ -669,17 +669,36 @@ impl OrchestratorClient {
         OrchestratorClient { client }
     }
 
-    // Returns the run configuration from the orchestrator
-    // Will block until the configuration is returned
+    /// Sends an identify message to the server
+    /// Returns this validator's node_index in the network
+    // TODO ED Change api to 'identify' instead of 'identity'
+    async fn identify_with_orchestrator(&self) -> u16 {
+        let f = |client: Client<ClientError>| {
+            async move {
+                let node_index: Result<u16, ClientError> =
+                    client.post("api/identity/Thisisastring").send().await;
+                node_index
+            }
+            .boxed()
+        };
+        self.wait_for_fn_from_orchestrator(f).await
+    }
+
+    /// Returns the run configuration from the orchestrator
+    /// Will block until the configuration is returned
     async fn get_config_from_orchestrator<TYPES: NodeType>(
         &self,
+        node_index: u16,
     ) -> NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType> {
         let f = |client: Client<ClientError>| {
             async move {
                 let config: Result<
                     NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
                     ClientError,
-                > = client.post("api/config").send().await;
+                > = client
+                    .post(&format!("api/config/{node_index}"))
+                    .send()
+                    .await;
                 config
             }
             .boxed()
@@ -767,8 +786,14 @@ pub async fn main_entry_point<
 
     let orchestrator_client: OrchestratorClient =
         OrchestratorClient::connect_to_orchestrator(args).await;
+
+    // Identify with the orchestrator
+    let node_index: u16 = orchestrator_client.identify_with_orchestrator().await;
+    println!("Our node index is {node_index}");
+
+    // TODO ED pass in node_index as an argument
     let run_config = orchestrator_client
-        .get_config_from_orchestrator::<TYPES>()
+        .get_config_from_orchestrator::<TYPES>(node_index)
         .await;
 
     let run = RUN::initialize_networking(run_config.clone()).await;

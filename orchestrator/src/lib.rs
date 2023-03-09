@@ -6,6 +6,7 @@ use hotshot_types::traits::signature_key::SignatureKey;
 use std::io;
 use std::io::ErrorKind;
 use std::net::IpAddr;
+use std::net::SocketAddr;
 use tide_disco::Api;
 use tide_disco::App;
 use tracing::log::error;
@@ -47,7 +48,7 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
 
 pub trait OrchestratorApi<KEY, ELECTION> {
     fn post_identity(&mut self, identity: &str) -> Result<u16, ServerError>; 
-    fn post_getconfig(&mut self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
+    fn post_getconfig(&mut self, node_index: u16) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
     fn get_start(&self) -> Result<bool, ServerError>;
     fn post_ready(&mut self) -> Result<(), ServerError>;
     fn post_run_results(&mut self) -> Result<(), ServerError>;
@@ -60,8 +61,19 @@ where
 {
     fn post_identity(&mut self, identity: &str) -> Result<u16, ServerError> {
 
+        // TODO ED Move this constant out of function / add it to the config file 
+        let NUM_BOOTSTRAP_NODES = 7;
         let node_index = self.latest_index; 
         self.latest_index += 1;
+
+        // TODO ED Store identity for bootstrap nodes if needed 
+        if self.config.libp2p_config.clone().is_some() {
+            if self.config.libp2p_config.as_mut().unwrap().bootstrap_nodes.len() < NUM_BOOTSTRAP_NODES {
+                let addr = SocketAddr::new("0.0.0.0".parse().unwrap(), 4444);
+            }
+            // self.config.libp2p_config.
+            // Vec<(SocketAddr, Vec<u8, Global>)
+        }
 
         // TODO https://github.com/EspressoSystems/HotShot/issues/850
         if usize::from(node_index) >= self.config.config.total_nodes.get() {
@@ -71,11 +83,12 @@ where
     }
 
 
-    fn post_getconfig(&mut self) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
+    fn post_getconfig(&mut self, node_index: u16) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
         let mut config = self.config.clone();
         if config.libp2p_config.is_some() {
 
         }
+        // TODO ED Needs to take in their node index as an argument
         // config.node_index = self.latest_index.into();
 
         // self.latest_index += 1;
@@ -114,12 +127,15 @@ where
         .expect("api.toml file is not found");
     api.post("postidentity", |req, state| {
         async move { 
-            println!("{:?}", req);
+            // println!("{:?}", req.);
             let identity = req.string_param("identity")?; 
             state.post_identity(identity) }.boxed()
     })?
-    .post("post_getconfig", |_req, state| {
-        async move { state.post_getconfig() }.boxed()
+    .post("post_getconfig", |req, state| {
+        async move { 
+            let node_index = req.integer_param("node_index")?; 
+
+            state.post_getconfig(node_index) }.boxed()
     })?
     .post("postready", |_req, state| {
         async move { state.post_ready() }.boxed()
