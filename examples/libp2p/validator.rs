@@ -2,19 +2,15 @@ use clap::Parser;
 use hotshot::demos::vdemo::VDemoTypes;
 use tracing::instrument;
 
-pub mod types;
+use crate::{
+    infra::{main_entry_point, ValidatorArgs},
+    types::{ThisMembership, ThisNetwork, ThisNode, ThisRun},
+};
 
-use types::ThisMembership;
+pub mod types;
 
 #[path = "../infra/mod.rs"]
 pub mod infra;
-
-use infra::main_entry_point;
-use infra::CliOrchestrated;
-
-use crate::types::ThisConfig;
-use crate::types::ThisNetwork;
-use crate::types::ThisNode;
 
 #[cfg_attr(
     feature = "tokio-executor",
@@ -23,7 +19,6 @@ use crate::types::ThisNode;
 #[cfg_attr(feature = "async-std-executor", async_std::main)]
 #[instrument]
 async fn main() {
-    let args = CliOrchestrated::parse();
-
-    main_entry_point::<VDemoTypes, ThisMembership, ThisNetwork, ThisNode, ThisConfig>(args).await;
+    let args = ValidatorArgs::parse();
+    main_entry_point::<VDemoTypes, ThisMembership, ThisNetwork, ThisNode, ThisRun>(args).await;
 }

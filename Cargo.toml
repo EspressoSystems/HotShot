@@ -80,22 +80,7 @@ channel-async-std = [
 ]
 
 [[example]]
-name = "centralized"
-required-features = ["demo", "libp2p/rsa"]
-path = "examples/centralized/validator.rs"
-
-[[example]]
-name = "centralized-web-server"
-required-features = ["demo", "libp2p/rsa"]
-path = "examples/centralized_web_server/centralized_web_server.rs"
-
-[[example]]
-name = "web-server-orchestrator"
-required-features = []
-path = "examples/centralized_web_server/orchestrator.rs"
-
-[[example]]
-name = "libp2p"
+name = "libp2p-validator"
 required-features = ["demo", "libp2p/rsa"]
 path = "examples/libp2p/validator.rs"
 
@@ -104,10 +89,21 @@ name = "libp2p-orchestrator"
 required-features = ["demo", "libp2p/rsa"]
 path = "examples/libp2p/orchestrator.rs"
 
+
 [[example]]
-name = "centralized-orchestrator"
+name = "web-server-orchestrator"
 required-features = ["demo", "libp2p/rsa"]
-path = "examples/centralized/orchestrator.rs"
+path = "examples/web-server/orchestrator.rs"
+
+[[example]]
+name = "web-server"
+required-features = ["demo", "libp2p/rsa"]
+path = "examples/web-server/web-server.rs"
+
+[[example]]
+name = "web-server-validator"
+required-features = ["demo", "libp2p/rsa"]
+path = "examples/web-server/validator.rs"
 
 [dependencies]
 ark-ec = { version = "0.3.0" }
@@ -172,7 +168,7 @@ nll = { git = "https://github.com/EspressoSystems/nll.git" }
 num = "0.4.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
-serde = { version = "1.0.152", features = ["derive", "rc"] }
+serde = { version = "1.0.153", features = ["derive", "rc"] }
 snafu = "0.7.4"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", branch = "main" }
 tempfile = "3.4.0"
@@ -257,4 +253,5 @@ members = [
         "testing",
         "types",
         "utils",
+        "testing-macros"
 ]

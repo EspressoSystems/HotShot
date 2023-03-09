@@ -22,7 +22,7 @@ test_async_std_all:
   echo Testing with async std executor
   RUST_LOG="" cargo test --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
 
-test_pkg := "hotshot-testing"
+test_pkg := "hotshot"
 
 test_name := "sequencing_memory_network_test"
 
@@ -35,6 +35,9 @@ test_async_std_pkg_test name=test_name:
 
 list_tests_json package=test_pkg:
   RUST_LOG=none cargo test --verbose --profile=release-lto --features=full-ci,channel-async-std --lib --bins --tests --benches --package={{package}} --no-fail-fast -- --test-threads=1 -Zunstable-options --format json
+
+list_examples package=test_pkg:
+  cargo metadata | jq '.packages[] | select(.name == "{{package}}") | .targets[] | select(.kind  == ["example"] ) | .name'
 
 check: check_tokio check_tokio_flume check_async_std check_async_std_flume
 
@@ -71,7 +74,7 @@ lint_tokio_flume:
 
 lint_async_std:
   echo Linting with async std executor
-  cargo clippy --workspace --all-targets --no-default-features --features=async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std --bins --tests --examples
+  cargo clippy --workspace --all-targets --no-default-features --features=async-std-executor,demo,docs,doc-images,hotshot-testing,channel-async-std,slow-tests --bins --tests --examples
 
 lint_async_std_flume:
   echo Linting with async std executor and flume

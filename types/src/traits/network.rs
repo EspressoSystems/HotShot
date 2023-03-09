@@ -59,6 +59,8 @@ pub enum CentralizedWebServerNetworkError {
     ClientError,
     /// Endpoint parsed incorrectly
     EndpointError,
+    /// Client disconnected
+    ClientDisconnected,
 }
 
 /// the type of transmission

@@ -1,4 +1,4 @@
-use crate::infra::Libp2pClientConfig;
+use crate::infra::Libp2pRun;
 use hotshot::traits::implementations::MemoryStorage;
 use hotshot::{
     demos::vdemo::{VDemoNode, VDemoTypes},
@@ -29,7 +29,6 @@ pub type ThisNetwork =
 pub type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
 pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
 pub type ThisNode = NodeImpl;
-pub type ThisConfig = Libp2pClientConfig<VDemoTypes, ThisNode, ThisMembership>;
 
 impl NodeImplementation<VDemoTypes> for NodeImpl {
     type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
@@ -44,3 +43,4 @@ impl NodeImplementation<VDemoTypes> for NodeImpl {
     >;
     type CommitteeExchange = Self::QuorumExchange;
 }
+pub type ThisRun = Libp2pRun<VDemoTypes, ThisMembership>;
