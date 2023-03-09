@@ -106,7 +106,6 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
-#[ignore]
 async fn sequencing_memory_network_test() {
     let builder = GeneralTestDescriptionBuilder::default_multiple_rounds();
 

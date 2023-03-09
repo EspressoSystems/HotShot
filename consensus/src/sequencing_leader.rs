@@ -410,8 +410,27 @@ pub struct ConsensusNextLeader<
 impl<
         A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        I: NodeImplementation<TYPES>,
+        I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
     > ConsensusNextLeader<A, TYPES, I>
+where
+    I::QuorumExchange: ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Proposal = CommitmentProposal<TYPES, I::Leaf>,
+            Certificate = QuorumCertificate<TYPES, I::Leaf>,
+            Vote = QuorumVote<TYPES, I::Leaf>,
+            Commitment = SequencingLeaf<TYPES>,
+        > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::CommitteeExchange: ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Proposal = DAProposal<TYPES>,
+            Certificate = DACertificate<TYPES>,
+            Vote = DAVote<TYPES, I::Leaf>,
+            Commitment = TYPES::BlockType,
+        > + CommitteeExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Run one view of the next leader, collect votes and build a QC for the last views `CommitmentProposal`
     /// # Panics
@@ -421,7 +440,7 @@ impl<
         let mut qcs = HashSet::<QuorumCertificate<TYPES, SequencingLeaf<TYPES>>>::new();
         qcs.insert(self.generic_qc.clone());
 
-        let _accumulator = VoteAccumulator::<TYPES, SequencingLeaf<TYPES>> {
+        let mut accumulator = VoteAccumulator {
             vote_outcomes: HashMap::new(),
             threshold: self.quorum_exchange.threshold(),
         };
@@ -435,48 +454,54 @@ impl<
             // TODO (da) restore the code below after supporting two vote types. Currently it
             // doesn't work since the vote type of `ConsensusApi` is `DAVote` but the message is
             // supposed to be `QuorumVote`.
-            // match msg {
-            //     ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
-            //         QuorumVote::Yes(vote) => {
-            //             if vote.signature.0
-            //                 != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
-            //             {
-            //                 continue;
-            //             }
+            match msg {
+                ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
+                    QuorumVote::Yes(vote) => {
+                        if vote.signature.0
+                            != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+                        {
+                            continue;
+                        }
 
-            //             match self.api.accumulate_qc_vote(
-            //                 &vote.signature.0,
-            //                 &vote.signature.1,
-            //                 vote.leaf_commitment,
-            //                 vote.vote_token.clone(),
-            //                 self.cur_view,
-            //                 accumulator,
-            //             ) {
-            //                 Either::Left(acc) => {
-            //                     accumulator = acc;
-            //                 }
-            //                 Either::Right(qc) => {
-            //                     return qc;
-            //                 }
-            //             }
-            //         }
-            //         QuorumVote::Timeout(vote) => {
-            //             qcs.insert(vote.justify_qc);
-            //         }
-            //         QuorumVote::No(_) => {
-            //             warn!("The next leader has received an unexpected vote!");
-            //         }
-            //     },
-            //     ProcessedConsensusMessage::InternalTrigger(trigger) => match trigger {
-            //         InternalTrigger::Timeout(_) => {
-            //             self.api.send_next_leader_timeout(self.cur_view).await;
-            //             break;
-            //         }
-            //     },
-            //     ProcessedConsensusMessage::Proposal(_p, _sender) => {
-            //         warn!("The next leader has received an unexpected proposal!");
-            //     }
-            // }
+                        match self.quorum_exchange.accumulate_vote(
+                            &vote.signature.0,
+                            &vote.signature.1,
+                            vote.leaf_commitment,
+                            vote.vote_token.clone(),
+                            self.cur_view,
+                            accumulator,
+                        ) {
+                            Either::Left(acc) => {
+                                accumulator = acc;
+                            }
+                            Either::Right(qc) => {
+                                return qc;
+                            }
+                        }
+                    }
+                    QuorumVote::Timeout(vote) => {
+                        qcs.insert(vote.justify_qc);
+                    }
+                    QuorumVote::No(_) => {
+                        warn!("The next leader has received an unexpected vote!");
+                    }
+                },
+                ProcessedConsensusMessage::InternalTrigger(trigger) => match trigger {
+                    InternalTrigger::Timeout(_) => {
+                        self.api.send_next_leader_timeout(self.cur_view).await;
+                        break;
+                    }
+                },
+                ProcessedConsensusMessage::Proposal(_p, _sender) => {
+                    warn!("The next leader has received an unexpected proposal!");
+                }
+                ProcessedConsensusMessage::DAProposal(_p, _sender) => {
+                    warn!("The next leader has received an unexpected proposal!");
+                }
+                ProcessedConsensusMessage::DAVote(_, _sender) => {
+                    warn!("The next leader has received an unexpected DA vote!");
+                }
+            }
             break;
         }
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
