@@ -16,6 +16,7 @@ use hotshot::{
     },
     types::VoteType,
 };
+use hotshot_types::message::Message;
 use hotshot_types::{
     data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
@@ -26,7 +27,6 @@ use hotshot_types::{
     },
     vote::QuorumVote,
 };
-use hotshot_types::{message::Message, traits::node_implementation::TestableNodeImplementation};
 use jf_primitives::{
     signatures::{
         bls::{BLSSignature, BLSVerKey},
@@ -150,9 +150,6 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
     >;
     type CommitteeExchange = Self::QuorumExchange;
 }
-
-impl TestableNodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {}
-impl TestableNodeImplementation<VrfTestTypes> for StandardNodeImplType {}
 
 // /// type alias for the test runner type
 pub type AppliedTestRunner<TYPES, I> = TestRunner<TYPES, I>;

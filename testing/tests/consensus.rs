@@ -27,7 +27,6 @@ use hotshot_types::traits::storage::TestableStorage;
 
 use hotshot_types::data::TestableLeaf;
 use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::node_implementation::TestableNodeImplementation;
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     event::EventType,
@@ -63,7 +62,7 @@ enum QueuedMessageTense {
 /// Returns true if `node_id` is the leader of `view_number`
 async fn is_upcoming_validating_leader<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedValidatingTestRunner<TYPES, I>,
     node_id: u64,
@@ -109,7 +108,7 @@ where
 /// Builds and submits a random proposal for the specified view number
 async fn submit_validating_proposal<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedValidatingTestRunner<TYPES, I>,
     sender_node_id: u64,
@@ -166,7 +165,7 @@ async fn submit_validating_proposal<
 /// Builds and submits a random vote for the specified view number from the specified node
 async fn submit_validating_vote<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedValidatingTestRunner<TYPES, I>,
     sender_node_id: u64,
@@ -245,7 +244,7 @@ fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
 /// Checks that votes are queued correctly for views 1..NUM_VIEWS
 fn test_validating_vote_queueing_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedValidatingTestRunner<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
@@ -320,7 +319,7 @@ where
 /// For 1..NUM_VIEWS submit votes to each node in the network
 fn test_validating_vote_queueing_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &mut AppliedValidatingTestRunner<TYPES, I>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
@@ -373,7 +372,7 @@ where
 /// Checks views 0..NUM_VIEWS for whether proposal messages are properly queued
 fn test_validating_proposal_queueing_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedValidatingTestRunner<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
@@ -450,7 +449,7 @@ where
 /// Submits proposals for 0..NUM_VIEWS rounds where `node_id` is the leader
 fn test_validating_proposal_queueing_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &mut AppliedValidatingTestRunner<TYPES, I>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
@@ -503,7 +502,7 @@ where
 /// Submits proposals for views where `node_id` is not the leader, and submits multiple proposals for views where `node_id` is the leader
 fn test_bad_validating_proposal_round_setup<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &mut AppliedValidatingTestRunner<TYPES, I>,
 ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
@@ -558,7 +557,7 @@ where
 /// Checks nodes do not queue bad proposal messages
 fn test_bad_validating_proposal_post_safety_check<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedValidatingTestRunner<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,

@@ -18,7 +18,7 @@ use hotshot_types::traits::node_implementation::{
 };
 use hotshot_types::traits::{
     network::TestableNetworkingImplementation,
-    node_implementation::{NodeImplementation, NodeType, TestableNodeImplementation},
+    node_implementation::{NodeImplementation, NodeType},
     signature_key::TestableSignatureKey,
     state::{TestableBlock, TestableState},
     storage::TestableStorage,
@@ -27,7 +27,7 @@ use tracing::{error, instrument};
 
 /// checks safety requirement; relatively lax
 /// marked as success if 2f+1 nodes "succeeded" and committed the same thing
-pub fn check_safety<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+pub fn check_safety<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     runner: &AppliedTestRunner<TYPES, I>,
     results: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
 ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>

@@ -16,7 +16,7 @@ use hotshot_types::{
         network::{CommunicationChannel, TestableNetworkingImplementation},
         node_implementation::{
             CommitteeMembership, CommitteeProposal, CommitteeVote, NodeImplementation, NodeType,
-            QuorumMembership, QuorumProposal, QuorumVoteType, TestableNodeImplementation,
+            QuorumMembership, QuorumProposal, QuorumVoteType,
         },
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState},
@@ -126,7 +126,7 @@ impl GeneralTestDescriptionBuilder {
 /// fine-grained spec of test
 /// including what should be run every round
 /// and how to generate more rounds
-pub struct DetailedTestDescriptionBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
+pub struct DetailedTestDescriptionBuilder<TYPES: NodeType, I: NodeImplementation<TYPES>>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
@@ -176,7 +176,7 @@ pub struct TimingData {
     pub propose_max_round_time: Duration,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestDescription<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
@@ -275,9 +275,7 @@ where
 
 impl GeneralTestDescriptionBuilder {
     /// build a test description from the builder
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-        self,
-    ) -> TestDescription<TYPES, I>
+    pub fn build<TYPES: NodeType, I: NodeImplementation<TYPES>>(self) -> TestDescription<TYPES, I>
     where
         TYPES::BlockType: TestableBlock,
         TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
@@ -305,7 +303,7 @@ impl GeneralTestDescriptionBuilder {
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> DetailedTestDescriptionBuilder<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DetailedTestDescriptionBuilder<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
@@ -357,7 +355,7 @@ where
 }
 
 /// Description of a test. Contains all metadata necessary to execute test
-pub struct TestDescription<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
+pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
@@ -416,7 +414,7 @@ pub type TestSetup<TYPES, TRANS, I> =
 /// * `shut_down_ids`: vector of ids to shut down each round
 /// * `submitter_ids`: vector of ids to submit txns to each round
 /// * `num_rounds`: total number of rounds to generate
-pub fn default_submitter_id_to_round<TYPES, I: TestableNodeImplementation<TYPES>>(
+pub fn default_submitter_id_to_round<TYPES, I: NodeImplementation<TYPES>>(
     mut shut_down_ids: Vec<HashSet<u64>>,
     submitter_ids: Vec<Vec<u64>>,
     num_rounds: u64,
@@ -487,7 +485,7 @@ where
 /// * `shut_down_ids`: vec of ids to shut down each round
 /// * `txns_per_round`: number of transactions to submit each round
 /// * `num_rounds`: number of rounds
-pub fn default_randomized_ids_to_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+pub fn default_randomized_ids_to_round<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     shut_down_ids: Vec<HashSet<u64>>,
     num_rounds: u64,
     txns_per_round: u64,
@@ -539,7 +537,7 @@ where
     rounds
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> DetailedTestDescriptionBuilder<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DetailedTestDescriptionBuilder<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,

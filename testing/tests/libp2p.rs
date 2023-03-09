@@ -11,7 +11,6 @@ use hotshot_testing::{
 use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::traits::network::TestableNetworkingImplementation;
 use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::node_implementation::TestableNodeImplementation;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     vote::QuorumVote,
@@ -46,7 +45,6 @@ impl NodeImplementation<StaticCommitteeTestTypes> for Libp2pImpl {
     >;
     type CommitteeExchange = Self::QuorumExchange;
 }
-impl TestableNodeImplementation<StaticCommitteeTestTypes> for Libp2pImpl {}
 
 /// libp2p network test
 #[cfg_attr(

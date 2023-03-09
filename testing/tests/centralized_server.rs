@@ -18,7 +18,6 @@ use hotshot_types::{
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::node_implementation::TestableNodeImplementation;
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use tracing::instrument;
 
@@ -55,8 +54,6 @@ impl NodeImplementation<VrfTestTypes> for VrfCentralizedImp {
     >;
     type CommitteeExchange = Self::QuorumExchange;
 }
-
-impl TestableNodeImplementation<VrfTestTypes> for VrfCentralizedImp {}
 
 /// Centralized server network test
 #[cfg_attr(
@@ -104,8 +101,6 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
     >;
     type CommitteeExchange = Self::QuorumExchange;
 }
-
-impl TestableNodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {}
 
 /// Centralized server network test
 #[cfg_attr(

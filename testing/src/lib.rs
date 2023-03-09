@@ -36,7 +36,7 @@ use hotshot_types::{
         election::Membership,
         metrics::NoMetrics,
         network::TestableNetworkingImplementation,
-        node_implementation::{NodeType, TestableNodeImplementation},
+        node_implementation::NodeType,
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState},
         storage::TestableStorage,
@@ -116,7 +116,7 @@ where
     pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, I>>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for Round<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
@@ -178,7 +178,7 @@ struct Node<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     pub handle: HotShotHandle<TYPES, I>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestRunner<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
@@ -459,7 +459,7 @@ where
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestRunner<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
@@ -540,7 +540,7 @@ where
 
 // FIXME make these return some sort of generic error.
 // corresponding issue: <https://github.com/EspressoSystems/hotshot/issues/181>
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestRunner<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
@@ -725,7 +725,7 @@ pub enum ConsensusTestError {
 //         NETWORK,
 //         STORAGE,
 //         MEMBERSHIP: Membership<TYPES> + Debug,
-//     > TestableNodeImplementation<TYPES>
+//     > NodeImplementation<TYPES>
 //     for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP>
 // where
 //     TYPES: NodeType,

@@ -11,7 +11,6 @@ use hotshot_testing::{
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::node_implementation::TestableNodeImplementation;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     vote::QuorumVote,
@@ -46,8 +45,6 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
     >;
     type CommitteeExchange = Self::QuorumExchange;
 }
-
-impl TestableNodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {}
 
 /// Centralized web server network test
 #[cfg_attr(

@@ -147,14 +147,3 @@ pub trait NodeType:
     /// The state type that this hotshot setup is using.
     type StateType: State<BlockType = Self::BlockType, Time = Self::Time>;
 }
-
-/// testable node implmeentation trait
-pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <Self as NodeImplementation<TYPES>>::Storage:
-        TestableStorage<TYPES, <Self as NodeImplementation<TYPES>>::Leaf>,
-{
-}

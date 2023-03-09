@@ -13,6 +13,7 @@ use hotshot::{
     },
 };
 use hotshot_testing::test_description::GeneralTestDescriptionBuilder;
+use hotshot_types::data::CommitmentProposal;
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::node_implementation::{
@@ -20,9 +21,6 @@ use hotshot_types::traits::node_implementation::{
 };
 use hotshot_types::traits::storage::TestableStorage;
 use hotshot_types::vote::QuorumVote;
-use hotshot_types::{
-    data::CommitmentProposal, traits::node_implementation::TestableNodeImplementation,
-};
 use hotshot_types::{
     data::{DAProposal, SequencingLeaf, ViewNumber},
     traits::{
@@ -101,8 +99,6 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     >;
 }
 
-impl TestableNodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {}
-
 // Test the memory network with sequencing consensus.
 #[cfg_attr(
     feature = "tokio-executor",
@@ -159,7 +155,6 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
         Message<SequencingTestTypes, Self>,
     >;
 }
-impl TestableNodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {}
 
 // Test the libp2p network with sequencing consensus.
 #[cfg_attr(
@@ -217,7 +212,6 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
         Message<SequencingTestTypes, Self>,
     >;
 }
-impl TestableNodeImplementation<SequencingTestTypes> for SequencingCentralImpl {}
 
 // Test the centralized server network with sequencing consensus.
 #[cfg_attr(

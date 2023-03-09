@@ -9,7 +9,7 @@ use hotshot_types::traits::node_implementation::{
 use hotshot_types::{
     traits::{
         network::TestableNetworkingImplementation,
-        node_implementation::{NodeImplementation, NodeType, TestableNodeImplementation},
+        node_implementation::{NodeImplementation, NodeType},
         signature_key::TestableSignatureKey,
         state::{TestableBlock, TestableState},
         storage::TestableStorage,
@@ -19,7 +19,7 @@ use hotshot_types::{
 use std::{num::NonZeroUsize, time::Duration};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
-pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
+pub struct TestLauncher<TYPES: NodeType, I: NodeImplementation<TYPES>>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
@@ -44,7 +44,7 @@ where
     pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestLauncher<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
@@ -129,7 +129,7 @@ where
 
 // TODO make these functions generic over the target networking/storage/other generics
 // so we can hotswap out
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestLauncher<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
@@ -240,7 +240,7 @@ where
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestLauncher<TYPES, I>
 where
     TYPES::BlockType: TestableBlock,
     TYPES::StateType: TestableState,
