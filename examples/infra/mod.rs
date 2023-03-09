@@ -1,5 +1,6 @@
 use futures::Future;
 use futures::FutureExt;
+use hotshot_types::traits::election::CommitteeExchange;
 use std::{
     cmp,
     collections::{BTreeSet, VecDeque},
@@ -60,17 +61,6 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-use std::{
-    cmp,
-    collections::{BTreeSet, VecDeque},
-    fs, mem,
-    net::{IpAddr, SocketAddr},
-    num::NonZeroUsize,
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, Instant},
-};
-use tracing::error;
 #[allow(deprecated)]
 use tracing::{debug, error};
 
@@ -124,6 +114,7 @@ pub async fn run_orchestrator<
     MEMBERSHIP: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
+        Message<TYPES, NODE>,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -131,9 +122,14 @@ pub async fn run_orchestrator<
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        Membership = MEMBERSHIP,
-        Networking = NETWORK,
+        QuorumExchange = QuorumExchange<
+            TYPES,
+            ValidatingLeaf<TYPES>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+            NETWORK,
+            Message<TYPES, NODE>,
+        >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
     >,
 >(
@@ -174,6 +170,7 @@ pub trait Run<
     MEMBERSHIP: Membership<TYPES>,
     NETWORK: CommunicationChannel<
         TYPES,
+        Message<TYPES, NODE>,
         ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -181,9 +178,22 @@ pub trait Run<
     NODE: NodeImplementation<
         TYPES,
         Leaf = ValidatingLeaf<TYPES>,
-        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        Membership = MEMBERSHIP,
-        Networking = NETWORK,
+        QuorumExchange = QuorumExchange<
+            TYPES,
+            ValidatingLeaf<TYPES>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+            NETWORK,
+            Message<TYPES, NODE>,
+        >,
+        CommitteeExchange = QuorumExchange<
+            TYPES,
+            ValidatingLeaf<TYPES>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+            NETWORK,
+            Message<TYPES, NODE>,
+        >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
     >,
 > where
@@ -208,30 +218,56 @@ pub trait Run<
                 genesis_block,
             )
             .expect("Couldn't generate genesis block");
+
         let config = self.get_config();
-        let (pub_key, secret_key) =
+
+        let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
         let known_nodes = config.config.known_nodes.clone();
+
         let network = self.get_network();
+        let election_config = config.config.election_config.clone().unwrap();
 
         // Since we do not currently pass the election config type in the NetworkConfig, this will always be the default election config
         let election_config = config.config.election_config.clone().unwrap_or_else(|| {
-            NODE::Membership::default_election_config(config.config.total_nodes.get() as u64)
+            <QuorumExchange<
+                TYPES,
+                ValidatingLeaf<TYPES>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+                NETWORK,
+                Message<TYPES, NODE>,
+            > as ConsensusExchange<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, NODE>>>::Membership::default_election_config(
+                config.config.total_nodes.get() as u64
+            )
         });
-
+        let quorum_exchange = NODE::QuorumExchange::create(
+            known_nodes.clone(),
+            election_config.clone(),
+            network.clone(),
+            pk.clone(),
+            sk.clone(),
+        );
+        let committee_exchange = NODE::CommitteeExchange::create(
+            known_nodes,
+            election_config,
+            network,
+            pk.clone(),
+            sk.clone(),
+        );
         let hotshot = HotShot::init(
-            pub_key,
-            secret_key,
+            pk,
+            sk,
             config.node_index,
             config.config,
-            network,
             MemoryStorage::new(),
-            MEMBERSHIP::create_election(known_nodes, election_config),
+            quorum_exchange,
+            committee_exchange,
             initializer,
             NoMetrics::new(),
         )
         .await
-        .expect("Could not initialize hotshot");
+        .expect("Could not init hotshot");
 
         let state = hotshot
             .storage()
@@ -338,7 +374,7 @@ type Proposal<T> = ValidatingProposal<T, ValidatingLeaf<T>>;
 // LIBP2P
 
 /// Represents a libp2p-based run
-pub struct Libp2pRun<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
+pub struct Libp2pRun<TYPES: NodeType, I: NodeImplementation<TYPES>, MEMBERSHIP: Membership<TYPES>> {
     _bootstrap_nodes: Vec<(PeerId, Multiaddr)>,
     _node_type: NetworkNodeType,
     _bound_addr: Multiaddr,
@@ -347,6 +383,7 @@ pub struct Libp2pRun<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
 
     network: Libp2pCommChannel<
         TYPES,
+        I,
         Proposal<TYPES>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -415,6 +452,20 @@ impl<
                 >,
                 Message<TYPES, NODE>,
             >,
+            CommitteeExchange = QuorumExchange<
+                TYPES,
+                ValidatingLeaf<TYPES>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+                Libp2pCommChannel<
+                    TYPES,
+                    NODE,
+                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+                    MEMBERSHIP,
+                >,
+                Message<TYPES, NODE>,
+            >,
             Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
         >,
     >
@@ -439,7 +490,7 @@ where
 {
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    ) -> Libp2pRun<TYPES, MEMBERSHIP> {
+    ) -> Libp2pRun<TYPES, NODE, MEMBERSHIP> {
         let (pubkey, _privkey) =
             <<TYPES as NodeType>::SignatureKey as SignatureKey>::generated_from_seed_indexed(
                 config.seed,
@@ -582,10 +633,15 @@ where
 // WEB SERVER
 
 /// Represents a web server-based run
-pub struct WebServerRun<TYPES: NodeType, MEMBERSHIP: Membership<TYPES>> {
+pub struct WebServerRun<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
+> {
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     network: CentralizedWebCommChannel<
         TYPES,
+        I,
         Proposal<TYPES>,
         QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
         MEMBERSHIP,
@@ -600,6 +656,20 @@ impl<
             TYPES,
             Leaf = ValidatingLeaf<TYPES>,
             QuorumExchange = QuorumExchange<
+                TYPES,
+                ValidatingLeaf<TYPES>,
+                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                MEMBERSHIP,
+                CentralizedWebCommChannel<
+                    TYPES,
+                    NODE,
+                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+                    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+                    MEMBERSHIP,
+                >,
+                Message<TYPES, NODE>,
+            >,
+            CommitteeExchange = QuorumExchange<
                 TYPES,
                 ValidatingLeaf<TYPES>,
                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
@@ -637,7 +707,7 @@ where
 {
     async fn initialize_networking(
         config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    ) -> WebServerRun<TYPES, MEMBERSHIP> {
+    ) -> WebServerRun<TYPES, NODE, MEMBERSHIP> {
         // Generate our own key
         let (pub_key, _priv_key) =
             <<TYPES as NodeType>::SignatureKey as SignatureKey>::generated_from_seed_indexed(
@@ -655,6 +725,7 @@ where
         // Create the network
         let network: CentralizedWebCommChannel<
             TYPES,
+            NODE,
             Proposal<TYPES>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
@@ -785,6 +856,14 @@ pub async fn main_entry_point<
             NETWORK,
             Message<TYPES, NODE>,
         >,
+        CommitteeExchange = QuorumExchange<
+            TYPES,
+            ValidatingLeaf<TYPES>,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+            NETWORK,
+            Message<TYPES, NODE>,
+        >,
         Storage = MemoryStorage<TYPES, ValidatingLeaf<TYPES>>,
     >,
     RUN: Run<TYPES, MEMBERSHIP, NETWORK, NODE>,
@@ -795,13 +874,6 @@ pub async fn main_entry_point<
     <TYPES as NodeType>::BlockType: TestableBlock,
     ValidatingLeaf<TYPES>: TestableLeaf,
     HotShot<TYPES::ConsensusType, TYPES, NODE>: ViewRunner<TYPES, NODE>,
-    NODE::CommitteeExchange: ConsensusExchange<
-        TYPES,
-        NODE::Leaf,
-        Message<TYPES, NODE>,
-        Networking = QuorumNetwork<TYPES, NODE>,
-    >,
-    CONFIG: Sync,
 {
     setup_logging();
     setup_backtrace();

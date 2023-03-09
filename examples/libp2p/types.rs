@@ -43,4 +43,4 @@ impl NodeImplementation<VDemoTypes> for NodeImpl {
     >;
     type CommitteeExchange = Self::QuorumExchange;
 }
-pub type ThisRun = Libp2pRun<VDemoTypes, ThisMembership>;
+pub type ThisRun = Libp2pRun<VDemoTypes, ThisNode, ThisMembership>;

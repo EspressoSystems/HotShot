@@ -18,8 +18,6 @@ use hotshot_types::{
 };
 use std::fmt::Debug;
 
-use crate::infra::CentralizedConfig;
-
 #[derive(Clone, Debug)]
 pub struct NodeImpl {}
 
@@ -31,7 +29,6 @@ pub type ThisNetwork =
 pub type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
 pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
 pub type ThisNode = NodeImpl;
-pub type ThisConfig = CentralizedConfig<VDemoTypes, ThisNode, ThisMembership>;
 
 impl NodeImplementation<VDemoTypes> for NodeImpl {
     type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
@@ -46,7 +43,4 @@ impl NodeImplementation<VDemoTypes> for NodeImpl {
     >;
     type CommitteeExchange = Self::QuorumExchange;
 }
-pub type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
-pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
-pub type ThisNode = VDemoNode<ThisNetwork, ThisMembership>;
-pub type ThisRun = WebServerRun<VDemoTypes, ThisMembership>;
+pub type ThisRun = WebServerRun<VDemoTypes, ThisNode, ThisMembership>;

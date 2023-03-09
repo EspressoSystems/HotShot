@@ -10,6 +10,7 @@ use crate::{
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use commit::Committable;
 use hotshot_types::traits::election::QuorumExchangeType;
+use hotshot_types::traits::node_implementation::CommitteeNetwork;
 use hotshot_types::{
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
@@ -71,35 +72,35 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone for HotShotH
     }
 }
 
-type QuorumNetwork<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+type QuorumNetwork<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Networking;
 
-type QuorumVoteType<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+type QuorumVoteType<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Vote;
-type CommitteeVote<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+type CommitteeVote<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Vote;
-type QuorumProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+type QuorumProposal<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Proposal;
-type CommitteeProposal<TYPES: NodeType, I: NodeImplementation<TYPES>> =
+type CommitteeProposal<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Proposal;
 
@@ -270,10 +271,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         &self.storage
     }
 
-    /// Provides a reference to the underlying networking interface for this [`HotShot`], allowing access to
-    /// networking stats.
-    pub fn networking(&self) -> &QuorumNetwork<TYPES, I> {
+    /// Provides a reference to the underlying quorum networking interface for this [`HotShot`],
+    /// allowing access to networking stats.
+    pub fn quorum_network(&self) -> &QuorumNetwork<TYPES, I> {
         &self.hotshot.inner.quorum_exchange.network()
+    }
+
+    /// Provides a reference to the underlying committee networking interface for this [`HotShot`],
+    /// allowing access to networking stats.
+    pub fn committee_network(&self) -> &CommitteeNetwork<TYPES, I> {
+        &self.hotshot.inner.committee_exchange.network()
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
