@@ -109,13 +109,17 @@ where
                     TYPES,
                     I::Leaf,
                     Message<TYPES, I>,
-                >>::Networking::generator(expected_node_count, num_bootstrap_nodes),
+                >>::Networking::generator(
+                    expected_node_count, num_bootstrap_nodes, 1
+                ),
             committee_network:
                 <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
                     TYPES,
                     I::Leaf,
                     Message<TYPES, I>,
-                >>::Networking::generator(expected_node_count, num_bootstrap_nodes),
+                >>::Networking::generator(
+                    expected_node_count, num_bootstrap_nodes, 2
+                ),
             storage: Box::new(|_| I::Storage::construct_tmp_storage().unwrap()),
             block: Box::new(|_| TYPES::BlockType::genesis()),
             config,

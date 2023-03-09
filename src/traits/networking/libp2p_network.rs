@@ -12,7 +12,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
-use hotshot_types::traits::network::ViewMessage;
+use hotshot_types::traits::network::{self, ViewMessage};
 use hotshot_types::{
     data::ProposalType,
     message::Message,
@@ -136,6 +136,7 @@ where
     fn generator(
         expected_node_count: usize,
         num_bootstrap: usize,
+        network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let bootstrap_addrs: PeerInfoVec = Arc::default();
         let mut all_keys = BTreeSet::new();
@@ -157,7 +158,7 @@ where
                 );
                 let addr =
                     // Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/0")).unwrap();
-                    Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/{}", 5000 + node_id)).unwrap();
+                    Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/{}{}", 5000 + node_id, network_id)).unwrap();
                 let privkey = TYPES::SignatureKey::generate_test_key(node_id);
                 let pubkey = TYPES::SignatureKey::from_private(&privkey);
                 // we want the majority of peers to have this lying around.

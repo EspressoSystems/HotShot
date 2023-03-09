@@ -1205,6 +1205,7 @@ where
     fn generator(
         expected_node_count: usize,
         _num_bootstrap: usize,
+        _network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
