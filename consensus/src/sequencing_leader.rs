@@ -57,8 +57,7 @@ pub struct DALeader<
     /// Limited access to the consensus protocol
     pub api: A,
 
-    pub da_exchange: Arc<I::CommitteeExchange>,
-
+    pub committee_exchange: Arc<I::CommitteeExchange>,
     pub quorum_exchange: Arc<I::QuorumExchange>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
@@ -119,7 +118,7 @@ where
                     if vote.block_commitment != block_commitment {
                         continue;
                     }
-                    match self.da_exchange.accumulate_vote(
+                    match self.committee_exchange.accumulate_vote(
                         &vote.signature.0,
                         &vote.signature.1,
                         vote.block_commitment,
@@ -248,7 +247,7 @@ where
         let block_commitment = block.commit();
 
         let consensus = self.consensus.read().await;
-        let signature = self.da_exchange.sign_da_proposal(&block.commit());
+        let signature = self.committee_exchange.sign_da_proposal(&block.commit());
         let data: DAProposal<TYPES> = DAProposal {
             deltas: block.clone(),
             view_number: self.cur_view,
@@ -275,7 +274,7 @@ where
         if let Some(cert) = self
             .wait_for_votes(
                 self.cur_view,
-                self.da_exchange.threshold(),
+                self.committee_exchange.threshold(),
                 block_commitment,
             )
             .await
