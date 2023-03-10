@@ -505,8 +505,26 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                 warn!("Received a broadcast for a vote message. This shouldn't be possible.");
             }
             ConsensusMessage::DAProposal(_) => {
-                // TODD(DA) Handle DA PRoposal
-                warn!("Received a broadcast for DA proposal");
+                let channel_map = self.member_channel_map.upgradable_read().await;
+
+                // skip if the proposal is stale
+                if msg_time < channel_map.cur_view {
+                    warn!("Throwing away DA proposal for view number: {:?}", msg_time);
+                    return;
+                }
+
+                let chan: ViewQueue<TYPES, I> =
+                    Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
+
+                if !chan.has_received_proposal.swap(true, Ordering::Relaxed)
+                    && chan
+                        .sender_chan
+                        .send(ProcessedConsensusMessage::new(msg, sender))
+                        .await
+                        .is_err()
+                {
+                    warn!("Failed to send to next leader!");
+                }
             }
         };
     }

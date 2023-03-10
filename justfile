@@ -31,7 +31,7 @@ test_async_std_pkg_all pkg=test_pkg:
 
 
 test_async_std_pkg_test name=test_name:
-  cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --workspace --no-fail-fast _nodes -- --test-threads=1 --nocapture {{name}}
+  RUST_LOG="info" cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --workspace --no-fail-fast _nodes -- --test-threads=1 --nocapture {{name}}
 
 list_tests_json package=test_pkg:
   RUST_LOG=none cargo test --verbose --profile=release-lto --features=full-ci,channel-async-std --lib --bins --tests --benches --package={{package}} --no-fail-fast -- --test-threads=1 -Zunstable-options --format json
