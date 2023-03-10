@@ -949,20 +949,24 @@ where
         let c_api = HotShotConsensusApi {
             inner: hotshot.inner.clone(),
         };
-        let mut send_to_next_leader = hotshot.da_leader_channel_map.write().await;
-        let leader_last_view: TYPES::Time = send_to_next_leader.cur_view;
-        send_to_next_leader.channel_map.remove(&leader_last_view);
-        send_to_next_leader.cur_view += 1;
+
+        // Setup channel for recieving DA votes
+        let send_to_leader = hotshot.da_leader_channel_map.write().await;
+        let leader_last_view: TYPES::Time = send_to_leader.cur_view;
+        send_to_leader.channel_map.remove(&leader_last_view);
+        send_to_leader.cur_view += 1;
         let (_send_da_vote_chan, recv_da_vote, cur_view) = {
             let mut consensus = hotshot.hotstuff.write().await;
             let cur_view = consensus.increment_view();
             let vq = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
                 cur_view,
-                send_to_next_leader,
+                send_to_leader,
             )
             .await;
             (vq.sender_chan, vq.receiver_chan, cur_view)
         };
+
+        // Set up vote collection channel for commitment proposals/votes
         let send_to_next_leader = hotshot.next_leader_channel_map.write().await;
         let (send_commitment_vote_chan, recv_commitment_vote_chan) = {
             let vq = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
@@ -1006,20 +1010,6 @@ where
             send_to_replica,
         )
         .await;
-
-        // let mut send_to_da_leader = hotshot.da_leader_channel_map.write().await;
-        // let da_leader_last_view: TYPES::Time = send_to_da_leader.cur_view;
-        // send_to_da_leader.channel_map.remove(&replica_last_view);
-        // send_to_da_leader.cur_view += 1;
-        // let ViewQueue {
-        //     sender_chan: send_da_leader,
-        //     receiver_chan: recv_da_leader,
-        //     has_received_proposal: _,
-        // } = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
-        //     send_to_da_leader.cur_view,
-        //     send_to_da_leader,
-        // )
-        // .await;
 
         let mut task_handles = Vec::new();
 
