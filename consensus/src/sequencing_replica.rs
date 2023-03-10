@@ -56,8 +56,8 @@ pub struct SequencingReplica<
     /// HotShot consensus API.
     pub api: A,
 
-    pub da_exchange: I::CommitteeExchange,
-    pub quorum_exchange: I::QuorumExchange,
+    pub committee_exchange: Arc<I::CommitteeExchange>,
+    pub quorum_exchange: Arc<I::QuorumExchange>,
     pub _pd: PhantomData<I>,
 }
 
@@ -206,7 +206,7 @@ where
                                 }
                                 // Validate the DAC.
                                 else if !self
-                                    .da_exchange
+                                    .committee_exchange
                                     .is_valid_cert(&p.data.dac, block_commitment)
                                 {
                                     warn!("Invalid DAC in proposal! Skipping proposal.");
