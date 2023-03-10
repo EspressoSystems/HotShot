@@ -115,18 +115,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TY
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
-    // TODO grover
-    // <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-    //     TYPES,
-    //     I::Leaf,
-    //     Message<TYPES, I>,
-    // >>::Networking: TestableNetworkingImplementation<
-    //     TYPES,
-    //     Message<TYPES, I>,
-    //     QuorumProposal<TYPES, I>,
-    //     QuorumVoteType<TYPES, I>,
-    //     QuorumMembership<TYPES, I>,
-    // >,
 {
     quorum_network_generator: Generator<QuorumNetwork<TYPES, I>>,
     committee_network_generator: Generator<CommitteeNetwork<TYPES, I>>,

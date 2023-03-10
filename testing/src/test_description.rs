@@ -161,30 +161,6 @@ pub struct TimingData {
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPES, I>
-// ernie
-    // <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-    //     TYPES,
-    //     I::Leaf,
-    //     Message<TYPES, I>,
-    // >>::Networking: TestableNetworkingImplementation<
-    //     TYPES,
-    //     Message<TYPES, I>,
-    //     QuorumProposal<TYPES, I>,
-    //     QuorumVoteType<TYPES, I>,
-    //     QuorumMembership<TYPES, I>,
-    // >,
-    //
-    // <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
-    //     TYPES,
-    //     I::Leaf,
-    //     Message<TYPES, I>,
-    // >>::Networking: TestableNetworkingImplementation<
-    //     TYPES,
-    //     Message<TYPES, I>,
-    //     CommitteeProposal<TYPES, I>,
-    //     CommitteeVote<TYPES, I>,
-    //     CommitteeMembership<TYPES, I>,
-    // >,
 {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<TYPES, I> {
