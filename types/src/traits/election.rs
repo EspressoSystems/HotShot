@@ -21,7 +21,6 @@ use bincode::Options;
 use commit::{Commitment, Committable};
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
-use nll::nll_todo::nll_todo;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;

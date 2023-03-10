@@ -11,8 +11,9 @@ use crate::{
 };
 use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
-#[allow(deprecated)]
 use nll::nll_todo::nll_todo;
+use tracing::error;
+#[allow(deprecated)]
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 /// A `DACertificate` is a threshold signature that some data is available.
@@ -24,6 +25,8 @@ pub struct DACertificate<TYPES: NodeType> {
     ///
     /// This value is covered by the threshold signature.
     pub view_number: TYPES::Time,
+
+    pub block_commitment: Commitment<TYPES::BlockType>,
 
     /// The list of signatures establishing the validity of this Quorum Certifcate
     ///
@@ -151,18 +154,19 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Committable
     }
 }
 
-impl<TYPES: NodeType, LEAF: commit::Committable>
-    SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, LEAF>
+impl<TYPES: NodeType>
+    SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, TYPES::BlockType>
     for DACertificate<TYPES>
 {
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
         signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
-        _commit: Commitment<LEAF>,
+        commit: Commitment<TYPES::BlockType>,
     ) -> Self {
         DACertificate {
             view_number,
             signatures,
+            block_commitment: commit,
         }
     }
 
@@ -174,13 +178,11 @@ impl<TYPES: NodeType, LEAF: commit::Committable>
         self.signatures.clone()
     }
 
-    fn leaf_commitment(&self) -> Commitment<LEAF> {
-        // This function is only useful for QC. Will be removed after we have separated cert traits.
-        #[allow(deprecated)]
-        nll_todo()
+    fn leaf_commitment(&self) -> Commitment<TYPES::BlockType> {
+        self.block_commitment.clone()
     }
 
-    fn set_leaf_commitment(&mut self, _commitment: Commitment<LEAF>) {
+    fn set_leaf_commitment(&mut self, _commitment: Commitment<TYPES::BlockType>) {
         // This function is only useful for QC. Will be removed after we have separated cert traits.
     }
 

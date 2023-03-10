@@ -91,8 +91,6 @@ use hotshot_types::{
     HotShotConfig,
 };
 use hotshot_utils::bincode::bincode_opts;
-#[allow(deprecated)]
-use nll::nll_todo::nll_todo;
 use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -170,6 +168,9 @@ pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementat
 
     /// for sending/recv-ing things with the next leader task
     next_leader_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
+
+    /// for sending/recv-ing things to the da leader
+    da_leader_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
 
     /// for sending messages to network lookup task
     send_network_lookup: UnboundedSender<Option<TYPES::Time>>,
@@ -276,6 +277,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             member_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             replica_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             next_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
+            da_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             send_network_lookup,
             recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
             _pd: PhantomData,
@@ -590,7 +592,36 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                     error!("Failed to send to next leader!");
                 }
             }
-            ConsensusMessage::DAProposal(_) | ConsensusMessage::DAVote(_) => todo!(),
+            c @ ConsensusMessage::DAVote(_) => {
+                let msg_time = c.view_number();
+
+                let channel_map = self.da_leader_channel_map.upgradable_read().await;
+
+                // check if
+                // - is in fact, actually is the next leader
+                // - the message is not stale
+                let is_leader = self.inner.clone().committee_exchange.is_leader(msg_time);
+                if !is_leader || msg_time < channel_map.cur_view {
+                    warn!(
+                        "Throwing away VoteType<TYPES>message for view number: {:?}, Channel cur view: {:?}",
+                        msg_time,
+                        channel_map.cur_view,
+                    );
+                    return;
+                }
+
+                let chan = Self::create_or_obtain_chan_from_read(msg_time, channel_map).await;
+
+                if chan
+                    .sender_chan
+                    .send(ProcessedConsensusMessage::new(c, sender))
+                    .await
+                    .is_err()
+                {
+                    error!("Failed to send to next leader!");
+                }
+            }
+            ConsensusMessage::DAProposal(_) => todo!(),
         }
     }
 
@@ -918,7 +949,7 @@ where
         let c_api = HotShotConsensusApi {
             inner: hotshot.inner.clone(),
         };
-        let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+        let mut send_to_next_leader = hotshot.da_leader_channel_map.write().await;
         let leader_last_view: TYPES::Time = send_to_next_leader.cur_view;
         send_to_next_leader.channel_map.remove(&leader_last_view);
         send_to_next_leader.cur_view += 1;
@@ -975,6 +1006,20 @@ where
             send_to_replica,
         )
         .await;
+
+        // let mut send_to_da_leader = hotshot.da_leader_channel_map.write().await;
+        // let da_leader_last_view: TYPES::Time = send_to_da_leader.cur_view;
+        // send_to_da_leader.channel_map.remove(&replica_last_view);
+        // send_to_da_leader.cur_view += 1;
+        // let ViewQueue {
+        //     sender_chan: send_da_leader,
+        //     receiver_chan: recv_da_leader,
+        //     has_received_proposal: _,
+        // } = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+        //     send_to_da_leader.cur_view,
+        //     send_to_da_leader,
+        // )
+        // .await;
 
         let mut task_handles = Vec::new();
 

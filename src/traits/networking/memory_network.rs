@@ -551,7 +551,6 @@ mod tests {
         data::{ValidatingLeaf, ValidatingProposal},
         traits::state::ValidatingConsensus,
     };
-    use nll::nll_todo;
 
     #[derive(
         Copy,
