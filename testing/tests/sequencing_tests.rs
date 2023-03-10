@@ -162,7 +162,6 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
-#[ignore]
 async fn sequencing_libp2p_test() {
     let builder = GeneralTestDescriptionBuilder::default_multiple_rounds();
 
@@ -184,7 +183,7 @@ type StaticDACommCentral = CentralizedCommChannel<
     StaticMembership,
 >;
 
-type StaticQuroumCommCentral = Libp2pCommChannel<
+type StaticQuroumCommCentral = CentralizedCommChannel<
     SequencingTestTypes,
     SequencingCentralImpl,
     CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
@@ -219,7 +218,6 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
-#[ignore]
 async fn sequencing_centralized_server_test() {
     let builder = GeneralTestDescriptionBuilder::default_multiple_rounds();
 

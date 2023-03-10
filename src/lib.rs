@@ -315,6 +315,32 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         };
     }
 
+    #[instrument(
+        skip_all,
+        fields(id = self.id, view = *current_view),
+        name = "Timeout consensus tasks",
+        level = "warn"
+    )]
+    pub async fn timeout_da_view(
+        &self,
+        current_view: TYPES::Time,
+        send_da_member: UnboundedSender<ProcessedConsensusMessage<TYPES, I>>,
+        send_da_leader: Option<UnboundedSender<ProcessedConsensusMessage<TYPES, I>>>,
+    ) {
+        let msg = ProcessedConsensusMessage::<TYPES, I>::InternalTrigger(InternalTrigger::Timeout(
+            current_view,
+        ));
+        if let Some(chan) = send_da_leader {
+            if chan.send(msg.clone()).await.is_err() {
+                warn!("Error timing out next leader task");
+            }
+        };
+        // NOTE this should always exist
+        if send_da_member.send(msg).await.is_err() {
+            warn!("Error timing out replica task");
+        };
+    }
+
     /// Publishes a transaction to the network
     ///
     /// # Errors
@@ -951,11 +977,11 @@ where
         };
 
         // Setup channel for recieving DA votes
-        let send_to_leader = hotshot.da_leader_channel_map.write().await;
+        let mut send_to_leader = hotshot.da_leader_channel_map.write().await;
         let leader_last_view: TYPES::Time = send_to_leader.cur_view;
         send_to_leader.channel_map.remove(&leader_last_view);
         send_to_leader.cur_view += 1;
-        let (_send_da_vote_chan, recv_da_vote, cur_view) = {
+        let (send_da_vote_chan, recv_da_vote, cur_view) = {
             let mut consensus = hotshot.hotstuff.write().await;
             let cur_view = consensus.increment_view();
             let vq = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
@@ -967,7 +993,10 @@ where
         };
 
         // Set up vote collection channel for commitment proposals/votes
-        let send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+        let mut send_to_next_leader = hotshot.next_leader_channel_map.write().await;
+        let leader_last_view: TYPES::Time = send_to_next_leader.cur_view;
+        send_to_next_leader.channel_map.remove(&leader_last_view);
+        send_to_next_leader.cur_view += 1;
         let (send_commitment_vote_chan, recv_commitment_vote_chan) = {
             let vq = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
                 cur_view + 1,
@@ -1099,8 +1128,9 @@ where
                 hotshot
                     .timeout_view(cur_view, send_member, Some(send_commitment_vote_chan))
                     .await;
-                // TODO(da): When we have the replica channel send timeout to it and the DA leader.
-                // hotshot.timeout_da_view(curr_view, send_replica).await
+                hotshot
+                    .timeout_da_view(cur_view, send_replica, Some(send_da_vote_chan))
+                    .await;
             }
         });
 

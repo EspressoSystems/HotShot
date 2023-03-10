@@ -12,10 +12,10 @@ use crate::{
 use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
 use nll::nll_todo::nll_todo;
-use tracing::error;
 #[allow(deprecated)]
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
+use tracing::error;
 /// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA committee, not the entire network. It is used
 /// to prove that the data will be made available to those outside of the DA committee.
