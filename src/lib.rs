@@ -56,8 +56,8 @@ use commit::{Commitment, Committable};
 use either::Either;
 use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader, DALeader,
-    DAMember, NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner,
-    ViewQueue,
+    DAMember, NextValidatingLeader, Replica, SendToTasks, SequencingReplica, ValidatingLeader,
+    View, ViewInner, ViewQueue,
 };
 use hotshot_types::certificate::DACertificate;
 use hotshot_types::certificate::VoteMetaData;
@@ -81,9 +81,7 @@ use hotshot_types::{
         election::{Checked, ElectionError, Membership, SignedCertificate, VoteData, VoteToken},
         metrics::Metrics,
         network::{NetworkError, TransmitType},
-        node_implementation::{
-            CommitteeProposal, CommitteeVote, NodeType, QuorumProposal, QuorumVoteType,
-        },
+        node_implementation::{CommitteeProposal, CommitteeVote, NodeType, QuorumVoteType},
         signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::{ConsensusTime, ConsensusType, SequencingConsensus, ValidatingConsensus},
         storage::StoredView,
@@ -164,8 +162,9 @@ pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementat
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<TYPES, I::Leaf>>>,
 
-    // TODO (da) split this into `replica_channel_map` and `da_member_channel_map` after
-    // refactoring `HotShot`.
+    /// for sending/recv-ing things with the DA member task
+    member_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
+
     /// for sending/recv-ing things with the replica task
     replica_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
 
@@ -274,6 +273,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             inner,
             transactions: txns,
             hotstuff,
+            member_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             replica_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             next_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             send_network_lookup,
@@ -949,7 +949,7 @@ where
             let txns = consensus.transactions.clone();
             (high_qc, txns)
         };
-        let mut send_to_member = hotshot.replica_channel_map.write().await;
+        let mut send_to_member = hotshot.member_channel_map.write().await;
         let member_last_view: TYPES::Time = send_to_member.cur_view;
         send_to_member.channel_map.remove(&member_last_view);
         send_to_member.cur_view += 1;
@@ -960,6 +960,19 @@ where
         } = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
             send_to_member.cur_view,
             send_to_member,
+        )
+        .await;
+        let mut send_to_replica = hotshot.replica_channel_map.write().await;
+        let replica_last_view: TYPES::Time = send_to_replica.cur_view;
+        send_to_replica.channel_map.remove(&replica_last_view);
+        send_to_replica.cur_view += 1;
+        let ViewQueue {
+            sender_chan: send_replica,
+            receiver_chan: recv_replica,
+            has_received_proposal: _,
+        } = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
+            send_to_replica.cur_view,
+            send_to_replica,
         )
         .await;
 
@@ -973,7 +986,7 @@ where
                 cur_view,
                 transactions: txns,
                 api: c_api.clone(),
-                da_exchange: c_api.inner.committee_exchange.clone(),
+                committee_exchange: c_api.inner.committee_exchange.clone(),
                 quorum_exchange: c_api.inner.quorum_exchange.clone(),
                 vote_collection_chan: recv_da_vote,
                 _pd: PhantomData,
@@ -1027,12 +1040,19 @@ where
         };
         let member_handle = async_spawn(async move { da_member.run_view().await });
         task_handles.push(member_handle);
-
-        // TODO (da) Replica task isn't added since the proposal it listens to is the commitment
-        // proposal but `QuorumProposal<TYPES, I>` here is the DA proposal. We need to support the two proposal
-        // types for sequencing consensus in the refactored node implementation.
-        let _da_replica = {};
-        // TODO: ADD DA replica task handle and push it to `task_handles`.
+        let replica = SequencingReplica {
+            id: hotshot.id,
+            consensus: hotshot.hotstuff.clone(),
+            proposal_collection_chan: recv_replica,
+            cur_view,
+            high_qc: high_qc.clone(),
+            api: c_api.clone(),
+            committee_exchange: c_api.inner.committee_exchange.clone(),
+            quorum_exchange: c_api.inner.quorum_exchange.clone(),
+            _pd: PhantomData,
+        };
+        let replica_handle = async_spawn(async move { replica.run_view().await });
+        task_handles.push(replica_handle);
 
         let children_finished = futures::future::join_all(task_handles);
 
