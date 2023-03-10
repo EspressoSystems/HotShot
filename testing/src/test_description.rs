@@ -7,6 +7,7 @@ use crate::{
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use either::Either::{self, Left, Right};
 use futures::{future::LocalBoxFuture, FutureExt};
+use hotshot::traits::TestableNodeImplementation;
 use hotshot::{traits::NetworkReliability, types::Message, HotShot, HotShotError, ViewRunner};
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
@@ -126,24 +127,7 @@ impl GeneralTestDescriptionBuilder {
 /// fine-grained spec of test
 /// including what should be run every round
 /// and how to generate more rounds
-pub struct DetailedTestDescriptionBuilder<TYPES: NodeType, I: NodeImplementation<TYPES>>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
+pub struct DetailedTestDescriptionBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
 {
     /// generic information used for the test
     pub general_info: GeneralTestDescriptionBuilder,
@@ -176,36 +160,31 @@ pub struct TimingData {
     pub propose_max_round_time: Duration,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestDescription<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-
-    <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        CommitteeProposal<TYPES, I>,
-        CommitteeVote<TYPES, I>,
-        CommitteeMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPES, I>
+// ernie
+    // <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+    //     TYPES,
+    //     I::Leaf,
+    //     Message<TYPES, I>,
+    // >>::Networking: TestableNetworkingImplementation<
+    //     TYPES,
+    //     Message<TYPES, I>,
+    //     QuorumProposal<TYPES, I>,
+    //     QuorumVoteType<TYPES, I>,
+    //     QuorumMembership<TYPES, I>,
+    // >,
+    //
+    // <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
+    //     TYPES,
+    //     I::Leaf,
+    //     Message<TYPES, I>,
+    // >>::Networking: TestableNetworkingImplementation<
+    //     TYPES,
+    //     Message<TYPES, I>,
+    //     CommitteeProposal<TYPES, I>,
+    //     CommitteeVote<TYPES, I>,
+    //     CommitteeMembership<TYPES, I>,
+    // >,
 {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<TYPES, I> {
@@ -275,24 +254,7 @@ where
 
 impl GeneralTestDescriptionBuilder {
     /// build a test description from the builder
-    pub fn build<TYPES: NodeType, I: NodeImplementation<TYPES>>(self) -> TestDescription<TYPES, I>
-    where
-        TYPES::BlockType: TestableBlock,
-        TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-        TYPES::SignatureKey: TestableSignatureKey,
-        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-            TYPES,
-            I::Leaf,
-            Message<TYPES, I>,
-        >>::Networking: TestableNetworkingImplementation<
-            TYPES,
-            Message<TYPES, I>,
-            QuorumProposal<TYPES, I>,
-            QuorumVoteType<TYPES, I>,
-            QuorumMembership<TYPES, I>,
-        >,
-        I::Storage: TestableStorage<TYPES, I::Leaf>,
-        I::Leaf: TestableLeaf<NodeType = TYPES>,
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(self) -> TestDescription<TYPES, I>
     {
         DetailedTestDescriptionBuilder {
             general_info: self,
@@ -303,24 +265,7 @@ impl GeneralTestDescriptionBuilder {
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DetailedTestDescriptionBuilder<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> DetailedTestDescriptionBuilder<TYPES, I>
 {
     /// build a test description from a detailed testing spec
     pub fn build(self) -> TestDescription<TYPES, I> {
@@ -355,24 +300,7 @@ where
 }
 
 /// Description of a test. Contains all metadata necessary to execute test
-pub struct TestDescription<TYPES: NodeType, I: NodeImplementation<TYPES>>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
+pub struct TestDescription<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
 {
     /// TODO unneeded (should be sufficient to have gen runner)
     /// the ronds to run for the test
@@ -414,29 +342,11 @@ pub type TestSetup<TYPES, TRANS, I> =
 /// * `shut_down_ids`: vector of ids to shut down each round
 /// * `submitter_ids`: vector of ids to submit txns to each round
 /// * `num_rounds`: total number of rounds to generate
-pub fn default_submitter_id_to_round<TYPES, I: NodeImplementation<TYPES>>(
+pub fn default_submitter_id_to_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     mut shut_down_ids: Vec<HashSet<u64>>,
     submitter_ids: Vec<Vec<u64>>,
     num_rounds: u64,
 ) -> TestSetup<TYPES, TYPES::Transaction, I>
-where
-    TYPES: NodeType,
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     // make sure the lengths match so zip doesn't spit out none
     if shut_down_ids.len() < submitter_ids.len() {
@@ -485,28 +395,11 @@ where
 /// * `shut_down_ids`: vec of ids to shut down each round
 /// * `txns_per_round`: number of transactions to submit each round
 /// * `num_rounds`: number of rounds
-pub fn default_randomized_ids_to_round<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub fn default_randomized_ids_to_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     shut_down_ids: Vec<HashSet<u64>>,
     num_rounds: u64,
     txns_per_round: u64,
 ) -> TestSetup<TYPES, TYPES::Transaction, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
 
@@ -537,24 +430,7 @@ where
     rounds
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> DetailedTestDescriptionBuilder<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> DetailedTestDescriptionBuilder<TYPES, I>
 {
     /// create rounds of consensus based on the data in `self`
     pub fn default_populate_rounds(&self) -> Vec<Round<TYPES, I>> {

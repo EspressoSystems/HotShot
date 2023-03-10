@@ -21,7 +21,7 @@ pub use self::launcher::TestLauncher;
 
 use futures::future::LocalBoxFuture;
 use hotshot::{
-    traits::{NodeImplementation, Storage},
+    traits::{NodeImplementation, Storage, TestableNodeImplementation},
     types::{HotShotHandle, SignatureKey},
     HotShot, HotShotError, HotShotInitializer, ViewRunner, H_256,
 };
@@ -88,22 +88,7 @@ pub type RoundPreSafetyCheck<TYPES, I> =
 
 /// functions to run a round of consensus
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
-pub struct Round<TYPES: NodeType, I: NodeImplementation<TYPES>>
-where
-    <TYPES as NodeType>::BlockType: TestableBlock,
-    <TYPES as NodeType>::StateType: TestableState,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
+pub struct Round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
 {
     /// Safety check before round is set up and run
     /// to ensure consistent state
@@ -116,24 +101,7 @@ where
     pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, I>>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for Round<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I>
 {
     fn default() -> Self {
         Self {
@@ -146,23 +114,19 @@ where
 
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
-pub struct TestRunner<TYPES, I: NodeImplementation<TYPES>>
-where
-    TYPES: NodeType,
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
+pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
+    // TODO grover
+    // <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+    //     TYPES,
+    //     I::Leaf,
+    //     Message<TYPES, I>,
+    // >>::Networking: TestableNetworkingImplementation<
+    //     TYPES,
+    //     Message<TYPES, I>,
+    //     QuorumProposal<TYPES, I>,
+    //     QuorumVoteType<TYPES, I>,
+    //     QuorumMembership<TYPES, I>,
+    // >,
 {
     quorum_network_generator: Generator<QuorumNetwork<TYPES, I>>,
     committee_network_generator: Generator<CommitteeNetwork<TYPES, I>>,
@@ -173,29 +137,12 @@ where
     rounds: Vec<Round<TYPES, I>>,
 }
 
-struct Node<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub node_id: u64,
     pub handle: HotShotHandle<TYPES, I>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestRunner<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 {
     pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
@@ -229,7 +176,7 @@ where
             let storage = (self.storage_generator)(node_id);
             let config = self.default_node_config.clone();
             let initializer =
-                HotShotInitializer::<TYPES, I::Leaf>::from_genesis(TYPES::BlockType::genesis())
+                HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis())
                     .unwrap();
             let node_id = self
                 .add_node_with_config(
@@ -277,7 +224,7 @@ where
         self.next_node_id += 1;
 
         let known_nodes = config.known_nodes.clone();
-        let private_key = TYPES::SignatureKey::generate_test_key(node_id);
+        let private_key = I::generate_test_key(node_id);
         let public_key = TYPES::SignatureKey::from_private(&private_key);
         let election_config = config.election_config.clone().unwrap_or_else(|| {
             <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
@@ -459,24 +406,7 @@ where
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestRunner<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 {
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
@@ -540,24 +470,7 @@ where
 
 // FIXME make these return some sort of generic error.
 // corresponding issue: <https://github.com/EspressoSystems/hotshot/issues/181>
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestRunner<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 {
     /// Add a random transaction to this runner.
     pub async fn add_random_transaction(
@@ -576,7 +489,7 @@ where
         // it should be caught by an assertion (and the txn will be rejected anyway)
         let leaf = self.nodes[0].handle.get_decided_leaf().await;
 
-        let txn = leaf.create_random_transaction(rng, 0);
+        let txn = I::leaf_create_random_transaction(&leaf, rng, 0);
 
         let node = if let Some(node_id) = node_id {
             self.nodes.get(node_id).unwrap()

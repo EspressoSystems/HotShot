@@ -136,6 +136,7 @@ pub trait TestableBlock: Block + std::fmt::Debug {
     fn txn_count(&self) -> u64;
 }
 
+
 /// Dummy implementation of `State` for unit tests
 pub mod dummy {
     #[allow(clippy::wildcard_imports)]
