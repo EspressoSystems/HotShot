@@ -571,7 +571,6 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
 }
 
 /// Provides a random [`ValidatingLeaf`]
-/// FIXME this is morally wrong Can't think of another way to do this...
 pub fn random_validating_leaf<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
 >(
