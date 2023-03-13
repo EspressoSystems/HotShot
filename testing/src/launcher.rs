@@ -1,5 +1,6 @@
 use super::{Generator, TestRunner};
 use crate::TestableLeaf;
+use hotshot::traits::TestableNodeImplementation;
 use hotshot::types::{Message, SignatureKey};
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::node_implementation::{
@@ -19,60 +20,15 @@ use hotshot_types::{
 use std::{num::NonZeroUsize, time::Duration};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
-pub struct TestLauncher<TYPES: NodeType, I: NodeImplementation<TYPES>>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-{
+pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(super) quorum_network: Generator<QuorumNetwork<TYPES, I>>,
     pub(super) committee_network: Generator<CommitteeNetwork<TYPES, I>>,
-    pub(super) storage: Generator<I::Storage>,
+    pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     pub(super) block: Generator<TYPES::BlockType>,
     pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestLauncher<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        CommitteeProposal<TYPES, I>,
-        CommitteeVote<TYPES, I>,
-        CommitteeMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
     pub fn new(
@@ -83,7 +39,7 @@ where
     ) -> Self {
         let known_nodes = (0..expected_node_count)
             .map(|id| {
-                let priv_key = TYPES::SignatureKey::generate_test_key(id as u64);
+                let priv_key = I::generate_test_key(id as u64);
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
@@ -104,24 +60,10 @@ where
         };
 
         Self {
-            quorum_network:
-                <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-                    TYPES,
-                    I::Leaf,
-                    Message<TYPES, I>,
-                >>::Networking::generator(
-                    expected_node_count, num_bootstrap_nodes, 1
-                ),
-            committee_network:
-                <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
-                    TYPES,
-                    I::Leaf,
-                    Message<TYPES, I>,
-                >>::Networking::generator(
-                    expected_node_count, num_bootstrap_nodes, 2
-                ),
-            storage: Box::new(|_| I::Storage::construct_tmp_storage().unwrap()),
-            block: Box::new(|_| TYPES::BlockType::genesis()),
+            quorum_network: I::quorum_generator(expected_node_count, num_bootstrap_nodes, 1),
+            committee_network: I::committee_generator(expected_node_count, num_bootstrap_nodes, 2),
+            storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
+            block: Box::new(|_| I::block_genesis()),
             config,
         }
     }
@@ -129,24 +71,7 @@ where
 
 // TODO make these functions generic over the target networking/storage/other generics
 // so we can hotswap out
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestLauncher<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
     /// Set a custom quorum network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_quorum_network(
         self,
@@ -158,7 +83,7 @@ where
                     // FIXME perhaps this pk generation is a separate function
                     // to add as an input
                     // that way we don't rely on threshold crypto
-                    let priv_key = TYPES::SignatureKey::generate_test_key(node_id);
+                    let priv_key = I::generate_test_key(node_id);
                     let pubkey = TYPES::SignatureKey::from_private(&priv_key);
                     quorum_network(node_id, pubkey)
                 }
@@ -182,7 +107,7 @@ where
                     // FIXME perhaps this pk generation is a separate function
                     // to add as an input
                     // that way we don't rely on threshold crypto
-                    let priv_key = TYPES::SignatureKey::generate_test_key(node_id);
+                    let priv_key = I::generate_test_key(node_id);
                     let pubkey = TYPES::SignatureKey::from_private(&priv_key);
                     committee_network(node_id, pubkey)
                 }
@@ -240,25 +165,7 @@ where
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestLauncher<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///
     /// - `NETWORK` implements and [`TestableNetworkingImplementation`]

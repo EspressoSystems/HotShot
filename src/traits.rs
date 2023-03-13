@@ -6,7 +6,7 @@ mod storage;
 
 pub use hotshot_types::traits::{Block, State};
 pub use networking::{NetworkError, NetworkReliability};
-pub use node_implementation::NodeImplementation;
+pub use node_implementation::{NodeImplementation, TestableNodeImplementation};
 pub use storage::{Result as StorageResult, Storage};
 
 /// Module for publicly usable implementations of the traits

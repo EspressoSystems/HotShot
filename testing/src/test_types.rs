@@ -151,7 +151,7 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
     type CommitteeExchange = Self::QuorumExchange;
 }
 
-// /// type alias for the test runner type
+/// type alias for the test runner type
 pub type AppliedTestRunner<TYPES, I> = TestRunner<TYPES, I>;
 
 // /// applied test runner (convenient type alias)

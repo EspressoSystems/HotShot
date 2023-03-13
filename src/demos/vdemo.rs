@@ -13,7 +13,6 @@ use crate::traits::{
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
-use hotshot_types::message::Message;
 use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -29,6 +28,10 @@ use hotshot_types::{
         State,
     },
     vote::{QuorumVote, VoteAccumulator},
+};
+use hotshot_types::{
+    message::Message,
+    traits::{election::QuorumExchangeType, node_implementation::TestableNodeImplementation},
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -571,11 +574,7 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
 pub fn random_validating_leaf<TYPES: NodeType<ConsensusType = ValidatingConsensus>>(
     deltas: TYPES::BlockType,
     rng: &mut dyn rand::RngCore,
-) -> ValidatingLeaf<TYPES>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
-{
+) -> ValidatingLeaf<TYPES> {
     let justify_qc = random_quorum_certificate(rng);
     let state = TYPES::StateType::default()
         .append(&deltas, &TYPES::Time::new(42))

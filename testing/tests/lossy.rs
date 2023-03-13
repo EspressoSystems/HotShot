@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use either::Either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
+use hotshot::traits::TestableNodeImplementation;
 use hotshot_testing::test_types::{VrfCommunication, VrfMembership};
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
@@ -27,28 +28,10 @@ use tracing::{error, instrument};
 
 /// checks safety requirement; relatively lax
 /// marked as success if 2f+1 nodes "succeeded" and committed the same thing
-pub fn check_safety<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub fn check_safety<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     runner: &AppliedTestRunner<TYPES, I>,
     results: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        QuorumProposal<TYPES, I>,
-        QuorumVoteType<TYPES, I>,
-        QuorumMembership<TYPES, I>,
-    >,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
+) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
     async move {
         let num_nodes = runner.ids().len();
         if results.results.len() <= (2 * num_nodes) / 3 + 1 {
