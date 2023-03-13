@@ -177,13 +177,15 @@
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
 </pre><pre class="rust"><code><span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>libp2p::{
     gossipsub::IdentTopic <span class="kw">as </span>Topic,
     identify::{Behaviour <span class="kw">as </span>IdentifyBehaviour, Event <span class="kw">as </span>IdentifyEvent},
     request_response::ResponseChannel,
-    Multiaddr, PeerId,
+    Multiaddr,
 };
+<span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>std::num::NonZeroUsize;
 <span class="kw">use </span>tracing::debug;
 

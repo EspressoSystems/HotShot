@@ -780,6 +780,8 @@
 <a href="#780" id="780">780</a>
 <a href="#781" id="781">781</a>
 <a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
 </pre><pre class="rust"><code><span class="kw">use </span>futures::Future;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>std::{
@@ -837,8 +839,9 @@
         Keypair,
     },
     multiaddr::{<span class="self">self</span>, Protocol},
-    Multiaddr, PeerId,
+    Multiaddr,
 };
+<span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 <span class="kw">use </span>tracing::error;
 
@@ -1131,7 +1134,8 @@
     <span class="kw">let </span>new_seed = <span class="kw-2">*</span>hasher.finalize().as_bytes();
     <span class="kw">let </span>sk_bytes = SecretKey::from_bytes(new_seed).unwrap();
     <span class="kw">let </span>ed_kp = &lt;EdKeypair <span class="kw">as </span>From&lt;SecretKey&gt;&gt;::from(sk_bytes);
-    Keypair::Ed25519(ed_kp)
+    <span class="attr">#[allow(deprecated)]
+    </span>Keypair::Ed25519(ed_kp)
 }
 
 <span class="doccomment">/// libp2p helper function

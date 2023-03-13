@@ -609,6 +609,7 @@
 <a href="#609" id="609">609</a>
 <a href="#610" id="610">610</a>
 <a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>config;
 <span class="kw">mod </span>handle;
 
@@ -658,8 +659,9 @@
         Behaviour <span class="kw">as </span>RequestResponse, Config <span class="kw">as </span>RequestResponseConfig, ProtocolSupport,
     },
     swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent},
-    Multiaddr, PeerId, Swarm,
+    Multiaddr, Swarm,
 };
+<span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>rand::{prelude::SliceRandom, thread_rng};
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>std::{

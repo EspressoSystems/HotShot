@@ -302,6 +302,7 @@
 <a href="#302" id="302">302</a>
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, VecDeque},
     task::Poll,
@@ -312,8 +313,9 @@
         handler::RequestProtocol, Behaviour, Event, Message, RequestId, ResponseChannel,
     },
     swarm::{NetworkBehaviour, NetworkBehaviourAction, THandlerOutEvent},
-    Multiaddr, PeerId,
+    Multiaddr,
 };
+<span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>tracing::{error, info};
 
 <span class="kw">use super</span>::{

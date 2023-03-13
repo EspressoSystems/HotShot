@@ -674,6 +674,7 @@
 <a href="#674" id="674">674</a>
 <a href="#675" id="675">675</a>
 <a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::network::{
     behaviours::direct_message_codec::DirectMessageResponse, error::DHTError, gen_multiaddr,
     ClientRequest, NetworkError, NetworkEvent, NetworkNode, NetworkNodeConfig,
@@ -691,7 +692,8 @@
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>futures::{stream::FuturesOrdered, Future, FutureExt};
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
-<span class="kw">use </span>libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
+<span class="kw">use </span>libp2p::{request_response::ResponseChannel, Multiaddr};
+<span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::{ResultExt, Snafu};
 <span class="kw">use </span>std::{

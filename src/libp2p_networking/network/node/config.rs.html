@@ -56,8 +56,10 @@
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::network::NetworkNodeType;
-<span class="kw">use </span>libp2p::{identity::Keypair, Multiaddr, PeerId};
+<span class="kw">use </span>libp2p::{identity::Keypair, Multiaddr};
+<span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>std::{collections::HashSet, num::NonZeroUsize};
 
 <span class="doccomment">/// replication factor for kademlia

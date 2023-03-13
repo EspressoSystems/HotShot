@@ -276,6 +276,7 @@
 <a href="#276" id="276">276</a>
 <a href="#277" id="277">277</a>
 <a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
 </pre><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p&#39;s behaviours
 </span><span class="kw">pub mod </span>behaviours;
 <span class="kw">mod </span>def;
@@ -309,8 +310,9 @@
     request_response::ResponseChannel,
     tcp,
     yamux::{WindowUpdateMode, YamuxConfig},
-    InboundUpgradeExt, Multiaddr, OutboundUpgradeExt, PeerId, Transport,
+    InboundUpgradeExt, Multiaddr, OutboundUpgradeExt, Transport,
 };
+<span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>rand::seq::IteratorRandom;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{collections::HashSet, fmt::Debug, io, str::FromStr, sync::Arc, time::Duration};

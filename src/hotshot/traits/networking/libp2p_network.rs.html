@@ -755,6 +755,7 @@
 <a href="#755" id="755">755</a>
 <a href="#756" id="756">756</a>
 <a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -784,6 +785,7 @@
     vote::VoteType,
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
+<span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>libp2p_networking::{
     network::{
         MeshParams,
@@ -791,7 +793,7 @@
         NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
         NetworkNodeType,
     },
-    reexport::{Multiaddr, PeerId},
+    reexport::Multiaddr,
 };
 <span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>snafu::ResultExt;
