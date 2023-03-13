@@ -13,7 +13,6 @@ use crate::traits::{
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
-use hotshot_types::{message::Message, traits::{node_implementation::TestableNodeImplementation, election::QuorumExchangeType}};
 use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -29,6 +28,10 @@ use hotshot_types::{
         State,
     },
     vote::{QuorumVote, VoteAccumulator},
+};
+use hotshot_types::{
+    message::Message,
+    traits::{election::QuorumExchangeType, node_implementation::TestableNodeImplementation},
 };
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -569,11 +572,14 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
 
 /// Provides a random [`ValidatingLeaf`]
 /// FIXME this is morally wrong Can't think of another way to do this...
-pub fn random_validating_leaf<TYPES: NodeType<ConsensusType = ValidatingConsensus>, I: TestableNodeImplementation<TYPES>>(
+pub fn random_validating_leaf<
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+    I: TestableNodeImplementation<TYPES>,
+>(
     deltas: TYPES::BlockType,
     rng: &mut dyn rand::RngCore,
 ) -> ValidatingLeaf<TYPES>
-    where
+where
     I::QuorumExchange: QuorumExchangeType<
         TYPES,
         I::Leaf,

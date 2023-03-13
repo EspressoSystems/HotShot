@@ -86,13 +86,13 @@ where
 /// Builds and submits a random proposal for the specified view number
 async fn submit_validating_proposal<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>> + NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>
+        + NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &AppliedValidatingTestRunner<TYPES, I>,
     sender_node_id: u64,
     view_number: TYPES::Time,
-)
-    where
+) where
     I::QuorumExchange: QuorumExchangeType<
         TYPES,
         I::Leaf,

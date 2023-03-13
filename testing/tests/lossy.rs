@@ -31,8 +31,7 @@ use tracing::{error, instrument};
 pub fn check_safety<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     runner: &AppliedTestRunner<TYPES, I>,
     results: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
-{
+) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
     async move {
         let num_nodes = runner.ids().len();
         if results.results.len() <= (2 * num_nodes) / 3 + 1 {

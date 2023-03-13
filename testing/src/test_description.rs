@@ -127,8 +127,7 @@ impl GeneralTestDescriptionBuilder {
 /// fine-grained spec of test
 /// including what should be run every round
 /// and how to generate more rounds
-pub struct DetailedTestDescriptionBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
-{
+pub struct DetailedTestDescriptionBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// generic information used for the test
     pub general_info: GeneralTestDescriptionBuilder,
 
@@ -160,8 +159,7 @@ pub struct TimingData {
     pub propose_max_round_time: Duration,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPES, I>
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPES, I> {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<TYPES, I> {
         let launcher = TestLauncher::new(
@@ -230,8 +228,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPE
 
 impl GeneralTestDescriptionBuilder {
     /// build a test description from the builder
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(self) -> TestDescription<TYPES, I>
-    {
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+        self,
+    ) -> TestDescription<TYPES, I> {
         DetailedTestDescriptionBuilder {
             general_info: self,
             rounds: None,
@@ -241,7 +240,8 @@ impl GeneralTestDescriptionBuilder {
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> DetailedTestDescriptionBuilder<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
+    DetailedTestDescriptionBuilder<TYPES, I>
 {
     /// build a test description from a detailed testing spec
     pub fn build(self) -> TestDescription<TYPES, I> {
@@ -276,8 +276,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> DetailedTestDescript
 }
 
 /// Description of a test. Contains all metadata necessary to execute test
-pub struct TestDescription<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
-{
+pub struct TestDescription<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// TODO unneeded (should be sufficient to have gen runner)
     /// the ronds to run for the test
     pub rounds: Vec<Round<TYPES, I>>,
@@ -322,8 +321,7 @@ pub fn default_submitter_id_to_round<TYPES: NodeType, I: TestableNodeImplementat
     mut shut_down_ids: Vec<HashSet<u64>>,
     submitter_ids: Vec<Vec<u64>>,
     num_rounds: u64,
-) -> TestSetup<TYPES, TYPES::Transaction, I>
-{
+) -> TestSetup<TYPES, TYPES::Transaction, I> {
     // make sure the lengths match so zip doesn't spit out none
     if shut_down_ids.len() < submitter_ids.len() {
         shut_down_ids.append(&mut vec![
@@ -375,8 +373,7 @@ pub fn default_randomized_ids_to_round<TYPES: NodeType, I: TestableNodeImplement
     shut_down_ids: Vec<HashSet<u64>>,
     num_rounds: u64,
     txns_per_round: u64,
-) -> TestSetup<TYPES, TYPES::Transaction, I>
-{
+) -> TestSetup<TYPES, TYPES::Transaction, I> {
     let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
 
     for round_idx in 0..num_rounds {
@@ -406,7 +403,8 @@ pub fn default_randomized_ids_to_round<TYPES: NodeType, I: TestableNodeImplement
     rounds
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> DetailedTestDescriptionBuilder<TYPES, I>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
+    DetailedTestDescriptionBuilder<TYPES, I>
 {
     /// create rounds of consensus based on the data in `self`
     pub fn default_populate_rounds(&self) -> Vec<Round<TYPES, I>> {

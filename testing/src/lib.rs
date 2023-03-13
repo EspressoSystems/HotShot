@@ -88,8 +88,7 @@ pub type RoundPreSafetyCheck<TYPES, I> =
 
 /// functions to run a round of consensus
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
-pub struct Round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
-{
+pub struct Round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// Safety check before round is set up and run
     /// to ensure consistent state
     pub safety_check_pre: Option<RoundPreSafetyCheck<TYPES, I>>,
@@ -101,8 +100,7 @@ pub struct Round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
     pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, I>>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I>
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I> {
     fn default() -> Self {
         Self {
             safety_check_post: None,
@@ -114,8 +112,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TY
 
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
-pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
-{
+pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     quorum_network_generator: Generator<QuorumNetwork<TYPES, I>>,
     committee_network_generator: Generator<CommitteeNetwork<TYPES, I>>,
     storage_generator: Generator<I::Storage>,
@@ -130,8 +127,7 @@ struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub handle: HotShotHandle<TYPES, I>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
     pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
             quorum_network_generator: launcher.quorum_network,
@@ -164,8 +160,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             let storage = (self.storage_generator)(node_id);
             let config = self.default_node_config.clone();
             let initializer =
-                HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis())
-                    .unwrap();
+                HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
             let node_id = self
                 .add_node_with_config(
                     quorum_network,
@@ -394,8 +389,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
         let mut leaves = Vec::<I::Leaf>::new();
@@ -458,8 +452,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 
 // FIXME make these return some sort of generic error.
 // corresponding issue: <https://github.com/EspressoSystems/hotshot/issues/181>
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
     /// Add a random transaction to this runner.
     pub async fn add_random_transaction(
         &self,

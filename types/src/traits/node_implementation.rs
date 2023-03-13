@@ -10,14 +10,14 @@ use serde::Deserialize;
 
 use super::{
     block_contents::Transaction,
-    election::{ConsensusExchange, ElectionConfig, Membership, VoteToken, TestableElection},
+    election::{ConsensusExchange, ElectionConfig, Membership, TestableElection, VoteToken},
     network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, ConsensusType, TestableBlock, TestableState},
-    storage::{TestableStorage, StorageError, StorageState},
+    storage::{StorageError, StorageState, TestableStorage},
     State,
 };
-use crate::{message::Message, data::TestableLeaf};
+use crate::{data::TestableLeaf, message::Message};
 use crate::{
     data::{LeafType, ProposalType},
     traits::{
@@ -62,23 +62,53 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
-    ) -> Box<dyn Fn(u64) -> <Self::CommitteeExchange as ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>>::Networking + 'static>;
+    ) -> Box<
+        dyn Fn(
+                u64,
+            ) -> <Self::CommitteeExchange as ConsensusExchange<
+                TYPES,
+                Self::Leaf,
+                Message<TYPES, Self>,
+            >>::Networking
+            + 'static,
+    >;
 
     fn quorum_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
-    ) -> Box<dyn Fn(u64) -> <Self::QuorumExchange as ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>>::Networking + 'static>;
+    ) -> Box<
+        dyn Fn(
+                u64,
+            ) -> <Self::QuorumExchange as ConsensusExchange<
+                TYPES,
+                Self::Leaf,
+                Message<TYPES, Self>,
+            >>::Networking
+            + 'static,
+    >;
 
     /// Get the number of messages in-flight from quorum exchange.
     ///
     /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
-    fn quorum_in_flight_message_count(network: &<Self::QuorumExchange as ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>>::Networking) -> Option<usize>;
+    fn quorum_in_flight_message_count(
+        network: &<Self::QuorumExchange as ConsensusExchange<
+            TYPES,
+            Self::Leaf,
+            Message<TYPES, Self>,
+        >>::Networking,
+    ) -> Option<usize>;
 
     /// Get the number of messages in-flight from committee exchange.
     ///
     /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
-    fn committee_in_flight_message_count(network: &<Self::CommitteeExchange as ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>>::Networking) -> Option<usize>;
+    fn committee_in_flight_message_count(
+        network: &<Self::CommitteeExchange as ConsensusExchange<
+            TYPES,
+            Self::Leaf,
+            Message<TYPES, Self>,
+        >>::Networking,
+    ) -> Option<usize>;
 
     /// Creates random transaction if possible
     /// otherwise panics
@@ -115,7 +145,6 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     // fn quorum_generate_test_vote_token() -> TYPES::VoteTokenType;
 
     // fn committee_generate_test_vote_token() -> TYPES::VoteTokenType;
-
 }
 
 #[async_trait]

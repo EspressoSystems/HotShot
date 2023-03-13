@@ -20,8 +20,7 @@ use hotshot_types::{
 use std::{num::NonZeroUsize, time::Duration};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
-pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
-{
+pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(super) quorum_network: Generator<QuorumNetwork<TYPES, I>>,
     pub(super) committee_network: Generator<CommitteeNetwork<TYPES, I>>,
     pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
@@ -29,8 +28,7 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
     pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
     pub fn new(
@@ -62,12 +60,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
         };
 
         Self {
-            quorum_network: I::quorum_generator(
-                    expected_node_count, num_bootstrap_nodes, 1
-                ),
-            committee_network: I::committee_generator(
-                    expected_node_count, num_bootstrap_nodes, 2
-                ),
+            quorum_network: I::quorum_generator(expected_node_count, num_bootstrap_nodes, 1),
+            committee_network: I::committee_generator(expected_node_count, num_bootstrap_nodes, 2),
             storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
             block: Box::new(|_| I::block_genesis()),
             config,
@@ -77,8 +71,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
 
 // TODO make these functions generic over the target networking/storage/other generics
 // so we can hotswap out
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
     /// Set a custom quorum network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_quorum_network(
         self,
@@ -172,8 +165,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///
     /// - `NETWORK` implements and [`TestableNetworkingImplementation`]
