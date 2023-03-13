@@ -3,7 +3,8 @@ use async_compatibility_layer::channel::RecvError;
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use futures::FutureExt;
 use futures::{future::join_all, Future};
-use libp2p::{identity::Keypair, Multiaddr, PeerId};
+use libp2p::{identity::Keypair, Multiaddr};
+use libp2p_identity::PeerId;
 use libp2p_networking::network::{
     network_node_handle_error::NodeConfigSnafu, NetworkEvent, NetworkNodeConfigBuilder,
     NetworkNodeHandle, NetworkNodeHandleError, NetworkNodeType,

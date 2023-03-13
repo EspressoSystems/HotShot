@@ -1,5 +1,6 @@
 use crate::network::NetworkNodeType;
-use libp2p::{identity::Keypair, Multiaddr, PeerId};
+use libp2p::{identity::Keypair, Multiaddr};
+use libp2p_identity::PeerId;
 use std::{collections::HashSet, num::NonZeroUsize};
 
 /// replication factor for kademlia

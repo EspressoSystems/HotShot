@@ -8,8 +8,9 @@ use libp2p::{
         handler::RequestProtocol, Behaviour, Event, Message, RequestId, ResponseChannel,
     },
     swarm::{NetworkBehaviour, NetworkBehaviourAction, THandlerOutEvent},
-    Multiaddr, PeerId,
+    Multiaddr,
 };
+use libp2p_identity::PeerId;
 use tracing::{error, info};
 
 use super::{
