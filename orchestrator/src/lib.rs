@@ -3,6 +3,7 @@ pub mod config;
 use async_lock::RwLock;
 use hotshot_types::traits::election::ElectionConfig;
 use hotshot_types::traits::signature_key::SignatureKey;
+use libp2p_core::identity;
 use std::io;
 use std::io::ErrorKind;
 use std::net::IpAddr;
@@ -20,6 +21,29 @@ use futures::FutureExt;
 
 use crate::config::NetworkConfig;
 
+use libp2p::{
+    identity::{
+        ed25519::{Keypair as EdKeypair, SecretKey},
+        Keypair,
+    },
+    multiaddr::{self, Protocol},
+    Multiaddr, PeerId,
+};
+use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+use blake3;
+
+
+// /// yeesh maybe we should just implement SignatureKey for this...
+pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&seed);
+    hasher.update(&index.to_le_bytes());
+    let new_seed = *hasher.finalize().as_bytes();
+    let sk_bytes = SecretKey::from_bytes(new_seed).unwrap();
+    let ed_kp = <EdKeypair as From<SecretKey>>::from(sk_bytes);
+    Keypair::Ed25519(ed_kp)
+}
+
 #[derive(Default, Clone)]
 struct OrchestratorState<KEY, ELECTION> {
     /// Tracks the latest node index we have generated a configuration for
@@ -31,6 +55,9 @@ struct OrchestratorState<KEY, ELECTION> {
     start: bool,
     /// The total nodes that have posted they are ready to start
     pub nodes_connected: u64,
+
+    /// Whether this is for a libp2p network configuration
+    is_libp2p: bool,
 }
 
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
@@ -39,16 +66,20 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
     pub fn new(network_config: NetworkConfig<KEY, ELECTION>) -> Self {
         OrchestratorState {
             latest_index: 0,
-            config: network_config,
+            config: network_config.clone(),
             start: false,
             nodes_connected: 0,
+            is_libp2p: network_config.libp2p_config.is_some(),
         }
     }
 }
 
 pub trait OrchestratorApi<KEY, ELECTION> {
-    fn post_identity(&mut self, identity: &str) -> Result<u16, ServerError>; 
-    fn post_getconfig(&mut self, node_index: u16) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
+    fn post_identity(&mut self, identity: &str) -> Result<u16, ServerError>;
+    fn post_getconfig(
+        &mut self,
+        node_index: u16,
+    ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError>;
     fn get_start(&self) -> Result<bool, ServerError>;
     fn post_ready(&mut self) -> Result<(), ServerError>;
     fn post_run_results(&mut self) -> Result<(), ServerError>;
@@ -60,16 +91,34 @@ where
     ELECTION: serde::Serialize + Clone,
 {
     fn post_identity(&mut self, identity: &str) -> Result<u16, ServerError> {
-
-        // TODO ED Move this constant out of function / add it to the config file 
+        // TODO ED Move this constant out of function / add it to the config file
         let NUM_BOOTSTRAP_NODES = 7;
-        let node_index = self.latest_index; 
+        let node_index = self.latest_index;
         self.latest_index += 1;
 
-        // TODO ED Store identity for bootstrap nodes if needed 
+        // TODO ED Store identity for bootstrap nodes if needed
         if self.config.libp2p_config.clone().is_some() {
-            if self.config.libp2p_config.as_mut().unwrap().bootstrap_nodes.len() < NUM_BOOTSTRAP_NODES {
-                let addr = SocketAddr::new("0.0.0.0".parse().unwrap(), 4444);
+            if self
+                .config
+                .libp2p_config
+                .as_mut()
+                .unwrap()
+                .bootstrap_nodes
+                .len()
+                < NUM_BOOTSTRAP_NODES
+            {
+                // TODO ED clean this up so not so many dots
+                // println!("{:?}", identity);
+                let mut addr = identity.parse::<SocketAddr>().unwrap();
+                // println!("{:?}", addr);
+                addr.set_port(self.config.libp2p_config.as_mut().unwrap().base_port + node_index);
+                // println!("{:?}", addr);
+                // let addr = SocketAddr::new(identity.parse::<SocketAddr>().unwrap(), self.config.libp2p_config.as_mut().unwrap().base_port + node_index);
+                // TODO ED just pass the public key in the future
+                let keypair = libp2p_generate_indexed_identity(self.config.seed, node_index.into());
+                self.config.libp2p_config.as_mut().unwrap().bootstrap_nodes.push((addr, keypair.to_protobuf_encoding().unwrap()));
+
+                // let addr = SocketAddr::new("0.0.0.0".parse().unwrap(), 4444);
             }
             // self.config.libp2p_config.
             // Vec<(SocketAddr, Vec<u8, Global>)
@@ -77,17 +126,20 @@ where
 
         // TODO https://github.com/EspressoSystems/HotShot/issues/850
         if usize::from(node_index) >= self.config.config.total_nodes.get() {
-            return Err(ServerError { status: tide_disco::StatusCode::BadRequest, message: "Network has reached capacity".to_string() })
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BadRequest,
+                message: "Network has reached capacity".to_string(),
+            });
         }
         Ok(node_index)
     }
 
-
-    fn post_getconfig(&mut self, node_index: u16) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
+    fn post_getconfig(
+        &mut self,
+        node_index: u16,
+    ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
         let mut config = self.config.clone();
-        if config.libp2p_config.is_some() {
-
-        }
+        if config.libp2p_config.is_some() {}
         // TODO ED Needs to take in their node index as an argument
         // config.node_index = self.latest_index.into();
 
@@ -126,16 +178,23 @@ where
     let mut api = Api::<State, ServerError>::from_file("orchestrator/api.toml")
         .expect("api.toml file is not found");
     api.post("postidentity", |req, state| {
-        async move { 
+        async move {
             // println!("{:?}", req.);
-            let identity = req.string_param("identity")?; 
-            state.post_identity(identity) }.boxed()
+            // let identity = req.string_param("identity")?;
+            let identity = req.remote();
+            println!("{:?}", identity);
+            // TODO ED error check the unwrap
+            state.post_identity(identity.unwrap())
+        }
+        .boxed()
     })?
     .post("post_getconfig", |req, state| {
-        async move { 
-            let node_index = req.integer_param("node_index")?; 
+        async move {
+            let node_index = req.integer_param("node_index")?;
 
-            state.post_getconfig(node_index) }.boxed()
+            state.post_getconfig(node_index)
+        }
+        .boxed()
     })?
     .post("postready", |_req, state| {
         async move { state.post_ready() }.boxed()
@@ -159,6 +218,8 @@ where
     KEY: SignatureKey + 'static + serde::Serialize,
     ELECTION: ElectionConfig + 'static + serde::Serialize,
 {
+    // TODO ED If libp2p run, generate libp2p keys
+
     let api = define_api().map_err(|_e| io::Error::new(ErrorKind::Other, "Failed to define api"));
 
     let state: RwLock<OrchestratorState<KEY, ELECTION>> =
@@ -167,26 +228,4 @@ where
     app.register_module("api", api.unwrap())
         .expect("Error registering api");
     app.serve(format!("http://{host}:{port}")).await
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use async_compatibility_layer::art::async_spawn;
-    use portpicker::pick_unused_port;
-    use surf_disco::error::ClientError;
-
-    type State = RwLock<WebServerState>;
-    type Error = ServerError;
-
-    #[cfg_attr(
-        feature = "tokio-executor",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    async fn test_identity_api() {
-
-        // TODO ED
-
-     }
 }

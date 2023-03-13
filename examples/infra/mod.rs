@@ -456,6 +456,8 @@ where
                 "ip6"
             },
             libp2p_config.public_ip,
+            // TODO ED This should technically still be fine with non-local deployments
+            // But we'll want to change it to a specified port in the future
             libp2p_config.base_port + node_index as u16
         )
         .parse()
@@ -795,6 +797,8 @@ pub async fn main_entry_point<
     let run_config = orchestrator_client
         .get_config_from_orchestrator::<TYPES>(node_index)
         .await;
+
+    println!("{:?}", run_config);
 
     let run = RUN::initialize_networking(run_config.clone()).await;
     let (_state, hotshot) = run.initialize_state_and_hotshot().await;
