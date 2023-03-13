@@ -1219,6 +1219,33 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         Ok(())
     }
 
+    async fn send_direct_da_message<
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+    >(
+        &self,
+        recipient: TYPES::SignatureKey,
+        message: ConsensusMessage<TYPES, I>,
+    ) -> std::result::Result<(), NetworkError> {
+        let inner = self.inner.clone();
+        debug!(?message, ?recipient, "send_direct_message");
+        error!("Direct recipient = {:?}", recipient);
+        async_spawn_local(async move {
+            inner
+                .committee_exchange
+                .network()
+                .direct_message(
+                    Message {
+                        sender: inner.public_key.clone(),
+                        kind: message.into(),
+                    },
+                    recipient,
+                )
+                .await
+        });
+        Ok(())
+    }
+
     // TODO remove and use exchange directly.
     async fn send_broadcast_message<
         PROPOSAL: ProposalType<NodeType = TYPES>,

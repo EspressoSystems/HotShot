@@ -160,7 +160,7 @@ where
                                 info!("Sending vote to the leader {:?}", message);
 
                                 let consensus = self.consensus.read().await;
-                                if self.api.send_direct_message::<CommitteeProposal<TYPES, I>, CommitteeVote<TYPES, I>>(sender, message).await.is_err() {
+                                if self.api.send_direct_da_message::<CommitteeProposal<TYPES, I>, CommitteeVote<TYPES, I>>(sender, message).await.is_err() {
                                     consensus.metrics.failed_to_send_messages.add(1);
                                     warn!("Failed to send vote to the leader");
                                 } else {

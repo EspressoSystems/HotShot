@@ -149,6 +149,16 @@ where
             .instrument(info_span!("HotShot Direct Task",)),
     );
 
+    let network_broadcast_task_handle = async_spawn(
+        da_network_task(hotshot.clone(), shut_down.clone(), TransmitType::Broadcast)
+            .instrument(info_span!("HotShot Broadcast Task",)),
+    );
+    let network_direct_task_handle = async_spawn(
+        da_network_task(hotshot.clone(), shut_down.clone(), TransmitType::Direct)
+            .instrument(info_span!("HotShot Direct Task",)),
+    );
+
+
     async_spawn(
         network_lookup_task(hotshot.clone(), shut_down.clone())
             .instrument(info_span!("HotShot network lookup task",)),
@@ -299,7 +309,7 @@ pub async fn network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let networking = &hotshot.inner.quorum_exchange.network();
     let mut incremental_backoff_ms = 10;
     while !shut_down.load(Ordering::Relaxed) {
-        let queue = match networking.recv_msgs(transmit_type).await {
+        let mut queue = match networking.recv_msgs(transmit_type).await {
             Ok(queue) => queue,
             Err(e) => {
                 if !shut_down.load(Ordering::Relaxed) {
@@ -318,7 +328,49 @@ pub async fn network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         incremental_backoff_ms = 10;
         for item in queue {
             let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
-            metrics.direct_messages_received.add(1);
+            trace!(?item, "Processing item");
+            hotshot.handle_message(item, transmit_type).await;
+        }
+        trace!(
+            "Items processed in network {:?} task, querying for more",
+            transmit_type
+        );
+    }
+}
+
+// TODO: remove copy pasta here, take network as param to network_task
+pub async fn da_network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+    hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
+    shut_down: Arc<AtomicBool>,
+    transmit_type: TransmitType,
+) {
+    info!(
+        "Launching network processing task for {:?} messages",
+        transmit_type
+    );
+    let networking = &hotshot.inner.committee_exchange.network();
+    let mut incremental_backoff_ms = 10;
+    while !shut_down.load(Ordering::Relaxed) {
+        let mut queue = match networking.recv_msgs(transmit_type).await {
+            Ok(queue) => queue,
+            Err(e) => {
+                if !shut_down.load(Ordering::Relaxed) {
+                    error!(?e, "did not shut down gracefully.");
+                }
+                return;
+            }
+        };
+
+        if queue.is_empty() {
+            trace!("No message, sleeping for {} ms", incremental_backoff_ms);
+            async_sleep(Duration::from_millis(incremental_backoff_ms)).await;
+            incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
+            continue;
+        }
+        // Make sure to reset the backoff time
+        incremental_backoff_ms = 10;
+        for item in queue {
+            let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
             trace!(?item, "Processing item");
             hotshot.handle_message(item, transmit_type).await;
         }

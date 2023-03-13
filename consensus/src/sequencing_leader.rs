@@ -256,7 +256,7 @@ where
         // Brodcast DA proposal
         if let Err(e) = self
             .api
-            .send_broadcast_message::<CommitteeProposal<TYPES, I>, CommitteeVote<TYPES, I>>(
+            .send_da_broadcast(
                 message.clone(),
             )
             .await
