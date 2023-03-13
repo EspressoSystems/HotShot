@@ -3,8 +3,9 @@ use libp2p::{
     gossipsub::IdentTopic as Topic,
     identify::{Behaviour as IdentifyBehaviour, Event as IdentifyEvent},
     request_response::ResponseChannel,
-    Multiaddr, PeerId,
+    Multiaddr,
 };
+use libp2p_identity::PeerId;
 use std::num::NonZeroUsize;
 use tracing::debug;
 

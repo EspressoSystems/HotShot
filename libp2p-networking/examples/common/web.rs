@@ -57,7 +57,7 @@ where
 
 mod network_state {
 
-    use libp2p::PeerId;
+    use libp2p_identity::PeerId;
     use libp2p_networking::network::{NetworkNodeConfig, NetworkNodeHandle};
 
     #[derive(serde::Serialize)]
