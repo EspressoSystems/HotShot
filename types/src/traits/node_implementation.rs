@@ -111,10 +111,10 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
 
     fn generate_test_key(id: u64) -> <TYPES::SignatureKey as SignatureKey>::PrivateKey;
 
-    /// Generate a vote token used for testing.
-    fn quorum_generate_test_vote_token() -> TYPES::VoteTokenType;
+    // /// Generate a vote token used for testing.
+    // fn quorum_generate_test_vote_token() -> TYPES::VoteTokenType;
 
-    fn committee_generate_test_vote_token() -> TYPES::VoteTokenType;
+    // fn committee_generate_test_vote_token() -> TYPES::VoteTokenType;
 
 }
 
@@ -143,8 +143,8 @@ TYPES::BlockType : TestableBlock,
 I::Storage : TestableStorage<TYPES, I::Leaf>,
 TYPES::SignatureKey : TestableSignatureKey,
 I::Leaf : TestableLeaf<NodeType = TYPES>,
-<I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership : TestableElection<TYPES>,
-<I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership : TestableElection<TYPES>,
+// <I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership : TestableElection<TYPES>,
+// <I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership : TestableElection<TYPES>,
 {
     fn committee_generator(
         expected_node_count: usize,
@@ -211,13 +211,13 @@ I::Leaf : TestableLeaf<NodeType = TYPES>,
         <TYPES::SignatureKey as TestableSignatureKey>::generate_test_key(id)
     }
 
-    fn quorum_generate_test_vote_token() -> TYPES::VoteTokenType {
-        <<I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership as TestableElection<TYPES>>::generate_test_vote_token()
-    }
-
-    fn committee_generate_test_vote_token() -> TYPES::VoteTokenType {
-        <<I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership as TestableElection<TYPES>>::generate_test_vote_token()
-    }
+    // fn quorum_generate_test_vote_token() -> TYPES::VoteTokenType {
+    //     <<I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership as TestableElection<TYPES>>::generate_test_vote_token()
+    // }
+    //
+    // fn committee_generate_test_vote_token() -> TYPES::VoteTokenType {
+    //     <<I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership as TestableElection<TYPES>>::generate_test_vote_token()
+    // }
 }
 
 pub type QuorumProposal<TYPES, I> =

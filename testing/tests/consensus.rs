@@ -120,50 +120,51 @@ async fn submit_validating_proposal<
     handle.send_broadcast_consensus_message(msg.clone()).await;
 }
 
+/// FIXME uncomment
 /// Builds and submits a random vote for the specified view number from the specified node
-async fn submit_validating_vote<
-    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES> + NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
->(
-    runner: &AppliedValidatingTestRunner<TYPES, I>,
-    sender_node_id: u64,
-    view_number: TYPES::Time,
-    recipient_node_id: u64,
-)
-    where
-    I::QuorumExchange: QuorumExchangeType<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-        Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        Certificate = QuorumCertificate<TYPES, I::Leaf>,
-        Vote = QuorumVote<TYPES, I::Leaf>,
-    >,
-{
-    let mut rng = rand::thread_rng();
-    let handle = runner.get_handle(sender_node_id).unwrap();
-
-    // Build vote
-    let mut leaf = random_validating_leaf::<TYPES, I>(I::block_genesis(), &mut rng);
-    leaf.view_number = view_number;
-    let msg = handle.create_yes_message(
-        leaf.justify_qc.commit(),
-        leaf.commit(),
-        leaf.view_number,
-        // TODO placeholder below
-        I::quorum_generate_test_vote_token(),
-    );
-
-    let recipient = runner
-        .get_handle(recipient_node_id)
-        .unwrap()
-        .get_public_key();
-
-    // Send vote
-    handle
-        .send_direct_consensus_message(msg.clone(), recipient)
-        .await;
-}
+// async fn submit_validating_vote<
+//     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+//     I: TestableNodeImplementation<TYPES> + NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+// >(
+//     runner: &AppliedValidatingTestRunner<TYPES, I>,
+//     sender_node_id: u64,
+//     view_number: TYPES::Time,
+//     recipient_node_id: u64,
+// )
+//     where
+//     I::QuorumExchange: QuorumExchangeType<
+//         TYPES,
+//         I::Leaf,
+//         Message<TYPES, I>,
+//         Proposal = ValidatingProposal<TYPES, I::Leaf>,
+//         Certificate = QuorumCertificate<TYPES, I::Leaf>,
+//         Vote = QuorumVote<TYPES, I::Leaf>,
+//     >,
+// {
+//     let mut rng = rand::thread_rng();
+//     let handle = runner.get_handle(sender_node_id).unwrap();
+//
+//     // Build vote
+//     let mut leaf = random_validating_leaf::<TYPES, I>(I::block_genesis(), &mut rng);
+//     leaf.view_number = view_number;
+//     let msg = handle.create_yes_message(
+//         leaf.justify_qc.commit(),
+//         leaf.commit(),
+//         leaf.view_number,
+//         // TODO placeholder below
+//         I::quorum_generate_test_vote_token(),
+//     );
+//
+//     let recipient = runner
+//         .get_handle(recipient_node_id)
+//         .unwrap()
+//         .get_public_key();
+//
+//     // Send vote
+//     handle
+//         .send_direct_consensus_message(msg.clone(), recipient)
+//         .await;
+// }
 
 /// Return an enum representing the state of the message queue
 fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
@@ -228,36 +229,36 @@ where
 }
 
 /// For 1..NUM_VIEWS submit votes to each node in the network
-fn test_validating_vote_queueing_round_setup<
-    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES> + NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
->
-(
-    runner: &mut AppliedValidatingTestRunner<TYPES, I>,
-) -> LocalBoxFuture<Vec<TYPES::Transaction>>
-where
-    I::QuorumExchange: QuorumExchangeType<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-        Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        Certificate = QuorumCertificate<TYPES, I::Leaf>,
-        Vote = QuorumVote<TYPES, I::Leaf>,
-    >,
-{
-    async move {
-        let node_id = DEFAULT_NODE_ID;
-        for j in runner.ids() {
-            for i in 1..NUM_VIEWS {
-                if is_upcoming_validating_leader(runner, node_id, TYPES::Time::new(i)).await {
-                    submit_validating_vote(runner, j, TYPES::Time::new(i - 1), node_id).await;
-                }
-            }
-        }
-        Vec::new()
-    }
-    .boxed_local()
-}
+// fn test_validating_vote_queueing_round_setup<
+//     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+//     I: TestableNodeImplementation<TYPES> + NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+// >
+// (
+//     runner: &mut AppliedValidatingTestRunner<TYPES, I>,
+// ) -> LocalBoxFuture<Vec<TYPES::Transaction>>
+// where
+//     I::QuorumExchange: QuorumExchangeType<
+//         TYPES,
+//         I::Leaf,
+//         Message<TYPES, I>,
+//         Proposal = ValidatingProposal<TYPES, I::Leaf>,
+//         Certificate = QuorumCertificate<TYPES, I::Leaf>,
+//         Vote = QuorumVote<TYPES, I::Leaf>,
+//     >,
+// {
+//     async move {
+//         let node_id = DEFAULT_NODE_ID;
+//         for j in runner.ids() {
+//             for i in 1..NUM_VIEWS {
+//                 if is_upcoming_validating_leader(runner, node_id, TYPES::Time::new(i)).await {
+//                     submit_validating_vote(runner, j, TYPES::Time::new(i - 1), node_id).await;
+//                 }
+//             }
+//         }
+//         Vec::new()
+//     }
+//     .boxed_local()
+// }
 
 /// Checks views 0..NUM_VIEWS for whether proposal messages are properly queued
 fn test_validating_proposal_queueing_post_safety_check<
@@ -474,38 +475,38 @@ async fn test_validating_proposal_queueing() {
 }
 
 /// Tests that next leaders receive and queue valid vote messages properly
-#[cfg_attr(
-    feature = "tokio-executor",
-    tokio::test(flavor = "multi_thread", worker_threads = 2)
-)]
-#[cfg_attr(feature = "async-std-executor", async_std::test)]
-#[instrument]
-#[ignore]
-async fn test_vote_queueing() {
-    let num_rounds = 10;
-    let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
-        DetailedTestDescriptionBuilder {
-            general_info: GeneralTestDescriptionBuilder {
-                total_nodes: 4,
-                start_nodes: 4,
-                num_succeeds: num_rounds,
-                failure_threshold: 0,
-                txn_ids: Right(1),
-                ..GeneralTestDescriptionBuilder::default()
-            },
-            rounds: None,
-            gen_runner: None,
-        };
-    let mut test = description.build();
-
-    for i in 0..num_rounds {
-        test.rounds[i].setup_round = Some(Box::new(test_validating_vote_queueing_round_setup));
-        test.rounds[i].safety_check_post =
-            Some(Box::new(test_validating_vote_queueing_post_safety_check));
-    }
-
-    test.execute().await.unwrap();
-}
+// #[cfg_attr(
+//     feature = "tokio-executor",
+//     tokio::test(flavor = "multi_thread", worker_threads = 2)
+// )]
+// #[cfg_attr(feature = "async-std-executor", async_std::test)]
+// #[instrument]
+// #[ignore]
+// async fn test_vote_queueing() {
+//     let num_rounds = 10;
+//     let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
+//         DetailedTestDescriptionBuilder {
+//             general_info: GeneralTestDescriptionBuilder {
+//                 total_nodes: 4,
+//                 start_nodes: 4,
+//                 num_succeeds: num_rounds,
+//                 failure_threshold: 0,
+//                 txn_ids: Right(1),
+//                 ..GeneralTestDescriptionBuilder::default()
+//             },
+//             rounds: None,
+//             gen_runner: None,
+//         };
+//     let mut test = description.build();
+//
+//     for i in 0..num_rounds {
+//         test.rounds[i].setup_round = Some(Box::new(test_validating_vote_queueing_round_setup));
+//         test.rounds[i].safety_check_post =
+//             Some(Box::new(test_validating_vote_queueing_post_safety_check));
+//     }
+//
+//     test.execute().await.unwrap();
+// }
 
 /// Tests that replicas handle bad Proposal messages properly
 #[cfg_attr(
