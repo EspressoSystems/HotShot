@@ -107,7 +107,7 @@ async fn submit_validating_proposal<
 
     let genesis = <I as TestableNodeImplementation<TYPES>>::block_genesis();
     // Build proposal
-    let mut leaf = random_validating_leaf::<TYPES, I>(genesis, &mut rng);
+    let mut leaf = random_validating_leaf::<TYPES>(genesis, &mut rng);
     leaf.view_number = view_number;
     leaf.set_height(handle.get_decided_leaf().await.get_height() + 1);
     let signature = handle.sign_validating_or_commitment_proposal(&leaf.commit());
@@ -146,7 +146,7 @@ async fn submit_validating_vote<
     let handle = runner.get_handle(sender_node_id).unwrap();
 
     // Build vote
-    let mut leaf = random_validating_leaf::<TYPES, I>(I::block_genesis(), &mut rng);
+    let mut leaf = random_validating_leaf::<TYPES>(I::block_genesis(), &mut rng);
     leaf.view_number = view_number;
     let msg = handle.create_yes_message(
         leaf.justify_qc.commit(),

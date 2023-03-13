@@ -574,20 +574,10 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
 /// FIXME this is morally wrong Can't think of another way to do this...
 pub fn random_validating_leaf<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: TestableNodeImplementation<TYPES>,
 >(
     deltas: TYPES::BlockType,
     rng: &mut dyn rand::RngCore,
 ) -> ValidatingLeaf<TYPES>
-where
-    I::QuorumExchange: QuorumExchangeType<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-        Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        Certificate = QuorumCertificate<TYPES, I::Leaf>,
-        Vote = QuorumVote<TYPES, I::Leaf>,
-    >,
 {
     let justify_qc = random_quorum_certificate(rng);
     let state = TYPES::StateType::default()
