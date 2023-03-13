@@ -140,11 +140,6 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     async fn get_full_state(storage: &Self::Storage) -> StorageState<TYPES, Self::Leaf>;
 
     fn generate_test_key(id: u64) -> <TYPES::SignatureKey as SignatureKey>::PrivateKey;
-
-    // /// Generate a vote token used for testing.
-    // fn quorum_generate_test_vote_token() -> TYPES::VoteTokenType;
-
-    // fn committee_generate_test_vote_token() -> TYPES::VoteTokenType;
 }
 
 #[async_trait]
@@ -239,14 +234,6 @@ I::Leaf : TestableLeaf<NodeType = TYPES>,
     fn generate_test_key(id: u64) -> <TYPES::SignatureKey as SignatureKey>::PrivateKey {
         <TYPES::SignatureKey as TestableSignatureKey>::generate_test_key(id)
     }
-
-    // fn quorum_generate_test_vote_token() -> TYPES::VoteTokenType {
-    //     <<I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership as TestableElection<TYPES>>::generate_test_vote_token()
-    // }
-    //
-    // fn committee_generate_test_vote_token() -> TYPES::VoteTokenType {
-    //     <<I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership as TestableElection<TYPES>>::generate_test_vote_token()
-    // }
 }
 
 pub type QuorumProposal<TYPES, I> =

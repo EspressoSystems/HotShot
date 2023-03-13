@@ -571,13 +571,10 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
 }
 
 /// Provides a random [`ValidatingLeaf`]
-pub fn random_validating_leaf<
-    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
->(
+pub fn random_validating_leaf<TYPES: NodeType<ConsensusType = ValidatingConsensus>>(
     deltas: TYPES::BlockType,
     rng: &mut dyn rand::RngCore,
-) -> ValidatingLeaf<TYPES>
-{
+) -> ValidatingLeaf<TYPES> {
     let justify_qc = random_quorum_certificate(rng);
     let state = TYPES::StateType::default()
         .append(&deltas, &TYPES::Time::new(42))
