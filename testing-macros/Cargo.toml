@@ -87,7 +87,7 @@ tokio = { version = "1", optional = true, features = [
 tracing = "0.1.37"
 serde = { version = "1.0.155", features = ["derive"] }
 # proc macro stuff
-quote = "1.0.23"
+quote = "1.0.26"
 syn = { version = "1.0.108", features = ["full", "extra-traits"] }
 proc-macro2 = "1.0.52"
 derive_builder = "0.12.0"
