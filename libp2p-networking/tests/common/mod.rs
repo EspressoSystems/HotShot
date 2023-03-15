@@ -18,7 +18,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use tracing::{error, info, instrument, warn};
+use tracing::{info, instrument, warn};
 
 /// General function to spin up testing infra
 /// perform tests by calling `run_test`

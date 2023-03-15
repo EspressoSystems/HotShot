@@ -91,7 +91,6 @@ where
         > + CommitteeExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
-    /// TODO: Refactor this to use new `Elecetion` trait and call accumulate
     async fn wait_for_votes(
         &self,
         cur_view: TYPES::Time,
@@ -398,7 +397,6 @@ pub struct ConsensusNextLeader<
     pub generic_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
-    // TODO (da): Change this chan to have CommitmentProposal and QuorumVote.
     pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
 
     /// the quorum exchnage
@@ -442,9 +440,6 @@ where
             if Into::<ConsensusMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view {
                 continue;
             }
-            // TODO (da) restore the code below after supporting two vote types. Currently it
-            // doesn't work since the vote type of `ConsensusApi` is `DAVote` but the message is
-            // supposed to be `QuorumVote`.
             match msg {
                 ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
                     QuorumVote::Yes(vote) => {

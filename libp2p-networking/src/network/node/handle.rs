@@ -28,7 +28,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, info, instrument};
 
 /// A handle containing:
 /// - A reference to the state

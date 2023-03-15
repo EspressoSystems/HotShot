@@ -8,6 +8,7 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 
+use hotshot_types::message::Message;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     constants::LOOK_AHEAD,
@@ -140,22 +141,45 @@ where
     let shut_down = Arc::new(AtomicBool::new(false));
     let started = Arc::new(AtomicBool::new(false));
 
+    let exchange = hotshot.inner.quorum_exchange.clone();
+    let committee_exchange = hotshot.inner.committee_exchange.clone();
+
     let _network_broadcast_task_handle = async_spawn(
-        network_task(hotshot.clone(), shut_down.clone(), TransmitType::Broadcast)
-            .instrument(info_span!("HotShot Broadcast Task",)),
+        network_task(
+            hotshot.clone(),
+            shut_down.clone(),
+            TransmitType::Broadcast,
+            exchange.clone(),
+        )
+        .instrument(info_span!("HotShot Broadcast Task",)),
     );
     let _network_direct_task_handle = async_spawn(
-        network_task(hotshot.clone(), shut_down.clone(), TransmitType::Direct)
-            .instrument(info_span!("HotShot Direct Task",)),
+        network_task(
+            hotshot.clone(),
+            shut_down.clone(),
+            TransmitType::Direct,
+            exchange,
+        )
+        .instrument(info_span!("HotShot Direct Task",)),
     );
 
     let network_broadcast_task_handle = async_spawn(
-        da_network_task(hotshot.clone(), shut_down.clone(), TransmitType::Broadcast)
-            .instrument(info_span!("HotShot Broadcast Task",)),
+        network_task(
+            hotshot.clone(),
+            shut_down.clone(),
+            TransmitType::Broadcast,
+            committee_exchange.clone(),
+        )
+        .instrument(info_span!("HotShot DA Broadcast Task",)),
     );
     let network_direct_task_handle = async_spawn(
-        da_network_task(hotshot.clone(), shut_down.clone(), TransmitType::Direct)
-            .instrument(info_span!("HotShot Direct Task",)),
+        network_task(
+            hotshot.clone(),
+            shut_down.clone(),
+            TransmitType::Direct,
+            committee_exchange,
+        )
+        .instrument(info_span!("HotShot DA Direct Task",)),
     );
 
     async_spawn(
@@ -296,16 +320,21 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 }
 
 /// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to their relevant handler
-pub async fn network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
+pub async fn network_task<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    EXCHANGE: ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>,
+>(
     hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
     shut_down: Arc<AtomicBool>,
     transmit_type: TransmitType,
+    exchange: Arc<EXCHANGE>,
 ) {
     info!(
         "Launching network processing task for {:?} messages",
         transmit_type
     );
-    let networking = &hotshot.inner.quorum_exchange.network();
+    let networking = &exchange.network();
     let mut incremental_backoff_ms = 10;
     while !shut_down.load(Ordering::Relaxed) {
         let queue = match networking.recv_msgs(transmit_type).await {
@@ -317,50 +346,6 @@ pub async fn network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                 return;
             }
         };
-        if queue.is_empty() {
-            trace!("No message, sleeping for {} ms", incremental_backoff_ms);
-            async_sleep(Duration::from_millis(incremental_backoff_ms)).await;
-            incremental_backoff_ms = (incremental_backoff_ms * 2).min(1000);
-            continue;
-        }
-        // Make sure to reset the backoff time
-        incremental_backoff_ms = 10;
-        for item in queue {
-            let _metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
-            trace!(?item, "Processing item");
-            hotshot.handle_message(item, transmit_type).await;
-        }
-        trace!(
-            "Items processed in network {:?} task, querying for more",
-            transmit_type
-        );
-    }
-}
-
-// TODO: remove copy pasta here, take network as param to network_task
-/// da networking task
-pub async fn da_network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
-    shut_down: Arc<AtomicBool>,
-    transmit_type: TransmitType,
-) {
-    info!(
-        "Launching network processing task for {:?} messages",
-        transmit_type
-    );
-    let networking = &hotshot.inner.committee_exchange.network();
-    let mut incremental_backoff_ms = 10;
-    while !shut_down.load(Ordering::Relaxed) {
-        let queue = match networking.recv_msgs(transmit_type).await {
-            Ok(queue) => queue,
-            Err(e) => {
-                if !shut_down.load(Ordering::Relaxed) {
-                    error!(?e, "did not shut down gracefully.");
-                }
-                return;
-            }
-        };
-
         if queue.is_empty() {
             trace!("No message, sleeping for {} ms", incremental_backoff_ms);
             async_sleep(Duration::from_millis(incremental_backoff_ms)).await;
