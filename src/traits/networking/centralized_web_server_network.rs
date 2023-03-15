@@ -99,16 +99,12 @@ impl<
 
         let endpoint = match &message.kind {
             hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind {
-                hotshot_types::message::ConsensusMessage::Proposal(_) => {
+                hotshot_types::message::ConsensusMessage::Proposal(_)
+                | hotshot_types::message::ConsensusMessage::DAProposal(_) => {
                     config::post_proposal_route(*view_number)
                 }
-                hotshot_types::message::ConsensusMessage::DAProposal(_) => {
-                    config::post_proposal_route(*view_number)
-                }
-                hotshot_types::message::ConsensusMessage::Vote(_) => {
-                    config::post_vote_route(*view_number)
-                }
-                hotshot_types::message::ConsensusMessage::DAVote(_) => {
+                hotshot_types::message::ConsensusMessage::Vote(_)
+                | hotshot_types::message::ConsensusMessage::DAVote(_) => {
                     config::post_vote_route(*view_number)
                 }
                 hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {

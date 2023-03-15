@@ -21,32 +21,21 @@ pub use self::launcher::TestLauncher;
 
 use futures::future::LocalBoxFuture;
 use hotshot::{
-    traits::{NodeImplementation, Storage, TestableNodeImplementation},
+    traits::{NodeImplementation, TestableNodeImplementation},
     types::{HotShotHandle, SignatureKey},
     HotShot, HotShotError, HotShotInitializer, ViewRunner, H_256,
 };
 use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::election::QuorumExchange;
-use hotshot_types::traits::node_implementation::{
-    CommitteeNetwork, QuorumMembership, QuorumNetwork, QuorumProposal, QuorumVoteType,
-};
+
+use hotshot_types::message::Message;
+use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
 use hotshot_types::{
-    data::{LeafType, ProposalType, TestableLeaf},
-    traits::{
-        election::Membership,
-        metrics::NoMetrics,
-        network::TestableNetworkingImplementation,
-        node_implementation::NodeType,
-        signature_key::TestableSignatureKey,
-        state::{TestableBlock, TestableState},
-        storage::TestableStorage,
-    },
-    vote::{VoteAccumulator, VoteType},
+    data::LeafType,
+    traits::{election::Membership, metrics::NoMetrics, node_implementation::NodeType},
     HotShotConfig,
 };
-use hotshot_types::{message::Message, traits::election::CommitteeExchange};
 use snafu::Snafu;
-use std::{collections::HashMap, fmt, fmt::Debug, marker::PhantomData};
+use std::{collections::HashMap, fmt::Debug};
 use tracing::{debug, error, info, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.

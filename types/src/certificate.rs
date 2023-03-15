@@ -11,11 +11,9 @@ use crate::{
 };
 use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
-use nll::nll_todo::nll_todo;
-#[allow(deprecated)]
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
-use tracing::error;
+
 /// A `DACertificate` is a threshold signature that some data is available.
 /// It is signed by the members of the DA committee, not the entire network. It is used
 /// to prove that the data will be made available to those outside of the DA committee.
@@ -26,6 +24,7 @@ pub struct DACertificate<TYPES: NodeType> {
     /// This value is covered by the threshold signature.
     pub view_number: TYPES::Time,
 
+    /// committment to the block
     pub block_commitment: Commitment<TYPES::BlockType>,
 
     /// The list of signatures establishing the validity of this Quorum Certifcate
@@ -179,7 +178,7 @@ impl<TYPES: NodeType>
     }
 
     fn leaf_commitment(&self) -> Commitment<TYPES::BlockType> {
-        self.block_commitment.clone()
+        self.block_commitment
     }
 
     fn set_leaf_commitment(&mut self, _commitment: Commitment<TYPES::BlockType>) {
@@ -193,8 +192,7 @@ impl<TYPES: NodeType>
 
     fn genesis() -> Self {
         // This function is only useful for QC. Will be removed after we have separated cert traits.
-        #[allow(deprecated)]
-        nll_todo()
+        unimplemented!()
     }
 }
 

@@ -4,10 +4,9 @@ use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, Unbounded
 use async_lock::Mutex;
 use commit::Commitment;
 use hotshot_types::{
-    data::{LeafType, ProposalType},
+    data::LeafType,
     message::ProcessedConsensusMessage,
     traits::node_implementation::{NodeImplementation, NodeType},
-    vote::VoteType,
 };
 use std::{
     collections::BTreeMap,

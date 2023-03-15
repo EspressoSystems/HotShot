@@ -16,7 +16,7 @@ use hotshot_types::message::Message;
 use hotshot_types::traits::election::CommitteeExchangeType;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::node_implementation::{CommitteeProposal, CommitteeVote};
+
 use hotshot_types::traits::node_implementation::{
     NodeImplementation, QuorumProposal, QuorumVoteType,
 };
@@ -57,11 +57,14 @@ pub struct DALeader<
     /// Limited access to the consensus protocol
     pub api: A,
 
+    /// the committee exchange
     pub committee_exchange: Arc<I::CommitteeExchange>,
+    /// the quorum exchange
     pub quorum_exchange: Arc<I::QuorumExchange>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
     pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
+    /// needed to typecheck
     pub _pd: PhantomData<I>,
 }
 impl<
@@ -106,7 +109,7 @@ where
                 continue;
             }
             match msg {
-                ProcessedConsensusMessage::Vote(vote, sender) => {
+                ProcessedConsensusMessage::Vote(_vote, _sender) => {
                     warn!("The leader received an unexpext Quorum Vote!");
                     continue;
                 }
@@ -254,13 +257,7 @@ where
         };
         let message = ConsensusMessage::<TYPES, I>::DAProposal(Proposal { data, signature });
         // Brodcast DA proposal
-        if let Err(e) = self
-            .api
-            .send_da_broadcast(
-                message.clone(),
-            )
-            .await
-        {
+        if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
             consensus.metrics.failed_to_send_messages.add(1);
             warn!(?message, ?e, "Could not broadcast leader proposal");
         } else {
@@ -309,8 +306,10 @@ pub struct ConsensusLeader<
     /// Limited access to the consensus protocol
     pub api: A,
 
+    /// the quorum exchange
     pub quorum_exchange: Arc<I::QuorumExchange>,
 
+    /// needed to tyep check
     pub _pd: PhantomData<I>,
 }
 impl<
@@ -402,8 +401,10 @@ pub struct ConsensusNextLeader<
     // TODO (da): Change this chan to have CommitmentProposal and QuorumVote.
     pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
 
+    /// the quorum exchnage
     pub quorum_exchange: Arc<I::QuorumExchange>,
 
+    /// needed to type check
     pub _pd: PhantomData<I>,
 }
 impl<
@@ -453,6 +454,8 @@ where
                             continue;
                         }
 
+                        // FIXME is there a way around this?
+                        #[allow(unused_assignments)]
                         match self.quorum_exchange.accumulate_vote(
                             &vote.signature.0,
                             &vote.signature.1,

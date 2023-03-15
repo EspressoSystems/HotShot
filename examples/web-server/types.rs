@@ -1,7 +1,7 @@
 use crate::infra::WebServerRun;
 use hotshot::traits::implementations::MemoryStorage;
 use hotshot::{
-    demos::vdemo::{VDemoNode, VDemoTypes},
+    demos::vdemo::VDemoTypes,
     traits::{
         election::static_committee::GeneralStaticCommittee,
         implementations::CentralizedWebCommChannel,
@@ -9,7 +9,6 @@ use hotshot::{
 };
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::QuorumExchange;
-use hotshot_types::traits::election::{CommitteeExchange, Membership};
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},

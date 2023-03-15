@@ -1,6 +1,5 @@
-use ark_bls12_381::Parameters as Param381;
 use async_lock::Mutex;
-use blake3::Hasher;
+
 use commit::Committable;
 use either::Right;
 use futures::{
@@ -8,9 +7,8 @@ use futures::{
     FutureExt,
 };
 use hotshot::{
-    certificate::QuorumCertificate,
-    demos::vdemo::random_validating_leaf,
-    traits::{election::vrf::VrfImpl, NodeImplementation, TestableNodeImplementation},
+    certificate::QuorumCertificate, demos::vdemo::random_validating_leaf,
+    traits::TestableNodeImplementation,
 };
 use hotshot_testing::{
     test_description::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder},
@@ -20,29 +18,23 @@ use hotshot_testing::{
     },
     ConsensusRoundError, RoundResult, SafetyFailedSnafu,
 };
-use hotshot_types::traits::node_implementation::{
-    QuorumMembership, QuorumProposal, QuorumVoteType,
-};
-use hotshot_types::traits::storage::TestableStorage;
 
-use hotshot_types::data::TestableLeaf;
+use hotshot_types::message::Message;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     event::EventType,
     message::{ConsensusMessage, Proposal},
     traits::{
-        election::{ConsensusExchange, Membership, SignedCertificate, TestableElection},
+        election::{ConsensusExchange, SignedCertificate, TestableElection},
         node_implementation::NodeType,
-        signature_key::TestableSignatureKey,
-        state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
+        state::{ConsensusTime, ValidatingConsensus},
     },
     vote::QuorumVote,
 };
-use hotshot_types::{message::Message, traits::network::TestableNetworkingImplementation};
-use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
+
 use snafu::{ensure, OptionExt};
-use std::fmt::Debug;
+
 use std::iter::once;
 use std::sync::Arc;
 use std::time::Duration;

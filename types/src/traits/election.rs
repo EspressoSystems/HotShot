@@ -7,8 +7,8 @@ use super::signature_key::{EncodedPublicKey, EncodedSignature};
 use crate::certificate::VoteMetaData;
 use crate::certificate::{DACertificate, QuorumCertificate};
 use crate::data::ProposalType;
-use crate::data::ValidatingProposal;
-use crate::data::{DAProposal, ValidatingLeaf};
+
+use crate::data::DAProposal;
 use crate::message::ConsensusMessage;
 use crate::message::Message;
 use crate::traits::network::CommunicationChannel;
@@ -190,7 +190,6 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
     type Certificate: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, Self::Commitment>
         + Hash
         + Eq;
-    // type VoteAccumulator: Accumulator<TYPES::VoteTokenType, LEAF>;
     type Membership: Membership<TYPES>;
     type Networking: CommunicationChannel<TYPES, M, Self::Proposal, Self::Vote, Self::Membership>;
     type Commitment: Committable;
@@ -214,6 +213,8 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
         self.membership().threshold()
     }
 
+    /// # Errors
+    /// When unable to make a vote token because not part of the committee
     fn make_vote_token(
         &self,
         view_number: TYPES::Time,

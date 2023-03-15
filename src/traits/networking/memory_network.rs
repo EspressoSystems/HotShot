@@ -536,12 +536,11 @@ mod tests {
 
     use crate::traits::implementations::MemoryStorage;
     use async_compatibility_layer::logging::setup_logging;
-    use hotshot_types::traits::election::{CommitteeExchange, QuorumExchange};
+    use hotshot_types::traits::election::QuorumExchange;
     use hotshot_types::{
         data::ViewNumber,
         message::{DataMessage, MessageKind},
         traits::{
-            election::ConsensusExchange,
             signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
             state::ConsensusTime,
         },

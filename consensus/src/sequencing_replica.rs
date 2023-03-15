@@ -56,8 +56,13 @@ pub struct SequencingReplica<
     /// HotShot consensus API.
     pub api: A,
 
+    /// the committee exchange
     pub committee_exchange: Arc<I::CommitteeExchange>,
+
+    /// the quorum exchange
     pub quorum_exchange: Arc<I::QuorumExchange>,
+
+    /// needed to typecheck
     pub _pd: PhantomData<I>,
 }
 
@@ -354,7 +359,7 @@ where
                             }
                         }
                     }
-                    ProcessedConsensusMessage::DAProposal(p, sender) => {
+                    ProcessedConsensusMessage::DAProposal(_p, _sender) => {
                         warn!("Replica receieved a DA Proposal. This is not what the replica expects. Skipping.");
                     }
                     ProcessedConsensusMessage::Vote(_, _) => {

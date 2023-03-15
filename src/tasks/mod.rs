@@ -7,7 +7,7 @@ use async_compatibility_layer::{
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
-use hotshot_consensus::ConsensusApi;
+
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     constants::LOOK_AHEAD,
@@ -140,11 +140,11 @@ where
     let shut_down = Arc::new(AtomicBool::new(false));
     let started = Arc::new(AtomicBool::new(false));
 
-    let network_broadcast_task_handle = async_spawn(
+    let _network_broadcast_task_handle = async_spawn(
         network_task(hotshot.clone(), shut_down.clone(), TransmitType::Broadcast)
             .instrument(info_span!("HotShot Broadcast Task",)),
     );
-    let network_direct_task_handle = async_spawn(
+    let _network_direct_task_handle = async_spawn(
         network_task(hotshot.clone(), shut_down.clone(), TransmitType::Direct)
             .instrument(info_span!("HotShot Direct Task",)),
     );
@@ -157,7 +157,6 @@ where
         da_network_task(hotshot.clone(), shut_down.clone(), TransmitType::Direct)
             .instrument(info_span!("HotShot Direct Task",)),
     );
-
 
     async_spawn(
         network_lookup_task(hotshot.clone(), shut_down.clone())
@@ -309,7 +308,7 @@ pub async fn network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let networking = &hotshot.inner.quorum_exchange.network();
     let mut incremental_backoff_ms = 10;
     while !shut_down.load(Ordering::Relaxed) {
-        let mut queue = match networking.recv_msgs(transmit_type).await {
+        let queue = match networking.recv_msgs(transmit_type).await {
             Ok(queue) => queue,
             Err(e) => {
                 if !shut_down.load(Ordering::Relaxed) {
@@ -327,7 +326,7 @@ pub async fn network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         // Make sure to reset the backoff time
         incremental_backoff_ms = 10;
         for item in queue {
-            let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
+            let _metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
             trace!(?item, "Processing item");
             hotshot.handle_message(item, transmit_type).await;
         }
@@ -339,6 +338,7 @@ pub async fn network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 }
 
 // TODO: remove copy pasta here, take network as param to network_task
+/// da networking task
 pub async fn da_network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
     shut_down: Arc<AtomicBool>,
@@ -351,7 +351,7 @@ pub async fn da_network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
     let networking = &hotshot.inner.committee_exchange.network();
     let mut incremental_backoff_ms = 10;
     while !shut_down.load(Ordering::Relaxed) {
-        let mut queue = match networking.recv_msgs(transmit_type).await {
+        let queue = match networking.recv_msgs(transmit_type).await {
             Ok(queue) => queue,
             Err(e) => {
                 if !shut_down.load(Ordering::Relaxed) {
@@ -370,7 +370,7 @@ pub async fn da_network_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
         // Make sure to reset the backoff time
         incremental_backoff_ms = 10;
         for item in queue {
-            let metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
+            let _metrics = Arc::clone(&hotshot.hotstuff.read().await.metrics);
             trace!(?item, "Processing item");
             hotshot.handle_message(item, transmit_type).await;
         }

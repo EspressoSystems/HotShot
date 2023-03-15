@@ -15,9 +15,7 @@ use hotshot_types::{
     data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, ProcessedConsensusMessage},
     traits::{
-        election::{
-            CommitteeExchange, CommitteeExchangeType, ConsensusExchange, SignedCertificate,
-        },
+        election::{CommitteeExchangeType, ConsensusExchange, SignedCertificate},
         node_implementation::{CommitteeProposal, CommitteeVote, NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
@@ -49,8 +47,10 @@ pub struct DAMember<
     /// HotShot consensus API.
     pub api: A,
 
+    /// the committee exchange
     pub exchange: Arc<I::CommitteeExchange>,
 
+    /// needed for type checking
     pub _pd: PhantomData<I>,
 }
 

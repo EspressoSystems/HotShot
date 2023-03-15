@@ -10,25 +10,19 @@ use serde::Deserialize;
 
 use super::{
     block_contents::Transaction,
-    election::{ConsensusExchange, ElectionConfig, Membership, TestableElection, VoteToken},
-    network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
+    election::{ConsensusExchange, ElectionConfig, VoteToken},
+    network::TestableNetworkingImplementation,
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, ConsensusType, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
     State,
 };
-use crate::{data::TestableLeaf, message::Message};
 use crate::{
-    data::{LeafType, ProposalType},
-    traits::{
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-        storage::Storage,
-        Block,
-    },
-    vote::{Accumulator, VoteType},
+    data::LeafType,
+    traits::{signature_key::SignatureKey, storage::Storage, Block},
 };
-use commit::Commitment;
-use std::collections::BTreeMap;
+use crate::{data::TestableLeaf, message::Message};
+
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -55,6 +49,7 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     type CommitteeExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
 }
 
+#[allow(clippy::type_complexity)]
 #[async_trait]
 pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES> {
     /// generates a network given an expected node count
@@ -130,10 +125,10 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
 
     fn txn_count(block: &TYPES::BlockType) -> u64;
 
-    // Create ephemeral storage
-    // Will be deleted/lost immediately after storage is dropped
-    // # Errors
-    // Errors if it is not possible to construct temporary storage.
+    /// Create ephemeral storage
+    /// Will be deleted/lost immediately after storage is dropped
+    /// # Errors
+    /// Errors if it is not possible to construct temporary storage.
     fn construct_tmp_storage() -> Result<Self::Storage, StorageError>;
 
     // Return the full internal state. This is useful for debugging.

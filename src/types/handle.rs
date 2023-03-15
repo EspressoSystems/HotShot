@@ -19,7 +19,7 @@ use hotshot_types::{
         election::ConsensusExchange, election::SignedCertificate, network::CommunicationChannel,
         node_implementation::NodeType, state::ConsensusTime, storage::Storage,
     },
-    vote::{DAVote, QuorumVote},
+    vote::QuorumVote,
 };
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -32,12 +32,7 @@ use crate::HotShotConsensusApi;
 #[cfg(feature = "hotshot-testing")]
 use commit::Commitment;
 #[cfg(feature = "hotshot-testing")]
-use hotshot_consensus::ConsensusApi;
-#[cfg(feature = "hotshot-testing")]
-use hotshot_types::{
-    message::ConsensusMessage,
-    traits::signature_key::{EncodedPublicKey, EncodedSignature},
-};
+use hotshot_types::{message::ConsensusMessage, traits::signature_key::EncodedSignature};
 
 /// Event streaming handle for a [`HotShot`] instance running in the background
 ///
@@ -72,6 +67,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone for HotShotH
     }
 }
 
+/// type alias to the network of a quorumexchange
 type QuorumNetwork<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
@@ -79,24 +75,35 @@ type QuorumNetwork<TYPES, I> =
         Message<TYPES, I>,
     >>::Networking;
 
+/// type alias to the vote of a quorumexchange
+#[allow(unused)]
 type QuorumVoteType<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
         <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Vote;
+
+/// type alias to the vote of a committeeexchange
+#[allow(unused)]
 type CommitteeVote<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
         <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Vote;
+
+/// type alias to the proposal of a quorumexchange
+#[allow(unused)]
 type QuorumProposal<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
         <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Proposal;
+
+/// type alias to the proposal of a committeeexchange
+#[allow(unused)]
 type CommitteeProposal<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
@@ -274,13 +281,13 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     /// Provides a reference to the underlying quorum networking interface for this [`HotShot`],
     /// allowing access to networking stats.
     pub fn quorum_network(&self) -> &QuorumNetwork<TYPES, I> {
-        &self.hotshot.inner.quorum_exchange.network()
+        self.hotshot.inner.quorum_exchange.network()
     }
 
     /// Provides a reference to the underlying committee networking interface for this [`HotShot`],
     /// allowing access to networking stats.
     pub fn committee_network(&self) -> &CommitteeNetwork<TYPES, I> {
-        &self.hotshot.inner.committee_exchange.network()
+        self.hotshot.inner.committee_exchange.network()
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
@@ -315,7 +322,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     /// Wrapper for `HotShotConsensusApi`'s `get_leader` function
     #[cfg(feature = "hotshot-testing")]
     pub async fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
-        let api = HotShotConsensusApi {
+        let _api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
         self.hotshot.inner.quorum_exchange.get_leader(view_number)
@@ -350,6 +357,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
             .sign_validating_or_commitment_proposal::<I>(leaf_commitment)
     }
 
+    /// create a yes message
     #[cfg(feature = "hotshot-testing")]
     pub fn create_yes_message(
         &self,

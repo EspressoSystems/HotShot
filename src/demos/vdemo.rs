@@ -8,31 +8,25 @@
 
 use crate::traits::{
     election::static_committee::{StaticElectionConfig, StaticVoteToken},
-    implementations::MemoryStorage,
-    Block, NodeImplementation,
+    Block,
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
-use hotshot_types::traits::election::QuorumExchange;
+
 use hotshot_types::{
     certificate::QuorumCertificate,
     constants::genesis_proposer_id,
-    data::{random_commitment, LeafType, ValidatingLeaf, ValidatingProposal, ViewNumber},
+    data::{random_commitment, LeafType, ValidatingLeaf, ViewNumber},
     traits::{
         block_contents::Transaction,
         election::Membership,
-        network::CommunicationChannel,
         node_implementation::NodeType,
         signature_key::ed25519::Ed25519Pub,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
         State,
     },
-    vote::{QuorumVote, VoteAccumulator},
 };
-use hotshot_types::{
-    message::Message,
-    traits::{election::QuorumExchangeType, node_implementation::TestableNodeImplementation},
-};
+
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};

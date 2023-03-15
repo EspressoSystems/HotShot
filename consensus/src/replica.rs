@@ -8,22 +8,19 @@ use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
+use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposal};
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
     traits::{
-        election::{Membership, QuorumExchange},
-        node_implementation::NodeType,
-        signature_key::SignatureKey,
-        state::ValidatingConsensus,
+        node_implementation::NodeType, signature_key::SignatureKey, state::ValidatingConsensus,
         Block, State,
     },
     vote::{QuorumVote, TimeoutVote},
 };
 use hotshot_types::{message::Message, traits::election::QuorumExchangeType};
-use hotshot_types::{message::Proposal, traits::election::ConsensusExchange};
 use hotshot_utils::bincode::bincode_opts;
 use std::marker::PhantomData;
 use std::ops::Bound::{Excluded, Included};
@@ -52,7 +49,10 @@ pub struct Replica<
     /// hotshot consensus api
     pub api: A,
 
+    /// quorum exchange
     pub exchange: Arc<I::QuorumExchange>,
+
+    /// neeeded to typecheck
     pub _pd: PhantomData<I>,
 }
 
