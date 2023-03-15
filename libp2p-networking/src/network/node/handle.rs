@@ -15,7 +15,8 @@ use async_lock::Mutex;
 use bincode::Options;
 use futures::{stream::FuturesOrdered, Future, FutureExt};
 use hotshot_utils::bincode::bincode_opts;
-use libp2p::{request_response::ResponseChannel, Multiaddr, PeerId};
+use libp2p::{request_response::ResponseChannel, Multiaddr};
+use libp2p_identity::PeerId;
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt, Snafu};
 use std::{

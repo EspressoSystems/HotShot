@@ -15,7 +15,8 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_compatibility_layer::channel::oneshot;
 use clap::{Args, Parser};
-use libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr, PeerId};
+use libp2p::{multiaddr, request_response::ResponseChannel, Multiaddr};
+use libp2p_identity::PeerId;
 use libp2p_networking::network::{
     behaviours::direct_message_codec::DirectMessageResponse, deserialize_msg,
     network_node_handle_error::NodeConfigSnafu, spin_up_swarm, NetworkEvent,

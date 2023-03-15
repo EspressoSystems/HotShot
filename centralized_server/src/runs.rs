@@ -1,7 +1,7 @@
 use crate::{ClientConfig, NetworkConfig, Run, RunResults, ToBackground};
 use async_compatibility_layer::art::{async_sleep, async_spawn};
 use async_compatibility_layer::channel::{OneShotSender, Sender};
-use libp2p_core::PeerId;
+use libp2p_identity::PeerId;
 use std::{
     fmt::Debug,
     fs,

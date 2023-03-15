@@ -128,7 +128,7 @@ digest = "0.10.6"
 either = { version = "1.8.1", features = [ "serde" ] }
 embed-doc-image = "0.1.4"
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
-futures = "0.3.26"
+futures = "0.3.27"
 hotshot-centralized-server = { version = "0.1.1", path = "centralized_server", default-features = false }
 hotshot-centralized-web-server = { version = "0.1.1", path = "centralized_web_server", default-features = false }
 hotshot-consensus = { path = "./consensus", version = "0.1.0", default-features = false }
@@ -141,7 +141,8 @@ jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0
 ] }
 libp2p-swarm-derive = { version = "=0.32.0" }
 libp2p-networking = { path = "./libp2p-networking", version = "0.1.0", default-features = false }
-libp2p = { version = "0.51.0", default-features = false, features = [
+libp2p-identity = "0.1.0"
+libp2p = { version = "0.51.1", default-features = false, features = [
         "macros",
         "autonat",
         "deflate",
@@ -168,12 +169,12 @@ nll = { git = "https://github.com/EspressoSystems/nll.git" }
 num = "0.4.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
-serde = { version = "1.0.153", features = ["derive", "rc"] }
+serde = { version = "1.0.156", features = ["derive", "rc"] }
 snafu = "0.7.4"
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", branch = "main" }
 tempfile = "3.4.0"
 time = "0.3.20"
-toml = { version = "0.7.2", optional = true }
+toml = { version = "0.7.3", optional = true }
 tokio = { version = "1", optional = true, features = [
         "fs",
         "io-util",
@@ -198,7 +199,7 @@ clap = { version = "4.1", features = ["derive", "env"] }
 rand_xoshiro = "0.6.0"
 serde_json = "1.0.94"
 sha2 = { version = "0.10.1" }
-toml = "0.7.2"
+toml = "0.7.3"
 
 ### Profiles
 ###

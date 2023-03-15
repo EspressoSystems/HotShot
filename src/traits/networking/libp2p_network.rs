@@ -29,6 +29,7 @@ use hotshot_types::{
     vote::VoteType,
 };
 use hotshot_utils::bincode::bincode_opts;
+use libp2p_identity::PeerId;
 use libp2p_networking::{
     network::{
         MeshParams,
@@ -36,7 +37,7 @@ use libp2p_networking::{
         NetworkNodeConfig, NetworkNodeConfigBuilder, NetworkNodeHandle, NetworkNodeHandleError,
         NetworkNodeType,
     },
-    reexport::{Multiaddr, PeerId},
+    reexport::Multiaddr,
 };
 use serde::Serialize;
 use snafu::ResultExt;

@@ -31,8 +31,9 @@ use libp2p::{
     request_response::ResponseChannel,
     tcp,
     yamux::{WindowUpdateMode, YamuxConfig},
-    InboundUpgradeExt, Multiaddr, OutboundUpgradeExt, PeerId, Transport,
+    InboundUpgradeExt, Multiaddr, OutboundUpgradeExt, Transport,
 };
+use libp2p_identity::PeerId;
 use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fmt::Debug, io, str::FromStr, sync::Arc, time::Duration};

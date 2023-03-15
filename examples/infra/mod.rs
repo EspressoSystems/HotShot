@@ -56,8 +56,9 @@ use libp2p::{
         Keypair,
     },
     multiaddr::{self, Protocol},
-    Multiaddr, PeerId,
+    Multiaddr,
 };
+use libp2p_identity::PeerId;
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 #[allow(deprecated)]
 use tracing::error;
@@ -397,6 +398,7 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
     let new_seed = *hasher.finalize().as_bytes();
     let sk_bytes = SecretKey::from_bytes(new_seed).unwrap();
     let ed_kp = <EdKeypair as From<SecretKey>>::from(sk_bytes);
+    #[allow(deprecated)]
     Keypair::Ed25519(ed_kp)
 }
 
