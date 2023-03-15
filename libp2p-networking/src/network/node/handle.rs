@@ -209,7 +209,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
             }
             async_sleep(Duration::from_secs(1)).await;
             let num_connected = self.num_connected().await?;
-            error!(
+            info!(
                 "WAITING TO CONNECT, connected to {} / {} peers ON NODE {}",
                 num_connected, num_peers, node_id
             );

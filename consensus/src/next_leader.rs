@@ -78,7 +78,7 @@ where
     /// unless there is a bug in std
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Next Validating ValidatingLeader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
-        error!("Next validating leader task started!");
+        info!("Next validating leader task started!");
 
         let vote_collection_start = Instant::now();
 

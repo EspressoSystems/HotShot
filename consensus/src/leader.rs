@@ -68,7 +68,7 @@ where
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Validating ValidatingLeader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
         let pk = self.api.public_key();
-        error!("Validating leader task started!");
+        info!("Validating leader task started!");
 
         let task_start_time = Instant::now();
         let parent_view_number = &self.high_qc.view_number();

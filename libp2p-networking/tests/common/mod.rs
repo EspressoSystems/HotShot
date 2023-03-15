@@ -137,7 +137,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
         .context(HandleSnafu)?;
         let node = Arc::new(node);
         let addr = node.listen_addr();
-        error!("listen addr for {} is {:?}", i, addr);
+        info!("listen addr for {} is {:?}", i, addr);
         bootstrap_addrs.push((node.peer_id(), addr));
         connecting_futs.push({
             let node = node.clone();
@@ -176,7 +176,7 @@ pub async fn spin_up_swarms<S: std::fmt::Debug + Default>(
 
         handles.push(node);
     }
-    error!("BSADDRS ARE: {:?}", bootstrap_addrs);
+    info!("BSADDRS ARE: {:?}", bootstrap_addrs);
 
     info!(
         "known nodes: {:?}",

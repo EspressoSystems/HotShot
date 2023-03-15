@@ -352,7 +352,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 // 10 minute timeout
                 let timeout_duration = Duration::from_secs(600);
                 // perform connection
-                error!("WAITING TO CONNECT ON NODE {:?}", id);
+                info!("WAITING TO CONNECT ON NODE {:?}", id);
                 handle
                     .wait_to_connect(4, id, timeout_duration)
                     .await
@@ -367,7 +367,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 // global topic to the topic map
                 // NOTE this wont' work without this change
 
-                error!(
+                info!(
                     "peer {:?} waiting for publishing, type: {:?}",
                     handle.peer_id(),
                     node_type
@@ -379,7 +379,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     async_sleep(Duration::from_secs(1)).await;
                 }
 
-                error!(
+                info!(
                     "Node {:?} is ready, type: {:?}",
                     handle.peer_id(),
                     node_type
@@ -389,14 +389,14 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     async_sleep(Duration::from_secs(1)).await;
                 }
 
-                error!(
+                info!(
                     "node {:?} is barring bootstrap, type: {:?}",
                     handle.peer_id(),
                     node_type
                 );
 
                 is_ready.store(true, std::sync::atomic::Ordering::Relaxed);
-                error!("STARTING CONSENSUS ON {:?}", handle.peer_id());
+                info!("STARTING CONSENSUS ON {:?}", handle.peer_id());
                 Ok::<(), NetworkError>(())
             }
         });

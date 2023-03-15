@@ -1227,7 +1227,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
     ) -> std::result::Result<(), NetworkError> {
         let inner = self.inner.clone();
         debug!(?message, ?recipient, "send_direct_message");
-        error!("Direct recipient = {:?}", recipient);
         async_spawn_local(async move {
             inner
                 .committee_exchange
