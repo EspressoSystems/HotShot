@@ -526,13 +526,19 @@ fn cross_tests_internal(test_spec: CrossTestData) -> TokenStream {
 /// Example usage:
 /// ```
 /// hotshot_testing_macros::cross_tests!(
-///     DemoType: [ (SequencingConsensus, hotshot::demos::sdemo::SDemoState), (ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
+///     DemoType: [(ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
 ///     SignatureKey: [ hotshot_types::traits::signature_key::ed25519::Ed25519Pub ],
-///     CommChannel: [ hotshot::traits::implementations::MemoryCommChannel, hotshot::traits::implementations::Libp2pCommChannel, hotshot::traits::implementations::CentralizedCommChannel ],
+///     CommChannel: [ hotshot::traits::implementations::MemoryCommChannel ],
 ///     Storage: [ hotshot::traits::implementations::MemoryStorage ],
 ///     Time: [ hotshot_types::data::ViewNumber ],
-///     TestName: example_test,
-///     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder::default(),
+///     TestName: ten_tx_seven_nodes_fast,
+///     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder {
+///         total_nodes: 7,
+///         start_nodes: 7,
+///         num_succeeds: 10,
+///         txn_ids: either::Either::Right(1),
+///         ..hotshot_testing::test_description::GeneralTestDescriptionBuilder::default()
+///     },
 ///     Slow: false,
 /// );
 /// ```
