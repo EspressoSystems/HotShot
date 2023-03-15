@@ -11,7 +11,7 @@ use tokio::time::error::Elapsed as TimeoutError;
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 use super::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
-use crate::{data::ProposalType, message::Message, vote::VoteType};
+use crate::{data::ProposalType, vote::VoteType};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
@@ -126,14 +126,16 @@ pub enum NetworkError {
     /// unable to cancel a request, the request has already been cancelled
     UnableToCancel,
 }
-/// common traits we would like olur network messages to implement
 
+/// common traits we would like olur network messages to implement
 pub trait NetworkMsg:
     Serialize + for<'a> Deserialize<'a> + Clone + Sync + Send + std::fmt::Debug + 'static
 {
 }
 
+/// a message
 pub trait ViewMessage<TYPES: NodeType> {
+    /// get the view out of the message
     fn get_view_number(&self) -> TYPES::Time;
 }
 

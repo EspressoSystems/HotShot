@@ -15,11 +15,7 @@ use hotshot::{
 use hotshot_testing::test_description::GeneralTestDescriptionBuilder;
 use hotshot_types::data::CommitmentProposal;
 use hotshot_types::message::Message;
-use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::node_implementation::{
-    QuorumMembership, QuorumProposal, QuorumVoteType,
-};
-use hotshot_types::traits::storage::TestableStorage;
+
 use hotshot_types::vote::QuorumVote;
 use hotshot_types::{
     data::{DAProposal, SequencingLeaf, ViewNumber},

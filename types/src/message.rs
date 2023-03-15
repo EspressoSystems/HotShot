@@ -3,17 +3,16 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-use crate::certificate::QuorumCertificate;
 use crate::traits::network::ViewMessage;
 use crate::{
-    data::{LeafType, ProposalType},
+    data::ProposalType,
     traits::{
         network::NetworkMsg,
         node_implementation::{
             CommitteeProposal, CommitteeVote, NodeImplementation, NodeType, QuorumProposal,
             QuorumVoteType,
         },
-        signature_key::{EncodedPublicKey, EncodedSignature},
+        signature_key::EncodedSignature,
     },
     vote::VoteType,
 };
@@ -95,9 +94,11 @@ pub enum InternalTrigger<TYPES: NodeType> {
 pub enum ProcessedConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Leader's proposal
     Proposal(Proposal<QuorumProposal<TYPES, I>>, TYPES::SignatureKey),
+    /// proposal for data availability committee
     DAProposal(Proposal<CommitteeProposal<TYPES, I>>, TYPES::SignatureKey),
     /// Replica's vote on a proposal.
     Vote(QuorumVoteType<TYPES, I>, TYPES::SignatureKey),
+    /// vote from the DA committee
     DAVote(CommitteeVote<TYPES, I>, TYPES::SignatureKey),
     /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
@@ -143,10 +144,14 @@ pub enum ConsensusMessage<
 > {
     /// Leader's proposal
     Proposal(Proposal<QuorumProposal<TYPES, I>>),
+
+    /// proposal for data availability committee
     DAProposal(Proposal<CommitteeProposal<TYPES, I>>),
 
     /// Replica's vote on a proposal.
     Vote(QuorumVoteType<TYPES, I>),
+
+    /// vote for data availability committee
     DAVote(CommitteeVote<TYPES, I>),
 
     /// Internal ONLY message indicating a view interrupt.

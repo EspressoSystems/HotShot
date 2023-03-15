@@ -4,7 +4,7 @@ use hotshot::traits::{
     election::static_committee::StaticCommittee,
     implementations::{CentralizedWebCommChannel, MemoryStorage},
 };
-use hotshot_testing::test_types::{VrfCommunication, VrfMembership, VrfTestTypes};
+
 use hotshot_testing::{
     test_description::GeneralTestDescriptionBuilder, test_types::StaticCommitteeTestTypes,
 };

@@ -20,7 +20,6 @@ use hotshot_types::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
         state::ValidatingConsensus, Block, State,
     },
-    vote::QuorumVote,
 };
 use std::marker::PhantomData;
 use std::{sync::Arc, time::Instant};
@@ -45,7 +44,10 @@ pub struct ValidatingLeader<
     /// Limited access to the consensus protocol
     pub api: A,
 
+    /// the quorum exchange
     pub exchange: Arc<I::QuorumExchange>,
+
+    /// needed for type checking
     pub _pd: PhantomData<I>,
 }
 

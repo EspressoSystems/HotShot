@@ -1,6 +1,5 @@
 use futures::Future;
 use futures::FutureExt;
-use hotshot_types::traits::election::CommitteeExchange;
 use std::{
     cmp,
     collections::{BTreeSet, VecDeque},
@@ -38,13 +37,12 @@ use hotshot_orchestrator::{
     config::{CentralizedWebServerConfig, NetworkConfig, NetworkConfigFile},
 };
 use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::node_implementation::QuorumNetwork;
 use hotshot_types::{
     data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
     traits::{
         election::Membership,
         metrics::NoMetrics,
-        network::{CommunicationChannel, NetworkMsg},
+        network::CommunicationChannel,
         node_implementation::NodeType,
         state::{TestableBlock, TestableState},
     },
@@ -62,7 +60,7 @@ use libp2p::{
 };
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 #[allow(deprecated)]
-use tracing::{debug, error};
+use tracing::error;
 
 // ORCHESTRATOR
 
@@ -226,7 +224,6 @@ pub trait Run<
         let known_nodes = config.config.known_nodes.clone();
 
         let network = self.get_network();
-        let election_config = config.config.election_config.clone().unwrap();
 
         // Since we do not currently pass the election config type in the NetworkConfig, this will always be the default election config
         let election_config = config.config.election_config.clone().unwrap_or_else(|| {

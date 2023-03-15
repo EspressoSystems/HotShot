@@ -11,7 +11,6 @@ use hotshot_testing::{
 };
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
-    traits::network::TestableNetworkingImplementation,
     vote::QuorumVote,
 };
 // use hotshot_utils::test_util::shutdown_logging;

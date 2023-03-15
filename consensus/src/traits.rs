@@ -1,31 +1,21 @@
 //! Contains the [`ConsensusApi`] trait.
 
 use async_trait::async_trait;
-use commit::Commitment;
-use commit::Committable;
-use either::Either;
-use hotshot_types::certificate::VoteMetaData;
-use hotshot_types::certificate::{DACertificate, QuorumCertificate};
-use hotshot_types::data::DAProposal;
-use hotshot_types::data::ValidatingProposal;
+
+use hotshot_types::certificate::QuorumCertificate;
+
 use hotshot_types::message::ConsensusMessage;
-use hotshot_types::traits::election::SignedCertificate;
-use hotshot_types::traits::node_implementation::{
-    CommitteeProposal, CommitteeVote, NodeImplementation, NodeType, QuorumProposal,
-};
+
+use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
     data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
-    traits::{
-        election::{Checked, ConsensusExchange, ElectionError, VoteData},
-        network::NetworkError,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
-    },
-    vote::{DAVote, QuorumVote, TimeoutVote, VoteAccumulator, VoteType, YesOrNoVote},
+    traits::{network::NetworkError, signature_key::SignatureKey},
+    vote::VoteType,
 };
-use std::num::NonZeroU64;
+
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 // FIXME these should be nonzero u64s
@@ -74,7 +64,11 @@ pub trait ConsensusApi<
         message: ConsensusMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError>;
 
-    async fn send_direct_da_message<PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>(
+    /// send a direct message using the DA communication channel
+    async fn send_direct_da_message<
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+    >(
         &self,
         recipient: TYPES::SignatureKey,
         message: ConsensusMessage<TYPES, I>,

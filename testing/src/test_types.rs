@@ -14,14 +14,13 @@ use hotshot::{
         implementations::{MemoryCommChannel, MemoryStorage},
         NodeImplementation,
     },
-    types::VoteType,
 };
 use hotshot_types::message::Message;
 use hotshot_types::{
-    data::{LeafType, ProposalType, ValidatingLeaf, ValidatingProposal, ViewNumber},
+    data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
-        election::{Membership, QuorumExchange},
+        election::QuorumExchange,
         node_implementation::NodeType,
         state::ValidatingConsensus,
     },
@@ -88,9 +87,11 @@ impl NodeType for StaticCommitteeTestTypes {
     type StateType = VDemoState;
 }
 
+/// type alias for a "usable" node impl type
 #[derive(Clone, Debug)]
 pub struct StandardNodeImplType {}
 
+/// type alias for membership using vrf types
 pub type VrfMembership = VrfImpl<
     VrfTestTypes,
     ValidatingLeaf<VrfTestTypes>,
@@ -100,6 +101,7 @@ pub type VrfMembership = VrfImpl<
     Param381,
 >;
 
+/// type alias for comm channel using vrf
 pub type VrfCommunication = MemoryCommChannel<
     VrfTestTypes,
     StandardNodeImplType,
@@ -108,6 +110,7 @@ pub type VrfCommunication = MemoryCommChannel<
     VrfMembership,
 >;
 
+/// type alias for static committee node
 #[derive(Clone, Debug)]
 pub struct StaticNodeImplType {}
 

@@ -11,19 +11,11 @@ use hotshot::traits::TestableNodeImplementation;
 use hotshot::{traits::NetworkReliability, types::Message, HotShot, HotShotError, ViewRunner};
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
-    data::TestableLeaf,
     traits::{
         election::Membership,
-        network::{CommunicationChannel, TestableNetworkingImplementation},
-        node_implementation::{
-            CommitteeMembership, CommitteeProposal, CommitteeVote, NodeImplementation, NodeType,
-            QuorumMembership, QuorumProposal, QuorumVoteType,
-        },
-        signature_key::TestableSignatureKey,
-        state::{TestableBlock, TestableState},
-        storage::TestableStorage,
+        network::CommunicationChannel,
+        node_implementation::{NodeImplementation, NodeType},
     },
-    vote::QuorumVote,
     HotShotConfig,
 };
 use snafu::Snafu;

@@ -5,12 +5,11 @@ use crate::ConsensusMetrics;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
 use either::Either;
-use hotshot_types::data::{ValidatingLeaf, ValidatingProposal};
+use hotshot_types::data::ValidatingLeaf;
 use hotshot_types::message::Message;
 use hotshot_types::message::ProcessedConsensusMessage;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::election::SignedCertificate;
 use hotshot_types::traits::election::{Checked::Unchecked, VoteData};
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::NodeType;
@@ -48,11 +47,13 @@ pub struct NextValidatingLeader<
     /// Limited access to the consensus protocol
     pub api: A,
 
+    /// quorum exchange
     pub exchange: Arc<I::QuorumExchange>,
     /// Metrics for reporting stats
     #[debug(skip)]
     pub metrics: Arc<ConsensusMetrics>,
 
+    /// needed to type check
     pub _pd: PhantomData<I>,
 }
 
@@ -161,6 +162,8 @@ where
             }
         }
 
-        qcs.into_iter().max_by_key(|qc| qc.view_number()).unwrap()
+        qcs.into_iter()
+            .max_by_key(hotshot_types::traits::election::SignedCertificate::view_number)
+            .unwrap()
     }
 }

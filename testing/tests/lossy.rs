@@ -4,26 +4,15 @@ use std::sync::Arc;
 use either::Either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::traits::TestableNodeImplementation;
-use hotshot_testing::test_types::{VrfCommunication, VrfMembership};
+
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
     test_description::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder},
     test_types::{AppliedTestRunner, StaticCommitteeTestTypes, StaticNodeImplType},
     ConsensusRoundError, RoundResult,
 };
-use hotshot_types::data::TestableLeaf;
-use hotshot_types::message::Message;
-use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::node_implementation::{
-    QuorumMembership, QuorumProposal, QuorumVoteType,
-};
-use hotshot_types::traits::{
-    network::TestableNetworkingImplementation,
-    node_implementation::{NodeImplementation, NodeType},
-    signature_key::TestableSignatureKey,
-    state::{TestableBlock, TestableState},
-    storage::TestableStorage,
-};
+
+use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use tracing::{error, instrument};
 
 /// checks safety requirement; relatively lax

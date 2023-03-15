@@ -53,23 +53,20 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use async_trait::async_trait;
 use bincode::Options;
 use commit::{Commitment, Committable};
-use either::Either;
+
 use hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader, DALeader,
     DAMember, NextValidatingLeader, Replica, SendToTasks, SequencingReplica, ValidatingLeader,
     View, ViewInner, ViewQueue,
 };
 use hotshot_types::certificate::DACertificate;
-use hotshot_types::certificate::VoteMetaData;
+
 use hotshot_types::data::CommitmentProposal;
+use hotshot_types::data::{DAProposal, SequencingLeaf};
 use hotshot_types::traits::election::CommitteeExchangeType;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
-use hotshot_types::{
-    data::{DAProposal, SequencingLeaf},
-    traits::election::QuorumExchange,
-};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
@@ -78,16 +75,16 @@ use hotshot_types::{
         ProcessedConsensusMessage,
     },
     traits::{
-        election::{Checked, ElectionError, Membership, SignedCertificate, VoteData, VoteToken},
+        election::SignedCertificate,
         metrics::Metrics,
         network::{NetworkError, TransmitType},
-        node_implementation::{CommitteeProposal, CommitteeVote, NodeType, QuorumVoteType},
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        node_implementation::NodeType,
+        signature_key::SignatureKey,
         state::{ConsensusTime, ConsensusType, SequencingConsensus, ValidatingConsensus},
         storage::StoredView,
         State,
     },
-    vote::{Accumulator, DAVote, QuorumVote, VoteAccumulator, VoteType},
+    vote::{DAVote, QuorumVote, VoteType},
     HotShotConfig,
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -95,7 +92,7 @@ use snafu::ResultExt;
 use std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
-    num::{NonZeroU64, NonZeroUsize},
+    num::NonZeroUsize,
     sync::{atomic::Ordering, Arc},
     time::{Duration, Instant},
 };
@@ -315,6 +312,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         };
     }
 
+    /// time out a da view
     #[instrument(
         skip_all,
         fields(id = self.id, view = *current_view),
