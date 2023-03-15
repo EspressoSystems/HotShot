@@ -26,7 +26,7 @@ use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
-use tracing::{error, instrument, warn};
+use tracing::{error, info, instrument, warn};
 
 /// The next view's validating leader
 #[derive(custom_debug::Debug, Clone)]
