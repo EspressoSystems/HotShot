@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
 
-/// Dummy implementation of [`Election`]
+/// Dummy implementation of [`Membership`]
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GeneralStaticCommittee<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey> {

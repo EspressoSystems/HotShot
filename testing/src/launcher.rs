@@ -159,9 +159,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///
-    /// - `NETWORK` implements and [`TestableNetworkingImplementation`]
+    /// - `NETWORK` implements and [`hotshot_types::traits::network::TestableNetworkingImplementation`]
     /// - `STORAGE` implements [`hotshot::traits::Storage`]
-    /// - `BLOCK` implements [`hotshot::traits::Block`] and [`TestableBlock`]
+    /// - `BLOCK` implements [`hotshot::traits::Block`] and [`hotshot_types::traits::state::TestableBlock`]
     pub fn launch(self) -> TestRunner<TYPES, I> {
         TestRunner::new(self)
     }

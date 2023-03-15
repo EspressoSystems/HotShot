@@ -792,7 +792,7 @@ impl<
     }
 }
 
-/// Testable implementation of an [`Election`]. Will expose a method to generate a vote token used for testing.
+/// Testable implementation of a [`Membership`]. Will expose a method to generate a vote token used for testing.
 pub trait TestableElection<TYPES: NodeType>: Membership<TYPES> {
     /// Generate a vote token used for testing.
     fn generate_test_vote_token() -> TYPES::VoteTokenType;
