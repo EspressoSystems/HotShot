@@ -5,9 +5,11 @@ use std::{net::IpAddr, num::NonZeroUsize, time::Duration};
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Libp2pConfig {
     pub bootstrap_nodes: Vec<(SocketAddr, Vec<u8>)>,
+    pub num_bootstrap_nodes: u64,
     pub public_ip: IpAddr,
     pub base_port: u16,
     pub node_index: u64,
+    pub index_ports: bool,
     pub bootstrap_mesh_n_high: usize,
     pub bootstrap_mesh_n_low: usize,
     pub bootstrap_mesh_outbound_min: usize,
@@ -25,6 +27,8 @@ pub struct Libp2pConfig {
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Libp2pConfigFile {
+    pub num_bootstrap_nodes: u64,
+    pub index_ports: bool,
     pub bootstrap_mesh_n_high: usize,
     pub bootstrap_mesh_n_low: usize,
     pub bootstrap_mesh_outbound_min: usize,
@@ -116,6 +120,8 @@ impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
             seed: val.seed,
             padding: val.padding,
             libp2p_config: val.libp2p_config.map(|libp2p_config| Libp2pConfig {
+                num_bootstrap_nodes: libp2p_config.num_bootstrap_nodes,
+                index_ports: libp2p_config.index_ports,
                 bootstrap_nodes: Vec::new(),
                 public_ip: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
                 base_port: libp2p_config.base_port,

@@ -373,15 +373,6 @@ pub fn parse_ip(s: &str) -> Result<Multiaddr, multiaddr::Error> {
     Multiaddr::from_str(&format!("/ip4/{ip}/tcp/{port}"))
 }
 
-pub const LIBP2P_BOOTSTRAPS_LOCAL_IPS: &[&str] = &[
-    "127.0.0.1:9100",
-    "127.0.0.1:9101",
-    "127.0.0.1:9102",
-    "127.0.0.1:9103",
-    "127.0.0.1:9104",
-    "127.0.0.1:9105",
-    "127.0.0.1:9106",
-];
 
 #[async_trait]
 impl<
@@ -458,7 +449,6 @@ where
             } else {
                 "ip6"
             },
-            // TODO ED actually put in public IP
             libp2p_config.public_ip,
             // TODO ED This should technically still be fine with non-local deployments
             // But we'll want to change it to a specified port in the future
@@ -543,8 +533,7 @@ where
         )
         .unwrap();
 
-        network.wait_for_ready().await; 
-        
+        network.wait_for_ready().await;
 
         Libp2pRun {
             config,

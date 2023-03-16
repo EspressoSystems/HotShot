@@ -39,6 +39,8 @@ padding = 10
 start_delay_seconds = 60
 
 [libp2p_config]
+num_bootstrap_nodes = 5
+index_ports = true
 bootstrap_mesh_n_high = 4
 bootstrap_mesh_n_low = 4
 bootstrap_mesh_outbound_min = 2
