@@ -3,14 +3,12 @@ pub mod config;
 use async_lock::RwLock;
 use hotshot_types::traits::election::ElectionConfig;
 use hotshot_types::traits::signature_key::SignatureKey;
-use libp2p_core::identity;
 use std::io;
 use std::io::ErrorKind;
 use std::net::IpAddr;
 use std::net::SocketAddr;
 use tide_disco::Api;
 use tide_disco::App;
-use tracing::log::error;
 
 use tide_disco::api::ApiError;
 use tide_disco::error::ServerError;
@@ -21,16 +19,10 @@ use futures::FutureExt;
 
 use crate::config::NetworkConfig;
 
-use blake3;
-use libp2p::{
-    identity::{
-        ed25519::{Keypair as EdKeypair, SecretKey},
-        Keypair,
-    },
-    multiaddr::{self, Protocol},
-    Multiaddr, PeerId,
+use libp2p::identity::{
+    ed25519::{Keypair as EdKeypair, SecretKey},
+    Keypair,
 };
-use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
 
 /// yeesh maybe we should just implement SignatureKey for this...
 pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
@@ -62,7 +54,7 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
     pub fn new(network_config: NetworkConfig<KEY, ELECTION>) -> Self {
         OrchestratorState {
             latest_index: 0,
-            config: network_config.clone(),
+            config: network_config,
             start: false,
             nodes_connected: 0,
         }
@@ -126,7 +118,7 @@ where
     // 'identity' endpoint
     fn post_getconfig(
         &mut self,
-        node_index: u16,
+        _node_index: u16,
     ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
         if self.config.libp2p_config.is_some() {
             let libp2p_config = self.config.clone().libp2p_config.unwrap();
