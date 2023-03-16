@@ -1,6 +1,5 @@
 use futures::Future;
 use futures::FutureExt;
-use std::collections::HashSet;
 use std::net::Ipv4Addr;
 use std::{
     cmp,
@@ -472,7 +471,7 @@ where
 
         let to_connect_addrs = bootstrap_nodes
             .iter()
-            .map(|(peer_id, multiaddr)| (Some(peer_id.clone()), multiaddr.clone()))
+            .map(|(peer_id, multiaddr)| (Some(*peer_id), multiaddr.clone()))
             .collect();
 
         config_builder.to_connect_addrs(to_connect_addrs);
@@ -684,10 +683,11 @@ impl OrchestratorClient {
     /// Sends an identify message to the server
     /// Returns this validator's node_index in the network
     async fn identify_with_orchestrator(&self, identity: String) -> u16 {
+        let identity = identity.as_str();
         let f = |client: Client<ClientError>| {
             async move {
                 let node_index: Result<u16, ClientError> =
-                    client.post("api/identity/127.0.0.1").send().await;
+                    client.post(&format!("api/identity/{identity}")).send().await;
                 node_index
             }
             .boxed()
