@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/traits/networking/centralized_web_server_network.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>centralized_web_server_network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-6827029ac823cab7.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../../../static.files/light-ebce58d0a40c3431.css"><link rel="stylesheet" disabled href="../../../../static.files/dark-f23faae4a2daf9a6.css"><link rel="stylesheet" disabled href="../../../../static.files/ayu-8af5e100b21cd173.css"><script id="default-settings" ></script><script src="../../../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../../../static.files/source-script-5cf2e01a42cc9858.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../static.files/main-c55e1eb52e1886b4.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../../../hotshot/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/traits/networking/centralized_web_server_network.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>centralized_web_server_network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-93196c7a1c3542a8.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../../../static.files/light-4743e13df3dfe8c4.css"><link rel="stylesheet" disabled href="../../../../static.files/dark-0e1b889528bd466b.css"><link rel="stylesheet" disabled href="../../../../static.files/ayu-65289d5d067c7c66.css"><script id="default-settings" ></script><script src="../../../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../../../static.files/source-script-ea63cb6500f71309.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../static.files/main-3367e395607fafc1.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../hotshot/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -751,6 +751,14 @@
 <a href="#751" id="751">751</a>
 <a href="#752" id="752">752</a>
 <a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a centralized web server.
 //!
 //! To run the web server, see the `./centralized_web_server/` folder in this repo.
@@ -767,6 +775,7 @@
     art::{async_sleep, async_spawn},
     channel::{oneshot, OneShotSender},
 };
+<span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
 
 <span class="kw">use </span>hotshot_centralized_web_server::{<span class="self">self</span>, config};
 
@@ -788,6 +797,7 @@
 };
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 
+<span class="kw">use </span>hotshot_types::traits::network::ViewMessage;
 <span class="kw">use </span>std::{
     collections::BTreeSet,
     marker::PhantomData,
@@ -799,36 +809,37 @@
 };
 <span class="kw">use </span>surf_disco::error::ClientError;
 <span class="kw">use </span>tracing::{error, info};
-
 <span class="doccomment">/// Represents the communication channel abstraction for the web server
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>CentralizedWebCommChannel&lt;
     TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
     VOTE: VoteType&lt;TYPES&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
 &gt;(
     CentralizedWebServerNetwork&lt;
-        Message&lt;TYPES, PROPOSAL, VOTE&gt;,
+        Message&lt;TYPES, I&gt;,
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
         TYPES,
         PROPOSAL,
         VOTE,
     &gt;,
-    PhantomData&lt;MEMBERSHIP&gt;,
+    PhantomData&lt;(MEMBERSHIP, I)&gt;,
 );
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
+        I: NodeImplementation&lt;TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; CentralizedWebCommChannel&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    &gt; CentralizedWebCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 {
     <span class="doccomment">/// Create new communication channel
     </span><span class="kw">pub fn </span>new(
         network: CentralizedWebServerNetwork&lt;
-            Message&lt;TYPES, PROPOSAL, VOTE&gt;,
+            Message&lt;TYPES, I&gt;,
             TYPES::SignatureKey,
             TYPES::ElectionConfigType,
             TYPES,
@@ -843,16 +854,18 @@
     /// Returns a `SendMsg` containing the endpoint
     </span><span class="kw">fn </span>parse_post_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES, PROPOSAL, VOTE&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;SendMsg&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;, CentralizedWebServerNetworkError&gt; {
+        message: Message&lt;TYPES, I&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;SendMsg&lt;Message&lt;TYPES, I&gt;&gt;, CentralizedWebServerNetworkError&gt; {
         <span class="kw">let </span>view_number: TYPES::Time = message.get_view_number();
 
         <span class="kw">let </span>endpoint = <span class="kw">match </span><span class="kw-2">&amp;</span>message.kind {
             hotshot_types::message::MessageKind::Consensus(message_kind) =&gt; <span class="kw">match </span>message_kind {
-                hotshot_types::message::ConsensusMessage::Proposal(<span class="kw">_</span>) =&gt; {
+                hotshot_types::message::ConsensusMessage::Proposal(<span class="kw">_</span>)
+                | hotshot_types::message::ConsensusMessage::DAProposal(<span class="kw">_</span>) =&gt; {
                     config::post_proposal_route(<span class="kw-2">*</span>view_number)
                 }
-                hotshot_types::message::ConsensusMessage::Vote(<span class="kw">_</span>) =&gt; {
+                hotshot_types::message::ConsensusMessage::Vote(<span class="kw">_</span>)
+                | hotshot_types::message::ConsensusMessage::DAVote(<span class="kw">_</span>) =&gt; {
                     config::post_vote_route(<span class="kw-2">*</span>view_number)
                 }
                 hotshot_types::message::ConsensusMessage::InternalTrigger(<span class="kw">_</span>) =&gt; {
@@ -866,7 +879,7 @@
             },
         };
 
-        <span class="kw">let </span>network_msg: SendMsg&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt; = SendMsg {
+        <span class="kw">let </span>network_msg: SendMsg&lt;Message&lt;TYPES, I&gt;&gt; = SendMsg {
             message: <span class="prelude-val">Some</span>(message),
             endpoint,
         };
@@ -1252,18 +1265,19 @@
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
         TYPES: NodeType,
+        I: NodeImplementation&lt;TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; CommunicationChannel&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
-    <span class="kw">for </span>CentralizedWebCommChannel&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    &gt; CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    <span class="kw">for </span>CentralizedWebCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 {
     <span class="doccomment">/// Blocks until node is successfully initialized
     /// into the network
     </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         &lt;CentralizedWebServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
-            RecvMsg&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;,
-            SendMsg&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;,
+            RecvMsg&lt;Message&lt;TYPES, I&gt;&gt;,
+            SendMsg&lt;Message&lt;TYPES, I&gt;&gt;,
             TYPES::SignatureKey,
         &gt;&gt;::wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
         .<span class="kw">await</span>;
@@ -1273,8 +1287,8 @@
     /// nonblocking
     </span><span class="kw">async fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         &lt;CentralizedWebServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
-            RecvMsg&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;,
-            SendMsg&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;,
+            RecvMsg&lt;Message&lt;TYPES, I&gt;&gt;,
+            SendMsg&lt;Message&lt;TYPES, I&gt;&gt;,
             TYPES::SignatureKey,
         &gt;&gt;::is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
         .<span class="kw">await
@@ -1285,8 +1299,8 @@
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     </span><span class="kw">async fn </span>shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; () {
         &lt;CentralizedWebServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
-            RecvMsg&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;,
-            SendMsg&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;,
+            RecvMsg&lt;Message&lt;TYPES, I&gt;&gt;,
+            SendMsg&lt;Message&lt;TYPES, I&gt;&gt;,
             TYPES::SignatureKey,
         &gt;&gt;::shut_down(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
         .<span class="kw">await</span>;
@@ -1296,7 +1310,7 @@
     /// blocking
     </span><span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES, PROPOSAL, VOTE&gt;,
+        message: Message&lt;TYPES, I&gt;,
         _election: <span class="kw-2">&amp;</span>MEMBERSHIP,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>network_msg = <span class="self">self</span>.parse_post_message(message);
@@ -1312,7 +1326,7 @@
     /// blocking
     </span><span class="kw">async fn </span>direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES, PROPOSAL, VOTE&gt;,
+        message: Message&lt;TYPES, I&gt;,
         recipient: TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>network_msg = <span class="self">self</span>.parse_post_message(message);
@@ -1331,10 +1345,10 @@
     </span><span class="kw">async fn </span>recv_msgs(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;, NetworkError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, I&gt;&gt;, NetworkError&gt; {
         <span class="kw">let </span>result = &lt;CentralizedWebServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
-            RecvMsg&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;,
-            SendMsg&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;,
+            RecvMsg&lt;Message&lt;TYPES, I&gt;&gt;,
+            SendMsg&lt;Message&lt;TYPES, I&gt;&gt;,
             TYPES::SignatureKey,
         &gt;&gt;::recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, transmit_type)
         .<span class="kw">await</span>;
@@ -1355,8 +1369,8 @@
 
     <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, tuple: (u64, bool, bool)) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         &lt;CentralizedWebServerNetwork&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; <span class="kw">as </span>ConnectedNetwork&lt;
-            RecvMsg&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;,
-            SendMsg&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;,
+            RecvMsg&lt;Message&lt;TYPES, I&gt;&gt;,
+            SendMsg&lt;Message&lt;TYPES, I&gt;&gt;,
             TYPES::SignatureKey,
         &gt;&gt;::inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, tuple)
         .<span class="kw">await
@@ -1461,17 +1475,19 @@
 }
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
+        I: NodeImplementation&lt;TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; TestableNetworkingImplementation&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
-    <span class="kw">for </span>CentralizedWebCommChannel&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    &gt; TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    <span class="kw">for </span>CentralizedWebCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
 {
     <span class="kw">fn </span>generator(
         expected_node_count: usize,
         _num_bootstrap: usize,
+        _network_id: usize,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>(server_shutdown_sender, server_shutdown) = oneshot();
         <span class="kw">let </span>sender = Arc::new(server_shutdown_sender);
@@ -1505,4 +1521,4 @@
     </span>}
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>
+</section></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.0 (2c8cc3432 2023-03-06)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

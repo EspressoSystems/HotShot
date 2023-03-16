@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-6827029ac823cab7.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../static.files/light-ebce58d0a40c3431.css"><link rel="stylesheet" disabled href="../../static.files/dark-f23faae4a2daf9a6.css"><link rel="stylesheet" disabled href="../../static.files/ayu-8af5e100b21cd173.css"><script id="default-settings" ></script><script src="../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../static.files/source-script-5cf2e01a42cc9858.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-c55e1eb52e1886b4.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../hotshot/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-93196c7a1c3542a8.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../static.files/light-4743e13df3dfe8c4.css"><link rel="stylesheet" disabled href="../../static.files/dark-0e1b889528bd466b.css"><link rel="stylesheet" disabled href="../../static.files/ayu-65289d5d067c7c66.css"><script id="default-settings" ></script><script src="../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../static.files/source-script-ea63cb6500f71309.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-3367e395607fafc1.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1323,6 +1323,32 @@
 <a href="#1323" id="1323">1323</a>
 <a href="#1324" id="1324">1324</a>
 <a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
+<a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
+<a href="#1346" id="1346">1346</a>
+<a href="#1347" id="1347">1347</a>
+<a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
+<a href="#1351" id="1351">1351</a>
 </pre><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1378,43 +1404,46 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bincode::Options;
 <span class="kw">use </span>commit::{Commitment, Committable};
-<span class="kw">use </span>either::Either;
+
 <span class="kw">use </span>hotshot_consensus::{
     Consensus, ConsensusApi, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader, DALeader,
-    DAMember, NextValidatingLeader, Replica, SendToTasks, ValidatingLeader, View, ViewInner,
-    ViewQueue,
+    DAMember, NextValidatingLeader, Replica, SendToTasks, SequencingReplica, ValidatingLeader,
+    View, ViewInner, ViewQueue,
 };
+<span class="kw">use </span>hotshot_types::certificate::DACertificate;
+
+<span class="kw">use </span>hotshot_types::data::CommitmentProposal;
+<span class="kw">use </span>hotshot_types::data::{DAProposal, SequencingLeaf};
+<span class="kw">use </span>hotshot_types::traits::election::CommitteeExchangeType;
+<span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
+<span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
+<span class="kw">use </span>hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
 <span class="kw">use </span>hotshot_types::{
-    certificate::{DACertificate, VoteMetaData},
-    data::{
-        DAProposal, LeafType, ProposalType, SequencingLeaf, ValidatingLeaf, ValidatingProposal,
-    },
+    data::{LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
     message::{
         ConsensusMessage, DataMessage, InternalTrigger, Message, MessageKind,
         ProcessedConsensusMessage,
     },
     traits::{
-        election::{Checked, ElectionError, Membership, SignedCertificate, VoteData, VoteToken},
+        election::SignedCertificate,
         metrics::Metrics,
-        network::{CommunicationChannel, NetworkError, TransmitType},
+        network::{NetworkError, TransmitType},
         node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        signature_key::SignatureKey,
         state::{ConsensusTime, ConsensusType, SequencingConsensus, ValidatingConsensus},
         storage::StoredView,
         State,
     },
-    vote::{Accumulator, DAVote, QuorumVote, VoteAccumulator, VoteType},
+    vote::{DAVote, QuorumVote, VoteType},
     HotShotConfig,
 };
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
-<span class="attr">#[allow(deprecated)]
-</span><span class="kw">use </span>nll::nll_todo::nll_todo;
 <span class="kw">use </span>snafu::ResultExt;
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap},
     marker::PhantomData,
-    num::{NonZeroU64, NonZeroUsize},
+    num::NonZeroUsize,
     sync::{atomic::Ordering, Arc},
     time::{Duration, Instant},
 };
@@ -1444,13 +1473,16 @@
     </span>config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
 
     <span class="doccomment">/// Networking interface for this hotshot instance
-    </span>networking: I::Networking,
+    </span><span class="comment">// networking: I::Networking,
 
-    <span class="doccomment">/// This `HotShot` instance&#39;s storage backend
+    </span><span class="doccomment">/// This `HotShot` instance&#39;s storage backend
     </span>storage: I::Storage,
 
-    <span class="doccomment">/// This `HotShot` instance&#39;s election backend
-    </span>membership: I::Membership,
+    <span class="doccomment">/// This `HotShot` instance&#39;s way to interact with the nodes needed to form a quorum
+    </span><span class="kw">pub </span>quorum_exchange: Arc&lt;I::QuorumExchange&gt;,
+
+    <span class="doccomment">/// This `HotShot` instance&#39;s interaction with the DA committee to form a DA certificate.
+    </span><span class="kw">pub </span>committee_exchange: Arc&lt;I::CommitteeExchange&gt;,
 
     <span class="doccomment">/// Sender for [`Event`]s
     </span>event_sender: RwLock&lt;<span class="prelude-ty">Option</span>&lt;BroadcastSender&lt;Event&lt;TYPES, I::Leaf&gt;&gt;&gt;&gt;,
@@ -1476,13 +1508,17 @@
     <span class="doccomment">/// The hotstuff implementation
     </span>hotstuff: Arc&lt;RwLock&lt;Consensus&lt;TYPES, I::Leaf&gt;&gt;&gt;,
 
-    <span class="comment">// TODO (da) split this into `replica_channel_map` and `da_member_channel_map` after
-    // refactoring `HotShot`.
-    </span><span class="doccomment">/// for sending/recv-ing things with the replica task
-    </span>replica_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I::Proposal, I::Vote&gt;&gt;&gt;,
+    <span class="doccomment">/// for sending/recv-ing things with the DA member task
+    </span>member_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I&gt;&gt;&gt;,
+
+    <span class="doccomment">/// for sending/recv-ing things with the replica task
+    </span>replica_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I&gt;&gt;&gt;,
 
     <span class="doccomment">/// for sending/recv-ing things with the next leader task
-    </span>next_leader_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I::Proposal, I::Vote&gt;&gt;&gt;,
+    </span>next_leader_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I&gt;&gt;&gt;,
+
+    <span class="doccomment">/// for sending/recv-ing things to the da leader
+    </span>da_leader_channel_map: Arc&lt;RwLock&lt;SendToTasks&lt;TYPES, I&gt;&gt;&gt;,
 
     <span class="doccomment">/// for sending messages to network lookup task
     </span>send_network_lookup: UnboundedSender&lt;<span class="prelude-ty">Option</span>&lt;TYPES::Time&gt;&gt;,
@@ -1501,15 +1537,23 @@
     <span class="doccomment">/// Creates a new hotshot with the given configuration options and sets it up with the given
     /// genesis block
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
-    #[instrument(skip(private_key, networking, storage, membership, initializer, metrics))]
+    #[instrument(skip(
+        private_key,
+        storage,
+        quorum_exchange,
+        committee_exchange,
+        initializer,
+        metrics
+    ))]
     </span><span class="kw">pub async fn </span>new(
         public_key: TYPES::SignatureKey,
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         nonce: u64,
         config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
-        networking: I::Networking,
-        storage: I::Storage,
-        membership: I::Membership,
+        <span class="comment">// networking: I::Networking,
+        </span>storage: I::Storage,
+        quorum_exchange: I::QuorumExchange,
+        committee_exchange: I::CommitteeExchange,
         initializer: HotShotInitializer&lt;TYPES, I::Leaf&gt;,
         metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, HotShotError&lt;TYPES&gt;&gt; {
@@ -1518,9 +1562,10 @@
             public_key,
             private_key,
             config,
-            networking,
-            storage,
-            membership,
+            <span class="comment">// networking,
+            </span>storage,
+            quorum_exchange: Arc::new(quorum_exchange),
+            committee_exchange: Arc::new(committee_exchange),
             event_sender: RwLock::default(),
             background_task_handle: tasks::TaskHandle::default(),
             metrics,
@@ -1577,8 +1622,10 @@
             inner,
             transactions: txns,
             hotstuff,
+            member_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             replica_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             next_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
+            da_leader_channel_map: Arc::new(RwLock::new(SendToTasks::new(start_view))),
             send_network_lookup,
             recv_network_lookup: Arc::new(Mutex::new(recv_network_lookup)),
             _pd: PhantomData,
@@ -1599,14 +1646,12 @@
     </span><span class="kw">pub async fn </span>timeout_view(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         current_view: TYPES::Time,
-        send_replica: UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, I::Proposal, I::Vote&gt;&gt;,
-        send_next_leader: <span class="prelude-ty">Option</span>&lt;
-            UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, I::Proposal, I::Vote&gt;&gt;,
-        &gt;,
+        send_replica: UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;,
+        send_next_leader: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;&gt;,
     ) {
-        <span class="kw">let </span>msg = ProcessedConsensusMessage::&lt;TYPES, I::Proposal, I::Vote&gt;::InternalTrigger(
-            InternalTrigger::Timeout(current_view),
-        );
+        <span class="kw">let </span>msg = ProcessedConsensusMessage::&lt;TYPES, I&gt;::InternalTrigger(InternalTrigger::Timeout(
+            current_view,
+        ));
         <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = send_next_leader {
             <span class="kw">if </span>chan.send(msg.clone()).<span class="kw">await</span>.is_err() {
                 <span class="macro">warn!</span>(<span class="string">&quot;Error timing out next leader task&quot;</span>);
@@ -1614,6 +1659,33 @@
         };
         <span class="comment">// NOTE this should always exist
         </span><span class="kw">if </span>send_replica.send(msg).<span class="kw">await</span>.is_err() {
+            <span class="macro">warn!</span>(<span class="string">&quot;Error timing out replica task&quot;</span>);
+        };
+    }
+
+    <span class="doccomment">/// time out a da view
+    </span><span class="attr">#[instrument(
+        skip_all,
+        fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span>current_view),
+        name = <span class="string">&quot;Timeout consensus tasks&quot;</span>,
+        level = <span class="string">&quot;warn&quot;
+    </span>)]
+    </span><span class="kw">pub async fn </span>timeout_da_view(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        current_view: TYPES::Time,
+        send_da_member: UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;,
+        send_da_leader: <span class="prelude-ty">Option</span>&lt;UnboundedSender&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;&gt;,
+    ) {
+        <span class="kw">let </span>msg = ProcessedConsensusMessage::&lt;TYPES, I&gt;::InternalTrigger(InternalTrigger::Timeout(
+            current_view,
+        ));
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = send_da_leader {
+            <span class="kw">if </span>chan.send(msg.clone()).<span class="kw">await</span>.is_err() {
+                <span class="macro">warn!</span>(<span class="string">&quot;Error timing out next leader task&quot;</span>);
+            }
+        };
+        <span class="comment">// NOTE this should always exist
+        </span><span class="kw">if </span>send_da_member.send(msg).<span class="kw">await</span>.is_err() {
             <span class="macro">warn!</span>(<span class="string">&quot;Error timing out replica task&quot;</span>);
         };
     }
@@ -1676,9 +1748,9 @@
         private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
         node_id: u64,
         config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
-        networking: I::Networking,
         storage: I::Storage,
-        membership: I::Membership,
+        quorum_exchange: I::QuorumExchange,
+        committee_exchange: I::CommitteeExchange,
         initializer: HotShotInitializer&lt;TYPES, I::Leaf&gt;,
         metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;HotShotHandle&lt;TYPES, I&gt;, HotShotError&lt;TYPES&gt;&gt;
@@ -1691,9 +1763,9 @@
             private_key,
             node_id,
             config,
-            networking,
             storage,
-            membership,
+            quorum_exchange,
+            committee_exchange,
             initializer,
             metrics,
         )
@@ -1712,18 +1784,19 @@
     /// Will return any errors that the underlying `broadcast_message` can return.
     </span><span class="kw">pub async fn </span>send_broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        kind: <span class="kw">impl </span>Into&lt;MessageKind&lt;TYPES, I::Proposal, I::Vote&gt;&gt;,
+        kind: <span class="kw">impl </span>Into&lt;MessageKind&lt;TYPES, I&gt;&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
         <span class="kw">let </span>pk = <span class="self">self</span>.inner.public_key.clone();
         <span class="kw">let </span>kind = kind.into();
         async_spawn_local(<span class="kw">async move </span>{
             <span class="kw">if </span>inner
-                .networking
+                .quorum_exchange
+                .network()
                 .broadcast_message(
                     Message { sender: pk, kind },
                     <span class="comment">// TODO this is morally wrong
-                    </span><span class="kw-2">&amp;</span>inner.membership.clone(),
+                    </span><span class="kw-2">&amp;</span>inner.quorum_exchange.membership().clone(),
                 )
                 .<span class="kw">await
                 </span>.is_err()
@@ -1743,11 +1816,12 @@
     /// Will return any errors that the underlying `message_node` can return.
     </span><span class="kw">pub async fn </span>send_direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        kind: <span class="kw">impl </span>Into&lt;MessageKind&lt;TYPES, I::Proposal, I::Vote&gt;&gt;,
+        kind: <span class="kw">impl </span>Into&lt;MessageKind&lt;TYPES, I&gt;&gt;,
         recipient: TYPES::SignatureKey,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
         <span class="self">self</span>.inner
-            .networking
+            .quorum_exchange
+            .network()
             .direct_message(
                 Message {
                     sender: <span class="self">self</span>.inner.public_key.clone(),
@@ -1767,7 +1841,7 @@
     </span>)]
     </span><span class="kw">async fn </span>handle_broadcast_consensus_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        msg: ConsensusMessage&lt;TYPES, I::Proposal, I::Vote&gt;,
+        msg: ConsensusMessage&lt;TYPES, I&gt;,
         sender: TYPES::SignatureKey,
     ) {
         <span class="comment">// TODO validate incoming data message based on sender signature key
@@ -1785,7 +1859,7 @@
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">let </span>chan: ViewQueue&lt;TYPES, I::Proposal, I::Vote&gt; =
+                <span class="kw">let </span>chan: ViewQueue&lt;TYPES, I&gt; =
                     <span class="self">Self</span>::create_or_obtain_chan_from_read(msg_time, channel_map).<span class="kw">await</span>;
 
                 <span class="kw">if </span>!chan.has_received_proposal.swap(<span class="bool-val">true</span>, Ordering::Relaxed)
@@ -1804,15 +1878,36 @@
             ConsensusMessage::Vote(<span class="kw">_</span>) =&gt; {
                 <span class="macro">warn!</span>(<span class="string">&quot;Received a broadcast for a vote message. This shouldn&#39;t be possible.&quot;</span>);
             }
+            ConsensusMessage::DAVote(<span class="kw">_</span>) =&gt; {
+                <span class="macro">warn!</span>(<span class="string">&quot;Received a broadcast for a vote message. This shouldn&#39;t be possible.&quot;</span>);
+            }
+            ConsensusMessage::DAProposal(<span class="kw">_</span>) =&gt; {
+                <span class="kw">let </span>channel_map = <span class="self">self</span>.member_channel_map.upgradable_read().<span class="kw">await</span>;
+
+                <span class="comment">// skip if the proposal is stale
+                </span><span class="kw">if </span>msg_time &lt; channel_map.cur_view {
+                    <span class="macro">warn!</span>(<span class="string">&quot;Throwing away DA proposal for view number: {:?}&quot;</span>, msg_time);
+                    <span class="kw">return</span>;
+                }
+
+                <span class="kw">let </span>chan: ViewQueue&lt;TYPES, I&gt; =
+                    <span class="self">Self</span>::create_or_obtain_chan_from_read(msg_time, channel_map).<span class="kw">await</span>;
+
+                <span class="kw">if </span>!chan.has_received_proposal.swap(<span class="bool-val">true</span>, Ordering::Relaxed)
+                    &amp;&amp; chan
+                        .sender_chan
+                        .send(ProcessedConsensusMessage::new(msg, sender))
+                        .<span class="kw">await
+                        </span>.is_err()
+                {
+                    <span class="macro">warn!</span>(<span class="string">&quot;Failed to send to next leader!&quot;</span>);
+                }
+            }
         };
     }
 
     <span class="doccomment">/// decide which handler to call based on the message variant and `transmit_type`
-    </span><span class="kw">async fn </span>handle_message(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        item: Message&lt;TYPES, I::Proposal, I::Vote&gt;,
-        transmit_type: TransmitType,
-    ) {
+    </span><span class="kw">async fn </span>handle_message(<span class="kw-2">&amp;</span><span class="self">self</span>, item: Message&lt;TYPES, I&gt;, transmit_type: TransmitType) {
         <span class="kw">match </span>(item.kind, transmit_type) {
             (MessageKind::Consensus(msg), TransmitType::Broadcast) =&gt; {
                 <span class="self">self</span>.handle_broadcast_consensus_message(msg, item.sender)
@@ -1834,7 +1929,7 @@
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), name = <span class="string">&quot;Handle direct consensus message&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
     </span><span class="kw">async fn </span>handle_direct_consensus_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        msg: ConsensusMessage&lt;TYPES, I::Proposal, I::Vote&gt;,
+        msg: ConsensusMessage&lt;TYPES, I&gt;,
         sender: TYPES::SignatureKey,
     ) {
         <span class="comment">// We can only recv from a replicas
@@ -1852,13 +1947,7 @@
                 <span class="comment">// check if
                 // - is in fact, actually is the next leader
                 // - the message is not stale
-                </span><span class="kw">let </span>is_leader = ConsensusApi::is_leader(
-                    <span class="kw-2">&amp;</span>HotShotConsensusApi {
-                        inner: <span class="self">self</span>.inner.clone(),
-                    },
-                    msg_time + <span class="number">1</span>,
-                )
-                .<span class="kw">await</span>;
+                </span><span class="kw">let </span>is_leader = <span class="self">self</span>.inner.clone().quorum_exchange.is_leader(msg_time + <span class="number">1</span>);
                 <span class="kw">if </span>!is_leader || msg_time &lt; channel_map.cur_view {
                     <span class="macro">warn!</span>(
                         <span class="string">&quot;Throwing away VoteType&lt;TYPES&gt;message for view number: {:?}&quot;</span>,
@@ -1878,6 +1967,36 @@
                     <span class="macro">error!</span>(<span class="string">&quot;Failed to send to next leader!&quot;</span>);
                 }
             }
+            c @ ConsensusMessage::DAVote(<span class="kw">_</span>) =&gt; {
+                <span class="kw">let </span>msg_time = c.view_number();
+
+                <span class="kw">let </span>channel_map = <span class="self">self</span>.da_leader_channel_map.upgradable_read().<span class="kw">await</span>;
+
+                <span class="comment">// check if
+                // - is in fact, actually is the next leader
+                // - the message is not stale
+                </span><span class="kw">let </span>is_leader = <span class="self">self</span>.inner.clone().committee_exchange.is_leader(msg_time);
+                <span class="kw">if </span>!is_leader || msg_time &lt; channel_map.cur_view {
+                    <span class="macro">warn!</span>(
+                        <span class="string">&quot;Throwing away VoteType&lt;TYPES&gt;message for view number: {:?}, Channel cur view: {:?}&quot;</span>,
+                        msg_time,
+                        channel_map.cur_view,
+                    );
+                    <span class="kw">return</span>;
+                }
+
+                <span class="kw">let </span>chan = <span class="self">Self</span>::create_or_obtain_chan_from_read(msg_time, channel_map).<span class="kw">await</span>;
+
+                <span class="kw">if </span>chan
+                    .sender_chan
+                    .send(ProcessedConsensusMessage::new(c, sender))
+                    .<span class="kw">await
+                    </span>.is_err()
+                {
+                    <span class="macro">error!</span>(<span class="string">&quot;Failed to send to next leader!&quot;</span>);
+                }
+            }
+            ConsensusMessage::DAProposal(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
         }
     }
 
@@ -1941,18 +2060,15 @@
     /// doesn&#39;t exist, or creates entry. Then returns a clone of the entry
     </span><span class="kw">pub async fn </span>create_or_obtain_chan_from_read(
         view_num: TYPES::Time,
-        channel_map: RwLockUpgradableReadGuard&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;TYPES, I::Proposal, I::Vote&gt;&gt;,
-    ) -&gt; ViewQueue&lt;TYPES, I::Proposal, I::Vote&gt; {
+        channel_map: RwLockUpgradableReadGuard&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;TYPES, I&gt;&gt;,
+    ) -&gt; ViewQueue&lt;TYPES, I&gt; {
         <span class="comment">// check if we have the entry
         // if we don&#39;t, insert
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(vq) = channel_map.channel_map.get(<span class="kw-2">&amp;</span>view_num) {
             vq.clone()
         } <span class="kw">else </span>{
-            <span class="kw">let </span><span class="kw-2">mut </span>channel_map = RwLockUpgradableReadGuard::&lt;
-                <span class="lifetime">&#39;_</span>,
-                SendToTasks&lt;TYPES, I::Proposal, I::Vote&gt;,
-            &gt;::upgrade(channel_map)
-            .<span class="kw">await</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>channel_map =
+                RwLockUpgradableReadGuard::&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;TYPES, I&gt;&gt;::upgrade(channel_map).<span class="kw">await</span>;
             <span class="kw">let </span>new_view_queue = ViewQueue::default();
             <span class="kw">let </span>vq = new_view_queue.clone();
             <span class="comment">// NOTE: the read lock is held until all other read locks are DROPPED and
@@ -1969,8 +2085,8 @@
     /// doesn&#39;t exist, or creates entry. Then returns a clone of the entry
     </span><span class="kw">pub async fn </span>create_or_obtain_chan_from_write(
         view_num: TYPES::Time,
-        <span class="kw-2">mut </span>channel_map: RwLockWriteGuard&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;TYPES, I::Proposal, I::Vote&gt;&gt;,
-    ) -&gt; ViewQueue&lt;TYPES, I::Proposal, I::Vote&gt; {
+        <span class="kw-2">mut </span>channel_map: RwLockWriteGuard&lt;<span class="lifetime">&#39;_</span>, SendToTasks&lt;TYPES, I&gt;&gt;,
+    ) -&gt; ViewQueue&lt;TYPES, I&gt; {
         channel_map.channel_map.entry(view_num).or_default().clone()
     }
 }
@@ -1986,13 +2102,18 @@
 #[async_trait]
 </span><span class="kw">impl</span>&lt;
         TYPES: NodeType&lt;ConsensusType = ValidatingConsensus&gt;,
-        I: NodeImplementation&lt;
-            TYPES,
-            Leaf = ValidatingLeaf&lt;TYPES&gt;,
-            Proposal = ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
-            Vote = QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
-        &gt;,
+        I: NodeImplementation&lt;TYPES, Leaf = ValidatingLeaf&lt;TYPES&gt;&gt;,
     &gt; ViewRunner&lt;TYPES, I&gt; <span class="kw">for </span>HotShot&lt;ValidatingConsensus, TYPES, I&gt;
+<span class="kw">where
+    </span>I::QuorumExchange: ConsensusExchange&lt;
+            TYPES,
+            I::Leaf,
+            Message&lt;TYPES, I&gt;,
+            Proposal = ValidatingProposal&lt;TYPES, I::Leaf&gt;,
+            Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
+            Certificate = QuorumCertificate&lt;TYPES, I::Leaf&gt;,
+            Commitment = ValidatingLeaf&lt;TYPES&gt;,
+        &gt; + QuorumExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
 {
     <span class="attr">#[instrument(skip(hotshot), fields(id = hotshot.id), name = <span class="string">&quot;Validating View Runner Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
     </span><span class="kw">async fn </span>run_view(hotshot: HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
@@ -2029,18 +2150,20 @@
             .remove(<span class="kw-2">&amp;</span>next_leader_last_view);
         send_to_next_leader.cur_view += <span class="number">1</span>;
         <span class="kw">let </span>next_leader_cur_view = send_to_next_leader.cur_view;
-        <span class="kw">let </span>(send_next_leader, recv_next_leader) =
-            <span class="kw">if </span>c_api.is_leader(next_leader_cur_view + <span class="number">1</span>).<span class="kw">await </span>{
-                <span class="kw">let </span>vq =
-                    HotShot::&lt;ValidatingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
-                        next_leader_cur_view,
-                        send_to_next_leader,
-                    )
-                    .<span class="kw">await</span>;
-                (<span class="prelude-val">Some</span>(vq.sender_chan), <span class="prelude-val">Some</span>(vq.receiver_chan))
-            } <span class="kw">else </span>{
-                (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
-            };
+        <span class="kw">let </span>(send_next_leader, recv_next_leader) = <span class="kw">if </span>c_api
+            .inner
+            .quorum_exchange
+            .is_leader(next_leader_cur_view + <span class="number">1</span>)
+        {
+            <span class="kw">let </span>vq = HotShot::&lt;ValidatingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
+                next_leader_cur_view,
+                send_to_next_leader,
+            )
+            .<span class="kw">await</span>;
+            (<span class="prelude-val">Some</span>(vq.sender_chan), <span class="prelude-val">Some</span>(vq.receiver_chan))
+        } <span class="kw">else </span>{
+            (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+        };
 
         <span class="comment">// increment consensus and start tasks
 
@@ -2081,11 +2204,15 @@
             cur_view,
             high_qc: high_qc.clone(),
             api: c_api.clone(),
+            exchange: c_api.inner.quorum_exchange.clone(),
+            _pd: PhantomData,
         };
-        <span class="kw">let </span>replica_handle = async_spawn(<span class="kw">async move </span>{ replica.run_view().<span class="kw">await </span>});
+        <span class="kw">let </span>replica_handle = async_spawn(<span class="kw">async move </span>{
+            Replica::&lt;HotShotConsensusApi&lt;TYPES, I&gt;, TYPES, I&gt;::run_view(replica).<span class="kw">await
+        </span>});
         task_handles.push(replica_handle);
 
-        <span class="kw">if </span>c_api.is_leader(cur_view).<span class="kw">await </span>{
+        <span class="kw">if </span>c_api.inner.quorum_exchange.is_leader(cur_view) {
             <span class="kw">let </span>leader = ValidatingLeader {
                 id: hotshot.id,
                 consensus: hotshot.hotstuff.clone(),
@@ -2093,12 +2220,14 @@
                 cur_view,
                 transactions: txns,
                 api: c_api.clone(),
+                exchange: c_api.inner.quorum_exchange.clone(),
+                _pd: PhantomData,
             };
             <span class="kw">let </span>leader_handle = async_spawn(<span class="kw">async move </span>{ leader.run_view().<span class="kw">await </span>});
             task_handles.push(leader_handle);
         }
 
-        <span class="kw">if </span>c_api.is_leader(cur_view + <span class="number">1</span>).<span class="kw">await </span>{
+        <span class="kw">if </span>c_api.inner.quorum_exchange.is_leader(cur_view + <span class="number">1</span>) {
             <span class="kw">let </span>next_leader = NextValidatingLeader {
                 id: hotshot.id,
                 generic_qc: high_qc,
@@ -2106,11 +2235,15 @@
                 </span>vote_collection_chan: recv_next_leader.unwrap(),
                 cur_view,
                 api: c_api.clone(),
+                exchange: c_api.inner.quorum_exchange.clone(),
                 metrics,
+                _pd: PhantomData,
             };
             <span class="kw">let </span>next_leader_handle = async_spawn(<span class="kw">async move </span>{
-                NextValidatingLeader::&lt;HotShotConsensusApi&lt;TYPES, I&gt;, TYPES&gt;::run_view(next_leader)
-                    .<span class="kw">await
+                NextValidatingLeader::&lt;HotShotConsensusApi&lt;TYPES, I&gt;, TYPES, I&gt;::run_view(
+                    next_leader,
+                )
+                .<span class="kw">await
             </span>});
             task_handles.push(next_leader_handle);
         }
@@ -2163,13 +2296,27 @@
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
         TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-        I: NodeImplementation&lt;
-            TYPES,
-            Leaf = SequencingLeaf&lt;TYPES&gt;,
-            Proposal = DAProposal&lt;TYPES&gt;,
-            Vote = DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        &gt;,
+        I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
     &gt; ViewRunner&lt;TYPES, I&gt; <span class="kw">for </span>HotShot&lt;SequencingConsensus, TYPES, I&gt;
+<span class="kw">where
+    </span>I::QuorumExchange: ConsensusExchange&lt;
+            TYPES,
+            I::Leaf,
+            Message&lt;TYPES, I&gt;,
+            Proposal = CommitmentProposal&lt;TYPES, I::Leaf&gt;,
+            Certificate = QuorumCertificate&lt;TYPES, I::Leaf&gt;,
+            Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
+            Commitment = SequencingLeaf&lt;TYPES&gt;,
+        &gt; + QuorumExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
+    I::CommitteeExchange: ConsensusExchange&lt;
+            TYPES,
+            I::Leaf,
+            Message&lt;TYPES, I&gt;,
+            Proposal = DAProposal&lt;TYPES&gt;,
+            Certificate = DACertificate&lt;TYPES&gt;,
+            Vote = DAVote&lt;TYPES, I::Leaf&gt;,
+            Commitment = TYPES::BlockType,
+        &gt; + CommitteeExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
 {
     <span class="comment">// #[instrument]
     </span><span class="attr">#[allow(clippy::too_many_lines)]
@@ -2177,21 +2324,28 @@
         <span class="kw">let </span>c_api = HotShotConsensusApi {
             inner: hotshot.inner.clone(),
         };
-        <span class="kw">let </span><span class="kw-2">mut </span>send_to_next_leader = hotshot.next_leader_channel_map.write().<span class="kw">await</span>;
-        <span class="kw">let </span>leader_last_view: TYPES::Time = send_to_next_leader.cur_view;
-        send_to_next_leader.channel_map.remove(<span class="kw-2">&amp;</span>leader_last_view);
-        send_to_next_leader.cur_view += <span class="number">1</span>;
-        <span class="kw">let </span>(_send_da_vote_chan, recv_da_vote, cur_view) = {
+
+        <span class="comment">// Setup channel for recieving DA votes
+        </span><span class="kw">let </span><span class="kw-2">mut </span>send_to_leader = hotshot.da_leader_channel_map.write().<span class="kw">await</span>;
+        <span class="kw">let </span>leader_last_view: TYPES::Time = send_to_leader.cur_view;
+        send_to_leader.channel_map.remove(<span class="kw-2">&amp;</span>leader_last_view);
+        send_to_leader.cur_view += <span class="number">1</span>;
+        <span class="kw">let </span>(send_da_vote_chan, recv_da_vote, cur_view) = {
             <span class="kw">let </span><span class="kw-2">mut </span>consensus = hotshot.hotstuff.write().<span class="kw">await</span>;
             <span class="kw">let </span>cur_view = consensus.increment_view();
             <span class="kw">let </span>vq = HotShot::&lt;SequencingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
                 cur_view,
-                send_to_next_leader,
+                send_to_leader,
             )
             .<span class="kw">await</span>;
             (vq.sender_chan, vq.receiver_chan, cur_view)
         };
-        <span class="kw">let </span>send_to_next_leader = hotshot.next_leader_channel_map.write().<span class="kw">await</span>;
+
+        <span class="comment">// Set up vote collection channel for commitment proposals/votes
+        </span><span class="kw">let </span><span class="kw-2">mut </span>send_to_next_leader = hotshot.next_leader_channel_map.write().<span class="kw">await</span>;
+        <span class="kw">let </span>leader_last_view: TYPES::Time = send_to_next_leader.cur_view;
+        send_to_next_leader.channel_map.remove(<span class="kw-2">&amp;</span>leader_last_view);
+        send_to_next_leader.cur_view += <span class="number">1</span>;
         <span class="kw">let </span>(send_commitment_vote_chan, recv_commitment_vote_chan) = {
             <span class="kw">let </span>vq = HotShot::&lt;SequencingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
                 cur_view + <span class="number">1</span>,
@@ -2208,7 +2362,7 @@
             <span class="kw">let </span>txns = consensus.transactions.clone();
             (high_qc, txns)
         };
-        <span class="kw">let </span><span class="kw-2">mut </span>send_to_member = hotshot.replica_channel_map.write().<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>send_to_member = hotshot.member_channel_map.write().<span class="kw">await</span>;
         <span class="kw">let </span>member_last_view: TYPES::Time = send_to_member.cur_view;
         send_to_member.channel_map.remove(<span class="kw-2">&amp;</span>member_last_view);
         send_to_member.cur_view += <span class="number">1</span>;
@@ -2221,10 +2375,23 @@
             send_to_member,
         )
         .<span class="kw">await</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>send_to_replica = hotshot.replica_channel_map.write().<span class="kw">await</span>;
+        <span class="kw">let </span>replica_last_view: TYPES::Time = send_to_replica.cur_view;
+        send_to_replica.channel_map.remove(<span class="kw-2">&amp;</span>replica_last_view);
+        send_to_replica.cur_view += <span class="number">1</span>;
+        <span class="kw">let </span>ViewQueue {
+            sender_chan: send_replica,
+            receiver_chan: recv_replica,
+            has_received_proposal: <span class="kw">_</span>,
+        } = HotShot::&lt;SequencingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
+            send_to_replica.cur_view,
+            send_to_replica,
+        )
+        .<span class="kw">await</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>task_handles = Vec::new();
 
-        <span class="kw">if </span>c_api.is_leader(cur_view).<span class="kw">await </span>{
+        <span class="kw">if </span>c_api.inner.quorum_exchange.is_leader(cur_view) {
             <span class="kw">let </span>da_leader = DALeader {
                 id: hotshot.id,
                 consensus: hotshot.hotstuff.clone(),
@@ -2232,7 +2399,10 @@
                 cur_view,
                 transactions: txns,
                 api: c_api.clone(),
+                committee_exchange: c_api.inner.committee_exchange.clone(),
+                quorum_exchange: c_api.inner.quorum_exchange.clone(),
                 vote_collection_chan: recv_da_vote,
+                _pd: PhantomData,
             };
             <span class="kw">let </span>hotstuff = hotshot.hotstuff.clone();
             <span class="kw">let </span>qc = high_qc.clone();
@@ -2250,12 +2420,14 @@
                     parent,
                     cur_view,
                     api: api.clone(),
+                    quorum_exchange: api.inner.quorum_exchange.clone(),
+                    _pd: PhantomData,
                 };
                 consensus_leader.run_view().<span class="kw">await
             </span>});
             task_handles.push(leader_handle);
         }
-        <span class="kw">if </span>c_api.is_leader(cur_view + <span class="number">1</span>).<span class="kw">await </span>{
+        <span class="kw">if </span>c_api.inner.quorum_exchange.is_leader(cur_view + <span class="number">1</span>) {
             <span class="kw">let </span>next_leader = ConsensusNextLeader {
                 id: hotshot.id,
                 consensus: hotshot.hotstuff.clone(),
@@ -2263,6 +2435,8 @@
                 api: c_api.clone(),
                 generic_qc: high_qc.clone(),
                 vote_collection_chan: recv_commitment_vote_chan,
+                quorum_exchange: c_api.inner.quorum_exchange.clone(),
+                _pd: PhantomData,
             };
             <span class="kw">let </span>next_leader_handle = async_spawn(<span class="kw">async move </span>{ next_leader.run_view().<span class="kw">await </span>});
             task_handles.push(next_leader_handle);
@@ -2274,17 +2448,26 @@
             cur_view,
             high_qc: high_qc.clone(),
             api: c_api.clone(),
+            exchange: c_api.inner.committee_exchange.clone(),
+            _pd: PhantomData,
         };
         <span class="kw">let </span>member_handle = async_spawn(<span class="kw">async move </span>{ da_member.run_view().<span class="kw">await </span>});
         task_handles.push(member_handle);
+        <span class="kw">let </span>replica = SequencingReplica {
+            id: hotshot.id,
+            consensus: hotshot.hotstuff.clone(),
+            proposal_collection_chan: recv_replica,
+            cur_view,
+            high_qc: high_qc.clone(),
+            api: c_api.clone(),
+            committee_exchange: c_api.inner.committee_exchange.clone(),
+            quorum_exchange: c_api.inner.quorum_exchange.clone(),
+            _pd: PhantomData,
+        };
+        <span class="kw">let </span>replica_handle = async_spawn(<span class="kw">async move </span>{ replica.run_view().<span class="kw">await </span>});
+        task_handles.push(replica_handle);
 
-        <span class="comment">// TODO (da) Replica task isn&#39;t added since the proposal it listens to is the commitment
-        // proposal but `I::Proposal` here is the DA proposal. We need to support the two proposal
-        // types for sequencing consensus in the refactored node implementation.
-        </span><span class="kw">let </span>_da_replica = {};
-        <span class="comment">// TODO: ADD DA replica task handle and push it to `task_handles`.
-
-        </span><span class="kw">let </span>children_finished = futures::future::join_all(task_handles);
+        <span class="kw">let </span>children_finished = futures::future::join_all(task_handles);
 
         async_spawn({
             <span class="kw">let </span>next_view_timeout = hotshot.inner.config.next_view_timeout;
@@ -2294,9 +2477,10 @@
                 hotshot
                     .timeout_view(cur_view, send_member, <span class="prelude-val">Some</span>(send_commitment_vote_chan))
                     .<span class="kw">await</span>;
-                <span class="comment">// TODO(da): When we have the replica channel send timeout to it and the DA leader.
-                // hotshot.timeout_da_view(curr_view, send_replica).await
-            </span>}
+                hotshot
+                    .timeout_da_view(cur_view, send_replica, <span class="prelude-val">Some</span>(send_da_vote_chan))
+                    .<span class="kw">await</span>;
+            }
         });
 
         <span class="kw">let </span>results = children_finished.<span class="kw">await</span>;
@@ -2330,15 +2514,10 @@
 
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;
-    hotshot_consensus::ConsensusApi&lt;TYPES, I::Leaf, I::Proposal, I::Vote&gt;
-    <span class="kw">for </span>HotShotConsensusApi&lt;TYPES, I&gt;
+    hotshot_consensus::ConsensusApi&lt;TYPES, I::Leaf, I&gt; <span class="kw">for </span>HotShotConsensusApi&lt;TYPES, I&gt;
 {
     <span class="kw">fn </span>total_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroUsize {
         <span class="self">self</span>.inner.config.total_nodes
-    }
-
-    <span class="kw">fn </span>threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
-        <span class="self">self</span>.inner.membership.threshold()
     }
 
     <span class="kw">fn </span>propose_min_round_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Duration {
@@ -2358,34 +2537,25 @@
     }
 
     <span class="doccomment">/// Generates and encodes a vote token
-    </span><span class="kw">fn </span>make_vote_token(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        view_number: TYPES::Time,
-    ) -&gt; std::result::Result&lt;std::option::Option&lt;TYPES::VoteTokenType&gt;, ElectionError&gt; {
-        <span class="self">self</span>.inner
-            .membership
-            .make_vote_token(view_number, <span class="kw-2">&amp;</span><span class="self">self</span>.inner.private_key)
-    }
 
-    <span class="kw">async fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey {
-        <span class="kw">let </span>election = <span class="kw-2">&amp;</span><span class="self">self</span>.inner.membership;
-        election.get_leader(view_number)
-    }
-
-    <span class="kw">async fn </span>should_start_round(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: TYPES::Time) -&gt; bool {
+    </span><span class="kw">async fn </span>should_start_round(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: TYPES::Time) -&gt; bool {
         <span class="bool-val">false
     </span>}
 
-    <span class="kw">async fn </span>send_direct_message(
+    <span class="kw">async fn </span>send_direct_message&lt;
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+    &gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         recipient: TYPES::SignatureKey,
-        message: ConsensusMessage&lt;TYPES, I::Proposal, I::Vote&gt;,
+        message: ConsensusMessage&lt;TYPES, I&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
         <span class="macro">debug!</span>(<span class="question-mark">?</span>message, <span class="question-mark">?</span>recipient, <span class="string">&quot;send_direct_message&quot;</span>);
         async_spawn_local(<span class="kw">async move </span>{
             inner
-                .networking
+                .quorum_exchange
+                .network()
                 .direct_message(
                     Message {
                         sender: inner.public_key.clone(),
@@ -2398,43 +2568,74 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>send_broadcast_message(
+    <span class="kw">async fn </span>send_direct_da_message&lt;
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+    &gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: ConsensusMessage&lt;TYPES, I::Proposal, I::Vote&gt;,
+        recipient: TYPES::SignatureKey,
+        message: ConsensusMessage&lt;TYPES, I&gt;,
+    ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.clone();
+        <span class="macro">debug!</span>(<span class="question-mark">?</span>message, <span class="question-mark">?</span>recipient, <span class="string">&quot;send_direct_message&quot;</span>);
+        async_spawn_local(<span class="kw">async move </span>{
+            inner
+                .committee_exchange
+                .network()
+                .direct_message(
+                    Message {
+                        sender: inner.public_key.clone(),
+                        kind: message.into(),
+                    },
+                    recipient,
+                )
+                .<span class="kw">await
+        </span>});
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="comment">// TODO remove and use exchange directly.
+    </span><span class="kw">async fn </span>send_broadcast_message&lt;
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+    &gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        message: ConsensusMessage&lt;TYPES, I&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
         <span class="macro">debug!</span>(<span class="question-mark">?</span>message, <span class="string">&quot;send_broadcast_message&quot;</span>);
         <span class="self">self</span>.inner
-            .networking
+            .quorum_exchange
+            .network()
             .broadcast_message(
                 Message {
                     sender: <span class="self">self</span>.inner.public_key.clone(),
                     kind: message.into(),
                 },
-                <span class="comment">// TODO this is morally wrong
-                </span><span class="kw-2">&amp;</span><span class="self">self</span>.inner.membership.clone(),
+                <span class="comment">// TODO this is morally wrong!
+                </span><span class="kw-2">&amp;</span><span class="self">self</span>.inner.quorum_exchange.membership().clone(),
             )
             .<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>send_da_broadcast&lt;
-        DAPROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        DAVOTE: VoteType&lt;TYPES&gt;,
-    &gt;(
+    <span class="kw">async fn </span>send_da_broadcast(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        _message: ConsensusMessage&lt;TYPES, DAPROPOSAL, DAVOTE&gt;,
+        message: ConsensusMessage&lt;TYPES, I&gt;,
     ) -&gt; std::result::Result&lt;(), NetworkError&gt; {
-        <span class="comment">// TODO: Should look like this code but it won&#39;t work due to only 1 Proposal and 1 Vote
-        // type being associated with self.inner.networking.
-        // self.inner
-        //     .networking
-        //     .broadcast_message(Message {
-        //         sender: self.inner.public_key.clone(),
-        //         kind: MessageKind::Consensus(message),
-        //     })
-        //     .await
-        </span><span class="attr">#[allow(deprecated)]
-        </span>nll_todo()
+        <span class="macro">debug!</span>(<span class="question-mark">?</span>message, <span class="string">&quot;send_da_broadcast_message&quot;</span>);
+        <span class="self">self</span>.inner
+            .committee_exchange
+            .network()
+            .broadcast_message(
+                Message {
+                    sender: <span class="self">self</span>.inner.public_key.clone(),
+                    kind: message.into(),
+                },
+                <span class="comment">// TODO this is morally wrong!
+                </span><span class="kw-2">&amp;</span><span class="self">self</span>.inner.committee_exchange.membership().clone(),
+            )
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">async fn </span>send_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: Event&lt;TYPES, I::Leaf&gt;) {
@@ -2454,155 +2655,6 @@
 
     <span class="kw">fn </span>private_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey {
         <span class="kw-2">&amp;</span><span class="self">self</span>.inner.private_key
-    }
-
-    <span class="comment">// TODO (DA): Move vote related functions back to ConsensusExchange trait once it is implemented.
-    </span><span class="kw">fn </span>is_valid_dac(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        dac: <span class="kw-2">&amp;</span>&lt;I::Leaf <span class="kw">as </span>LeafType&gt;::DACertificate,
-        block_commitment: Commitment&lt;TYPES::BlockType&gt;,
-    ) -&gt; bool {
-        <span class="kw">let </span>stake = dac
-            .signatures()
-            .iter()
-            .filter(|signature| {
-                <span class="self">self</span>.is_valid_vote(
-                    signature.<span class="number">0</span>,
-                    <span class="kw-2">&amp;</span>signature.<span class="number">1 </span>.<span class="number">0</span>,
-                    VoteData::DA(block_commitment),
-                    dac.view_number(),
-                    Checked::Unchecked(signature.<span class="number">1 </span>.<span class="number">1</span>.clone()),
-                )
-            })
-            .fold(<span class="number">0</span>, |acc, x| (acc + u64::from(x.<span class="number">1 </span>.<span class="number">1</span>.vote_count())));
-
-        stake &gt;= u64::from(<span class="self">self</span>.threshold())
-    }
-
-    <span class="doccomment">/// Validate a QC by checking its votes.
-    </span><span class="kw">fn </span>is_valid_qc(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: <span class="kw-2">&amp;</span>&lt;I::Leaf <span class="kw">as </span>LeafType&gt;::QuorumCertificate) -&gt; bool {
-        <span class="kw">if </span>qc.is_genesis() &amp;&amp; qc.view_number() == TYPES::Time::genesis() {
-            <span class="kw">return </span><span class="bool-val">true</span>;
-        }
-        <span class="kw">let </span>leaf_commitment = qc.leaf_commitment();
-
-        <span class="kw">let </span>stake = qc
-            .signatures()
-            .iter()
-            .filter(|signature| {
-                <span class="self">self</span>.is_valid_vote(
-                    signature.<span class="number">0</span>,
-                    <span class="kw-2">&amp;</span>signature.<span class="number">1 </span>.<span class="number">0</span>,
-                    VoteData::Yes(leaf_commitment),
-                    qc.view_number(),
-                    Checked::Unchecked(signature.<span class="number">1 </span>.<span class="number">1</span>.clone()),
-                )
-            })
-            .fold(<span class="number">0</span>, |acc, x| (acc + u64::from(x.<span class="number">1 </span>.<span class="number">1</span>.vote_count())));
-
-        stake &gt;= u64::from(<span class="self">self</span>.threshold())
-    }
-
-    <span class="doccomment">/// Validate a vote by checking its signature and token.
-    </span><span class="kw">fn </span>is_valid_vote(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        encoded_key: <span class="kw-2">&amp;</span>EncodedPublicKey,
-        encoded_signature: <span class="kw-2">&amp;</span>EncodedSignature,
-        data: VoteData&lt;TYPES, I::Leaf&gt;,
-        view_number: TYPES::Time,
-        vote_token: Checked&lt;TYPES::VoteTokenType&gt;,
-    ) -&gt; bool {
-        <span class="kw">let </span><span class="kw-2">mut </span>is_valid_vote_token = <span class="bool-val">false</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>is_valid_signature = <span class="bool-val">false</span>;
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(key) = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::from_bytes(encoded_key) {
-            is_valid_signature = key.validate(encoded_signature, <span class="kw-2">&amp;</span>data.as_bytes());
-            <span class="kw">let </span>valid_vote_token =
-                <span class="self">self</span>.inner
-                    .membership
-                    .validate_vote_token(view_number, key, vote_token);
-            is_valid_vote_token = <span class="kw">match </span>valid_vote_token {
-                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-                    <span class="macro">error!</span>(<span class="string">&quot;Vote token was invalid&quot;</span>);
-                    <span class="bool-val">false
-                </span>}
-                <span class="prelude-val">Ok</span>(Checked::Valid(<span class="kw">_</span>)) =&gt; <span class="bool-val">true</span>,
-                <span class="prelude-val">Ok</span>(Checked::Inval(<span class="kw">_</span>) | Checked::Unchecked(<span class="kw">_</span>)) =&gt; <span class="bool-val">false</span>,
-            };
-        }
-        is_valid_signature &amp;&amp; is_valid_vote_token
-    }
-    <span class="kw">fn </span>accumulate_vote&lt;C: Committable, Cert&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        vota_meta: VoteMetaData&lt;TYPES, C, TYPES::VoteTokenType, TYPES::Time, I::Leaf&gt;,
-        accumulator: VoteAccumulator&lt;TYPES, C&gt;,
-    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES, C&gt;, Cert&gt;
-    <span class="kw">where
-        </span>Cert: SignedCertificate&lt;TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, C&gt;,
-    {
-        <span class="kw">if </span>!<span class="self">self</span>.is_valid_vote(
-            <span class="kw-2">&amp;</span>vota_meta.encoded_key,
-            <span class="kw-2">&amp;</span>vota_meta.encoded_signature,
-            vota_meta.data,
-            vota_meta.view_number,
-            <span class="comment">// Ignoring deserialization errors below since we are getting rid of it soon
-            </span>Checked::Unchecked(vota_meta.vote_token.clone()),
-        ) {
-            <span class="kw">return </span>Either::Left(accumulator);
-        }
-
-        <span class="kw">match </span>accumulator.append((
-            vota_meta.commitment,
-            (
-                vota_meta.encoded_key.clone(),
-                (vota_meta.encoded_signature.clone(), vota_meta.vote_token),
-            ),
-        )) {
-            Either::Left(accumulator) =&gt; Either::Left(accumulator),
-            Either::Right(signatures) =&gt; Either::Right(Cert::from_signatures_and_commitment(
-                vota_meta.view_number,
-                signatures,
-                vota_meta.commitment,
-            )),
-        }
-    }
-
-    <span class="kw">fn </span>accumulate_qc_vote(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        encoded_key: <span class="kw-2">&amp;</span>EncodedPublicKey,
-        encoded_signature: <span class="kw-2">&amp;</span>EncodedSignature,
-        leaf_commitment: Commitment&lt;I::Leaf&gt;,
-        vote_token: TYPES::VoteTokenType,
-        view_number: TYPES::Time,
-        accumlator: VoteAccumulator&lt;TYPES, I::Leaf&gt;,
-    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES, I::Leaf&gt;, QuorumCertificate&lt;TYPES, I::Leaf&gt;&gt; {
-        <span class="kw">let </span>meta = VoteMetaData {
-            encoded_key: encoded_key.clone(),
-            encoded_signature: encoded_signature.clone(),
-            commitment: leaf_commitment,
-            data: VoteData::Yes(leaf_commitment),
-            vote_token,
-            view_number,
-        };
-        <span class="self">self</span>.accumulate_vote(meta, accumlator)
-    }
-    <span class="kw">fn </span>accumulate_da_vote(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        encoded_key: <span class="kw-2">&amp;</span>EncodedPublicKey,
-        encoded_signature: <span class="kw-2">&amp;</span>EncodedSignature,
-        block_commitment: Commitment&lt;TYPES::BlockType&gt;,
-        vote_token: TYPES::VoteTokenType,
-        view_number: TYPES::Time,
-        accumlator: VoteAccumulator&lt;TYPES, TYPES::BlockType&gt;,
-    ) -&gt; Either&lt;VoteAccumulator&lt;TYPES, TYPES::BlockType&gt;, DACertificate&lt;TYPES&gt;&gt; {
-        <span class="kw">let </span>meta = VoteMetaData {
-            encoded_key: encoded_key.clone(),
-            encoded_signature: encoded_signature.clone(),
-            commitment: block_commitment,
-            data: VoteData::DA(block_commitment),
-            vote_token,
-            view_number,
-        };
-        <span class="self">self</span>.accumulate_vote(meta, accumlator)
     }
 
     <span class="kw">async fn </span>store_leaf(
@@ -2636,7 +2688,7 @@
                 context: err.to_string(),
             })<span class="question-mark">?</span>;
         <span class="kw">let </span>time = TYPES::Time::genesis();
-        <span class="kw">let </span>justify_qc = LEAF::QuorumCertificate::genesis();
+        <span class="kw">let </span>justify_qc = QuorumCertificate::&lt;TYPES, LEAF&gt;::genesis();
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             inner: LEAF::new(time, justify_qc, genesis_block, state),
@@ -2649,4 +2701,4 @@
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>
+</section></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.0 (2c8cc3432 2023-03-06)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

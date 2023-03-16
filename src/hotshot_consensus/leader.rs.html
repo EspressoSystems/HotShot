@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `consensus/src/leader.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>leader.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-6827029ac823cab7.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../static.files/light-ebce58d0a40c3431.css"><link rel="stylesheet" disabled href="../../static.files/dark-f23faae4a2daf9a6.css"><link rel="stylesheet" disabled href="../../static.files/ayu-8af5e100b21cd173.css"><script id="default-settings" ></script><script src="../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../static.files/source-script-5cf2e01a42cc9858.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-c55e1eb52e1886b4.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../hotshot_consensus/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `consensus/src/leader.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>leader.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-93196c7a1c3542a8.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../static.files/light-4743e13df3dfe8c4.css"><link rel="stylesheet" disabled href="../../static.files/dark-0e1b889528bd466b.css"><link rel="stylesheet" disabled href="../../static.files/ayu-65289d5d067c7c66.css"><script id="default-settings" ></script><script src="../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../static.files/source-script-ea63cb6500f71309.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-3367e395607fafc1.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_consensus/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -204,6 +204,17 @@
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`ValidatingLeader`] struct used for the leader step in the hotstuff consensus algorithm.
 
 </span><span class="kw">use crate</span>::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
@@ -213,6 +224,11 @@
 };
 <span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>commit::Committable;
+<span class="kw">use </span>hotshot_types::message::Message;
+<span class="kw">use </span>hotshot_types::traits::election::{ConsensusExchange, QuorumExchangeType};
+<span class="kw">use </span>hotshot_types::traits::node_implementation::{
+    NodeImplementation, QuorumProposal, QuorumVoteType,
+};
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
@@ -221,21 +237,16 @@
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
         state::ValidatingConsensus, Block, State,
     },
-    vote::QuorumVote,
 };
+<span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::{sync::Arc, time::Instant};
 <span class="kw">use </span>tracing::{error, info, instrument, warn};
-
 <span class="doccomment">/// This view&#39;s validating leader
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>ValidatingLeader&lt;
-    A: ConsensusApi&lt;
-        TYPES,
-        ValidatingLeaf&lt;TYPES&gt;,
-        ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
-        QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
-    &gt;,
+    A: ConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, I&gt;,
     TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
 &gt; {
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
@@ -249,23 +260,32 @@
     </span><span class="kw">pub </span>transactions: Arc&lt;SubscribableRwLock&lt;CommitmentMap&lt;TYPES::Transaction&gt;&gt;&gt;,
     <span class="doccomment">/// Limited access to the consensus protocol
     </span><span class="kw">pub </span>api: A,
+
+    <span class="doccomment">/// the quorum exchange
+    </span><span class="kw">pub </span>exchange: Arc&lt;I::QuorumExchange&gt;,
+
+    <span class="doccomment">/// needed for type checking
+    </span><span class="kw">pub </span>_pd: PhantomData&lt;I&gt;,
 }
 
 <span class="kw">impl</span>&lt;
-        A: ConsensusApi&lt;
-            TYPES,
-            ValidatingLeaf&lt;TYPES&gt;,
-            ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
-            QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
-        &gt;,
+        A: ConsensusApi&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;, I&gt;,
         TYPES: NodeType&lt;ConsensusType = ValidatingConsensus&gt;,
-    &gt; ValidatingLeader&lt;A, TYPES&gt;
+        I: NodeImplementation&lt;TYPES, Leaf = ValidatingLeaf&lt;TYPES&gt;&gt;,
+    &gt; ValidatingLeader&lt;A, TYPES, I&gt;
+<span class="kw">where
+    </span>I::QuorumExchange: ConsensusExchange&lt;
+            TYPES,
+            I::Leaf,
+            Message&lt;TYPES, I&gt;,
+            Proposal = ValidatingProposal&lt;TYPES, I::Leaf&gt;,
+        &gt; + QuorumExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
 {
     <span class="doccomment">/// Run one view of the leader task
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Validating ValidatingLeader Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
     </span><span class="kw">pub async fn </span>run_view(<span class="self">self</span>) -&gt; QuorumCertificate&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>pk = <span class="self">self</span>.api.public_key();
-        <span class="macro">error!</span>(<span class="string">&quot;Validating leader task started!&quot;</span>);
+        <span class="macro">info!</span>(<span class="string">&quot;Validating leader task started!&quot;</span>);
 
         <span class="kw">let </span>task_start_time = Instant::now();
         <span class="kw">let </span>parent_view_number = <span class="kw-2">&amp;</span><span class="self">self</span>.high_qc.view_number();
@@ -383,21 +403,23 @@
                 proposer_id: pk.to_bytes(),
             };
             <span class="kw">let </span>signature = <span class="self">self
-                </span>.api
-                .sign_validating_or_commitment_proposal(<span class="kw-2">&amp;</span>leaf.commit());
+                </span>.exchange
+                .sign_validating_or_commitment_proposal::&lt;I&gt;(<span class="kw-2">&amp;</span>leaf.commit());
             <span class="kw">let </span>data: ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt; = leaf.into();
-            <span class="kw">let </span>message = ConsensusMessage::&lt;
-                TYPES,
-                ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
-                QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
-            &gt;::Proposal(Proposal { data, signature });
+            <span class="kw">let </span>message = ConsensusMessage::&lt;TYPES, I&gt;::Proposal(Proposal { data, signature });
             consensus
                 .metrics
                 .proposal_build_duration
                 .add_point(proposal_build_start.elapsed().as_secs_f64());
             <span class="macro">info!</span>(<span class="string">&quot;Sending out proposal {:?}&quot;</span>, message);
 
-            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.api.send_broadcast_message(message.clone()).<span class="kw">await </span>{
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
+                </span>.api
+                .send_broadcast_message::&lt;QuorumProposal&lt;TYPES, I&gt;, QuorumVoteType&lt;TYPES, I&gt;&gt;(
+                    message.clone(),
+                )
+                .<span class="kw">await
+            </span>{
                 consensus.metrics.failed_to_send_messages.add(<span class="number">1</span>);
                 <span class="macro">warn!</span>(<span class="question-mark">?</span>message, <span class="question-mark">?</span>e, <span class="string">&quot;Could not broadcast leader proposal&quot;</span>);
             } <span class="kw">else </span>{
@@ -411,4 +433,4 @@
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_consensus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>
+</section></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_consensus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.0 (2c8cc3432 2023-03-06)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

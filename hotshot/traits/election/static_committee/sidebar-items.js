@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["GeneralStaticCommittee","Dummy implementation of [`Election`]"],["StaticElectionConfig","configuration for static committee. stub for now"],["StaticVoteToken","TODO ed - docs"]],"type":[["StaticCommittee","static committee using a vrf kp"]]};
+window.SIDEBAR_ITEMS = {"struct":[["GeneralStaticCommittee","Dummy implementation of [`Membership`]"],["StaticElectionConfig","configuration for static committee. stub for now"],["StaticVoteToken","TODO ed - docs"]],"type":[["StaticCommittee","static committee using a vrf kp"]]};

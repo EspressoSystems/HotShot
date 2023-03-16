@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/traits/networking/libp2p_network.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>libp2p_network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-6827029ac823cab7.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../../../static.files/light-ebce58d0a40c3431.css"><link rel="stylesheet" disabled href="../../../../static.files/dark-f23faae4a2daf9a6.css"><link rel="stylesheet" disabled href="../../../../static.files/ayu-8af5e100b21cd173.css"><script id="default-settings" ></script><script src="../../../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../../../static.files/source-script-5cf2e01a42cc9858.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../static.files/main-c55e1eb52e1886b4.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../../../hotshot/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/traits/networking/libp2p_network.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>libp2p_network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-93196c7a1c3542a8.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../../../static.files/light-4743e13df3dfe8c4.css"><link rel="stylesheet" disabled href="../../../../static.files/dark-0e1b889528bd466b.css"><link rel="stylesheet" disabled href="../../../../static.files/ayu-65289d5d067c7c66.css"><script id="default-settings" ></script><script src="../../../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../../../static.files/source-script-ea63cb6500f71309.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../static.files/main-3367e395607fafc1.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../hotshot/index.html"><img class="rust-logo" src="../../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -756,11 +756,17 @@
 <a href="#756" id="756">756</a>
 <a href="#757" id="757">757</a>
 <a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 
 </span><span class="kw">use </span><span class="kw">super</span>::NetworkingMetrics;
+<span class="kw">use </span><span class="kw">crate</span>::NodeImplementation;
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_block_on, async_sleep, async_spawn},
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -769,6 +775,7 @@
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>bimap::BiHashMap;
 <span class="kw">use </span>bincode::Options;
+<span class="kw">use </span>hotshot_types::traits::network::ViewMessage;
 <span class="kw">use </span>hotshot_types::{
     data::ProposalType,
     message::Message,
@@ -872,11 +879,12 @@
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
+        I: NodeImplementation&lt;TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; TestableNetworkingImplementation&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
-    <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    &gt; TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -892,6 +900,7 @@
     </span><span class="kw">fn </span>generator(
         expected_node_count: usize,
         num_bootstrap: usize,
+        network_id: usize,
     ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">let </span>bootstrap_addrs: PeerInfoVec = Arc::default();
         <span class="kw">let </span><span class="kw-2">mut </span>all_keys = BTreeSet::new();
@@ -913,7 +922,7 @@
                 );
                 <span class="kw">let </span>addr =
                     <span class="comment">// Multiaddr::from_str(&amp;format!(&quot;/ip4/127.0.0.1/tcp/0&quot;)).unwrap();
-                    </span>Multiaddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/ip4/127.0.0.1/tcp/{}&quot;</span>, <span class="number">5000 </span>+ node_id)).unwrap();
+                    </span>Multiaddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/ip4/127.0.0.1/tcp/{}{}&quot;</span>, <span class="number">5000 </span>+ node_id, network_id)).unwrap();
                 <span class="kw">let </span>privkey = TYPES::SignatureKey::generate_test_key(node_id);
                 <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
                 <span class="comment">// we want the majority of peers to have this lying around.
@@ -1107,7 +1116,7 @@
                 <span class="comment">// 10 minute timeout
                 </span><span class="kw">let </span>timeout_duration = Duration::from_secs(<span class="number">600</span>);
                 <span class="comment">// perform connection
-                </span><span class="macro">error!</span>(<span class="string">&quot;WAITING TO CONNECT ON NODE {:?}&quot;</span>, id);
+                </span><span class="macro">info!</span>(<span class="string">&quot;WAITING TO CONNECT ON NODE {:?}&quot;</span>, id);
                 handle
                     .wait_to_connect(<span class="number">4</span>, id, timeout_duration)
                     .<span class="kw">await
@@ -1122,7 +1131,7 @@
                 // global topic to the topic map
                 // NOTE this wont&#39; work without this change
 
-                </span><span class="macro">error!</span>(
+                </span><span class="macro">info!</span>(
                     <span class="string">&quot;peer {:?} waiting for publishing, type: {:?}&quot;</span>,
                     handle.peer_id(),
                     node_type
@@ -1134,7 +1143,7 @@
                     async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
                 }
 
-                <span class="macro">error!</span>(
+                <span class="macro">info!</span>(
                     <span class="string">&quot;Node {:?} is ready, type: {:?}&quot;</span>,
                     handle.peer_id(),
                     node_type
@@ -1144,14 +1153,14 @@
                     async_sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
                 }
 
-                <span class="macro">error!</span>(
+                <span class="macro">info!</span>(
                     <span class="string">&quot;node {:?} is barring bootstrap, type: {:?}&quot;</span>,
                     handle.peer_id(),
                     node_type
                 );
 
                 is_ready.store(<span class="bool-val">true</span>, std::sync::atomic::Ordering::Relaxed);
-                <span class="macro">error!</span>(<span class="string">&quot;STARTING CONSENSUS ON {:?}&quot;</span>, handle.peer_id());
+                <span class="macro">info!</span>(<span class="string">&quot;STARTING CONSENSUS ON {:?}&quot;</span>, handle.peer_id());
                 <span class="prelude-val">Ok</span>::&lt;(), NetworkError&gt;(())
             }
         });
@@ -1433,25 +1442,25 @@
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>Libp2pCommChannel&lt;
     TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
     VOTE: VoteType&lt;TYPES&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
 &gt;(
-    Libp2pNetwork&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;, TYPES::SignatureKey&gt;,
-    PhantomData&lt;MEMBERSHIP&gt;,
+    Libp2pNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;,
+    PhantomData&lt;(TYPES, I, PROPOSAL, VOTE, MEMBERSHIP)&gt;,
 );
 
 <span class="kw">impl</span>&lt;
         TYPES: NodeType,
+        I: NodeImplementation&lt;TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; Libp2pCommChannel&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    &gt; Libp2pCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 {
     <span class="doccomment">/// create a new libp2p communication channel
-    </span><span class="kw">pub fn </span>new(
-        network: Libp2pNetwork&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;, TYPES::SignatureKey&gt;,
-    ) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(network: Libp2pNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(network, PhantomData::default())
     }
 }
@@ -1462,11 +1471,12 @@
 </span><span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
         TYPES: NodeType,
+        I: NodeImplementation&lt;TYPES&gt;,
         PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
         VOTE: VoteType&lt;TYPES&gt;,
         MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; CommunicationChannel&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
-    <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    &gt; CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;
+    <span class="kw">for </span>Libp2pCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 {
     <span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.<span class="number">0</span>.wait_for_ready().<span class="kw">await</span>;
@@ -1482,7 +1492,7 @@
 
     <span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES, PROPOSAL, VOTE&gt;,
+        message: Message&lt;TYPES, I&gt;,
         membership: <span class="kw-2">&amp;</span>MEMBERSHIP,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="kw">let </span>recipients =
@@ -1492,7 +1502,7 @@
 
     <span class="kw">async fn </span>direct_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: Message&lt;TYPES, PROPOSAL, VOTE&gt;,
+        message: Message&lt;TYPES, I&gt;,
         recipient: TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="self">self</span>.<span class="number">0</span>.direct_message(message, recipient).<span class="kw">await
@@ -1501,7 +1511,7 @@
     <span class="kw">async fn </span>recv_msgs(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         transmit_type: TransmitType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, PROPOSAL, VOTE&gt;&gt;, NetworkError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Message&lt;TYPES, I&gt;&gt;, NetworkError&gt; {
         <span class="self">self</span>.<span class="number">0</span>.recv_msgs(transmit_type).<span class="kw">await
     </span>}
 
@@ -1515,4 +1525,4 @@
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>
+</section></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.0 (2c8cc3432 2023-03-06)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

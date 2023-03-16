@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/tasks/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-6827029ac823cab7.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../../static.files/light-ebce58d0a40c3431.css"><link rel="stylesheet" disabled href="../../../static.files/dark-f23faae4a2daf9a6.css"><link rel="stylesheet" disabled href="../../../static.files/ayu-8af5e100b21cd173.css"><script id="default-settings" ></script><script src="../../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../../static.files/source-script-5cf2e01a42cc9858.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-c55e1eb52e1886b4.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../../hotshot/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/tasks/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-93196c7a1c3542a8.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../../static.files/light-4743e13df3dfe8c4.css"><link rel="stylesheet" disabled href="../../../static.files/dark-0e1b889528bd466b.css"><link rel="stylesheet" disabled href="../../../static.files/ayu-65289d5d067c7c66.css"><script id="default-settings" ></script><script src="../../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../../static.files/source-script-ea63cb6500f71309.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../static.files/main-3367e395607fafc1.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../hotshot/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -327,6 +327,60 @@
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 </span><span class="kw">use crate</span>::{types::HotShotHandle, HotShot, HotShotConsensusApi, ViewRunner};
@@ -336,7 +390,9 @@
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
 };
 <span class="kw">use </span>async_lock::RwLock;
-<span class="kw">use </span>hotshot_consensus::ConsensusApi;
+
+<span class="kw">use </span>hotshot_types::message::Message;
+<span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
 <span class="kw">use </span>hotshot_types::{
     constants::LOOK_AHEAD,
     traits::{
@@ -423,6 +479,14 @@
                 inner.network_direct_task_handle,
                 <span class="string">&quot;network_direct_task_handle&quot;</span>,
             ),
+            (
+                inner.committee_network_broadcast_task_handle,
+                <span class="string">&quot;committee_network_broadcast_task_handle&quot;</span>,
+            ),
+            (
+                inner.committee_network_direct_task_handle,
+                <span class="string">&quot;committee_network_direct_task_handle&quot;</span>,
+            ),
             (inner.consensus_task_handle, <span class="string">&quot;network_change_task_handle&quot;</span>),
         ] {
             <span class="macro">assert!</span>(
@@ -444,6 +508,12 @@
 
     <span class="doccomment">/// Join handle for `network_direct_task`
     </span><span class="kw">pub </span>network_direct_task_handle: JoinHandle&lt;()&gt;,
+
+    <span class="doccomment">/// Join Handle for committee broadcast network task
+    </span><span class="kw">pub </span>committee_network_broadcast_task_handle: JoinHandle&lt;()&gt;,
+
+    <span class="doccomment">/// Join Handle for committee direct network task
+    </span><span class="kw">pub </span>committee_network_direct_task_handle: JoinHandle&lt;()&gt;,
 
     <span class="doccomment">/// Join handle for `consensus_task`
     </span><span class="kw">pub </span>consensus_task_handle: JoinHandle&lt;()&gt;,
@@ -468,13 +538,45 @@
     <span class="kw">let </span>shut_down = Arc::new(AtomicBool::new(<span class="bool-val">false</span>));
     <span class="kw">let </span>started = Arc::new(AtomicBool::new(<span class="bool-val">false</span>));
 
+    <span class="kw">let </span>exchange = hotshot.inner.quorum_exchange.clone();
+    <span class="kw">let </span>committee_exchange = hotshot.inner.committee_exchange.clone();
+
     <span class="kw">let </span>network_broadcast_task_handle = async_spawn(
-        network_task(hotshot.clone(), shut_down.clone(), TransmitType::Broadcast)
-            .instrument(<span class="macro">info_span!</span>(<span class="string">&quot;HotShot Broadcast Task&quot;</span>,)),
+        network_task(
+            hotshot.clone(),
+            shut_down.clone(),
+            TransmitType::Broadcast,
+            exchange.clone(),
+        )
+        .instrument(<span class="macro">info_span!</span>(<span class="string">&quot;HotShot Broadcast Task&quot;</span>,)),
     );
     <span class="kw">let </span>network_direct_task_handle = async_spawn(
-        network_task(hotshot.clone(), shut_down.clone(), TransmitType::Direct)
-            .instrument(<span class="macro">info_span!</span>(<span class="string">&quot;HotShot Direct Task&quot;</span>,)),
+        network_task(
+            hotshot.clone(),
+            shut_down.clone(),
+            TransmitType::Direct,
+            exchange,
+        )
+        .instrument(<span class="macro">info_span!</span>(<span class="string">&quot;HotShot Direct Task&quot;</span>,)),
+    );
+
+    <span class="kw">let </span>committee_network_broadcast_task_handle = async_spawn(
+        network_task(
+            hotshot.clone(),
+            shut_down.clone(),
+            TransmitType::Broadcast,
+            committee_exchange.clone(),
+        )
+        .instrument(<span class="macro">info_span!</span>(<span class="string">&quot;HotShot DA Broadcast Task&quot;</span>,)),
+    );
+    <span class="kw">let </span>committee_network_direct_task_handle = async_spawn(
+        network_task(
+            hotshot.clone(),
+            shut_down.clone(),
+            TransmitType::Direct,
+            committee_exchange,
+        )
+        .instrument(<span class="macro">info_span!</span>(<span class="string">&quot;HotShot DA Direct Task&quot;</span>,)),
     );
 
     async_spawn(
@@ -515,6 +617,8 @@
     <span class="kw-2">*</span>background_task_handle = <span class="prelude-val">Some</span>(TaskHandleInner {
         network_broadcast_task_handle,
         network_direct_task_handle,
+        committee_network_broadcast_task_handle,
+        committee_network_direct_task_handle,
         consensus_task_handle,
         shutdown_timeout: Duration::from_millis(hotshot.inner.config.next_view_timeout),
         run_view_channels: handle_channels,
@@ -551,7 +655,7 @@
     shut_down: Arc&lt;AtomicBool&gt;,
 ) {
     <span class="macro">info!</span>(<span class="string">&quot;Launching network lookup task&quot;</span>);
-    <span class="kw">let </span>networking = hotshot.inner.networking.clone();
+    <span class="kw">let </span>networking = hotshot.inner.quorum_exchange.network().clone();
     <span class="kw">let </span>c_api = HotShotConsensusApi {
         inner: hotshot.inner.clone(),
     };
@@ -566,8 +670,8 @@
             </span><span class="kw">let </span>_result = networking
                 .inject_consensus_info((
                     (<span class="kw-2">*</span>cur_view),
-                    c_api.is_leader(cur_view).<span class="kw">await</span>,
-                    c_api.is_leader(cur_view + <span class="number">1</span>).<span class="kw">await</span>,
+                    c_api.inner.quorum_exchange.is_leader(cur_view),
+                    c_api.inner.quorum_exchange.is_leader(cur_view + <span class="number">1</span>),
                 ))
                 .<span class="kw">await</span>;
 
@@ -592,7 +696,7 @@
                 .collect();
 
             <span class="comment">// logic to look ahead
-            </span><span class="kw">if </span>!c_api.is_leader(view_to_lookup).<span class="kw">await </span>{
+            </span><span class="kw">if </span>!c_api.inner.quorum_exchange.is_leader(view_to_lookup) {
                 <span class="kw">let </span>is_done = Arc::new(AtomicBool::new(<span class="bool-val">false</span>));
                 completion_map.insert(view_to_lookup, is_done.clone());
                 <span class="kw">let </span>c_api = c_api.clone();
@@ -600,7 +704,7 @@
                 async_spawn_local(<span class="kw">async move </span>{
                     <span class="macro">info!</span>(<span class="string">&quot;starting lookup for {:?}&quot;</span>, view_to_lookup);
                     <span class="kw">let </span>_result = networking
-                        .lookup_node(c_api.get_leader(view_to_lookup).<span class="kw">await</span>)
+                        .lookup_node(c_api.inner.quorum_exchange.get_leader(view_to_lookup))
                         .<span class="kw">await</span>;
                     <span class="macro">info!</span>(<span class="string">&quot;finished lookup for {:?}&quot;</span>, view_to_lookup);
                 });
@@ -615,16 +719,21 @@
 }
 
 <span class="doccomment">/// Continually processes the incoming broadcast messages received on `hotshot.inner.networking`, redirecting them to their relevant handler
-</span><span class="kw">pub async fn </span>network_task&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;(
+</span><span class="kw">pub async fn </span>network_task&lt;
+    TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
+    EXCHANGE: ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
+&gt;(
     hotshot: HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;,
     shut_down: Arc&lt;AtomicBool&gt;,
     transmit_type: TransmitType,
+    exchange: Arc&lt;EXCHANGE&gt;,
 ) {
     <span class="macro">info!</span>(
         <span class="string">&quot;Launching network processing task for {:?} messages&quot;</span>,
         transmit_type
     );
-    <span class="kw">let </span>networking = <span class="kw-2">&amp;</span>hotshot.inner.networking;
+    <span class="kw">let </span>networking = <span class="kw-2">&amp;</span>exchange.network();
     <span class="kw">let </span><span class="kw-2">mut </span>incremental_backoff_ms = <span class="number">10</span>;
     <span class="kw">while </span>!shut_down.load(Ordering::Relaxed) {
         <span class="kw">let </span>queue = <span class="kw">match </span>networking.recv_msgs(transmit_type).<span class="kw">await </span>{
@@ -645,8 +754,7 @@
         <span class="comment">// Make sure to reset the backoff time
         </span>incremental_backoff_ms = <span class="number">10</span>;
         <span class="kw">for </span>item <span class="kw">in </span>queue {
-            <span class="kw">let </span>metrics = Arc::clone(<span class="kw-2">&amp;</span>hotshot.hotstuff.read().<span class="kw">await</span>.metrics);
-            metrics.direct_messages_received.add(<span class="number">1</span>);
+            <span class="kw">let </span>_metrics = Arc::clone(<span class="kw-2">&amp;</span>hotshot.hotstuff.read().<span class="kw">await</span>.metrics);
             <span class="macro">trace!</span>(<span class="question-mark">?</span>item, <span class="string">&quot;Processing item&quot;</span>);
             hotshot.handle_message(item, transmit_type).<span class="kw">await</span>;
         }
@@ -657,4 +765,4 @@
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>
+</section></main><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="hotshot" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.0 (2c8cc3432 2023-03-06)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

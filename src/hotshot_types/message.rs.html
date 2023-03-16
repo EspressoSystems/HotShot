@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `types/src/message.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>message.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-6827029ac823cab7.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../static.files/light-ebce58d0a40c3431.css"><link rel="stylesheet" disabled href="../../static.files/dark-f23faae4a2daf9a6.css"><link rel="stylesheet" disabled href="../../static.files/ayu-8af5e100b21cd173.css"><script id="default-settings" ></script><script src="../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../static.files/source-script-5cf2e01a42cc9858.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-c55e1eb52e1886b4.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../hotshot_types/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `types/src/message.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>message.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-93196c7a1c3542a8.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../static.files/light-4743e13df3dfe8c4.css"><link rel="stylesheet" disabled href="../../static.files/dark-0e1b889528bd466b.css"><link rel="stylesheet" disabled href="../../static.files/ayu-65289d5d067c7c66.css"><script id="default-settings" ></script><script src="../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../static.files/source-script-ea63cb6500f71309.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-3367e395607fafc1.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_types/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -193,14 +193,33 @@
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
-</span><span class="kw">use crate</span>::{
+</span><span class="kw">use </span><span class="kw">crate</span>::traits::network::ViewMessage;
+<span class="kw">use crate</span>::{
     data::ProposalType,
-    traits::{network::NetworkMsg, node_implementation::NodeType, signature_key::EncodedSignature},
+    traits::{
+        network::NetworkMsg,
+        node_implementation::{
+            CommitteeProposal, CommitteeVote, NodeImplementation, NodeType, QuorumProposal,
+            QuorumVoteType,
+        },
+        signature_key::EncodedSignature,
+    },
     vote::VoteType,
 };
 <span class="kw">use </span>derivative::Derivative;
@@ -208,31 +227,27 @@
 <span class="kw">use </span>std::fmt::Debug;
 
 <span class="doccomment">/// Incoming message
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub struct </span>Message&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
-{
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>, serialize = <span class="string">&quot;&quot;</span>))]
+</span><span class="kw">pub struct </span>Message&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// The sender of this message
     </span><span class="kw">pub </span>sender: TYPES::SignatureKey,
 
     <span class="doccomment">/// The message kind
-    </span><span class="kw">pub </span>kind: MessageKind&lt;TYPES, PROPOSAL, VOTE&gt;,
+    </span><span class="kw">pub </span>kind: MessageKind&lt;TYPES, I&gt;,
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt; NetworkMsg
-    <span class="kw">for </span>Message&lt;TYPES, PROPOSAL, VOTE&gt;
-{
-}
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; NetworkMsg <span class="kw">for </span>Message&lt;TYPES, I&gt; {}
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
-    Message&lt;TYPES, PROPOSAL, VOTE&gt;
-{
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; ViewMessage&lt;TYPES&gt; <span class="kw">for </span>Message&lt;TYPES, I&gt; {
     <span class="doccomment">/// get the view number out of a message
-    </span><span class="kw">pub fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
+    </span><span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.kind {
             MessageKind::Consensus(c) =&gt; <span class="kw">match </span>c {
                 ConsensusMessage::Proposal(p) =&gt; p.data.get_view_number(),
+                ConsensusMessage::DAProposal(p) =&gt; p.data.get_view_number(),
                 ConsensusMessage::Vote(v) =&gt; v.current_view(),
+                ConsensusMessage::DAVote(v) =&gt; v.current_view(),
                 ConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
                     InternalTrigger::Timeout(v) =&gt; <span class="kw-2">*</span>v,
                 },
@@ -245,29 +260,25 @@
 <span class="comment">// TODO (da) make it more customized to the consensus layer, maybe separating the specific message
 // data from the kind enum.
 </span><span class="doccomment">/// Enum representation of any message type
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub enum </span>MessageKind&lt;
-    TYPES: NodeType,
-    PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES&gt;,
-&gt; {
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>, serialize = <span class="string">&quot;&quot;</span>))]
+</span><span class="kw">pub enum </span>MessageKind&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Messages related to the consensus protocol
-    </span>Consensus(ConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;),
+    </span>Consensus(ConsensusMessage&lt;TYPES, I&gt;),
     <span class="doccomment">/// Messages relating to sharing data between nodes
     </span>Data(DataMessage&lt;TYPES&gt;),
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
-    From&lt;ConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;&gt; <span class="kw">for </span>MessageKind&lt;TYPES, PROPOSAL, VOTE&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; From&lt;ConsensusMessage&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>MessageKind&lt;TYPES, I&gt;
 {
-    <span class="kw">fn </span>from(m: ConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">fn </span>from(m: ConsensusMessage&lt;TYPES, I&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::Consensus(m)
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
-    From&lt;DataMessage&lt;TYPES&gt;&gt; <span class="kw">for </span>MessageKind&lt;TYPES, PROPOSAL, VOTE&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; From&lt;DataMessage&lt;TYPES&gt;&gt;
+    <span class="kw">for </span>MessageKind&lt;TYPES, I&gt;
 {
     <span class="kw">fn </span>from(m: DataMessage&lt;TYPES&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::Data(m)
@@ -284,72 +295,77 @@
 }
 
 <span class="doccomment">/// a processed consensus message
-</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+</span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
-</span><span class="kw">pub enum </span>ProcessedConsensusMessage&lt;
-    TYPES: NodeType,
-    PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES&gt;,
-&gt; {
-    <span class="doccomment">/// Leader&#39;s proposal
-    </span>Proposal(Proposal&lt;PROPOSAL&gt;, TYPES::SignatureKey),
+</span><span class="kw">pub enum </span>ProcessedConsensusMessage&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
+    <span class="doccomment">/// Leader&#39;s proposal for full Quorom voting
+    </span>Proposal(Proposal&lt;QuorumProposal&lt;TYPES, I&gt;&gt;, TYPES::SignatureKey),
+    <span class="doccomment">/// Proposal for data availability committee
+    </span>DAProposal(Proposal&lt;CommitteeProposal&lt;TYPES, I&gt;&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Replica&#39;s vote on a proposal.
-    </span>Vote(VOTE, TYPES::SignatureKey),
+    </span>Vote(QuorumVoteType&lt;TYPES, I&gt;, TYPES::SignatureKey),
+    <span class="doccomment">/// vote from the DA committee
+    </span>DAVote(CommitteeVote&lt;TYPES, I&gt;, TYPES::SignatureKey),
     <span class="doccomment">/// Internal ONLY message indicating a view interrupt.
     </span><span class="attr">#[serde(skip)]
     </span>InternalTrigger(InternalTrigger&lt;TYPES&gt;),
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
-    From&lt;ProcessedConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;&gt;
-    <span class="kw">for </span>ConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; From&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>ConsensusMessage&lt;TYPES, I&gt;
 {
     <span class="doccomment">/// row polymorphism would be great here
-    </span><span class="kw">fn </span>from(value: ProcessedConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">fn </span>from(value: ProcessedConsensusMessage&lt;TYPES, I&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span>value {
             ProcessedConsensusMessage::Proposal(p, <span class="kw">_</span>) =&gt; ConsensusMessage::Proposal(p),
+            ProcessedConsensusMessage::DAProposal(p, <span class="kw">_</span>) =&gt; ConsensusMessage::DAProposal(p),
             ProcessedConsensusMessage::Vote(v, <span class="kw">_</span>) =&gt; ConsensusMessage::Vote(v),
+            ProcessedConsensusMessage::DAVote(v, <span class="kw">_</span>) =&gt; ConsensusMessage::DAVote(v),
             ProcessedConsensusMessage::InternalTrigger(a) =&gt; ConsensusMessage::InternalTrigger(a),
         }
     }
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
-    ProcessedConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;
-{
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; ProcessedConsensusMessage&lt;TYPES, I&gt; {
     <span class="doccomment">/// row polymorphism would be great here
-    </span><span class="kw">pub fn </span>new(
-        value: ConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;,
-        sender: TYPES::SignatureKey,
-    ) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(value: ConsensusMessage&lt;TYPES, I&gt;, sender: TYPES::SignatureKey) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span>value {
             ConsensusMessage::Proposal(p) =&gt; ProcessedConsensusMessage::Proposal(p, sender),
+            ConsensusMessage::DAProposal(p) =&gt; ProcessedConsensusMessage::DAProposal(p, sender),
             ConsensusMessage::Vote(v) =&gt; ProcessedConsensusMessage::Vote(v, sender),
+            ConsensusMessage::DAVote(v) =&gt; ProcessedConsensusMessage::DAVote(v, sender),
             ConsensusMessage::InternalTrigger(a) =&gt; ProcessedConsensusMessage::InternalTrigger(a),
         }
     }
 }
 
-<span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
+<span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>, serialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="doccomment">/// Messages related to the consensus protocol
 </span><span class="kw">pub enum </span>ConsensusMessage&lt;
     TYPES: NodeType,
-    PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES&gt;,
-&gt; {
-    <span class="doccomment">/// Leader&#39;s proposal
-    </span>Proposal(Proposal&lt;PROPOSAL&gt;),
+    I: NodeImplementation&lt;TYPES&gt;,
+    <span class="comment">// PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+    // VOTE: VoteType&lt;TYPES&gt;,
+</span>&gt; {
+    <span class="doccomment">/// Leader&#39;s proposal for full quorum voting
+    </span>Proposal(Proposal&lt;QuorumProposal&lt;TYPES, I&gt;&gt;),
+
+    <span class="doccomment">/// Proposal for data availability committee
+    </span>DAProposal(Proposal&lt;CommitteeProposal&lt;TYPES, I&gt;&gt;),
+
     <span class="doccomment">/// Replica&#39;s vote on a proposal.
-    </span>Vote(VOTE),
+    </span>Vote(QuorumVoteType&lt;TYPES, I&gt;),
+
+    <span class="doccomment">/// vote for data availability committee
+    </span>DAVote(CommitteeVote&lt;TYPES, I&gt;),
+
     <span class="doccomment">/// Internal ONLY message indicating a view interrupt.
     </span><span class="attr">#[serde(skip)]
     </span>InternalTrigger(InternalTrigger&lt;TYPES&gt;),
 }
 
-<span class="kw">impl</span>&lt;TYPES: NodeType, PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;, VOTE: VoteType&lt;TYPES&gt;&gt;
-    ConsensusMessage&lt;TYPES, PROPOSAL, VOTE&gt;
-{
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; ConsensusMessage&lt;TYPES, I&gt; {
     <span class="doccomment">/// The view number of the (leader|replica) when the message was sent
     /// or the view of the timeout
     </span><span class="kw">pub fn </span>view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time {
@@ -359,7 +375,13 @@
                 // this should match replica upon receipt
                 </span>p.data.get_view_number()
             }
+            ConsensusMessage::DAProposal(p) =&gt; {
+                <span class="comment">// view of leader in the leaf when proposal
+                // this should match replica upon receipt
+                </span>p.data.get_view_number()
+            }
             ConsensusMessage::Vote(vote_message) =&gt; vote_message.current_view(),
+            ConsensusMessage::DAVote(vote_message) =&gt; vote_message.current_view(),
             ConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
                 InternalTrigger::Timeout(time) =&gt; <span class="kw-2">*</span>time,
             },
@@ -389,4 +411,4 @@
     </span><span class="kw">pub </span>signature: EncodedSignature,
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>
+</section></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.0 (2c8cc3432 2023-03-06)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

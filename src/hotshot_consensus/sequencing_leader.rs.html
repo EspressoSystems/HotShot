@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `consensus/src/sequencing_leader.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>sequencing_leader.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-6827029ac823cab7.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../static.files/light-ebce58d0a40c3431.css"><link rel="stylesheet" disabled href="../../static.files/dark-f23faae4a2daf9a6.css"><link rel="stylesheet" disabled href="../../static.files/ayu-8af5e100b21cd173.css"><script id="default-settings" ></script><script src="../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../static.files/source-script-5cf2e01a42cc9858.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-c55e1eb52e1886b4.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../hotshot_consensus/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `consensus/src/sequencing_leader.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>sequencing_leader.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-93196c7a1c3542a8.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../static.files/light-4743e13df3dfe8c4.css"><link rel="stylesheet" disabled href="../../static.files/dark-0e1b889528bd466b.css"><link rel="stylesheet" disabled href="../../static.files/ayu-65289d5d067c7c66.css"><script id="default-settings" ></script><script src="../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../static.files/source-script-ea63cb6500f71309.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-3367e395607fafc1.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_consensus/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -455,6 +455,45 @@
 <a href="#455" id="455">455</a>
 <a href="#456" id="456">456</a>
 <a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
@@ -469,6 +508,14 @@
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>either::Either::Right;
+<span class="kw">use </span>hotshot_types::message::Message;
+<span class="kw">use </span>hotshot_types::traits::election::CommitteeExchangeType;
+<span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
+<span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
+
+<span class="kw">use </span>hotshot_types::traits::node_implementation::{
+    NodeImplementation, QuorumProposal, QuorumVoteType,
+};
 <span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, DAProposal, SequencingLeaf},
@@ -480,20 +527,18 @@
     vote::{DAVote, QuorumVote, VoteAccumulator},
 };
 <span class="kw">use </span>std::collections::HashMap;
+<span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::num::NonZeroU64;
 <span class="kw">use </span>std::{collections::HashSet, sync::Arc, time::Instant};
 <span class="kw">use </span>tracing::{error, info, instrument, warn};
-
 <span class="doccomment">/// This view&#39;s DA committee leader
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>DALeader&lt;
-    A: ConsensusApi&lt;
-        TYPES,
-        SequencingLeaf&lt;TYPES&gt;,
-        DAProposal&lt;TYPES&gt;,
-        DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-    &gt;,
-    TYPES: NodeType,
+    A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
+    <span class="comment">// DA: ConsensusExchange&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, Message&lt;TYPES, I&gt;&gt;,
+    // QUORUM: ConsensusExchange&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, Message&lt;TYPES, I&gt;&gt;,
+    </span>TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
 &gt; {
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
@@ -507,32 +552,41 @@
     </span><span class="kw">pub </span>transactions: Arc&lt;SubscribableRwLock&lt;CommitmentMap&lt;TYPES::Transaction&gt;&gt;&gt;,
     <span class="doccomment">/// Limited access to the consensus protocol
     </span><span class="kw">pub </span>api: A,
+
+    <span class="doccomment">/// the committee exchange
+    </span><span class="kw">pub </span>committee_exchange: Arc&lt;I::CommitteeExchange&gt;,
+    <span class="doccomment">/// the quorum exchange
+    </span><span class="kw">pub </span>quorum_exchange: Arc&lt;I::QuorumExchange&gt;,
     <span class="doccomment">/// channel through which the leader collects votes
     </span><span class="attr">#[allow(clippy::type_complexity)]
-    </span><span class="kw">pub </span>vote_collection_chan: Arc&lt;
-        Mutex&lt;
-            UnboundedReceiver&lt;
-                ProcessedConsensusMessage&lt;
-                    TYPES,
-                    DAProposal&lt;TYPES&gt;,
-                    DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-                &gt;,
-            &gt;,
-        &gt;,
-    &gt;,
+    </span><span class="kw">pub </span>vote_collection_chan: Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;&gt;&gt;,
+    <span class="doccomment">/// needed to typecheck
+    </span><span class="kw">pub </span>_pd: PhantomData&lt;I&gt;,
 }
 <span class="kw">impl</span>&lt;
-        A: ConsensusApi&lt;
+        A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
+        TYPES: NodeType,
+        I: NodeImplementation&lt;TYPES&gt;,
+    &gt; DALeader&lt;A, TYPES, I&gt;
+<span class="kw">where
+    </span>I::QuorumExchange: ConsensusExchange&lt;
+        TYPES,
+        I::Leaf,
+        Message&lt;TYPES, I&gt;,
+        Proposal = CommitmentProposal&lt;TYPES, I::Leaf&gt;,
+        Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
+    &gt;,
+    I::CommitteeExchange: ConsensusExchange&lt;
             TYPES,
-            SequencingLeaf&lt;TYPES&gt;,
-            DAProposal&lt;TYPES&gt;,
-            DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        &gt;,
-        TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-    &gt; DALeader&lt;A, TYPES&gt;
+            I::Leaf,
+            Message&lt;TYPES, I&gt;,
+            Proposal = DAProposal&lt;TYPES&gt;,
+            Vote = DAVote&lt;TYPES, I::Leaf&gt;,
+            Certificate = DACertificate&lt;TYPES&gt;,
+            Commitment = TYPES::BlockType,
+        &gt; + CommitteeExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
 {
     <span class="doccomment">/// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
-    /// TODO: Refactor this to use new `Elecetion` trait and call accumulate
     </span><span class="kw">async fn </span>wait_for_votes(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         cur_view: TYPES::Time,
@@ -546,11 +600,15 @@
         };
 
         <span class="kw">while let </span><span class="prelude-val">Ok</span>(msg) = lock.recv().<span class="kw">await </span>{
-            <span class="kw">if </span>Into::&lt;ConsensusMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != cur_view {
+            <span class="kw">if </span>Into::&lt;ConsensusMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != cur_view {
                 <span class="kw">continue</span>;
             }
             <span class="kw">match </span>msg {
-                ProcessedConsensusMessage::Vote(vote, sender) =&gt; {
+                ProcessedConsensusMessage::Vote(_vote, _sender) =&gt; {
+                    <span class="macro">warn!</span>(<span class="string">&quot;The leader received an unexpext Quorum Vote!&quot;</span>);
+                    <span class="kw">continue</span>;
+                }
+                ProcessedConsensusMessage::DAVote(vote, sender) =&gt; {
                     <span class="kw">if </span>vote.signature.<span class="number">0 </span>!= &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::to_bytes(<span class="kw-2">&amp;</span>sender)
                     {
                         <span class="kw">continue</span>;
@@ -558,7 +616,7 @@
                     <span class="kw">if </span>vote.block_commitment != block_commitment {
                         <span class="kw">continue</span>;
                     }
-                    <span class="kw">match </span><span class="self">self</span>.api.accumulate_da_vote(
+                    <span class="kw">match </span><span class="self">self</span>.committee_exchange.accumulate_vote(
                         <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
                         <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
                         vote.block_commitment,
@@ -581,6 +639,9 @@
                     }
                 },
                 ProcessedConsensusMessage::Proposal(_p, _sender) =&gt; {
+                    <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected proposal!&quot;</span>);
+                }
+                ProcessedConsensusMessage::DAProposal(_p, _sender) =&gt; {
                     <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected proposal!&quot;</span>);
                 }
             }
@@ -684,18 +745,14 @@
         <span class="kw">let </span>block_commitment = block.commit();
 
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-        <span class="kw">let </span>signature = <span class="self">self</span>.api.sign_da_proposal(<span class="kw-2">&amp;</span>block.commit());
+        <span class="kw">let </span>signature = <span class="self">self</span>.committee_exchange.sign_da_proposal(<span class="kw-2">&amp;</span>block.commit());
         <span class="kw">let </span>data: DAProposal&lt;TYPES&gt; = DAProposal {
             deltas: block.clone(),
             view_number: <span class="self">self</span>.cur_view,
         };
-        <span class="kw">let </span>message = ConsensusMessage::&lt;
-            TYPES,
-            DAProposal&lt;TYPES&gt;,
-            DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        &gt;::Proposal(Proposal { data, signature });
+        <span class="kw">let </span>message = ConsensusMessage::&lt;TYPES, I&gt;::DAProposal(Proposal { data, signature });
         <span class="comment">// Brodcast DA proposal
-        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.api.send_broadcast_message(message.clone()).<span class="kw">await </span>{
+        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.api.send_da_broadcast(message.clone()).<span class="kw">await </span>{
             consensus.metrics.failed_to_send_messages.add(<span class="number">1</span>);
             <span class="macro">warn!</span>(<span class="question-mark">?</span>message, <span class="question-mark">?</span>e, <span class="string">&quot;Could not broadcast leader proposal&quot;</span>);
         } <span class="kw">else </span>{
@@ -707,7 +764,11 @@
 
         <span class="comment">// Wait for DA votes or Timeout
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="self">self
-            </span>.wait_for_votes(<span class="self">self</span>.cur_view, <span class="self">self</span>.api.threshold(), block_commitment)
+            </span>.wait_for_votes(
+                <span class="self">self</span>.cur_view,
+                <span class="self">self</span>.committee_exchange.threshold(),
+                block_commitment,
+            )
             .<span class="kw">await
         </span>{
             <span class="kw">return </span><span class="prelude-val">Some</span>((cert, block, parent_leaf));
@@ -719,13 +780,9 @@
 <span class="doccomment">/// Implemenation of the consensus leader for a DA/Sequencing consensus.  Handles sending out a proposal to the entire network
 /// For now this step happens after the `DALeader` completes it&#39;s proposal and collects enough votes.
 </span><span class="kw">pub struct </span>ConsensusLeader&lt;
-    A: ConsensusApi&lt;
-        TYPES,
-        SequencingLeaf&lt;TYPES&gt;,
-        DAProposal&lt;TYPES&gt;,
-        DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-    &gt;,
+    A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
     TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
 &gt; {
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
@@ -743,16 +800,34 @@
     </span><span class="kw">pub </span>parent: SequencingLeaf&lt;TYPES&gt;,
     <span class="doccomment">/// Limited access to the consensus protocol
     </span><span class="kw">pub </span>api: A,
+
+    <span class="doccomment">/// the quorum exchange
+    </span><span class="kw">pub </span>quorum_exchange: Arc&lt;I::QuorumExchange&gt;,
+
+    <span class="doccomment">/// needed to tyep check
+    </span><span class="kw">pub </span>_pd: PhantomData&lt;I&gt;,
 }
 <span class="kw">impl</span>&lt;
-        A: ConsensusApi&lt;
-            TYPES,
-            SequencingLeaf&lt;TYPES&gt;,
-            DAProposal&lt;TYPES&gt;,
-            DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        &gt;,
+        A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
         TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-    &gt; ConsensusLeader&lt;A, TYPES&gt;
+        I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
+    &gt; ConsensusLeader&lt;A, TYPES, I&gt;
+<span class="kw">where
+    </span>I::QuorumExchange: ConsensusExchange&lt;
+            TYPES,
+            I::Leaf,
+            Message&lt;TYPES, I&gt;,
+            Proposal = CommitmentProposal&lt;TYPES, I::Leaf&gt;,
+            <span class="comment">// Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
+        </span>&gt; + QuorumExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
+    I::CommitteeExchange: ConsensusExchange&lt;
+            TYPES,
+            I::Leaf,
+            Message&lt;TYPES, I&gt;,
+            <span class="comment">// Proposal = DAProposal&lt;TYPES&gt;,
+            // Vote = DAVote&lt;TYPES, I::Leaf&gt;,
+            // Certificate = DACertificate&lt;TYPES&gt;,
+        </span>&gt; + CommitteeExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
 {
     <span class="doccomment">/// Run one view of the DA leader task
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Sequencing DALeader Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
@@ -771,8 +846,8 @@
             proposer_id: <span class="self">self</span>.api.public_key().to_bytes(),
         };
         <span class="kw">let </span>signature = <span class="self">self
-            </span>.api
-            .sign_validating_or_commitment_proposal(<span class="kw-2">&amp;</span>leaf.commit());
+            </span>.quorum_exchange
+            .sign_validating_or_commitment_proposal::&lt;I&gt;(<span class="kw-2">&amp;</span>leaf.commit());
         <span class="comment">// TODO: DA cert is sent as part of the proposal here, we should split this out so we don&#39;t have to wait for it.
         </span><span class="kw">let </span>proposal = CommitmentProposal {
             block_commitment,
@@ -783,15 +858,17 @@
             proposer_id: leaf.proposer_id,
         };
 
-        <span class="kw">let </span>message = ConsensusMessage::&lt;
-            TYPES,
-            CommitmentProposal&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-            QuorumVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        &gt;::Proposal(Proposal {
+        <span class="kw">let </span>message = ConsensusMessage::&lt;TYPES, I&gt;::Proposal(Proposal {
             data: proposal,
             signature,
         });
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.api.send_da_broadcast(message.clone()).<span class="kw">await </span>{
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
+            </span>.api
+            .send_broadcast_message::&lt;QuorumProposal&lt;TYPES, I&gt;, QuorumVoteType&lt;TYPES, I&gt;&gt;(
+                message.clone(),
+            )
+            .<span class="kw">await
+        </span>{
             <span class="macro">warn!</span>(<span class="question-mark">?</span>message, <span class="question-mark">?</span>e, <span class="string">&quot;Could not broadcast leader proposal&quot;</span>);
         }
         <span class="self">self</span>.high_qc
@@ -800,13 +877,9 @@
 
 <span class="doccomment">/// Implenting the next leader.  Collect votes on the previous leaders proposal and return the QC
 </span><span class="kw">pub struct </span>ConsensusNextLeader&lt;
-    A: ConsensusApi&lt;
-        TYPES,
-        SequencingLeaf&lt;TYPES&gt;,
-        DAProposal&lt;TYPES&gt;,
-        DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-    &gt;,
+    A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
     TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
 &gt; {
     <span class="doccomment">/// id of node
     </span><span class="kw">pub </span>id: u64,
@@ -820,28 +893,29 @@
     </span><span class="kw">pub </span>generic_qc: QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// channel through which the leader collects votes
     </span><span class="attr">#[allow(clippy::type_complexity)]
-    </span><span class="comment">// TODO (da): Change this chan to have CommitmentProposal and QuorumVote.
-    </span><span class="kw">pub </span>vote_collection_chan: Arc&lt;
-        Mutex&lt;
-            UnboundedReceiver&lt;
-                ProcessedConsensusMessage&lt;
-                    TYPES,
-                    DAProposal&lt;TYPES&gt;,
-                    DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-                &gt;,
-            &gt;,
-        &gt;,
-    &gt;,
+    </span><span class="kw">pub </span>vote_collection_chan: Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;&gt;&gt;,
+
+    <span class="doccomment">/// the quorum exchnage
+    </span><span class="kw">pub </span>quorum_exchange: Arc&lt;I::QuorumExchange&gt;,
+
+    <span class="doccomment">/// needed to type check
+    </span><span class="kw">pub </span>_pd: PhantomData&lt;I&gt;,
 }
 <span class="kw">impl</span>&lt;
-        A: ConsensusApi&lt;
-            TYPES,
-            SequencingLeaf&lt;TYPES&gt;,
-            DAProposal&lt;TYPES&gt;,
-            DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        &gt;,
+        A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
         TYPES: NodeType&lt;ConsensusType = SequencingConsensus&gt;,
-    &gt; ConsensusNextLeader&lt;A, TYPES&gt;
+        I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
+    &gt; ConsensusNextLeader&lt;A, TYPES, I&gt;
+<span class="kw">where
+    </span>I::QuorumExchange: ConsensusExchange&lt;
+            TYPES,
+            I::Leaf,
+            Message&lt;TYPES, I&gt;,
+            Proposal = CommitmentProposal&lt;TYPES, I::Leaf&gt;,
+            Certificate = QuorumCertificate&lt;TYPES, I::Leaf&gt;,
+            Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
+            Commitment = SequencingLeaf&lt;TYPES&gt;,
+        &gt; + QuorumExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
 {
     <span class="doccomment">/// Run one view of the next leader, collect votes and build a QC for the last views `CommitmentProposal`
     /// # Panics
@@ -851,66 +925,70 @@
         <span class="kw">let </span><span class="kw-2">mut </span>qcs = HashSet::&lt;QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;&gt;::new();
         qcs.insert(<span class="self">self</span>.generic_qc.clone());
 
-        <span class="kw">let </span>_accumulator = VoteAccumulator::&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>accumulator = VoteAccumulator {
             vote_outcomes: HashMap::new(),
-            threshold: <span class="self">self</span>.api.threshold(),
+            threshold: <span class="self">self</span>.quorum_exchange.threshold(),
         };
 
         <span class="kw">let </span>lock = <span class="self">self</span>.vote_collection_chan.lock().<span class="kw">await</span>;
         <span class="kw">while let </span><span class="prelude-val">Ok</span>(msg) = lock.recv().<span class="kw">await </span>{
             <span class="comment">// If the message is for a different view number, skip it.
-            </span><span class="kw">if </span>Into::&lt;ConsensusMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != <span class="self">self</span>.cur_view {
+            </span><span class="kw">if </span>Into::&lt;ConsensusMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != <span class="self">self</span>.cur_view {
                 <span class="kw">continue</span>;
             }
-            <span class="comment">// TODO (da) restore the code below after supporting two vote types. Currently it
-            // doesn&#39;t work since the vote type of `ConsensusApi` is `DAVote` but the message is
-            // supposed to be `QuorumVote`.
-            // match msg {
-            //     ProcessedConsensusMessage::Vote(vote_message, sender) =&gt; match vote_message {
-            //         QuorumVote::Yes(vote) =&gt; {
-            //             if vote.signature.0
-            //                 != &lt;TYPES::SignatureKey as SignatureKey&gt;::to_bytes(&amp;sender)
-            //             {
-            //                 continue;
-            //             }
+            <span class="kw">match </span>msg {
+                ProcessedConsensusMessage::Vote(vote_message, sender) =&gt; <span class="kw">match </span>vote_message {
+                    QuorumVote::Yes(vote) =&gt; {
+                        <span class="kw">if </span>vote.signature.<span class="number">0
+                            </span>!= &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::to_bytes(<span class="kw-2">&amp;</span>sender)
+                        {
+                            <span class="kw">continue</span>;
+                        }
 
-            //             match self.api.accumulate_qc_vote(
-            //                 &amp;vote.signature.0,
-            //                 &amp;vote.signature.1,
-            //                 vote.leaf_commitment,
-            //                 vote.vote_token.clone(),
-            //                 self.cur_view,
-            //                 accumulator,
-            //             ) {
-            //                 Either::Left(acc) =&gt; {
-            //                     accumulator = acc;
-            //                 }
-            //                 Either::Right(qc) =&gt; {
-            //                     return qc;
-            //                 }
-            //             }
-            //         }
-            //         QuorumVote::Timeout(vote) =&gt; {
-            //             qcs.insert(vote.justify_qc);
-            //         }
-            //         QuorumVote::No(_) =&gt; {
-            //             warn!(&quot;The next leader has received an unexpected vote!&quot;);
-            //         }
-            //     },
-            //     ProcessedConsensusMessage::InternalTrigger(trigger) =&gt; match trigger {
-            //         InternalTrigger::Timeout(_) =&gt; {
-            //             self.api.send_next_leader_timeout(self.cur_view).await;
-            //             break;
-            //         }
-            //     },
-            //     ProcessedConsensusMessage::Proposal(_p, _sender) =&gt; {
-            //         warn!(&quot;The next leader has received an unexpected proposal!&quot;);
-            //     }
-            // }
-            </span><span class="kw">break</span>;
+                        <span class="comment">// FIXME is there a way around this?
+                        </span><span class="attr">#[allow(unused_assignments)]
+                        </span><span class="kw">match </span><span class="self">self</span>.quorum_exchange.accumulate_vote(
+                            <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
+                            <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
+                            vote.leaf_commitment,
+                            vote.vote_token.clone(),
+                            <span class="self">self</span>.cur_view,
+                            accumulator,
+                        ) {
+                            Either::Left(acc) =&gt; {
+                                accumulator = acc;
+                            }
+                            Either::Right(qc) =&gt; {
+                                <span class="kw">return </span>qc;
+                            }
+                        }
+                    }
+                    QuorumVote::Timeout(vote) =&gt; {
+                        qcs.insert(vote.justify_qc);
+                    }
+                    QuorumVote::No(<span class="kw">_</span>) =&gt; {
+                        <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected vote!&quot;</span>);
+                    }
+                },
+                ProcessedConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
+                    InternalTrigger::Timeout(<span class="kw">_</span>) =&gt; {
+                        <span class="self">self</span>.api.send_next_leader_timeout(<span class="self">self</span>.cur_view).<span class="kw">await</span>;
+                        <span class="kw">break</span>;
+                    }
+                },
+                ProcessedConsensusMessage::Proposal(_p, _sender) =&gt; {
+                    <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected proposal!&quot;</span>);
+                }
+                ProcessedConsensusMessage::DAProposal(_p, _sender) =&gt; {
+                    <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected proposal!&quot;</span>);
+                }
+                ProcessedConsensusMessage::DAVote(<span class="kw">_</span>, _sender) =&gt; {
+                    <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected DA vote!&quot;</span>);
+                }
+            }
         }
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_consensus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>
+</section></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_consensus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.0 (2c8cc3432 2023-03-06)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

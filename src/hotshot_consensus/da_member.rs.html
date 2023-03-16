@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `consensus/src/da_member.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>da_member.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-6827029ac823cab7.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../static.files/light-ebce58d0a40c3431.css"><link rel="stylesheet" disabled href="../../static.files/dark-f23faae4a2daf9a6.css"><link rel="stylesheet" disabled href="../../static.files/ayu-8af5e100b21cd173.css"><script id="default-settings" ></script><script src="../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../static.files/source-script-5cf2e01a42cc9858.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-c55e1eb52e1886b4.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><div class="width-limiter"><nav class="sub"><a class="sub-logo-container" href="../../hotshot_consensus/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `consensus/src/da_member.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>da_member.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-93196c7a1c3542a8.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../static.files/light-4743e13df3dfe8c4.css"><link rel="stylesheet" disabled href="../../static.files/dark-0e1b889528bd466b.css"><link rel="stylesheet" disabled href="../../static.files/ayu-65289d5d067c7c66.css"><script id="default-settings" ></script><script src="../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="../../static.files/source-script-ea63cb6500f71309.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-3367e395607fafc1.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../hotshot_consensus/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -221,6 +221,15 @@
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`DAMember`] struct used for the committee member step in the consensus algorithm
 //! with DA committee, i.e. in the sequencing consensus.
 
@@ -232,28 +241,28 @@
 <span class="kw">use </span>async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
 <span class="kw">use </span>commit::Committable;
 <span class="kw">use </span>either::Left;
+<span class="kw">use </span>hotshot_types::message::Message;
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
     data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, ProcessedConsensusMessage},
     traits::{
-        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
+        election::{CommitteeExchangeType, ConsensusExchange, SignedCertificate},
+        node_implementation::{CommitteeProposal, CommitteeVote, NodeImplementation, NodeType},
+        signature_key::SignatureKey,
     },
     vote::DAVote,
 };
+<span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>tracing::{error, info, instrument, warn};
 
 <span class="doccomment">/// This view&#39;s DA committee member.
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>DAMember&lt;
-    A: ConsensusApi&lt;
-        TYPES,
-        SequencingLeaf&lt;TYPES&gt;,
-        DAProposal&lt;TYPES&gt;,
-        DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-    &gt;,
+    A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
     TYPES: NodeType,
+    I: NodeImplementation&lt;TYPES&gt;,
 &gt; {
     <span class="doccomment">/// ID of node.
     </span><span class="kw">pub </span>id: u64,
@@ -261,34 +270,35 @@
     </span><span class="kw">pub </span>consensus: Arc&lt;RwLock&lt;Consensus&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Channel for accepting leader proposals and timeouts messages.
     </span><span class="attr">#[allow(clippy::type_complexity)]
-    </span><span class="kw">pub </span>proposal_collection_chan: Arc&lt;
-        Mutex&lt;
-            UnboundedReceiver&lt;
-                ProcessedConsensusMessage&lt;
-                    TYPES,
-                    DAProposal&lt;TYPES&gt;,
-                    DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-                &gt;,
-            &gt;,
-        &gt;,
-    &gt;,
+    </span><span class="kw">pub </span>proposal_collection_chan:
+        Arc&lt;Mutex&lt;UnboundedReceiver&lt;ProcessedConsensusMessage&lt;TYPES, I&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// View number this view is executing in.
     </span><span class="kw">pub </span>cur_view: TYPES::Time,
     <span class="doccomment">/// The High QC.
     </span><span class="kw">pub </span>high_qc: QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
     <span class="doccomment">/// HotShot consensus API.
     </span><span class="kw">pub </span>api: A,
+
+    <span class="doccomment">/// the committee exchange
+    </span><span class="kw">pub </span>exchange: Arc&lt;I::CommitteeExchange&gt;,
+
+    <span class="doccomment">/// needed for type checking
+    </span><span class="kw">pub </span>_pd: PhantomData&lt;I&gt;,
 }
 
 <span class="kw">impl</span>&lt;
-        A: ConsensusApi&lt;
-            TYPES,
-            SequencingLeaf&lt;TYPES&gt;,
-            DAProposal&lt;TYPES&gt;,
-            DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
-        &gt;,
+        A: ConsensusApi&lt;TYPES, SequencingLeaf&lt;TYPES&gt;, I&gt;,
         TYPES: NodeType,
-    &gt; DAMember&lt;A, TYPES&gt;
+        I: NodeImplementation&lt;TYPES, Leaf = SequencingLeaf&lt;TYPES&gt;&gt;,
+    &gt; DAMember&lt;A, TYPES, I&gt;
+<span class="kw">where
+    </span>I::CommitteeExchange: ConsensusExchange&lt;
+            TYPES,
+            I::Leaf,
+            Message&lt;TYPES, I&gt;,
+            Proposal = DAProposal&lt;TYPES&gt;,
+            Vote = DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
+        &gt; + CommitteeExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
 {
     <span class="doccomment">/// Returns the parent leaf of the proposal we are voting on
     </span><span class="kw">async fn </span>parent_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;SequencingLeaf&lt;TYPES&gt;&gt; {
@@ -330,13 +340,12 @@
             <span class="macro">info!</span>(<span class="string">&quot;recv-ed message {:?}&quot;</span>, msg.clone());
             <span class="kw">if let </span><span class="prelude-val">Ok</span>(msg) = msg {
                 <span class="comment">// If the message is for a different view number, skip it.
-                </span><span class="kw">if </span>Into::&lt;ConsensusMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number()
-                    != <span class="self">self</span>.cur_view
+                </span><span class="kw">if </span>Into::&lt;ConsensusMessage&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::into(msg.clone()).view_number() != <span class="self">self</span>.cur_view
                 {
                     <span class="kw">continue</span>;
                 }
                 <span class="kw">match </span>msg {
-                    ProcessedConsensusMessage::Proposal(p, sender) =&gt; {
+                    ProcessedConsensusMessage::DAProposal(p, sender) =&gt; {
                         <span class="kw">if </span>view_leader_key != sender {
                             <span class="kw">continue</span>;
                         }
@@ -358,7 +367,7 @@
                             <span class="kw">continue</span>;
                         }
 
-                        <span class="kw">let </span>vote_token = <span class="self">self</span>.api.make_vote_token(<span class="self">self</span>.cur_view);
+                        <span class="kw">let </span>vote_token = <span class="self">self</span>.exchange.make_vote_token(<span class="self">self</span>.cur_view);
                         <span class="kw">match </span>vote_token {
                             <span class="prelude-val">Err</span>(e) =&gt; {
                                 <span class="macro">error!</span>(
@@ -373,7 +382,7 @@
                                 <span class="macro">info!</span>(<span class="string">&quot;We were chosen for DA committee on {:?}&quot;</span>, <span class="self">self</span>.cur_view);
 
                                 <span class="comment">// Generate and send vote
-                                </span><span class="kw">let </span>message = <span class="self">self</span>.api.create_da_message(
+                                </span><span class="kw">let </span>message = <span class="self">self</span>.exchange.create_da_message(
                                     <span class="self">self</span>.high_qc.commit(),
                                     block_commitment,
                                     <span class="self">self</span>.cur_view,
@@ -383,7 +392,7 @@
                                 <span class="macro">info!</span>(<span class="string">&quot;Sending vote to the leader {:?}&quot;</span>, message);
 
                                 <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-                                <span class="kw">if </span><span class="self">self</span>.api.send_direct_message(sender, message).<span class="kw">await</span>.is_err() {
+                                <span class="kw">if </span><span class="self">self</span>.api.send_direct_da_message::&lt;CommitteeProposal&lt;TYPES, I&gt;, CommitteeVote&lt;TYPES, I&gt;&gt;(sender, message).<span class="kw">await</span>.is_err() {
                                     consensus.metrics.failed_to_send_messages.add(<span class="number">1</span>);
                                     <span class="macro">warn!</span>(<span class="string">&quot;Failed to send vote to the leader&quot;</span>);
                                 } <span class="kw">else </span>{
@@ -402,6 +411,15 @@
                         </span><span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved a vote message. This is not what the member expects. Skipping.&quot;</span>);
                         <span class="kw">continue</span>;
                     }
+                    ProcessedConsensusMessage::DAVote(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
+                        <span class="comment">// Should only be for DA leader, never member.
+                        </span><span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved a vote message. This is not what the member expects. Skipping.&quot;</span>);
+                        <span class="kw">continue</span>;
+                    }
+                    ProcessedConsensusMessage::Proposal(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
+                        <span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved a Non DA Proposal message. This is not what the member expects. Skipping.&quot;</span>);
+                        <span class="kw">continue</span>;
+                    }
                 }
             }
             <span class="comment">// fall through logic if we did not receive successfully from channel
@@ -415,7 +433,7 @@
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;DA Member Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
     </span><span class="kw">pub async fn </span>run_view(<span class="self">self</span>) -&gt; QuorumCertificate&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt; {
         <span class="macro">info!</span>(<span class="string">&quot;DA Committee Member task started!&quot;</span>);
-        <span class="kw">let </span>view_leader_key = <span class="self">self</span>.api.get_leader(<span class="self">self</span>.cur_view).<span class="kw">await</span>;
+        <span class="kw">let </span>view_leader_key = <span class="self">self</span>.exchange.get_leader(<span class="self">self</span>.cur_view);
 
         <span class="kw">let </span>maybe_leaf = <span class="self">self</span>.find_valid_msg(view_leader_key).<span class="kw">await</span>;
 
@@ -445,4 +463,4 @@
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_consensus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>
+</section></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_consensus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.0 (2c8cc3432 2023-03-06)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>
