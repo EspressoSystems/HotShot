@@ -594,7 +594,6 @@ where
             .mapping
             .keys()
             .clone()
-            .into_iter()
             .filter_map(<TYPES as NodeType>::SignatureKey::from_bytes)
             .collect()
     }
