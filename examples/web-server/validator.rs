@@ -4,7 +4,7 @@ use tracing::instrument;
 
 use crate::{
     infra::{main_entry_point, ValidatorArgs},
-    types::{ThisMembership, ThisNetwork, ThisNode, ThisRun},
+    types::{NodeImpl, ThisMembership, ThisNetwork, ThisRun},
 };
 
 pub mod types;
@@ -20,5 +20,5 @@ pub mod infra;
 #[instrument]
 async fn main() {
     let args = ValidatorArgs::parse();
-    main_entry_point::<VDemoTypes, ThisMembership, ThisNetwork, ThisNode, ThisRun>(args).await;
+    main_entry_point::<VDemoTypes, ThisMembership, ThisNetwork, NodeImpl, ThisRun>(args).await;
 }

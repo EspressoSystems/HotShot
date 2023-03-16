@@ -24,10 +24,9 @@ pub type ThisLeaf = ValidatingLeaf<VDemoTypes>;
 pub type ThisMembership =
     GeneralStaticCommittee<VDemoTypes, ThisLeaf, <VDemoTypes as NodeType>::SignatureKey>;
 pub type ThisNetwork =
-    CentralizedWebCommChannel<VDemoTypes, ThisNode, ThisProposal, ThisVote, ThisMembership>;
+    CentralizedWebCommChannel<VDemoTypes, NodeImpl, ThisProposal, ThisVote, ThisMembership>;
 pub type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
 pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
-pub type ThisNode = NodeImpl;
 
 impl NodeImplementation<VDemoTypes> for NodeImpl {
     type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
@@ -42,4 +41,4 @@ impl NodeImplementation<VDemoTypes> for NodeImpl {
     >;
     type CommitteeExchange = Self::QuorumExchange;
 }
-pub type ThisRun = WebServerRun<VDemoTypes, ThisNode, ThisMembership>;
+pub type ThisRun = WebServerRun<VDemoTypes, NodeImpl, ThisMembership>;

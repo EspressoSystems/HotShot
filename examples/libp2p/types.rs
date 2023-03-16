@@ -27,7 +27,6 @@ pub type ThisNetwork =
 
 pub type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
 pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
-pub type ThisNode = NodeImpl;
 
 impl NodeImplementation<VDemoTypes> for NodeImpl {
     type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
@@ -42,4 +41,4 @@ impl NodeImplementation<VDemoTypes> for NodeImpl {
     >;
     type CommitteeExchange = Self::QuorumExchange;
 }
-pub type ThisRun = Libp2pRun<VDemoTypes, ThisNode, ThisMembership>;
+pub type ThisRun = Libp2pRun<VDemoTypes, NodeImpl, ThisMembership>;
