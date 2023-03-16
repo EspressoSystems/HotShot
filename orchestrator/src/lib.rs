@@ -79,7 +79,6 @@ where
     ELECTION: serde::Serialize + Clone,
 {
     fn post_identity(&mut self, identity: IpAddr) -> Result<u16, ServerError> {
-        // TODO ED Move this constant out of function / add it to the config file
         let node_index = self.latest_index;
         self.latest_index += 1;
 

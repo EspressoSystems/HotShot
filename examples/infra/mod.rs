@@ -154,6 +154,7 @@ pub struct ValidatorArgs {
     /// The port the orchestrator runs on
     port: u16,
     /// This node's public IP address, for libp2p
+    /// If no IP address is passed in, it will default to 127.0.0.1
     public_ip: Option<IpAddr>,
 }
 
