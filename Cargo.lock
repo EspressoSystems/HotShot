@@ -1858,36 +1858,12 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.13.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a01d95850c592940db9b8194bc39f4bc0e89dee5c4265e4b1807c34a9aba453c"
-dependencies = [
- "darling_core 0.13.4",
- "darling_macro 0.13.4",
-]
-
-[[package]]
-name = "darling"
 version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0808e1bd8671fb44a113a14e13497557533369847788fa2ae912b6ebfce9fa8"
 dependencies = [
- "darling_core 0.14.3",
- "darling_macro 0.14.3",
-]
-
-[[package]]
-name = "darling_core"
-version = "0.13.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "859d65a907b6852c9361e3185c862aae7fafd2887876799fa55f5f99dc40d610"
-dependencies = [
- "fnv",
- "ident_case",
- "proc-macro2",
- "quote",
- "strsim 0.10.0",
- "syn",
+ "darling_core",
+ "darling_macro",
 ]
 
 [[package]]
@@ -1906,22 +1882,11 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.13.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c972679f83bdf9c42bd905396b6c3588a843a17f0f16dfcfa3e2c5d57441835"
-dependencies = [
- "darling_core 0.13.4",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "darling_macro"
 version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b36230598a2d5de7ec1c6f51f72d8a99a9208daff41de2084d06e3fd3ea56685"
 dependencies = [
- "darling_core 0.14.3",
+ "darling_core",
  "quote",
  "syn",
 ]
@@ -2056,7 +2021,7 @@ version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f91d4cfa921f1c05904dc3c57b4a32c38aed3340cce209f3a6fd1478babafc4"
 dependencies = [
- "darling 0.14.3",
+ "darling",
  "proc-macro2",
  "quote",
  "syn",
@@ -2068,7 +2033,7 @@ version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c11bdc11a0c47bc7d37d582b5285da6849c96681023680b906673c5707af7b0f"
 dependencies = [
- "darling 0.14.3",
+ "darling",
  "proc-macro2",
  "quote",
  "syn",
@@ -2936,7 +2901,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.6",
  "snafu",
- "surf-disco",
+ "surf-disco 0.4.0",
  "tempfile",
  "time 0.3.20",
  "tokio",
@@ -2986,8 +2951,8 @@ dependencies = [
  "serde",
  "serde_json",
  "snafu",
- "surf-disco",
- "tide-disco 0.3.1",
+ "surf-disco 0.4.1",
+ "tide-disco 0.4.1",
  "tokio",
  "toml 0.5.11",
  "tracing",
@@ -3037,7 +3002,7 @@ dependencies = [
  "serde",
  "serde_json",
  "snafu",
- "surf-disco",
+ "surf-disco 0.4.1",
  "tide-disco 0.4.1",
  "tokio",
  "toml 0.5.11",
@@ -3572,7 +3537,7 @@ dependencies = [
  "espresso-systems-common 0.1.1",
  "itertools 0.10.5",
  "jf-rescue",
- "jf-utils 0.1.3",
+ "jf-utils",
  "merlin",
  "num-bigint",
  "rand_chacha 0.3.1",
@@ -3603,7 +3568,7 @@ dependencies = [
  "itertools 0.10.5",
  "jf-plonk",
  "jf-rescue",
- "jf-utils 0.1.3",
+ "jf-utils",
  "rand_chacha 0.3.1",
  "rayon",
  "serde",
@@ -3630,28 +3595,10 @@ dependencies = [
  "derivative",
  "displaydoc",
  "generic-array",
- "jf-utils 0.1.3",
+ "jf-utils",
  "rayon",
  "serde",
  "zeroize",
-]
-
-[[package]]
-name = "jf-utils"
-version = "0.1.2"
-source = "git+https://github.com/EspressoSystems/jellyfish.git?tag=0.1.2#190213ac89c92118f1ed01421f427b83eed6d3d0"
-dependencies = [
- "anyhow",
- "ark-ec",
- "ark-ff",
- "ark-serialize",
- "ark-std 0.3.0",
- "digest 0.10.6",
- "jf-utils-derive 0.1.2",
- "serde",
- "sha2 0.10.6",
- "snafu",
- "tagged-base64 0.2.0 (git+https://github.com/EspressoSystems/tagged-base64?tag=0.2.0)",
 ]
 
 [[package]]
@@ -3665,21 +3612,11 @@ dependencies = [
  "ark-serialize",
  "ark-std 0.3.0",
  "digest 0.10.6",
- "jf-utils-derive 0.1.3",
+ "jf-utils-derive",
  "serde",
  "sha2 0.10.6",
  "snafu",
- "tagged-base64 0.2.0 (git+https://github.com/EspressoSystems/tagged-base64?tag=0.2.0)",
-]
-
-[[package]]
-name = "jf-utils-derive"
-version = "0.1.2"
-source = "git+https://github.com/EspressoSystems/jellyfish.git?tag=0.1.2#190213ac89c92118f1ed01421f427b83eed6d3d0"
-dependencies = [
- "ark-std 0.3.0",
- "quote",
- "syn",
+ "tagged-base64 0.2.0",
 ]
 
 [[package]]
@@ -4596,35 +4533,13 @@ checksum = "b87248edafb776e59e6ee64a79086f65890d3510f2c656c000bf2a7e8a0aea40"
 
 [[package]]
 name = "maud"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7384febb4f8fc970cc2efab1650a6f48cac2e79b0b29587c90497b646fb10e1e"
-dependencies = [
- "maud_macros 0.23.0",
- "tide",
-]
-
-[[package]]
-name = "maud"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19aff2cd19eb4b93df29efa602652513b0f731f1d3474f6e377f763fddf61e58"
 dependencies = [
  "itoa 0.4.8",
- "maud_macros 0.24.0",
+ "maud_macros",
  "tide",
-]
-
-[[package]]
-name = "maud_macros"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "423430ac467408136d7de93f2929debd8a7bc3e795c92476f45e259b158e3355"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -6740,16 +6655,6 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "1.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "678b5a069e50bf00ecd22d0cd8ddf7c236f68581b03db652061ed5eb13a312ff"
-dependencies = [
- "serde",
- "serde_with_macros 1.5.2",
-]
-
-[[package]]
-name = "serde_with"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30d904179146de381af4c93d3af6ca4984b3152db687dacb9c3c35e86f39809c"
@@ -6760,20 +6665,8 @@ dependencies = [
  "indexmap",
  "serde",
  "serde_json",
- "serde_with_macros 2.2.0",
+ "serde_with_macros",
  "time 0.3.20",
-]
-
-[[package]]
-name = "serde_with_macros"
-version = "1.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e182d6ec6f05393cc0e5ed1bf81ad6db3a8feedf8ee515ecdd369809bcce8082"
-dependencies = [
- "darling 0.13.4",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -6782,7 +6675,7 @@ version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1966009f3c05f095697c537312f5415d1e3ed31ce0a56942bac4c771c5c335e"
 dependencies = [
- "darling 0.14.3",
+ "darling",
  "proc-macro2",
  "quote",
  "syn",
@@ -7287,6 +7180,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "surf-disco"
+version = "0.4.1"
+source = "git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.1#3f85fd53b9e5b2c0b801cf8c2252f2397aa80da0"
+dependencies = [
+ "async-std",
+ "async-tungstenite 0.15.0",
+ "bincode",
+ "derivative",
+ "futures",
+ "hex",
+ "serde",
+ "serde_json",
+ "surf",
+ "tide-disco 0.4.1",
+]
+
+[[package]]
 name = "sval"
 version = "1.0.0-alpha.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7353,22 +7263,6 @@ dependencies = [
  "futures-channel",
  "js-sys",
  "structopt",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
-name = "tagged-base64"
-version = "0.2.0"
-source = "git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.2.1#4ba55dd2f9aaa63601db03a621ea2a1b50d18292"
-dependencies = [
- "base64 0.13.1",
- "clap 4.1.8",
- "console_error_panic_hook",
- "crc-any",
- "futures-channel",
- "js-sys",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -7510,54 +7404,6 @@ dependencies = [
 
 [[package]]
 name = "tide-disco"
-version = "0.3.1"
-source = "git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.3.1#2848d5d06f7d90bb1467a71156a807ec4f32c6e9"
-dependencies = [
- "ark-serialize",
- "async-std",
- "async-trait",
- "bincode",
- "clap 4.1.8",
- "config",
- "derive_more",
- "dirs",
- "edit-distance",
- "futures",
- "futures-util",
- "http",
- "include_dir",
- "jf-utils 0.1.2",
- "lazy_static",
- "libc",
- "markdown",
- "maud 0.23.0",
- "parking_lot 0.12.1",
- "routefinder",
- "semver 1.0.16",
- "serde",
- "serde_json",
- "serde_with 1.14.0",
- "shellexpand",
- "signal-hook",
- "signal-hook-async-std",
- "snafu",
- "strum",
- "strum_macros",
- "surf",
- "tagged-base64 0.2.0 (git+https://github.com/EspressoSystems/tagged-base64.git?tag=0.2.1)",
- "tide",
- "tide-websockets",
- "toml 0.5.11",
- "tracing",
- "tracing-distributed",
- "tracing-futures",
- "tracing-log",
- "tracing-subscriber",
- "url",
-]
-
-[[package]]
-name = "tide-disco"
 version = "0.4.0"
 source = "git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.4.0#267aa4a0fb811c71b74768f2e653f32d892ecb09"
 dependencies = [
@@ -7576,13 +7422,13 @@ dependencies = [
  "lazy_static",
  "libc",
  "markdown",
- "maud 0.24.0",
+ "maud",
  "parking_lot 0.12.1",
  "routefinder",
  "semver 1.0.16",
  "serde",
  "serde_json",
- "serde_with 2.2.0",
+ "serde_with",
  "shellexpand",
  "signal-hook",
  "signal-hook-async-std",
@@ -7622,13 +7468,13 @@ dependencies = [
  "lazy_static",
  "libc",
  "markdown",
- "maud 0.24.0",
+ "maud",
  "parking_lot 0.12.1",
  "routefinder",
  "semver 1.0.16",
  "serde",
  "serde_json",
- "serde_with 2.2.0",
+ "serde_with",
  "shellexpand",
  "signal-hook",
  "signal-hook-async-std",
