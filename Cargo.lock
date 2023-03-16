@@ -2902,7 +2902,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.6",
  "snafu",
- "surf-disco 0.4.0",
+ "surf-disco 0.4.1 (git+https://github.com/EspressoSystems/surf-disco.git?branch=main)",
  "tempfile",
  "time 0.3.20",
  "tokio",
@@ -2953,8 +2953,8 @@ dependencies = [
  "serde",
  "serde_json",
  "snafu",
- "surf-disco 0.4.1",
- "tide-disco 0.4.1",
+ "surf-disco 0.4.1 (git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.1)",
+ "tide-disco",
  "tokio",
  "toml 0.5.11",
  "tracing",
@@ -3004,8 +3004,8 @@ dependencies = [
  "serde",
  "serde_json",
  "snafu",
- "surf-disco 0.4.1",
- "tide-disco 0.4.1",
+ "surf-disco 0.4.1 (git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.1)",
+ "tide-disco",
  "tokio",
  "toml 0.5.11",
  "tracing",
@@ -7239,23 +7239,6 @@ dependencies = [
 [[package]]
 name = "surf-disco"
 version = "0.4.1"
-source = "git+https://github.com/EspressoSystems/surf-disco.git?branch=main#3f85fd53b9e5b2c0b801cf8c2252f2397aa80da0"
-dependencies = [
- "async-std",
- "async-tungstenite 0.15.0",
- "bincode",
- "derivative",
- "futures",
- "hex",
- "serde",
- "serde_json",
- "surf",
- "tide-disco 0.4.1",
-]
-
-[[package]]
-name = "surf-disco"
-version = "0.4.1"
 source = "git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.1#3f85fd53b9e5b2c0b801cf8c2252f2397aa80da0"
 dependencies = [
  "async-std",
@@ -7267,7 +7250,24 @@ dependencies = [
  "serde",
  "serde_json",
  "surf",
- "tide-disco 0.4.1",
+ "tide-disco",
+]
+
+[[package]]
+name = "surf-disco"
+version = "0.4.1"
+source = "git+https://github.com/EspressoSystems/surf-disco.git?branch=main#3f85fd53b9e5b2c0b801cf8c2252f2397aa80da0"
+dependencies = [
+ "async-std",
+ "async-tungstenite 0.15.0",
+ "bincode",
+ "derivative",
+ "futures",
+ "hex",
+ "serde",
+ "serde_json",
+ "surf",
+ "tide-disco",
 ]
 
 [[package]]
@@ -7474,52 +7474,6 @@ dependencies = [
  "route-recognizer",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "tide-disco"
-version = "0.4.0"
-source = "git+https://github.com/EspressoSystems/tide-disco.git?tag=v0.4.0#267aa4a0fb811c71b74768f2e653f32d892ecb09"
-dependencies = [
- "async-std",
- "async-trait",
- "bincode",
- "clap 4.1.8",
- "config",
- "derive_more",
- "dirs",
- "edit-distance",
- "futures",
- "futures-util",
- "http",
- "include_dir",
- "lazy_static",
- "libc",
- "markdown",
- "maud",
- "parking_lot 0.12.1",
- "routefinder",
- "semver 1.0.16",
- "serde",
- "serde_json",
- "serde_with",
- "shellexpand",
- "signal-hook",
- "signal-hook-async-std",
- "snafu",
- "strum",
- "strum_macros",
- "surf",
- "tagged-base64 0.2.4",
- "tide",
- "tide-websockets",
- "toml 0.5.11",
- "tracing",
- "tracing-distributed",
- "tracing-futures",
- "tracing-log",
- "tracing-subscriber",
- "url",
 ]
 
 [[package]]

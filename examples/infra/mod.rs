@@ -686,8 +686,10 @@ impl OrchestratorClient {
         let identity = identity.as_str();
         let f = |client: Client<ClientError>| {
             async move {
-                let node_index: Result<u16, ClientError> =
-                    client.post(&format!("api/identity/{identity}")).send().await;
+                let node_index: Result<u16, ClientError> = client
+                    .post(&format!("api/identity/{identity}"))
+                    .send()
+                    .await;
                 node_index
             }
             .boxed()
