@@ -21,6 +21,7 @@ use futures::FutureExt;
 
 use crate::config::NetworkConfig;
 
+use blake3;
 use libp2p::{
     identity::{
         ed25519::{Keypair as EdKeypair, SecretKey},
@@ -30,8 +31,6 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-use blake3;
-
 
 // /// yeesh maybe we should just implement SignatureKey for this...
 pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
@@ -92,7 +91,7 @@ where
 {
     fn post_identity(&mut self, identity: &str) -> Result<u16, ServerError> {
         // TODO ED Move this constant out of function / add it to the config file
-        let NUM_BOOTSTRAP_NODES = 7;
+        let NUM_BOOTSTRAP_NODES = 5;
         let node_index = self.latest_index;
         self.latest_index += 1;
 
@@ -109,14 +108,22 @@ where
             {
                 // TODO ED clean this up so not so many dots
                 // println!("{:?}", identity);
-                let mut addr = identity.parse::<SocketAddr>().unwrap();
+                // let mut addr = identity.parse::<SocketAddr>().unwrap();
+                let mut addr = identity.parse::<IpAddr>().unwrap();
+
                 // println!("{:?}", addr);
-                addr.set_port(self.config.libp2p_config.as_mut().unwrap().base_port + node_index);
+                // addr.set_port(self.config.libp2p_config.as_mut().unwrap().base_port + node_index);
                 // println!("{:?}", addr);
+                let socketaddr = SocketAddr::new(addr, 9000 + node_index);
                 // let addr = SocketAddr::new(identity.parse::<SocketAddr>().unwrap(), self.config.libp2p_config.as_mut().unwrap().base_port + node_index);
                 // TODO ED just pass the public key in the future
                 let keypair = libp2p_generate_indexed_identity(self.config.seed, node_index.into());
-                self.config.libp2p_config.as_mut().unwrap().bootstrap_nodes.push((addr, keypair.to_protobuf_encoding().unwrap()));
+                self.config
+                    .libp2p_config
+                    .as_mut()
+                    .unwrap()
+                    .bootstrap_nodes
+                    .push((socketaddr, keypair.to_protobuf_encoding().unwrap()));
 
                 // let addr = SocketAddr::new("0.0.0.0".parse().unwrap(), 4444);
             }
@@ -125,6 +132,7 @@ where
         }
 
         // TODO https://github.com/EspressoSystems/HotShot/issues/850
+        // TODO ED move this above
         if usize::from(node_index) >= self.config.config.total_nodes.get() {
             return Err(ServerError {
                 status: tide_disco::StatusCode::BadRequest,
@@ -138,8 +146,26 @@ where
         &mut self,
         node_index: u16,
     ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
+        let NUM_BOOTSTRAP_NODES = 5;
         let mut config = self.config.clone();
-        if config.libp2p_config.is_some() {}
+        if config.libp2p_config.is_some() {
+            if self
+                .config
+                .libp2p_config
+                .as_mut()
+                .unwrap()
+                .bootstrap_nodes
+                .len()
+                < NUM_BOOTSTRAP_NODES
+            {
+                // return error until we have the bootstrap nodes ready TODO ED
+                // TODO ED Make custom error
+                return Err(ServerError {
+                    status: tide_disco::StatusCode::BadRequest,
+                    message: "Not enough bootstrap nodes have registered".to_string(),
+                });
+            }
+        }
         // TODO ED Needs to take in their node index as an argument
         // config.node_index = self.latest_index.into();
 
@@ -149,13 +175,20 @@ where
     }
 
     fn get_start(&self) -> Result<bool, ServerError> {
+        println!("{}", self.start);
+        if !self.start {
+            return Err(ServerError {
+                status: tide_disco::StatusCode::BadRequest,
+                message: "Network is not ready to start".to_string(),
+            });
+        }
         Ok(self.start)
     }
 
     // Assumes nodes do not post 'ready' twice
     fn post_ready(&mut self) -> Result<(), ServerError> {
         self.nodes_connected += 1;
-        error!("Nodes connected: {}", self.nodes_connected);
+        println!("Nodes connected: {}", self.nodes_connected);
         if self.nodes_connected >= self.config.config.known_nodes.len().try_into().unwrap() {
             self.start = true;
         }
@@ -181,7 +214,9 @@ where
         async move {
             // println!("{:?}", req.);
             // let identity = req.string_param("identity")?;
-            let identity = req.remote();
+            // let identity = req.remote();
+            let identity = req.string_param("identity");
+
             println!("{:?}", identity);
             // TODO ED error check the unwrap
             state.post_identity(identity.unwrap())

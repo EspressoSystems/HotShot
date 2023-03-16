@@ -209,7 +209,7 @@ fn default_config() -> HotShotConfigFile {
         start_delay: 1,
         propose_min_round_time: Duration::from_secs(0),
         propose_max_round_time: Duration::from_secs(10),
-        num_bootstrap: 7,
+        num_bootstrap: 5,
     }
 }
 

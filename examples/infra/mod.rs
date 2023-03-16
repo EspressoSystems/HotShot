@@ -1,5 +1,6 @@
 use futures::Future;
 use futures::FutureExt;
+use std::collections::HashSet;
 use std::{
     cmp,
     collections::{BTreeSet, VecDeque},
@@ -151,6 +152,8 @@ pub struct ValidatorArgs {
     host: IpAddr,
     /// The port the orchestrator runs on
     port: u16,
+    /// This node's public IP address, for libp2p
+    public_ip: Option<IpAddr>,
 }
 
 /// Defines the behavior of a "run" of the network with a given configuration
@@ -448,13 +451,14 @@ where
             NetworkNodeType::Regular
         };
         let node_index = config.node_index;
-        let bound_addr = format!(
+        let bound_addr: Multiaddr = format!(
             "/{}/{}/tcp/{}",
             if libp2p_config.public_ip.is_ipv4() {
                 "ip4"
             } else {
                 "ip6"
             },
+            // TODO ED actually put in public IP
             libp2p_config.public_ip,
             // TODO ED This should technically still be fine with non-local deployments
             // But we'll want to change it to a specified port in the future
@@ -469,6 +473,16 @@ where
         let replicated_nodes = NonZeroUsize::new(config.config.total_nodes.get() - 2).unwrap();
         config_builder.replication_factor(replicated_nodes);
         config_builder.identity(identity.clone());
+
+        config_builder.bound_addr(Some(bound_addr.clone()));
+
+        let to_connect_addrs = bootstrap_nodes
+            .iter()
+            .map(|(peer_id, multiaddr)| (Some(peer_id.clone()), multiaddr.clone()))
+            .collect();
+
+        config_builder.to_connect_addrs(to_connect_addrs);
+
         let mesh_params =
             // NOTE I'm arbitrarily choosing these.
             match node_type {
@@ -493,6 +507,7 @@ where
             NoMetrics::new(),
             node_config,
             pubkey.clone(),
+            // TODO ED This is the same as to_connect_addrs
             Arc::new(RwLock::new(
                 bootstrap_nodes
                     .iter()
@@ -501,6 +516,7 @@ where
             )),
             bs_len,
             config.node_index as usize,
+            // config.config.known_nodes,
             // NOTE: this introduces an invariant that the keys are assigned using this indexed
             // function
             {
@@ -526,6 +542,9 @@ where
             >::new,
         )
         .unwrap();
+
+        network.wait_for_ready().await; 
+        
 
         Libp2pRun {
             config,
@@ -674,11 +693,11 @@ impl OrchestratorClient {
     /// Sends an identify message to the server
     /// Returns this validator's node_index in the network
     // TODO ED Change api to 'identify' instead of 'identity'
-    async fn identify_with_orchestrator(&self) -> u16 {
+    async fn identify_with_orchestrator(&self, identity: String) -> u16 {
         let f = |client: Client<ClientError>| {
             async move {
                 let node_index: Result<u16, ClientError> =
-                    client.post("api/identity/Thisisastring").send().await;
+                    client.post("api/identity/127.0.0.1").send().await;
                 node_index
             }
             .boxed()
@@ -787,25 +806,37 @@ pub async fn main_entry_point<
     error!("Starting validator");
 
     let orchestrator_client: OrchestratorClient =
-        OrchestratorClient::connect_to_orchestrator(args).await;
+        OrchestratorClient::connect_to_orchestrator(args.clone()).await;
 
     // Identify with the orchestrator
-    let node_index: u16 = orchestrator_client.identify_with_orchestrator().await;
+    // args.public_ip.to_string()
+    // Default identity to local TODO ED
+    let node_index: u16 = orchestrator_client
+        .identify_with_orchestrator("127.0.0.1".to_string())
+        .await;
     println!("Our node index is {node_index}");
 
     // TODO ED pass in node_index as an argument
-    let run_config = orchestrator_client
+    let mut run_config = orchestrator_client
         .get_config_from_orchestrator::<TYPES>(node_index)
         .await;
 
-    println!("{:?}", run_config);
+    run_config.node_index = node_index.into();
+    run_config.libp2p_config.as_mut().unwrap().public_ip = args.public_ip.unwrap();
+
+    // let run_config = run_config;
+    // TODO Set port
+    println!("{:?}", run_config.clone());
 
     let run = RUN::initialize_networking(run_config.clone()).await;
     let (_state, hotshot) = run.initialize_state_and_hotshot().await;
 
+    // TODO ED Wait for network to be ready
+
     orchestrator_client
-        .wait_for_all_nodes_ready(run_config.node_index)
+        .wait_for_all_nodes_ready(run_config.clone().node_index)
         .await;
 
+    error!("All nodes are ready!  Starting HotShot");
     run.run_hotshot(hotshot).await;
 }
