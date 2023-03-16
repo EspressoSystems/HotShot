@@ -9,7 +9,7 @@ PATH = ["identity/:identity"]
 METHOD = "POST"
 ":identity" = "Literal"
 DOC = """
-POST a node's identity (IP address and port) to the orchestrator.  Returns the node's node_index
+POST a node's identity (IP address) to the orchestrator.  Returns the node's node_index
 """
 
 # POST retrieve the network configuration

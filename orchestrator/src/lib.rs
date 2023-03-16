@@ -87,7 +87,6 @@ where
 {
     fn post_identity(&mut self, identity: IpAddr) -> Result<u16, ServerError> {
         // TODO ED Move this constant out of function / add it to the config file
-        let NUM_BOOTSTRAP_NODES = 5;
         let node_index = self.latest_index;
         self.latest_index += 1;
 
@@ -102,7 +101,9 @@ where
         if self.config.libp2p_config.clone().is_some() {
             let libp2p_config_clone = self.config.libp2p_config.clone().unwrap();
             // Designate node as bootstrap node and store its identity information
-            if libp2p_config_clone.bootstrap_nodes.len() < NUM_BOOTSTRAP_NODES {
+            if libp2p_config_clone.bootstrap_nodes.len()
+                < libp2p_config_clone.num_bootstrap_nodes.try_into().unwrap()
+            {
                 let port_index = match libp2p_config_clone.index_ports {
                     true => node_index,
                     false => 0,
@@ -127,17 +128,10 @@ where
         &mut self,
         node_index: u16,
     ) -> Result<NetworkConfig<KEY, ELECTION>, ServerError> {
-        let NUM_BOOTSTRAP_NODES = 5;
-        let mut config = self.config.clone();
-        if config.libp2p_config.is_some() {
-            if self
-                .config
-                .libp2p_config
-                .as_mut()
-                .unwrap()
-                .bootstrap_nodes
-                .len()
-                < NUM_BOOTSTRAP_NODES
+        if self.config.libp2p_config.is_some() {
+            let libp2p_config = self.config.clone().libp2p_config.unwrap();
+            if libp2p_config.bootstrap_nodes.len()
+                < libp2p_config.num_bootstrap_nodes.try_into().unwrap()
             {
                 return Err(ServerError {
                     status: tide_disco::StatusCode::BadRequest,
@@ -145,7 +139,7 @@ where
                 });
             }
         }
-        Ok(config)
+        Ok(self.config.clone())
     }
 
     fn get_start(&self) -> Result<bool, ServerError> {

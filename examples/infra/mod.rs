@@ -1,6 +1,7 @@
 use futures::Future;
 use futures::FutureExt;
 use std::collections::HashSet;
+use std::net::Ipv4Addr;
 use std::{
     cmp,
     collections::{BTreeSet, VecDeque},
@@ -373,7 +374,6 @@ pub fn parse_ip(s: &str) -> Result<Multiaddr, multiaddr::Error> {
     Multiaddr::from_str(&format!("/ip4/{ip}/tcp/{port}"))
 }
 
-
 #[async_trait]
 impl<
         TYPES: NodeType,
@@ -442,6 +442,10 @@ where
             NetworkNodeType::Regular
         };
         let node_index = config.node_index;
+        let port_index = match libp2p_config.index_ports {
+            true => node_index,
+            false => 0,
+        };
         let bound_addr: Multiaddr = format!(
             "/{}/{}/tcp/{}",
             if libp2p_config.public_ip.is_ipv4() {
@@ -450,9 +454,7 @@ where
                 "ip6"
             },
             libp2p_config.public_ip,
-            // TODO ED This should technically still be fine with non-local deployments
-            // But we'll want to change it to a specified port in the future
-            libp2p_config.base_port + node_index as u16
+            libp2p_config.base_port as u64 + port_index
         )
         .parse()
         .unwrap();
@@ -497,7 +499,6 @@ where
             NoMetrics::new(),
             node_config,
             pubkey.clone(),
-            // TODO ED This is the same as to_connect_addrs
             Arc::new(RwLock::new(
                 bootstrap_nodes
                     .iter()
@@ -506,7 +507,6 @@ where
             )),
             bs_len,
             config.node_index as usize,
-            // config.config.known_nodes,
             // NOTE: this introduces an invariant that the keys are assigned using this indexed
             // function
             {
@@ -681,7 +681,6 @@ impl OrchestratorClient {
 
     /// Sends an identify message to the server
     /// Returns this validator's node_index in the network
-    // TODO ED Change api to 'identify' instead of 'identity'
     async fn identify_with_orchestrator(&self, identity: String) -> u16 {
         let f = |client: Client<ClientError>| {
             async move {
@@ -798,14 +797,20 @@ pub async fn main_entry_point<
         OrchestratorClient::connect_to_orchestrator(args.clone()).await;
 
     // Identify with the orchestrator
-    // args.public_ip.to_string()
-    // Default identity to local TODO ED
+    let public_ip = match args.public_ip {
+        Some(ip) => ip,
+        None => IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+    };
+    error!(
+        "Identifying with orchestrator using IP address {}",
+        public_ip.to_string()
+    );
     let node_index: u16 = orchestrator_client
-        .identify_with_orchestrator("127.0.0.1".to_string())
+        .identify_with_orchestrator(public_ip.to_string())
         .await;
-    println!("Our node index is {node_index}");
+    error!("Finished identifying; our node index is {node_index}");
+    error!("Getting config from orchestrator");
 
-    // TODO ED pass in node_index as an argument
     let mut run_config = orchestrator_client
         .get_config_from_orchestrator::<TYPES>(node_index)
         .await;
@@ -813,15 +818,11 @@ pub async fn main_entry_point<
     run_config.node_index = node_index.into();
     run_config.libp2p_config.as_mut().unwrap().public_ip = args.public_ip.unwrap();
 
-    // let run_config = run_config;
-    // TODO Set port
-    println!("{:?}", run_config.clone());
-
+    error!("Initializing networking");
     let run = RUN::initialize_networking(run_config.clone()).await;
     let (_state, hotshot) = run.initialize_state_and_hotshot().await;
 
-    // TODO ED Wait for network to be ready
-
+    error!("Waiting for start command from orchestrator");
     orchestrator_client
         .wait_for_all_nodes_ready(run_config.clone().node_index)
         .await;
