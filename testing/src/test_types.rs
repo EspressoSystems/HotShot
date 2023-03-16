@@ -156,14 +156,3 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
 
 /// type alias for the test runner type
 pub type AppliedTestRunner<TYPES, I> = TestRunner<TYPES, I>;
-
-// /// applied test runner (convenient type alias)
-// pub type AppliedTestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, MEMBERSHIP> = TestNodeImpl<
-//     TYPES,
-//     LEAF,
-//     PROPOSAL,
-//     VOTE,
-//     MemoryCommChannel<TYPES, Self, PROPOSAL, VOTE, MEMBERSHIP>,
-//     MemoryStorage<TYPES, LEAF>,
-//     MEMBERSHIP,
-// >;

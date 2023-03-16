@@ -11,6 +11,7 @@ use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, 
 use commit::Committable;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::node_implementation::CommitteeNetwork;
+use hotshot_types::traits::node_implementation::QuorumNetwork;
 use hotshot_types::{
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
@@ -66,50 +67,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone for HotShotH
         }
     }
 }
-
-/// type alias to the network of a quorumexchange
-type QuorumNetwork<TYPES, I> =
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I>,
-    >>::Networking;
-
-/// type alias to the vote of a quorumexchange
-#[allow(unused)]
-type QuorumVoteType<TYPES, I> =
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I>,
-    >>::Vote;
-
-/// type alias to the vote of a committeeexchange
-#[allow(unused)]
-type CommitteeVote<TYPES, I> =
-    <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I>,
-    >>::Vote;
-
-/// type alias to the proposal of a quorumexchange
-#[allow(unused)]
-type QuorumProposal<TYPES, I> =
-    <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I>,
-    >>::Proposal;
-
-/// type alias to the proposal of a committeeexchange
-#[allow(unused)]
-type CommitteeProposal<TYPES, I> =
-    <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I>,
-    >>::Proposal;
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPES, I> {
     /// Will return the next event in the queue
@@ -322,9 +279,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     /// Wrapper for `HotShotConsensusApi`'s `get_leader` function
     #[cfg(feature = "hotshot-testing")]
     pub async fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
-        let _api = HotShotConsensusApi {
-            inner: self.hotshot.inner.clone(),
-        };
         self.hotshot.inner.quorum_exchange.get_leader(view_number)
     }
 

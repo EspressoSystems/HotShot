@@ -92,9 +92,9 @@ pub enum InternalTrigger<TYPES: NodeType> {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
 pub enum ProcessedConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Leader's proposal
+    /// Leader's proposal for full Quorom voting
     Proposal(Proposal<QuorumProposal<TYPES, I>>, TYPES::SignatureKey),
-    /// proposal for data availability committee
+    /// Proposal for data availability committee
     DAProposal(Proposal<CommitteeProposal<TYPES, I>>, TYPES::SignatureKey),
     /// Replica's vote on a proposal.
     Vote(QuorumVoteType<TYPES, I>, TYPES::SignatureKey),
@@ -142,10 +142,10 @@ pub enum ConsensusMessage<
     // PROPOSAL: ProposalType<NodeType = TYPES>,
     // VOTE: VoteType<TYPES>,
 > {
-    /// Leader's proposal
+    /// Leader's proposal for full quorum voting
     Proposal(Proposal<QuorumProposal<TYPES, I>>),
 
-    /// proposal for data availability committee
+    /// Proposal for data availability committee
     DAProposal(Proposal<CommitteeProposal<TYPES, I>>),
 
     /// Replica's vote on a proposal.

@@ -127,7 +127,7 @@ pub enum NetworkError {
     UnableToCancel,
 }
 
-/// common traits we would like olur network messages to implement
+/// common traits we would like our network messages to implement
 pub trait NetworkMsg:
     Serialize + for<'a> Deserialize<'a> + Clone + Sync + Send + std::fmt::Debug + 'static
 {

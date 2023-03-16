@@ -490,7 +490,6 @@ where
                     warn!("The next leader has received an unexpected DA vote!");
                 }
             }
-            break;
         }
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()
     }

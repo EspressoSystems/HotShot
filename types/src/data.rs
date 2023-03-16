@@ -202,17 +202,6 @@ pub trait LeafType:
         + Send
         + Serialize
         + Sync;
-    // type QuorumCertificate: SignedCertificate<
-    //         <Self::NodeType as NodeType>::SignatureKey,
-    //         <Self::NodeType as NodeType>::Time,
-    //         <Self::NodeType as NodeType>::VoteTokenType,
-    //         Self,
-    //     > + Committable
-    //     + Debug
-    //     + Eq
-    //     + Hash
-    //     + PartialEq
-    //     + Send;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,

@@ -96,6 +96,14 @@ impl<TYPES: NodeType> TaskHandle<TYPES> {
                 inner.network_direct_task_handle,
                 "network_direct_task_handle",
             ),
+            (
+                inner.committee_network_broadcast_task_handle,
+                "committee_network_broadcast_task_handle",
+            ),
+            (
+                inner.committee_network_direct_task_handle,
+                "committee_network_direct_task_handle",
+            ),
             (inner.consensus_task_handle, "network_change_task_handle"),
         ] {
             assert!(
@@ -117,6 +125,12 @@ struct TaskHandleInner {
 
     /// Join handle for `network_direct_task`
     pub network_direct_task_handle: JoinHandle<()>,
+
+    /// Join Handle for committee broadcast network task
+    pub committee_network_broadcast_task_handle: JoinHandle<()>,
+
+    /// Join Handle for committee direct network task
+    pub committee_network_direct_task_handle: JoinHandle<()>,
 
     /// Join handle for `consensus_task`
     pub consensus_task_handle: JoinHandle<()>,
@@ -144,7 +158,7 @@ where
     let exchange = hotshot.inner.quorum_exchange.clone();
     let committee_exchange = hotshot.inner.committee_exchange.clone();
 
-    let _network_broadcast_task_handle = async_spawn(
+    let network_broadcast_task_handle = async_spawn(
         network_task(
             hotshot.clone(),
             shut_down.clone(),
@@ -153,7 +167,7 @@ where
         )
         .instrument(info_span!("HotShot Broadcast Task",)),
     );
-    let _network_direct_task_handle = async_spawn(
+    let network_direct_task_handle = async_spawn(
         network_task(
             hotshot.clone(),
             shut_down.clone(),
@@ -163,7 +177,7 @@ where
         .instrument(info_span!("HotShot Direct Task",)),
     );
 
-    let network_broadcast_task_handle = async_spawn(
+    let committee_network_broadcast_task_handle = async_spawn(
         network_task(
             hotshot.clone(),
             shut_down.clone(),
@@ -172,7 +186,7 @@ where
         )
         .instrument(info_span!("HotShot DA Broadcast Task",)),
     );
-    let network_direct_task_handle = async_spawn(
+    let committee_network_direct_task_handle = async_spawn(
         network_task(
             hotshot.clone(),
             shut_down.clone(),
@@ -220,6 +234,8 @@ where
     *background_task_handle = Some(TaskHandleInner {
         network_broadcast_task_handle,
         network_direct_task_handle,
+        committee_network_broadcast_task_handle,
+        committee_network_direct_task_handle,
         consensus_task_handle,
         shutdown_timeout: Duration::from_millis(hotshot.inner.config.next_view_timeout),
         run_view_channels: handle_channels,
