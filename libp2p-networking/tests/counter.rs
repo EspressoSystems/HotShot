@@ -341,7 +341,7 @@ async fn run_gossip_rounds(
 ) {
     let mut old_state = starting_state;
     for i in 0..num_rounds {
-        error!("running gossip round {}", i);
+        info!("running gossip round {}", i);
         let new_state = old_state + 1;
         let msg = CounterMessage::IncrementCounter {
             from: old_state,

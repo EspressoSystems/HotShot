@@ -3,6 +3,7 @@
 //! network forms a tcp or udp connection to a subset of other nodes in the network
 
 use super::NetworkingMetrics;
+use crate::NodeImplementation;
 use async_compatibility_layer::{
     art::{async_block_on, async_sleep, async_spawn},
     channel::{unbounded, UnboundedReceiver, UnboundedSender},
@@ -11,6 +12,7 @@ use async_lock::RwLock;
 use async_trait::async_trait;
 use bimap::BiHashMap;
 use bincode::Options;
+use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
     message::Message,
@@ -114,11 +116,12 @@ pub struct Libp2pNetwork<M: NetworkMsg, K: SignatureKey + 'static> {
 
 impl<
         TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
-    for Libp2pCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -134,6 +137,7 @@ where
     fn generator(
         expected_node_count: usize,
         num_bootstrap: usize,
+        network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let bootstrap_addrs: PeerInfoVec = Arc::default();
         let mut all_keys = BTreeSet::new();
@@ -155,7 +159,7 @@ where
                 );
                 let addr =
                     // Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/0")).unwrap();
-                    Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/{}", 5000 + node_id)).unwrap();
+                    Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/{}{}", 5000 + node_id, network_id)).unwrap();
                 let privkey = TYPES::SignatureKey::generate_test_key(node_id);
                 let pubkey = TYPES::SignatureKey::from_private(&privkey);
                 // we want the majority of peers to have this lying around.
@@ -349,7 +353,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 // 10 minute timeout
                 let timeout_duration = Duration::from_secs(600);
                 // perform connection
-                error!("WAITING TO CONNECT ON NODE {:?}", id);
+                info!("WAITING TO CONNECT ON NODE {:?}", id);
                 handle
                     .wait_to_connect(4, id, timeout_duration)
                     .await
@@ -364,7 +368,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 // global topic to the topic map
                 // NOTE this wont' work without this change
 
-                error!(
+                info!(
                     "peer {:?} waiting for publishing, type: {:?}",
                     handle.peer_id(),
                     node_type
@@ -376,7 +380,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     async_sleep(Duration::from_secs(1)).await;
                 }
 
-                error!(
+                info!(
                     "Node {:?} is ready, type: {:?}",
                     handle.peer_id(),
                     node_type
@@ -386,14 +390,14 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                     async_sleep(Duration::from_secs(1)).await;
                 }
 
-                error!(
+                info!(
                     "node {:?} is barring bootstrap, type: {:?}",
                     handle.peer_id(),
                     node_type
                 );
 
                 is_ready.store(true, std::sync::atomic::Ordering::Relaxed);
-                error!("STARTING CONSENSUS ON {:?}", handle.peer_id());
+                info!("STARTING CONSENSUS ON {:?}", handle.peer_id());
                 Ok::<(), NetworkError>(())
             }
         });
@@ -675,25 +679,25 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, M, K> for Lib
 #[derive(Clone)]
 pub struct Libp2pCommChannel<
     TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    Libp2pNetwork<Message<TYPES, PROPOSAL, VOTE>, TYPES::SignatureKey>,
-    PhantomData<MEMBERSHIP>,
+    Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
+    PhantomData<(TYPES, I, PROPOSAL, VOTE, MEMBERSHIP)>,
 );
 
 impl<
         TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > Libp2pCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    > Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// create a new libp2p communication channel
-    pub fn new(
-        network: Libp2pNetwork<Message<TYPES, PROPOSAL, VOTE>, TYPES::SignatureKey>,
-    ) -> Self {
+    pub fn new(network: Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>) -> Self {
         Self(network, PhantomData::default())
     }
 }
@@ -704,11 +708,12 @@ impl<
 #[async_trait]
 impl<
         TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > CommunicationChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
-    for Libp2pCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
@@ -724,7 +729,7 @@ impl<
 
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, PROPOSAL, VOTE>,
+        message: Message<TYPES, I>,
         membership: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
         let recipients =
@@ -734,7 +739,7 @@ impl<
 
     async fn direct_message(
         &self,
-        message: Message<TYPES, PROPOSAL, VOTE>,
+        message: Message<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
@@ -743,7 +748,7 @@ impl<
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 

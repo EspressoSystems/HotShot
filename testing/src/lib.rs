@@ -21,26 +21,21 @@ pub use self::launcher::TestLauncher;
 
 use futures::future::LocalBoxFuture;
 use hotshot::{
-    traits::{NodeImplementation, Storage},
+    traits::{NodeImplementation, TestableNodeImplementation},
     types::{HotShotHandle, SignatureKey},
     HotShot, HotShotError, HotShotInitializer, ViewRunner, H_256,
 };
+use hotshot_types::traits::election::ConsensusExchange;
+
+use hotshot_types::message::Message;
+use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
 use hotshot_types::{
-    data::{LeafType, ProposalType, TestableLeaf},
-    traits::{
-        election::Membership,
-        metrics::NoMetrics,
-        network::TestableNetworkingImplementation,
-        node_implementation::{NodeType, TestableNodeImplementation},
-        signature_key::TestableSignatureKey,
-        state::{TestableBlock, TestableState},
-        storage::TestableStorage,
-    },
-    vote::{VoteAccumulator, VoteType},
+    data::LeafType,
+    traits::{election::Membership, metrics::NoMetrics, node_implementation::NodeType},
     HotShotConfig,
 };
 use snafu::Snafu;
-use std::{collections::HashMap, fmt, fmt::Debug, marker::PhantomData};
+use std::{collections::HashMap, fmt::Debug};
 use tracing::{debug, error, info, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
@@ -82,12 +77,7 @@ pub type RoundPreSafetyCheck<TYPES, I> =
 
 /// functions to run a round of consensus
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
-pub struct Round<TYPES: NodeType, I: NodeImplementation<TYPES>>
-where
-    <TYPES as NodeType>::BlockType: TestableBlock,
-    <TYPES as NodeType>::StateType: TestableState,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
+pub struct Round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// Safety check before round is set up and run
     /// to ensure consistent state
     pub safety_check_pre: Option<RoundPreSafetyCheck<TYPES, I>>,
@@ -99,15 +89,7 @@ where
     pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, I>>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I> {
     fn default() -> Self {
         Self {
             safety_check_post: None,
@@ -119,15 +101,9 @@ where
 
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
-pub struct TestRunner<TYPES, I>
-where
-    TYPES: NodeType,
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    I: NodeImplementation<TYPES>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
-    network_generator: Generator<I::Networking>,
+pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    quorum_network_generator: Generator<QuorumNetwork<TYPES, I>>,
+    committee_network_generator: Generator<CommitteeNetwork<TYPES, I>>,
     storage_generator: Generator<I::Storage>,
     default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     nodes: Vec<Node<TYPES, I>>,
@@ -135,23 +111,16 @@ where
     rounds: Vec<Round<TYPES, I>>,
 }
 
-struct Node<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub node_id: u64,
     pub handle: HotShotHandle<TYPES, I>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
     pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
-            network_generator: launcher.network,
+            quorum_network_generator: launcher.quorum_network,
+            committee_network_generator: launcher.committee_network,
             storage_generator: launcher.storage,
             default_node_config: launcher.config,
             nodes: Vec::new(),
@@ -175,14 +144,20 @@ where
         let mut results = vec![];
         for _i in 0..count {
             let node_id = self.next_node_id;
-            let network = (self.network_generator)(node_id);
+            let quorum_network = (self.quorum_network_generator)(node_id);
+            let committee_network = (self.committee_network_generator)(node_id);
             let storage = (self.storage_generator)(node_id);
             let config = self.default_node_config.clone();
             let initializer =
-                HotShotInitializer::<TYPES, I::Leaf>::from_genesis(TYPES::BlockType::genesis())
-                    .unwrap();
+                HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
             let node_id = self
-                .add_node_with_config(network, storage, initializer, config)
+                .add_node_with_config(
+                    quorum_network,
+                    committee_network,
+                    storage,
+                    initializer,
+                    config,
+                )
                 .await;
             results.push(node_id);
         }
@@ -208,7 +183,8 @@ where
     /// For a simpler way to add nodes to this runner, see `add_nodes`
     pub async fn add_node_with_config(
         &mut self,
-        network: I::Networking,
+        quorum_network: QuorumNetwork<TYPES, I>,
+        committee_network: CommitteeNetwork<TYPES, I>,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
@@ -220,19 +196,37 @@ where
         self.next_node_id += 1;
 
         let known_nodes = config.known_nodes.clone();
-        let private_key = TYPES::SignatureKey::generate_test_key(node_id);
+        let private_key = I::generate_test_key(node_id);
         let public_key = TYPES::SignatureKey::from_private(&private_key);
         let election_config = config.election_config.clone().unwrap_or_else(|| {
-            I::Membership::default_election_config(config.total_nodes.get() as u64)
+            <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+                TYPES,
+                I::Leaf,
+                Message<TYPES, I>,
+            >>::Membership::default_election_config(config.total_nodes.get() as u64)
         });
+        let quorum_exchange = I::QuorumExchange::create(
+            known_nodes.clone(),
+            election_config.clone(),
+            quorum_network,
+            public_key.clone(),
+            private_key.clone(),
+        );
+        let committee_exchange = I::CommitteeExchange::create(
+            known_nodes,
+            election_config,
+            committee_network,
+            public_key.clone(),
+            private_key.clone(),
+        );
         let handle = HotShot::init(
             public_key,
             private_key,
             node_id,
             config,
-            network,
             storage,
-            I::Membership::create_election(known_nodes, election_config),
+            quorum_exchange,
+            committee_exchange,
             initializer,
             NoMetrics::new(),
         )
@@ -384,15 +378,7 @@ where
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
         let mut leaves = Vec::<I::Leaf>::new();
@@ -455,15 +441,7 @@ where
 
 // FIXME make these return some sort of generic error.
 // corresponding issue: <https://github.com/EspressoSystems/hotshot/issues/181>
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
     /// Add a random transaction to this runner.
     pub async fn add_random_transaction(
         &self,
@@ -481,7 +459,7 @@ where
         // it should be caught by an assertion (and the txn will be rejected anyway)
         let leaf = self.nodes[0].handle.get_decided_leaf().await;
 
-        let txn = leaf.create_random_transaction(rng, 0);
+        let txn = I::leaf_create_random_transaction(&leaf, rng, 0);
 
         let node = if let Some(node_id) = node_id {
             self.nodes.get(node_id).unwrap()
@@ -564,104 +542,4 @@ pub enum ConsensusRoundError {
 pub enum ConsensusTestError {
     /// Too many nodes failed
     TooManyFailures,
-}
-
-/// An implementation of [`NodeImplementation`] for testing.
-pub struct TestNodeImpl<
-    TYPES: NodeType,
-    LEAF: LeafType<NodeType = TYPES>,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
-    NETWORK,
-    STORAGE,
-    MEMBERSHIP,
-> {
-    _pd: PhantomData<(TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP)>,
-}
-
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        NETWORK,
-        STORAGE,
-        MEMBERSHIP,
-    > Clone for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP>
-{
-    fn clone(&self) -> Self {
-        Self { _pd: PhantomData }
-    }
-}
-
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        NETWORK,
-        STORAGE,
-        MEMBERSHIP,
-    > NodeImplementation<TYPES>
-    for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    MEMBERSHIP: Membership<TYPES> + Debug,
-    NETWORK: TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, MEMBERSHIP>,
-    STORAGE: Storage<TYPES, LEAF>,
-{
-    type Leaf = LEAF;
-    type Networking = NETWORK;
-    type Membership = MEMBERSHIP;
-    type Storage = STORAGE;
-    type Proposal = PROPOSAL;
-    type Vote = VOTE;
-    type DAVoteAccumulator = VoteAccumulator<TYPES, TYPES::BlockType>;
-    type QuorumVoteAccumulator = VoteAccumulator<TYPES, LEAF>;
-}
-
-impl<
-        TYPES,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        NETWORK,
-        STORAGE,
-        MEMBERSHIP: Membership<TYPES> + Debug,
-    > TestableNodeImplementation<TYPES>
-    for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP>
-where
-    TYPES: NodeType,
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    MEMBERSHIP: Membership<TYPES>,
-    NETWORK: TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, MEMBERSHIP>,
-    STORAGE: TestableStorage<TYPES, LEAF>,
-{
-}
-
-impl<
-        TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        NETWORK,
-        STORAGE,
-        MEMBERSHIP,
-    > fmt::Debug for TestNodeImpl<TYPES, LEAF, PROPOSAL, VOTE, NETWORK, STORAGE, MEMBERSHIP>
-{
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("TestNodeImpl")
-            .field("Types", &std::any::type_name::<TYPES>())
-            .field("Leaf", &std::any::type_name::<LEAF>())
-            .field("Proposal", &std::any::type_name::<PROPOSAL>())
-            .field("Vote", &std::any::type_name::<VOTE>())
-            .field("Network", &std::any::type_name::<NETWORK>())
-            .field("STORAGE", &std::any::type_name::<STORAGE>())
-            .field("MEMBERSHIP", &std::any::type_name::<MEMBERSHIP>())
-            .finish_non_exhaustive()
-    }
 }

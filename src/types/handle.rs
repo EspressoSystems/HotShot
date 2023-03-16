@@ -1,5 +1,7 @@
 //! Provides an event-streaming handle for a [`HotShot`] running in the background
 
+use crate::Message;
+use crate::QuorumCertificate;
 use crate::{
     traits::{NetworkError::ShutDown, NodeImplementation},
     types::{Event, HotShotError::NetworkFault},
@@ -7,15 +9,18 @@ use crate::{
 };
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use commit::Committable;
+use hotshot_types::traits::election::QuorumExchangeType;
+use hotshot_types::traits::node_implementation::CommitteeNetwork;
+use hotshot_types::traits::node_implementation::QuorumNetwork;
 use hotshot_types::{
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
     traits::{
-        election::SignedCertificate, network::CommunicationChannel, node_implementation::NodeType,
-        state::ConsensusTime, storage::Storage,
+        election::ConsensusExchange, election::SignedCertificate, network::CommunicationChannel,
+        node_implementation::NodeType, state::ConsensusTime, storage::Storage,
     },
-    vote::{DAVote, QuorumVote},
+    vote::QuorumVote,
 };
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -28,12 +33,7 @@ use crate::HotShotConsensusApi;
 #[cfg(feature = "hotshot-testing")]
 use commit::Commitment;
 #[cfg(feature = "hotshot-testing")]
-use hotshot_consensus::ConsensusApi;
-#[cfg(feature = "hotshot-testing")]
-use hotshot_types::{
-    message::ConsensusMessage,
-    traits::signature_key::{EncodedPublicKey, EncodedSignature},
-};
+use hotshot_types::{message::ConsensusMessage, traits::signature_key::EncodedSignature};
 
 /// Event streaming handle for a [`HotShot`] instance running in the background
 ///
@@ -153,7 +153,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         if let Ok(anchor_leaf) = self.storage().get_anchored_view().await {
             if anchor_leaf.view_number == TYPES::Time::genesis() {
                 let leaf: I::Leaf = I::Leaf::from_stored_view(anchor_leaf);
-                let mut qc = <I::Leaf as LeafType>::QuorumCertificate::genesis();
+                let mut qc = QuorumCertificate::<TYPES, I::Leaf>::genesis();
                 qc.set_leaf_commitment(leaf.commit());
                 let event = Event {
                     view_number: TYPES::Time::genesis(),
@@ -235,16 +235,33 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         &self.storage
     }
 
-    /// Provides a reference to the underlying networking interface for this [`HotShot`], allowing access to
-    /// networking stats.
-    pub fn networking(&self) -> &I::Networking {
-        &self.hotshot.inner.networking
+    /// Provides a reference to the underlying quorum networking interface for this [`HotShot`],
+    /// allowing access to networking stats.
+    pub fn quorum_network(&self) -> &QuorumNetwork<TYPES, I> {
+        self.hotshot.inner.quorum_exchange.network()
+    }
+
+    /// Provides a reference to the underlying committee networking interface for this [`HotShot`],
+    /// allowing access to networking stats.
+    pub fn committee_network(&self) -> &CommitteeNetwork<TYPES, I> {
+        self.hotshot.inner.committee_exchange.network()
     }
 
     /// Shut down the the inner hotshot and wait until all background threads are closed.
     pub async fn shut_down(self) {
         self.shut_down.store(true, Ordering::Relaxed);
-        self.hotshot.inner.networking.shut_down().await;
+        self.hotshot
+            .inner
+            .committee_exchange
+            .network()
+            .shut_down()
+            .await;
+        self.hotshot
+            .inner
+            .quorum_exchange
+            .network()
+            .shut_down()
+            .await;
         self.hotshot
             .inner
             .background_task_handle
@@ -262,10 +279,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     /// Wrapper for `HotShotConsensusApi`'s `get_leader` function
     #[cfg(feature = "hotshot-testing")]
     pub async fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
-        let api = HotShotConsensusApi {
-            inner: self.hotshot.inner.clone(),
-        };
-        api.get_leader(view_number).await
+        self.hotshot.inner.quorum_exchange.get_leader(view_number)
     }
 
     /// Wrapper to get this node's public key
@@ -285,149 +299,50 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     pub fn sign_validating_or_commitment_proposal(
         &self,
         leaf_commitment: &Commitment<I::Leaf>,
-    ) -> EncodedSignature {
+    ) -> EncodedSignature
+    where
+        I::QuorumExchange: QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
+    {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
-        api.sign_validating_or_commitment_proposal(leaf_commitment)
+        api.inner
+            .quorum_exchange
+            .sign_validating_or_commitment_proposal::<I>(leaf_commitment)
     }
 
-    /// Wrapper around `HotShotConsensusApi`'s `sign_da_proposal` function
+    /// create a yes message
     #[cfg(feature = "hotshot-testing")]
-    pub fn sign_da_proposal(
-        &self,
-        block_commitment: &Commitment<TYPES::BlockType>,
-    ) -> EncodedSignature {
-        let api = HotShotConsensusApi {
-            inner: self.hotshot.inner.clone(),
-        };
-        api.sign_da_proposal(block_commitment)
-    }
-
-    /// Wrapper around `HotShotConsensusApi`'s `sign_da_vote` function
-    #[cfg(feature = "hotshot-testing")]
-    pub fn sign_da_vote(
-        &self,
-        block_commitment: Commitment<TYPES::BlockType>,
-    ) -> (EncodedPublicKey, EncodedSignature) {
-        let api = HotShotConsensusApi {
-            inner: self.hotshot.inner.clone(),
-        };
-        api.sign_da_vote(block_commitment)
-    }
-
-    /// Wrapper around `HotShotConsensusApi`'s `sign_yes_vote` function
-    #[cfg(feature = "hotshot-testing")]
-    pub fn sign_yes_vote(
-        &self,
-        leaf_commitment: Commitment<I::Leaf>,
-    ) -> (EncodedPublicKey, EncodedSignature) {
-        let api = HotShotConsensusApi {
-            inner: self.hotshot.inner.clone(),
-        };
-        api.sign_yes_vote(leaf_commitment)
-    }
-
-    /// Wrapper around `HotShotConsensusApi`'s `sign_no_vote` function
-    #[cfg(feature = "hotshot-testing")]
-    pub fn sign_no_vote(
-        &self,
-        leaf_commitment: Commitment<I::Leaf>,
-    ) -> (EncodedPublicKey, EncodedSignature) {
-        let api = HotShotConsensusApi {
-            inner: self.hotshot.inner.clone(),
-        };
-        api.sign_no_vote(leaf_commitment)
-    }
-
-    /// Wrapper around `HotShotConsensusApi`'s `sign_timeout_vote` function
-    #[cfg(feature = "hotshot-testing")]
-    pub fn sign_timeout_vote(
-        &self,
-        view_number: TYPES::Time,
-    ) -> (EncodedPublicKey, EncodedSignature) {
-        let api = HotShotConsensusApi {
-            inner: self.hotshot.inner.clone(),
-        };
-        api.sign_timeout_vote(view_number)
-    }
-
-    /// Wrapper around `HotShotConsensusApi`'s `create_da_message` function
-    pub fn create_da_message(
-        &self,
-        justify_qc_commitment: Commitment<<I::Leaf as LeafType>::QuorumCertificate>,
-        block_commitment: Commitment<TYPES::BlockType>,
-        current_view: TYPES::Time,
-        vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I::Proposal, DAVote<TYPES, I::Leaf>> {
-        let api = HotShotConsensusApi {
-            inner: self.hotshot.inner.clone(),
-        };
-        api.create_da_message(
-            justify_qc_commitment,
-            block_commitment,
-            current_view,
-            vote_token,
-        )
-    }
-
-    /// Wrapper around `HotShotConsensusApi`'s `create_yes_message` function
     pub fn create_yes_message(
         &self,
-        justify_qc_commitment: Commitment<<I::Leaf as LeafType>::QuorumCertificate>,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, I::Leaf>>,
         leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I::Proposal, QuorumVote<TYPES, I::Leaf>> {
+    ) -> ConsensusMessage<TYPES, I>
+    where
+        I::QuorumExchange: QuorumExchangeType<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Certificate = QuorumCertificate<TYPES, I::Leaf>,
+            Vote = QuorumVote<TYPES, I::Leaf>,
+        >,
+    {
         let api = HotShotConsensusApi {
             inner: self.hotshot.inner.clone(),
         };
-        api.create_yes_message(
+        api.inner.quorum_exchange.create_yes_message(
             justify_qc_commitment,
             leaf_commitment,
             current_view,
             vote_token,
         )
-    }
-
-    /// Wrapper around `HotShotConsensusApi`'s `create_no_message` function
-    pub fn create_no_message(
-        &self,
-        justify_qc_commitment: Commitment<<I::Leaf as LeafType>::QuorumCertificate>,
-        leaf_commitment: Commitment<I::Leaf>,
-        current_view: TYPES::Time,
-        vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I::Proposal, QuorumVote<TYPES, I::Leaf>> {
-        let api = HotShotConsensusApi {
-            inner: self.hotshot.inner.clone(),
-        };
-        api.create_no_message(
-            justify_qc_commitment,
-            leaf_commitment,
-            current_view,
-            vote_token,
-        )
-    }
-
-    /// Wrapper around `HotShotConsensusApi`'s `create_timeout_message` function
-    pub fn create_timeout_message(
-        &self,
-        justify_qc: <I::Leaf as LeafType>::QuorumCertificate,
-        current_view: TYPES::Time,
-        vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I::Proposal, QuorumVote<TYPES, I::Leaf>> {
-        let api = HotShotConsensusApi {
-            inner: self.hotshot.inner.clone(),
-        };
-        api.create_timeout_message(justify_qc, current_view, vote_token)
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
     #[cfg(feature = "hotshot-testing")]
-    pub async fn send_broadcast_consensus_message(
-        &self,
-        msg: ConsensusMessage<TYPES, I::Proposal, I::Vote>,
-    ) {
+    pub async fn send_broadcast_consensus_message(&self, msg: ConsensusMessage<TYPES, I>) {
         let _result = self.hotshot.send_broadcast_message(msg).await;
     }
 
@@ -435,7 +350,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_direct_consensus_message(
         &self,
-        msg: ConsensusMessage<TYPES, I::Proposal, I::Vote>,
+        msg: ConsensusMessage<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) {
         let _result = self.hotshot.send_direct_message(msg, recipient).await;

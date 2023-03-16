@@ -21,6 +21,8 @@ use hotshot_centralized_server::{
     FromServer, NetworkConfig, Run, RunResults, TcpStreamRecvUtil, TcpStreamSendUtil,
     TcpStreamUtilWithRecv, TcpStreamUtilWithSend, ToServer,
 };
+use hotshot_types::traits::network::ViewMessage;
+use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     data::ProposalType,
     message::Message,
@@ -1077,20 +1079,22 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static>
 #[derive(Clone)]
 pub struct CentralizedCommChannel<
     TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
     CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    PhantomData<(PROPOSAL, VOTE, MEMBERSHIP)>,
+    PhantomData<(PROPOSAL, VOTE, MEMBERSHIP, I)>,
 );
 
 impl<
         TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > CentralizedCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    > CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// create new communication channel
     pub fn new(
@@ -1113,16 +1117,17 @@ impl<
 #[async_trait]
 impl<
         TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > CommunicationChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
-    for CentralizedCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     async fn wait_for_ready(&self) {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
-            Message<TYPES, PROPOSAL, VOTE>,
+            Message<TYPES, I>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
         .await;
@@ -1130,8 +1135,8 @@ impl<
 
     async fn is_ready(&self) -> bool {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
-            Message<TYPES, PROPOSAL, VOTE>,
+            Message<TYPES, I>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -1139,8 +1144,8 @@ impl<
 
     async fn shut_down(&self) -> () {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
-            Message<TYPES, PROPOSAL, VOTE>,
+            Message<TYPES, I>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
         .await;
@@ -1148,7 +1153,7 @@ impl<
 
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, PROPOSAL, VOTE>,
+        message: Message<TYPES, I>,
         membership: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
         let view_number = message.get_view_number();
@@ -1158,7 +1163,7 @@ impl<
 
     async fn direct_message(
         &self,
-        message: Message<TYPES, PROPOSAL, VOTE>,
+        message: Message<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
@@ -1167,14 +1172,14 @@ impl<
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, PROPOSAL, VOTE>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, PROPOSAL, VOTE>,
-            Message<TYPES, PROPOSAL, VOTE>,
+            Message<TYPES, I>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::lookup_node(&self.0, pk)
         .await
@@ -1188,17 +1193,19 @@ impl<
 
 impl<
         TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
-    for CentralizedCommChannel<TYPES, PROPOSAL, VOTE, MEMBERSHIP>
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
     fn generator(
         expected_node_count: usize,
         _num_bootstrap: usize,
+        _network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);

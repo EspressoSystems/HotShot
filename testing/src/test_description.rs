@@ -1,28 +1,25 @@
 use std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
 
+use crate::{
+    ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
+    TestRunner,
+};
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use either::Either::{self, Left, Right};
 use futures::{future::LocalBoxFuture, FutureExt};
-use hotshot::{traits::NetworkReliability, HotShot, HotShotError, ViewRunner};
+use hotshot::traits::TestableNodeImplementation;
+use hotshot::{traits::NetworkReliability, types::Message, HotShot, HotShotError, ViewRunner};
+use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
-    data::TestableLeaf,
     traits::{
         election::Membership,
-        network::{CommunicationChannel, TestableNetworkingImplementation},
-        node_implementation::{NodeType, TestableNodeImplementation},
-        signature_key::TestableSignatureKey,
-        state::{TestableBlock, TestableState},
-        storage::TestableStorage,
+        network::CommunicationChannel,
+        node_implementation::{NodeImplementation, NodeType},
     },
     HotShotConfig,
 };
 use snafu::Snafu;
 use tracing::{error, info};
-
-use crate::{
-    ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
-    TestRunner,
-};
 
 ///! public infra for describing tests
 
@@ -122,15 +119,7 @@ impl GeneralTestDescriptionBuilder {
 /// fine-grained spec of test
 /// including what should be run every round
 /// and how to generate more rounds
-pub struct DetailedTestDescriptionBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
+pub struct DetailedTestDescriptionBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// generic information used for the test
     pub general_info: GeneralTestDescriptionBuilder,
 
@@ -162,22 +151,18 @@ pub struct TimingData {
     pub propose_max_round_time: Duration,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPES, I> {
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<TYPES, I> {
         let launcher = TestLauncher::new(
             self.total_nodes,
             self.num_bootstrap_nodes,
             self.min_transactions,
-            I::Membership::default_election_config(self.total_nodes as u64),
+            <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+                TYPES,
+                I::Leaf,
+                Message<TYPES, I>,
+            >>::Membership::default_election_config(self.total_nodes as u64),
         );
         // modify runner to recognize timing params
         let set_timing_params =
@@ -216,7 +201,8 @@ where
         runner.add_nodes(self.start_nodes).await;
 
         for (idx, node) in runner.nodes().collect::<Vec<_>>().iter().enumerate().rev() {
-            node.networking().wait_for_ready().await;
+            node.quorum_network().wait_for_ready().await;
+            node.committee_network().wait_for_ready().await;
             info!("EXECUTOR: NODE {:?} IS READY", idx);
         }
 
@@ -236,15 +222,7 @@ impl GeneralTestDescriptionBuilder {
     /// build a test description from the builder
     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         self,
-    ) -> TestDescription<TYPES, I>
-    where
-        TYPES::BlockType: TestableBlock,
-        TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-        TYPES::SignatureKey: TestableSignatureKey,
-        I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-        I::Storage: TestableStorage<TYPES, I::Leaf>,
-        I::Leaf: TestableLeaf<NodeType = TYPES>,
-    {
+    ) -> TestDescription<TYPES, I> {
         DetailedTestDescriptionBuilder {
             general_info: self,
             rounds: None,
@@ -254,14 +232,8 @@ impl GeneralTestDescriptionBuilder {
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> DetailedTestDescriptionBuilder<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
+    DetailedTestDescriptionBuilder<TYPES, I>
 {
     /// build a test description from a detailed testing spec
     pub fn build(self) -> TestDescription<TYPES, I> {
@@ -296,15 +268,7 @@ where
 }
 
 /// Description of a test. Contains all metadata necessary to execute test
-pub struct TestDescription<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
+pub struct TestDescription<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// TODO unneeded (should be sufficient to have gen runner)
     /// the ronds to run for the test
     pub rounds: Vec<Round<TYPES, I>>,
@@ -345,20 +309,11 @@ pub type TestSetup<TYPES, TRANS, I> =
 /// * `shut_down_ids`: vector of ids to shut down each round
 /// * `submitter_ids`: vector of ids to submit txns to each round
 /// * `num_rounds`: total number of rounds to generate
-pub fn default_submitter_id_to_round<TYPES, I: TestableNodeImplementation<TYPES>>(
+pub fn default_submitter_id_to_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     mut shut_down_ids: Vec<HashSet<u64>>,
     submitter_ids: Vec<Vec<u64>>,
     num_rounds: u64,
-) -> TestSetup<TYPES, TYPES::Transaction, I>
-where
-    TYPES: NodeType,
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
+) -> TestSetup<TYPES, TYPES::Transaction, I> {
     // make sure the lengths match so zip doesn't spit out none
     if shut_down_ids.len() < submitter_ids.len() {
         shut_down_ids.append(&mut vec![
@@ -410,15 +365,7 @@ pub fn default_randomized_ids_to_round<TYPES: NodeType, I: TestableNodeImplement
     shut_down_ids: Vec<HashSet<u64>>,
     num_rounds: u64,
     txns_per_round: u64,
-) -> TestSetup<TYPES, TYPES::Transaction, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
+) -> TestSetup<TYPES, TYPES::Transaction, I> {
     let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
 
     for round_idx in 0..num_rounds {
@@ -448,14 +395,8 @@ where
     rounds
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> DetailedTestDescriptionBuilder<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType, Time = TYPES::Time>,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
+    DetailedTestDescriptionBuilder<TYPES, I>
 {
     /// create rounds of consensus based on the data in `self`
     pub fn default_populate_rounds(&self) -> Vec<Round<TYPES, I>> {

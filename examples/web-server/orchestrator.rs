@@ -8,7 +8,7 @@ use types::ThisMembership;
 use crate::infra::OrchestratorArgs;
 use crate::{
     infra::run_orchestrator,
-    types::{ThisNetwork, ThisNode},
+    types::{NodeImpl, ThisNetwork},
 };
 
 #[path = "../infra/mod.rs"]
@@ -23,5 +23,5 @@ pub mod infra;
 async fn main() {
     let args = OrchestratorArgs::parse();
 
-    run_orchestrator::<VDemoTypes, ThisMembership, ThisNetwork, ThisNode>(args).await;
+    run_orchestrator::<VDemoTypes, ThisMembership, ThisNetwork, NodeImpl>(args).await;
 }

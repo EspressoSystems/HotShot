@@ -4,6 +4,7 @@
 //! can send, and vote accumulator that converts votes into certificates.
 
 use crate::{
+    certificate::QuorumCertificate,
     data::LeafType,
     traits::{
         election::VoteToken,
@@ -20,7 +21,7 @@ use std::num::NonZeroU64;
 
 /// The vote sent by consensus messages.
 pub trait VoteType<TYPES: NodeType>:
-    Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync
+    Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq
 {
     /// The view this vote was cast for.
     fn current_view(&self) -> TYPES::Time;
@@ -33,7 +34,7 @@ pub struct DAVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// TODO we should remove this
     /// this is correct, but highly inefficient
     /// we should check a cache, and if that fails request the qc
-    pub justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
+    pub justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
     pub signature: (EncodedPublicKey, EncodedSignature),
@@ -52,7 +53,7 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// TODO we should remove this
     /// this is correct, but highly inefficient
     /// we should check a cache, and if that fails request the qc
-    pub justify_qc_commitment: Commitment<LEAF::QuorumCertificate>,
+    pub justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
     pub signature: (EncodedPublicKey, EncodedSignature),
@@ -69,7 +70,7 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 #[serde(bound(deserialize = ""))]
 pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The justification qc for this view
-    pub justify_qc: LEAF::QuorumCertificate,
+    pub justify_qc: QuorumCertificate<TYPES, LEAF>,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
     pub signature: (EncodedPublicKey, EncodedSignature),
@@ -123,37 +124,41 @@ type VoteMap<C, TOKEN> =
 
 /// Describe the process of collecting signatures on block or leaf commitment, to form a DAC or QC,
 /// respectively.
-pub struct VoteAccumulator<TYPES: NodeType, C: Committable> {
-    /// Map of all signatures accumlated so far.
-    pub vote_outcomes: VoteMap<C, TYPES::VoteTokenType>,
-    /// Threshold of stake needed to form a certificate.
+#[allow(clippy::missing_docs_in_private_items)]
+pub struct VoteAccumulator<TOKEN, LEAF: Committable> {
+    /// Map of all signatures accumlated so far
+    pub vote_outcomes: VoteMap<LEAF, TOKEN>,
+    /// threshold of stake needed to form a Certificate
     pub threshold: NonZeroU64,
 }
 
-impl<TYPES: NodeType, C: Committable>
+impl<TOKEN, LEAF: Committable>
     Accumulator<
         (
-            Commitment<C>,
-            (EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)),
+            Commitment<LEAF>,
+            (EncodedPublicKey, (EncodedSignature, TOKEN)),
         ),
-        BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
-    > for VoteAccumulator<TYPES, C>
+        BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>,
+    > for VoteAccumulator<TOKEN, LEAF>
+where
+    TOKEN: Clone + VoteToken,
 {
     fn append(
         mut self,
         val: (
-            Commitment<C>,
-            (EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)),
+            Commitment<LEAF>,
+            (EncodedPublicKey, (EncodedSignature, TOKEN)),
         ),
-    ) -> Either<Self, BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>> {
+    ) -> Either<Self, BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>> {
         let (commitment, (key, (sig, token))) = val;
 
         let (stake_casted, vote_map) = self
             .vote_outcomes
             .entry(commitment)
             .or_insert_with(|| (0, BTreeMap::new()));
-        // Accumulate the stake for each commitment rather than the total stake of all votes, in
-        // case they correspond to inconsistent commitments.
+        // Accumulate the stake for each leaf commitment rather than the total
+        // stake of all votes, in case they correspond to inconsistent
+        // commitments.
         *stake_casted += u64::from(token.vote_count());
         vote_map.insert(key, (sig, token));
 

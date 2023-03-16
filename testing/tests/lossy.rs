@@ -3,41 +3,24 @@ use std::sync::Arc;
 
 use either::Either::Right;
 use futures::{future::LocalBoxFuture, FutureExt};
+use hotshot::traits::TestableNodeImplementation;
+
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
     test_description::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder},
     test_types::{AppliedTestRunner, StaticCommitteeTestTypes, StaticNodeImplType},
     ConsensusRoundError, RoundResult,
 };
-use hotshot_types::data::TestableLeaf;
-use hotshot_types::traits::{
-    network::TestableNetworkingImplementation,
-    node_implementation::{NodeImplementation, NodeType, TestableNodeImplementation},
-    signature_key::TestableSignatureKey,
-    state::{TestableBlock, TestableState},
-    storage::TestableStorage,
-};
+
+use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
 use tracing::{error, instrument};
+
 /// checks safety requirement; relatively lax
 /// marked as success if 2f+1 nodes "succeeded" and committed the same thing
 pub fn check_safety<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-    runner: &AppliedTestRunner<
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        <I as NodeImplementation<TYPES>>::Proposal,
-        <I as NodeImplementation<TYPES>>::Vote,
-        <I as NodeImplementation<TYPES>>::Membership,
-    >,
+    runner: &AppliedTestRunner<TYPES, I>,
     results: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState<BlockType = TYPES::BlockType>,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
+) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
     async move {
         let num_nodes = runner.ids().len();
         if results.results.len() <= (2 * num_nodes) / 3 + 1 {

@@ -8,26 +8,25 @@
 
 use crate::traits::{
     election::static_committee::{StaticElectionConfig, StaticVoteToken},
-    implementations::MemoryStorage,
-    Block, NodeImplementation,
+    Block,
 };
 use commit::{Commitment, Committable};
 use derivative::Derivative;
+
 use hotshot_types::{
     certificate::QuorumCertificate,
     constants::genesis_proposer_id,
-    data::{random_commitment, LeafType, ValidatingLeaf, ValidatingProposal, ViewNumber},
+    data::{random_commitment, LeafType, ValidatingLeaf, ViewNumber},
     traits::{
         block_contents::Transaction,
         election::Membership,
-        network::CommunicationChannel,
         node_implementation::NodeType,
         signature_key::ed25519::Ed25519Pub,
         state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensus},
         State,
     },
-    vote::{QuorumVote, VoteAccumulator},
 };
+
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
@@ -518,41 +517,23 @@ impl NodeType for VDemoTypes {
 /// The node implementation for the validating demo
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
-pub struct VDemoNode<NET, MEMBERSHIP>(PhantomData<NET>, PhantomData<MEMBERSHIP>)
+pub struct VDemoNode<MEMBERSHIP>(PhantomData<MEMBERSHIP>)
 where
-    NET: CommunicationChannel<
-        VDemoTypes,
-        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        MEMBERSHIP,
-    >,
-    MEMBERSHIP: Membership<VDemoTypes>;
+    MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug;
 
-impl<NET, MEMBERSHIP> VDemoNode<NET, MEMBERSHIP>
+impl<MEMBERSHIP> VDemoNode<MEMBERSHIP>
 where
-    NET: CommunicationChannel<
-        VDemoTypes,
-        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        MEMBERSHIP,
-    >,
-    MEMBERSHIP: Membership<VDemoTypes>,
+    MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug,
 {
     /// Create a new `VDemoNode`
     pub fn new() -> Self {
-        VDemoNode(PhantomData, PhantomData)
+        VDemoNode(PhantomData)
     }
 }
 
-impl<NET, MEMBERSHIP> Debug for VDemoNode<NET, MEMBERSHIP>
+impl<MEMBERSHIP> Debug for VDemoNode<MEMBERSHIP>
 where
-    NET: CommunicationChannel<
-        VDemoTypes,
-        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        MEMBERSHIP,
-    >,
-    MEMBERSHIP: Membership<VDemoTypes>,
+    MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("VDemoNode")
@@ -561,39 +542,13 @@ where
     }
 }
 
-impl<NET, MEMBERSHIP> Default for VDemoNode<NET, MEMBERSHIP>
+impl<MEMBERSHIP> Default for VDemoNode<MEMBERSHIP>
 where
-    NET: CommunicationChannel<
-        VDemoTypes,
-        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        MEMBERSHIP,
-    >,
-    MEMBERSHIP: Membership<VDemoTypes>,
+    MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug,
 {
     fn default() -> Self {
         Self::new()
     }
-}
-
-impl<NET, MEMBERSHIP> NodeImplementation<VDemoTypes> for VDemoNode<NET, MEMBERSHIP>
-where
-    NET: CommunicationChannel<
-        VDemoTypes,
-        ValidatingProposal<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        QuorumVote<VDemoTypes, ValidatingLeaf<VDemoTypes>>,
-        MEMBERSHIP,
-    >,
-    MEMBERSHIP: Membership<VDemoTypes> + Debug,
-{
-    type Leaf = ValidatingLeaf<VDemoTypes>;
-    type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
-    type Networking = NET;
-    type Membership = MEMBERSHIP;
-    type Proposal = ValidatingProposal<VDemoTypes, Self::Leaf>;
-    type Vote = QuorumVote<VDemoTypes, Self::Leaf>;
-    type DAVoteAccumulator = VoteAccumulator<VDemoTypes, VDemoBlock>;
-    type QuorumVoteAccumulator = VoteAccumulator<VDemoTypes, Self::Leaf>;
 }
 
 /// Provides a random [`QuorumCertificate`]
@@ -613,11 +568,7 @@ pub fn random_quorum_certificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPE
 pub fn random_validating_leaf<TYPES: NodeType<ConsensusType = ValidatingConsensus>>(
     deltas: TYPES::BlockType,
     rng: &mut dyn rand::RngCore,
-) -> ValidatingLeaf<TYPES>
-where
-    TYPES::StateType: TestableState,
-    TYPES::BlockType: TestableBlock,
-{
+) -> ValidatingLeaf<TYPES> {
     let justify_qc = random_quorum_certificate(rng);
     let state = TYPES::StateType::default()
         .append(&deltas, &TYPES::Time::new(42))

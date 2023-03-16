@@ -7,6 +7,11 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use commit::Committable;
+use hotshot_types::message::Message;
+use hotshot_types::traits::election::{ConsensusExchange, QuorumExchangeType};
+use hotshot_types::traits::node_implementation::{
+    NodeImplementation, QuorumProposal, QuorumVoteType,
+};
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
@@ -15,21 +20,16 @@ use hotshot_types::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
         state::ValidatingConsensus, Block, State,
     },
-    vote::QuorumVote,
 };
+use std::marker::PhantomData;
 use std::{sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
-
 /// This view's validating leader
 #[derive(Debug, Clone)]
 pub struct ValidatingLeader<
-    A: ConsensusApi<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-    >,
+    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
 > {
     /// id of node
     pub id: u64,
@@ -43,23 +43,32 @@ pub struct ValidatingLeader<
     pub transactions: Arc<SubscribableRwLock<CommitmentMap<TYPES::Transaction>>>,
     /// Limited access to the consensus protocol
     pub api: A,
+
+    /// the quorum exchange
+    pub exchange: Arc<I::QuorumExchange>,
+
+    /// needed for type checking
+    pub _pd: PhantomData<I>,
 }
 
 impl<
-        A: ConsensusApi<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        >,
+        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    > ValidatingLeader<A, TYPES>
+        I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    > ValidatingLeader<A, TYPES, I>
+where
+    I::QuorumExchange: ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Proposal = ValidatingProposal<TYPES, I::Leaf>,
+        > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Run one view of the leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Validating ValidatingLeader Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
         let pk = self.api.public_key();
-        error!("Validating leader task started!");
+        info!("Validating leader task started!");
 
         let task_start_time = Instant::now();
         let parent_view_number = &self.high_qc.view_number();
@@ -177,21 +186,23 @@ impl<
                 proposer_id: pk.to_bytes(),
             };
             let signature = self
-                .api
-                .sign_validating_or_commitment_proposal(&leaf.commit());
+                .exchange
+                .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
             let data: ValidatingProposal<TYPES, ValidatingLeaf<TYPES>> = leaf.into();
-            let message = ConsensusMessage::<
-                TYPES,
-                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-            >::Proposal(Proposal { data, signature });
+            let message = ConsensusMessage::<TYPES, I>::Proposal(Proposal { data, signature });
             consensus
                 .metrics
                 .proposal_build_duration
                 .add_point(proposal_build_start.elapsed().as_secs_f64());
             info!("Sending out proposal {:?}", message);
 
-            if let Err(e) = self.api.send_broadcast_message(message.clone()).await {
+            if let Err(e) = self
+                .api
+                .send_broadcast_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(
+                    message.clone(),
+                )
+                .await
+            {
                 consensus.metrics.failed_to_send_messages.add(1);
                 warn!(?message, ?e, "Could not broadcast leader proposal");
             } else {

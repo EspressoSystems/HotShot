@@ -233,7 +233,7 @@ impl DHTBehaviour {
     fn handle_get_query(&mut self, record_results: GetRecordResult, id: QueryId, last: bool) {
         if let Some(query) = self.in_progress_get_record_queries.get_mut(&id) {
             if let Ok(GetRecordOk::FoundRecord(record)) = record_results {
-                match query.records.entry(record.record.key.to_vec()) {
+                match query.records.entry(record.record.value) {
                     std::collections::hash_map::Entry::Occupied(mut o) => {
                         let num_entries = o.get_mut();
                         *num_entries += 1;

@@ -1,41 +1,25 @@
 use super::{Generator, TestRunner};
-use crate::TestableLeaf;
+
+use hotshot::traits::TestableNodeImplementation;
 use hotshot::types::SignatureKey;
+
+use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
 use hotshot_types::{
-    traits::{
-        network::TestableNetworkingImplementation,
-        node_implementation::{NodeType, TestableNodeImplementation},
-        signature_key::TestableSignatureKey,
-        state::{TestableBlock, TestableState},
-        storage::TestableStorage,
-    },
+    traits::node_implementation::{NodeImplementation, NodeType},
     ExecutionType, HotShotConfig,
 };
 use std::{num::NonZeroUsize, time::Duration};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
-pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-{
-    pub(super) network: Generator<I::Networking>,
-    pub(super) storage: Generator<I::Storage>,
+pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    pub(super) quorum_network: Generator<QuorumNetwork<TYPES, I>>,
+    pub(super) committee_network: Generator<CommitteeNetwork<TYPES, I>>,
+    pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     pub(super) block: Generator<TYPES::BlockType>,
     pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
     pub fn new(
@@ -46,7 +30,7 @@ where
     ) -> Self {
         let known_nodes = (0..expected_node_count)
             .map(|id| {
-                let priv_key = TYPES::SignatureKey::generate_test_key(id as u64);
+                let priv_key = I::generate_test_key(id as u64);
                 TYPES::SignatureKey::from_private(&priv_key)
             })
             .collect();
@@ -67,9 +51,10 @@ where
         };
 
         Self {
-            network: I::Networking::generator(expected_node_count, num_bootstrap_nodes),
-            storage: Box::new(|_| I::Storage::construct_tmp_storage().unwrap()),
-            block: Box::new(|_| TYPES::BlockType::genesis()),
+            quorum_network: I::quorum_generator(expected_node_count, num_bootstrap_nodes, 1),
+            committee_network: I::committee_generator(expected_node_count, num_bootstrap_nodes, 2),
+            storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
+            block: Box::new(|_| I::block_genesis()),
             config,
         }
     }
@@ -77,28 +62,45 @@ where
 
 // TODO make these functions generic over the target networking/storage/other generics
 // so we can hotswap out
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-{
-    /// Set a custom network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_network(
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
+    /// Set a custom quorum network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
+    pub fn with_quorum_network(
         self,
-        network: impl Fn(u64, TYPES::SignatureKey) -> I::Networking + 'static,
+        quorum_network: impl Fn(u64, TYPES::SignatureKey) -> QuorumNetwork<TYPES, I> + 'static,
     ) -> TestLauncher<TYPES, I> {
         TestLauncher {
-            network: Box::new({
+            quorum_network: Box::new({
                 move |node_id| {
                     // FIXME perhaps this pk generation is a separate function
                     // to add as an input
                     // that way we don't rely on threshold crypto
-                    let priv_key = TYPES::SignatureKey::generate_test_key(node_id);
+                    let priv_key = I::generate_test_key(node_id);
                     let pubkey = TYPES::SignatureKey::from_private(&priv_key);
-                    network(node_id, pubkey)
+                    quorum_network(node_id, pubkey)
+                }
+            }),
+            committee_network: self.committee_network,
+            storage: self.storage,
+            block: self.block,
+            config: self.config,
+        }
+    }
+
+    /// Set a custom committee network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
+    pub fn with_committee_network(
+        self,
+        committee_network: impl Fn(u64, TYPES::SignatureKey) -> CommitteeNetwork<TYPES, I> + 'static,
+    ) -> TestLauncher<TYPES, I> {
+        TestLauncher {
+            quorum_network: self.quorum_network,
+            committee_network: Box::new({
+                move |node_id| {
+                    // FIXME perhaps this pk generation is a separate function
+                    // to add as an input
+                    // that way we don't rely on threshold crypto
+                    let priv_key = I::generate_test_key(node_id);
+                    let pubkey = TYPES::SignatureKey::from_private(&priv_key);
+                    committee_network(node_id, pubkey)
                 }
             }),
             storage: self.storage,
@@ -113,7 +115,8 @@ where
         storage: impl Fn(u64) -> I::Storage + 'static,
     ) -> TestLauncher<TYPES, I> {
         TestLauncher {
-            network: self.network,
+            quorum_network: self.quorum_network,
+            committee_network: self.committee_network,
             storage: Box::new(storage),
             block: self.block,
             config: self.config,
@@ -126,7 +129,8 @@ where
         block: impl Fn(u64) -> TYPES::BlockType + 'static,
     ) -> TestLauncher<TYPES, I> {
         TestLauncher {
-            network: self.network,
+            quorum_network: self.quorum_network,
+            committee_network: self.committee_network,
             storage: self.storage,
             block: Box::new(block),
             config: self.config,
@@ -152,20 +156,12 @@ where
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I>
-where
-    TYPES::BlockType: TestableBlock,
-    TYPES::StateType: TestableState,
-    TYPES::SignatureKey: TestableSignatureKey,
-    I::Networking: TestableNetworkingImplementation<TYPES, I::Proposal, I::Vote, I::Membership>,
-    I::Storage: TestableStorage<TYPES, I::Leaf>,
-    I::Leaf: TestableLeaf<NodeType = TYPES>,
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///
-    /// - `NETWORK` implements and [`TestableNetworkingImplementation`]
+    /// - `NETWORK` implements and [`hotshot_types::traits::network::TestableNetworkingImplementation`]
     /// - `STORAGE` implements [`hotshot::traits::Storage`]
-    /// - `BLOCK` implements [`hotshot::traits::Block`] and [`TestableBlock`]
+    /// - `BLOCK` implements [`hotshot::traits::Block`] and [`hotshot_types::traits::state::TestableBlock`]
     pub fn launch(self) -> TestRunner<TYPES, I> {
         TestRunner::new(self)
     }

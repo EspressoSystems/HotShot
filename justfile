@@ -24,14 +24,14 @@ test_async_std_all:
 
 test_pkg := "hotshot"
 
-test_name := "sequencing_memory_network_test"
+test_name := "sequencing_libp2p_test"
 
 test_async_std_pkg_all pkg=test_pkg:
   cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --package={{pkg}} --no-fail-fast -- --test-threads=1 --nocapture
 
 
 test_async_std_pkg_test name=test_name:
-  cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --workspace --no-fail-fast _nodes -- --test-threads=1 --nocapture {{name}}
+  cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture {{name}}
 
 list_tests_json package=test_pkg:
   RUST_LOG=none cargo test --verbose --profile=release-lto --features=full-ci,channel-async-std --lib --bins --tests --benches --package={{package}} --no-fail-fast -- --test-threads=1 -Zunstable-options --format json
@@ -89,6 +89,9 @@ careful_tokio:
 careful_async_std:
   echo Careful-ing with async std executor
   cargo careful test --verbose --profile careful --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
+
+fix_async_std:
+  cargo fix --allow-dirty --allow-staged --features=full-ci,channel-async-std --workspace --lib --bins --tests --benches
 
 doc:
   echo Generating docs

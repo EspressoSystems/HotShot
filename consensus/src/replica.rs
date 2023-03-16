@@ -8,6 +8,8 @@ use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
+use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposal};
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
@@ -18,20 +20,19 @@ use hotshot_types::{
     },
     vote::{QuorumVote, TimeoutVote},
 };
+use hotshot_types::{message::Message, traits::election::QuorumExchangeType};
 use hotshot_utils::bincode::bincode_opts;
+use std::marker::PhantomData;
 use std::ops::Bound::{Excluded, Included};
 use std::{collections::HashSet, sync::Arc};
 use tracing::{error, info, instrument, warn};
+
 /// This view's replica
 #[derive(Debug, Clone)]
 pub struct Replica<
-    A: ConsensusApi<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-    >,
+    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+    I: NodeImplementation<TYPES>,
 > {
     /// id of node
     pub id: u64,
@@ -39,34 +40,37 @@ pub struct Replica<
     pub consensus: Arc<RwLock<Consensus<TYPES, ValidatingLeaf<TYPES>>>>,
     /// channel for accepting leader proposals and timeouts messages
     #[allow(clippy::type_complexity)]
-    pub proposal_collection_chan: Arc<
-        Mutex<
-            UnboundedReceiver<
-                ProcessedConsensusMessage<
-                    TYPES,
-                    ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-                >,
-            >,
-        >,
-    >,
+    pub proposal_collection_chan:
+        Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
     /// view number this view is executing in
     pub cur_view: TYPES::Time,
     /// genericQC from the pseudocode
     pub high_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     /// hotshot consensus api
     pub api: A,
+
+    /// quorum exchange
+    pub exchange: Arc<I::QuorumExchange>,
+
+    /// neeeded to typecheck
+    pub _pd: PhantomData<I>,
 }
 
 impl<
-        A: ConsensusApi<
-            TYPES,
-            ValidatingLeaf<TYPES>,
-            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        >,
+        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    > Replica<A, TYPES>
+        I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+    > Replica<A, TYPES, I>
+where
+    I::QuorumExchange: ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Proposal = ValidatingProposal<TYPES, I::Leaf>,
+            Vote = QuorumVote<TYPES, I::Leaf>,
+            Certificate = QuorumCertificate<TYPES, I::Leaf>,
+            Commitment = ValidatingLeaf<TYPES>,
+        > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
@@ -87,8 +91,7 @@ impl<
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
-                if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number()
-                    != self.cur_view
+                if Into::<ConsensusMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view
                 {
                     continue;
                 }
@@ -126,7 +129,10 @@ impl<
                         }
 
                         // check that the justify_qc is valid
-                        if !self.api.is_valid_qc(&justify_qc) {
+                        if !self
+                            .exchange
+                            .is_valid_cert(&justify_qc, justify_qc.leaf_commitment)
+                        {
                             invalid_qcs += 1;
                             warn!("Invalid justify_qc in proposal! Skipping proposal.");
                             continue;
@@ -192,7 +198,7 @@ impl<
                         }
 
                         let leaf_commitment = leaf.commit();
-                        let vote_token = self.api.make_vote_token(self.cur_view);
+                        let vote_token = self.exchange.make_vote_token(self.cur_view);
 
                         match vote_token {
                             Err(e) => {
@@ -208,19 +214,19 @@ impl<
                                 info!("We were chosen for committee on {:?}", self.cur_view);
 
                                 // Generate and send vote
-                                let message = self.api.create_yes_message(
+                                let message = self.exchange.create_yes_message(
                                     leaf.justify_qc.commit(),
                                     leaf_commitment,
                                     self.cur_view,
                                     vote_token,
                                 );
 
-                                let next_leader = self.api.get_leader(self.cur_view + 1).await;
+                                let next_leader = self.exchange.get_leader(self.cur_view + 1);
 
                                 info!("Sending vote to next leader {:?}", message);
                                 if self
                                     .api
-                                    .send_direct_message(next_leader, message)
+                                    .send_direct_message::<QuorumProposal<TYPES, I>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(next_leader, message)
                                     .await
                                     .is_err()
                                 {
@@ -236,12 +242,12 @@ impl<
                     ProcessedConsensusMessage::InternalTrigger(trigger) => {
                         match trigger {
                             InternalTrigger::Timeout(_) => {
-                                let next_leader = self.api.get_leader(self.cur_view + 1).await;
+                                let next_leader = self.exchange.get_leader(self.cur_view + 1);
 
                                 consensus.metrics.number_of_timeouts.add(1);
 
-                                let signature = self.api.sign_timeout_vote(self.cur_view);
-                                let vote_token = self.api.make_vote_token(self.cur_view);
+                                let signature = self.exchange.sign_timeout_vote(self.cur_view);
+                                let vote_token = self.exchange.make_vote_token(self.cur_view);
 
                                 match vote_token {
                                     Err(e) => {
@@ -273,7 +279,7 @@ impl<
                                         // send timedout message to the next leader
                                         if let Err(e) = self
                                             .api
-                                            .send_direct_message(next_leader.clone(), timed_out_msg)
+                                            .send_direct_message::<QuorumProposal<TYPES, I>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(next_leader.clone(), timed_out_msg)
                                             .await
                                         {
                                             consensus.metrics.failed_to_send_messages.add(1);
@@ -294,7 +300,16 @@ impl<
                             }
                         }
                     }
+                    ProcessedConsensusMessage::DAProposal(_, _) => {
+                        warn!("Replica receieved a DA Proposal message. This is not what the replica expects. Skipping.");
+                        continue;
+                    }
                     ProcessedConsensusMessage::Vote(_, _) => {
+                        // should only be for leader, never replica
+                        warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
+                        continue;
+                    }
+                    ProcessedConsensusMessage::DAVote(_, _) => {
                         // should only be for leader, never replica
                         warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
                         continue;
@@ -322,7 +337,7 @@ impl<
     pub async fn run_view(self) -> QuorumCertificate<TYPES, ValidatingLeaf<TYPES>> {
         info!("Replica task started!");
         let consensus = self.consensus.upgradable_read().await;
-        let view_leader_key = self.api.get_leader(self.cur_view).await;
+        let view_leader_key = self.exchange.get_leader(self.cur_view);
 
         let (consensus, maybe_leaf) = self.find_valid_msg(view_leader_key, consensus).await;
 

@@ -9,28 +9,28 @@ use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
 use commit::Committable;
 use either::Left;
+use hotshot_types::message::Message;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, ProcessedConsensusMessage},
     traits::{
-        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
+        election::{CommitteeExchangeType, ConsensusExchange, SignedCertificate},
+        node_implementation::{CommitteeProposal, CommitteeVote, NodeImplementation, NodeType},
+        signature_key::SignatureKey,
     },
     vote::DAVote,
 };
+use std::marker::PhantomData;
 use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
 
 /// This view's DA committee member.
 #[derive(Debug, Clone)]
 pub struct DAMember<
-    A: ConsensusApi<
-        TYPES,
-        SequencingLeaf<TYPES>,
-        DAProposal<TYPES>,
-        DAVote<TYPES, SequencingLeaf<TYPES>>,
-    >,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
 > {
     /// ID of node.
     pub id: u64,
@@ -38,34 +38,35 @@ pub struct DAMember<
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// Channel for accepting leader proposals and timeouts messages.
     #[allow(clippy::type_complexity)]
-    pub proposal_collection_chan: Arc<
-        Mutex<
-            UnboundedReceiver<
-                ProcessedConsensusMessage<
-                    TYPES,
-                    DAProposal<TYPES>,
-                    DAVote<TYPES, SequencingLeaf<TYPES>>,
-                >,
-            >,
-        >,
-    >,
+    pub proposal_collection_chan:
+        Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// The High QC.
     pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// HotShot consensus API.
     pub api: A,
+
+    /// the committee exchange
+    pub exchange: Arc<I::CommitteeExchange>,
+
+    /// needed for type checking
+    pub _pd: PhantomData<I>,
 }
 
 impl<
-        A: ConsensusApi<
-            TYPES,
-            SequencingLeaf<TYPES>,
-            DAProposal<TYPES>,
-            DAVote<TYPES, SequencingLeaf<TYPES>>,
-        >,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         TYPES: NodeType,
-    > DAMember<A, TYPES>
+        I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
+    > DAMember<A, TYPES, I>
+where
+    I::CommitteeExchange: ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Proposal = DAProposal<TYPES>,
+            Vote = DAVote<TYPES, SequencingLeaf<TYPES>>,
+        > + CommitteeExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Returns the parent leaf of the proposal we are voting on
     async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
@@ -107,13 +108,12 @@ impl<
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // If the message is for a different view number, skip it.
-                if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number()
-                    != self.cur_view
+                if Into::<ConsensusMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view
                 {
                     continue;
                 }
                 match msg {
-                    ProcessedConsensusMessage::Proposal(p, sender) => {
+                    ProcessedConsensusMessage::DAProposal(p, sender) => {
                         if view_leader_key != sender {
                             continue;
                         }
@@ -135,7 +135,7 @@ impl<
                             continue;
                         }
 
-                        let vote_token = self.api.make_vote_token(self.cur_view);
+                        let vote_token = self.exchange.make_vote_token(self.cur_view);
                         match vote_token {
                             Err(e) => {
                                 error!(
@@ -150,7 +150,7 @@ impl<
                                 info!("We were chosen for DA committee on {:?}", self.cur_view);
 
                                 // Generate and send vote
-                                let message = self.api.create_da_message(
+                                let message = self.exchange.create_da_message(
                                     self.high_qc.commit(),
                                     block_commitment,
                                     self.cur_view,
@@ -160,7 +160,7 @@ impl<
                                 info!("Sending vote to the leader {:?}", message);
 
                                 let consensus = self.consensus.read().await;
-                                if self.api.send_direct_message(sender, message).await.is_err() {
+                                if self.api.send_direct_da_message::<CommitteeProposal<TYPES, I>, CommitteeVote<TYPES, I>>(sender, message).await.is_err() {
                                     consensus.metrics.failed_to_send_messages.add(1);
                                     warn!("Failed to send vote to the leader");
                                 } else {
@@ -179,6 +179,15 @@ impl<
                         warn!("DA committee member receieved a vote message. This is not what the member expects. Skipping.");
                         continue;
                     }
+                    ProcessedConsensusMessage::DAVote(_, _) => {
+                        // Should only be for DA leader, never member.
+                        warn!("DA committee member receieved a vote message. This is not what the member expects. Skipping.");
+                        continue;
+                    }
+                    ProcessedConsensusMessage::Proposal(_, _) => {
+                        warn!("DA committee member receieved a Non DA Proposal message. This is not what the member expects. Skipping.");
+                        continue;
+                    }
                 }
             }
             // fall through logic if we did not receive successfully from channel
@@ -192,7 +201,7 @@ impl<
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "DA Member Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
         info!("DA Committee Member task started!");
-        let view_leader_key = self.api.get_leader(self.cur_view).await;
+        let view_leader_key = self.exchange.get_leader(self.cur_view);
 
         let maybe_leaf = self.find_valid_msg(view_leader_key).await;
 

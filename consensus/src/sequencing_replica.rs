@@ -10,8 +10,16 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
 use either::{Left, Right};
+use hotshot_types::data::DAProposal;
+use hotshot_types::message::Message;
+use hotshot_types::traits::election::QuorumExchangeType;
+use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
+use hotshot_types::traits::node_implementation::NodeImplementation;
+use hotshot_types::traits::node_implementation::QuorumProposal;
+use hotshot_types::traits::node_implementation::QuorumVoteType;
+use hotshot_types::vote::DAVote;
 use hotshot_types::{
-    certificate::QuorumCertificate,
+    certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, SequencingLeaf},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
     traits::{
@@ -22,20 +30,16 @@ use hotshot_types::{
 };
 use hotshot_utils::bincode::bincode_opts;
 use std::collections::HashSet;
+use std::marker::PhantomData;
 use std::ops::Bound::{Excluded, Included};
 use std::sync::Arc;
 use tracing::{error, info, instrument, warn};
-
 /// This view's replica for sequencing consensus.
 #[derive(Debug, Clone)]
 pub struct SequencingReplica<
-    A: ConsensusApi<
-        TYPES,
-        SequencingLeaf<TYPES>,
-        CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
-        QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-    >,
+    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
 > {
     /// ID of node.
     pub id: u64,
@@ -43,34 +47,49 @@ pub struct SequencingReplica<
     pub consensus: Arc<RwLock<Consensus<TYPES, SequencingLeaf<TYPES>>>>,
     /// Channel for accepting leader proposals and timeouts messages.
     #[allow(clippy::type_complexity)]
-    pub proposal_collection_chan: Arc<
-        Mutex<
-            UnboundedReceiver<
-                ProcessedConsensusMessage<
-                    TYPES,
-                    CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
-                    QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-                >,
-            >,
-        >,
-    >,
+    pub proposal_collection_chan:
+        Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// The High QC.
     pub high_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// HotShot consensus API.
     pub api: A,
+
+    /// the committee exchange
+    pub committee_exchange: Arc<I::CommitteeExchange>,
+
+    /// the quorum exchange
+    pub quorum_exchange: Arc<I::QuorumExchange>,
+
+    /// needed to typecheck
+    pub _pd: PhantomData<I>,
 }
 
 impl<
-        A: ConsensusApi<
-            TYPES,
-            SequencingLeaf<TYPES>,
-            CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
-            QuorumVote<TYPES, SequencingLeaf<TYPES>>,
-        >,
+        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         TYPES: NodeType,
-    > SequencingReplica<A, TYPES>
+        I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
+    > SequencingReplica<A, TYPES, I>
+where
+    I::QuorumExchange: ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Proposal = CommitmentProposal<TYPES, I::Leaf>,
+            Certificate = QuorumCertificate<TYPES, I::Leaf>,
+            Vote = QuorumVote<TYPES, I::Leaf>,
+            Commitment = SequencingLeaf<TYPES>,
+        > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::CommitteeExchange: ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Proposal = DAProposal<TYPES>,
+            Certificate = DACertificate<TYPES>,
+            Vote = DAVote<TYPES, I::Leaf>,
+            Commitment = TYPES::BlockType,
+        > + CommitteeExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     // TODO (da) Move this function so that it can be used by leader, replica, and committee member logic.
     /// Returns the parent leaf of the proposal we are voting on
@@ -120,8 +139,7 @@ impl<
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
-                if Into::<ConsensusMessage<_, _, _>>::into(msg.clone()).view_number()
-                    != self.cur_view
+                if Into::<ConsensusMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view
                 {
                     continue;
                 }
@@ -132,7 +150,7 @@ impl<
                         }
 
                         let mut valid_leaf = None;
-                        let vote_token = self.api.make_vote_token(self.cur_view);
+                        let vote_token = self.quorum_exchange.make_vote_token(self.cur_view);
                         match vote_token {
                             Err(e) => {
                                 error!(
@@ -178,10 +196,13 @@ impl<
                                 let leaf_commitment = leaf.commit();
 
                                 // Validate the `justify_qc`.
-                                if !self.api.is_valid_qc(&justify_qc) {
+                                if !self
+                                    .quorum_exchange
+                                    .is_valid_cert(&justify_qc, leaf_commitment)
+                                {
                                     invalid_qc = true;
                                     warn!("Invalid justify_qc in proposal!.");
-                                    message = self.api.create_no_message(
+                                    message = self.quorum_exchange.create_no_message(
                                         justify_qc_commitment,
                                         leaf_commitment,
                                         self.cur_view,
@@ -189,9 +210,12 @@ impl<
                                     );
                                 }
                                 // Validate the DAC.
-                                else if !self.api.is_valid_dac(&p.data.dac, block_commitment) {
+                                else if !self
+                                    .committee_exchange
+                                    .is_valid_cert(&p.data.dac, block_commitment)
+                                {
                                     warn!("Invalid DAC in proposal! Skipping proposal.");
-                                    message = self.api.create_no_message(
+                                    message = self.quorum_exchange.create_no_message(
                                         justify_qc_commitment,
                                         leaf_commitment,
                                         self.cur_view,
@@ -203,7 +227,7 @@ impl<
                                     .validate(&p.signature, leaf_commitment.as_ref())
                                 {
                                     warn!(?p.signature, "Could not verify proposal.");
-                                    message = self.api.create_no_message(
+                                    message = self.quorum_exchange.create_no_message(
                                         justify_qc_commitment,
                                         leaf_commitment,
                                         self.cur_view,
@@ -237,7 +261,7 @@ impl<
                                     // Skip if both saftey and liveness checks fail.
                                     if !safety_check && !liveness_check {
                                         warn!("Failed safety check and liveness check");
-                                        message = self.api.create_no_message(
+                                        message = self.quorum_exchange.create_no_message(
                                             justify_qc_commitment,
                                             leaf_commitment,
                                             self.cur_view,
@@ -248,7 +272,7 @@ impl<
                                         valid_leaf = Some(leaf);
 
                                         // Generate a message with yes vote.
-                                        message = self.api.create_yes_message(
+                                        message = self.quorum_exchange.create_yes_message(
                                             justify_qc_commitment,
                                             leaf_commitment,
                                             self.cur_view,
@@ -258,10 +282,11 @@ impl<
                                 }
 
                                 info!("Sending vote to next leader {:?}", message);
-                                let next_leader = self.api.get_leader(self.cur_view + 1).await;
+                                let next_leader =
+                                    self.quorum_exchange.get_leader(self.cur_view + 1);
                                 if self
                                     .api
-                                    .send_direct_message(next_leader, message)
+                                    .send_direct_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(next_leader, message)
                                     .await
                                     .is_err()
                                 {
@@ -277,11 +302,13 @@ impl<
                     ProcessedConsensusMessage::InternalTrigger(trigger) => {
                         match trigger {
                             InternalTrigger::Timeout(_) => {
-                                let next_leader = self.api.get_leader(self.cur_view + 1).await;
+                                let next_leader =
+                                    self.quorum_exchange.get_leader(self.cur_view + 1);
 
                                 consensus.metrics.number_of_timeouts.add(1);
 
-                                let vote_token = self.api.make_vote_token(self.cur_view);
+                                let vote_token =
+                                    self.quorum_exchange.make_vote_token(self.cur_view);
 
                                 match vote_token {
                                     Err(e) => {
@@ -297,11 +324,12 @@ impl<
                                         );
                                     }
                                     Ok(Some(vote_token)) => {
-                                        let timed_out_msg = self.api.create_timeout_message(
-                                            self.high_qc.clone(),
-                                            self.cur_view,
-                                            vote_token,
-                                        );
+                                        let timed_out_msg =
+                                            self.quorum_exchange.create_timeout_message(
+                                                self.high_qc.clone(),
+                                                self.cur_view,
+                                                vote_token,
+                                            );
                                         warn!(
                                             "Timed out! Sending timeout to next leader {:?}",
                                             timed_out_msg
@@ -310,7 +338,7 @@ impl<
                                         // send timedout message to the next leader
                                         if let Err(e) = self
                                             .api
-                                            .send_direct_message(next_leader.clone(), timed_out_msg)
+                                            .send_direct_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(next_leader.clone(), timed_out_msg)
                                             .await
                                         {
                                             consensus.metrics.failed_to_send_messages.add(1);
@@ -331,7 +359,15 @@ impl<
                             }
                         }
                     }
+                    ProcessedConsensusMessage::DAProposal(_p, _sender) => {
+                        warn!("Replica receieved a DA Proposal. This is not what the replica expects. Skipping.");
+                    }
                     ProcessedConsensusMessage::Vote(_, _) => {
+                        // should only be for leader, never replica
+                        warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
+                        continue;
+                    }
+                    ProcessedConsensusMessage::DAVote(_, _) => {
                         // should only be for leader, never replica
                         warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
                         continue;
@@ -353,7 +389,7 @@ impl<
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing Replica Task", level = "error")]
     pub async fn run_view(self) -> QuorumCertificate<TYPES, SequencingLeaf<TYPES>> {
         info!("Sequencing replica task started!");
-        let view_leader_key = self.api.get_leader(self.cur_view).await;
+        let view_leader_key = self.quorum_exchange.get_leader(self.cur_view);
         let consensus = self.consensus.upgradable_read().await;
 
         let (consensus, maybe_leaf) = self.find_valid_msg(view_leader_key, consensus).await;

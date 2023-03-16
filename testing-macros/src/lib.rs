@@ -188,34 +188,57 @@ impl TestData {
             quote! {}
         };
 
-        let (consensus_type, leaf, vote, proposal) = match supported_consensus_type {
-            SupportedConsensusTypes::SequencingConsensus => {
-                let consensus_type = quote! { hotshot_types::traits::state::SequencingConsensus };
-                let leaf = quote! {
-                    hotshot_types::data::SequencingLeaf<TestTypes>
-                };
-                let vote = quote! {
-                    hotshot_types::vote::DAVote<TestTypes, #leaf>
-                };
-                let proposal = quote! {
-                    hotshot_types::data::DAProposal<TestTypes>
-                };
-                (consensus_type, leaf, vote, proposal)
-            }
-            SupportedConsensusTypes::ValidatingConsensus => {
-                let consensus_type = quote! { hotshot_types::traits::state::ValidatingConsensus };
-                let leaf = quote! {
-                    hotshot_types::data::ValidatingLeaf<TestTypes>
-                };
-                let vote = quote! {
-                    hotshot_types::vote::QuorumVote<TestTypes, #leaf>
-                };
-                let proposal = quote! {
-                    hotshot_types::data::ValidatingProposal<TestTypes, #leaf>
-                };
-                (consensus_type, leaf, vote, proposal)
-            }
-        };
+        let (consensus_type, leaf, vote, proposal, committee_exchange) =
+            match supported_consensus_type {
+                SupportedConsensusTypes::SequencingConsensus => {
+                    let consensus_type =
+                        quote! { hotshot_types::traits::state::SequencingConsensus };
+                    let leaf = quote! {
+                        hotshot_types::data::SequencingLeaf<TestTypes>
+                    };
+                    let vote = quote! {
+                        hotshot_types::vote::DAVote<TestTypes, #leaf>
+                    };
+                    let proposal = quote! {
+                        hotshot_types::data::DAProposal<TestTypes>
+                    };
+                    let committee_exchange = quote! {
+                        hotshot_types::traits::election::CommitteeExchange<
+                            TestTypes,
+                            #leaf,
+                            CommitteeMembership,
+                            #comm_channel<
+                                TestTypes,
+                                TestNodeImpl,
+                                #proposal,
+                                #vote,
+                                CommitteeMembership,
+                            >,
+                            hotshot_types::message::Message<TestTypes, TestNodeImpl>,
+                        >
+                    };
+
+                    (consensus_type, leaf, vote, proposal, committee_exchange)
+                }
+                SupportedConsensusTypes::ValidatingConsensus => {
+                    let consensus_type = quote! {
+                        hotshot_types::traits::state::ValidatingConsensus
+                    };
+                    let leaf = quote! {
+                        hotshot_types::data::ValidatingLeaf<TestTypes>
+                    };
+                    let vote = quote! {
+                        hotshot_types::vote::QuorumVote<TestTypes, #leaf>
+                    };
+                    let proposal = quote! {
+                        hotshot_types::data::ValidatingProposal<TestTypes, #leaf>
+                    };
+                    let committee_exchange = quote! {
+                        TestQuorumExchange
+                    };
+                    (consensus_type, leaf, vote, proposal, committee_exchange)
+                }
+            };
 
         quote! {
 
@@ -232,7 +255,7 @@ impl TestData {
                     serde::Serialize,
                     serde::Deserialize,
                     )]
-                    pub struct Stub;
+                struct TestTypes;
 
                 #[derive(
                     Copy,
@@ -247,7 +270,9 @@ impl TestData {
                     serde::Serialize,
                     serde::Deserialize,
                     )]
-                    struct TestTypes;
+                struct TestNodeImpl;
+
+
                 impl hotshot_types::traits::node_implementation::NodeType for TestTypes {
                     type ConsensusType = #consensus_type;
                     type Time = #time_type;
@@ -261,6 +286,30 @@ impl TestData {
 
                 type CommitteeMembership = hotshot::traits::election::static_committee::GeneralStaticCommittee<TestTypes, #leaf, #signature_key_type>;
 
+                type TestQuorumExchange =
+                        hotshot_types::traits::election::QuorumExchange<
+                        TestTypes,
+                        #leaf,
+                        #proposal,
+                        CommitteeMembership,
+                        #comm_channel<
+                            TestTypes,
+                            TestNodeImpl,
+                            #proposal,
+                            #vote,
+                            CommitteeMembership,
+                        >,
+                        hotshot_types::message::Message<TestTypes, TestNodeImpl>,
+                    >;
+
+                type TestCommitteeExchange = #committee_exchange;
+
+                impl hotshot_types::traits::node_implementation::NodeImplementation<TestTypes> for TestNodeImpl {
+                    type Leaf = #leaf;
+                    type Storage = #storage<TestTypes, #leaf>;
+                    type QuorumExchange = TestQuorumExchange;
+                    type CommitteeExchange = TestCommitteeExchange;
+                }
 
                 #slow_attribute
                 #[cfg_attr(
@@ -273,20 +322,9 @@ impl TestData {
                         let description = #test_description;
 
                         description.build::<
-                            TestTypes, hotshot_testing::TestNodeImpl<
                             TestTypes,
-                            #leaf,
-                            #proposal,
-                            #vote,
-                            #comm_channel<
-                                TestTypes,
-                                #proposal,
-                                #vote,
-                                CommitteeMembership,
-                            >,
-                            #storage<TestTypes, #leaf>,
-                            CommitteeMembership,
-                        >>().execute().await.unwrap();
+                            TestNodeImpl
+                        >().execute().await.unwrap();
                     }
         }
     }
@@ -488,13 +526,19 @@ fn cross_tests_internal(test_spec: CrossTestData) -> TokenStream {
 /// Example usage:
 /// ```
 /// hotshot_testing_macros::cross_tests!(
-///     DemoType: [ (SequencingConsensus, hotshot::demos::sdemo::SDemoState), (ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
+///     DemoType: [(ValidatingConsensus, hotshot::demos::vdemo::VDemoState) ],
 ///     SignatureKey: [ hotshot_types::traits::signature_key::ed25519::Ed25519Pub ],
-///     CommChannel: [ hotshot::traits::implementations::MemoryCommChannel, hotshot::traits::implementations::Libp2pCommChannel, hotshot::traits::implementations::CentralizedCommChannel ],
+///     CommChannel: [ hotshot::traits::implementations::MemoryCommChannel ],
 ///     Storage: [ hotshot::traits::implementations::MemoryStorage ],
 ///     Time: [ hotshot_types::data::ViewNumber ],
-///     TestName: example_test,
-///     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder::default(),
+///     TestName: ten_tx_seven_nodes_fast,
+///     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder {
+///         total_nodes: 7,
+///         start_nodes: 7,
+///         num_succeeds: 10,
+///         txn_ids: either::Either::Right(1),
+///         ..hotshot_testing::test_description::GeneralTestDescriptionBuilder::default()
+///     },
 ///     Slow: false,
 /// );
 /// ```

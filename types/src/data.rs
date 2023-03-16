@@ -202,30 +202,10 @@ pub trait LeafType:
         + Send
         + Serialize
         + Sync;
-    type QuorumCertificate: SignedCertificate<
-            <Self::NodeType as NodeType>::SignatureKey,
-            <Self::NodeType as NodeType>::Time,
-            <Self::NodeType as NodeType>::VoteTokenType,
-            Self,
-        > + Committable
-        + Debug
-        + Eq
-        + Hash
-        + PartialEq
-        + Send;
-    type DACertificate: SignedCertificate<
-            <Self::NodeType as NodeType>::SignatureKey,
-            <Self::NodeType as NodeType>::Time,
-            <Self::NodeType as NodeType>::VoteTokenType,
-            <Self::NodeType as NodeType>::BlockType,
-        > + Debug
-        + Eq
-        + PartialEq
-        + Send;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
-        justify_qc: Self::QuorumCertificate,
+        justify_qc: QuorumCertificate<Self::NodeType, Self>,
         deltas: <Self::NodeType as NodeType>::BlockType,
         state: <Self::NodeType as NodeType>::StateType,
     ) -> Self;
@@ -236,7 +216,7 @@ pub trait LeafType:
 
     fn set_height(&mut self, height: u64);
 
-    fn get_justify_qc(&self) -> Self::QuorumCertificate;
+    fn get_justify_qc(&self) -> QuorumCertificate<Self::NodeType, Self>;
 
     fn get_parent_commitment(&self) -> Commitment<Self>;
 
@@ -342,8 +322,6 @@ impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
     type NodeType = TYPES;
     type DeltasType = TYPES::BlockType;
     type StateCommitmentType = TYPES::StateType;
-    type QuorumCertificate = QuorumCertificate<Self::NodeType, Self>;
-    type DACertificate = DACertificate<Self::NodeType>;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
@@ -443,8 +421,6 @@ impl<TYPES: NodeType> LeafType for SequencingLeaf<TYPES> {
     type NodeType = TYPES;
     type DeltasType = Either<TYPES::BlockType, Commitment<TYPES::BlockType>>;
     type StateCommitmentType = ();
-    type QuorumCertificate = QuorumCertificate<Self::NodeType, Self>;
-    type DACertificate = DACertificate<Self::NodeType>;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,

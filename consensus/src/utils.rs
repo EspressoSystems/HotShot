@@ -4,10 +4,9 @@ use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, Unbounded
 use async_lock::Mutex;
 use commit::Commitment;
 use hotshot_types::{
-    data::{LeafType, ProposalType},
+    data::LeafType,
     message::ProcessedConsensusMessage,
-    traits::node_implementation::NodeType,
-    vote::VoteType,
+    traits::node_implementation::{NodeImplementation, NodeType},
 };
 use std::{
     collections::BTreeMap,
@@ -49,25 +48,18 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Deref for View<TYPES, LE
 
 /// struct containing messages for a view to send to replica
 #[derive(Clone)]
-pub struct ViewQueue<
-    TYPES: NodeType,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
-> {
+pub struct ViewQueue<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// to send networking events to Replica
-    pub sender_chan: UnboundedSender<ProcessedConsensusMessage<TYPES, PROPOSAL, VOTE>>,
+    pub sender_chan: UnboundedSender<ProcessedConsensusMessage<TYPES, I>>,
 
     /// to recv networking events for Replica
-    pub receiver_chan:
-        Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, PROPOSAL, VOTE>>>>,
+    pub receiver_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
 
     /// `true` if this queue has already received a proposal
     pub has_received_proposal: Arc<AtomicBool>,
 }
 
-impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>> Default
-    for ViewQueue<TYPES, PROPOSAL, VOTE>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> Default for ViewQueue<TYPES, I> {
     /// create new view queue
     fn default() -> Self {
         let (s, r) = unbounded();
@@ -80,23 +72,17 @@ impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<T
 }
 
 /// metadata for sending information to replica (and in the future, the leader)
-pub struct SendToTasks<
-    TYPES: NodeType,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
-> {
+pub struct SendToTasks<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// the current view number
     /// this should always be in sync with `Consensus`
     pub cur_view: TYPES::Time,
 
     /// a map from view number to ViewQueue
     /// one of (replica|next leader)'s' task for view i will be listening on the channel in here
-    pub channel_map: BTreeMap<TYPES::Time, ViewQueue<TYPES, PROPOSAL, VOTE>>,
+    pub channel_map: BTreeMap<TYPES::Time, ViewQueue<TYPES, I>>,
 }
 
-impl<TYPES: NodeType, PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>
-    SendToTasks<TYPES, PROPOSAL, VOTE>
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SendToTasks<TYPES, I> {
     /// create new sendtosasks
     #[must_use]
     pub fn new(view_num: TYPES::Time) -> Self {
