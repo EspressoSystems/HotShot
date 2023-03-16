@@ -1,0 +1,39 @@
+name: Run slow tests suite
+
+on:
+  schedule:
+    - cron: '0 0 */3 * *'
+  workflow_dispatch:
+    inputs:
+      manual-trigger:
+        description: 'Manually run the slow tests suite'
+        default: 'false'
+
+jobs:
+  my-job:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event.inputs.manual-trigger == 'true'
+    steps:
+      - uses: styfle/cancel-workflow-action@0.11.0
+        name: Cancel Outdated Builds
+        with:
+          all_but_latest: true
+          access_token: ${{ github.token }}
+
+      - uses: actions/checkout@v3
+        name: Checkout Repository
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - uses: Swatinem/rust-cache@v2
+        name: Enable Rust Caching
+
+      - name: Unit and integration tests for all crates in workspace
+        run: |
+          cargo test --verbose --profile=release-lto --features=full-ci,slow-tests --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
+        timeout-minutes: 120
+        env:
+          RUST_BACKTRACE: full

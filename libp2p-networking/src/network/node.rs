@@ -47,8 +47,9 @@ use libp2p::{
         Behaviour as RequestResponse, Config as RequestResponseConfig, ProtocolSupport,
     },
     swarm::{ConnectionHandlerUpgrErr, SwarmBuilder, SwarmEvent},
-    Multiaddr, PeerId, Swarm,
+    Multiaddr, Swarm,
 };
+use libp2p_identity::PeerId;
 use rand::{prelude::SliceRandom, thread_rng};
 use snafu::ResultExt;
 use std::{

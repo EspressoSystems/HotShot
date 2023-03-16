@@ -13,8 +13,9 @@ use libp2p::{
         PutRecordResult, QueryId, QueryResult, Quorum, Record,
     },
     swarm::{NetworkBehaviour, NetworkBehaviourAction, THandlerOutEvent},
-    Multiaddr, PeerId,
+    Multiaddr,
 };
+use libp2p_identity::PeerId;
 use tracing::{error, info, warn};
 
 pub(crate) const NUM_REPLICATED_TO_TRUST: usize = 2;

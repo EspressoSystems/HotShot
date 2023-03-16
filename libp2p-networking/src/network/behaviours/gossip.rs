@@ -8,8 +8,9 @@ use libp2p::{
     swarm::{
         NetworkBehaviour, NetworkBehaviourAction, PollParameters, THandlerInEvent, THandlerOutEvent,
     },
-    Multiaddr, PeerId,
+    Multiaddr,
 };
+use libp2p_identity::PeerId;
 
 use tracing::{error, info, warn};
 
