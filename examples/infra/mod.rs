@@ -819,7 +819,7 @@ impl OrchestratorClient {
         F: Fn(Client<ClientError>) -> Fut,
         Fut: Future<Output = Result<GEN, ClientError>>,
     {
-        let result = loop {
+        loop {
             let client = self.client.clone();
             let res = f(client).await;
             match res {
@@ -828,8 +828,7 @@ impl OrchestratorClient {
                     async_sleep(Duration::from_millis(250)).await;
                 }
             }
-        };
-        result
+        }
     }
 }
 
