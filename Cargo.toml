@@ -105,7 +105,7 @@ required-features = ["demo", "libp2p/rsa"]
 path = "examples/web-server/validator.rs"
 
 [dependencies]
-ark-ec = { version = "0.3.0" }
+ark-ec = { version = "0.4.2" }
 ark-bls12-381 = { version = "0.3.0" }
 ark-serialize = { version = "0.3.0", features = ["derive"] }
 ark-std = { version = "0.4.0" }
