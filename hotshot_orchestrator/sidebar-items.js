@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["define_api","Sets up all API routes"],["run_orchestrator","Runs the orchestrator"]],"mod":[["config",""]],"struct":[["OrchestratorState",""]],"trait":[["OrchestratorApi",""]]};
+window.SIDEBAR_ITEMS = {"fn":[["define_api","Sets up all API routes"],["libp2p_generate_indexed_identity","yeesh maybe we should just implement SignatureKey for this…"],["run_orchestrator","Runs the orchestrator"]],"mod":[["config",""]],"struct":[["OrchestratorState",""]],"trait":[["OrchestratorApi",""]]};

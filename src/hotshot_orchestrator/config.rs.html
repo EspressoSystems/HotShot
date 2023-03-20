@@ -216,6 +216,12 @@
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
 <a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
 </pre><pre class="rust"><code><span class="kw">use </span>hotshot_types::{ExecutionType, HotShotConfig};
 <span class="kw">use </span>std::net::{Ipv4Addr, SocketAddr};
 <span class="kw">use </span>std::{net::IpAddr, num::NonZeroUsize, time::Duration};
@@ -223,9 +229,11 @@
 <span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 </span><span class="kw">pub struct </span>Libp2pConfig {
     <span class="kw">pub </span>bootstrap_nodes: Vec&lt;(SocketAddr, Vec&lt;u8&gt;)&gt;,
+    <span class="kw">pub </span>num_bootstrap_nodes: u64,
     <span class="kw">pub </span>public_ip: IpAddr,
     <span class="kw">pub </span>base_port: u16,
     <span class="kw">pub </span>node_index: u64,
+    <span class="kw">pub </span>index_ports: bool,
     <span class="kw">pub </span>bootstrap_mesh_n_high: usize,
     <span class="kw">pub </span>bootstrap_mesh_n_low: usize,
     <span class="kw">pub </span>bootstrap_mesh_outbound_min: usize,
@@ -243,6 +251,8 @@
 
 <span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 </span><span class="kw">pub struct </span>Libp2pConfigFile {
+    <span class="kw">pub </span>num_bootstrap_nodes: u64,
+    <span class="kw">pub </span>index_ports: bool,
     <span class="kw">pub </span>bootstrap_mesh_n_high: usize,
     <span class="kw">pub </span>bootstrap_mesh_n_low: usize,
     <span class="kw">pub </span>bootstrap_mesh_outbound_min: usize,
@@ -334,6 +344,8 @@
             seed: val.seed,
             padding: val.padding,
             libp2p_config: val.libp2p_config.map(|libp2p_config| Libp2pConfig {
+                num_bootstrap_nodes: libp2p_config.num_bootstrap_nodes,
+                index_ports: libp2p_config.index_ports,
                 bootstrap_nodes: Vec::new(),
                 public_ip: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
                 base_port: libp2p_config.base_port,
@@ -427,7 +439,7 @@
         start_delay: <span class="number">1</span>,
         propose_min_round_time: Duration::from_secs(<span class="number">0</span>),
         propose_max_round_time: Duration::from_secs(<span class="number">10</span>),
-        num_bootstrap: <span class="number">7</span>,
+        num_bootstrap: <span class="number">5</span>,
     }
 }
 

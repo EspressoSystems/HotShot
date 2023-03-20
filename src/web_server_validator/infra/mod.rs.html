@@ -893,8 +893,62 @@
 <a href="#893" id="893">893</a>
 <a href="#894" id="894">894</a>
 <a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
 </pre><pre class="rust"><code><span class="kw">use </span>futures::Future;
 <span class="kw">use </span>futures::FutureExt;
+<span class="kw">use </span>std::net::Ipv4Addr;
 <span class="kw">use </span>std::{
     cmp,
     collections::{BTreeSet, VecDeque},
@@ -1055,6 +1109,9 @@
     </span>host: IpAddr,
     <span class="doccomment">/// The port the orchestrator runs on
     </span>port: u16,
+    <span class="doccomment">/// This node&#39;s public IP address, for libp2p
+    /// If no IP address is passed in, it will default to 127.0.0.1
+    </span>public_ip: <span class="prelude-ty">Option</span>&lt;IpAddr&gt;,
 }
 
 <span class="doccomment">/// Defines the behavior of a &quot;run&quot; of the network with a given configuration
@@ -1315,16 +1372,6 @@
     Multiaddr::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/ip4/{ip}/tcp/{port}&quot;</span>))
 }
 
-<span class="kw">pub const </span>LIBP2P_BOOTSTRAPS_LOCAL_IPS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[
-    <span class="string">&quot;127.0.0.1:9100&quot;</span>,
-    <span class="string">&quot;127.0.0.1:9101&quot;</span>,
-    <span class="string">&quot;127.0.0.1:9102&quot;</span>,
-    <span class="string">&quot;127.0.0.1:9103&quot;</span>,
-    <span class="string">&quot;127.0.0.1:9104&quot;</span>,
-    <span class="string">&quot;127.0.0.1:9105&quot;</span>,
-    <span class="string">&quot;127.0.0.1:9106&quot;</span>,
-];
-
 <span class="attr">#[async_trait]
 </span><span class="kw">impl</span>&lt;
         TYPES: NodeType,
@@ -1414,7 +1461,11 @@
             NetworkNodeType::Regular
         };
         <span class="kw">let </span>node_index = config.node_index;
-        <span class="kw">let </span>bound_addr = <span class="macro">format!</span>(
+        <span class="kw">let </span>port_index = <span class="kw">match </span>libp2p_config.index_ports {
+            <span class="bool-val">true </span>=&gt; node_index,
+            <span class="bool-val">false </span>=&gt; <span class="number">0</span>,
+        };
+        <span class="kw">let </span>bound_addr: Multiaddr = <span class="macro">format!</span>(
             <span class="string">&quot;/{}/{}/tcp/{}&quot;</span>,
             <span class="kw">if </span>libp2p_config.public_ip.is_ipv4() {
                 <span class="string">&quot;ip4&quot;
@@ -1422,7 +1473,7 @@
                 <span class="string">&quot;ip6&quot;
             </span>},
             libp2p_config.public_ip,
-            libp2p_config.base_port + node_index <span class="kw">as </span>u16
+            libp2p_config.base_port <span class="kw">as </span>u64 + port_index
         )
         .parse()
         .unwrap();
@@ -1433,6 +1484,16 @@
         <span class="kw">let </span>replicated_nodes = NonZeroUsize::new(config.config.total_nodes.get() - <span class="number">2</span>).unwrap();
         config_builder.replication_factor(replicated_nodes);
         config_builder.identity(identity.clone());
+
+        config_builder.bound_addr(<span class="prelude-val">Some</span>(bound_addr.clone()));
+
+        <span class="kw">let </span>to_connect_addrs = bootstrap_nodes
+            .iter()
+            .map(|(peer_id, multiaddr)| (<span class="prelude-val">Some</span>(<span class="kw-2">*</span>peer_id), multiaddr.clone()))
+            .collect();
+
+        config_builder.to_connect_addrs(to_connect_addrs);
+
         <span class="kw">let </span>mesh_params =
             <span class="comment">// NOTE I&#39;m arbitrarily choosing these.
             </span><span class="kw">match </span>node_type {
@@ -1491,6 +1552,8 @@
             &gt;::new,
         )
         .unwrap();
+
+        network.wait_for_ready().<span class="kw">await</span>;
 
         Libp2pRun {
             config,
@@ -1664,17 +1727,38 @@
         </span>OrchestratorClient { client }
     }
 
-    <span class="comment">// Returns the run configuration from the orchestrator
-    // Will block until the configuration is returned
+    <span class="doccomment">/// Sends an identify message to the server
+    /// Returns this validator&#39;s node_index in the network
+    </span><span class="kw">async fn </span>identify_with_orchestrator(<span class="kw-2">&amp;</span><span class="self">self</span>, identity: String) -&gt; u16 {
+        <span class="kw">let </span>identity = identity.as_str();
+        <span class="kw">let </span>f = |client: Client&lt;ClientError&gt;| {
+            <span class="kw">async move </span>{
+                <span class="kw">let </span>node_index: <span class="prelude-ty">Result</span>&lt;u16, ClientError&gt; = client
+                    .post(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;api/identity/{identity}&quot;</span>))
+                    .send()
+                    .<span class="kw">await</span>;
+                node_index
+            }
+            .boxed()
+        };
+        <span class="self">self</span>.wait_for_fn_from_orchestrator(f).<span class="kw">await
+    </span>}
+
+    <span class="doccomment">/// Returns the run configuration from the orchestrator
+    /// Will block until the configuration is returned
     </span><span class="kw">async fn </span>get_config_from_orchestrator&lt;TYPES: NodeType&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
+        node_index: u16,
     ) -&gt; NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt; {
         <span class="kw">let </span>f = |client: Client&lt;ClientError&gt;| {
             <span class="kw">async move </span>{
                 <span class="kw">let </span>config: <span class="prelude-ty">Result</span>&lt;
                     NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
                     ClientError,
-                &gt; = client.post(<span class="string">&quot;api/config&quot;</span>).send().<span class="kw">await</span>;
+                &gt; = client
+                    .post(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;api/config/{node_index}&quot;</span>))
+                    .send()
+                    .<span class="kw">await</span>;
                 config
             }
             .boxed()
@@ -1774,18 +1858,40 @@
     <span class="macro">error!</span>(<span class="string">&quot;Starting validator&quot;</span>);
 
     <span class="kw">let </span>orchestrator_client: OrchestratorClient =
-        OrchestratorClient::connect_to_orchestrator(args).<span class="kw">await</span>;
-    <span class="kw">let </span>run_config = orchestrator_client
-        .get_config_from_orchestrator::&lt;TYPES&gt;()
+        OrchestratorClient::connect_to_orchestrator(args.clone()).<span class="kw">await</span>;
+
+    <span class="comment">// Identify with the orchestrator
+    </span><span class="kw">let </span>public_ip = <span class="kw">match </span>args.public_ip {
+        <span class="prelude-val">Some</span>(ip) =&gt; ip,
+        <span class="prelude-val">None </span>=&gt; IpAddr::V4(Ipv4Addr::new(<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>)),
+    };
+    <span class="macro">error!</span>(
+        <span class="string">&quot;Identifying with orchestrator using IP address {}&quot;</span>,
+        public_ip.to_string()
+    );
+    <span class="kw">let </span>node_index: u16 = orchestrator_client
+        .identify_with_orchestrator(public_ip.to_string())
+        .<span class="kw">await</span>;
+    <span class="macro">error!</span>(<span class="string">&quot;Finished identifying; our node index is {node_index}&quot;</span>);
+    <span class="macro">error!</span>(<span class="string">&quot;Getting config from orchestrator&quot;</span>);
+
+    <span class="kw">let </span><span class="kw-2">mut </span>run_config = orchestrator_client
+        .get_config_from_orchestrator::&lt;TYPES&gt;(node_index)
         .<span class="kw">await</span>;
 
+    run_config.node_index = node_index.into();
+    run_config.libp2p_config.as_mut().unwrap().public_ip = args.public_ip.unwrap();
+
+    <span class="macro">error!</span>(<span class="string">&quot;Initializing networking&quot;</span>);
     <span class="kw">let </span>run = RUN::initialize_networking(run_config.clone()).<span class="kw">await</span>;
     <span class="kw">let </span>(_state, hotshot) = run.initialize_state_and_hotshot().<span class="kw">await</span>;
 
+    <span class="macro">error!</span>(<span class="string">&quot;Waiting for start command from orchestrator&quot;</span>);
     orchestrator_client
-        .wait_for_all_nodes_ready(run_config.node_index)
+        .wait_for_all_nodes_ready(run_config.clone().node_index)
         .<span class="kw">await</span>;
 
+    <span class="macro">error!</span>(<span class="string">&quot;All nodes are ready!  Starting HotShot&quot;</span>);
     run.run_hotshot(hotshot).<span class="kw">await</span>;
 }
 </code></pre></div>
