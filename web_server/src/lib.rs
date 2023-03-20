@@ -176,10 +176,7 @@ impl WebServerDataSource for WebServerState {
 
 #[derive(Args, Default)]
 pub struct Options {
-    #[arg(
-        long = "centralized-web-server-api-path",
-        env = "CENTRALIZED_WEB_SERVER_API_PATH"
-    )]
+    #[arg(long = "web-server-api-path", env = "WEB_SERVER_API_PATH")]
     pub api_path: Option<PathBuf>,
 }
 

@@ -6,9 +6,9 @@
 //! - [`Libp2pNetwork`](libp2p_network::Libp2pNetwork), a production-ready networking impelmentation built on top of libp2p-rs.
 
 pub mod centralized_server_network;
-pub mod centralized_web_server_network;
 pub mod libp2p_network;
 pub mod memory_network;
+pub mod web_server_network;
 
 pub use hotshot_types::traits::network::{
     ChannelSendSnafu, CouldNotDeliverSnafu, FailedToDeserializeSnafu, FailedToSerializeSnafu,

@@ -244,11 +244,11 @@
                     "test",
                     "--no-run",
                     "--features=full-ci,channel-async-std",
-                    "--package=hotshot-centralized-web-server",
+                    "--package=hotshot-web-server",
                     "test::test_web_server"
                 ],
                 "filter": {
-                    "name": "hotshot-centralized-web-server",
+                    "name": "hotshot-web-server",
                     "kind": "lib"
                 }
             },

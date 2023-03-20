@@ -1,6 +1,6 @@
-//! A network implementation that connects to a centralized web server.
+//! A network implementation that connects to a web server.
 //!
-//! To run the web server, see the `./centralized_web_server/` folder in this repo.
+//! To run the web server, see the `./web_server/` folder in this repo.
 //!
 
 #[cfg(feature = "async-std-executor")]
@@ -16,7 +16,7 @@ use async_compatibility_layer::{
 };
 use hotshot_types::traits::node_implementation::NodeImplementation;
 
-use hotshot_centralized_web_server::{self, config};
+use hotshot_web_server::{self, config};
 
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -26,8 +26,8 @@ use hotshot_types::{
     traits::{
         election::{ElectionConfig, Membership},
         network::{
-            CentralizedWebServerNetworkError, CommunicationChannel, ConnectedNetwork, NetworkError,
-            NetworkMsg, TestableNetworkingImplementation, TransmitType,
+            CommunicationChannel, ConnectedNetwork, NetworkError, NetworkMsg,
+            TestableNetworkingImplementation, TransmitType, WebServerNetworkError,
         },
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -50,14 +50,14 @@ use surf_disco::error::ClientError;
 use tracing::{error, info};
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone)]
-pub struct CentralizedWebCommChannel<
+pub struct WebCommChannel<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    CentralizedWebServerNetwork<
+    WebServerNetwork<
         Message<TYPES, I>,
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
@@ -73,11 +73,11 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > CentralizedWebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// Create new communication channel
     pub fn new(
-        network: CentralizedWebServerNetwork<
+        network: WebServerNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
             TYPES::ElectionConfigType,
@@ -94,7 +94,7 @@ impl<
     fn parse_post_message(
         &self,
         message: Message<TYPES, I>,
-    ) -> Result<SendMsg<Message<TYPES, I>>, CentralizedWebServerNetworkError> {
+    ) -> Result<SendMsg<Message<TYPES, I>>, WebServerNetworkError> {
         let view_number: TYPES::Time = message.get_view_number();
 
         let endpoint = match &message.kind {
@@ -108,7 +108,7 @@ impl<
                     config::post_vote_route(*view_number)
                 }
                 hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {
-                    return Err(CentralizedWebServerNetworkError::EndpointError)
+                    return Err(WebServerNetworkError::EndpointError)
                 }
             },
             hotshot_types::message::MessageKind::Data(message_kind) => match message_kind {
@@ -126,9 +126,9 @@ impl<
     }
 }
 
-/// The centralized web server network state
+/// The web server network state
 #[derive(Clone, Debug)]
-pub struct CentralizedWebServerNetwork<
+pub struct WebServerNetwork<
     M: NetworkMsg,
     KEY: SignatureKey,
     ELECTIONCONFIG: ElectionConfig,
@@ -136,7 +136,7 @@ pub struct CentralizedWebServerNetwork<
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
 > {
-    /// The inner, core state of the centralized web server network
+    /// The inner, core state of the web server network
     inner: Arc<Inner<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>>,
     /// An optional shutdown signal. This is only used when this connection is created through the `TestableNetworkingImplementation` API.
     server_shutdown_signal: Option<Arc<OneShotSender<()>>>,
@@ -149,7 +149,7 @@ impl<
         TYPES: NodeType,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-    > CentralizedWebServerNetwork<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
+    > WebServerNetwork<M, KEY, ELECTIONCONFIG, TYPES, PROPOSAL, VOTE>
 {
     /// Post a message to the web server and return the result
     async fn post_message_to_web_server(&self, message: SendMsg<M>) -> Result<(), NetworkError> {
@@ -161,8 +161,8 @@ impl<
             .unwrap()
             .send()
             .await;
-        result.map_err(|_e| NetworkError::CentralizedWebServer {
-            source: CentralizedWebServerNetworkError::ClientError,
+        result.map_err(|_e| NetworkError::WebServer {
+            source: WebServerNetworkError::ClientError,
         })
     }
 }
@@ -178,7 +178,7 @@ pub struct ConsensusInfo {
     is_next_leader: bool,
 }
 
-/// Represents the core of centralized web server networking
+/// Represents the core of web server networking
 #[derive(Debug)]
 struct Inner<
     M: NetworkMsg,
@@ -306,8 +306,8 @@ impl<
         let result: Result<Option<Vec<Vec<u8>>>, ClientError> =
             self.client.get(&endpoint).send().await;
         match result {
-            Err(_error) => Err(NetworkError::CentralizedWebServer {
-                source: CentralizedWebServerNetworkError::ClientError,
+            Err(_error) => Err(NetworkError::WebServer {
+                source: WebServerNetworkError::ClientError,
             }),
             Ok(Some(messages)) => {
                 let mut deserialized_messages = Vec::new();
@@ -383,10 +383,10 @@ impl<
         TYPES: NodeType + 'static,
         PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
         VOTE: VoteType<TYPES> + 'static,
-    > CentralizedWebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
+    > WebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
 {
     #[allow(clippy::panic)]
-    /// Creates a new instance of the `CentralizedWebServerNetwork`
+    /// Creates a new instance of the `WebServerNetwork`
     /// # Panics
     /// if the web server url is malformed
     pub fn create(
@@ -423,7 +423,12 @@ impl<
             let inner = Arc::clone(&inner);
             async move {
                 while inner.running.load(Ordering::Relaxed) {
-                    if let Err(e) = CentralizedWebServerNetwork::<M, K, E, TYPES, PROPOSAL, VOTE>::run_background_receive(Arc::clone(&inner)).await {
+                    if let Err(e) =
+                        WebServerNetwork::<M, K, E, TYPES, PROPOSAL, VOTE>::run_background_receive(
+                            Arc::clone(&inner),
+                        )
+                        .await
+                    {
                         error!(?e, "Background polling task exited");
                     }
                     inner.connected.store(false, Ordering::Relaxed);
@@ -509,12 +514,12 @@ impl<
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for CentralizedWebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
-        <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             RecvMsg<Message<TYPES, I>>,
             SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
@@ -525,7 +530,7 @@ impl<
     /// checks if the network is ready
     /// nonblocking
     async fn is_ready(&self) -> bool {
-        <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             RecvMsg<Message<TYPES, I>>,
             SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
@@ -537,7 +542,7 @@ impl<
     ///
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
-        <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             RecvMsg<Message<TYPES, I>>,
             SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
@@ -555,7 +560,7 @@ impl<
         let network_msg = self.parse_post_message(message);
         match network_msg {
             Ok(network_msg) => self.0.broadcast_message(network_msg, BTreeSet::new()).await,
-            Err(network_msg) => Err(NetworkError::CentralizedWebServer {
+            Err(network_msg) => Err(NetworkError::WebServer {
                 source: network_msg,
             }),
         }
@@ -571,7 +576,7 @@ impl<
         let network_msg = self.parse_post_message(message);
         match network_msg {
             Ok(network_msg) => self.0.direct_message(network_msg, recipient).await,
-            Err(network_msg) => Err(NetworkError::CentralizedWebServer {
+            Err(network_msg) => Err(NetworkError::WebServer {
                 source: network_msg,
             }),
         }
@@ -585,7 +590,7 @@ impl<
         &self,
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
-        let result = <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        let result = <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             RecvMsg<Message<TYPES, I>>,
             SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
@@ -594,8 +599,8 @@ impl<
 
         match result {
             Ok(messages) => Ok(messages.iter().map(|x| x.get_message().unwrap()).collect()),
-            _ => Err(NetworkError::CentralizedWebServer {
-                source: CentralizedWebServerNetworkError::ClientError,
+            _ => Err(NetworkError::WebServer {
+                source: WebServerNetworkError::ClientError,
             }),
         }
     }
@@ -607,7 +612,7 @@ impl<
     }
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
-        <CentralizedWebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             RecvMsg<Message<TYPES, I>>,
             SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
@@ -625,7 +630,7 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
         VOTE: VoteType<TYPES> + 'static,
     > ConnectedNetwork<RecvMsg<M>, SendMsg<M>, K>
-    for CentralizedWebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
+    for WebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
@@ -702,8 +707,8 @@ impl<
             .consensus_info
             .modify(|old_consensus_info| {
                 if new_consensus_info.view_number <= old_consensus_info.view_number {
-                    result = Err(NetworkError::CentralizedWebServer {
-                        source: CentralizedWebServerNetworkError::IncorrectConsensusData,
+                    result = Err(NetworkError::WebServer {
+                        source: WebServerNetworkError::IncorrectConsensusData,
                     });
                 }
                 *old_consensus_info = new_consensus_info;
@@ -719,7 +724,7 @@ impl<
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
     > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for CentralizedWebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -731,9 +736,7 @@ where
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
         // Start web server
-        async_spawn(hotshot_centralized_web_server::run_web_server(Some(
-            server_shutdown,
-        )));
+        async_spawn(hotshot_web_server::run_web_server(Some(server_shutdown)));
 
         let known_nodes = (0..expected_node_count as u64)
             .map(|id| {
@@ -744,14 +747,14 @@ where
         // Start each node's web server client
         Box::new(move |id| {
             let sender = Arc::clone(&sender);
-            let mut network = CentralizedWebServerNetwork::create(
+            let mut network = WebServerNetwork::create(
                 "0.0.0.0",
                 9000,
                 Duration::from_millis(100),
                 known_nodes[id as usize].clone(),
             );
             network.server_shutdown_signal = Some(sender);
-            CentralizedWebCommChannel::new(network)
+            WebCommChannel::new(network)
         })
     }
 
