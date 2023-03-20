@@ -39,7 +39,7 @@ futures = "0.3.25"
 libp2p-core = { version = "0.37.0", default-features = false }
 hotshot-types = { version = "0.1.0", path = "../types", default-features = false }
 hotshot-utils = { path = "../utils"}
-tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.3.1" }
+tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.1" }
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 tracing = "0.1.37"
 serde = { version = "1.0.147", features = ["derive"] }
@@ -64,4 +64,4 @@ toml = "0.5.9"
 
 [dev-dependencies]
 portpicker = "0.1"
-surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", branch = "main" }
+surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.1" }
