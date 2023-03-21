@@ -6,7 +6,14 @@
 //!
 //! Node that `TestLauncher::launch()` is only available if the given `NETWORK`, `STATE` and `STORAGE` are correct.
 
-#![warn(missing_docs)]
+#![warn(
+    clippy::all,
+    clippy::pedantic,
+    rust_2018_idioms,
+    missing_docs,
+    clippy::missing_docs_in_private_items,
+    clippy::panic
+)]
 
 /// test launcher infrastructure
 pub mod launcher;
@@ -64,16 +71,16 @@ pub type RoundPostSafetyCheck<TYPES, I> = Box<
     dyn FnOnce(
         &TestRunner<TYPES, I>,
         RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
-    ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
+    ) -> LocalBoxFuture<'_, Result<(), ConsensusRoundError>>,
 >;
 
 /// Type of function used for configuring a round of consensus
 pub type RoundSetup<TYPES, TRANS, I> =
-    Box<dyn FnOnce(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<Vec<TRANS>>>;
+    Box<dyn FnOnce(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<'_, Vec<TRANS>>>;
 
 /// Type of function used for checking safety before beginnning consensus
 pub type RoundPreSafetyCheck<TYPES, I> =
-    Box<dyn FnOnce(&TestRunner<TYPES, I>) -> LocalBoxFuture<Result<(), ConsensusRoundError>>>;
+    Box<dyn FnOnce(&TestRunner<TYPES, I>) -> LocalBoxFuture<'_, Result<(), ConsensusRoundError>>>;
 
 /// functions to run a round of consensus
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check

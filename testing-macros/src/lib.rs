@@ -1,4 +1,12 @@
-extern crate proc_macro;
+#![warn(
+    clippy::all,
+    clippy::pedantic,
+    rust_2018_idioms,
+    missing_docs,
+    clippy::missing_docs_in_private_items,
+    clippy::panic
+)]
+
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -49,7 +57,7 @@ struct CrossAllTypesSpec {
 }
 
 impl Parse for CrossAllTypesSpec {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
         let mut description = CrossAllTypesSpecBuilder::create_empty();
         while !description.is_ready() {
             if input.peek(keywords::TestName) {
@@ -344,7 +352,7 @@ mod keywords {
 }
 
 impl Parse for CrossTestData {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
         let mut description = CrossTestDataBuilder::create_empty();
 
         while !description.is_ready() {

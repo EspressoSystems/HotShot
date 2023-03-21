@@ -302,7 +302,7 @@ pub type GenRunner<TYPES, I> =
 
 /// type alias for doing setup for a consensus round
 pub type TestSetup<TYPES, TRANS, I> =
-    Vec<Box<dyn FnOnce(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<Vec<TRANS>>>>;
+    Vec<Box<dyn FnOnce(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<'_, Vec<TRANS>>>>;
 
 /// given a description of rounds, generates such rounds
 /// args
@@ -325,7 +325,7 @@ pub fn default_submitter_id_to_round<TYPES: NodeType, I: TestableNodeImplementat
     let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
     for (round_ids, shutdown_ids) in submitter_ids.into_iter().zip(shut_down_ids.into_iter()) {
         let run_round: RoundSetup<TYPES, TYPES::Transaction, I> = Box::new(
-            move |runner: &mut TestRunner<TYPES, I>| -> LocalBoxFuture<Vec<TYPES::Transaction>> {
+            move |runner: &mut TestRunner<TYPES, I>| -> LocalBoxFuture<'_, Vec<TYPES::Transaction>> {
                 async move {
                     let mut rng = rand::thread_rng();
                     for id in shutdown_ids.clone() {
@@ -371,7 +371,7 @@ pub fn default_randomized_ids_to_round<TYPES: NodeType, I: TestableNodeImplement
     for round_idx in 0..num_rounds {
         let to_kill = shut_down_ids.get(round_idx as usize).cloned();
         let run_round: RoundSetup<TYPES, TYPES::Transaction, I> = Box::new(
-            move |runner: &mut TestRunner<TYPES, I>| -> LocalBoxFuture<Vec<TYPES::Transaction>> {
+            move |runner: &mut TestRunner<TYPES, I>| -> LocalBoxFuture<'_, Vec<TYPES::Transaction>> {
                 async move {
                     let mut rng = rand::thread_rng();
                     if let Some(to_shut_down) = to_kill.clone() {
@@ -422,7 +422,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
                 let safety_check_post: RoundPostSafetyCheck<TYPES, I> = Box::new(
                     move |runner: &TestRunner<TYPES, I>,
                           results: RoundResult<TYPES, I::Leaf>|
-                          -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
+                          -> LocalBoxFuture<'_, Result<(), ConsensusRoundError>> {
                         async move {
                             info!(?results);
                             // this check is rather strict:
