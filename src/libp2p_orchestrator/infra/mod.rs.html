@@ -945,7 +945,6 @@
 <a href="#945" id="945">945</a>
 <a href="#946" id="946">946</a>
 <a href="#947" id="947">947</a>
-<a href="#948" id="948">948</a>
 </pre><pre class="rust"><code><span class="kw">use </span>futures::Future;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>std::net::Ipv4Addr;
@@ -973,8 +972,7 @@
 <span class="kw">use </span>hotshot::{
     traits::{
         implementations::{
-            CentralizedWebCommChannel, CentralizedWebServerNetwork, Libp2pCommChannel,
-            Libp2pNetwork, MemoryStorage,
+            Libp2pCommChannel, Libp2pNetwork, MemoryStorage, WebCommChannel, WebServerNetwork,
         },
         NodeImplementation, Storage,
     },
@@ -983,7 +981,7 @@
 };
 <span class="kw">use </span>hotshot_orchestrator::{
     <span class="self">self</span>,
-    config::{CentralizedWebServerConfig, NetworkConfig, NetworkConfigFile},
+    config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
 <span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
 <span class="kw">use </span>hotshot_types::{
@@ -1596,7 +1594,7 @@
     MEMBERSHIP: Membership&lt;TYPES&gt;,
 &gt; {
     config: NetworkConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
-    network: CentralizedWebCommChannel&lt;
+    network: WebCommChannel&lt;
         TYPES,
         I,
         Proposal&lt;TYPES&gt;,
@@ -1617,7 +1615,7 @@
                 ValidatingLeaf&lt;TYPES&gt;,
                 ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
                 MEMBERSHIP,
-                CentralizedWebCommChannel&lt;
+                WebCommChannel&lt;
                     TYPES,
                     NODE,
                     ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
@@ -1631,7 +1629,7 @@
                 ValidatingLeaf&lt;TYPES&gt;,
                 ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
                 MEMBERSHIP,
-                CentralizedWebCommChannel&lt;
+                WebCommChannel&lt;
                     TYPES,
                     NODE,
                     ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
@@ -1646,7 +1644,7 @@
     Run&lt;
         TYPES,
         MEMBERSHIP,
-        CentralizedWebCommChannel&lt;
+        WebCommChannel&lt;
             TYPES,
             NODE,
             ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
@@ -1673,20 +1671,20 @@
             );
 
         <span class="comment">// Get the configuration for the web server
-        </span><span class="kw">let </span>CentralizedWebServerConfig {
+        </span><span class="kw">let </span>WebServerConfig {
             host,
             port,
             wait_between_polls,
-        }: CentralizedWebServerConfig = config.clone().centralized_web_server_config.unwrap();
+        }: WebServerConfig = config.clone().web_server_config.unwrap();
 
         <span class="comment">// Create the network
-        </span><span class="kw">let </span>network: CentralizedWebCommChannel&lt;
+        </span><span class="kw">let </span>network: WebCommChannel&lt;
             TYPES,
             NODE,
             Proposal&lt;TYPES&gt;,
             QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
             MEMBERSHIP,
-        &gt; = CentralizedWebCommChannel::new(CentralizedWebServerNetwork::create(
+        &gt; = WebCommChannel::new(WebServerNetwork::create(
             <span class="kw-2">&amp;</span>host.to_string(),
             port,
             wait_between_polls,
@@ -1697,7 +1695,7 @@
 
     <span class="kw">fn </span>get_network(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-    ) -&gt; CentralizedWebCommChannel&lt;
+    ) -&gt; WebCommChannel&lt;
         TYPES,
         NODE,
         Proposal&lt;TYPES&gt;,

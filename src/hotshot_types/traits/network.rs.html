@@ -337,10 +337,10 @@
     </span>NoMessagesInQueue,
 }
 
-<span class="doccomment">/// Centralized web server specific errors
+<span class="doccomment">/// Web server specific errors
 </span><span class="attr">#[derive(Debug, Snafu)]
 #[snafu(visibility(<span class="kw">pub</span>))]
-</span><span class="kw">pub enum </span>CentralizedWebServerNetworkError {
+</span><span class="kw">pub enum </span>WebServerNetworkError {
     <span class="doccomment">/// The injected consensus data is incorrect
     </span>IncorrectConsensusData,
     <span class="doccomment">/// The client returned an error
@@ -380,10 +380,10 @@
         </span>source: CentralizedServerNetworkError,
     },
 
-    <span class="doccomment">/// Centralized web server specific errors
-    </span>CentralizedWebServer {
+    <span class="doccomment">/// Web server specific errors
+    </span>WebServer {
         <span class="doccomment">/// source of error
-        </span>source: CentralizedWebServerNetworkError,
+        </span>source: WebServerNetworkError,
     },
     <span class="doccomment">/// unimplemented functionality
     </span>UnimplementedFeature,

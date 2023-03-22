@@ -270,7 +270,7 @@
 }
 
 <span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-</span><span class="kw">pub struct </span>CentralizedWebServerConfig {
+</span><span class="kw">pub struct </span>WebServerConfig {
     <span class="kw">pub </span>host: IpAddr,
     <span class="kw">pub </span>port: u16,
     <span class="kw">pub </span>wait_between_polls: Duration,
@@ -288,7 +288,7 @@
     <span class="kw">pub </span>election_config_type_name: String,
     <span class="kw">pub </span>libp2p_config: <span class="prelude-ty">Option</span>&lt;Libp2pConfig&gt;,
     <span class="kw">pub </span>config: HotShotConfig&lt;KEY, ELECTIONCONFIG&gt;,
-    <span class="kw">pub </span>centralized_web_server_config: <span class="prelude-ty">Option</span>&lt;CentralizedWebServerConfig&gt;,
+    <span class="kw">pub </span>web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
 }
 
 <span class="kw">impl</span>&lt;K, E&gt; Default <span class="kw">for </span>NetworkConfig&lt;K, E&gt; {
@@ -304,7 +304,7 @@
             start_delay_seconds: <span class="number">60</span>,
             key_type_name: std::any::type_name::&lt;K&gt;().to_string(),
             election_config_type_name: std::any::type_name::&lt;E&gt;().to_string(),
-            centralized_web_server_config: <span class="prelude-val">None</span>,
+            web_server_config: <span class="prelude-val">None</span>,
         }
     }
 }
@@ -328,10 +328,10 @@
     <span class="attr">#[serde(default = <span class="string">&quot;default_config&quot;</span>)]
     </span><span class="kw">pub </span>config: HotShotConfigFile,
     <span class="attr">#[serde(default = <span class="string">&quot;default_web_server_config&quot;</span>)]
-    </span><span class="kw">pub </span>centralized_web_server_config: <span class="prelude-ty">Option</span>&lt;CentralizedWebServerConfig&gt;,
+    </span><span class="kw">pub </span>web_server_config: <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt;,
 }
 
-<span class="kw">fn </span>default_web_server_config() -&gt; <span class="prelude-ty">Option</span>&lt;CentralizedWebServerConfig&gt; {
+<span class="kw">fn </span>default_web_server_config() -&gt; <span class="prelude-ty">Option</span>&lt;WebServerConfig&gt; {
     <span class="prelude-val">None
 </span>}
 
@@ -368,7 +368,7 @@
             key_type_name: std::any::type_name::&lt;K&gt;().to_string(),
             election_config_type_name: std::any::type_name::&lt;E&gt;().to_string(),
             start_delay_seconds: val.start_delay_seconds,
-            centralized_web_server_config: val.centralized_web_server_config,
+            web_server_config: val.web_server_config,
         }
     }
 }
