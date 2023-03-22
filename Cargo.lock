@@ -3070,7 +3070,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "snafu",
- "syn 1.0.109",
+ "syn 2.0.4",
  "tempfile",
  "tokio",
  "tracing",
