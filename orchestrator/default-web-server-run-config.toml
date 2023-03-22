@@ -59,10 +59,10 @@ nanos = 0
 secs = 1
 nanos = 0
 
-[centralized_web_server_config]
+[web_server_config]
 host = "0.0.0.0"
 port = 9000
 
-[centralized_web_server_config.wait_between_polls]
+[web_server_config.wait_between_polls]
 secs = 0
 nanos = 100000000 # 100 ms

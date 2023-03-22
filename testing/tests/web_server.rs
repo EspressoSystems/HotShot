@@ -2,7 +2,7 @@ use async_compatibility_layer::logging::shutdown_logging;
 
 use hotshot::traits::{
     election::static_committee::StaticCommittee,
-    implementations::{CentralizedWebCommChannel, MemoryStorage},
+    implementations::{MemoryStorage, WebCommChannel},
 };
 
 use hotshot_testing::{
@@ -23,7 +23,7 @@ struct StaticCentralizedImp {}
 type StaticMembership =
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
 
-type StaticCommunication = CentralizedWebCommChannel<
+type StaticCommunication = WebCommChannel<
     StaticCommitteeTestTypes,
     StaticCentralizedImp,
     ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
@@ -46,7 +46,7 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
     type CommitteeExchange = Self::QuorumExchange;
 }
 
-/// Centralized web server network test
+/// Web server network test
 #[cfg_attr(
     feature = "tokio-executor",
     tokio::test(flavor = "multi_thread", worker_threads = 2)

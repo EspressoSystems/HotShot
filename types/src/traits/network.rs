@@ -49,10 +49,10 @@ pub enum CentralizedServerNetworkError {
     NoMessagesInQueue,
 }
 
-/// Centralized web server specific errors
+/// Web server specific errors
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
-pub enum CentralizedWebServerNetworkError {
+pub enum WebServerNetworkError {
     /// The injected consensus data is incorrect
     IncorrectConsensusData,
     /// The client returned an error
@@ -92,10 +92,10 @@ pub enum NetworkError {
         source: CentralizedServerNetworkError,
     },
 
-    /// Centralized web server specific errors
-    CentralizedWebServer {
+    /// Web server specific errors
+    WebServer {
         /// source of error
-        source: CentralizedWebServerNetworkError,
+        source: WebServerNetworkError,
     },
     /// unimplemented functionality
     UnimplementedFeature,

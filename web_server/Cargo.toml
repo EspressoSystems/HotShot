@@ -1,6 +1,6 @@
 [package]
-name = "hotshot-centralized-web-server"
-description = "HotShot centralized web server"
+name = "hotshot-web-server"
+description = "HotShot web server"
 version = "0.1.1"
 readme = "README.md"
 edition = "2021"

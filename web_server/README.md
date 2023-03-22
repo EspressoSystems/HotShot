@@ -1,8 +1,8 @@
-# Centralized Web Server
+# Web Server
 
 This crate implements a web server that HotShot can use to increase its throughput.  The web server is designed to be run behind several Nginx instances for high performance.  
 
-The run the web server: `cargo run --features=full-ci --example centralized_web_server`.  
+The run the web server: `cargo run --features=full-ci --example web_server`.  
 This will start the web server at `0.0.0.0:9000`
 
 ## How it works

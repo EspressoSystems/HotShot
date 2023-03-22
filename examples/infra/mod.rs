@@ -25,8 +25,7 @@ use clap::Parser;
 use hotshot::{
     traits::{
         implementations::{
-            CentralizedWebCommChannel, CentralizedWebServerNetwork, Libp2pCommChannel,
-            Libp2pNetwork, MemoryStorage,
+            Libp2pCommChannel, Libp2pNetwork, MemoryStorage, WebCommChannel, WebServerNetwork,
         },
         NodeImplementation, Storage,
     },
@@ -35,7 +34,7 @@ use hotshot::{
 };
 use hotshot_orchestrator::{
     self,
-    config::{CentralizedWebServerConfig, NetworkConfig, NetworkConfigFile},
+    config::{NetworkConfig, NetworkConfigFile, WebServerConfig},
 };
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
@@ -648,7 +647,7 @@ pub struct WebServerRun<
     MEMBERSHIP: Membership<TYPES>,
 > {
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    network: CentralizedWebCommChannel<
+    network: WebCommChannel<
         TYPES,
         I,
         Proposal<TYPES>,
@@ -669,7 +668,7 @@ impl<
                 ValidatingLeaf<TYPES>,
                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 MEMBERSHIP,
-                CentralizedWebCommChannel<
+                WebCommChannel<
                     TYPES,
                     NODE,
                     ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
@@ -683,7 +682,7 @@ impl<
                 ValidatingLeaf<TYPES>,
                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 MEMBERSHIP,
-                CentralizedWebCommChannel<
+                WebCommChannel<
                     TYPES,
                     NODE,
                     ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
@@ -698,7 +697,7 @@ impl<
     Run<
         TYPES,
         MEMBERSHIP,
-        CentralizedWebCommChannel<
+        WebCommChannel<
             TYPES,
             NODE,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
@@ -725,20 +724,20 @@ where
             );
 
         // Get the configuration for the web server
-        let CentralizedWebServerConfig {
+        let WebServerConfig {
             host,
             port,
             wait_between_polls,
-        }: CentralizedWebServerConfig = config.clone().centralized_web_server_config.unwrap();
+        }: WebServerConfig = config.clone().web_server_config.unwrap();
 
         // Create the network
-        let network: CentralizedWebCommChannel<
+        let network: WebCommChannel<
             TYPES,
             NODE,
             Proposal<TYPES>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
-        > = CentralizedWebCommChannel::new(CentralizedWebServerNetwork::create(
+        > = WebCommChannel::new(WebServerNetwork::create(
             &host.to_string(),
             port,
             wait_between_polls,
@@ -749,7 +748,7 @@ where
 
     fn get_network(
         &self,
-    ) -> CentralizedWebCommChannel<
+    ) -> WebCommChannel<
         TYPES,
         NODE,
         Proposal<TYPES>,

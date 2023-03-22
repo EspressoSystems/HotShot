@@ -1,6 +1,6 @@
 [meta]
-NAME = "hotshot_centralized_web_server"
-DESCRIPTION = "Centralized web server for HotShot"
+NAME = "hotshot_web_server"
+DESCRIPTION = "Web server for HotShot"
 FORMAT_VERSION = "0.1.0"
 
 # GET the proposal for a view, where the view is passed as an argument

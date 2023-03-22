@@ -46,7 +46,7 @@ pub struct Libp2pConfigFile {
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct CentralizedWebServerConfig {
+pub struct WebServerConfig {
     pub host: IpAddr,
     pub port: u16,
     pub wait_between_polls: Duration,
@@ -64,7 +64,7 @@ pub struct NetworkConfig<KEY, ELECTIONCONFIG> {
     pub election_config_type_name: String,
     pub libp2p_config: Option<Libp2pConfig>,
     pub config: HotShotConfig<KEY, ELECTIONCONFIG>,
-    pub centralized_web_server_config: Option<CentralizedWebServerConfig>,
+    pub web_server_config: Option<WebServerConfig>,
 }
 
 impl<K, E> Default for NetworkConfig<K, E> {
@@ -80,7 +80,7 @@ impl<K, E> Default for NetworkConfig<K, E> {
             start_delay_seconds: 60,
             key_type_name: std::any::type_name::<K>().to_string(),
             election_config_type_name: std::any::type_name::<E>().to_string(),
-            centralized_web_server_config: None,
+            web_server_config: None,
         }
     }
 }
@@ -104,10 +104,10 @@ pub struct NetworkConfigFile {
     #[serde(default = "default_config")]
     pub config: HotShotConfigFile,
     #[serde(default = "default_web_server_config")]
-    pub centralized_web_server_config: Option<CentralizedWebServerConfig>,
+    pub web_server_config: Option<WebServerConfig>,
 }
 
-fn default_web_server_config() -> Option<CentralizedWebServerConfig> {
+fn default_web_server_config() -> Option<WebServerConfig> {
     None
 }
 
@@ -144,7 +144,7 @@ impl<K, E> From<NetworkConfigFile> for NetworkConfig<K, E> {
             key_type_name: std::any::type_name::<K>().to_string(),
             election_config_type_name: std::any::type_name::<E>().to_string(),
             start_delay_seconds: val.start_delay_seconds,
-            centralized_web_server_config: val.centralized_web_server_config,
+            web_server_config: val.web_server_config,
         }
     }
 }

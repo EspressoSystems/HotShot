@@ -2888,11 +2888,11 @@ dependencies = [
  "espresso-systems-common 0.4.1",
  "futures",
  "hotshot-centralized-server",
- "hotshot-centralized-web-server",
  "hotshot-consensus",
  "hotshot-orchestrator",
  "hotshot-types",
  "hotshot-utils",
+ "hotshot-web-server",
  "itertools 0.10.5",
  "jf-primitives",
  "libp2p",
@@ -2936,33 +2936,6 @@ dependencies = [
  "snafu",
  "tokio",
  "toml 0.7.3",
- "tracing",
-]
-
-[[package]]
-name = "hotshot-centralized-web-server"
-version = "0.1.1"
-dependencies = [
- "async-compatibility-layer",
- "async-lock",
- "async-std",
- "async-trait",
- "bincode",
- "clap 4.1.11",
- "commit 0.1.0",
- "futures",
- "hotshot-types",
- "hotshot-utils",
- "libp2p-core 0.37.0",
- "nll",
- "portpicker",
- "serde",
- "serde_json",
- "snafu",
- "surf-disco 0.4.1 (git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.1)",
- "tide-disco",
- "tokio",
- "toml 0.5.11",
  "tracing",
 ]
 
@@ -3117,6 +3090,33 @@ name = "hotshot-utils"
 version = "0.1.0"
 dependencies = [
  "bincode",
+]
+
+[[package]]
+name = "hotshot-web-server"
+version = "0.1.1"
+dependencies = [
+ "async-compatibility-layer",
+ "async-lock",
+ "async-std",
+ "async-trait",
+ "bincode",
+ "clap 4.1.8",
+ "commit 0.1.0",
+ "futures",
+ "hotshot-types",
+ "hotshot-utils",
+ "libp2p-core 0.37.0",
+ "nll",
+ "portpicker",
+ "serde",
+ "serde_json",
+ "snafu",
+ "surf-disco 0.4.1 (git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.1)",
+ "tide-disco",
+ "tokio",
+ "toml 0.5.11",
+ "tracing",
 ]
 
 [[package]]
