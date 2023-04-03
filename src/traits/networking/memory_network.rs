@@ -312,10 +312,12 @@ where
         Box::new(move |node_id| {
             let privkey = TYPES::SignatureKey::generate_test_key(node_id);
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
-            MemoryCommChannel(
-                MemoryNetwork::new(pubkey, NoMetrics::new(), master.clone(), None),
-                PhantomData,
-            )
+            MemoryCommChannel::new(MemoryNetwork::new(
+                pubkey,
+                NoMetrics::new(),
+                master.clone(),
+                None,
+            ))
         })
     }
 
@@ -464,6 +466,20 @@ pub struct MemoryCommChannel<
     MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
     PhantomData<(I, PROPOSAL, VOTE, MEMBERSHIP)>,
 );
+
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    > MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+{
+    /// create new communication channel
+    pub fn new(network: MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>) -> Self {
+        Self(network, PhantomData::default())
+    }
+}
 
 #[async_trait]
 impl<
