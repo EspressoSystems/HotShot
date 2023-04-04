@@ -126,8 +126,7 @@ mod test {
     use hotshot_types::constants::genesis_proposer_id;
     use hotshot_types::data::fake_commitment;
     use hotshot_types::data::{ValidatingLeaf, ViewNumber};
-    #[allow(clippy::wildcard_imports)]
-    use hotshot_types::traits::block_contents::dummy::*;
+    use hotshot_types::traits::block_contents::dummy::{DummyBlock, DummyState};
     use hotshot_types::traits::node_implementation::NodeType;
     use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
     use hotshot_types::traits::state::ConsensusTime;

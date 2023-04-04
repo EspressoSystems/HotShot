@@ -139,8 +139,7 @@ pub trait TestableBlock: Block + std::fmt::Debug {
 
 /// Dummy implementation of `State` for unit tests
 pub mod dummy {
-    #[allow(clippy::wildcard_imports)]
-    use super::*;
+    use super::{tag, Committable, Debug, Hash, Serialize, State, TestableState};
     use crate::{
         data::ViewNumber,
         traits::block_contents::dummy::{DummyBlock, DummyError, DummyTransaction},
