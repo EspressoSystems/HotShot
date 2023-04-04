@@ -675,11 +675,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                     // If this is a new transaction, update metrics.
                     let consensus = self.hotstuff.read().await;
                     consensus.metrics.outstanding_transactions.update(1);
-                    #[allow(clippy::cast_possible_wrap)]
                     consensus
                         .metrics
                         .outstanding_transactions_memory_size
-                        .update(size as i64);
+                        .update(i64::try_from(size).unwrap_or(i64::MAX));
                 }
             }
         }
