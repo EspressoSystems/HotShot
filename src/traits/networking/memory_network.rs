@@ -91,9 +91,6 @@ enum Combo<T> {
 
 /// Internal state for a `MemoryNetwork` instance
 struct MemoryNetworkInner<M: NetworkMsg, K: SignatureKey> {
-    /// The public key of this node
-    #[allow(dead_code)]
-    pub_key: K,
     /// Input for broadcast messages
     broadcast_input: RwLock<Option<Sender<Vec<u8>>>>,
     /// Input for direct messages
@@ -248,7 +245,6 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
         trace!("Task spawned, creating MemoryNetwork");
         let mn = MemoryNetwork {
             inner: Arc::new(MemoryNetworkInner {
-                pub_key: pub_key.clone(),
                 broadcast_input: RwLock::new(Some(broadcast_input)),
                 direct_input: RwLock::new(Some(direct_input)),
                 broadcast_output: Mutex::new(broadcast_output),
