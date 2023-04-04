@@ -250,7 +250,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             high_qc: anchored_leaf.get_justify_qc(),
 
             metrics: Arc::new(ConsensusMetrics::new(
-                inner.metrics.subgroup("consensus".to_string()),
+                &*inner.metrics.subgroup("consensus".to_string()),
             )),
             invalid_qc: 0,
         };

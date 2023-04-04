@@ -174,9 +174,8 @@ pub struct ConsensusMetrics {
 
 impl ConsensusMetrics {
     /// Create a new instance of this [`ConsensusMetrics`] struct, setting all the counters and gauges
-    #[allow(clippy::needless_pass_by_value)] // with the metrics API is it more ergonomic to pass a `Box<dyn Metrics>` around
     #[must_use]
-    pub fn new(metrics: Box<dyn Metrics>) -> Self {
+    pub fn new(metrics: &dyn Metrics) -> Self {
         Self {
             current_view: metrics.create_gauge(String::from("current_view"), None),
             vote_validate_duration: metrics.create_histogram(

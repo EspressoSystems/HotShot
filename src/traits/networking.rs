@@ -37,8 +37,7 @@ pub(self) struct NetworkingMetrics {
 
 impl NetworkingMetrics {
     /// Create a new instance of this [`NetworkingMetrics`] struct, setting all the counters and gauges
-    #[allow(clippy::needless_pass_by_value)] // with the metrics API is it more ergonomic to pass a `Box<dyn Metrics>` around
-    pub(self) fn new(metrics: Box<dyn Metrics>) -> Self {
+    pub(self) fn new(metrics: &dyn Metrics) -> Self {
         Self {
             connected_peers: metrics.create_gauge(String::from("connected_peers"), None),
             incoming_message_count: metrics

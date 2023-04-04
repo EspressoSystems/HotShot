@@ -686,7 +686,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
         let mut streams = Some(streams);
 
         let result = Self::create(
-            metrics,
+            &*metrics,
             known_nodes,
             move || {
                 let streams = streams.take();
@@ -750,12 +750,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
         .boxed()
     }
     /// Connect to a centralized server
-    pub fn connect(
-        metrics: Box<dyn Metrics>,
-        known_nodes: Vec<K>,
-        addr: SocketAddr,
-        key: K,
-    ) -> Self {
+    pub fn connect(metrics: &dyn Metrics, known_nodes: Vec<K>, addr: SocketAddr, key: K) -> Self {
         Self::create(metrics, known_nodes, move || Self::connect_to(addr), key)
     }
 
@@ -763,7 +758,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
     ///
     /// This will auto-reconnect when the network loses connection to the server.
     fn create<F>(
-        metrics: Box<dyn Metrics>,
+        metrics: &dyn Metrics,
         known_nodes: Vec<K>,
         mut create_connection: F,
         key: K,
@@ -1229,7 +1224,7 @@ where
         Box::new(move |id| {
             let sender = Arc::clone(&sender);
             let mut network = CentralizedServerNetwork::connect(
-                NoMetrics::boxed(),
+                &NoMetrics::default(),
                 known_nodes.clone(),
                 addr,
                 known_nodes[id as usize].clone(),

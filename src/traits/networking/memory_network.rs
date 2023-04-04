@@ -255,7 +255,7 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
                 direct_output: Mutex::new(direct_output),
                 master_map: master_map.clone(),
                 in_flight_message_count,
-                metrics: NetworkingMetrics::new(metrics),
+                metrics: NetworkingMetrics::new(&*metrics),
             }),
         };
         master_map.map.insert(pub_key, mn.clone());
