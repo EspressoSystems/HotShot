@@ -305,22 +305,20 @@ impl NetworkNode {
         let behaviour = self.swarm.behaviour_mut();
         match msg {
             Ok(msg) => {
-                #[allow(clippy::enum_glob_use)]
-                use ClientRequest::*;
                 match msg {
-                    BeginBootstrap => {
+                    ClientRequest::BeginBootstrap => {
                         self.swarm.behaviour_mut().dht.begin_bootstrap();
                     }
-                    LookupPeer(pid, chan) => {
+                    ClientRequest::LookupPeer(pid, chan) => {
                         self.swarm.behaviour_mut().dht.lookup_peer(pid, chan);
                     }
-                    GetRoutingTable(chan) => {
+                    ClientRequest::GetRoutingTable(chan) => {
                         self.swarm.behaviour_mut().dht.print_routing_table();
                         if chan.send(()).is_err() {
                             warn!("Tried to notify client but client not tracking anymore");
                         }
                     }
-                    PutDHT { key, value, notify } => {
+                    ClientRequest::PutDHT { key, value, notify } => {
                         let query = KadPutQuery {
                             progress: DHTProgress::NotStarted,
                             notify,
@@ -330,17 +328,17 @@ impl NetworkNode {
                         };
                         self.swarm.behaviour_mut().put_record(query);
                     }
-                    GetConnectedPeerNum(s) => {
+                    ClientRequest::GetConnectedPeerNum(s) => {
                         if s.send(self.num_connected()).is_err() {
                             error!("error sending peer number to client");
                         }
                     }
-                    GetConnectedPeers(s) => {
+                    ClientRequest::GetConnectedPeers(s) => {
                         if s.send(self.connected_pids()).is_err() {
                             error!("error sending peer set to client");
                         }
                     }
-                    GetDHT {
+                    ClientRequest::GetDHT {
                         key,
                         notify,
                         retry_count,
@@ -352,17 +350,17 @@ impl NetworkNode {
                             retry_count,
                         );
                     }
-                    IgnorePeers(_peers) => {
+                    ClientRequest::IgnorePeers(_peers) => {
                         // NOTE used by test with conductor only
                     }
-                    Shutdown => {
+                    ClientRequest::Shutdown => {
                         warn!("Libp2p listener shutting down");
                         return Ok(true);
                     }
-                    GossipMsg(topic, contents) => {
+                    ClientRequest::GossipMsg(topic, contents) => {
                         behaviour.publish_gossip(Topic::new(topic), contents);
                     }
-                    Subscribe(t, chan) => {
+                    ClientRequest::Subscribe(t, chan) => {
                         behaviour.subscribe_gossip(&t);
                         if let Some(chan) = chan {
                             if chan.send(()).is_err() {
@@ -370,13 +368,13 @@ impl NetworkNode {
                             }
                         }
                     }
-                    Unsubscribe(t, chan) => {
+                    ClientRequest::Unsubscribe(t, chan) => {
                         behaviour.unsubscribe_gossip(&t);
                         if chan.send(()).is_err() {
                             error!("finished unsubscribing but response channel dropped");
                         }
                     }
-                    DirectRequest {
+                    ClientRequest::DirectRequest {
                         pid,
                         contents,
                         retry_count,
@@ -384,13 +382,13 @@ impl NetworkNode {
                         info!("pid {:?} adding direct request", self.peer_id);
                         behaviour.add_direct_request(pid, contents, retry_count);
                     }
-                    DirectResponse(chan, msg) => {
+                    ClientRequest::DirectResponse(chan, msg) => {
                         behaviour.add_direct_response(chan, msg);
                     }
-                    AddKnownPeers(peers) => {
+                    ClientRequest::AddKnownPeers(peers) => {
                         self.add_known_peers(&peers);
                     }
-                    Prune(pid) => {
+                    ClientRequest::Prune(pid) => {
                         if self.swarm.disconnect_peer_id(pid).is_err() {
                             error!(
                                 "Peer {:?} could not disconnect from pid {:?}",
@@ -419,12 +417,10 @@ impl NetworkNode {
         send_to_client: &UnboundedSender<NetworkEvent>,
     ) -> Result<(), NetworkError> {
         // Make the match cleaner
-        #[allow(clippy::enum_glob_use)]
-        use SwarmEvent::*;
         info!("event observed {:?}", event);
 
         match event {
-            ConnectionEstablished {
+            SwarmEvent::ConnectionEstablished {
                 peer_id,
                 endpoint,
                 num_established,
@@ -440,7 +436,7 @@ impl NetworkNode {
                     info!("peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left", self.peer_id, peer_id, endpoint, concurrent_dial_errors, num_established);
                 }
             }
-            ConnectionClosed {
+            SwarmEvent::ConnectionClosed {
                 peer_id,
                 endpoint,
                 num_established,
@@ -455,33 +451,33 @@ impl NetworkNode {
                     info!("peerid {:?} connection is closed to {:?} with endpoint {:?}. {:?} connections left. Cause: {:?}", self.peer_id, peer_id, endpoint, num_established, cause);
                 }
             }
-            Dialing(p) => {
+            SwarmEvent::Dialing(p) => {
                 info!("{:?} is dialing {:?}", self.peer_id, p);
             }
-            BannedPeer {
+            SwarmEvent::BannedPeer {
                 peer_id,
                 endpoint: _,
             } => {
                 error!("Peer {:?} is banning peer {:?}!!", self.peer_id, peer_id);
             }
-            ListenerClosed {
+            SwarmEvent::ListenerClosed {
                 listener_id: _,
                 addresses: _,
                 reason: _,
             }
-            | NewListenAddr {
+            | SwarmEvent::NewListenAddr {
                 listener_id: _,
                 address: _,
             }
-            | ExpiredListenAddr {
+            | SwarmEvent::ExpiredListenAddr {
                 listener_id: _,
                 address: _,
             }
-            | IncomingConnection {
+            | SwarmEvent::IncomingConnection {
                 local_addr: _,
                 send_back_addr: _,
             } => {}
-            Behaviour(b) => {
+            SwarmEvent::Behaviour(b) => {
                 let maybe_event = match b {
                     NetworkEventInternal::DHTEvent(e) => match e {
                         DHTEvent::IsBootstrapped => Some(NetworkEvent::IsBootstrapped),
@@ -540,10 +536,10 @@ impl NetworkNode {
                         .map_err(|_e| NetworkError::StreamClosed)?;
                 }
             }
-            OutgoingConnectionError { peer_id: _, error } => {
+            SwarmEvent::OutgoingConnectionError { peer_id: _, error } => {
                 info!(?error, "OUTGOING CONNECTION ERROR, {:?}", error);
             }
-            IncomingConnectionError {
+            SwarmEvent::IncomingConnectionError {
                 local_addr,
                 send_back_addr,
                 error,
@@ -553,7 +549,7 @@ impl NetworkNode {
                     local_addr, send_back_addr, error
                 );
             }
-            ListenerError { listener_id, error } => {
+            SwarmEvent::ListenerError { listener_id, error } => {
                 info!("LISTENER ERROR {:?} {:?}", listener_id, error);
             }
         }

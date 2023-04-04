@@ -58,7 +58,6 @@ pub async fn counter_handle_network_event(
     event: NetworkEvent,
     handle: Arc<NetworkNodeHandle<CounterState>>,
 ) -> Result<(), NetworkNodeHandleError> {
-    #[allow(clippy::enum_glob_use)]
     use CounterMessage::*;
     use NetworkEvent::*;
     match event {
