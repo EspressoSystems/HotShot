@@ -9,7 +9,7 @@
     clippy::missing_docs_in_private_items,
     clippy::panic
 )]
-#![allow(clippy::module_name_repetitions, clippy::unused_async)]
+#![allow(clippy::module_name_repetitions)]
 
 mod da_member;
 mod leader;
@@ -287,6 +287,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
     /// garbage collects based on state change
     /// right now, this removes from both the `saved_leaves`
     /// and `state_map` fields of `Consensus`
+    #[allow(clippy::unused_async)] // async for API compatibility reasons
     pub async fn collect_garbage(
         &mut self,
         old_anchor_view: TYPES::Time,

@@ -6,10 +6,7 @@
     clippy::missing_docs_in_private_items,
     clippy::panic
 )]
-#![allow(
-    clippy::module_name_repetitions,
-    clippy::unused_async, // For API reasons
-)]
+#![allow(clippy::module_name_repetitions)]
 // Temporary
 #![allow(clippy::cast_possible_truncation)]
 // Temporary, should be disabled after the completion of the NodeImplementation refactor
@@ -681,6 +678,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     }
 
     /// Handle an incoming [`DataMessage`] that directed at this node
+    #[allow(clippy::unused_async)] // async for API compatibility reasons
     async fn handle_direct_data_message(
         &self,
         msg: DataMessage<TYPES>,
@@ -728,6 +726,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
 
     /// given a view number and a write lock on a channel map, inserts entry into map if it
     /// doesn't exist, or creates entry. Then returns a clone of the entry
+    #[allow(clippy::unused_async)] // async for API compatibility reasons
     pub async fn create_or_obtain_chan_from_write(
         view_num: TYPES::Time,
         mut channel_map: RwLockWriteGuard<'_, SendToTasks<TYPES, I>>,
