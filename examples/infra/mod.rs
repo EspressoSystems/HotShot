@@ -261,7 +261,7 @@ pub trait Run<
             sk,
             config.node_index,
             config.config,
-            MemoryStorage::new(),
+            MemoryStorage::empty(),
             quorum_exchange,
             committee_exchange,
             initializer,

@@ -33,13 +33,10 @@ pub struct MemoryStorage<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     inner: Arc<RwLock<MemoryStorageInternal<TYPES, LEAF>>>,
 }
 
-#[allow(clippy::new_without_default)]
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> MemoryStorage<TYPES, LEAF> {
     /// Create a new instance of the memory storage with the given block and state
-    /// NOTE: left as `new` because this API is not stable
-    /// we may add arguments to new in the future
     #[must_use]
-    pub fn new() -> Self {
+    pub fn empty() -> Self {
         let inner = MemoryStorageInternal {
             stored: BTreeMap::new(),
             failed: BTreeSet::new(),
@@ -55,7 +52,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> TestableStorage<TYPES, L
     for MemoryStorage<TYPES, LEAF>
 {
     fn construct_tmp_storage() -> Result<Self> {
-        Ok(Self::new())
+        Ok(Self::empty())
     }
 
     async fn get_full_state(&self) -> StorageState<TYPES, LEAF> {
