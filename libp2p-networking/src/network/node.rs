@@ -558,7 +558,6 @@ impl NetworkNode {
 
     /// Spawn a task to listen for requests on the returned channel
     /// as well as any events produced by libp2p
-    #[allow(clippy::panic)]
     #[instrument]
     pub async fn spawn_listeners(
         mut self,

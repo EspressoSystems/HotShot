@@ -385,7 +385,6 @@ impl<
         VOTE: VoteType<TYPES> + 'static,
     > WebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
 {
-    #[allow(clippy::panic)]
     /// Creates a new instance of the `WebServerNetwork`
     /// # Panics
     /// if the web server url is malformed

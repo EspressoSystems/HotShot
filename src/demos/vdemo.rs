@@ -379,7 +379,6 @@ impl State for VDemoState {
     }
 }
 
-#[allow(clippy::panic)]
 impl TestableState for VDemoState {
     fn create_random_transaction(
         state: Option<&Self>,
@@ -388,7 +387,7 @@ impl TestableState for VDemoState {
     ) -> <Self::BlockType as Block>::Transaction {
         use rand::seq::IteratorRandom;
 
-        let state = state.unwrap_or_else(|| panic!("Missing state"));
+        let state = state.expect("Missing state");
 
         let non_zero_balances = state
             .balances
