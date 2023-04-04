@@ -250,9 +250,7 @@ where
         let new_seed = *hasher.finalize().as_bytes();
         let mut prng = rand::rngs::StdRng::from_seed(new_seed);
 
-        #[allow(clippy::let_unit_value)]
-        let parameters = SIGSCHEME::param_gen(Some(&mut prng)).unwrap();
-        let (sk, pk) = SIGSCHEME::key_gen(&parameters, &mut prng).unwrap();
+        let (sk, pk) = SIGSCHEME::key_gen(&(), &mut prng).unwrap();
         (
             Self {
                 pk: pk.clone(),
@@ -1149,10 +1147,7 @@ impl ElectionConfig for VRFStakeTableConfig {}
 //         let stake_per_node = NonZeroU64::new(100).unwrap();
 //         let genesis_seed = [0u8; 32];
 //         for _i in 0..num_nodes {
-//             // TODO we should make this more general/use different parameters
-//             #[allow(clippy::let_unit_value)]
-//             let parameters = BLSSignatureScheme::<Param381>::param_gen(Some(rng)).unwrap();
-//             let (sk, pk) = BLSSignatureScheme::<Param381>::key_gen(&parameters, rng).unwrap();
+//             let (sk, pk) = BLSSignatureScheme::<Param381>::key_gen(&(), rng).unwrap();
 //             keys.push((sk.clone(), pk.clone()));
 //             known_nodes.push(JfPubKey::from_native(pk.clone()));
 //             stake_distribution.push(stake_per_node);
