@@ -449,8 +449,6 @@ where
                             continue;
                         }
 
-                        // FIXME is there a way around this?
-                        #[allow(unused_assignments)]
                         match self.quorum_exchange.accumulate_vote(
                             &vote.signature.0,
                             &vote.signature.1,
