@@ -7,10 +7,8 @@
     clippy::panic
 )]
 #![allow(
-    clippy::option_if_let_else,
     clippy::must_use_candidate,
     clippy::module_name_repetitions,
-    clippy::similar_names,
     clippy::unused_self,
     clippy::unused_async, // For API reasons
 )]
@@ -746,7 +744,6 @@ pub trait ViewRunner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     async fn run_view(hotshot: HotShot<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()>;
 }
 
-#[allow(clippy::too_many_lines)]
 #[async_trait]
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
