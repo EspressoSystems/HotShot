@@ -106,6 +106,7 @@ pub trait ConsensusTime:
     + 'static
 {
     /// Create a new instance of this time unit at time number 0
+    #[must_use]
     fn genesis() -> Self {
         Self::new(0)
     }

@@ -103,6 +103,7 @@ impl Transaction for VDemoTransaction {}
 
 impl VDemoTransaction {
     /// Ensures that this transaction is at least consistent with itself
+    #[must_use]
     pub fn validate_independence(&self) -> bool {
         // Ensure that we are adding to one account exactly as much as we are subtracting from
         // another
@@ -217,6 +218,7 @@ impl Committable for VDemoTransaction {
 
 impl VDemoBlock {
     /// generate a genesis block with the provided initial accounts and balances
+    #[must_use]
     pub fn genesis_from(accounts: BTreeMap<Account, Balance>) -> Self {
         Self::Genesis(VDemoGenesisBlock { accounts })
     }
@@ -526,6 +528,7 @@ where
     MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug,
 {
     /// Create a new `VDemoNode`
+    #[must_use]
     pub fn new() -> Self {
         VDemoNode(PhantomData)
     }

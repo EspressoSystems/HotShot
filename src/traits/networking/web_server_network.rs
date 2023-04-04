@@ -76,6 +76,7 @@ impl<
     > WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// Create new communication channel
+    #[must_use]
     pub fn new(
         network: WebServerNetwork<
             Message<TYPES, I>,

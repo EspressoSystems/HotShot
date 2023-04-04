@@ -55,6 +55,7 @@ pub struct NetworkDef {
 
 impl NetworkDef {
     /// Create a new instance of a `NetworkDef`
+    #[must_use]
     pub fn new(
         gossipsub: GossipBehaviour,
         dht: DHTBehaviour,

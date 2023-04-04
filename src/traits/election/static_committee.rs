@@ -36,6 +36,7 @@ impl<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey>
     GeneralStaticCommittee<T, LEAF, PUBKEY>
 {
     /// Creates a new dummy elector
+    #[must_use]
     pub fn new(nodes: Vec<PUBKEY>) -> Self {
         Self {
             nodes,

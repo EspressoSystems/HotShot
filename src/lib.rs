@@ -7,7 +7,6 @@
     clippy::panic
 )]
 #![allow(
-    clippy::must_use_candidate,
     clippy::module_name_repetitions,
     clippy::unused_async, // For API reasons
 )]
@@ -697,6 +696,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     }
 
     /// return the timeout for a view for `self`
+    #[must_use]
     pub fn get_next_view_timeout(&self) -> u64 {
         self.inner.config.next_view_timeout
     }

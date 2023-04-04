@@ -5,10 +5,7 @@
     missing_docs,
     clippy::panic
 )]
-#![allow(
-    clippy::must_use_candidate,
-    clippy::module_name_repetitions,
-)]
+#![allow(clippy::module_name_repetitions)]
 //! Library for p2p communication
 
 /// Example message used by the UI library

@@ -697,6 +697,7 @@ impl<
     > Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// create a new libp2p communication channel
+    #[must_use]
     pub fn new(network: Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>) -> Self {
         Self(network, PhantomData::default())
     }

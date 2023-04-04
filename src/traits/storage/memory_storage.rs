@@ -38,6 +38,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> MemoryStorage<TYPES, LEA
     /// Create a new instance of the memory storage with the given block and state
     /// NOTE: left as `new` because this API is not stable
     /// we may add arguments to new in the future
+    #[must_use]
     pub fn new() -> Self {
         let inner = MemoryStorageInternal {
             stored: BTreeMap::new(),

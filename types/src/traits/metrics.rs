@@ -34,6 +34,7 @@ impl NoMetrics {
     /// Create a new `Box<dyn Metrics>` with this [`NoMetrics`]
     // with our API it is more ergonomic to return `Box<dyn Metrics>`
     #[allow(clippy::new_ret_no_self)]
+    #[must_use]
     pub fn new() -> Box<dyn Metrics> {
         Box::new(NoMetrics)
     }

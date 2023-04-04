@@ -717,6 +717,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
     }
 
     /// Returns `true` if the server indicated that the current run was ready to start
+    #[must_use]
     pub fn run_ready(&self) -> bool {
         self.inner.run_ready.load(Ordering::Relaxed)
     }
@@ -1097,6 +1098,7 @@ impl<
     > CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// create new communication channel
+    #[must_use]
     pub fn new(
         network: CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> Self {

@@ -42,6 +42,7 @@ impl Ord for Ed25519Pub {
 impl Ed25519Pub {
     /// Return the [`TaggedBase64`] representation of this key.
     #[allow(clippy::missing_panics_doc)] // `TaggedBase64::new()` only panics if `PEER_ID` is not valid base64, which it is.
+    #[must_use]
     pub fn to_tagged_base64(&self) -> TaggedBase64 {
         TaggedBase64::new(PEER_ID, self.pub_key.as_ref()).unwrap()
     }

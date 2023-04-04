@@ -509,11 +509,13 @@ where
     }
 }
 /// Fake the thing a genesis block points to. Needed to avoid infinite recursion
+#[must_use]
 pub fn fake_commitment<S: Committable>() -> Commitment<S> {
     commit::RawCommitmentBuilder::new("Dummy commitment for arbitrary genesis").finalize()
 }
 
 /// create a random commitment
+#[must_use]
 pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitment<S> {
     let random_array: Vec<u8> = (0u8..100u8).map(|_| rng.gen_range(0..255)).collect();
     commit::RawCommitmentBuilder::new("Random Commitment")

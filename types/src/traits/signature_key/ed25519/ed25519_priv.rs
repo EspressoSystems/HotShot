@@ -14,6 +14,7 @@ pub struct Ed25519Priv {
 
 impl Ed25519Priv {
     /// Generate a new private key from scratch
+    #[must_use]
     pub fn generate() -> Self {
         let key_pair = KeyPair::generate();
         let priv_key = key_pair.sk;
@@ -21,6 +22,7 @@ impl Ed25519Priv {
     }
 
     /// Generate a new private key from a seed
+    #[must_use]
     pub fn generate_from_seed(seed: [u8; 32]) -> Self {
         let key_pair = KeyPair::from_seed(Seed::new(seed));
         let priv_key = key_pair.sk;
@@ -31,6 +33,7 @@ impl Ed25519Priv {
     ///
     /// Hashes the seed and the number together using blake3. This method is
     /// useful for testing
+    #[must_use]
     pub fn generated_from_seed_indexed(seed: [u8; 32], index: u64) -> Self {
         let mut hasher = blake3::Hasher::new();
         hasher.update(&seed);
@@ -52,12 +55,14 @@ impl Ed25519Priv {
     }
 
     /// Convert a private key to bytes
+    #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         self.priv_key.to_vec()
     }
 
     /// Return the [`TaggedBase64`] representation of this key.
     #[allow(clippy::missing_panics_doc)] // `TaggedBase64::new()` only panics if `PRIVKEY_ID` is not valid base64, which it is.
+    #[must_use]
     pub fn to_tagged_base64(&self) -> TaggedBase64 {
         TaggedBase64::new(PRIVKEY_ID, self.priv_key.as_ref()).unwrap()
     }

@@ -72,6 +72,7 @@ pub struct MasterMap<M: NetworkMsg, K: SignatureKey> {
 
 impl<M: NetworkMsg, K: SignatureKey> MasterMap<M, K> {
     /// Create a new, empty, `MasterMap`
+    #[must_use]
     pub fn new() -> Arc<MasterMap<M, K>> {
         Arc::new(MasterMap {
             map: DashMap::new(),
@@ -476,6 +477,7 @@ impl<
     > MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// create new communication channel
+    #[must_use]
     pub fn new(network: MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>) -> Self {
         Self(network, PhantomData::default())
     }

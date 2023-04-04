@@ -53,6 +53,7 @@ impl Transaction for SDemoTransaction {}
 
 impl SDemoTransaction {
     /// create a new transaction
+    #[must_use]
     pub fn new(id: u64) -> Self {
         Self {
             id,

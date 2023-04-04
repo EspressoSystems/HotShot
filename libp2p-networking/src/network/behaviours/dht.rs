@@ -105,6 +105,7 @@ impl DHTBehaviour {
     }
 
     /// Create a new DHT behaviour
+    #[must_use]
     pub fn new(
         kadem: Kademlia<MemoryStore>,
         pid: PeerId,

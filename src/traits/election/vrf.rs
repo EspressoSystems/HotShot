@@ -265,6 +265,7 @@ where
 
 impl<VRF, VRFHASHER, VRFPARAMS> VRFStakeTable<VRF, VRFHASHER, VRFPARAMS> {
     /// get total stake
+    #[must_use]
     pub fn get_all_stake(&self) -> NonZeroU64 {
         self.total_stake
     }
@@ -651,6 +652,7 @@ pub struct BinomialQuery {
 impl BinomialQuery {
     /// get the committee parameter
     /// for this query
+    #[must_use]
     pub fn get_p(&self) -> Ratio<BigUint> {
         let sortition_parameter_big: BigUint = BigUint::from(self.sortition_parameter);
         let total_stake_big: BigUint = BigUint::from(self.total_stake);
@@ -871,6 +873,7 @@ where
     /// create stake table with this initial stake
     /// # Panics
     /// TODO
+    #[must_use]
     pub fn with_initial_stake(
         known_nodes: Vec<JfPubKey<SIGSCHEME>>,
         config: &VRFStakeTableConfig,
