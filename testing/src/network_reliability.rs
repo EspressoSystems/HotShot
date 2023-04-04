@@ -8,7 +8,7 @@ use rand::{
 
 /// A synchronous network. Packets may be delayed, but are guaranteed
 /// to arrive within `timeout` ns
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct SynchronousNetwork {
     /// Max delay of packet before arrival
     timeout_ms: u64,
@@ -92,17 +92,6 @@ impl NetworkReliability for PartiallySynchronousNetwork {
         } else {
             // act syncronous after gst
             self.synchronous.sample_delay()
-        }
-    }
-}
-
-#[allow(clippy::derivable_impls)]
-impl Default for SynchronousNetwork {
-    // disable all chance of failure
-    fn default() -> Self {
-        SynchronousNetwork {
-            delay_low_ms: 0,
-            timeout_ms: 0,
         }
     }
 }
