@@ -204,7 +204,7 @@ where
                 async_block_on(async move {
                     Libp2pCommChannel(
                         Libp2pNetwork::new(
-                            NoMetrics::new(),
+                            NoMetrics::boxed(),
                             config,
                             pubkey,
                             bootstrap_addrs_ref,

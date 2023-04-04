@@ -228,7 +228,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             quorum_exchange,
             committee_exchange,
             initializer,
-            NoMetrics::new(),
+            NoMetrics::boxed(),
         )
         .await
         .expect("Could not init hotshot");

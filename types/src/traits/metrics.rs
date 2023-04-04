@@ -28,15 +28,14 @@ pub trait Metrics: Send + Sync {
 }
 
 /// Use this if you're not planning to use any metrics. All methods are implemented as a no-op
+#[derive(Clone, Copy, Debug, Default)]
 pub struct NoMetrics;
 
 impl NoMetrics {
     /// Create a new `Box<dyn Metrics>` with this [`NoMetrics`]
-    // with our API it is more ergonomic to return `Box<dyn Metrics>`
-    #[allow(clippy::new_ret_no_self)]
     #[must_use]
-    pub fn new() -> Box<dyn Metrics> {
-        Box::new(NoMetrics)
+    pub fn boxed() -> Box<dyn Metrics> {
+        Box::<Self>::default()
     }
 }
 

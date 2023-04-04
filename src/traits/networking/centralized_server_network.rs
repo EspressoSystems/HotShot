@@ -1229,7 +1229,7 @@ where
         Box::new(move |id| {
             let sender = Arc::clone(&sender);
             let mut network = CentralizedServerNetwork::connect(
-                NoMetrics::new(),
+                NoMetrics::boxed(),
                 known_nodes.clone(),
                 addr,
                 known_nodes[id as usize].clone(),

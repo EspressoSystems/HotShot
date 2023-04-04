@@ -265,7 +265,7 @@ pub trait Run<
             quorum_exchange,
             committee_exchange,
             initializer,
-            NoMetrics::new(),
+            NoMetrics::boxed(),
         )
         .await
         .expect("Could not init hotshot");
@@ -566,7 +566,7 @@ where
 
         let node_config = config_builder.build().unwrap();
         let network = Libp2pNetwork::new(
-            NoMetrics::new(),
+            NoMetrics::boxed(),
             node_config,
             pubkey.clone(),
             Arc::new(RwLock::new(
