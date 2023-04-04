@@ -9,7 +9,6 @@
 #![allow(
     clippy::must_use_candidate,
     clippy::module_name_repetitions,
-    clippy::unused_self,
     clippy::unused_async, // For API reasons
 )]
 // Temporary
