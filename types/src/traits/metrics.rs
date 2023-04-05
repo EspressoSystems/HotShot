@@ -182,12 +182,11 @@ mod test {
                 .entry(self.prefix.clone())
                 .or_default() = amount;
         }
-        #[allow(clippy::cast_possible_truncation)]
-        #[allow(clippy::cast_sign_loss)]
         fn update(&self, delta: i64) {
             let mut values = self.values.lock().unwrap();
             let value = values.gauges.entry(self.prefix.clone()).or_default();
-            *value = (*value as i64 + delta) as usize;
+            let signed_value = i64::try_from(*value).unwrap_or(i64::MAX);
+            *value = usize::try_from(signed_value + delta).unwrap_or(0);
         }
     }
 
