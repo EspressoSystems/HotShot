@@ -49,8 +49,6 @@ struct OrchestratorState<KEY, ELECTION> {
     start: bool,
     /// The total nodes that have posted they are ready to start
     pub nodes_connected: u64,
-    /// stake table
-    stake_table: Vec<KEY>,
     /// connection to the web server
     client: Option<surf_disco::Client<ClientError>>
 }
@@ -69,7 +67,6 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
             config: network_config,
             start: false,
             nodes_connected: 0,
-            stake_table: Vec::new(),
             client: web_client,
         }
     }
@@ -84,7 +81,6 @@ pub trait OrchestratorApi<KEY, ELECTION> {
     fn get_start(&self) -> Result<bool, ServerError>;
     fn post_ready(&mut self) -> Result<(), ServerError>;
     fn post_run_results(&mut self) -> Result<(), ServerError>;
-    fn get_stake_table(&self) -> Result<Vec<KEY>, ServerError>;
 }
 
 impl<KEY, ELECTION> OrchestratorApi<KEY, ELECTION> for OrchestratorState<KEY, ELECTION>
@@ -180,25 +176,8 @@ where
         println!("Nodes connected: {}", self.nodes_connected);
         if self.nodes_connected >= self.config.config.known_nodes.len().try_into().unwrap() {
             self.start = true;
-            //generate stake table (for static committee, just need the keys)
-            self.stake_table = (0..self.nodes_connected as u64)
-                .map(|id| {
-                    KEY::generated_from_seed_indexed(self.config.seed, id).0
-                })
-                .collect::<Vec<_>>();
         }
         Ok(())
-    }
-
-    //KALEY TODO: I added this endpoint, but we may not end up needing it
-    fn get_stake_table(&self) -> Result<Vec<KEY>, ServerError> {
-        if self.stake_table.is_empty() {
-            return Err(ServerError {
-                status: tide_disco::StatusCode::BadRequest,
-                message: "Stake table not initialized yet".to_string(),
-            });
-        }
-        Ok(self.stake_table.clone())
     }
 
     fn post_run_results(&mut self) -> Result<(), ServerError> {
@@ -244,9 +223,6 @@ where
     })?
     .post("postresults", |_req, state| {
         async move { state.post_run_results() }.boxed()
-    })?
-    .get("get_staketable", |_req, state| {
-        async move { state.get_stake_table() }.boxed()
     })?;
     Ok(api)
 }

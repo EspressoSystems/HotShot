@@ -40,13 +40,6 @@ DOC = """
 Get whether the node should start the run, returns a boolean
 """
 
-# GET initialized stake table
-[route.get_staketable]
-PATH = ["staketable"]
-DOC = """
-Get the stake table; returns Vec<KEY> once table is initialized
-"""
-
 # POST the run results
 [route.postresults]
 PATH = ["results"]
