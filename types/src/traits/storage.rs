@@ -1,5 +1,4 @@
 //! Abstraction over on-disk storage of node state
-#![allow(missing_docs)]
 
 use super::{node_implementation::NodeType, signature_key::EncodedPublicKey};
 use crate::certificate::QuorumCertificate;

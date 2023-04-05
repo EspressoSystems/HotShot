@@ -46,7 +46,10 @@ pub struct TaskHandle<TYPES: NodeType> {
 }
 impl<TYPES: NodeType> TaskHandle<TYPES> {
     /// Start the round runner. This will make it run until `pause` is called
-    #[allow(clippy::missing_panics_doc)]
+    ///
+    /// # Panics
+    ///
+    /// If the [`TaskHandle`] has not been properly initialized.
     pub async fn start(&self) {
         let handle = self.inner.read().await;
         if handle.is_some() {
@@ -57,7 +60,10 @@ impl<TYPES: NodeType> TaskHandle<TYPES> {
 
     /// Make the round runner run 1 round.
     /// Does/should not block.
-    #[allow(clippy::missing_panics_doc)]
+    ///
+    /// # Panics
+    ///
+    /// If the [`TaskHandle`] has not been properly initialized.
     pub async fn start_one_round(&self) {
         let handle = self.inner.read().await;
         if handle.is_some() {
@@ -72,7 +78,10 @@ impl<TYPES: NodeType> TaskHandle<TYPES> {
     }
 
     /// Wait until all underlying handles are shut down
-    #[allow(clippy::missing_panics_doc)]
+    ///
+    /// # Panics
+    ///
+    /// If the [`TaskHandle`] has not been properly initialized.
     pub async fn wait_shutdown(&self, send_network_lookup: UnboundedSender<Option<TYPES::Time>>) {
         let inner = self.inner.write().await.take().unwrap();
 

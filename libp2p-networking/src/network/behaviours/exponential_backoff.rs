@@ -16,6 +16,7 @@ pub struct ExponentialBackoff {
 
 impl ExponentialBackoff {
     /// Create new backoff
+    #[must_use]
     pub fn new(backoff_factor: u32, next_timeout: Duration) -> Self {
         ExponentialBackoff {
             backoff_factor,
@@ -52,6 +53,7 @@ impl ExponentialBackoff {
     }
 
     /// Whether or not the timeout is expired
+    #[must_use]
     pub fn is_expired(&self) -> bool {
         if let Some(then) = self.started {
             then.elapsed() > self.timeout

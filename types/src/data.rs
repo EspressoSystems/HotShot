@@ -2,8 +2,6 @@
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
-#![allow(clippy::missing_docs_in_private_items)]
-#![allow(missing_docs)]
 
 use crate::{
     certificate::{DACertificate, QuorumCertificate},
@@ -120,6 +118,7 @@ where
     pub proposer_id: EncodedPublicKey,
 }
 
+/// A proposal to start providing data availability for a block.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub struct DAProposal<TYPES: NodeType> {
     /// Block leaf wants to apply
@@ -128,10 +127,11 @@ pub struct DAProposal<TYPES: NodeType> {
     pub view_number: TYPES::Time,
 }
 
+/// A proposal to append a new block commitment to the log.
 #[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[serde(bound(deserialize = ""))]
 pub struct CommitmentProposal<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
-    #[allow(clippy::missing_docs_in_private_items)]
+    /// The commitment to append.
     pub block_commitment: Commitment<TYPES::BlockType>,
 
     /// CurView from leader when proposing leaf
@@ -174,13 +174,19 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ProposalType
         self.view_number
     }
 }
+
+/// A proposal to a network of voting nodes.
 pub trait ProposalType:
     Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq + Eq
 {
+    /// Type of nodes that can vote on this proposal.
     type NodeType: NodeType;
+
+    /// Time at which this proposal is valid.
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time;
 }
 
+/// An item which is appended to a blockchain.
 pub trait LeafType:
     Debug
     + Clone
@@ -193,8 +199,11 @@ pub trait LeafType:
     + Eq
     + std::hash::Hash
 {
+    /// Type of nodes participating in the network.
     type NodeType: NodeType;
+    /// Type of block contained by this leaf.
     type DeltasType: Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Send + Serialize + Sync;
+    /// Commitment to the blockchain state.
     type StateCommitmentType: Clone
         + Debug
         + for<'a> Deserialize<'a>
@@ -203,39 +212,45 @@ pub trait LeafType:
         + Serialize
         + Sync;
 
+    /// Create a new leaf from its components.
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
         justify_qc: QuorumCertificate<Self::NodeType, Self>,
         deltas: <Self::NodeType as NodeType>::BlockType,
         state: <Self::NodeType as NodeType>::StateType,
     ) -> Self;
-
+    /// Time when this leaf was created.
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time;
-
+    /// Height of this leaf in the chain.
+    ///
+    /// Equivalently, this is the number of leaves before this one in the chain.
     fn get_height(&self) -> u64;
-
+    /// Change the height of this leaf.
     fn set_height(&mut self, height: u64);
-
+    /// The QC linking this leaf to its parent in the chain.
     fn get_justify_qc(&self) -> QuorumCertificate<Self::NodeType, Self>;
-
+    /// Commitment to this leaf's parent.
     fn get_parent_commitment(&self) -> Commitment<Self>;
-
+    /// The block contained in this leaf.
     fn get_deltas(&self) -> Self::DeltasType;
-
+    /// The blockchain state after appending this leaf.
     fn get_state(&self) -> Self::StateCommitmentType;
-
+    /// Transactions rejected or invalidated by the application of this leaf.
     fn get_rejected(&self) -> Vec<<<Self::NodeType as NodeType>::BlockType as Block>::Transaction>;
-
+    /// Real-world time when this leaf was created.
     fn get_timestamp(&self) -> i128;
-
+    /// Identity of the network participant who proposed this leaf.
     fn get_proposer_id(&self) -> EncodedPublicKey;
-
+    /// Create a leaf from information stored about a view.
     fn from_stored_view(stored_view: StoredView<Self::NodeType, Self>) -> Self;
 }
 
+/// Additional functions required to use a [`LeafType`] with hotshot-testing.
 pub trait TestableLeaf {
+    /// Type of nodes participating in the network.
     type NodeType: NodeType;
 
+    /// Create a transaction that can be added to the block contained in this leaf.
     fn create_random_transaction(
         &self,
         rng: &mut dyn rand::RngCore,
@@ -509,11 +524,13 @@ where
     }
 }
 /// Fake the thing a genesis block points to. Needed to avoid infinite recursion
+#[must_use]
 pub fn fake_commitment<S: Committable>() -> Commitment<S> {
     commit::RawCommitmentBuilder::new("Dummy commitment for arbitrary genesis").finalize()
 }
 
 /// create a random commitment
+#[must_use]
 pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitment<S> {
     let random_array: Vec<u8> = (0u8..100u8).map(|_| rng.gen_range(0..255)).collect();
     commit::RawCommitmentBuilder::new("Random Commitment")

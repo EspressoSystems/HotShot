@@ -2,8 +2,6 @@
 //!
 //! This module provides the [`State`] trait, which serves as an compatibility over the current
 //! network state, which is modified by the transactions contained within blocks.
-#![allow(clippy::missing_docs_in_private_items)]
-#![allow(missing_docs)]
 
 use crate::traits::Block;
 use commit::Committable;
@@ -65,24 +63,30 @@ pub trait State:
 
 // TODO Seuqnecing here means involving DA in consensus
 
-/// may need to make these public
+/// Marker trait for consensus which provides availability and ordering but not execution.
 pub trait SequencingConsensusType
 where
     Self: ConsensusType,
 {
 }
+
+/// Marker trait for consensus which provides ordering and execution.
 pub trait ValidatingConsensusType
 where
     Self: ConsensusType,
 {
 }
+
+/// Marker trait for different flavors of consensus.
 pub trait ConsensusType: Clone + Send + Sync {}
 
+/// Consensus which provides availability and ordering but not execution.
 #[derive(Clone)]
 pub struct SequencingConsensus;
 impl SequencingConsensusType for SequencingConsensus {}
 impl ConsensusType for SequencingConsensus {}
 
+/// Consensus which provides ordering and execution.
 #[derive(Clone)]
 pub struct ValidatingConsensus;
 impl ConsensusType for ValidatingConsensus {}
@@ -106,6 +110,7 @@ pub trait ConsensusTime:
     + 'static
 {
     /// Create a new instance of this time unit at time number 0
+    #[must_use]
     fn genesis() -> Self {
         Self::new(0)
     }
@@ -133,13 +138,13 @@ pub trait TestableBlock: Block + std::fmt::Debug {
     /// generate a genesis block
     fn genesis() -> Self;
 
+    /// the number of transactions in this block
     fn txn_count(&self) -> u64;
 }
 
 /// Dummy implementation of `State` for unit tests
 pub mod dummy {
-    #[allow(clippy::wildcard_imports)]
-    use super::*;
+    use super::{tag, Committable, Debug, Hash, Serialize, State, TestableState};
     use crate::{
         data::ViewNumber,
         traits::block_contents::dummy::{DummyBlock, DummyError, DummyTransaction},

@@ -103,6 +103,7 @@ impl Transaction for VDemoTransaction {}
 
 impl VDemoTransaction {
     /// Ensures that this transaction is at least consistent with itself
+    #[must_use]
     pub fn validate_independence(&self) -> bool {
         // Ensure that we are adding to one account exactly as much as we are subtracting from
         // another
@@ -217,6 +218,7 @@ impl Committable for VDemoTransaction {
 
 impl VDemoBlock {
     /// generate a genesis block with the provided initial accounts and balances
+    #[must_use]
     pub fn genesis_from(accounts: BTreeMap<Account, Balance>) -> Self {
         Self::Genesis(VDemoGenesisBlock { accounts })
     }
@@ -377,7 +379,6 @@ impl State for VDemoState {
     }
 }
 
-#[allow(clippy::panic)]
 impl TestableState for VDemoState {
     fn create_random_transaction(
         state: Option<&Self>,
@@ -386,7 +387,7 @@ impl TestableState for VDemoState {
     ) -> <Self::BlockType as Block>::Transaction {
         use rand::seq::IteratorRandom;
 
-        let state = state.unwrap_or_else(|| panic!("Missing state"));
+        let state = state.expect("Missing state");
 
         let non_zero_balances = state
             .balances
@@ -526,6 +527,7 @@ where
     MEMBERSHIP: Membership<VDemoTypes> + std::fmt::Debug,
 {
     /// Create a new `VDemoNode`
+    #[must_use]
     pub fn new() -> Self {
         VDemoNode(PhantomData)
     }

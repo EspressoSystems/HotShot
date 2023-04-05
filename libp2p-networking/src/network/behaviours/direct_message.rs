@@ -254,6 +254,7 @@ impl NetworkBehaviour for DMBehaviour {
 
 impl DMBehaviour {
     /// Create new behaviour based on request response
+    #[must_use]
     pub fn new(request_response: Behaviour<DirectMessageCodec>) -> Self {
         Self {
             request_response,

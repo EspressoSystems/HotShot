@@ -204,7 +204,7 @@ where
                 async_block_on(async move {
                     Libp2pCommChannel(
                         Libp2pNetwork::new(
-                            NoMetrics::new(),
+                            NoMetrics::boxed(),
                             config,
                             pubkey,
                             bootstrap_addrs_ref,
@@ -311,7 +311,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
                 is_ready: Arc::new(AtomicBool::new(false)),
                 dht_timeout: Duration::from_secs(30),
                 is_bootstrapped: Arc::new(AtomicBool::new(false)),
-                metrics: NetworkingMetrics::new(metrics),
+                metrics: NetworkingMetrics::new(&*metrics),
                 topic_map,
             }),
         };
@@ -697,6 +697,7 @@ impl<
     > Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// create a new libp2p communication channel
+    #[must_use]
     pub fn new(network: Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>) -> Self {
         Self(network, PhantomData::default())
     }

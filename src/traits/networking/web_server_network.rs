@@ -76,6 +76,7 @@ impl<
     > WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// Create new communication channel
+    #[must_use]
     pub fn new(
         network: WebServerNetwork<
             Message<TYPES, I>,
@@ -92,7 +93,6 @@ impl<
     /// Parses a message to find the appropriate endpoint
     /// Returns a `SendMsg` containing the endpoint
     fn parse_post_message(
-        &self,
         message: Message<TYPES, I>,
     ) -> Result<SendMsg<Message<TYPES, I>>, WebServerNetworkError> {
         let view_number: TYPES::Time = message.get_view_number();
@@ -385,7 +385,6 @@ impl<
         VOTE: VoteType<TYPES> + 'static,
     > WebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
 {
-    #[allow(clippy::panic)]
     /// Creates a new instance of the `WebServerNetwork`
     /// # Panics
     /// if the web server url is malformed
@@ -557,7 +556,7 @@ impl<
         message: Message<TYPES, I>,
         _election: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
-        let network_msg = self.parse_post_message(message);
+        let network_msg = Self::parse_post_message(message);
         match network_msg {
             Ok(network_msg) => self.0.broadcast_message(network_msg, BTreeSet::new()).await,
             Err(network_msg) => Err(NetworkError::WebServer {
@@ -573,7 +572,7 @@ impl<
         message: Message<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        let network_msg = self.parse_post_message(message);
+        let network_msg = Self::parse_post_message(message);
         match network_msg {
             Ok(network_msg) => self.0.direct_message(network_msg, recipient).await,
             Err(network_msg) => Err(NetworkError::WebServer {

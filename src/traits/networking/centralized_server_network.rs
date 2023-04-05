@@ -30,9 +30,9 @@ use hotshot_types::{
         election::{ElectionConfig, Membership},
         metrics::{Metrics, NoMetrics},
         network::{
-            CentralizedServerNetworkError, CommunicationChannel, ConnectedNetwork,
-            FailedToDeserializeSnafu, FailedToSerializeSnafu, NetworkError, NetworkMsg,
-            TestableNetworkingImplementation, TransmitType,
+            CommunicationChannel, ConnectedNetwork, FailedToDeserializeSnafu,
+            FailedToSerializeSnafu, NetworkError, NetworkMsg, TestableNetworkingImplementation,
+            TransmitType,
         },
         node_implementation::NodeType,
         signature_key::{ed25519::Ed25519Pub, SignatureKey, TestableSignatureKey},
@@ -181,95 +181,6 @@ impl<K: SignatureKey, E: ElectionConfig> Inner<K, E> {
             .expect("Background thread exited");
     }
 
-    /// Remove the first message from the internal queue, or the internal receiving channel, if the given `c` method returns `Some(RET)` on that entry.
-    ///
-    /// This will block this entire `Inner` struct until a message is found.
-    #[allow(dead_code)]
-    async fn remove_next_message_from_queue<F, FAIL, RET>(&self, c: F, f: FAIL) -> RET
-    where
-        F: Fn(
-            &(FromServer<K, E>, Vec<u8>),
-            usize,
-            &mut HashMap<K, MsgStepContext>,
-        ) -> MsgStepOutcome<RET>,
-        FAIL: FnOnce(usize, &mut HashMap<K, MsgStepContext>) -> RET,
-    {
-        let incoming_queue = self.incoming_queue.upgradable_read().await;
-        let mut context_map: HashMap<_, MsgStepContext> = HashMap::new();
-        // pop all messages from the incoming stream, push them onto `result` if they match `c`, else push them onto our `lock`
-        let temp_start_index = incoming_queue.len();
-        for (i, msg) in incoming_queue.iter().enumerate() {
-            match c(msg, i, &mut context_map) {
-                MsgStepOutcome::Skip | MsgStepOutcome::Begin | MsgStepOutcome::Continue => {
-                    continue;
-                }
-                MsgStepOutcome::Complete(indexes, ret) => {
-                    let mut incoming_queue_mutation =
-                        RwLockUpgradableReadGuard::upgrade(incoming_queue).await;
-
-                    let incoming_queue = std::mem::take(&mut *incoming_queue_mutation);
-                    *incoming_queue_mutation = incoming_queue
-                        .into_iter()
-                        .enumerate()
-                        .filter_map(|(i, msg)| {
-                            if indexes.contains(&i) {
-                                None
-                            } else {
-                                Some(msg)
-                            }
-                        })
-                        .collect::<Vec<_>>();
-
-                    self.metrics.incoming_message_count.add(1);
-                    return ret;
-                }
-            }
-        }
-        let mut temp_queue = Vec::new();
-        let mut i = temp_start_index;
-        while let Ok(msg) = self.receiving.recv().await {
-            let step_outcome = c(&msg, i, &mut context_map);
-            i += 1;
-            match step_outcome {
-                MsgStepOutcome::Skip | MsgStepOutcome::Begin | MsgStepOutcome::Continue => {
-                    temp_queue.push(msg);
-                    continue;
-                }
-                MsgStepOutcome::Complete(indexes, ret) => {
-                    // no queued messages taken,
-                    // all received messages taken (including this one)
-                    let unchanged = indexes.iter().peekable().peek() == Some(&&temp_start_index)
-                        && indexes.len() == temp_queue.len() + 1;
-                    if !unchanged {
-                        let mut incoming_queue_mutation =
-                            RwLockUpgradableReadGuard::upgrade(incoming_queue).await;
-
-                        let incoming_queue = std::mem::take(&mut *incoming_queue_mutation);
-                        *incoming_queue_mutation = incoming_queue
-                            .into_iter()
-                            .chain(temp_queue)
-                            .enumerate()
-                            .filter_map(|(i, msg)| {
-                                if indexes.contains(&i) {
-                                    None
-                                } else {
-                                    Some(msg)
-                                }
-                            })
-                            .collect::<Vec<_>>();
-                    }
-
-                    self.metrics.incoming_message_count.add(1);
-                    return ret;
-                }
-            }
-        }
-        let mut incoming_queue_mutation = RwLockUpgradableReadGuard::upgrade(incoming_queue).await;
-        incoming_queue_mutation.append(&mut temp_queue);
-        tracing::error!("Could not receive message from centralized server queue");
-        f(incoming_queue_mutation.len(), &mut context_map)
-    }
-
     /// Remove all messages from the internal queue, and then the internal receiving channel, if the given `c` method returns `Some(RET)` on that entry.
     ///
     /// This will not block, and will return 0 items if nothing is in the internal queue or channel.
@@ -399,79 +310,6 @@ impl<K: SignatureKey, E: ElectionConfig> Inner<K, E> {
         .await
     }
 
-    /// Get the next incoming broadcast message received from the server. Will lock up this struct internally until a message was received.
-    #[allow(dead_code)]
-    async fn get_next_broadcast<M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static>(
-        &self,
-    ) -> Result<M, NetworkError> {
-        self.remove_next_message_from_queue(|msg, index, context_map| {
-            match msg {
-                (FromServer::Broadcast {
-                    source,
-                    message_len,
-                    ..
-                }, payload) =>
-                {
-                    let mut consumed_indexes = BTreeSet::new();
-                    consumed_indexes.insert(index);
-                    match (payload.len() as u64).cmp(message_len) {
-                        cmp::Ordering::Less => {
-                            let prev = context_map.insert(source.clone(), MsgStepContext {
-                                consumed_indexes,
-                                message_len: *message_len,
-                                accumulated_stream: payload.clone(),
-                            });
-
-                            if prev.is_some() {
-                                tracing::error!(?source, "FromServer::Broadcast encountered, incomplete prior Broadcast from same source");
-
-                            }
-
-                            MsgStepOutcome::Begin
-                        },
-                        cmp::Ordering::Greater => {
-                            tracing::error!("FromServer::Broadcast with message_len {message_len}b, payload is {}b", payload.len());
-                            MsgStepOutcome::Skip
-                        },
-                        cmp::Ordering::Equal => MsgStepOutcome::Complete(consumed_indexes, bincode_opts().deserialize(payload).context(FailedToDeserializeSnafu)),
-                    }
-                },
-                (FromServer::BroadcastPayload { source, .. }, payload) => {
-                    if let Entry::Occupied(mut context) = context_map.entry(source.clone()) {
-                        context.get_mut().consumed_indexes.insert(index);
-                        if context.get().accumulated_stream.is_empty() && context.get().message_len as usize == payload.len() {
-                            let (_, context) = context.remove_entry();
-                            MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(payload).context(FailedToDeserializeSnafu))
-                        } else {
-                            context.get_mut().accumulated_stream.append(&mut payload.clone());
-                            match context.get().accumulated_stream.len().cmp(&(context.get().message_len as usize)) {
-                                cmp::Ordering::Less => MsgStepOutcome::Continue,
-                                cmp::Ordering::Greater => {
-                                    let (_, context) = context.remove_entry();
-                                    tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b", context.message_len, context.accumulated_stream.len());
-                                    MsgStepOutcome::Skip
-                                }
-                                cmp::Ordering::Equal => {
-                                let (_, context) = context.remove_entry();
-                                MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream).context(FailedToDeserializeSnafu))
-                            }
-                        }
-                        }
-                    } else {
-                        tracing::error!("FromServer::BroadcastPayload found, but no incomplete FromServer::Broadcast exists");
-                        MsgStepOutcome::Skip
-                    }
-                },
-                (_, _) => MsgStepOutcome::Skip,
-            }
-        },
-        |_, _| {
-            Err(NetworkError::CentralizedServer { source: CentralizedServerNetworkError::NoMessagesInQueue })
-        },
-)
-        .await
-    }
-
     /// Get all the incoming direct messages received from the server. Returning 0 messages if nothing was received.
     async fn get_direct_messages<
         M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static,
@@ -544,83 +382,6 @@ impl<K: SignatureKey, E: ElectionConfig> Inner<K, E> {
         })
         .await
     }
-
-    /// Get the next incoming direct message received from the server. Will lock up this struct internally until a message was received.
-    #[allow(dead_code)]
-    async fn get_next_direct_message<
-        M: Serialize + DeserializeOwned + Send + Sync + Clone + 'static,
-    >(
-        &self,
-    ) -> Result<M, NetworkError> {
-        self.remove_next_message_from_queue(|msg, index, context_map| {
-            match msg {
-                (FromServer::Direct {
-                    source,
-                    message_len,
-                    ..
-                }, payload) =>
-                {
-                    let mut consumed_indexes = BTreeSet::new();
-                    consumed_indexes.insert(index);
-                    match (payload.len() as u64).cmp(message_len) {
-                        cmp::Ordering::Less => {
-                            let prev = context_map.insert(source.clone(), MsgStepContext {
-                                consumed_indexes,
-                                message_len: *message_len,
-                                accumulated_stream: payload.clone(),
-                            });
-
-                            if prev.is_some() {
-                                tracing::error!(?source, "FromServer::Direct encountered, incomplete prior Direct from same source");
-                            }
-
-                            MsgStepOutcome::Begin
-                        },
-                        cmp::Ordering::Greater => {
-                            tracing::error!("FromServer::Direct with message_len {message_len}b, payload is {}b", payload.len());
-                            MsgStepOutcome::Skip
-                        },
-                        cmp::Ordering::Equal => {
-                            MsgStepOutcome::Complete(consumed_indexes, bincode_opts().deserialize(payload).context(FailedToDeserializeSnafu))
-                        },
-                    }
-                },
-                (FromServer::DirectPayload { source, .. }, payload) => {
-                    if let Entry::Occupied(mut context) = context_map.entry(source.clone()) {
-                        context.get_mut().consumed_indexes.insert(index);
-                        if context.get().accumulated_stream.is_empty() && context.get().message_len as usize == payload.len() {
-                            let (_, context) = context.remove_entry();
-                            MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(payload).context(FailedToDeserializeSnafu))
-                        } else {
-                            context.get_mut().accumulated_stream.append(&mut payload.clone());
-                            match context.get().accumulated_stream.len().cmp(&(context.get().message_len as usize)) {
-                                cmp::Ordering::Less => {
-                                    MsgStepOutcome::Continue
-                                }
-                                cmp::Ordering::Greater => {
-                                    let (_, context) = context.remove_entry();
-                                    tracing::error!("FromServer::Broadcast with message_len {}b, accumulated payload with {}b", context.message_len, context.accumulated_stream.len());
-                                    MsgStepOutcome::Skip
-                                }
-                                cmp::Ordering::Equal => {
-                                    let (_, context) = context.remove_entry();
-                                    MsgStepOutcome::Complete(context.consumed_indexes, bincode_opts().deserialize(&context.accumulated_stream).context(FailedToDeserializeSnafu))
-                                }
-                            }
-                        }
-                    } else {
-                        tracing::error!("FromServer::BroadcastPayload found, but no incomplete FromServer::Broadcast exists");
-                        MsgStepOutcome::Skip
-                    }
-                },
-                (_, _) => MsgStepOutcome::Skip,
-            }
-        },
-        |_, _| {
-            Err(NetworkError::CentralizedServer { source: CentralizedServerNetworkError::NoMessagesInQueue })
-        })
-        .await
-    }
 }
 
 /// Handle for connecting to a centralized server
@@ -686,7 +447,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
         let mut streams = Some(streams);
 
         let result = Self::create(
-            metrics,
+            &*metrics,
             known_nodes,
             move || {
                 let streams = streams.take();
@@ -717,6 +478,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
     }
 
     /// Returns `true` if the server indicated that the current run was ready to start
+    #[must_use]
     pub fn run_ready(&self) -> bool {
         self.inner.run_ready.load(Ordering::Relaxed)
     }
@@ -749,12 +511,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
         .boxed()
     }
     /// Connect to a centralized server
-    pub fn connect(
-        metrics: Box<dyn Metrics>,
-        known_nodes: Vec<K>,
-        addr: SocketAddr,
-        key: K,
-    ) -> Self {
+    pub fn connect(metrics: &dyn Metrics, known_nodes: Vec<K>, addr: SocketAddr, key: K) -> Self {
         Self::create(metrics, known_nodes, move || Self::connect_to(addr), key)
     }
 
@@ -762,7 +519,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
     ///
     /// This will auto-reconnect when the network loses connection to the server.
     fn create<F>(
-        metrics: Box<dyn Metrics>,
+        metrics: &dyn Metrics,
         known_nodes: Vec<K>,
         mut create_connection: F,
         key: K,
@@ -1097,6 +854,7 @@ impl<
     > CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// create new communication channel
+    #[must_use]
     pub fn new(
         network: CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> Self {
@@ -1227,7 +985,7 @@ where
         Box::new(move |id| {
             let sender = Arc::clone(&sender);
             let mut network = CentralizedServerNetwork::connect(
-                NoMetrics::new(),
+                &NoMetrics::default(),
                 known_nodes.clone(),
                 addr,
                 known_nodes[id as usize].clone(),

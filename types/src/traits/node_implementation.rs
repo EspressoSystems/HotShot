@@ -2,8 +2,6 @@
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
-#![allow(clippy::missing_docs_in_private_items)]
-#![allow(missing_docs)]
 
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -36,19 +34,21 @@ use std::hash::Hash;
 
 pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'static {
     // type Message: NetworkMsg;
+
+    /// Leaf type for this consensus implementation
     type Leaf: LeafType<NodeType = TYPES>;
 
     /// Storage type for this consensus implementation
     type Storage: Storage<TYPES, Self::Leaf> + Clone;
 
-    /// Membership
-    /// Time is generic here to allow multiple implementations of membership trait for difference
-    /// consensus protocols
+    /// Protocol for exchanging consensus proposals and votes.
     type QuorumExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
 
+    /// Protocol for exchanging data availability proposals and votes.
     type CommitteeExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
 }
 
+/// extra functions required on a node implementation to be usable by hotshot-testing
 #[allow(clippy::type_complexity)]
 #[async_trait]
 pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES> {
@@ -68,6 +68,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
             + 'static,
     >;
 
+    /// generates a network given an expected node count
     fn quorum_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
@@ -114,6 +115,9 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
         padding: u64,
     ) -> <TYPES::BlockType as Block>::Transaction;
 
+    /// Creates random transaction if possible
+    /// otherwise panics
+    /// `padding` is the bytes of padding to add to the transaction
     fn leaf_create_random_transaction(
         leaf: &Self::Leaf,
         rng: &mut dyn rand::RngCore,
@@ -123,6 +127,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     /// generate a genesis block
     fn block_genesis() -> TYPES::BlockType;
 
+    /// the number of transactions in a block
     fn txn_count(block: &TYPES::BlockType) -> u64;
 
     /// Create ephemeral storage
@@ -131,9 +136,10 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     /// Errors if it is not possible to construct temporary storage.
     fn construct_tmp_storage() -> Result<Self::Storage, StorageError>;
 
-    // Return the full internal state. This is useful for debugging.
+    /// Return the full internal state. This is useful for debugging.
     async fn get_full_state(storage: &Self::Storage) -> StorageState<TYPES, Self::Leaf>;
 
+    /// The private key of the node `id` in a test.
     fn generate_test_key(id: u64) -> <TYPES::SignatureKey as SignatureKey>::PrivateKey;
 }
 
@@ -231,12 +237,15 @@ I::Leaf : TestableLeaf<NodeType = TYPES>,
     }
 }
 
+/// A proposal to append a new leaf to the log which is output by consensus.
 pub type QuorumProposal<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
         <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Proposal;
+
+/// A proposal to provide data availability for a new leaf.
 pub type CommitteeProposal<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
@@ -244,12 +253,15 @@ pub type CommitteeProposal<TYPES, I> =
         Message<TYPES, I>,
     >>::Proposal;
 
+/// A vote on a [`QuorumProposal`].
 pub type QuorumVoteType<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
         <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Vote;
+
+/// A vote on a [`ComitteeProposal`].
 pub type CommitteeVote<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
@@ -257,12 +269,15 @@ pub type CommitteeVote<TYPES, I> =
         Message<TYPES, I>,
     >>::Vote;
 
+/// Networking implementation used to communicate [`QuorumProposal`] and [`QuorumVote`].
 pub type QuorumNetwork<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
         <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Networking;
+
+/// Networking implementation used to communicate [`CommitteeProposal`] and [`CommitteeVote`].
 pub type CommitteeNetwork<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,
@@ -270,12 +285,15 @@ pub type CommitteeNetwork<TYPES, I> =
         Message<TYPES, I>,
     >>::Networking;
 
+/// Protocol for determining membership in a consensus committee.
 pub type QuorumMembership<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
         TYPES,
         <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::Membership;
+
+/// Protocol for determining membership in a data availability committee.
 pub type CommitteeMembership<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::CommitteeExchange as ConsensusExchange<
         TYPES,

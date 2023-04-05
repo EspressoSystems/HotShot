@@ -1,8 +1,4 @@
-#![allow(
-    clippy::must_use_candidate,
-    clippy::module_name_repetitions,
-    clippy::type_complexity
-)]
+#![allow(clippy::module_name_repetitions, clippy::type_complexity)]
 use bincode::{
     config::{
         LittleEndian, RejectTrailing, VarintEncoding, WithOtherEndian, WithOtherIntEncoding,
@@ -16,6 +12,7 @@ use bincode::{
 ///   - Litte endian encoding
 ///   - Varint encoding
 ///   - Reject trailing bytes
+#[must_use]
 pub fn bincode_opts() -> WithOtherTrailing<
     WithOtherIntEncoding<
         WithOtherEndian<WithOtherLimit<DefaultOptions, bincode::config::Infinite>, LittleEndian>,

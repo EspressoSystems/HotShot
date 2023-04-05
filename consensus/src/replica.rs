@@ -468,10 +468,9 @@ where
                     *txns = txns
                         .drain()
                         .filter(|(txn_hash, txn)| {
-                            #[allow(clippy::cast_possible_wrap)]
                             if included_txns_set.contains(txn_hash) {
                                 included_txn_size +=
-                                    bincode_opts().serialized_size(txn).unwrap_or_default() as i64;
+                                    bincode_opts().serialized_size(txn).unwrap_or_default();
                                 false
                             } else {
                                 true
@@ -487,7 +486,7 @@ where
             consensus
                 .metrics
                 .outstanding_transactions_memory_size
-                .update(-included_txn_size);
+                .update(-(i64::try_from(included_txn_size).unwrap_or(i64::MAX)));
 
             consensus
                 .metrics

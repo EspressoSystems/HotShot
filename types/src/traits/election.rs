@@ -1,6 +1,4 @@
 //! The election trait, used to decide which node is the leader and determine if a vote is valid.
-#![allow(clippy::missing_docs_in_private_items)]
-#![allow(missing_docs)]
 
 use super::node_implementation::{NodeImplementation, NodeType};
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
@@ -60,9 +58,13 @@ pub enum Checked<T> {
 /// Data to vote on for different types of votes.
 #[derive(Serialize)]
 pub enum VoteData<TYPES: NodeType, LEAF: LeafType> {
+    /// Vote to provide availability for a block.
     DA(Commitment<TYPES::BlockType>),
+    /// Vote to append a leaf to the log.
     Yes(Commitment<LEAF>),
+    /// Vote to reject a leaf from the log.
     No(Commitment<LEAF>),
+    /// Vote to time out and proceed to the next view.
     Timeout(TYPES::Time),
 }
 
@@ -102,6 +104,7 @@ pub trait ElectionConfig:
 {
 }
 
+/// A certificate of some property which has been signed by a quroum of nodes.
 pub trait SignedCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, LEAF>
 where
     Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,
@@ -122,10 +125,10 @@ where
 
     // TODO (da) the following functions should be refactored into a QC-specific trait.
 
-    // Get the leaf commitment.
+    /// Get the leaf commitment.
     fn leaf_commitment(&self) -> Commitment<LEAF>;
 
-    // Set the leaf commitment.
+    /// Set the leaf commitment.
     fn set_leaf_commitment(&mut self, commitment: Commitment<LEAF>);
 
     /// Get whether the certificate is for the genesis block.
@@ -135,7 +138,9 @@ where
     fn genesis() -> Self;
 }
 
+/// A protocol for determining membership in and participating in a ccommittee.
 pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 'static {
+    /// Data used to determine the weight (voting power) of participants.
     type StakeTable: Send + Sync;
 
     /// generate a default election configuration
@@ -152,8 +157,10 @@ pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 's
         state: &TYPES::StateType,
     ) -> Self::StakeTable;
 
+    /// The leader of the committee for view `view_number`.
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey;
 
+    /// The members of the committee for view `view_number`.
     fn get_committee(&self, view_number: TYPES::Time) -> BTreeSet<TYPES::SignatureKey>;
 
     /// Attempts to generate a vote token for self
@@ -182,18 +189,30 @@ pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 's
     fn threshold(&self) -> NonZeroU64;
 }
 
+/// Protocol for exchanging proposals and votes to make decisions in a distributed network.
+///
+/// An instance of [`ConsensusExchange`] represents the state of one participant in the protocol,
+/// allowing them to vote and query information about the overall state of the protocol (such as
+/// membership and leader status).
 pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M: NetworkMsg>:
     Send + Sync
 {
+    /// A proposal for participants to vote on.
     type Proposal: ProposalType<NodeType = TYPES>;
+    /// A vote on a [`Proposal`](Self::Proposal).
     type Vote: VoteType<TYPES>;
+    /// A [`SignedCertificate`] attesting to a decision taken by the committee.
     type Certificate: SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, Self::Commitment>
         + Hash
         + Eq;
+    /// The committee eligible to make decisions.
     type Membership: Membership<TYPES>;
+    /// Network used by [`Membership`](Self::Membership) to communicate.
     type Networking: CommunicationChannel<TYPES, M, Self::Proposal, Self::Vote, Self::Membership>;
+    /// Commitments to items which are the subject of proposals and decisions.
     type Commitment: Committable;
 
+    /// Join a [`ConsensusExchange`] with the given identity (`pk` and `sk`).
     fn create(
         keys: Vec<TYPES::SignatureKey>,
         config: TYPES::ElectionConfigType,
@@ -202,17 +221,26 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self;
 
+    /// The network being used by this exchange.
     fn network(&self) -> &Self::Networking;
+
+    /// The leader of the [`Membership`](Self::Membership) at time `view_number`.
     fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         self.membership().get_leader(view_number)
     }
+
+    /// Whether this participant is leader at time `view_number`.
     fn is_leader(&self, view_number: TYPES::Time) -> bool {
         &self.get_leader(view_number) == self.public_key()
     }
+
+    /// Threshold required to approve a [`Proposal`](Self::Proposal).
     fn threshold(&self) -> NonZeroU64 {
         self.membership().threshold()
     }
 
+    /// Attempts to generate a vote token for participation at time `view_number`.
+    ///
     /// # Errors
     /// When unable to make a vote token because not part of the committee
     fn make_vote_token(
@@ -223,6 +251,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
             .make_vote_token(view_number, self.private_key())
     }
 
+    /// The contents of a vote on `commit`.
     fn vote_data(&self, commit: Commitment<Self::Commitment>) -> VoteData<TYPES, LEAF>;
 
     /// Validate a QC.
@@ -281,6 +310,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
         is_valid_signature && is_valid_vote_token
     }
 
+    #[doc(hidden)]
     fn accumulate_internal(
         &self,
         vota_meta: VoteMetaData<TYPES, Self::Commitment, TYPES::VoteTokenType, TYPES::Time, LEAF>,
@@ -327,20 +357,34 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
         accumlator: VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>,
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>, Self::Certificate>;
 
+    /// The committee which votes on proposals.
     fn membership(&self) -> &Self::Membership;
+
+    /// This participant's public key.
     fn public_key(&self) -> &TYPES::SignatureKey;
+
+    /// This participant's private key.
     fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey;
 }
 
+/// A [`ConsensusExchange`] where participants vote to provide availability for blobs of data.
 pub trait CommitteeExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M: NetworkMsg>:
     ConsensusExchange<TYPES, LEAF, M>
 {
+    /// Sign a DA proposal.
     fn sign_da_proposal(&self, block_commitment: &Commitment<TYPES::BlockType>)
         -> EncodedSignature;
+
+    /// Sign a vote on DA proposal.
+    ///
+    /// The block commitment and the type of the vote (DA) are signed, which is the minimum amount
+    /// of information necessary for checking that this node voted on that block.
     fn sign_da_vote(
         &self,
         block_commitment: Commitment<TYPES::BlockType>,
     ) -> (EncodedPublicKey, EncodedSignature);
+
+    /// Create a message with a vote on DA proposal.
     fn create_da_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
         &self,
         justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
@@ -352,6 +396,8 @@ pub trait CommitteeExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES
         I::CommitteeExchange:
             ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = DAVote<TYPES, I::Leaf>>;
 }
+
+/// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
 pub struct CommitteeExchange<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
@@ -359,10 +405,15 @@ pub struct CommitteeExchange<
     NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES, LEAF>, MEMBERSHIP>,
     M: NetworkMsg,
 > {
+    /// The network being used by this exchange.
     network: NETWORK,
+    /// The committee which votes on proposals.
     membership: MEMBERSHIP,
+    /// This participant's public key.
     public_key: TYPES::SignatureKey,
+    /// This participant's private key.
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    #[doc(hidden)]
     _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP, M)>,
 }
 
@@ -499,6 +550,7 @@ impl<
     }
 }
 
+/// A [`ConsensusExchange`] where participants vote to append items to a log.
 pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M: NetworkMsg>:
     ConsensusExchange<TYPES, LEAF, M>
 {
@@ -572,6 +624,8 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
         I::QuorumExchange:
             ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>;
 }
+
+/// Standard implementation of [`QuroumExchangeType`] based on Hot Stuff consensus.
 pub struct QuorumExchange<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
@@ -580,10 +634,15 @@ pub struct QuorumExchange<
     NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, QuorumVote<TYPES, LEAF>, MEMBERSHIP>,
     M: NetworkMsg,
 > {
+    /// The network being used by this exchange.
     network: NETWORK,
+    /// The committee which votes on proposals.
     membership: MEMBERSHIP,
+    /// This participant's public key.
     public_key: TYPES::SignatureKey,
+    /// This participant's private key.
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    #[doc(hidden)]
     _pd: PhantomData<(LEAF, PROPOSAL, MEMBERSHIP, M)>,
 }
 

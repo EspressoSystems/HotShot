@@ -277,6 +277,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     // Below is for testing only:
 
     /// Wrapper for `HotShotConsensusApi`'s `get_leader` function
+    #[allow(clippy::unused_async)] // async for API compatibility reasons
     #[cfg(feature = "hotshot-testing")]
     pub async fn get_leader(&self, view_number: TYPES::Time) -> TYPES::SignatureKey {
         self.hotshot.inner.quorum_exchange.get_leader(view_number)

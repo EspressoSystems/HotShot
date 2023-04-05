@@ -195,6 +195,7 @@ impl NetworkBehaviour for GossipBehaviour {
 
 impl GossipBehaviour {
     /// Create new gossip behavioru based on gossipsub
+    #[must_use]
     pub fn new(gossipsub: Behaviour) -> Self {
         Self {
             backoff: ExponentialBackoff::default(),

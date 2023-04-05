@@ -354,7 +354,6 @@ pub async fn regular_handle_network_event(
 ) -> Result<(), NetworkNodeHandleError> {
     debug!("node={} handling event {:?}", handle.id(), event);
 
-    #[allow(clippy::enum_glob_use)]
     use NetworkEvent::*;
     match event {
         IsBootstrapped => {}
@@ -713,7 +712,6 @@ pub async fn conductor_handle_network_event(
     event: NetworkEvent,
     handle: Arc<NetworkNodeHandle<ConductorState>>,
 ) -> Result<(), NetworkNodeHandleError> {
-    #[allow(clippy::enum_glob_use)]
     use NetworkEvent::*;
     match event {
         IsBootstrapped => {}

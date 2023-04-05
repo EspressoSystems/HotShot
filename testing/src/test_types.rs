@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::TestRunner;
 use ark_bls12_381::Parameters as Param381;
 use blake3::Hasher;

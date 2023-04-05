@@ -72,6 +72,7 @@ pub struct MasterMap<M: NetworkMsg, K: SignatureKey> {
 
 impl<M: NetworkMsg, K: SignatureKey> MasterMap<M, K> {
     /// Create a new, empty, `MasterMap`
+    #[must_use]
     pub fn new() -> Arc<MasterMap<M, K>> {
         Arc::new(MasterMap {
             map: DashMap::new(),
@@ -90,9 +91,6 @@ enum Combo<T> {
 
 /// Internal state for a `MemoryNetwork` instance
 struct MemoryNetworkInner<M: NetworkMsg, K: SignatureKey> {
-    /// The public key of this node
-    #[allow(dead_code)]
-    pub_key: K,
     /// Input for broadcast messages
     broadcast_input: RwLock<Option<Sender<Vec<u8>>>>,
     /// Input for direct messages
@@ -247,14 +245,13 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
         trace!("Task spawned, creating MemoryNetwork");
         let mn = MemoryNetwork {
             inner: Arc::new(MemoryNetworkInner {
-                pub_key: pub_key.clone(),
                 broadcast_input: RwLock::new(Some(broadcast_input)),
                 direct_input: RwLock::new(Some(direct_input)),
                 broadcast_output: Mutex::new(broadcast_output),
                 direct_output: Mutex::new(direct_output),
                 master_map: master_map.clone(),
                 in_flight_message_count,
-                metrics: NetworkingMetrics::new(metrics),
+                metrics: NetworkingMetrics::new(&*metrics),
             }),
         };
         master_map.map.insert(pub_key, mn.clone());
@@ -314,7 +311,7 @@ where
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
             MemoryCommChannel::new(MemoryNetwork::new(
                 pubkey,
-                NoMetrics::new(),
+                NoMetrics::boxed(),
                 master.clone(),
                 None,
             ))
@@ -476,6 +473,7 @@ impl<
     > MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// create new communication channel
+    #[must_use]
     pub fn new(network: MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>) -> Self {
         Self(network, PhantomData::default())
     }
@@ -681,7 +679,7 @@ mod tests {
             MasterMap::new();
         trace!(?group);
         let pub_key = get_pubkey();
-        let _network = MemoryNetwork::new(pub_key, NoMetrics::new(), group, Option::None);
+        let _network = MemoryNetwork::new(pub_key, NoMetrics::boxed(), group, Option::None);
     }
 
     // // Spawning a two MemoryNetworks and connecting them should produce no errors
@@ -698,9 +696,9 @@ mod tests {
         trace!(?group);
         let pub_key_1 = get_pubkey();
         let _network_1 =
-            MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
+            MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
-        let _network_2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
+        let _network_2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
     }
 
     // Check to make sure direct queue works
@@ -720,9 +718,10 @@ mod tests {
             MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
+        let network1 =
+            MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
-        let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
+        let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
 
         let first_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);
 
@@ -776,9 +775,10 @@ mod tests {
             MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
-        let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
+        let network1 =
+            MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
         let pub_key_2 = get_pubkey();
-        let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
+        let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
 
         let first_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);
 
@@ -838,9 +838,9 @@ mod tests {
         // > = MasterMap::new();
         // trace!(?group);
         // let pub_key_1 = get_pubkey();
-        // let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
+        // let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
         // let pub_key_2 = get_pubkey();
-        // let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
+        // let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
         //
         // // Create some dummy messages
         // let messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);

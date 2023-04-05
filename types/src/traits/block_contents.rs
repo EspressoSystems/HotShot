@@ -56,8 +56,7 @@ pub trait Transaction:
 
 /// Dummy implementation of `BlockContents` for unit tests
 pub mod dummy {
-    #[allow(clippy::wildcard_imports)]
-    use super::*;
+    use super::{Block, Commitment, Committable, Debug, Hash, HashSet, Serialize};
     use rand::Rng;
     use serde::Deserialize;
 

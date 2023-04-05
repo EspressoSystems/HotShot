@@ -6,14 +6,7 @@
     clippy::missing_docs_in_private_items,
     clippy::panic
 )]
-#![allow(
-    clippy::option_if_let_else,
-    clippy::must_use_candidate,
-    clippy::module_name_repetitions,
-    clippy::similar_names,
-    clippy::unused_self,
-    clippy::unused_async, // For API reasons
-)]
+#![allow(clippy::module_name_repetitions)]
 // Temporary
 #![allow(clippy::cast_possible_truncation)]
 // Temporary, should be disabled after the completion of the NodeImplementation refactor
@@ -257,7 +250,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             high_qc: anchored_leaf.get_justify_qc(),
 
             metrics: Arc::new(ConsensusMetrics::new(
-                inner.metrics.subgroup("consensus".to_string()),
+                &*inner.metrics.subgroup("consensus".to_string()),
             )),
             invalid_qc: 0,
         };
@@ -675,17 +668,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                     // If this is a new transaction, update metrics.
                     let consensus = self.hotstuff.read().await;
                     consensus.metrics.outstanding_transactions.update(1);
-                    #[allow(clippy::cast_possible_wrap)]
                     consensus
                         .metrics
                         .outstanding_transactions_memory_size
-                        .update(size as i64);
+                        .update(i64::try_from(size).unwrap_or(i64::MAX));
                 }
             }
         }
     }
 
     /// Handle an incoming [`DataMessage`] that directed at this node
+    #[allow(clippy::unused_async)] // async for API compatibility reasons
     async fn handle_direct_data_message(
         &self,
         msg: DataMessage<TYPES>,
@@ -701,6 +694,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     }
 
     /// return the timeout for a view for `self`
+    #[must_use]
     pub fn get_next_view_timeout(&self) -> u64 {
         self.inner.config.next_view_timeout
     }
@@ -732,6 +726,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
 
     /// given a view number and a write lock on a channel map, inserts entry into map if it
     /// doesn't exist, or creates entry. Then returns a clone of the entry
+    #[allow(clippy::unused_async)] // async for API compatibility reasons
     pub async fn create_or_obtain_chan_from_write(
         view_num: TYPES::Time,
         mut channel_map: RwLockWriteGuard<'_, SendToTasks<TYPES, I>>,
@@ -747,7 +742,6 @@ pub trait ViewRunner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     async fn run_view(hotshot: HotShot<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()>;
 }
 
-#[allow(clippy::too_many_lines)]
 #[async_trait]
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,

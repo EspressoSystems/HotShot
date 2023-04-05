@@ -192,6 +192,7 @@ pub enum NetworkEventInternal {
 
 /// Bind all interfaces on port `port`
 /// NOTE we may want something more general in the fture.
+#[must_use]
 pub fn gen_multiaddr(port: u16) -> Multiaddr {
     build_multiaddr!(Ip4([0, 0, 0, 0]), Tcp(port))
 }

@@ -7,7 +7,7 @@
     clippy::missing_docs_in_private_items,
     clippy::panic
 )]
-#![allow(clippy::must_use_candidate, clippy::module_name_repetitions)]
+#![allow(clippy::module_name_repetitions)]
 
 use std::{num::NonZeroUsize, time::Duration};
 
