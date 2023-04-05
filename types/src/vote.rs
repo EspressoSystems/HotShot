@@ -124,7 +124,6 @@ type VoteMap<C, TOKEN> =
 
 /// Describe the process of collecting signatures on block or leaf commitment, to form a DAC or QC,
 /// respectively.
-#[allow(clippy::missing_docs_in_private_items)]
 pub struct VoteAccumulator<TOKEN, LEAF: Committable> {
     /// Map of all signatures accumlated so far
     pub vote_outcomes: VoteMap<LEAF, TOKEN>,
