@@ -178,6 +178,7 @@
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
 </pre><pre class="rust"><code><span class="kw">use </span>futures::channel::oneshot::Sender;
 <span class="kw">use </span>libp2p::{
     gossipsub::IdentTopic <span class="kw">as </span>Topic,
@@ -235,6 +236,7 @@
 
 <span class="kw">impl </span>NetworkDef {
     <span class="doccomment">/// Create a new instance of a `NetworkDef`
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(
         gossipsub: GossipBehaviour,
         dht: DHTBehaviour,

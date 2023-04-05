@@ -797,9 +797,66 @@
 <a href="#797" id="797">797</a>
 <a href="#798" id="798">798</a>
 <a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
-</span><span class="attr">#![allow(clippy::missing_docs_in_private_items)]
-#![allow(missing_docs)]
 
 </span><span class="kw">use </span><span class="kw">super</span>::node_implementation::{NodeImplementation, NodeType};
 <span class="kw">use </span><span class="kw">super</span>::signature_key::{EncodedPublicKey, EncodedSignature};
@@ -859,10 +916,14 @@
 <span class="doccomment">/// Data to vote on for different types of votes.
 </span><span class="attr">#[derive(Serialize)]
 </span><span class="kw">pub enum </span>VoteData&lt;TYPES: NodeType, LEAF: LeafType&gt; {
-    DA(Commitment&lt;TYPES::BlockType&gt;),
-    Yes(Commitment&lt;LEAF&gt;),
-    No(Commitment&lt;LEAF&gt;),
-    Timeout(TYPES::Time),
+    <span class="doccomment">/// Vote to provide availability for a block.
+    </span>DA(Commitment&lt;TYPES::BlockType&gt;),
+    <span class="doccomment">/// Vote to append a leaf to the log.
+    </span>Yes(Commitment&lt;LEAF&gt;),
+    <span class="doccomment">/// Vote to reject a leaf from the log.
+    </span>No(Commitment&lt;LEAF&gt;),
+    <span class="doccomment">/// Vote to time out and proceed to the next view.
+    </span>Timeout(TYPES::Time),
 }
 
 <span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&gt; VoteData&lt;TYPES, LEAF&gt; {
@@ -901,7 +962,8 @@
 {
 }
 
-<span class="kw">pub trait </span>SignedCertificate&lt;SIGNATURE: SignatureKey, TIME, TOKEN, LEAF&gt;
+<span class="doccomment">/// A certificate of some property which has been signed by a quroum of nodes.
+</span><span class="kw">pub trait </span>SignedCertificate&lt;SIGNATURE: SignatureKey, TIME, TOKEN, LEAF&gt;
 <span class="kw">where
     </span><span class="self">Self</span>: Send + Sync + Clone + Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;,
     LEAF: Committable,
@@ -921,10 +983,10 @@
 
     <span class="comment">// TODO (da) the following functions should be refactored into a QC-specific trait.
 
-    // Get the leaf commitment.
+    </span><span class="doccomment">/// Get the leaf commitment.
     </span><span class="kw">fn </span>leaf_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;LEAF&gt;;
 
-    <span class="comment">// Set the leaf commitment.
+    <span class="doccomment">/// Set the leaf commitment.
     </span><span class="kw">fn </span>set_leaf_commitment(<span class="kw-2">&amp;mut </span><span class="self">self</span>, commitment: Commitment&lt;LEAF&gt;);
 
     <span class="doccomment">/// Get whether the certificate is for the genesis block.
@@ -934,8 +996,10 @@
     </span><span class="kw">fn </span>genesis() -&gt; <span class="self">Self</span>;
 }
 
-<span class="kw">pub trait </span>Membership&lt;TYPES: NodeType&gt;: Clone + Eq + PartialEq + Send + Sync + <span class="lifetime">&#39;static </span>{
-    <span class="kw">type </span>StakeTable: Send + Sync;
+<span class="doccomment">/// A protocol for determining membership in and participating in a ccommittee.
+</span><span class="kw">pub trait </span>Membership&lt;TYPES: NodeType&gt;: Clone + Eq + PartialEq + Send + Sync + <span class="lifetime">&#39;static </span>{
+    <span class="doccomment">/// Data used to determine the weight (voting power) of participants.
+    </span><span class="kw">type </span>StakeTable: Send + Sync;
 
     <span class="doccomment">/// generate a default election configuration
     </span><span class="kw">fn </span>default_election_config(num_nodes: u64) -&gt; TYPES::ElectionConfigType;
@@ -951,9 +1015,11 @@
         state: <span class="kw-2">&amp;</span>TYPES::StateType,
     ) -&gt; <span class="self">Self</span>::StakeTable;
 
-    <span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey;
+    <span class="doccomment">/// The leader of the committee for view `view_number`.
+    </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey;
 
-    <span class="kw">fn </span>get_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
+    <span class="doccomment">/// The members of the committee for view `view_number`.
+    </span><span class="kw">fn </span>get_committee(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; BTreeSet&lt;TYPES::SignatureKey&gt;;
 
     <span class="doccomment">/// Attempts to generate a vote token for self
     ///
@@ -981,19 +1047,31 @@
     </span><span class="kw">fn </span>threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64;
 }
 
-<span class="kw">pub trait </span>ConsensusExchange&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;, M: NetworkMsg&gt;:
+<span class="doccomment">/// Protocol for exchanging proposals and votes to make decisions in a distributed network.
+///
+/// An instance of [`ConsensusExchange`] represents the state of one participant in the protocol,
+/// allowing them to vote and query information about the overall state of the protocol (such as
+/// membership and leader status).
+</span><span class="kw">pub trait </span>ConsensusExchange&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;, M: NetworkMsg&gt;:
     Send + Sync
 {
-    <span class="kw">type </span>Proposal: ProposalType&lt;NodeType = TYPES&gt;;
-    <span class="kw">type </span>Vote: VoteType&lt;TYPES&gt;;
-    <span class="kw">type </span>Certificate: SignedCertificate&lt;TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;
+    <span class="doccomment">/// A proposal for participants to vote on.
+    </span><span class="kw">type </span>Proposal: ProposalType&lt;NodeType = TYPES&gt;;
+    <span class="doccomment">/// A vote on a [`Proposal`](Self::Proposal).
+    </span><span class="kw">type </span>Vote: VoteType&lt;TYPES&gt;;
+    <span class="doccomment">/// A [`SignedCertificate`] attesting to a decision taken by the committee.
+    </span><span class="kw">type </span>Certificate: SignedCertificate&lt;TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;
         + Hash
         + Eq;
-    <span class="kw">type </span>Membership: Membership&lt;TYPES&gt;;
-    <span class="kw">type </span>Networking: CommunicationChannel&lt;TYPES, M, <span class="self">Self</span>::Proposal, <span class="self">Self</span>::Vote, <span class="self">Self</span>::Membership&gt;;
-    <span class="kw">type </span>Commitment: Committable;
+    <span class="doccomment">/// The committee eligible to make decisions.
+    </span><span class="kw">type </span>Membership: Membership&lt;TYPES&gt;;
+    <span class="doccomment">/// Network used by [`Membership`](Self::Membership) to communicate.
+    </span><span class="kw">type </span>Networking: CommunicationChannel&lt;TYPES, M, <span class="self">Self</span>::Proposal, <span class="self">Self</span>::Vote, <span class="self">Self</span>::Membership&gt;;
+    <span class="doccomment">/// Commitments to items which are the subject of proposals and decisions.
+    </span><span class="kw">type </span>Commitment: Committable;
 
-    <span class="kw">fn </span>create(
+    <span class="doccomment">/// Join a [`ConsensusExchange`] with the given identity (`pk` and `sk`).
+    </span><span class="kw">fn </span>create(
         keys: Vec&lt;TYPES::SignatureKey&gt;,
         config: TYPES::ElectionConfigType,
         network: <span class="self">Self</span>::Networking,
@@ -1001,18 +1079,27 @@
         sk: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
     ) -&gt; <span class="self">Self</span>;
 
-    <span class="kw">fn </span>network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Networking;
-    <span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey {
+    <span class="doccomment">/// The network being used by this exchange.
+    </span><span class="kw">fn </span>network(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Networking;
+
+    <span class="doccomment">/// The leader of the [`Membership`](Self::Membership) at time `view_number`.
+    </span><span class="kw">fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey {
         <span class="self">self</span>.membership().get_leader(view_number)
     }
-    <span class="kw">fn </span>is_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; bool {
+
+    <span class="doccomment">/// Whether this participant is leader at time `view_number`.
+    </span><span class="kw">fn </span>is_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; bool {
         <span class="kw-2">&amp;</span><span class="self">self</span>.get_leader(view_number) == <span class="self">self</span>.public_key()
     }
-    <span class="kw">fn </span>threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
+
+    <span class="doccomment">/// Threshold required to approve a [`Proposal`](Self::Proposal).
+    </span><span class="kw">fn </span>threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
         <span class="self">self</span>.membership().threshold()
     }
 
-    <span class="doccomment">/// # Errors
+    <span class="doccomment">/// Attempts to generate a vote token for participation at time `view_number`.
+    ///
+    /// # Errors
     /// When unable to make a vote token because not part of the committee
     </span><span class="kw">fn </span>make_vote_token(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1022,7 +1109,8 @@
             .make_vote_token(view_number, <span class="self">self</span>.private_key())
     }
 
-    <span class="kw">fn </span>vote_data(<span class="kw-2">&amp;</span><span class="self">self</span>, commit: Commitment&lt;<span class="self">Self</span>::Commitment&gt;) -&gt; VoteData&lt;TYPES, LEAF&gt;;
+    <span class="doccomment">/// The contents of a vote on `commit`.
+    </span><span class="kw">fn </span>vote_data(<span class="kw-2">&amp;</span><span class="self">self</span>, commit: Commitment&lt;<span class="self">Self</span>::Commitment&gt;) -&gt; VoteData&lt;TYPES, LEAF&gt;;
 
     <span class="doccomment">/// Validate a QC.
     </span><span class="kw">fn </span>is_valid_cert(<span class="kw-2">&amp;</span><span class="self">self</span>, qc: <span class="kw-2">&amp;</span><span class="self">Self</span>::Certificate, commit: Commitment&lt;<span class="self">Self</span>::Commitment&gt;) -&gt; bool {
@@ -1080,7 +1168,8 @@
         is_valid_signature &amp;&amp; is_valid_vote_token
     }
 
-    <span class="kw">fn </span>accumulate_internal(
+    <span class="attr">#[doc(hidden)]
+    </span><span class="kw">fn </span>accumulate_internal(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         vota_meta: VoteMetaData&lt;TYPES, <span class="self">Self</span>::Commitment, TYPES::VoteTokenType, TYPES::Time, LEAF&gt;,
         accumulator: VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;,
@@ -1126,21 +1215,35 @@
         accumlator: VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;,
     ) -&gt; Either&lt;VoteAccumulator&lt;TYPES::VoteTokenType, <span class="self">Self</span>::Commitment&gt;, <span class="self">Self</span>::Certificate&gt;;
 
-    <span class="kw">fn </span>membership(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Membership;
-    <span class="kw">fn </span>public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>TYPES::SignatureKey;
-    <span class="kw">fn </span>private_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey;
+    <span class="doccomment">/// The committee which votes on proposals.
+    </span><span class="kw">fn </span>membership(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Membership;
+
+    <span class="doccomment">/// This participant&#39;s public key.
+    </span><span class="kw">fn </span>public_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>TYPES::SignatureKey;
+
+    <span class="doccomment">/// This participant&#39;s private key.
+    </span><span class="kw">fn </span>private_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>&lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey;
 }
 
-<span class="kw">pub trait </span>CommitteeExchangeType&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;, M: NetworkMsg&gt;:
+<span class="doccomment">/// A [`ConsensusExchange`] where participants vote to provide availability for blobs of data.
+</span><span class="kw">pub trait </span>CommitteeExchangeType&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;, M: NetworkMsg&gt;:
     ConsensusExchange&lt;TYPES, LEAF, M&gt;
 {
-    <span class="kw">fn </span>sign_da_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>, block_commitment: <span class="kw-2">&amp;</span>Commitment&lt;TYPES::BlockType&gt;)
+    <span class="doccomment">/// Sign a DA proposal.
+    </span><span class="kw">fn </span>sign_da_proposal(<span class="kw-2">&amp;</span><span class="self">self</span>, block_commitment: <span class="kw-2">&amp;</span>Commitment&lt;TYPES::BlockType&gt;)
         -&gt; EncodedSignature;
-    <span class="kw">fn </span>sign_da_vote(
+
+    <span class="doccomment">/// Sign a vote on DA proposal.
+    ///
+    /// The block commitment and the type of the vote (DA) are signed, which is the minimum amount
+    /// of information necessary for checking that this node voted on that block.
+    </span><span class="kw">fn </span>sign_da_vote(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         block_commitment: Commitment&lt;TYPES::BlockType&gt;,
     ) -&gt; (EncodedPublicKey, EncodedSignature);
-    <span class="kw">fn </span>create_da_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
+
+    <span class="doccomment">/// Create a message with a vote on DA proposal.
+    </span><span class="kw">fn </span>create_da_message&lt;I: NodeImplementation&lt;TYPES, Leaf = LEAF&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         justify_qc_commitment: Commitment&lt;QuorumCertificate&lt;TYPES, LEAF&gt;&gt;,
         block_commitment: Commitment&lt;TYPES::BlockType&gt;,
@@ -1151,18 +1254,25 @@
         </span>I::CommitteeExchange:
             ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;, Vote = DAVote&lt;TYPES, I::Leaf&gt;&gt;;
 }
-<span class="kw">pub struct </span>CommitteeExchange&lt;
+
+<span class="doccomment">/// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
+</span><span class="kw">pub struct </span>CommitteeExchange&lt;
     TYPES: NodeType,
     LEAF: LeafType&lt;NodeType = TYPES&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
     NETWORK: CommunicationChannel&lt;TYPES, M, DAProposal&lt;TYPES&gt;, DAVote&lt;TYPES, LEAF&gt;, MEMBERSHIP&gt;,
     M: NetworkMsg,
 &gt; {
-    network: NETWORK,
-    membership: MEMBERSHIP,
-    public_key: TYPES::SignatureKey,
-    private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-    _pd: PhantomData&lt;(TYPES, LEAF, MEMBERSHIP, M)&gt;,
+    <span class="doccomment">/// The network being used by this exchange.
+    </span>network: NETWORK,
+    <span class="doccomment">/// The committee which votes on proposals.
+    </span>membership: MEMBERSHIP,
+    <span class="doccomment">/// This participant&#39;s public key.
+    </span>public_key: TYPES::SignatureKey,
+    <span class="doccomment">/// This participant&#39;s private key.
+    </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    <span class="attr">#[doc(hidden)]
+    </span>_pd: PhantomData&lt;(TYPES, LEAF, MEMBERSHIP, M)&gt;,
 }
 
 <span class="kw">impl</span>&lt;
@@ -1298,7 +1408,8 @@
     }
 }
 
-<span class="kw">pub trait </span>QuorumExchangeType&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;, M: NetworkMsg&gt;:
+<span class="doccomment">/// A [`ConsensusExchange`] where participants vote to append items to a log.
+</span><span class="kw">pub trait </span>QuorumExchangeType&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;, M: NetworkMsg&gt;:
     ConsensusExchange&lt;TYPES, LEAF, M&gt;
 {
     <span class="doccomment">/// Create a message with a positive vote on validating or commitment proposal.
@@ -1371,7 +1482,9 @@
         </span>I::QuorumExchange:
             ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;, Vote = QuorumVote&lt;TYPES, LEAF&gt;&gt;;
 }
-<span class="kw">pub struct </span>QuorumExchange&lt;
+
+<span class="doccomment">/// Standard implementation of [`QuroumExchangeType`] based on Hot Stuff consensus.
+</span><span class="kw">pub struct </span>QuorumExchange&lt;
     TYPES: NodeType,
     LEAF: LeafType&lt;NodeType = TYPES&gt;,
     PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
@@ -1379,11 +1492,16 @@
     NETWORK: CommunicationChannel&lt;TYPES, M, PROPOSAL, QuorumVote&lt;TYPES, LEAF&gt;, MEMBERSHIP&gt;,
     M: NetworkMsg,
 &gt; {
-    network: NETWORK,
-    membership: MEMBERSHIP,
-    public_key: TYPES::SignatureKey,
-    private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
-    _pd: PhantomData&lt;(LEAF, PROPOSAL, MEMBERSHIP, M)&gt;,
+    <span class="doccomment">/// The network being used by this exchange.
+    </span>network: NETWORK,
+    <span class="doccomment">/// The committee which votes on proposals.
+    </span>membership: MEMBERSHIP,
+    <span class="doccomment">/// This participant&#39;s public key.
+    </span>public_key: TYPES::SignatureKey,
+    <span class="doccomment">/// This participant&#39;s private key.
+    </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    <span class="attr">#[doc(hidden)]
+    </span>_pd: PhantomData&lt;(LEAF, PROPOSAL, MEMBERSHIP, M)&gt;,
 }
 
 <span class="kw">impl</span>&lt;

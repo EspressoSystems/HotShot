@@ -156,6 +156,7 @@
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::vrf::JfPubKey;
 <span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>commit::{Commitment, Committable, RawCommitmentBuilder};
@@ -194,6 +195,7 @@
     GeneralStaticCommittee&lt;T, LEAF, PUBKEY&gt;
 {
     <span class="doccomment">/// Creates a new dummy elector
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(nodes: Vec&lt;PUBKEY&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             nodes,

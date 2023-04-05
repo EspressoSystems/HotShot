@@ -261,6 +261,7 @@
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Sequencing consensus demo
 //!
 //! This module provides an implementation of the `HotShot` suite of traits that implements a
@@ -316,6 +317,7 @@
 
 <span class="kw">impl </span>SDemoTransaction {
     <span class="doccomment">/// create a new transaction
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(id: u64) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             id,

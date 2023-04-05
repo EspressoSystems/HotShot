@@ -257,6 +257,7 @@
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashSet, VecDeque},
     task::Poll,
@@ -454,6 +455,7 @@
 
 <span class="kw">impl </span>GossipBehaviour {
     <span class="doccomment">/// Create new gossip behavioru based on gossipsub
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(gossipsub: Behaviour) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             backoff: ExponentialBackoff::default(),

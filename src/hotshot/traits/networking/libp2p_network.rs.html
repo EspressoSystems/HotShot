@@ -761,6 +761,7 @@
 <a href="#761" id="761">761</a>
 <a href="#762" id="762">762</a>
 <a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Libp2p based/production networking implementation
 //! This module provides a libp2p based networking implementation where each node in the
 //! network forms a tcp or udp connection to a subset of other nodes in the network
@@ -967,7 +968,7 @@
                 async_block_on(<span class="kw">async move </span>{
                     Libp2pCommChannel(
                         Libp2pNetwork::new(
-                            NoMetrics::new(),
+                            NoMetrics::boxed(),
                             config,
                             pubkey,
                             bootstrap_addrs_ref,
@@ -1074,7 +1075,7 @@
                 is_ready: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
                 dht_timeout: Duration::from_secs(<span class="number">30</span>),
                 is_bootstrapped: Arc::new(AtomicBool::new(<span class="bool-val">false</span>)),
-                metrics: NetworkingMetrics::new(metrics),
+                metrics: NetworkingMetrics::new(<span class="kw-2">&amp;*</span>metrics),
                 topic_map,
             }),
         };
@@ -1460,6 +1461,7 @@
     &gt; Libp2pCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 {
     <span class="doccomment">/// create a new libp2p communication channel
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(network: Libp2pNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(network, PhantomData::default())
     }

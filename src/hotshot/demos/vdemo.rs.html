@@ -585,6 +585,8 @@
 <a href="#585" id="585">585</a>
 <a href="#586" id="586">586</a>
 <a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Validating (vanilla) consensus demo
 //!
 //! This module provides an implementation of the `HotShot` suite of traits that implements a
@@ -690,6 +692,7 @@
 
 <span class="kw">impl </span>VDemoTransaction {
     <span class="doccomment">/// Ensures that this transaction is at least consistent with itself
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>validate_independence(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="comment">// Ensure that we are adding to one account exactly as much as we are subtracting from
         // another
@@ -804,6 +807,7 @@
 
 <span class="kw">impl </span>VDemoBlock {
     <span class="doccomment">/// generate a genesis block with the provided initial accounts and balances
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>genesis_from(accounts: BTreeMap&lt;Account, Balance&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::Genesis(VDemoGenesisBlock { accounts })
     }
@@ -964,8 +968,7 @@
     </span>}
 }
 
-<span class="attr">#[allow(clippy::panic)]
-</span><span class="kw">impl </span>TestableState <span class="kw">for </span>VDemoState {
+<span class="kw">impl </span>TestableState <span class="kw">for </span>VDemoState {
     <span class="kw">fn </span>create_random_transaction(
         state: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>&gt;,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
@@ -973,7 +976,7 @@
     ) -&gt; &lt;<span class="self">Self</span>::BlockType <span class="kw">as </span>Block&gt;::Transaction {
         <span class="kw">use </span>rand::seq::IteratorRandom;
 
-        <span class="kw">let </span>state = state.unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;Missing state&quot;</span>));
+        <span class="kw">let </span>state = state.expect(<span class="string">&quot;Missing state&quot;</span>);
 
         <span class="kw">let </span>non_zero_balances = state
             .balances
@@ -1113,6 +1116,7 @@
     </span>MEMBERSHIP: Membership&lt;VDemoTypes&gt; + std::fmt::Debug,
 {
     <span class="doccomment">/// Create a new `VDemoNode`
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         VDemoNode(PhantomData)
     }

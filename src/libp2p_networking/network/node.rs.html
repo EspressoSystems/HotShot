@@ -605,11 +605,6 @@
 <a href="#605" id="605">605</a>
 <a href="#606" id="606">606</a>
 <a href="#607" id="607">607</a>
-<a href="#608" id="608">608</a>
-<a href="#609" id="609">609</a>
-<a href="#610" id="610">610</a>
-<a href="#611" id="611">611</a>
-<a href="#612" id="612">612</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>config;
 <span class="kw">mod </span>handle;
 
@@ -917,22 +912,20 @@
         <span class="kw">let </span>behaviour = <span class="self">self</span>.swarm.behaviour_mut();
         <span class="kw">match </span>msg {
             <span class="prelude-val">Ok</span>(msg) =&gt; {
-                <span class="attr">#[allow(clippy::enum_glob_use)]
-                </span><span class="kw">use </span>ClientRequest::<span class="kw-2">*</span>;
                 <span class="kw">match </span>msg {
-                    BeginBootstrap =&gt; {
+                    ClientRequest::BeginBootstrap =&gt; {
                         <span class="self">self</span>.swarm.behaviour_mut().dht.begin_bootstrap();
                     }
-                    LookupPeer(pid, chan) =&gt; {
+                    ClientRequest::LookupPeer(pid, chan) =&gt; {
                         <span class="self">self</span>.swarm.behaviour_mut().dht.lookup_peer(pid, chan);
                     }
-                    GetRoutingTable(chan) =&gt; {
+                    ClientRequest::GetRoutingTable(chan) =&gt; {
                         <span class="self">self</span>.swarm.behaviour_mut().dht.print_routing_table();
                         <span class="kw">if </span>chan.send(()).is_err() {
                             <span class="macro">warn!</span>(<span class="string">&quot;Tried to notify client but client not tracking anymore&quot;</span>);
                         }
                     }
-                    PutDHT { key, value, notify } =&gt; {
+                    ClientRequest::PutDHT { key, value, notify } =&gt; {
                         <span class="kw">let </span>query = KadPutQuery {
                             progress: DHTProgress::NotStarted,
                             notify,
@@ -942,17 +935,17 @@
                         };
                         <span class="self">self</span>.swarm.behaviour_mut().put_record(query);
                     }
-                    GetConnectedPeerNum(s) =&gt; {
+                    ClientRequest::GetConnectedPeerNum(s) =&gt; {
                         <span class="kw">if </span>s.send(<span class="self">self</span>.num_connected()).is_err() {
                             <span class="macro">error!</span>(<span class="string">&quot;error sending peer number to client&quot;</span>);
                         }
                     }
-                    GetConnectedPeers(s) =&gt; {
+                    ClientRequest::GetConnectedPeers(s) =&gt; {
                         <span class="kw">if </span>s.send(<span class="self">self</span>.connected_pids()).is_err() {
                             <span class="macro">error!</span>(<span class="string">&quot;error sending peer set to client&quot;</span>);
                         }
                     }
-                    GetDHT {
+                    ClientRequest::GetDHT {
                         key,
                         notify,
                         retry_count,
@@ -964,17 +957,17 @@
                             retry_count,
                         );
                     }
-                    IgnorePeers(_peers) =&gt; {
+                    ClientRequest::IgnorePeers(_peers) =&gt; {
                         <span class="comment">// NOTE used by test with conductor only
                     </span>}
-                    Shutdown =&gt; {
+                    ClientRequest::Shutdown =&gt; {
                         <span class="macro">warn!</span>(<span class="string">&quot;Libp2p listener shutting down&quot;</span>);
                         <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
                     }
-                    GossipMsg(topic, contents) =&gt; {
+                    ClientRequest::GossipMsg(topic, contents) =&gt; {
                         behaviour.publish_gossip(Topic::new(topic), contents);
                     }
-                    Subscribe(t, chan) =&gt; {
+                    ClientRequest::Subscribe(t, chan) =&gt; {
                         behaviour.subscribe_gossip(<span class="kw-2">&amp;</span>t);
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(chan) = chan {
                             <span class="kw">if </span>chan.send(()).is_err() {
@@ -982,13 +975,13 @@
                             }
                         }
                     }
-                    Unsubscribe(t, chan) =&gt; {
+                    ClientRequest::Unsubscribe(t, chan) =&gt; {
                         behaviour.unsubscribe_gossip(<span class="kw-2">&amp;</span>t);
                         <span class="kw">if </span>chan.send(()).is_err() {
                             <span class="macro">error!</span>(<span class="string">&quot;finished unsubscribing but response channel dropped&quot;</span>);
                         }
                     }
-                    DirectRequest {
+                    ClientRequest::DirectRequest {
                         pid,
                         contents,
                         retry_count,
@@ -996,13 +989,13 @@
                         <span class="macro">info!</span>(<span class="string">&quot;pid {:?} adding direct request&quot;</span>, <span class="self">self</span>.peer_id);
                         behaviour.add_direct_request(pid, contents, retry_count);
                     }
-                    DirectResponse(chan, msg) =&gt; {
+                    ClientRequest::DirectResponse(chan, msg) =&gt; {
                         behaviour.add_direct_response(chan, msg);
                     }
-                    AddKnownPeers(peers) =&gt; {
+                    ClientRequest::AddKnownPeers(peers) =&gt; {
                         <span class="self">self</span>.add_known_peers(<span class="kw-2">&amp;</span>peers);
                     }
-                    Prune(pid) =&gt; {
+                    ClientRequest::Prune(pid) =&gt; {
                         <span class="kw">if </span><span class="self">self</span>.swarm.disconnect_peer_id(pid).is_err() {
                             <span class="macro">error!</span>(
                                 <span class="string">&quot;Peer {:?} could not disconnect from pid {:?}&quot;</span>,
@@ -1031,12 +1024,10 @@
         send_to_client: <span class="kw-2">&amp;</span>UnboundedSender&lt;NetworkEvent&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// Make the match cleaner
-        </span><span class="attr">#[allow(clippy::enum_glob_use)]
-        </span><span class="kw">use </span>SwarmEvent::<span class="kw-2">*</span>;
-        <span class="macro">info!</span>(<span class="string">&quot;event observed {:?}&quot;</span>, event);
+        </span><span class="macro">info!</span>(<span class="string">&quot;event observed {:?}&quot;</span>, event);
 
         <span class="kw">match </span>event {
-            ConnectionEstablished {
+            SwarmEvent::ConnectionEstablished {
                 peer_id,
                 endpoint,
                 num_established,
@@ -1052,7 +1043,7 @@
                     <span class="macro">info!</span>(<span class="string">&quot;peerid {:?} connection is established to {:?} with endpoint {:?} with concurrent dial errors {:?}. {:?} connections left&quot;</span>, <span class="self">self</span>.peer_id, peer_id, endpoint, concurrent_dial_errors, num_established);
                 }
             }
-            ConnectionClosed {
+            SwarmEvent::ConnectionClosed {
                 peer_id,
                 endpoint,
                 num_established,
@@ -1067,33 +1058,33 @@
                     <span class="macro">info!</span>(<span class="string">&quot;peerid {:?} connection is closed to {:?} with endpoint {:?}. {:?} connections left. Cause: {:?}&quot;</span>, <span class="self">self</span>.peer_id, peer_id, endpoint, num_established, cause);
                 }
             }
-            Dialing(p) =&gt; {
+            SwarmEvent::Dialing(p) =&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;{:?} is dialing {:?}&quot;</span>, <span class="self">self</span>.peer_id, p);
             }
-            BannedPeer {
+            SwarmEvent::BannedPeer {
                 peer_id,
                 endpoint: <span class="kw">_</span>,
             } =&gt; {
                 <span class="macro">error!</span>(<span class="string">&quot;Peer {:?} is banning peer {:?}!!&quot;</span>, <span class="self">self</span>.peer_id, peer_id);
             }
-            ListenerClosed {
+            SwarmEvent::ListenerClosed {
                 listener_id: <span class="kw">_</span>,
                 addresses: <span class="kw">_</span>,
                 reason: <span class="kw">_</span>,
             }
-            | NewListenAddr {
+            | SwarmEvent::NewListenAddr {
                 listener_id: <span class="kw">_</span>,
                 address: <span class="kw">_</span>,
             }
-            | ExpiredListenAddr {
+            | SwarmEvent::ExpiredListenAddr {
                 listener_id: <span class="kw">_</span>,
                 address: <span class="kw">_</span>,
             }
-            | IncomingConnection {
+            | SwarmEvent::IncomingConnection {
                 local_addr: <span class="kw">_</span>,
                 send_back_addr: <span class="kw">_</span>,
             } =&gt; {}
-            Behaviour(b) =&gt; {
+            SwarmEvent::Behaviour(b) =&gt; {
                 <span class="kw">let </span>maybe_event = <span class="kw">match </span>b {
                     NetworkEventInternal::DHTEvent(e) =&gt; <span class="kw">match </span>e {
                         DHTEvent::IsBootstrapped =&gt; <span class="prelude-val">Some</span>(NetworkEvent::IsBootstrapped),
@@ -1152,10 +1143,10 @@
                         </span>.map_err(|_e| NetworkError::StreamClosed)<span class="question-mark">?</span>;
                 }
             }
-            OutgoingConnectionError { peer_id: <span class="kw">_</span>, error } =&gt; {
+            SwarmEvent::OutgoingConnectionError { peer_id: <span class="kw">_</span>, error } =&gt; {
                 <span class="macro">info!</span>(<span class="question-mark">?</span>error, <span class="string">&quot;OUTGOING CONNECTION ERROR, {:?}&quot;</span>, error);
             }
-            IncomingConnectionError {
+            SwarmEvent::IncomingConnectionError {
                 local_addr,
                 send_back_addr,
                 error,
@@ -1165,7 +1156,7 @@
                     local_addr, send_back_addr, error
                 );
             }
-            ListenerError { listener_id, error } =&gt; {
+            SwarmEvent::ListenerError { listener_id, error } =&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;LISTENER ERROR {:?} {:?}&quot;</span>, listener_id, error);
             }
         }
@@ -1174,8 +1165,7 @@
 
     <span class="doccomment">/// Spawn a task to listen for requests on the returned channel
     /// as well as any events produced by libp2p
-    </span><span class="attr">#[allow(clippy::panic)]
-    #[instrument]
+    </span><span class="attr">#[instrument]
     </span><span class="kw">pub async fn </span>spawn_listeners(
         <span class="kw-2">mut </span><span class="self">self</span>,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;

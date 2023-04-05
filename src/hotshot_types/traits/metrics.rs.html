@@ -282,7 +282,6 @@
 <a href="#282" id="282">282</a>
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The [`Metrics`] trait is used to collect information from multiple components in the entire system.
 //!
 //! This trait can be used to spawn the following traits:
@@ -313,14 +312,14 @@
 }
 
 <span class="doccomment">/// Use this if you&#39;re not planning to use any metrics. All methods are implemented as a no-op
+</span><span class="attr">#[derive(Clone, Copy, Debug, Default)]
 </span><span class="kw">pub struct </span>NoMetrics;
 
 <span class="kw">impl </span>NoMetrics {
     <span class="doccomment">/// Create a new `Box&lt;dyn Metrics&gt;` with this [`NoMetrics`]
-    </span><span class="comment">// with our API it is more ergonomic to return `Box&lt;dyn Metrics&gt;`
-    </span><span class="attr">#[allow(clippy::new_ret_no_self)]
-    </span><span class="kw">pub fn </span>new() -&gt; Box&lt;<span class="kw">dyn </span>Metrics&gt; {
-        Box::new(NoMetrics)
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>boxed() -&gt; Box&lt;<span class="kw">dyn </span>Metrics&gt; {
+        Box::&lt;<span class="self">Self</span>&gt;::default()
     }
 }
 
@@ -467,12 +466,11 @@
                 .entry(<span class="self">self</span>.prefix.clone())
                 .or_default() = amount;
         }
-        <span class="attr">#[allow(clippy::cast_possible_truncation)]
-        #[allow(clippy::cast_sign_loss)]
-        </span><span class="kw">fn </span>update(<span class="kw-2">&amp;</span><span class="self">self</span>, delta: i64) {
+        <span class="kw">fn </span>update(<span class="kw-2">&amp;</span><span class="self">self</span>, delta: i64) {
             <span class="kw">let </span><span class="kw-2">mut </span>values = <span class="self">self</span>.values.lock().unwrap();
             <span class="kw">let </span>value = values.gauges.entry(<span class="self">self</span>.prefix.clone()).or_default();
-            <span class="kw-2">*</span>value = (<span class="kw-2">*</span>value <span class="kw">as </span>i64 + delta) <span class="kw">as </span>usize;
+            <span class="kw">let </span>signed_value = i64::try_from(<span class="kw-2">*</span>value).unwrap_or(i64::MAX);
+            <span class="kw-2">*</span>value = usize::try_from(signed_value + delta).unwrap_or(<span class="number">0</span>);
         }
     }
 

@@ -761,7 +761,6 @@
 <a href="#761" id="761">761</a>
 <a href="#762" id="762">762</a>
 <a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -840,6 +839,7 @@
     &gt; WebCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 {
     <span class="doccomment">/// Create new communication channel
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(
         network: WebServerNetwork&lt;
             Message&lt;TYPES, I&gt;,
@@ -856,7 +856,6 @@
     <span class="doccomment">/// Parses a message to find the appropriate endpoint
     /// Returns a `SendMsg` containing the endpoint
     </span><span class="kw">fn </span>parse_post_message(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
         message: Message&lt;TYPES, I&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;SendMsg&lt;Message&lt;TYPES, I&gt;&gt;, WebServerNetworkError&gt; {
         <span class="kw">let </span>view_number: TYPES::Time = message.get_view_number();
@@ -1149,8 +1148,7 @@
         VOTE: VoteType&lt;TYPES&gt; + <span class="lifetime">&#39;static</span>,
     &gt; WebServerNetwork&lt;M, K, E, TYPES, PROPOSAL, VOTE&gt;
 {
-    <span class="attr">#[allow(clippy::panic)]
-    </span><span class="doccomment">/// Creates a new instance of the `WebServerNetwork`
+    <span class="doccomment">/// Creates a new instance of the `WebServerNetwork`
     /// # Panics
     /// if the web server url is malformed
     </span><span class="kw">pub fn </span>create(
@@ -1321,7 +1319,7 @@
         message: Message&lt;TYPES, I&gt;,
         _election: <span class="kw-2">&amp;</span>MEMBERSHIP,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="kw">let </span>network_msg = <span class="self">self</span>.parse_post_message(message);
+        <span class="kw">let </span>network_msg = <span class="self">Self</span>::parse_post_message(message);
         <span class="kw">match </span>network_msg {
             <span class="prelude-val">Ok</span>(network_msg) =&gt; <span class="self">self</span>.<span class="number">0</span>.broadcast_message(network_msg, BTreeSet::new()).<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(network_msg) =&gt; <span class="prelude-val">Err</span>(NetworkError::WebServer {
@@ -1337,7 +1335,7 @@
         message: Message&lt;TYPES, I&gt;,
         recipient: TYPES::SignatureKey,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
-        <span class="kw">let </span>network_msg = <span class="self">self</span>.parse_post_message(message);
+        <span class="kw">let </span>network_msg = <span class="self">Self</span>::parse_post_message(message);
         <span class="kw">match </span>network_msg {
             <span class="prelude-val">Ok</span>(network_msg) =&gt; <span class="self">self</span>.<span class="number">0</span>.direct_message(network_msg, recipient).<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(network_msg) =&gt; <span class="prelude-val">Err</span>(NetworkError::WebServer {

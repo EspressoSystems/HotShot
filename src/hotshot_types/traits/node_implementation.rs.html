@@ -324,12 +324,28 @@
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
 <a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
-</span><span class="attr">#![allow(clippy::missing_docs_in_private_items)]
-#![allow(missing_docs)]
 
 </span><span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>serde::Deserialize;
@@ -362,20 +378,22 @@
 
 </span><span class="kw">pub trait </span>NodeImplementation&lt;TYPES: NodeType&gt;: Send + Sync + Debug + Clone + <span class="lifetime">&#39;static </span>{
     <span class="comment">// type Message: NetworkMsg;
+
+    </span><span class="doccomment">/// Leaf type for this consensus implementation
     </span><span class="kw">type </span>Leaf: LeafType&lt;NodeType = TYPES&gt;;
 
     <span class="doccomment">/// Storage type for this consensus implementation
     </span><span class="kw">type </span>Storage: Storage&lt;TYPES, <span class="self">Self</span>::Leaf&gt; + Clone;
 
-    <span class="doccomment">/// Membership
-    /// Time is generic here to allow multiple implementations of membership trait for difference
-    /// consensus protocols
+    <span class="doccomment">/// Protocol for exchanging consensus proposals and votes.
     </span><span class="kw">type </span>QuorumExchange: ConsensusExchange&lt;TYPES, <span class="self">Self</span>::Leaf, Message&lt;TYPES, <span class="self">Self</span>&gt;&gt;;
 
-    <span class="kw">type </span>CommitteeExchange: ConsensusExchange&lt;TYPES, <span class="self">Self</span>::Leaf, Message&lt;TYPES, <span class="self">Self</span>&gt;&gt;;
+    <span class="doccomment">/// Protocol for exchanging data availability proposals and votes.
+    </span><span class="kw">type </span>CommitteeExchange: ConsensusExchange&lt;TYPES, <span class="self">Self</span>::Leaf, Message&lt;TYPES, <span class="self">Self</span>&gt;&gt;;
 }
 
-<span class="attr">#[allow(clippy::type_complexity)]
+<span class="doccomment">/// extra functions required on a node implementation to be usable by hotshot-testing
+</span><span class="attr">#[allow(clippy::type_complexity)]
 #[async_trait]
 </span><span class="kw">pub trait </span>TestableNodeImplementation&lt;TYPES: NodeType&gt;: NodeImplementation&lt;TYPES&gt; {
     <span class="doccomment">/// generates a network given an expected node count
@@ -394,7 +412,8 @@
             + <span class="lifetime">&#39;static</span>,
     &gt;;
 
-    <span class="kw">fn </span>quorum_generator(
+    <span class="doccomment">/// generates a network given an expected node count
+    </span><span class="kw">fn </span>quorum_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
@@ -440,7 +459,10 @@
         padding: u64,
     ) -&gt; &lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction;
 
-    <span class="kw">fn </span>leaf_create_random_transaction(
+    <span class="doccomment">/// Creates random transaction if possible
+    /// otherwise panics
+    /// `padding` is the bytes of padding to add to the transaction
+    </span><span class="kw">fn </span>leaf_create_random_transaction(
         leaf: <span class="kw-2">&amp;</span><span class="self">Self</span>::Leaf,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
@@ -449,7 +471,8 @@
     <span class="doccomment">/// generate a genesis block
     </span><span class="kw">fn </span>block_genesis() -&gt; TYPES::BlockType;
 
-    <span class="kw">fn </span>txn_count(block: <span class="kw-2">&amp;</span>TYPES::BlockType) -&gt; u64;
+    <span class="doccomment">/// the number of transactions in a block
+    </span><span class="kw">fn </span>txn_count(block: <span class="kw-2">&amp;</span>TYPES::BlockType) -&gt; u64;
 
     <span class="doccomment">/// Create ephemeral storage
     /// Will be deleted/lost immediately after storage is dropped
@@ -457,10 +480,11 @@
     /// Errors if it is not possible to construct temporary storage.
     </span><span class="kw">fn </span>construct_tmp_storage() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Storage, StorageError&gt;;
 
-    <span class="comment">// Return the full internal state. This is useful for debugging.
+    <span class="doccomment">/// Return the full internal state. This is useful for debugging.
     </span><span class="kw">async fn </span>get_full_state(storage: <span class="kw-2">&amp;</span><span class="self">Self</span>::Storage) -&gt; StorageState&lt;TYPES, <span class="self">Self</span>::Leaf&gt;;
 
-    <span class="kw">fn </span>generate_test_key(id: u64) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey;
+    <span class="doccomment">/// The private key of the node `id` in a test.
+    </span><span class="kw">fn </span>generate_test_key(id: u64) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey;
 }
 
 <span class="attr">#[async_trait]
@@ -557,52 +581,64 @@ I::Leaf : TestableLeaf&lt;NodeType = TYPES&gt;,
     }
 }
 
-<span class="kw">pub type </span>QuorumProposal&lt;TYPES, I&gt; =
+<span class="doccomment">/// A proposal to append a new leaf to the log which is output by consensus.
+</span><span class="kw">pub type </span>QuorumProposal&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
         &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Proposal;
-<span class="kw">pub type </span>CommitteeProposal&lt;TYPES, I&gt; =
+
+<span class="doccomment">/// A proposal to provide data availability for a new leaf.
+</span><span class="kw">pub type </span>CommitteeProposal&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
         &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Proposal;
 
-<span class="kw">pub type </span>QuorumVoteType&lt;TYPES, I&gt; =
+<span class="doccomment">/// A vote on a [`QuorumProposal`].
+</span><span class="kw">pub type </span>QuorumVoteType&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
         &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Vote;
-<span class="kw">pub type </span>CommitteeVote&lt;TYPES, I&gt; =
+
+<span class="doccomment">/// A vote on a [`ComitteeProposal`].
+</span><span class="kw">pub type </span>CommitteeVote&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
         &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Vote;
 
-<span class="kw">pub type </span>QuorumNetwork&lt;TYPES, I&gt; =
+<span class="doccomment">/// Networking implementation used to communicate [`QuorumProposal`] and [`QuorumVote`].
+</span><span class="kw">pub type </span>QuorumNetwork&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
         &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Networking;
-<span class="kw">pub type </span>CommitteeNetwork&lt;TYPES, I&gt; =
+
+<span class="doccomment">/// Networking implementation used to communicate [`CommitteeProposal`] and [`CommitteeVote`].
+</span><span class="kw">pub type </span>CommitteeNetwork&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
         &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Networking;
 
-<span class="kw">pub type </span>QuorumMembership&lt;TYPES, I&gt; =
+<span class="doccomment">/// Protocol for determining membership in a consensus committee.
+</span><span class="kw">pub type </span>QuorumMembership&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
         &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Membership;
-<span class="kw">pub type </span>CommitteeMembership&lt;TYPES, I&gt; =
+
+<span class="doccomment">/// Protocol for determining membership in a data availability committee.
+</span><span class="kw">pub type </span>CommitteeMembership&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
         &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,

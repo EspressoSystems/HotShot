@@ -303,6 +303,7 @@
 <a href="#303" id="303">303</a>
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, VecDeque},
     task::Poll,
@@ -559,6 +560,7 @@
 
 <span class="kw">impl </span>DMBehaviour {
     <span class="doccomment">/// Create new behaviour based on request response
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(request_response: Behaviour&lt;DirectMessageCodec&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             request_response,

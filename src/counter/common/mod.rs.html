@@ -803,8 +803,6 @@
 <a href="#803" id="803">803</a>
 <a href="#804" id="804">804</a>
 <a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
 </pre><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;webui&quot;</span>)]
 </span><span class="kw">pub mod </span>web;
 
@@ -1161,8 +1159,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
     <span class="macro">debug!</span>(<span class="string">&quot;node={} handling event {:?}&quot;</span>, handle.id(), event);
 
-    <span class="attr">#[allow(clippy::enum_glob_use)]
-    </span><span class="kw">use </span>NetworkEvent::<span class="kw-2">*</span>;
+    <span class="kw">use </span>NetworkEvent::<span class="kw-2">*</span>;
     <span class="kw">match </span>event {
         IsBootstrapped =&gt; {}
         GossipMsg(m, <span class="kw">_</span>) | DirectResponse(m, <span class="kw">_</span>) =&gt; {
@@ -1520,8 +1517,7 @@
     event: NetworkEvent,
     handle: Arc&lt;NetworkNodeHandle&lt;ConductorState&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkNodeHandleError&gt; {
-    <span class="attr">#[allow(clippy::enum_glob_use)]
-    </span><span class="kw">use </span>NetworkEvent::<span class="kw-2">*</span>;
+    <span class="kw">use </span>NetworkEvent::<span class="kw-2">*</span>;
     <span class="kw">match </span>event {
         IsBootstrapped =&gt; {}
         GossipMsg(_m, _t) =&gt; {

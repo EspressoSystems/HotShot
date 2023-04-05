@@ -704,12 +704,27 @@
 <a href="#704" id="704">704</a>
 <a href="#705" id="705">705</a>
 <a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides types useful for representing `HotShot`&#39;s data structures
 //!
 //! This module provides types for representing consensus internal state, such as leaves,
 //! `HotShot`&#39;s version of a block, and proposals, messages upon which to reach the consensus.
-</span><span class="attr">#![allow(clippy::missing_docs_in_private_items)]
-#![allow(missing_docs)]
 
 </span><span class="kw">use crate</span>::{
     certificate::{DACertificate, QuorumCertificate},
@@ -826,7 +841,8 @@
     </span><span class="kw">pub </span>proposer_id: EncodedPublicKey,
 }
 
-<span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+<span class="doccomment">/// A proposal to start providing data availability for a block.
+</span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>DAProposal&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// Block leaf wants to apply
     </span><span class="kw">pub </span>deltas: TYPES::BlockType,
@@ -834,10 +850,11 @@
     </span><span class="kw">pub </span>view_number: TYPES::Time,
 }
 
-<span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
+<span class="doccomment">/// A proposal to append a new block commitment to the log.
+</span><span class="attr">#[derive(custom_debug::Debug, Serialize, Deserialize, Clone, Eq, PartialEq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub struct </span>CommitmentProposal&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
-    <span class="attr">#[allow(clippy::missing_docs_in_private_items)]
+    <span class="doccomment">/// The commitment to append.
     </span><span class="kw">pub </span>block_commitment: Commitment&lt;TYPES::BlockType&gt;,
 
     <span class="doccomment">/// CurView from leader when proposing leaf
@@ -880,14 +897,20 @@
         <span class="self">self</span>.view_number
     }
 }
-<span class="kw">pub trait </span>ProposalType:
+
+<span class="doccomment">/// A proposal to a network of voting nodes.
+</span><span class="kw">pub trait </span>ProposalType:
     Debug + Clone + <span class="lifetime">&#39;static </span>+ Serialize + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync + PartialEq + Eq
 {
-    <span class="kw">type </span>NodeType: NodeType;
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time;
+    <span class="doccomment">/// Type of nodes that can vote on this proposal.
+    </span><span class="kw">type </span>NodeType: NodeType;
+
+    <span class="doccomment">/// Time at which this proposal is valid.
+    </span><span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time;
 }
 
-<span class="kw">pub trait </span>LeafType:
+<span class="doccomment">/// An item which is appended to a blockchain.
+</span><span class="kw">pub trait </span>LeafType:
     Debug
     + Clone
     + <span class="lifetime">&#39;static
@@ -899,9 +922,12 @@
     + Eq
     + std::hash::Hash
 {
-    <span class="kw">type </span>NodeType: NodeType;
-    <span class="kw">type </span>DeltasType: Clone + Debug + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + PartialEq + Send + Serialize + Sync;
-    <span class="kw">type </span>StateCommitmentType: Clone
+    <span class="doccomment">/// Type of nodes participating in the network.
+    </span><span class="kw">type </span>NodeType: NodeType;
+    <span class="doccomment">/// Type of block contained by this leaf.
+    </span><span class="kw">type </span>DeltasType: Clone + Debug + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; + PartialEq + Send + Serialize + Sync;
+    <span class="doccomment">/// Commitment to the blockchain state.
+    </span><span class="kw">type </span>StateCommitmentType: Clone
         + Debug
         + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deserialize&lt;<span class="lifetime">&#39;a</span>&gt;
         + PartialEq
@@ -909,40 +935,46 @@
         + Serialize
         + Sync;
 
-    <span class="kw">fn </span>new(
+    <span class="doccomment">/// Create a new leaf from its components.
+    </span><span class="kw">fn </span>new(
         view_number: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time,
         justify_qc: QuorumCertificate&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;,
         deltas: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType,
         state: &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::StateType,
     ) -&gt; <span class="self">Self</span>;
-
-    <span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time;
-
-    <span class="kw">fn </span>get_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64;
-
-    <span class="kw">fn </span>set_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, height: u64);
-
-    <span class="kw">fn </span>get_justify_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QuorumCertificate&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;;
-
-    <span class="kw">fn </span>get_parent_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt;;
-
-    <span class="kw">fn </span>get_deltas(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::DeltasType;
-
-    <span class="kw">fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::StateCommitmentType;
-
-    <span class="kw">fn </span>get_rejected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;&lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt;;
-
-    <span class="kw">fn </span>get_timestamp(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; i128;
-
-    <span class="kw">fn </span>get_proposer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedPublicKey;
-
-    <span class="kw">fn </span>from_stored_view(stored_view: StoredView&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;) -&gt; <span class="self">Self</span>;
+    <span class="doccomment">/// Time when this leaf was created.
+    </span><span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::Time;
+    <span class="doccomment">/// Height of this leaf in the chain.
+    ///
+    /// Equivalently, this is the number of leaves before this one in the chain.
+    </span><span class="kw">fn </span>get_height(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64;
+    <span class="doccomment">/// Change the height of this leaf.
+    </span><span class="kw">fn </span>set_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, height: u64);
+    <span class="doccomment">/// The QC linking this leaf to its parent in the chain.
+    </span><span class="kw">fn </span>get_justify_qc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; QuorumCertificate&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;;
+    <span class="doccomment">/// Commitment to this leaf&#39;s parent.
+    </span><span class="kw">fn </span>get_parent_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Commitment&lt;<span class="self">Self</span>&gt;;
+    <span class="doccomment">/// The block contained in this leaf.
+    </span><span class="kw">fn </span>get_deltas(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::DeltasType;
+    <span class="doccomment">/// The blockchain state after appending this leaf.
+    </span><span class="kw">fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::StateCommitmentType;
+    <span class="doccomment">/// Transactions rejected or invalidated by the application of this leaf.
+    </span><span class="kw">fn </span>get_rejected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;&lt;&lt;<span class="self">Self</span>::NodeType <span class="kw">as </span>NodeType&gt;::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt;;
+    <span class="doccomment">/// Real-world time when this leaf was created.
+    </span><span class="kw">fn </span>get_timestamp(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; i128;
+    <span class="doccomment">/// Identity of the network participant who proposed this leaf.
+    </span><span class="kw">fn </span>get_proposer_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EncodedPublicKey;
+    <span class="doccomment">/// Create a leaf from information stored about a view.
+    </span><span class="kw">fn </span>from_stored_view(stored_view: StoredView&lt;<span class="self">Self</span>::NodeType, <span class="self">Self</span>&gt;) -&gt; <span class="self">Self</span>;
 }
 
-<span class="kw">pub trait </span>TestableLeaf {
-    <span class="kw">type </span>NodeType: NodeType;
+<span class="doccomment">/// Additional functions required to use a [`LeafType`] with hotshot-testing.
+</span><span class="kw">pub trait </span>TestableLeaf {
+    <span class="doccomment">/// Type of nodes participating in the network.
+    </span><span class="kw">type </span>NodeType: NodeType;
 
-    <span class="kw">fn </span>create_random_transaction(
+    <span class="doccomment">/// Create a transaction that can be added to the block contained in this leaf.
+    </span><span class="kw">fn </span>create_random_transaction(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore,
         padding: u64,
@@ -1215,11 +1247,13 @@
     }
 }
 <span class="doccomment">/// Fake the thing a genesis block points to. Needed to avoid infinite recursion
+</span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>fake_commitment&lt;S: Committable&gt;() -&gt; Commitment&lt;S&gt; {
     commit::RawCommitmentBuilder::new(<span class="string">&quot;Dummy commitment for arbitrary genesis&quot;</span>).finalize()
 }
 
 <span class="doccomment">/// create a random commitment
+</span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>random_commitment&lt;S: Committable&gt;(rng: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>rand::RngCore) -&gt; Commitment&lt;S&gt; {
     <span class="kw">let </span>random_array: Vec&lt;u8&gt; = (<span class="number">0u8</span>..<span class="number">100u8</span>).map(|<span class="kw">_</span>| rng.gen_range(<span class="number">0</span>..<span class="number">255</span>)).collect();
     commit::RawCommitmentBuilder::new(<span class="string">&quot;Random Commitment&quot;</span>)

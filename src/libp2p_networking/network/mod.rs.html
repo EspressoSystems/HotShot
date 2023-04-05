@@ -277,6 +277,7 @@
 <a href="#277" id="277">277</a>
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
 </pre><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p&#39;s behaviours
 </span><span class="kw">pub mod </span>behaviours;
 <span class="kw">mod </span>def;
@@ -471,6 +472,7 @@
 
 <span class="doccomment">/// Bind all interfaces on port `port`
 /// NOTE we may want something more general in the fture.
+</span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>gen_multiaddr(port: u16) -&gt; Multiaddr {
     <span class="macro">build_multiaddr!</span>(Ip4([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]), Tcp(port))
 }

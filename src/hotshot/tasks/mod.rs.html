@@ -381,6 +381,15 @@
 <a href="#381" id="381">381</a>
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides a number of tasks that run continuously on a [`HotShot`]
 
 </span><span class="kw">use crate</span>::{types::HotShotHandle, HotShot, HotShotConsensusApi, ViewRunner};
@@ -429,7 +438,10 @@
 }
 <span class="kw">impl</span>&lt;TYPES: NodeType&gt; TaskHandle&lt;TYPES&gt; {
     <span class="doccomment">/// Start the round runner. This will make it run until `pause` is called
-    </span><span class="attr">#[allow(clippy::missing_panics_doc)]
+    ///
+    /// # Panics
+    ///
+    /// If the [`TaskHandle`] has not been properly initialized.
     </span><span class="kw">pub async fn </span>start(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span>handle = <span class="self">self</span>.inner.read().<span class="kw">await</span>;
         <span class="kw">if </span>handle.is_some() {
@@ -440,7 +452,10 @@
 
     <span class="doccomment">/// Make the round runner run 1 round.
     /// Does/should not block.
-    </span><span class="attr">#[allow(clippy::missing_panics_doc)]
+    ///
+    /// # Panics
+    ///
+    /// If the [`TaskHandle`] has not been properly initialized.
     </span><span class="kw">pub async fn </span>start_one_round(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span>handle = <span class="self">self</span>.inner.read().<span class="kw">await</span>;
         <span class="kw">if </span>handle.is_some() {
@@ -455,7 +470,10 @@
     }
 
     <span class="doccomment">/// Wait until all underlying handles are shut down
-    </span><span class="attr">#[allow(clippy::missing_panics_doc)]
+    ///
+    /// # Panics
+    ///
+    /// If the [`TaskHandle`] has not been properly initialized.
     </span><span class="kw">pub async fn </span>wait_shutdown(<span class="kw-2">&amp;</span><span class="self">self</span>, send_network_lookup: UnboundedSender&lt;<span class="prelude-ty">Option</span>&lt;TYPES::Time&gt;&gt;) {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.write().<span class="kw">await</span>.take().unwrap();
 

@@ -773,7 +773,7 @@
             quorum_exchange,
             committee_exchange,
             initializer,
-            NoMetrics::new(),
+            NoMetrics::boxed(),
         )
         .<span class="kw">await
         </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>);

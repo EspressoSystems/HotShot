@@ -168,7 +168,6 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Vote and vote accumulator types
 //!
 //! This module contains types used to represent the various types of votes that `HotShot` nodes
@@ -295,7 +294,6 @@
 
 <span class="doccomment">/// Describe the process of collecting signatures on block or leaf commitment, to form a DAC or QC,
 /// respectively.
-</span><span class="attr">#[allow(clippy::missing_docs_in_private_items)]
 </span><span class="kw">pub struct </span>VoteAccumulator&lt;TOKEN, LEAF: Committable&gt; {
     <span class="doccomment">/// Map of all signatures accumlated so far
     </span><span class="kw">pub </span>vote_outcomes: VoteMap&lt;LEAF, TOKEN&gt;,

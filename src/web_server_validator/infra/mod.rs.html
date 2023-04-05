@@ -1208,11 +1208,11 @@
             sk,
             config.node_index,
             config.config,
-            MemoryStorage::new(),
+            MemoryStorage::empty(),
             quorum_exchange,
             committee_exchange,
             initializer,
-            NoMetrics::new(),
+            NoMetrics::boxed(),
         )
         .<span class="kw">await
         </span>.expect(<span class="string">&quot;Could not init hotshot&quot;</span>);
@@ -1513,7 +1513,7 @@
 
         <span class="kw">let </span>node_config = config_builder.build().unwrap();
         <span class="kw">let </span>network = Libp2pNetwork::new(
-            NoMetrics::new(),
+            NoMetrics::boxed(),
             node_config,
             pubkey.clone(),
             Arc::new(RwLock::new(
@@ -1766,7 +1766,6 @@
 
     <span class="doccomment">/// Tells the orchestrator this validator is ready to start
     /// Blocks until the orchestrator indicates all nodes are ready to start
-    </span><span class="attr">#[allow(clippy::let_unit_value)]
     </span><span class="kw">async fn </span>wait_for_all_nodes_ready(<span class="kw-2">&amp;</span><span class="self">self</span>, node_index: u64) -&gt; bool {
         <span class="kw">let </span>send_ready_f = |client: Client&lt;ClientError&gt;| {
             <span class="kw">async move </span>{
@@ -1780,7 +1779,8 @@
             }
             .boxed()
         };
-        () = <span class="self">self</span>.wait_for_fn_from_orchestrator(send_ready_f).<span class="kw">await</span>;
+        <span class="self">self</span>.wait_for_fn_from_orchestrator::&lt;<span class="kw">_</span>, <span class="kw">_</span>, ()&gt;(send_ready_f)
+            .<span class="kw">await</span>;
 
         <span class="kw">let </span>wait_for_all_nodes_ready_f = |client: Client&lt;ClientError&gt;| {
             <span class="kw">async move </span>{ client.get(<span class="string">&quot;api/start&quot;</span>).send().<span class="kw">await </span>}.boxed()

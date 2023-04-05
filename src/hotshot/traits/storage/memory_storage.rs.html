@@ -213,9 +213,6 @@
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
 <a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
 </pre><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
@@ -251,12 +248,10 @@
     </span>inner: Arc&lt;RwLock&lt;MemoryStorageInternal&lt;TYPES, LEAF&gt;&gt;&gt;,
 }
 
-<span class="attr">#[allow(clippy::new_without_default)]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; MemoryStorage&lt;TYPES, LEAF&gt; {
+<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; MemoryStorage&lt;TYPES, LEAF&gt; {
     <span class="doccomment">/// Create a new instance of the memory storage with the given block and state
-    /// NOTE: left as `new` because this API is not stable
-    /// we may add arguments to new in the future
-    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>empty() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>inner = MemoryStorageInternal {
             stored: BTreeMap::new(),
             failed: BTreeSet::new(),
@@ -272,7 +267,7 @@
     <span class="kw">for </span>MemoryStorage&lt;TYPES, LEAF&gt;
 {
     <span class="kw">fn </span>construct_tmp_storage() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::new())
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>::empty())
     }
 
     <span class="kw">async fn </span>get_full_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StorageState&lt;TYPES, LEAF&gt; {
@@ -343,8 +338,7 @@
     <span class="kw">use </span>hotshot_types::constants::genesis_proposer_id;
     <span class="kw">use </span>hotshot_types::data::fake_commitment;
     <span class="kw">use </span>hotshot_types::data::{ValidatingLeaf, ViewNumber};
-    <span class="attr">#[allow(clippy::wildcard_imports)]
-    </span><span class="kw">use </span>hotshot_types::traits::block_contents::dummy::<span class="kw-2">*</span>;
+    <span class="kw">use </span>hotshot_types::traits::block_contents::dummy::{DummyBlock, DummyState};
     <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeType;
     <span class="kw">use </span>hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
     <span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;

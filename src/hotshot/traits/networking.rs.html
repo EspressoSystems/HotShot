@@ -53,7 +53,6 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! This module contains a trait abstracting over network access, as well as implementations of that
@@ -93,8 +92,7 @@
 
 <span class="kw">impl </span>NetworkingMetrics {
     <span class="doccomment">/// Create a new instance of this [`NetworkingMetrics`] struct, setting all the counters and gauges
-    </span><span class="attr">#[allow(clippy::needless_pass_by_value)] </span><span class="comment">// with the metrics API is it more ergonomic to pass a `Box&lt;dyn Metrics&gt;` around
-    </span><span class="kw">pub</span>(<span class="self">self</span>) <span class="kw">fn </span>new(metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub</span>(<span class="self">self</span>) <span class="kw">fn </span>new(metrics: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Metrics) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             connected_peers: metrics.create_gauge(String::from(<span class="string">&quot;connected_peers&quot;</span>), <span class="prelude-val">None</span>),
             incoming_message_count: metrics

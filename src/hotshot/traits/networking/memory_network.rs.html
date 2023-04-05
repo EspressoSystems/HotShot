@@ -951,6 +951,7 @@
 
 <span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey&gt; MasterMap&lt;M, K&gt; {
     <span class="doccomment">/// Create a new, empty, `MasterMap`
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new() -&gt; Arc&lt;MasterMap&lt;M, K&gt;&gt; {
         Arc::new(MasterMap {
             map: DashMap::new(),
@@ -969,9 +970,6 @@
 
 <span class="doccomment">/// Internal state for a `MemoryNetwork` instance
 </span><span class="kw">struct </span>MemoryNetworkInner&lt;M: NetworkMsg, K: SignatureKey&gt; {
-    <span class="doccomment">/// The public key of this node
-    </span><span class="attr">#[allow(dead_code)]
-    </span>pub_key: K,
     <span class="doccomment">/// Input for broadcast messages
     </span>broadcast_input: RwLock&lt;<span class="prelude-ty">Option</span>&lt;Sender&lt;Vec&lt;u8&gt;&gt;&gt;&gt;,
     <span class="doccomment">/// Input for direct messages
@@ -1126,14 +1124,13 @@
         <span class="macro">trace!</span>(<span class="string">&quot;Task spawned, creating MemoryNetwork&quot;</span>);
         <span class="kw">let </span>mn = MemoryNetwork {
             inner: Arc::new(MemoryNetworkInner {
-                pub_key: pub_key.clone(),
                 broadcast_input: RwLock::new(<span class="prelude-val">Some</span>(broadcast_input)),
                 direct_input: RwLock::new(<span class="prelude-val">Some</span>(direct_input)),
                 broadcast_output: Mutex::new(broadcast_output),
                 direct_output: Mutex::new(direct_output),
                 master_map: master_map.clone(),
                 in_flight_message_count,
-                metrics: NetworkingMetrics::new(metrics),
+                metrics: NetworkingMetrics::new(<span class="kw-2">&amp;*</span>metrics),
             }),
         };
         master_map.map.insert(pub_key, mn.clone());
@@ -1193,7 +1190,7 @@
             <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
             MemoryCommChannel::new(MemoryNetwork::new(
                 pubkey,
-                NoMetrics::new(),
+                NoMetrics::boxed(),
                 master.clone(),
                 <span class="prelude-val">None</span>,
             ))
@@ -1355,6 +1352,7 @@
     &gt; MemoryCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 {
     <span class="doccomment">/// create new communication channel
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(network: MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(network, PhantomData::default())
     }
@@ -1560,7 +1558,7 @@
             MasterMap::new();
         <span class="macro">trace!</span>(<span class="question-mark">?</span>group);
         <span class="kw">let </span>pub_key = get_pubkey();
-        <span class="kw">let </span>_network = MemoryNetwork::new(pub_key, NoMetrics::new(), group, Option::None);
+        <span class="kw">let </span>_network = MemoryNetwork::new(pub_key, NoMetrics::boxed(), group, Option::None);
     }
 
     <span class="comment">// // Spawning a two MemoryNetworks and connecting them should produce no errors
@@ -1577,9 +1575,9 @@
         <span class="macro">trace!</span>(<span class="question-mark">?</span>group);
         <span class="kw">let </span>pub_key_1 = get_pubkey();
         <span class="kw">let </span>_network_1 =
-            MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
+            MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
         <span class="kw">let </span>pub_key_2 = get_pubkey();
-        <span class="kw">let </span>_network_2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
+        <span class="kw">let </span>_network_2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
     }
 
     <span class="comment">// Check to make sure direct queue works
@@ -1599,9 +1597,10 @@
             MasterMap::new();
         <span class="macro">trace!</span>(<span class="question-mark">?</span>group);
         <span class="kw">let </span>pub_key_1 = get_pubkey();
-        <span class="kw">let </span>network1 = MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
+        <span class="kw">let </span>network1 =
+            MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
         <span class="kw">let </span>pub_key_2 = get_pubkey();
-        <span class="kw">let </span>network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
+        <span class="kw">let </span>network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
 
         <span class="kw">let </span>first_messages: Vec&lt;Message&lt;Test, TestImpl&gt;&gt; = gen_messages(<span class="number">5</span>, <span class="number">100</span>, pub_key_1);
 
@@ -1655,9 +1654,10 @@
             MasterMap::new();
         <span class="macro">trace!</span>(<span class="question-mark">?</span>group);
         <span class="kw">let </span>pub_key_1 = get_pubkey();
-        <span class="kw">let </span>network1 = MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
+        <span class="kw">let </span>network1 =
+            MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
         <span class="kw">let </span>pub_key_2 = get_pubkey();
-        <span class="kw">let </span>network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
+        <span class="kw">let </span>network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
 
         <span class="kw">let </span>first_messages: Vec&lt;Message&lt;Test, TestImpl&gt;&gt; = gen_messages(<span class="number">5</span>, <span class="number">100</span>, pub_key_1);
 
@@ -1717,9 +1717,9 @@
         // &gt; = MasterMap::new();
         // trace!(?group);
         // let pub_key_1 = get_pubkey();
-        // let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::new(), group.clone(), Option::None);
+        // let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
         // let pub_key_2 = get_pubkey();
-        // let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::new(), group, Option::None);
+        // let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
         //
         // // Create some dummy messages
         // let messages: Vec&lt;Message&lt;Test, TestImpl&gt;&gt; = gen_messages(5, 100, pub_key_1);

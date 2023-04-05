@@ -569,7 +569,6 @@
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
 <a href="#571" id="571">571</a>
-<a href="#572" id="572">572</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`SequencingReplica`] struct used for the replica step in the consensus algorithm with DA
 //! committee, i.e. in the sequencing consensus.
 
@@ -1094,10 +1093,9 @@
                     <span class="kw-2">*</span>txns = txns
                         .drain()
                         .filter(|(txn_hash, txn)| {
-                            <span class="attr">#[allow(clippy::cast_possible_wrap)]
-                            </span><span class="kw">if </span>included_txns_set.contains(txn_hash) {
+                            <span class="kw">if </span>included_txns_set.contains(txn_hash) {
                                 included_txn_size +=
-                                    bincode_opts().serialized_size(txn).unwrap_or_default() <span class="kw">as </span>i64;
+                                    bincode_opts().serialized_size(txn).unwrap_or_default();
                                 <span class="bool-val">false
                             </span>} <span class="kw">else </span>{
                                 <span class="bool-val">true
@@ -1113,7 +1111,7 @@
             consensus
                 .metrics
                 .outstanding_transactions_memory_size
-                .update(-included_txn_size);
+                .update(-(i64::try_from(included_txn_size).unwrap_or(i64::MAX)));
 
             consensus
                 .metrics

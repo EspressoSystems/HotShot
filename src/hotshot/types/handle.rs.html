@@ -385,6 +385,7 @@
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 </span><span class="kw">use </span><span class="kw">crate</span>::Message;
@@ -664,6 +665,7 @@
     <span class="comment">// Below is for testing only:
 
     </span><span class="doccomment">/// Wrapper for `HotShotConsensusApi`&#39;s `get_leader` function
+    </span><span class="attr">#[allow(clippy::unused_async)] </span><span class="comment">// async for API compatibility reasons
     </span><span class="attr">#[cfg(feature = <span class="string">&quot;hotshot-testing&quot;</span>)]
     </span><span class="kw">pub async fn </span>get_leader(<span class="kw-2">&amp;</span><span class="self">self</span>, view_number: TYPES::Time) -&gt; TYPES::SignatureKey {
         <span class="self">self</span>.hotshot.inner.quorum_exchange.get_leader(view_number)

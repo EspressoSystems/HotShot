@@ -26,14 +26,7 @@
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
-<a href="#29" id="29">29</a>
-<a href="#30" id="30">30</a>
-<a href="#31" id="31">31</a>
-</pre><pre class="rust"><code><span class="attr">#![allow(
-    clippy::must_use_candidate,
-    clippy::module_name_repetitions,
-    clippy::type_complexity
-)]
+</pre><pre class="rust"><code><span class="attr">#![allow(clippy::module_name_repetitions, clippy::type_complexity)]
 </span><span class="kw">use </span>bincode::{
     config::{
         LittleEndian, RejectTrailing, VarintEncoding, WithOtherEndian, WithOtherIntEncoding,
@@ -47,6 +40,7 @@
 ///   - Litte endian encoding
 ///   - Varint encoding
 ///   - Reject trailing bytes
+</span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>bincode_opts() -&gt; WithOtherTrailing&lt;
     WithOtherIntEncoding&lt;
         WithOtherEndian&lt;WithOtherLimit&lt;DefaultOptions, bincode::config::Infinite&gt;, LittleEndian&gt;,

@@ -11,6 +11,7 @@
 <a href="#11" id="11">11</a>
 <a href="#12" id="12">12</a>
 <a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
 </pre><pre class="rust"><code><span class="doccomment">//! configurable constants for hotshot
 
 </span><span class="kw">use </span><span class="kw">crate</span>::traits::signature_key::EncodedPublicKey;
@@ -21,6 +22,7 @@
 <span class="doccomment">/// the genesis proposer pk
 /// unfortunately need to allocate on the heap (for vec), so this ends up as a function instead of a
 /// const
+</span><span class="attr">#[must_use]
 </span><span class="kw">pub fn </span>genesis_proposer_id() -&gt; EncodedPublicKey {
     EncodedPublicKey(<span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">2</span>])
 }

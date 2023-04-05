@@ -71,6 +71,8 @@
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::time::{Duration, Instant};
 
 <span class="doccomment">/// Track (with exponential backoff)
@@ -89,6 +91,7 @@
 
 <span class="kw">impl </span>ExponentialBackoff {
     <span class="doccomment">/// Create new backoff
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>new(backoff_factor: u32, next_timeout: Duration) -&gt; <span class="self">Self </span>{
         ExponentialBackoff {
             backoff_factor,
@@ -125,6 +128,7 @@
     }
 
     <span class="doccomment">/// Whether or not the timeout is expired
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>is_expired(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(then) = <span class="self">self</span>.started {
             then.elapsed() &gt; <span class="self">self</span>.timeout

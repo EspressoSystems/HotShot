@@ -125,6 +125,11 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
 </pre><pre class="rust"><code><span class="kw">use </span>ed25519_compact::{KeyPair, SecretKey, Seed};
 <span class="kw">use </span>espresso_systems_common::hotshot::tag::PRIVKEY_ID;
 <span class="kw">use </span>serde::{de::Error, Deserialize, Serialize};
@@ -141,6 +146,7 @@
 
 <span class="kw">impl </span>Ed25519Priv {
     <span class="doccomment">/// Generate a new private key from scratch
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>generate() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>key_pair = KeyPair::generate();
         <span class="kw">let </span>priv_key = key_pair.sk;
@@ -148,6 +154,7 @@
     }
 
     <span class="doccomment">/// Generate a new private key from a seed
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>generate_from_seed(seed: [u8; <span class="number">32</span>]) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>key_pair = KeyPair::from_seed(Seed::new(seed));
         <span class="kw">let </span>priv_key = key_pair.sk;
@@ -158,6 +165,7 @@
     ///
     /// Hashes the seed and the number together using blake3. This method is
     /// useful for testing
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>generated_from_seed_indexed(seed: [u8; <span class="number">32</span>], index: u64) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>hasher = blake3::Hasher::new();
         hasher.update(<span class="kw-2">&amp;</span>seed);
@@ -179,12 +187,14 @@
     }
 
     <span class="doccomment">/// Convert a private key to bytes
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>to_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
         <span class="self">self</span>.priv_key.to_vec()
     }
 
     <span class="doccomment">/// Return the [`TaggedBase64`] representation of this key.
     </span><span class="attr">#[allow(clippy::missing_panics_doc)] </span><span class="comment">// `TaggedBase64::new()` only panics if `PRIVKEY_ID` is not valid base64, which it is.
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>to_tagged_base64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TaggedBase64 {
         TaggedBase64::new(PRIVKEY_ID, <span class="self">self</span>.priv_key.as_ref()).unwrap()
     }

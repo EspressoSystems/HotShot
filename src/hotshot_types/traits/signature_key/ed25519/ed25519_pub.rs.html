@@ -158,6 +158,7 @@
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
 </pre><pre class="rust"><code><span class="kw">use super</span>::{Ed25519Priv, EncodedPublicKey, EncodedSignature, SignatureKey, TestableSignatureKey};
 <span class="kw">use </span>ed25519_compact::{PublicKey, Signature};
 <span class="kw">use </span>espresso_systems_common::hotshot::tag::PEER_ID;
@@ -202,6 +203,7 @@
 <span class="kw">impl </span>Ed25519Pub {
     <span class="doccomment">/// Return the [`TaggedBase64`] representation of this key.
     </span><span class="attr">#[allow(clippy::missing_panics_doc)] </span><span class="comment">// `TaggedBase64::new()` only panics if `PEER_ID` is not valid base64, which it is.
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>to_tagged_base64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TaggedBase64 {
         TaggedBase64::new(PEER_ID, <span class="self">self</span>.pub_key.as_ref()).unwrap()
     }

@@ -344,7 +344,7 @@
     clippy::missing_docs_in_private_items,
     clippy::panic
 )]
-#![allow(clippy::module_name_repetitions, clippy::unused_async)]
+#![allow(clippy::module_name_repetitions)]
 
 </span><span class="kw">mod </span>da_member;
 <span class="kw">mod </span>leader;
@@ -509,9 +509,8 @@
 
 <span class="kw">impl </span>ConsensusMetrics {
     <span class="doccomment">/// Create a new instance of this [`ConsensusMetrics`] struct, setting all the counters and gauges
-    </span><span class="attr">#[allow(clippy::needless_pass_by_value)] </span><span class="comment">// with the metrics API is it more ergonomic to pass a `Box&lt;dyn Metrics&gt;` around
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(metrics: Box&lt;<span class="kw">dyn </span>Metrics&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(metrics: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Metrics) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             current_view: metrics.create_gauge(String::from(<span class="string">&quot;current_view&quot;</span>), <span class="prelude-val">None</span>),
             vote_validate_duration: metrics.create_histogram(
@@ -622,6 +621,7 @@
     <span class="doccomment">/// garbage collects based on state change
     /// right now, this removes from both the `saved_leaves`
     /// and `state_map` fields of `Consensus`
+    </span><span class="attr">#[allow(clippy::unused_async)] </span><span class="comment">// async for API compatibility reasons
     </span><span class="kw">pub async fn </span>collect_garbage(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         old_anchor_view: TYPES::Time,

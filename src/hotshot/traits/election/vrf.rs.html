@@ -1251,8 +1251,6 @@
 <a href="#1251" id="1251">1251</a>
 <a href="#1252" id="1252">1252</a>
 <a href="#1253" id="1253">1253</a>
-<a href="#1254" id="1254">1254</a>
-<a href="#1255" id="1255">1255</a>
 </pre><pre class="rust"><code><span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>ark_ec::bls12::Bls12Parameters;
 <span class="kw">use </span>bincode::Options;
@@ -1505,9 +1503,7 @@
         <span class="kw">let </span>new_seed = <span class="kw-2">*</span>hasher.finalize().as_bytes();
         <span class="kw">let </span><span class="kw-2">mut </span>prng = rand::rngs::StdRng::from_seed(new_seed);
 
-        <span class="attr">#[allow(clippy::let_unit_value)]
-        </span><span class="kw">let </span>parameters = SIGSCHEME::param_gen(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span>prng)).unwrap();
-        <span class="kw">let </span>(sk, pk) = SIGSCHEME::key_gen(<span class="kw-2">&amp;</span>parameters, <span class="kw-2">&amp;mut </span>prng).unwrap();
+        <span class="kw">let </span>(sk, pk) = SIGSCHEME::key_gen(<span class="kw-2">&amp;</span>(), <span class="kw-2">&amp;mut </span>prng).unwrap();
         (
             <span class="self">Self </span>{
                 pk: pk.clone(),
@@ -1520,6 +1516,7 @@
 
 <span class="kw">impl</span>&lt;VRF, VRFHASHER, VRFPARAMS&gt; VRFStakeTable&lt;VRF, VRFHASHER, VRFPARAMS&gt; {
     <span class="doccomment">/// get total stake
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_all_stake(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
         <span class="self">self</span>.total_stake
     }
@@ -1906,6 +1903,7 @@
 <span class="kw">impl </span>BinomialQuery {
     <span class="doccomment">/// get the committee parameter
     /// for this query
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>get_p(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Ratio&lt;BigUint&gt; {
         <span class="kw">let </span>sortition_parameter_big: BigUint = BigUint::from(<span class="self">self</span>.sortition_parameter);
         <span class="kw">let </span>total_stake_big: BigUint = BigUint::from(<span class="self">self</span>.total_stake);
@@ -2126,6 +2124,7 @@
     <span class="doccomment">/// create stake table with this initial stake
     /// # Panics
     /// TODO
+    </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>with_initial_stake(
         known_nodes: Vec&lt;JfPubKey&lt;SIGSCHEME&gt;&gt;,
         config: <span class="kw-2">&amp;</span>VRFStakeTableConfig,
@@ -2401,10 +2400,7 @@
 //         let stake_per_node = NonZeroU64::new(100).unwrap();
 //         let genesis_seed = [0u8; 32];
 //         for _i in 0..num_nodes {
-//             // TODO we should make this more general/use different parameters
-//             #[allow(clippy::let_unit_value)]
-//             let parameters = BLSSignatureScheme::&lt;Param381&gt;::param_gen(Some(rng)).unwrap();
-//             let (sk, pk) = BLSSignatureScheme::&lt;Param381&gt;::key_gen(&amp;parameters, rng).unwrap();
+//             let (sk, pk) = BLSSignatureScheme::&lt;Param381&gt;::key_gen(&amp;(), rng).unwrap();
 //             keys.push((sk.clone(), pk.clone()));
 //             known_nodes.push(JfPubKey::from_native(pk.clone()));
 //             stake_distribution.push(stake_per_node);
