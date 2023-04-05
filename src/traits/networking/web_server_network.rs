@@ -736,7 +736,9 @@ where
         let (server_shutdown_sender, server_shutdown) = oneshot();
         let sender = Arc::new(server_shutdown_sender);
         // Start web server
-        async_spawn(hotshot_web_server::run_web_server::<TYPES::SignatureKey>(Some(server_shutdown)));
+        async_spawn(hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
+            Some(server_shutdown),
+        ));
 
         let known_nodes = (0..expected_node_count as u64)
             .map(|id| {

@@ -6,6 +6,8 @@ use clap::Args;
 use config::DEFAULT_WEB_SERVER_PORT;
 use futures::FutureExt;
 
+use hotshot_types::traits::signature_key::EncodedPublicKey;
+use hotshot_types::traits::signature_key::SignatureKey;
 use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
@@ -17,8 +19,6 @@ use tide_disco::Api;
 use tide_disco::App;
 use tide_disco::StatusCode;
 use tracing::error;
-use hotshot_types::traits::signature_key::SignatureKey;
-use hotshot_types::traits::signature_key::EncodedPublicKey;
 
 type State<KEY> = RwLock<WebServerState<KEY>>;
 type Error = ServerError;
@@ -191,10 +191,9 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         } else {
             Err(ServerError {
                 status: StatusCode::BadRequest,
-                message: format!("Only signature keys can be added to stake table"),
+                message: "Only signature keys can be added to stake table".to_string(),
             })
         }
-        
     }
 }
 
@@ -280,7 +279,9 @@ where
     Ok(api)
 }
 
-pub async fn run_web_server<KEY: SignatureKey + 'static>(shutdown_listener: Option<OneShotReceiver<()>>) -> io::Result<()> {
+pub async fn run_web_server<KEY: SignatureKey + 'static>(
+    shutdown_listener: Option<OneShotReceiver<()>>,
+) -> io::Result<()> {
     let options = Options::default();
     let api = define_api(&options).unwrap();
     let state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
@@ -300,9 +301,9 @@ mod test {
 
     use super::*;
     use async_compatibility_layer::art::async_spawn;
+    use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
     use portpicker::pick_unused_port;
     use surf_disco::error::ClientError;
-    use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
 
     type State = RwLock<WebServerState<Ed25519Pub>>;
     type Error = ServerError;

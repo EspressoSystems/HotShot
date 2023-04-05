@@ -10,16 +10,15 @@ use std::net::SocketAddr;
 use tide_disco::Api;
 use tide_disco::App;
 
+use surf_disco::error::ClientError;
 use tide_disco::api::ApiError;
 use tide_disco::error::ServerError;
 use tide_disco::method::ReadState;
 use tide_disco::method::WriteState;
-use surf_disco::error::ClientError;
 
 use futures::FutureExt;
 
 use crate::config::NetworkConfig;
-
 
 use libp2p::identity::{
     ed25519::{Keypair as EdKeypair, SecretKey},
@@ -50,7 +49,7 @@ struct OrchestratorState<KEY, ELECTION> {
     /// The total nodes that have posted they are ready to start
     pub nodes_connected: u64,
     /// connection to the web server
-    client: Option<surf_disco::Client<ClientError>>
+    client: Option<surf_disco::Client<ClientError>>,
 }
 
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
@@ -59,9 +58,9 @@ impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
     pub fn new(network_config: NetworkConfig<KEY, ELECTION>) -> Self {
         let mut web_client = None;
         if network_config.web_server_config.is_some() {
-            let base_url = format!("http://0.0.0.0/9000").parse().unwrap();
+            let base_url = "http://0.0.0.0/9000".to_string().parse().unwrap();
             web_client = Some(surf_disco::Client::<ClientError>::new(base_url));
-        } 
+        }
         OrchestratorState {
             latest_index: 0,
             config: network_config,
@@ -111,7 +110,8 @@ where
                     .unwrap()
                     .send()
                     .await
-            }.boxed();  
+            }
+            .boxed();
         }
 
         if self.config.libp2p_config.clone().is_some() {
