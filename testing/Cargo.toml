@@ -89,4 +89,4 @@ serde = { version = "1.0.158", features = ["derive"] }
 [dev-dependencies]
 async-lock = "2.7"
 proptest = "1.1.0"
-tempfile = "3.4.0"
+tempfile = "3.5.0"
