@@ -14,10 +14,12 @@ use tide_disco::api::ApiError;
 use tide_disco::error::ServerError;
 use tide_disco::method::ReadState;
 use tide_disco::method::WriteState;
+use surf_disco::error::ClientError;
 
 use futures::FutureExt;
 
 use crate::config::NetworkConfig;
+
 
 use libp2p::identity::{
     ed25519::{Keypair as EdKeypair, SecretKey},
@@ -48,19 +50,27 @@ struct OrchestratorState<KEY, ELECTION> {
     /// The total nodes that have posted they are ready to start
     pub nodes_connected: u64,
     /// stake table
-    stake_table: Vec<KEY>
+    stake_table: Vec<KEY>,
+    /// connection to the web server
+    client: Option<surf_disco::Client<ClientError>>
 }
 
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
     OrchestratorState<KEY, ELECTION>
 {
     pub fn new(network_config: NetworkConfig<KEY, ELECTION>) -> Self {
+        let mut web_client = None;
+        if network_config.web_server_config.is_some() {
+            let base_url = format!("http://0.0.0.0/9000").parse().unwrap();
+            web_client = Some(surf_disco::Client::<ClientError>::new(base_url));
+        } 
         OrchestratorState {
             latest_index: 0,
             config: network_config,
             start: false,
             nodes_connected: 0,
             stake_table: Vec::new(),
+            client: web_client,
         }
     }
 }
@@ -80,7 +90,7 @@ pub trait OrchestratorApi<KEY, ELECTION> {
 impl<KEY, ELECTION> OrchestratorApi<KEY, ELECTION> for OrchestratorState<KEY, ELECTION>
 where
     KEY: serde::Serialize + Clone + SignatureKey,
-    ELECTION: serde::Serialize + Clone,
+    ELECTION: serde::Serialize + Clone + Send,
 {
     fn post_identity(&mut self, identity: IpAddr) -> Result<u16, ServerError> {
         let node_index = self.latest_index;
@@ -92,6 +102,20 @@ where
                 status: tide_disco::StatusCode::BadRequest,
                 message: "Network has reached capacity".to_string(),
             });
+        }
+
+        //add new node's key to stake table
+        if self.config.web_server_config.clone().is_some() {
+            let new_key = KEY::generated_from_seed_indexed(self.config.seed, node_index.into()).0;
+            let client_clone = self.client.clone().unwrap();
+            async move {
+                client_clone
+                    .post::<()>("api/staketable")
+                    .body_binary(&new_key)
+                    .unwrap()
+                    .send()
+                    .await
+            }.boxed();  
         }
 
         if self.config.libp2p_config.clone().is_some() {
@@ -166,6 +190,7 @@ where
         Ok(())
     }
 
+    //KALEY TODO: I added this endpoint, but we may not end up needing it
     fn get_stake_table(&self) -> Result<Vec<KEY>, ServerError> {
         if self.stake_table.is_empty() {
             return Err(ServerError {

@@ -17,8 +17,10 @@ use tide_disco::Api;
 use tide_disco::App;
 use tide_disco::StatusCode;
 use tracing::error;
+use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_types::traits::signature_key::EncodedPublicKey;
 
-type State = RwLock<WebServerState>;
+type State<KEY> = RwLock<WebServerState<KEY>>;
 type Error = ServerError;
 
 // TODO ED: Below values should be in a config file
@@ -30,7 +32,7 @@ const MAX_TXNS: usize = 10;
 #[derive(Default)]
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
-struct WebServerState {
+struct WebServerState<KEY> {
     /// view number -> proposals
     proposals: HashMap<u64, Vec<Vec<u8>>>,
     /// view for oldest proposals in memory
@@ -47,16 +49,22 @@ struct WebServerState {
     num_txns: u64,
     /// shutdown signal
     shutdown: Option<OneShotReceiver<()>>,
+    /// stake table with leader keys
+    stake_table: Vec<KEY>,
 }
 
-impl WebServerState {
+impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
     fn new() -> Self {
         Self {
+            proposals: HashMap::new(),
+            votes: HashMap::new(),
             num_txns: 0,
             oldest_vote: 0,
             oldest_proposal: 0,
             shutdown: None,
-            ..Default::default()
+            stake_table: Vec::new(),
+            vote_index: HashMap::new(),
+            transactions: HashMap::new(),
         }
     }
     pub fn with_shutdown_signal(mut self, shutdown_listener: Option<OneShotReceiver<()>>) -> Self {
@@ -69,16 +77,17 @@ impl WebServerState {
 }
 
 /// Trait defining methods needed for the `WebServerState`
-pub trait WebServerDataSource {
+pub trait WebServerDataSource<KEY> {
     fn get_proposals(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn get_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
+    fn post_staketable(&mut self, key: Vec<u8>) -> Result<(), Error>;
 }
 
-impl WebServerDataSource for WebServerState {
+impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     /// Return all proposals the server has received for a particular view
     // TODO ED: Update so that only 1 proposal is ever stored per view
     fn get_proposals(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
@@ -172,6 +181,21 @@ impl WebServerDataSource for WebServerState {
 
         Ok(())
     }
+
+    fn post_staketable(&mut self, key: Vec<u8>) -> Result<(), Error> {
+        // KALEY TODO: need security checks here
+        let new_key = KEY::from_bytes(&(EncodedPublicKey(key)));
+        if let Some(new_key) = new_key {
+            self.stake_table.push(new_key);
+            Ok(())
+        } else {
+            Err(ServerError {
+                status: StatusCode::BadRequest,
+                message: format!("Only signature keys can be added to stake table"),
+            })
+        }
+        
+    }
 }
 
 #[derive(Args, Default)]
@@ -181,10 +205,11 @@ pub struct Options {
 }
 
 /// Sets up all API routes
-fn define_api<State>(options: &Options) -> Result<Api<State, Error>, ApiError>
+fn define_api<State, KEY>(options: &Options) -> Result<Api<State, Error>, ApiError>
 where
     State: 'static + Send + Sync + ReadState + WriteState,
-    <State as ReadState>::State: Send + Sync + WebServerDataSource,
+    <State as ReadState>::State: Send + Sync + WebServerDataSource<KEY>,
+    KEY: SignatureKey,
 {
     let mut api = match &options.api_path {
         Some(path) => Api::<State, Error>::from_file(path)?,
@@ -242,15 +267,24 @@ where
             state.post_transaction(txns)
         }
         .boxed()
+    })?
+    .post("poststaketable", |req, state| {
+        async move {
+            //works one key at a time for now
+            //= KEY::from_bytes(&(req.body_bytes() as EncodedPublicKey));
+            let key = req.body_bytes();
+            state.post_staketable(key)
+        }
+        .boxed()
     })?;
     Ok(api)
 }
 
-pub async fn run_web_server(shutdown_listener: Option<OneShotReceiver<()>>) -> io::Result<()> {
+pub async fn run_web_server<KEY: SignatureKey + 'static>(shutdown_listener: Option<OneShotReceiver<()>>) -> io::Result<()> {
     let options = Options::default();
     let api = define_api(&options).unwrap();
     let state = State::new(WebServerState::new().with_shutdown_signal(shutdown_listener));
-    let mut app = App::<State, Error>::with_state(state);
+    let mut app = App::<State<KEY>, Error>::with_state(state);
 
     app.register_module("api", api).unwrap();
     app.serve(format!("http://0.0.0.0:{DEFAULT_WEB_SERVER_PORT}"))
@@ -268,8 +302,9 @@ mod test {
     use async_compatibility_layer::art::async_spawn;
     use portpicker::pick_unused_port;
     use surf_disco::error::ClientError;
+    use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
 
-    type State = RwLock<WebServerState>;
+    type State = RwLock<WebServerState<Ed25519Pub>>;
     type Error = ServerError;
 
     #[cfg_attr(

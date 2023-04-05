@@ -3096,6 +3096,7 @@ dependencies = [
 name = "hotshot-web-server"
 version = "0.1.1"
 dependencies = [
+ "ark-bls12-381",
  "async-compatibility-layer",
  "async-lock",
  "async-std",
@@ -3106,6 +3107,7 @@ dependencies = [
  "futures",
  "hotshot-types",
  "hotshot-utils",
+ "jf-primitives",
  "libp2p-core 0.37.0",
  "nll",
  "portpicker",
