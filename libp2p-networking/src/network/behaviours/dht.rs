@@ -12,7 +12,7 @@ use libp2p::{
         GetClosestPeersOk, GetRecordOk, GetRecordResult, Kademlia, KademliaEvent, ProgressStep,
         PutRecordResult, QueryId, QueryResult, Quorum, Record,
     },
-    swarm::{NetworkBehaviour, NetworkBehaviourAction, THandlerOutEvent},
+    swarm::{NetworkBehaviour, THandlerOutEvent, ToSwarm},
     Multiaddr,
 };
 use libp2p_identity::PeerId;
@@ -518,7 +518,7 @@ impl NetworkBehaviour for DHTBehaviour {
         &mut self,
         cx: &mut std::task::Context<'_>,
         params: &mut impl libp2p::swarm::PollParameters,
-    ) -> Poll<NetworkBehaviourAction<DHTEvent, KademliaHandlerIn<QueryId>>> {
+    ) -> Poll<ToSwarm<DHTEvent, KademliaHandlerIn<QueryId>>> {
         if matches!(self.bootstrap_state.state, State::NotStarted)
             && self.bootstrap_state.backoff.is_expired()
             && self.begin_bootstrap
@@ -575,34 +575,31 @@ impl NetworkBehaviour for DHTBehaviour {
         // poll behaviour which is a passthrough and call inject event
         while let Poll::Ready(ready) = NetworkBehaviour::poll(&mut self.kadem, cx, params) {
             match ready {
-                NetworkBehaviourAction::GenerateEvent(e) => {
+                ToSwarm::GenerateEvent(e) => {
                     self.dht_handle_event(e);
                 }
-                NetworkBehaviourAction::Dial { opts } => {
-                    return Poll::Ready(NetworkBehaviourAction::Dial { opts });
+                ToSwarm::Dial { opts } => {
+                    return Poll::Ready(ToSwarm::Dial { opts });
                 }
-                NetworkBehaviourAction::NotifyHandler {
+                ToSwarm::NotifyHandler {
                     peer_id,
                     handler,
                     event,
                 } => {
-                    return Poll::Ready(NetworkBehaviourAction::NotifyHandler {
+                    return Poll::Ready(ToSwarm::NotifyHandler {
                         peer_id,
                         handler,
                         event,
                     });
                 }
-                NetworkBehaviourAction::ReportObservedAddr { address, score } => {
-                    return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
-                        address,
-                        score,
-                    });
+                ToSwarm::ReportObservedAddr { address, score } => {
+                    return Poll::Ready(ToSwarm::ReportObservedAddr { address, score });
                 }
-                NetworkBehaviourAction::CloseConnection {
+                ToSwarm::CloseConnection {
                     peer_id,
                     connection,
                 } => {
-                    return Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                    return Poll::Ready(ToSwarm::CloseConnection {
                         peer_id,
                         connection,
                     });
@@ -610,9 +607,7 @@ impl NetworkBehaviour for DHTBehaviour {
             }
         }
         if !self.event_queue.is_empty() {
-            return Poll::Ready(NetworkBehaviourAction::GenerateEvent(
-                self.event_queue.remove(0),
-            ));
+            return Poll::Ready(ToSwarm::GenerateEvent(self.event_queue.remove(0)));
         }
         Poll::Pending
     }
