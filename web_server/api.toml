@@ -57,4 +57,12 @@ DOC = """
 Post a transaction to the web server
 """
 
+# POST stake table
+[route.poststaketable]
+PATH = ["staketable"]
+METHOD = "POST"
+DOC = """
+Post the stake table to the web server
+"""
+
 

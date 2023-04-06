@@ -10,6 +10,7 @@ use std::net::SocketAddr;
 use tide_disco::Api;
 use tide_disco::App;
 
+use surf_disco::error::ClientError;
 use tide_disco::api::ApiError;
 use tide_disco::error::ServerError;
 use tide_disco::method::ReadState;
@@ -47,17 +48,25 @@ struct OrchestratorState<KEY, ELECTION> {
     start: bool,
     /// The total nodes that have posted they are ready to start
     pub nodes_connected: u64,
+    /// connection to the web server
+    client: Option<surf_disco::Client<ClientError>>,
 }
 
 impl<KEY: SignatureKey + 'static, ELECTION: ElectionConfig + 'static>
     OrchestratorState<KEY, ELECTION>
 {
     pub fn new(network_config: NetworkConfig<KEY, ELECTION>) -> Self {
+        let mut web_client = None;
+        if network_config.web_server_config.is_some() {
+            let base_url = "http://0.0.0.0/9000".to_string().parse().unwrap();
+            web_client = Some(surf_disco::Client::<ClientError>::new(base_url));
+        }
         OrchestratorState {
             latest_index: 0,
             config: network_config,
             start: false,
             nodes_connected: 0,
+            client: web_client,
         }
     }
 }
@@ -75,8 +84,8 @@ pub trait OrchestratorApi<KEY, ELECTION> {
 
 impl<KEY, ELECTION> OrchestratorApi<KEY, ELECTION> for OrchestratorState<KEY, ELECTION>
 where
-    KEY: serde::Serialize + Clone,
-    ELECTION: serde::Serialize + Clone,
+    KEY: serde::Serialize + Clone + SignatureKey,
+    ELECTION: serde::Serialize + Clone + Send,
 {
     fn post_identity(&mut self, identity: IpAddr) -> Result<u16, ServerError> {
         let node_index = self.latest_index;
@@ -88,6 +97,21 @@ where
                 status: tide_disco::StatusCode::BadRequest,
                 message: "Network has reached capacity".to_string(),
             });
+        }
+
+        //add new node's key to stake table
+        if self.config.web_server_config.clone().is_some() {
+            let new_key = KEY::generated_from_seed_indexed(self.config.seed, node_index.into()).0;
+            let client_clone = self.client.clone().unwrap();
+            async move {
+                client_clone
+                    .post::<()>("api/staketable")
+                    .body_binary(&new_key)
+                    .unwrap()
+                    .send()
+                    .await
+            }
+            .boxed();
         }
 
         if self.config.libp2p_config.clone().is_some() {
@@ -217,6 +241,7 @@ where
 
     let state: RwLock<OrchestratorState<KEY, ELECTION>> =
         RwLock::new(OrchestratorState::new(network_config));
+
     let mut app = App::<RwLock<OrchestratorState<KEY, ELECTION>>, ServerError>::with_state(state);
     app.register_module("api", api.unwrap())
         .expect("Error registering api");

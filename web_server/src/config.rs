@@ -23,3 +23,7 @@ pub fn get_transactions_route(index: u64) -> String {
 pub fn post_transactions_route() -> String {
     "api/transactions".to_string()
 }
+
+pub fn post_staketable_route() -> String {
+    "api/staketable".to_string()
+}
