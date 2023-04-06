@@ -127,7 +127,7 @@ digest = "0.10.6"
 either = { version = "1.8.1", features = [ "serde" ] }
 embed-doc-image = "0.1.4"
 espresso-systems-common = { git = "https://github.com/espressosystems/espresso-systems-common", tag = "0.4.1" }
-futures = "0.3.27"
+futures = "0.3.28"
 hotshot-centralized-server = { version = "0.1.1", path = "centralized_server", default-features = false }
 hotshot-web-server = { version = "0.1.1", path = "web_server", default-features = false }
 hotshot-consensus = { path = "./consensus", version = "0.1.0", default-features = false }
