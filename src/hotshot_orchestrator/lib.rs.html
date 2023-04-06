@@ -222,6 +222,31 @@
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>config;
 
 <span class="kw">use </span>async_lock::RwLock;
@@ -234,6 +259,7 @@
 <span class="kw">use </span>tide_disco::Api;
 <span class="kw">use </span>tide_disco::App;
 
+<span class="kw">use </span>surf_disco::error::ClientError;
 <span class="kw">use </span>tide_disco::api::ApiError;
 <span class="kw">use </span>tide_disco::error::ServerError;
 <span class="kw">use </span>tide_disco::method::ReadState;
@@ -271,17 +297,25 @@
     </span>start: bool,
     <span class="doccomment">/// The total nodes that have posted they are ready to start
     </span><span class="kw">pub </span>nodes_connected: u64,
+    <span class="doccomment">/// connection to the web server
+    </span>client: <span class="prelude-ty">Option</span>&lt;surf_disco::Client&lt;ClientError&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">&#39;static</span>, ELECTION: ElectionConfig + <span class="lifetime">&#39;static</span>&gt;
     OrchestratorState&lt;KEY, ELECTION&gt;
 {
     <span class="kw">pub fn </span>new(network_config: NetworkConfig&lt;KEY, ELECTION&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>web_client = <span class="prelude-val">None</span>;
+        <span class="kw">if </span>network_config.web_server_config.is_some() {
+            <span class="kw">let </span>base_url = <span class="string">&quot;http://0.0.0.0/9000&quot;</span>.to_string().parse().unwrap();
+            web_client = <span class="prelude-val">Some</span>(surf_disco::Client::&lt;ClientError&gt;::new(base_url));
+        }
         OrchestratorState {
             latest_index: <span class="number">0</span>,
             config: network_config,
             start: <span class="bool-val">false</span>,
             nodes_connected: <span class="number">0</span>,
+            client: web_client,
         }
     }
 }
@@ -299,8 +333,8 @@
 
 <span class="kw">impl</span>&lt;KEY, ELECTION&gt; OrchestratorApi&lt;KEY, ELECTION&gt; <span class="kw">for </span>OrchestratorState&lt;KEY, ELECTION&gt;
 <span class="kw">where
-    </span>KEY: serde::Serialize + Clone,
-    ELECTION: serde::Serialize + Clone,
+    </span>KEY: serde::Serialize + Clone + SignatureKey,
+    ELECTION: serde::Serialize + Clone + Send,
 {
     <span class="kw">fn </span>post_identity(<span class="kw-2">&amp;mut </span><span class="self">self</span>, identity: IpAddr) -&gt; <span class="prelude-ty">Result</span>&lt;u16, ServerError&gt; {
         <span class="kw">let </span>node_index = <span class="self">self</span>.latest_index;
@@ -312,6 +346,21 @@
                 status: tide_disco::StatusCode::BadRequest,
                 message: <span class="string">&quot;Network has reached capacity&quot;</span>.to_string(),
             });
+        }
+
+        <span class="comment">//add new node&#39;s key to stake table
+        </span><span class="kw">if </span><span class="self">self</span>.config.web_server_config.clone().is_some() {
+            <span class="kw">let </span>new_key = KEY::generated_from_seed_indexed(<span class="self">self</span>.config.seed, node_index.into()).<span class="number">0</span>;
+            <span class="kw">let </span>client_clone = <span class="self">self</span>.client.clone().unwrap();
+            <span class="kw">async move </span>{
+                client_clone
+                    .post::&lt;()&gt;(<span class="string">&quot;api/staketable&quot;</span>)
+                    .body_binary(<span class="kw-2">&amp;</span>new_key)
+                    .unwrap()
+                    .send()
+                    .<span class="kw">await
+            </span>}
+            .boxed();
         }
 
         <span class="kw">if </span><span class="self">self</span>.config.libp2p_config.clone().is_some() {
@@ -441,6 +490,7 @@
 
     <span class="kw">let </span>state: RwLock&lt;OrchestratorState&lt;KEY, ELECTION&gt;&gt; =
         RwLock::new(OrchestratorState::new(network_config));
+
     <span class="kw">let </span><span class="kw-2">mut </span>app = App::&lt;RwLock&lt;OrchestratorState&lt;KEY, ELECTION&gt;&gt;, ServerError&gt;::with_state(state);
     app.register_module(<span class="string">&quot;api&quot;</span>, api.unwrap())
         .expect(<span class="string">&quot;Error registering api&quot;</span>);
