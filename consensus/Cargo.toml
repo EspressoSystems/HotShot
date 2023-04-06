@@ -36,7 +36,7 @@ bincode = "1.3.3"
 commit = { git = "https://github.com/EspressoSystems/commit", tag = "0.2.2" }
 custom_debug = "0.5"
 either = { version = "1.8.1" }
-futures = "0.3.27"
+futures = "0.3.28"
 hotshot-types = { path = "../types", default-features = false }
 hotshot-utils = { path = "../utils"}
 snafu = "0.7.4"
