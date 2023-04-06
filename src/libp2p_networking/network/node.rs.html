@@ -601,10 +601,6 @@
 <a href="#601" id="601">601</a>
 <a href="#602" id="602">602</a>
 <a href="#603" id="603">603</a>
-<a href="#604" id="604">604</a>
-<a href="#605" id="605">605</a>
-<a href="#606" id="606">606</a>
-<a href="#607" id="607">607</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>config;
 <span class="kw">mod </span>handle;
 
@@ -1026,7 +1022,8 @@
         <span class="comment">// Make the match cleaner
         </span><span class="macro">info!</span>(<span class="string">&quot;event observed {:?}&quot;</span>, event);
 
-        <span class="kw">match </span>event {
+        <span class="attr">#[allow(deprecated)]
+        </span><span class="kw">match </span>event {
             SwarmEvent::ConnectionEstablished {
                 peer_id,
                 endpoint,
@@ -1061,12 +1058,6 @@
             SwarmEvent::Dialing(p) =&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;{:?} is dialing {:?}&quot;</span>, <span class="self">self</span>.peer_id, p);
             }
-            SwarmEvent::BannedPeer {
-                peer_id,
-                endpoint: <span class="kw">_</span>,
-            } =&gt; {
-                <span class="macro">error!</span>(<span class="string">&quot;Peer {:?} is banning peer {:?}!!&quot;</span>, <span class="self">self</span>.peer_id, peer_id);
-            }
             SwarmEvent::ListenerClosed {
                 listener_id: <span class="kw">_</span>,
                 addresses: <span class="kw">_</span>,
@@ -1083,7 +1074,8 @@
             | SwarmEvent::IncomingConnection {
                 local_addr: <span class="kw">_</span>,
                 send_back_addr: <span class="kw">_</span>,
-            } =&gt; {}
+            }
+            | SwarmEvent::BannedPeer { .. } =&gt; {}
             SwarmEvent::Behaviour(b) =&gt; {
                 <span class="kw">let </span>maybe_event = <span class="kw">match </span>b {
                     NetworkEventInternal::DHTEvent(e) =&gt; <span class="kw">match </span>e {
@@ -1213,4 +1205,4 @@
     }
 }
 </code></pre></div>
-</section></main><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="libp2p_networking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.1 (8460ca823 2023-03-20)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>
+</section></main><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="libp2p_networking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.2 (9eb3afe9e 2023-03-27)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

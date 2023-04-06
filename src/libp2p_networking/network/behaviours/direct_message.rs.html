@@ -299,11 +299,6 @@
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, VecDeque},
     task::Poll,
@@ -313,7 +308,7 @@
     request_response::{
         handler::RequestProtocol, Behaviour, Event, Message, RequestId, ResponseChannel,
     },
-    swarm::{NetworkBehaviour, NetworkBehaviourAction, THandlerOutEvent},
+    swarm::{NetworkBehaviour, THandlerOutEvent, ToSwarm},
     Multiaddr,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
@@ -448,7 +443,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
         params: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>libp2p::swarm::PollParameters,
-    ) -&gt; Poll&lt;NetworkBehaviourAction&lt;DMEvent, RequestProtocol&lt;DirectMessageCodec&gt;&gt;&gt; {
+    ) -&gt; Poll&lt;ToSwarm&lt;DMEvent, RequestProtocol&lt;DirectMessageCodec&gt;&gt;&gt; {
         <span class="kw">while let </span><span class="prelude-val">Some</span>(req) = <span class="self">self</span>.failed_rr.pop_front() {
             <span class="kw">if </span>req.backoff.is_expired() {
                 <span class="self">self</span>.add_direct_request(req);
@@ -461,34 +456,31 @@
         {
             <span class="kw">match </span>ready {
                 <span class="comment">// NOTE: this generates request
-                </span>NetworkBehaviourAction::GenerateEvent(e) =&gt; {
+                </span>ToSwarm::GenerateEvent(e) =&gt; {
                     <span class="self">self</span>.handle_dm_event(e);
                 }
-                NetworkBehaviourAction::Dial { opts } =&gt; {
-                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::Dial { opts });
+                ToSwarm::Dial { opts } =&gt; {
+                    <span class="kw">return </span>Poll::Ready(ToSwarm::Dial { opts });
                 }
-                NetworkBehaviourAction::NotifyHandler {
+                ToSwarm::NotifyHandler {
                     peer_id,
                     handler,
                     event,
                 } =&gt; {
-                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::NotifyHandler {
+                    <span class="kw">return </span>Poll::Ready(ToSwarm::NotifyHandler {
                         peer_id,
                         handler,
                         event,
                     });
                 }
-                NetworkBehaviourAction::ReportObservedAddr { address, score } =&gt; {
-                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
-                        address,
-                        score,
-                    });
+                ToSwarm::ReportObservedAddr { address, score } =&gt; {
+                    <span class="kw">return </span>Poll::Ready(ToSwarm::ReportObservedAddr { address, score });
                 }
-                NetworkBehaviourAction::CloseConnection {
+                ToSwarm::CloseConnection {
                     peer_id,
                     connection,
                 } =&gt; {
-                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                    <span class="kw">return </span>Poll::Ready(ToSwarm::CloseConnection {
                         peer_id,
                         connection,
                     });
@@ -496,9 +488,7 @@
             }
         }
         <span class="kw">if </span>!<span class="self">self</span>.out_event_queue.is_empty() {
-            <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::GenerateEvent(
-                <span class="self">self</span>.out_event_queue.remove(<span class="number">0</span>),
-            ));
+            <span class="kw">return </span>Poll::Ready(ToSwarm::GenerateEvent(<span class="self">self</span>.out_event_queue.remove(<span class="number">0</span>)));
         }
         Poll::Pending
     }
@@ -611,4 +601,4 @@
     }
 }
 </code></pre></div>
-</section></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="libp2p_networking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.1 (8460ca823 2023-03-20)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>
+</section></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="libp2p_networking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.2 (9eb3afe9e 2023-03-27)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

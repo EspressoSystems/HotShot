@@ -251,13 +251,6 @@
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashSet, VecDeque},
     task::Poll,
@@ -265,9 +258,7 @@
 
 <span class="kw">use </span>libp2p::{
     gossipsub::{Behaviour, Event, IdentTopic, TopicHash},
-    swarm::{
-        NetworkBehaviour, NetworkBehaviourAction, PollParameters, THandlerInEvent, THandlerOutEvent,
-    },
+    swarm::{NetworkBehaviour, PollParameters, THandlerInEvent, THandlerOutEvent, ToSwarm},
     Multiaddr,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
@@ -336,7 +327,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
         params: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>PollParameters,
-    ) -&gt; Poll&lt;NetworkBehaviourAction&lt;GossipEvent, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
+    ) -&gt; Poll&lt;ToSwarm&lt;GossipEvent, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
         <span class="comment">// retry sending shit
         </span><span class="kw">if </span><span class="self">self</span>.backoff.is_expired() {
             <span class="kw">let </span>published = <span class="self">self</span>.drain_publish_gossips();
@@ -344,35 +335,32 @@
         }
         <span class="kw">if let </span>Poll::Ready(ready) = NetworkBehaviour::poll(<span class="kw-2">&amp;mut </span><span class="self">self</span>.gossipsub, cx, params) {
             <span class="kw">match </span>ready {
-                NetworkBehaviourAction::GenerateEvent(e) =&gt; {
+                ToSwarm::GenerateEvent(e) =&gt; {
                     <span class="comment">// add event to event queue which will be subsequently popped off.
                     </span><span class="self">self</span>.gossip_handle_event(e);
                 }
-                NetworkBehaviourAction::Dial { opts } =&gt; {
-                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::Dial { opts });
+                ToSwarm::Dial { opts } =&gt; {
+                    <span class="kw">return </span>Poll::Ready(ToSwarm::Dial { opts });
                 }
-                NetworkBehaviourAction::NotifyHandler {
+                ToSwarm::NotifyHandler {
                     peer_id,
                     handler,
                     event,
                 } =&gt; {
-                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::NotifyHandler {
+                    <span class="kw">return </span>Poll::Ready(ToSwarm::NotifyHandler {
                         peer_id,
                         handler,
                         event,
                     });
                 }
-                NetworkBehaviourAction::ReportObservedAddr { address, score } =&gt; {
-                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
-                        address,
-                        score,
-                    });
+                ToSwarm::ReportObservedAddr { address, score } =&gt; {
+                    <span class="kw">return </span>Poll::Ready(ToSwarm::ReportObservedAddr { address, score });
                 }
-                NetworkBehaviourAction::CloseConnection {
+                ToSwarm::CloseConnection {
                     peer_id,
                     connection,
                 } =&gt; {
-                    <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                    <span class="kw">return </span>Poll::Ready(ToSwarm::CloseConnection {
                         peer_id,
                         connection,
                     });
@@ -380,9 +368,7 @@
             }
         }
         <span class="kw">if </span>!<span class="self">self</span>.out_event_queue.is_empty() {
-            <span class="kw">return </span>Poll::Ready(NetworkBehaviourAction::GenerateEvent(
-                <span class="self">self</span>.out_event_queue.remove(<span class="number">0</span>),
-            ));
+            <span class="kw">return </span>Poll::Ready(ToSwarm::GenerateEvent(<span class="self">self</span>.out_event_queue.remove(<span class="number">0</span>)));
         }
         Poll::Pending
     }
@@ -519,4 +505,4 @@
     }
 }
 </code></pre></div>
-</section></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="libp2p_networking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.1 (8460ca823 2023-03-20)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>
+</section></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="libp2p_networking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.2 (9eb3afe9e 2023-03-27)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>
