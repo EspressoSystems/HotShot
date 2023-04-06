@@ -419,6 +419,7 @@ impl NetworkNode {
         // Make the match cleaner
         info!("event observed {:?}", event);
 
+        #[allow(deprecated)]
         match event {
             SwarmEvent::ConnectionEstablished {
                 peer_id,
@@ -454,12 +455,6 @@ impl NetworkNode {
             SwarmEvent::Dialing(p) => {
                 info!("{:?} is dialing {:?}", self.peer_id, p);
             }
-            SwarmEvent::BannedPeer {
-                peer_id,
-                endpoint: _,
-            } => {
-                error!("Peer {:?} is banning peer {:?}!!", self.peer_id, peer_id);
-            }
             SwarmEvent::ListenerClosed {
                 listener_id: _,
                 addresses: _,
@@ -476,7 +471,8 @@ impl NetworkNode {
             | SwarmEvent::IncomingConnection {
                 local_addr: _,
                 send_back_addr: _,
-            } => {}
+            }
+            | SwarmEvent::BannedPeer { .. } => {}
             SwarmEvent::Behaviour(b) => {
                 let maybe_event = match b {
                     NetworkEventInternal::DHTEvent(e) => match e {

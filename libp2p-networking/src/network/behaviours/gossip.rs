@@ -5,9 +5,7 @@ use std::{
 
 use libp2p::{
     gossipsub::{Behaviour, Event, IdentTopic, TopicHash},
-    swarm::{
-        NetworkBehaviour, NetworkBehaviourAction, PollParameters, THandlerInEvent, THandlerOutEvent,
-    },
+    swarm::{NetworkBehaviour, PollParameters, THandlerInEvent, THandlerOutEvent, ToSwarm},
     Multiaddr,
 };
 use libp2p_identity::PeerId;
@@ -76,7 +74,7 @@ impl NetworkBehaviour for GossipBehaviour {
         &mut self,
         cx: &mut std::task::Context<'_>,
         params: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<GossipEvent, THandlerInEvent<Self>>> {
+    ) -> Poll<ToSwarm<GossipEvent, THandlerInEvent<Self>>> {
         // retry sending shit
         if self.backoff.is_expired() {
             let published = self.drain_publish_gossips();
@@ -84,35 +82,32 @@ impl NetworkBehaviour for GossipBehaviour {
         }
         if let Poll::Ready(ready) = NetworkBehaviour::poll(&mut self.gossipsub, cx, params) {
             match ready {
-                NetworkBehaviourAction::GenerateEvent(e) => {
+                ToSwarm::GenerateEvent(e) => {
                     // add event to event queue which will be subsequently popped off.
                     self.gossip_handle_event(e);
                 }
-                NetworkBehaviourAction::Dial { opts } => {
-                    return Poll::Ready(NetworkBehaviourAction::Dial { opts });
+                ToSwarm::Dial { opts } => {
+                    return Poll::Ready(ToSwarm::Dial { opts });
                 }
-                NetworkBehaviourAction::NotifyHandler {
+                ToSwarm::NotifyHandler {
                     peer_id,
                     handler,
                     event,
                 } => {
-                    return Poll::Ready(NetworkBehaviourAction::NotifyHandler {
+                    return Poll::Ready(ToSwarm::NotifyHandler {
                         peer_id,
                         handler,
                         event,
                     });
                 }
-                NetworkBehaviourAction::ReportObservedAddr { address, score } => {
-                    return Poll::Ready(NetworkBehaviourAction::ReportObservedAddr {
-                        address,
-                        score,
-                    });
+                ToSwarm::ReportObservedAddr { address, score } => {
+                    return Poll::Ready(ToSwarm::ReportObservedAddr { address, score });
                 }
-                NetworkBehaviourAction::CloseConnection {
+                ToSwarm::CloseConnection {
                     peer_id,
                     connection,
                 } => {
-                    return Poll::Ready(NetworkBehaviourAction::CloseConnection {
+                    return Poll::Ready(ToSwarm::CloseConnection {
                         peer_id,
                         connection,
                     });
@@ -120,9 +115,7 @@ impl NetworkBehaviour for GossipBehaviour {
             }
         }
         if !self.out_event_queue.is_empty() {
-            return Poll::Ready(NetworkBehaviourAction::GenerateEvent(
-                self.out_event_queue.remove(0),
-            ));
+            return Poll::Ready(ToSwarm::GenerateEvent(self.out_event_queue.remove(0)));
         }
         Poll::Pending
     }
