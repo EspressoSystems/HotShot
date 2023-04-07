@@ -991,7 +991,7 @@ where
         send_to_next_leader.cur_view += 1;
         let (send_commitment_vote_chan, recv_commitment_vote_chan) = {
             let vq = HotShot::<SequencingConsensus, TYPES, I>::create_or_obtain_chan_from_write(
-                cur_view + 1,
+                cur_view,
                 send_to_next_leader,
             )
             .await;
