@@ -198,7 +198,7 @@ where
                                 // Validate the `justify_qc`.
                                 if !self
                                     .quorum_exchange
-                                    .is_valid_cert(&justify_qc, leaf_commitment)
+                                    .is_valid_cert(&justify_qc, parent_commitment)
                                 {
                                     invalid_qc = true;
                                     warn!("Invalid justify_qc in proposal!.");
