@@ -1,21 +1,17 @@
 //! Contains the [`DAMember`] struct used for the committee member step in the consensus algorithm
 //! with DA committee, i.e. in the sequencing consensus.
 
-use crate::{
-    utils::{View, ViewInner},
-    Consensus, ConsensusApi,
-};
+use crate::{Consensus, ConsensusApi};
 use async_compatibility_layer::channel::UnboundedReceiver;
-use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
+use async_lock::{Mutex, RwLock};
 use commit::Committable;
-use either::Left;
 use hotshot_types::message::Message;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, ProcessedConsensusMessage},
     traits::{
-        election::{CommitteeExchangeType, ConsensusExchange, SignedCertificate},
+        election::{CommitteeExchangeType, ConsensusExchange},
         node_implementation::{CommitteeProposal, CommitteeVote, NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
@@ -68,32 +64,6 @@ where
             Vote = DAVote<TYPES, SequencingLeaf<TYPES>>,
         > + CommitteeExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
-    /// Returns the parent leaf of the proposal we are voting on
-    async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
-        let parent_view_number = &self.high_qc.view_number();
-        let consensus = self.consensus.read().await;
-        let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
-            match &parent_view.view_inner {
-                ViewInner::Leaf { leaf } => {
-                    if let Some(leaf) = consensus.saved_leaves.get(leaf) {
-                        leaf
-                    } else {
-                        warn!("Failed to find high QC parent.");
-                        return None;
-                    }
-                }
-                ViewInner::Failed => {
-                    warn!("Parent of high QC points to a failed QC");
-                    return None;
-                }
-            }
-        } else {
-            warn!("Couldn't find high QC parent in state map.");
-            return None;
-        };
-        Some(parent_leaf.clone())
-    }
-
     /// DA committee member task that spins until a valid DA proposal can be signed or timeout is
     /// hit.
     #[instrument(skip_all, fields(id = self.id, view = *self.cur_view), name = "DA Member Task", level = "error")]
@@ -101,7 +71,7 @@ where
     async fn find_valid_msg<'a>(
         &self,
         view_leader_key: TYPES::SignatureKey,
-    ) -> Option<SequencingLeaf<TYPES>> {
+    ) -> Option<TYPES::BlockType> {
         let lock = self.proposal_collection_chan.lock().await;
         let leaf = loop {
             let msg = lock.recv().await;
@@ -117,17 +87,6 @@ where
                         if view_leader_key != sender {
                             continue;
                         }
-                        let parent = self.parent_leaf().await?;
-                        let leaf = SequencingLeaf {
-                            view_number: self.cur_view,
-                            height: parent.height + 1,
-                            justify_qc: self.high_qc.clone(),
-                            parent_commitment: parent.commit(),
-                            deltas: Left(p.data.deltas.clone()),
-                            rejected: Vec::new(),
-                            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                            proposer_id: sender.to_bytes(),
-                        };
 
                         let block_commitment = p.data.deltas.commit();
                         if !view_leader_key.validate(&p.signature, block_commitment.as_ref()) {
@@ -168,7 +127,7 @@ where
                                 }
                             }
                         }
-                        break leaf;
+                        break p.data.deltas;
                     }
                     ProcessedConsensusMessage::InternalTrigger(_trigger) => {
                         warn!("DA committee member receieved an internal trigger message. This is not what the member expects. Skipping.");
@@ -203,30 +162,13 @@ where
         info!("DA Committee Member task started!");
         let view_leader_key = self.exchange.get_leader(self.cur_view);
 
-        let maybe_leaf = self.find_valid_msg(view_leader_key).await;
+        let maybe_block = self.find_valid_msg(view_leader_key).await;
 
-        let Some(leaf) = maybe_leaf else {
+        let Some(_block) = maybe_block else {
             // We either timed out or for some reason could not accept a proposal.
             return self.high_qc;
         };
 
-        // Update state map and leaves.
-        let consensus = self.consensus.upgradable_read().await;
-        let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-        consensus.state_map.insert(
-            self.cur_view,
-            View {
-                view_inner: ViewInner::Leaf {
-                    leaf: leaf.commit(),
-                },
-            },
-        );
-        consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
-
-        // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
-        if let Err(e) = self.api.store_leaf(self.cur_view, leaf).await {
-            error!("Could not insert new anchor into the storage API: {:?}", e);
-        }
         self.high_qc
     }
 }
