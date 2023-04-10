@@ -2336,7 +2336,7 @@
         send_to_next_leader.cur_view += <span class="number">1</span>;
         <span class="kw">let </span>(send_commitment_vote_chan, recv_commitment_vote_chan) = {
             <span class="kw">let </span>vq = HotShot::&lt;SequencingConsensus, TYPES, I&gt;::create_or_obtain_chan_from_write(
-                cur_view + <span class="number">1</span>,
+                cur_view,
                 send_to_next_leader,
             )
             .<span class="kw">await</span>;
