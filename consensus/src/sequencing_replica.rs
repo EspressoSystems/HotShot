@@ -95,6 +95,11 @@ where
     /// Returns the parent leaf of the proposal we are voting on
     async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let parent_view_number = &self.high_qc.view_number();
+        tracing::info!(
+            "replica {} has high QC from view {:?}",
+            self.id,
+            parent_view_number
+        );
         let consensus = self.consensus.read().await;
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
             match &parent_view.view_inner {
@@ -174,12 +179,16 @@ where
 
                                 // Construct the leaf.
                                 let justify_qc = p.data.justify_qc;
-                                let parent_commitment = match self.parent_leaf().await {
-                                    Some(parent) => parent.commit(),
-                                    None => {
-                                        break None;
-                                    }
+                                let Some(parent) = (if justify_qc.is_genesis() {
+                                    self.parent_leaf().await
+                                } else {
+                                    consensus.saved_leaves.get(&justify_qc.leaf_commitment()).cloned()
+                                }) else {
+                                    warn!("Proposal's parent {:?} {} missing from storage", justify_qc.view_number(), justify_qc.leaf_commitment());
+                                    break None;
                                 };
+
+                                let parent_commitment = parent.commit();
                                 let block_commitment = p.data.block_commitment;
                                 let leaf = SequencingLeaf {
                                     view_number: self.cur_view,
@@ -192,6 +201,7 @@ where
                                         .unix_timestamp_nanos(),
                                     proposer_id: sender.to_bytes(),
                                 };
+                                tracing::info!("Replica {} has leaf {:?}", self.id, leaf);
                                 let justify_qc_commitment = justify_qc.commit();
                                 let leaf_commitment = leaf.commit();
 
@@ -226,7 +236,7 @@ where
                                 else if !view_leader_key
                                     .validate(&p.signature, leaf_commitment.as_ref())
                                 {
-                                    warn!(?p.signature, "Could not verify proposal.");
+                                    warn!(?p.signature, ?self.id, "Could not verify proposal.");
                                     message = self.quorum_exchange.create_no_message(
                                         justify_qc_commitment,
                                         leaf_commitment,
@@ -462,6 +472,7 @@ where
 
         // promote lock here
         let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+        assert_eq!(self.cur_view, leaf.view_number);
         consensus.state_map.insert(
             self.cur_view,
             View {
@@ -563,6 +574,12 @@ where
             if let Err(e) = self.api.store_leaf(old_anchor_view, leaf).await {
                 error!("Could not insert new anchor into the storage API: {:?}", e);
             }
+            tracing::info!(
+                "replica {} stored leaf for view {:?} (from {:?})",
+                self.id,
+                new_anchor_view,
+                old_anchor_view
+            );
 
             decide_sent.await;
         }

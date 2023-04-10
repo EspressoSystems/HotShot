@@ -155,10 +155,16 @@ where
     /// Returns the parent leaf of the proposal we are building
     async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let parent_view_number = &self.high_qc.view_number();
+        tracing::info!(
+            "leader {} has high QC from view {:?}",
+            self.id,
+            parent_view_number
+        );
         let consensus = self.consensus.read().await;
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
             match &parent_view.view_inner {
                 ViewInner::Leaf { leaf } => {
+                    tracing::info!("Leader {} looking up leaf {} from view {:?}", self.id, leaf, parent_view_number);
                     if let Some(leaf) = consensus.saved_leaves.get(leaf) {
                         leaf
                     } else {
@@ -236,6 +242,7 @@ where
              warn!("Couldn't find high QC parent in state map.");
              return None;
          };
+        tracing::info!("leader {} found parent {} {:?} for high QC {:?}", self.id, parent_leaf.commit(), parent_leaf, self.high_qc);
 
         let mut block = TYPES::BlockType::new();
         let txns = self.wait_for_transactions().await?;
@@ -349,6 +356,7 @@ where
             timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
             proposer_id: self.api.public_key().to_bytes(),
         };
+        tracing::info!("Leader {} has leaf {:?}", self.id, leaf);
         let signature = self
             .quorum_exchange
             .sign_validating_or_commitment_proposal::<I>(&leaf.commit());

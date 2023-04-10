@@ -211,22 +211,23 @@ where
         };
 
         // Update state map and leaves.
-        let consensus = self.consensus.upgradable_read().await;
-        let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
-        consensus.state_map.insert(
-            self.cur_view,
-            View {
-                view_inner: ViewInner::Leaf {
-                    leaf: leaf.commit(),
-                },
-            },
-        );
-        consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
+        // let consensus = self.consensus.upgradable_read().await;
+        // let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+        // tracing::info!("DA member {} inserting leaf {}", self.id, leaf.commit());
+        // consensus.state_map.insert(
+        //     self.cur_view,
+        //     View {
+        //         view_inner: ViewInner::Leaf {
+        //             leaf: leaf.commit(),
+        //         },
+        //     },
+        // );
+        // consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
 
-        // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
-        if let Err(e) = self.api.store_leaf(self.cur_view, leaf).await {
-            error!("Could not insert new anchor into the storage API: {:?}", e);
-        }
+        // // We're only storing the last QC. We could store more but we're realistically only going to retrieve the last one.
+        // if let Err(e) = self.api.store_leaf(self.cur_view, leaf).await {
+        //     error!("Could not insert new anchor into the storage API: {:?}", e);
+        // }
         self.high_qc
     }
 }

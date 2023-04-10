@@ -50,7 +50,7 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     /// TODO (da) we need to check
     ///   - parent QC PROPOSAL
     ///   - somehow make this semantically equivalent to what is currently `Leaf`
-    #[debug(skip)]
+    #[debug(format = "{}")]
     pub leaf_commitment: Commitment<LEAF>,
 
     /// Which view this QC relates to

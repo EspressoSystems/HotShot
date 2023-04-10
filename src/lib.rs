@@ -234,6 +234,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         );
 
         let mut saved_leaves = HashMap::new();
+        tracing::info!("inserting genesis leaf {}", anchored_leaf.commit());
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
 
         let start_view = anchored_leaf.get_view_number();
@@ -924,6 +925,7 @@ where
         compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
         let mut consensus = hotshot.hotstuff.write().await;
+        tracing::info!("updating high QC to view {:?}", high_qc.view_number);
         consensus.high_qc = high_qc;
         consensus
             .metrics
@@ -1066,6 +1068,14 @@ where
                     quorum_exchange: api.inner.quorum_exchange.clone(),
                     _pd: PhantomData,
                 };
+                tracing::info!(
+                    "Leader {} has parent {} {:?}, high QC leaf {} {:?}",
+                    hotshot.id,
+                    consensus_leader.parent.commit(),
+                    consensus_leader.parent,
+                    consensus_leader.high_qc.leaf_commitment(),
+                    consensus_leader.high_qc
+                );
                 consensus_leader.run_view().await
             });
             task_handles.push(leader_handle);
@@ -1127,6 +1137,7 @@ where
         });
 
         let results = children_finished.await;
+        tracing::error!("node {} finished view {:?} with results {:?}", hotshot.id, cur_view, results);
 
         // unwrap is fine since results must have >= 1 item(s)
         #[cfg(feature = "async-std-executor")]

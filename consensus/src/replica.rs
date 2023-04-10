@@ -408,6 +408,7 @@ where
 
         // promote lock here
         let mut consensus = RwLockUpgradableReadGuard::upgrade(consensus).await;
+        tracing::info!("replica {} inserting leaf {}", self.id, leaf.commit());
         consensus.state_map.insert(
             self.cur_view,
             View {
