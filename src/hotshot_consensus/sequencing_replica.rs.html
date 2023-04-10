@@ -769,7 +769,7 @@
                                 <span class="comment">// Validate the `justify_qc`.
                                 </span><span class="kw">if </span>!<span class="self">self
                                     </span>.quorum_exchange
-                                    .is_valid_cert(<span class="kw-2">&amp;</span>justify_qc, leaf_commitment)
+                                    .is_valid_cert(<span class="kw-2">&amp;</span>justify_qc, parent_commitment)
                                 {
                                     invalid_qc = <span class="bool-val">true</span>;
                                     <span class="macro">warn!</span>(<span class="string">&quot;Invalid justify_qc in proposal!.&quot;</span>);
