@@ -177,7 +177,7 @@ where
             });
 
             // Record the block we have promised to make available.
-            consensus.saved_blocks.insert(block.commit(), block);
+            consensus.saved_blocks.insert(block);
         };
 
         self.high_qc

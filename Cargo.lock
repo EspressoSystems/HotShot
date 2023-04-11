@@ -3003,6 +3003,7 @@ dependencies = [
  "bincode",
  "commit 0.2.2",
  "custom_debug",
+ "derivative",
  "either",
  "futures",
  "hotshot-types",

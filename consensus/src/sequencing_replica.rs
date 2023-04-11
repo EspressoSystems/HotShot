@@ -467,7 +467,7 @@ where
                         // If the full block is available for this leaf, include it in the leaf
                         // chain that we send to the client.
                         if let Some(block) =
-                            consensus.saved_blocks.get(&leaf.get_deltas_commitment())
+                            consensus.saved_blocks.get(leaf.get_deltas_commitment())
                         {
                             if let Err(err) = leaf.fill_deltas(block.clone()) {
                                 warn!("unable to fill leaf {} with block {}, block will not be available: {}",

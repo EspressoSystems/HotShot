@@ -48,9 +48,9 @@ use bincode::Options;
 use commit::{Commitment, Committable};
 
 use hotshot_consensus::{
-    Consensus, ConsensusApi, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader, DALeader,
-    DAMember, NextValidatingLeader, Replica, SendToTasks, SequencingReplica, ValidatingLeader,
-    View, ViewInner, ViewQueue,
+    BlockStore, Consensus, ConsensusApi, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader,
+    DALeader, DAMember, NextValidatingLeader, Replica, SendToTasks, SequencingReplica,
+    ValidatingLeader, View, ViewInner, ViewQueue,
 };
 use hotshot_types::certificate::DACertificate;
 
@@ -234,10 +234,10 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         );
 
         let mut saved_leaves = HashMap::new();
-        let mut saved_blocks = HashMap::new();
+        let mut saved_blocks = BlockStore::default();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
         if let Ok(block) = anchored_leaf.get_deltas().try_resolve() {
-            saved_blocks.insert(block.commit(), block);
+            saved_blocks.insert(block);
         }
 
         let start_view = anchored_leaf.get_view_number();
