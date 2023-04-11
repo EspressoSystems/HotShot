@@ -55,7 +55,7 @@ use hotshot_consensus::{
 use hotshot_types::certificate::DACertificate;
 
 use hotshot_types::data::CommitmentProposal;
-use hotshot_types::data::{DAProposal, SequencingLeaf};
+use hotshot_types::data::{DAProposal, DeltasType, SequencingLeaf};
 use hotshot_types::traits::election::CommitteeExchangeType;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::network::CommunicationChannel;
@@ -234,7 +234,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         );
 
         let mut saved_leaves = HashMap::new();
+        let mut saved_blocks = HashMap::new();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
+        if let Ok(block) = anchored_leaf.get_deltas().try_resolve() {
+            saved_blocks.insert(block.commit(), block);
+        }
 
         let start_view = anchored_leaf.get_view_number();
 
@@ -244,6 +248,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
             last_decided_view: anchored_leaf.get_view_number(),
             transactions: Arc::default(),
             saved_leaves,
+            saved_blocks,
             // TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
             locked_view: anchored_leaf.get_view_number(),

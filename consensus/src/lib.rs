@@ -115,6 +115,11 @@ pub struct Consensus<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// - includes the MOST RECENT decided leaf
     pub saved_leaves: CommitmentMap<LEAF>,
 
+    /// Map of block hash -> block
+    ///
+    /// Contains the full block for every leaf in `saved_leaves` if that block is available.
+    pub saved_blocks: CommitmentMap<TYPES::BlockType>,
+
     /// The `locked_qc` view number
     pub locked_view: TYPES::Time,
 
@@ -308,7 +313,9 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
             .range(old_anchor_view..new_anchor_view)
             .filter_map(|(_view_number, view)| view.get_leaf_commitment())
             .for_each(|leaf| {
-                let _removed = self.saved_leaves.remove(leaf);
+                if let Some(removed) = self.saved_leaves.remove(leaf) {
+                    self.saved_blocks.remove(&removed.get_deltas_commitment());
+                }
             });
         self.state_map = self.state_map.split_off(&new_anchor_view);
     }

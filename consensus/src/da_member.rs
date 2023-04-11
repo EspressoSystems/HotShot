@@ -164,9 +164,9 @@ where
 
         let maybe_block = self.find_valid_msg(view_leader_key).await;
 
-        let Some(_block) = maybe_block else {
-            // We either timed out or for some reason could not accept a proposal.
-            return self.high_qc;
+        if let Some(block) = maybe_block {
+            let mut consensus = self.consensus.write().await;
+            consensus.saved_blocks.insert(block.commit(), block);
         };
 
         self.high_qc

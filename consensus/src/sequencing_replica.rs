@@ -21,7 +21,7 @@ use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::vote::DAVote;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{CommitmentProposal, SequencingLeaf},
+    data::{CommitmentProposal, LeafType, SequencingLeaf},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
@@ -462,6 +462,19 @@ where
                     }
                     // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
                     if new_decide_reached {
+                        let mut leaf = leaf.clone();
+
+                        // If the full block is available for this leaf, include it in the leaf
+                        // chain that we send to the client.
+                        if let Some(block) =
+                            consensus.saved_blocks.get(&leaf.get_deltas_commitment())
+                        {
+                            if let Err(err) = leaf.fill_deltas(block.clone()) {
+                                warn!("unable to fill leaf {} with block {}, block will not be available: {}",
+                                    leaf.commit(), block.commit(), err);
+                            }
+                        }
+
                         leaf_views.push(leaf.clone());
                         if let Left(block) = &leaf.deltas {
                             let txns = block.contained_transactions();
