@@ -8,7 +8,7 @@ use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
-use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::election::{ConsensusExchange, VoteData};
 use hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposal};
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -214,7 +214,7 @@ where
                                 info!("We were chosen for committee on {:?}", self.cur_view);
 
                                 // Generate and send vote
-                                let message = self.exchange.create_yes_message(
+                                let message = self.exchange.create_no_message(
                                     leaf.justify_qc.commit(),
                                     leaf_commitment,
                                     self.cur_view,
@@ -263,12 +263,14 @@ where
                                         );
                                     }
                                     Ok(Some(vote_token)) => {
+                                        // TODO ED Change this to use the functions in election to create this message
                                         let timed_out_msg = ConsensusMessage::Vote(
                                             QuorumVote::Timeout(TimeoutVote {
                                                 justify_qc: self.high_qc.clone(),
                                                 signature,
                                                 current_view: self.cur_view,
                                                 vote_token,
+                                                vote_data: VoteData::Timeout(self.cur_view),
                                             }),
                                         );
                                         warn!(
