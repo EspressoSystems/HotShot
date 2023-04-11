@@ -250,8 +250,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
         F: FnMut(&LEAF) -> bool,
     {
         let mut next_leaf = if let Some(view) = self.state_map.get(&start_from) {
-            *view
-                .get_leaf_commitment()
+            view.get_leaf_commitment()
                 .ok_or_else(|| HotShotError::InvalidState {
                     context: format!(
                         "Visited failed view {start_from:?} leaf. Expected successfuil leaf"
@@ -311,9 +310,15 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
         // perform gc
         self.state_map
             .range(old_anchor_view..new_anchor_view)
+            .filter_map(|(_view_number, view)| view.get_block_commitment())
+            .for_each(|block| {
+                self.saved_blocks.remove(&block);
+            });
+        self.state_map
+            .range(old_anchor_view..new_anchor_view)
             .filter_map(|(_view_number, view)| view.get_leaf_commitment())
             .for_each(|leaf| {
-                if let Some(removed) = self.saved_leaves.remove(leaf) {
+                if let Some(removed) = self.saved_leaves.remove(&leaf) {
                     self.saved_blocks.remove(&removed.get_deltas_commitment());
                 }
             });
@@ -337,6 +342,6 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
         let leaf = view
             .get_leaf_commitment()
             .expect("Decided state not found! Consensus internally inconsistent");
-        self.saved_leaves.get(leaf).unwrap().clone()
+        self.saved_leaves.get(&leaf).unwrap().clone()
     }
 }

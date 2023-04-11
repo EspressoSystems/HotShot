@@ -1,7 +1,7 @@
 //! Contains the [`DAMember`] struct used for the committee member step in the consensus algorithm
 //! with DA committee, i.e. in the sequencing consensus.
 
-use crate::{Consensus, ConsensusApi};
+use crate::{Consensus, ConsensusApi, View, ViewInner};
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock};
 use commit::Committable;
@@ -166,6 +166,17 @@ where
 
         if let Some(block) = maybe_block {
             let mut consensus = self.consensus.write().await;
+
+            // Ensure this view is in the view map for garbage collection, but do not overwrite if
+            // there is already a view there: the replica task may have inserted a `Leaf` view which
+            // contains strictly more information.
+            consensus.state_map.entry(self.cur_view).or_insert(View {
+                view_inner: ViewInner::DA {
+                    block: block.commit(),
+                },
+            });
+
+            // Record the block we have promised to make available.
             consensus.saved_blocks.insert(block.commit(), block);
         };
 

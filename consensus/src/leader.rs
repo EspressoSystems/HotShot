@@ -1,6 +1,6 @@
 //! Contains the [`ValidatingLeader`] struct used for the leader step in the hotstuff consensus algorithm.
 
-use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
+use crate::{CommitmentMap, Consensus, ConsensusApi};
 use async_compatibility_layer::{
     art::{async_sleep, async_timeout},
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
@@ -76,22 +76,23 @@ where
         let mut reached_decided = false;
 
         let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
-            match &parent_view.view_inner {
-                ViewInner::Leaf { leaf } => {
-                    if let Some(leaf) = consensus.saved_leaves.get(leaf) {
-                        if leaf.view_number == consensus.last_decided_view {
-                            reached_decided = true;
-                        }
-                        leaf
-                    } else {
-                        warn!("Failed to find high QC parent.");
-                        return self.high_qc;
+            if let Some(leaf) = parent_view.get_leaf_commitment() {
+                if let Some(leaf) = consensus.saved_leaves.get(&leaf) {
+                    if leaf.view_number == consensus.last_decided_view {
+                        reached_decided = true;
                     }
-                }
-                ViewInner::Failed => {
-                    warn!("Parent of high QC points to a failed QC");
+                    leaf
+                } else {
+                    warn!("Failed to find high QC parent.");
                     return self.high_qc;
                 }
+            } else {
+                warn!(
+                    ?parent_view_number,
+                    ?parent_view,
+                    "Parent of high QC points to a view without a proposal"
+                );
+                return self.high_qc;
             }
         } else {
             warn!("Couldn't find high QC parent in state map.");
