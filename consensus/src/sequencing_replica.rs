@@ -97,27 +97,22 @@ where
     /// This will be used as the parent leaf for the proposal in the first view after genesis.
     async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let consensus = self.consensus.read().await;
-        let genesis_leaf =
-            if let Some(genesis_view) = consensus.state_map.get(&TYPES::Time::genesis()) {
-                if let Some(leaf) = genesis_view.get_leaf_commitment() {
-                    if let Some(leaf) = consensus.saved_leaves.get(&leaf) {
-                        leaf
-                    } else {
-                        warn!("Failed to find genesis leaf.");
-                        return None;
-                    }
-                } else {
-                    warn!(
-                        ?genesis_view,
-                        "Genesis view points to a view without a leaf"
-                    );
-                    return None;
-                }
-            } else {
-                warn!("Couldn't find genesis view in state map.");
-                return None;
-            };
-        Some(genesis_leaf.clone())
+        let Some(genesis_view) = consensus.state_map.get(&TYPES::Time::genesis()) else {
+            warn!("Couldn't find genesis view in state map.");
+            return None;
+        };
+        let Some(leaf) = genesis_view.get_leaf_commitment() else {
+            warn!(
+                ?genesis_view,
+                "Genesis view points to a view without a leaf"
+            );
+            return None;
+        };
+        let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
+            warn!("Failed to find genesis leaf.");
+            return None;
+        };
+        Some(leaf.clone())
     }
 
     /// Replica task for sequencing consensus that spins until a vote can be made or timeout is

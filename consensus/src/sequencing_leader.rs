@@ -156,27 +156,23 @@ where
     async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let parent_view_number = &self.high_qc.view_number();
         let consensus = self.consensus.read().await;
-        let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
-            if let Some(leaf) = parent_view.get_leaf_commitment() {
-                if let Some(leaf) = consensus.saved_leaves.get(&leaf) {
-                    leaf
-                } else {
-                    warn!("Failed to find high QC parent.");
-                    return None;
-                }
-            } else {
-                warn!(
-                    ?parent_view_number,
-                    ?parent_view,
-                    "Parent of high QC points to a view without a proposal"
-                );
-                return None;
-            }
-        } else {
+        let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
             warn!("Couldn't find high QC parent in state map.");
             return None;
         };
-        Some(parent_leaf.clone())
+        let Some(leaf) = parent_view.get_leaf_commitment() else {
+            warn!(
+                ?parent_view_number,
+                ?parent_view,
+                "Parent of high QC points to a view without a proposal"
+            );
+            return None;
+        };
+        let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
+            warn!("Failed to find high QC parent.");
+            return None;
+        };
+        Some(leaf.clone())
     }
     /// return None if we can't get transactions
     async fn wait_for_transactions(&self) -> Option<Vec<TYPES::Transaction>> {
