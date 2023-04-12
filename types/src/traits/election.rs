@@ -56,7 +56,8 @@ pub enum Checked<T> {
 }
 
 /// Data to vote on for different types of votes.
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = ""))]
 pub enum VoteData<TYPES: NodeType, LEAF: LeafType> {
     /// Vote to provide availability for a block.
     DA(Commitment<TYPES::BlockType>),
@@ -467,6 +468,7 @@ impl<
             block_commitment,
             current_view,
             vote_token,
+            vote_data: VoteData::DA(block_commitment)
         })
     }
 }
@@ -675,6 +677,7 @@ impl<
             leaf_commitment,
             current_view,
             vote_token,
+            vote_data: VoteData::Yes(leaf_commitment)
         }))
     }
     /// Sign a validating or commitment proposal.
@@ -752,6 +755,8 @@ impl<
             leaf_commitment,
             current_view,
             vote_token,
+            vote_data: VoteData::No(leaf_commitment)
+
         }))
     }
 
@@ -772,6 +777,8 @@ impl<
             signature,
             current_view,
             vote_token,
+            vote_data: VoteData::Timeout(current_view),
+
         }))
     }
 }
