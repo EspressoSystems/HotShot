@@ -8,6 +8,7 @@ use futures::FutureExt;
 
 use hotshot_types::traits::signature_key::EncodedPublicKey;
 use hotshot_types::traits::signature_key::SignatureKey;
+use rand::SeedableRng;
 use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
@@ -19,7 +20,6 @@ use tide_disco::Api;
 use tide_disco::App;
 use tide_disco::StatusCode;
 use tracing::error;
-use rand::SeedableRng;
 
 type State<KEY> = RwLock<WebServerState<KEY>>;
 type Error = ServerError;
