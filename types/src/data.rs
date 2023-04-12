@@ -22,6 +22,7 @@ use either::Either;
 use espresso_systems_common::hotshot::tag;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use snafu::{ensure, Snafu};
 use std::{fmt::Debug, hash::Hash};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
@@ -186,6 +187,120 @@ pub trait ProposalType:
     fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time;
 }
 
+/// A state change encoded in a leaf.
+///
+/// [`DeltasType`] represents a [block](NodeType::BlockType), but it may not contain the block in
+/// full. It is guaranteed to contain, at least, a cryptographic commitment to the block, and it
+/// provides an interface for resolving the commitment to a full block if the full block is
+/// available.
+pub trait DeltasType<Block: Committable>:
+    Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Send + Serialize + Sync
+{
+    /// Errors reported by this type.
+    type Error: std::error::Error;
+
+    /// Get a cryptographic commitment to the block represented by this delta.
+    fn block_commitment(&self) -> Commitment<Block>;
+
+    /// Get the full block if it is available, otherwise return this object unchanged.
+    ///
+    /// # Errors
+    ///
+    /// Returns the original [`DeltasType`], unchanged, in an [`Err`] variant in the case where the
+    /// full block is not currently available.
+    fn try_resolve(self) -> Result<Block, Self>;
+
+    /// Fill this [`DeltasType`] by providing a complete block.
+    ///
+    /// After this function succeeds, [`try_resolve`](Self::try_resolve) is guaranteed to return
+    /// `Ok(block)`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if `block` does not match `self.block_commitment()`, or if the block is not able to be
+    /// stored for some implementation-defined reason.
+    fn fill(&mut self, block: Block) -> Result<(), Self::Error>;
+}
+
+/// Error which occurs when [`DeltasType::fill`] is called with a block that does not match the
+/// deltas' internal block commitment.
+#[derive(Clone, Copy, Debug, Snafu)]
+#[snafu(display("the block {:?} has commitment {} (expected {})", block, block.commit(), commitment))]
+pub struct InconsistentDeltasError<BLOCK: Committable + Debug> {
+    /// The block with the wrong commitment.
+    block: BLOCK,
+    /// The expected commitment.
+    commitment: Commitment<BLOCK>,
+}
+
+impl<BLOCK> DeltasType<BLOCK> for BLOCK
+where
+    BLOCK:
+        Committable + Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Send + Serialize + Sync,
+{
+    type Error = InconsistentDeltasError<BLOCK>;
+
+    fn block_commitment(&self) -> Commitment<BLOCK> {
+        self.commit()
+    }
+
+    fn try_resolve(self) -> Result<BLOCK, Self> {
+        Ok(self)
+    }
+
+    fn fill(&mut self, block: BLOCK) -> Result<(), Self::Error> {
+        ensure!(
+            block.commit() == self.commit(),
+            InconsistentDeltasSnafu {
+                block,
+                commitment: self.commit()
+            }
+        );
+        // If the commitments are equal the blocks are equal, and we already have the block, so we
+        // don't have to do anything.
+        Ok(())
+    }
+}
+
+impl<BLOCK> DeltasType<BLOCK> for Either<BLOCK, Commitment<BLOCK>>
+where
+    BLOCK:
+        Committable + Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Send + Serialize + Sync,
+{
+    type Error = InconsistentDeltasError<BLOCK>;
+
+    fn block_commitment(&self) -> Commitment<BLOCK> {
+        match self {
+            Either::Left(block) => block.commit(),
+            Either::Right(comm) => *comm,
+        }
+    }
+
+    fn try_resolve(self) -> Result<BLOCK, Self> {
+        match self {
+            Either::Left(block) => Ok(block),
+            Either::Right(_) => Err(self),
+        }
+    }
+
+    fn fill(&mut self, block: BLOCK) -> Result<(), Self::Error> {
+        match self {
+            Either::Left(curr) => curr.fill(block),
+            Either::Right(comm) => {
+                ensure!(
+                    *comm == block.commit(),
+                    InconsistentDeltasSnafu {
+                        block,
+                        commitment: *comm
+                    }
+                );
+                *self = Either::Left(block);
+                Ok(())
+            }
+        }
+    }
+}
+
 /// An item which is appended to a blockchain.
 pub trait LeafType:
     Debug
@@ -202,7 +317,7 @@ pub trait LeafType:
     /// Type of nodes participating in the network.
     type NodeType: NodeType;
     /// Type of block contained by this leaf.
-    type DeltasType: Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Send + Serialize + Sync;
+    type DeltasType: DeltasType<LeafBlock<Self>>;
     /// Commitment to the blockchain state.
     type StateCommitmentType: Clone
         + Debug
@@ -214,13 +329,13 @@ pub trait LeafType:
 
     /// Create a new leaf from its components.
     fn new(
-        view_number: <Self::NodeType as NodeType>::Time,
+        view_number: LeafTime<Self>,
         justify_qc: QuorumCertificate<Self::NodeType, Self>,
-        deltas: <Self::NodeType as NodeType>::BlockType,
-        state: <Self::NodeType as NodeType>::StateType,
+        deltas: LeafBlock<Self>,
+        state: LeafState<Self>,
     ) -> Self;
     /// Time when this leaf was created.
-    fn get_view_number(&self) -> <Self::NodeType as NodeType>::Time;
+    fn get_view_number(&self) -> LeafTime<Self>;
     /// Height of this leaf in the chain.
     ///
     /// Equivalently, this is the number of leaves before this one in the chain.
@@ -233,17 +348,47 @@ pub trait LeafType:
     fn get_parent_commitment(&self) -> Commitment<Self>;
     /// The block contained in this leaf.
     fn get_deltas(&self) -> Self::DeltasType;
+    /// Fill this leaf with the entire corresponding block.
+    ///
+    /// After this function succeeds, `self.get_deltas().try_resolve()` is guaranteed to return
+    /// `Ok(block)`.
+    ///
+    /// # Errors
+    ///
+    /// Fails if `block` does not match `self.get_deltas_commitment()`, or if the block is not able
+    /// to be stored for some implementation-defined reason.
+    fn fill_deltas(&mut self, block: LeafBlock<Self>) -> Result<(), LeafDeltasError<Self>>;
     /// The blockchain state after appending this leaf.
     fn get_state(&self) -> Self::StateCommitmentType;
     /// Transactions rejected or invalidated by the application of this leaf.
-    fn get_rejected(&self) -> Vec<<<Self::NodeType as NodeType>::BlockType as Block>::Transaction>;
+    fn get_rejected(&self) -> Vec<LeafTransaction<Self>>;
     /// Real-world time when this leaf was created.
     fn get_timestamp(&self) -> i128;
     /// Identity of the network participant who proposed this leaf.
     fn get_proposer_id(&self) -> EncodedPublicKey;
     /// Create a leaf from information stored about a view.
     fn from_stored_view(stored_view: StoredView<Self::NodeType, Self>) -> Self;
+
+    /// A commitment to the block contained in this leaf.
+    fn get_deltas_commitment(&self) -> Commitment<LeafBlock<Self>> {
+        self.get_deltas().block_commitment()
+    }
 }
+
+/// The [`DeltasType`] in a [`LeafType`].
+pub type LeafDeltas<LEAF> = <LEAF as LeafType>::DeltasType;
+/// Errors reported by the [`DeltasType`] in a [`LeafType`].
+pub type LeafDeltasError<LEAF> = <LeafDeltas<LEAF> as DeltasType<LeafBlock<LEAF>>>::Error;
+/// The [`NodeType`] in a [`LeafType`].
+pub type LeafNode<LEAF> = <LEAF as LeafType>::NodeType;
+/// The [`StateType`] in a [`LeafType`].
+pub type LeafState<LEAF> = <LeafNode<LEAF> as NodeType>::StateType;
+/// The [`Block`] in a [`LeafType`].
+pub type LeafBlock<LEAF> = <LeafNode<LEAF> as NodeType>::BlockType;
+/// The [`Transaction`] in a [`LeafType`].
+pub type LeafTransaction<LEAF> = <LeafBlock<LEAF> as Block>::Transaction;
+/// The [`ConsensusTime`] used by a [`LeafType`].
+pub type LeafTime<LEAF> = <LeafNode<LEAF> as NodeType>::Time;
 
 /// Additional functions required to use a [`LeafType`] with hotshot-testing.
 pub trait TestableLeaf {
@@ -381,6 +526,14 @@ impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
         self.deltas.clone()
     }
 
+    fn get_deltas_commitment(&self) -> Commitment<<Self::NodeType as NodeType>::BlockType> {
+        self.deltas.block_commitment()
+    }
+
+    fn fill_deltas(&mut self, block: LeafBlock<Self>) -> Result<(), LeafDeltasError<Self>> {
+        self.deltas.fill(block)
+    }
+
     fn get_state(&self) -> Self::StateCommitmentType {
         self.state.clone()
     }
@@ -477,6 +630,14 @@ impl<TYPES: NodeType> LeafType for SequencingLeaf<TYPES> {
 
     fn get_deltas(&self) -> Self::DeltasType {
         self.deltas.clone()
+    }
+
+    fn get_deltas_commitment(&self) -> Commitment<<Self::NodeType as NodeType>::BlockType> {
+        self.deltas.block_commitment()
+    }
+
+    fn fill_deltas(&mut self, block: LeafBlock<Self>) -> Result<(), LeafDeltasError<Self>> {
+        self.deltas.fill(block)
     }
 
     // The Sequencing Leaf doesn't have a state.
