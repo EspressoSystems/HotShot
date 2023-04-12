@@ -86,7 +86,9 @@ where
         qcs.insert(self.generic_qc.clone());
 
         let mut accumlator = VoteAccumulator {
-            vote_outcomes: HashMap::new(),
+            total_vote_outcomes: HashMap::new(),
+            yes_vote_outcomes: HashMap::new(),
+            no_vote_outcomes: HashMap::new(),
             threshold: self.exchange.threshold(),
         };
 
@@ -97,40 +99,37 @@ where
                 continue;
             }
             match msg {
-                ProcessedConsensusMessage::Vote(vote_message, sender) => {
-                    match vote_message {
-                        QuorumVote::Yes(vote) | QuorumVote::No(vote)=> {
-                            if vote.signature.0
-                                != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
-                            {
-                                continue;
+                ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
+                    QuorumVote::Yes(vote) | QuorumVote::No(vote) => {
+                        if vote.signature.0
+                            != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
+                        {
+                            continue;
+                        }
+                        match self.exchange.accumulate_vote(
+                            &vote.signature.0,
+                            &vote.signature.1,
+                            vote.leaf_commitment,
+                            vote.vote_data,
+                            vote.vote_token.clone(),
+                            self.cur_view,
+                            accumlator,
+                        ) {
+                            Either::Left(acc) => {
+                                accumlator = acc;
                             }
-                            match self.exchange.accumulate_vote(
-                                &vote.signature.0,
-                                &vote.signature.1,
-                                vote.leaf_commitment,
-                                vote.vote_data,
-                                vote.vote_token.clone(),
-                                self.cur_view,
-                                accumlator,
-                            ) {
-                                Either::Left(acc) => {
-                                    accumlator = acc;
-                                }
-                                Either::Right(qc) => {
-                                    self.metrics
-                                        .vote_validate_duration
-                                        .add_point(vote_collection_start.elapsed().as_secs_f64());
-                                    return qc;
-                                }
+                            Either::Right(qc) => {
+                                self.metrics
+                                    .vote_validate_duration
+                                    .add_point(vote_collection_start.elapsed().as_secs_f64());
+                                return qc;
                             }
                         }
-                        QuorumVote::Timeout(vote) => {
-                            qcs.insert(vote.justify_qc);
-                        }
-                      
                     }
-                }
+                    QuorumVote::Timeout(vote) => {
+                        qcs.insert(vote.justify_qc);
+                    }
+                },
                 ProcessedConsensusMessage::InternalTrigger(trigger) => match trigger {
                     InternalTrigger::Timeout(_) => {
                         self.api.send_next_leader_timeout(self.cur_view).await;

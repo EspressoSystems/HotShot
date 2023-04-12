@@ -99,7 +99,9 @@ where
     ) -> Option<DACertificate<TYPES>> {
         let lock = self.vote_collection_chan.lock().await;
         let mut accumulator = VoteAccumulator {
-            vote_outcomes: HashMap::new(),
+            total_vote_outcomes: HashMap::new(),
+            yes_vote_outcomes: HashMap::new(),
+            no_vote_outcomes: HashMap::new(),
             threshold,
         };
 
@@ -431,7 +433,9 @@ where
         qcs.insert(self.generic_qc.clone());
 
         let mut accumulator = VoteAccumulator {
-            vote_outcomes: HashMap::new(),
+            total_vote_outcomes: HashMap::new(),
+            yes_vote_outcomes: HashMap::new(),
+            no_vote_outcomes: HashMap::new(),
             threshold: self.quorum_exchange.threshold(),
         };
 

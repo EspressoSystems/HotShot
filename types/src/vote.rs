@@ -125,14 +125,23 @@ pub trait Accumulator<T, U>: Sized {
 }
 
 /// Mapping of commitments to vote tokens by key.
-type VoteMap<C, TOKEN> =
-    HashMap<Commitment<C>, (u64, BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<C>, TOKEN)>)>;
+type VoteMap<C, TOKEN> = HashMap<
+    Commitment<C>,
+    (
+        u64,
+        BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<C>, TOKEN)>,
+    ),
+>;
 
 /// Describe the process of collecting signatures on block or leaf commitment, to form a DAC or QC,
 /// respectively.
 pub struct VoteAccumulator<TOKEN, LEAF: Committable + Serialize + Clone> {
     /// Map of all signatures accumlated so far
-    pub vote_outcomes: VoteMap<LEAF, TOKEN>,
+    pub total_vote_outcomes: VoteMap<LEAF, TOKEN>,
+    /// Map of all yes signatures accumlated so far
+    pub yes_vote_outcomes: VoteMap<LEAF, TOKEN>,
+    /// Map of all no signatures accumlated so far
+    pub no_vote_outcomes: VoteMap<LEAF, TOKEN>,
     /// threshold of stake needed to form a Certificate
     pub threshold: NonZeroU64,
 }
@@ -158,7 +167,7 @@ where
         let (commitment, (key, (sig, vote_data, token))) = val;
 
         let (stake_casted, vote_map) = self
-            .vote_outcomes
+            .total_vote_outcomes
             .entry(commitment)
             .or_insert_with(|| (0, BTreeMap::new()));
         // Accumulate the stake for each leaf commitment rather than the total
@@ -168,7 +177,7 @@ where
         vote_map.insert(key, (sig, vote_data, token));
 
         if *stake_casted >= u64::from(self.threshold) {
-            let valid_signatures = self.vote_outcomes.remove(&commitment).unwrap().1;
+            let valid_signatures = self.total_vote_outcomes.remove(&commitment).unwrap().1;
             return Either::Right(valid_signatures);
         }
         Either::Left(self)
