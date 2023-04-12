@@ -3165,6 +3165,7 @@ dependencies = [
  "libp2p-core 0.37.0",
  "nll",
  "portpicker",
+ "rand 0.8.5",
  "serde",
  "serde_json",
  "snafu",
