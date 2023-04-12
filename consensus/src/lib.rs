@@ -355,9 +355,9 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
 /// before all but one branch are ultimately garbage collected.
 #[derive(Clone, Debug, Derivative)]
 #[derivative(Default(bound = ""))]
-pub struct BlockStore<Block: Committable>(HashMap<Commitment<Block>, (Block, u64)>);
+pub struct BlockStore<BLOCK: Committable>(HashMap<Commitment<BLOCK>, (BLOCK, u64)>);
 
-impl<Block: Committable> BlockStore<Block> {
+impl<BLOCK: Committable> BlockStore<BLOCK> {
     /// Save `block` for later retrieval.
     ///
     /// After calling this function, and before the corresponding call to [`remove`](Self::remove),
@@ -367,7 +367,7 @@ impl<Block: Committable> BlockStore<Block> {
     /// [`insert`](Self::insert) for the same block result in multiple owning references to the
     /// block. [`remove`](Self::remove) must be called once for each reference before the block will
     /// be deallocated.
-    pub fn insert(&mut self, block: Block) {
+    pub fn insert(&mut self, block: BLOCK) {
         self.0
             .entry(block.commit())
             .and_modify(|(_, refcount)| *refcount += 1)
@@ -380,7 +380,7 @@ impl<Block: Committable> BlockStore<Block> {
     /// may return [`None`] if a block with the given commitment has not been saved or if the block
     /// has been dropped with [`remove`](Self::remove).
     #[must_use]
-    pub fn get(&self, block: Commitment<Block>) -> Option<&Block> {
+    pub fn get(&self, block: Commitment<BLOCK>) -> Option<&BLOCK> {
         self.0.get(&block).map(|(block, _)| block)
     }
 
@@ -388,7 +388,7 @@ impl<Block: Committable> BlockStore<Block> {
     ///
     /// If the block exists and this call drops the last reference to it, the block will be
     /// returned. Otherwise, the return value is [`None`].
-    pub fn remove(&mut self, block: Commitment<Block>) -> Option<Block> {
+    pub fn remove(&mut self, block: Commitment<BLOCK>) -> Option<BLOCK> {
         if let Entry::Occupied(mut e) = self.0.entry(block) {
             let (_, refcount) = e.get_mut();
             *refcount -= 1;

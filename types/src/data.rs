@@ -226,29 +226,29 @@ pub trait DeltasType<Block: Committable>:
 /// deltas' internal block commitment.
 #[derive(Clone, Copy, Debug, Snafu)]
 #[snafu(display("the block {:?} has commitment {} (expected {})", block, block.commit(), commitment))]
-pub struct InconsistentDeltasError<Block: Committable + Debug> {
+pub struct InconsistentDeltasError<BLOCK: Committable + Debug> {
     /// The block with the wrong commitment.
-    block: Block,
+    block: BLOCK,
     /// The expected commitment.
-    commitment: Commitment<Block>,
+    commitment: Commitment<BLOCK>,
 }
 
-impl<Block> DeltasType<Block> for Block
+impl<BLOCK> DeltasType<BLOCK> for BLOCK
 where
-    Block:
+    BLOCK:
         Committable + Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Send + Serialize + Sync,
 {
-    type Error = InconsistentDeltasError<Block>;
+    type Error = InconsistentDeltasError<BLOCK>;
 
-    fn block_commitment(&self) -> Commitment<Block> {
+    fn block_commitment(&self) -> Commitment<BLOCK> {
         self.commit()
     }
 
-    fn try_resolve(self) -> Result<Block, Self> {
+    fn try_resolve(self) -> Result<BLOCK, Self> {
         Ok(self)
     }
 
-    fn fill(&mut self, block: Block) -> Result<(), Self::Error> {
+    fn fill(&mut self, block: BLOCK) -> Result<(), Self::Error> {
         ensure!(
             block.commit() == self.commit(),
             InconsistentDeltasSnafu {
@@ -262,28 +262,28 @@ where
     }
 }
 
-impl<Block> DeltasType<Block> for Either<Block, Commitment<Block>>
+impl<BLOCK> DeltasType<BLOCK> for Either<BLOCK, Commitment<BLOCK>>
 where
-    Block:
+    BLOCK:
         Committable + Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Send + Serialize + Sync,
 {
-    type Error = InconsistentDeltasError<Block>;
+    type Error = InconsistentDeltasError<BLOCK>;
 
-    fn block_commitment(&self) -> Commitment<Block> {
+    fn block_commitment(&self) -> Commitment<BLOCK> {
         match self {
             Either::Left(block) => block.commit(),
             Either::Right(comm) => *comm,
         }
     }
 
-    fn try_resolve(self) -> Result<Block, Self> {
+    fn try_resolve(self) -> Result<BLOCK, Self> {
         match self {
             Either::Left(block) => Ok(block),
             Either::Right(_) => Err(self),
         }
     }
 
-    fn fill(&mut self, block: Block) -> Result<(), Self::Error> {
+    fn fill(&mut self, block: BLOCK) -> Result<(), Self::Error> {
         match self {
             Either::Left(curr) => curr.fill(block),
             Either::Right(comm) => {
