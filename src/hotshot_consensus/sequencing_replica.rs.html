@@ -569,6 +569,38 @@
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
 <a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`SequencingReplica`] struct used for the replica step in the consensus algorithm with DA
 //! committee, i.e. in the sequencing consensus.
 
@@ -588,10 +620,11 @@
 <span class="kw">use </span>hotshot_types::traits::node_implementation::NodeImplementation;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::QuorumProposal;
 <span class="kw">use </span>hotshot_types::traits::node_implementation::QuorumVoteType;
+<span class="kw">use </span>hotshot_types::traits::state::ConsensusTime;
 <span class="kw">use </span>hotshot_types::vote::DAVote;
 <span class="kw">use </span>hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{CommitmentProposal, SequencingLeaf},
+    data::{CommitmentProposal, LeafType, SequencingLeaf},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
@@ -662,31 +695,27 @@
             Commitment = TYPES::BlockType,
         &gt; + CommitteeExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
 {
-    <span class="comment">// TODO (da) Move this function so that it can be used by leader, replica, and committee member logic.
-    </span><span class="doccomment">/// Returns the parent leaf of the proposal we are voting on
-    </span><span class="kw">async fn </span>parent_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;SequencingLeaf&lt;TYPES&gt;&gt; {
-        <span class="kw">let </span>parent_view_number = <span class="kw-2">&amp;</span><span class="self">self</span>.high_qc.view_number();
+    <span class="doccomment">/// The leaf from the genesis view.
+    ///
+    /// This will be used as the parent leaf for the proposal in the first view after genesis.
+    </span><span class="kw">async fn </span>genesis_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;SequencingLeaf&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-        <span class="kw">let </span>parent_leaf = <span class="kw">if let </span><span class="prelude-val">Some</span>(parent_view) = consensus.state_map.get(parent_view_number) {
-            <span class="kw">match </span><span class="kw-2">&amp;</span>parent_view.view_inner {
-                ViewInner::Leaf { leaf } =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(leaf) = consensus.saved_leaves.get(leaf) {
-                        leaf
-                    } <span class="kw">else </span>{
-                        <span class="macro">warn!</span>(<span class="string">&quot;Failed to find high QC parent.&quot;</span>);
-                        <span class="kw">return </span><span class="prelude-val">None</span>;
-                    }
-                }
-                ViewInner::Failed =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">&quot;Parent of high QC points to a failed QC&quot;</span>);
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
-            }
-        } <span class="kw">else </span>{
-            <span class="macro">warn!</span>(<span class="string">&quot;Couldn&#39;t find high QC parent in state map.&quot;</span>);
+        <span class="kw">let </span><span class="prelude-val">Some</span>(genesis_view) = consensus.state_map.get(<span class="kw-2">&amp;</span>TYPES::Time::genesis()) <span class="kw">else </span>{
+            <span class="macro">warn!</span>(<span class="string">&quot;Couldn&#39;t find genesis view in state map.&quot;</span>);
             <span class="kw">return </span><span class="prelude-val">None</span>;
         };
-        <span class="prelude-val">Some</span>(parent_leaf.clone())
+        <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = genesis_view.get_leaf_commitment() <span class="kw">else </span>{
+            <span class="macro">warn!</span>(
+                <span class="question-mark">?</span>genesis_view,
+                <span class="string">&quot;Genesis view points to a view without a leaf&quot;
+            </span>);
+            <span class="kw">return </span><span class="prelude-val">None</span>;
+        };
+        <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = consensus.saved_leaves.get(<span class="kw-2">&amp;</span>leaf) <span class="kw">else </span>{
+            <span class="macro">warn!</span>(<span class="string">&quot;Failed to find genesis leaf.&quot;</span>);
+            <span class="kw">return </span><span class="prelude-val">None</span>;
+        };
+        <span class="prelude-val">Some</span>(leaf.clone())
     }
 
     <span class="doccomment">/// Replica task for sequencing consensus that spins until a vote can be made or timeout is
@@ -745,12 +774,19 @@
 
                                 <span class="comment">// Construct the leaf.
                                 </span><span class="kw">let </span>justify_qc = p.data.justify_qc;
-                                <span class="kw">let </span>parent_commitment = <span class="kw">match </span><span class="self">self</span>.parent_leaf().<span class="kw">await </span>{
-                                    <span class="prelude-val">Some</span>(parent) =&gt; parent.commit(),
-                                    <span class="prelude-val">None </span>=&gt; {
-                                        <span class="kw">break </span><span class="prelude-val">None</span>;
-                                    }
+                                <span class="kw">let </span>parent = <span class="kw">if </span>justify_qc.is_genesis() {
+                                    <span class="self">self</span>.genesis_leaf().<span class="kw">await
+                                </span>} <span class="kw">else </span>{
+                                    consensus
+                                        .saved_leaves
+                                        .get(<span class="kw-2">&amp;</span>justify_qc.leaf_commitment())
+                                        .cloned()
                                 };
+                                <span class="kw">let </span><span class="prelude-val">Some</span>(parent) = parent <span class="kw">else </span>{
+                                    <span class="macro">warn!</span>(<span class="string">&quot;Proposal&#39;s parent missing from storage&quot;</span>);
+                                    <span class="kw">continue</span>;
+                                };
+                                <span class="kw">let </span>parent_commitment = parent.commit();
                                 <span class="kw">let </span>block_commitment = p.data.block_commitment;
                                 <span class="kw">let </span>leaf = SequencingLeaf {
                                     view_number: <span class="self">self</span>.cur_view,
@@ -773,6 +809,21 @@
                                 {
                                     invalid_qc = <span class="bool-val">true</span>;
                                     <span class="macro">warn!</span>(<span class="string">&quot;Invalid justify_qc in proposal!.&quot;</span>);
+                                    message = <span class="self">self</span>.quorum_exchange.create_no_message(
+                                        justify_qc_commitment,
+                                        leaf_commitment,
+                                        <span class="self">self</span>.cur_view,
+                                        vote_token,
+                                    );
+                                }
+                                <span class="comment">// Validate the `height`.
+                                </span><span class="kw">else if </span>leaf.height != parent.height + <span class="number">1 </span>{
+                                    invalid_qc = <span class="bool-val">true</span>;
+                                    <span class="macro">warn!</span>(
+                                        <span class="string">&quot;Incorrect height in proposal (expected {}, got {})&quot;</span>,
+                                        parent.height + <span class="number">1</span>,
+                                        leaf.height
+                                    );
                                     message = <span class="self">self</span>.quorum_exchange.create_no_message(
                                         justify_qc_commitment,
                                         leaf_commitment,
@@ -1009,6 +1060,19 @@
                     }
                     <span class="comment">// starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
                     </span><span class="kw">if </span>new_decide_reached {
+                        <span class="kw">let </span><span class="kw-2">mut </span>leaf = leaf.clone();
+
+                        <span class="comment">// If the full block is available for this leaf, include it in the leaf
+                        // chain that we send to the client.
+                        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(block) =
+                            consensus.saved_blocks.get(leaf.get_deltas_commitment())
+                        {
+                            <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = leaf.fill_deltas(block.clone()) {
+                                <span class="macro">warn!</span>(<span class="string">&quot;unable to fill leaf {} with block {}, block will not be available: {}&quot;</span>,
+                                    leaf.commit(), block.commit(), err);
+                            }
+                        }
+
                         leaf_views.push(leaf.clone());
                         <span class="kw">if let </span>Left(block) = <span class="kw-2">&amp;</span>leaf.deltas {
                             <span class="kw">let </span>txns = block.contained_transactions();

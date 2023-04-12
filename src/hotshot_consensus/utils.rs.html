@@ -115,13 +115,32 @@
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Utility functions, type aliases, helper structs and enum definitions.
 
 </span><span class="kw">use </span>async_compatibility_layer::channel::{unbounded, UnboundedReceiver, UnboundedSender};
 <span class="kw">use </span>async_lock::Mutex;
 <span class="kw">use </span>commit::Commitment;
 <span class="kw">use </span>hotshot_types::{
-    data::LeafType,
+    data::{LeafBlock, LeafType},
     message::ProcessedConsensusMessage,
     traits::node_implementation::{NodeImplementation, NodeType},
 };
@@ -134,6 +153,15 @@
 <span class="doccomment">/// A view&#39;s state
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>ViewInner&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
+    <span class="doccomment">/// A pending view with an available block but not leaf proposal yet.
+    ///
+    /// Storing this state allows us to garbage collect blocks for views where a proposal is never
+    /// made. This saves memory when a leader fails and subverts a DoS attack where malicious
+    /// leaders repeatedly request availability for blocks that they never propose.
+    </span>DA {
+        <span class="doccomment">/// Available block.
+        </span>block: Commitment&lt;LeafBlock&lt;LEAF&gt;&gt;,
+    },
     <span class="doccomment">/// Undecided view
     </span>Leaf {
         <span class="doccomment">/// Proposed leaf
@@ -146,9 +174,19 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; ViewInner&lt;TYPES, LEAF&gt; {
     <span class="doccomment">/// return the underlying leaf hash if it exists
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>get_leaf_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Commitment&lt;LEAF&gt;&gt; {
+    </span><span class="kw">pub fn </span>get_leaf_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Commitment&lt;LEAF&gt;&gt; {
         <span class="kw">if let </span><span class="self">Self</span>::Leaf { leaf } = <span class="self">self </span>{
-            <span class="prelude-val">Some</span>(leaf)
+            <span class="prelude-val">Some</span>(<span class="kw-2">*</span>leaf)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>}
+    }
+
+    <span class="doccomment">/// return the underlying block hash if it exists
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>get_block_commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Commitment&lt;LeafBlock&lt;LEAF&gt;&gt;&gt; {
+        <span class="kw">if let </span><span class="self">Self</span>::DA { block } = <span class="self">self </span>{
+            <span class="prelude-val">Some</span>(<span class="kw-2">*</span>block)
         } <span class="kw">else </span>{
             <span class="prelude-val">None
         </span>}

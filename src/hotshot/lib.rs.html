@@ -1343,6 +1343,11 @@
 <a href="#1343" id="1343">1343</a>
 <a href="#1344" id="1344">1344</a>
 <a href="#1345" id="1345">1345</a>
+<a href="#1346" id="1346">1346</a>
+<a href="#1347" id="1347">1347</a>
+<a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
 </pre><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1393,14 +1398,14 @@
 <span class="kw">use </span>commit::{Commitment, Committable};
 
 <span class="kw">use </span>hotshot_consensus::{
-    Consensus, ConsensusApi, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader, DALeader,
-    DAMember, NextValidatingLeader, Replica, SendToTasks, SequencingReplica, ValidatingLeader,
-    View, ViewInner, ViewQueue,
+    BlockStore, Consensus, ConsensusApi, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader,
+    DALeader, DAMember, NextValidatingLeader, Replica, SendToTasks, SequencingReplica,
+    ValidatingLeader, View, ViewInner, ViewQueue,
 };
 <span class="kw">use </span>hotshot_types::certificate::DACertificate;
 
 <span class="kw">use </span>hotshot_types::data::CommitmentProposal;
-<span class="kw">use </span>hotshot_types::data::{DAProposal, SequencingLeaf};
+<span class="kw">use </span>hotshot_types::data::{DAProposal, DeltasType, SequencingLeaf};
 <span class="kw">use </span>hotshot_types::traits::election::CommitteeExchangeType;
 <span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
 <span class="kw">use </span>hotshot_types::traits::network::CommunicationChannel;
@@ -1579,7 +1584,11 @@
         );
 
         <span class="kw">let </span><span class="kw-2">mut </span>saved_leaves = HashMap::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>saved_blocks = BlockStore::default();
         saved_leaves.insert(anchored_leaf.commit(), anchored_leaf.clone());
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(block) = anchored_leaf.get_deltas().try_resolve() {
+            saved_blocks.insert(block);
+        }
 
         <span class="kw">let </span>start_view = anchored_leaf.get_view_number();
 
@@ -1589,6 +1598,7 @@
             last_decided_view: anchored_leaf.get_view_number(),
             transactions: Arc::default(),
             saved_leaves,
+            saved_blocks,
             <span class="comment">// TODO this is incorrect
             // https://github.com/EspressoSystems/HotShot/issues/560
             </span>locked_view: anchored_leaf.get_view_number(),

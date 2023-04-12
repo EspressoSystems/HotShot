@@ -183,71 +183,20 @@
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a>
-<a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`DAMember`] struct used for the committee member step in the consensus algorithm
 //! with DA committee, i.e. in the sequencing consensus.
 
-</span><span class="kw">use crate</span>::{
-    utils::{View, ViewInner},
-    Consensus, ConsensusApi,
-};
+</span><span class="kw">use crate</span>::{Consensus, ConsensusApi, View, ViewInner};
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedReceiver;
-<span class="kw">use </span>async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
+<span class="kw">use </span>async_lock::{Mutex, RwLock};
 <span class="kw">use </span>commit::Committable;
-<span class="kw">use </span>either::Left;
 <span class="kw">use </span>hotshot_types::message::Message;
 <span class="kw">use </span>hotshot_types::{
     certificate::QuorumCertificate,
     data::{DAProposal, SequencingLeaf},
     message::{ConsensusMessage, ProcessedConsensusMessage},
     traits::{
-        election::{CommitteeExchangeType, ConsensusExchange, SignedCertificate},
+        election::{CommitteeExchangeType, ConsensusExchange},
         node_implementation::{CommitteeProposal, CommitteeVote, NodeImplementation, NodeType},
         signature_key::SignatureKey,
     },
@@ -300,32 +249,6 @@
             Vote = DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
         &gt; + CommitteeExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
 {
-    <span class="doccomment">/// Returns the parent leaf of the proposal we are voting on
-    </span><span class="kw">async fn </span>parent_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;SequencingLeaf&lt;TYPES&gt;&gt; {
-        <span class="kw">let </span>parent_view_number = <span class="kw-2">&amp;</span><span class="self">self</span>.high_qc.view_number();
-        <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-        <span class="kw">let </span>parent_leaf = <span class="kw">if let </span><span class="prelude-val">Some</span>(parent_view) = consensus.state_map.get(parent_view_number) {
-            <span class="kw">match </span><span class="kw-2">&amp;</span>parent_view.view_inner {
-                ViewInner::Leaf { leaf } =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(leaf) = consensus.saved_leaves.get(leaf) {
-                        leaf
-                    } <span class="kw">else </span>{
-                        <span class="macro">warn!</span>(<span class="string">&quot;Failed to find high QC parent.&quot;</span>);
-                        <span class="kw">return </span><span class="prelude-val">None</span>;
-                    }
-                }
-                ViewInner::Failed =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">&quot;Parent of high QC points to a failed QC&quot;</span>);
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
-            }
-        } <span class="kw">else </span>{
-            <span class="macro">warn!</span>(<span class="string">&quot;Couldn&#39;t find high QC parent in state map.&quot;</span>);
-            <span class="kw">return </span><span class="prelude-val">None</span>;
-        };
-        <span class="prelude-val">Some</span>(parent_leaf.clone())
-    }
-
     <span class="doccomment">/// DA committee member task that spins until a valid DA proposal can be signed or timeout is
     /// hit.
     </span><span class="attr">#[instrument(skip_all, fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;DA Member Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]
@@ -333,7 +256,7 @@
     </span><span class="kw">async fn </span>find_valid_msg&lt;<span class="lifetime">&#39;a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         view_leader_key: TYPES::SignatureKey,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;SequencingLeaf&lt;TYPES&gt;&gt; {
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;TYPES::BlockType&gt; {
         <span class="kw">let </span>lock = <span class="self">self</span>.proposal_collection_chan.lock().<span class="kw">await</span>;
         <span class="kw">let </span>leaf = <span class="kw">loop </span>{
             <span class="kw">let </span>msg = lock.recv().<span class="kw">await</span>;
@@ -349,17 +272,6 @@
                         <span class="kw">if </span>view_leader_key != sender {
                             <span class="kw">continue</span>;
                         }
-                        <span class="kw">let </span>parent = <span class="self">self</span>.parent_leaf().<span class="kw">await</span><span class="question-mark">?</span>;
-                        <span class="kw">let </span>leaf = SequencingLeaf {
-                            view_number: <span class="self">self</span>.cur_view,
-                            height: parent.height + <span class="number">1</span>,
-                            justify_qc: <span class="self">self</span>.high_qc.clone(),
-                            parent_commitment: parent.commit(),
-                            deltas: Left(p.data.deltas.clone()),
-                            rejected: Vec::new(),
-                            timestamp: time::OffsetDateTime::now_utc().unix_timestamp_nanos(),
-                            proposer_id: sender.to_bytes(),
-                        };
 
                         <span class="kw">let </span>block_commitment = p.data.deltas.commit();
                         <span class="kw">if </span>!view_leader_key.validate(<span class="kw-2">&amp;</span>p.signature, block_commitment.as_ref()) {
@@ -400,7 +312,7 @@
                                 }
                             }
                         }
-                        <span class="kw">break </span>leaf;
+                        <span class="kw">break </span>p.data.deltas;
                     }
                     ProcessedConsensusMessage::InternalTrigger(_trigger) =&gt; {
                         <span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved an internal trigger message. This is not what the member expects. Skipping.&quot;</span>);
@@ -435,30 +347,24 @@
         <span class="macro">info!</span>(<span class="string">&quot;DA Committee Member task started!&quot;</span>);
         <span class="kw">let </span>view_leader_key = <span class="self">self</span>.exchange.get_leader(<span class="self">self</span>.cur_view);
 
-        <span class="kw">let </span>maybe_leaf = <span class="self">self</span>.find_valid_msg(view_leader_key).<span class="kw">await</span>;
+        <span class="kw">let </span>maybe_block = <span class="self">self</span>.find_valid_msg(view_leader_key).<span class="kw">await</span>;
 
-        <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = maybe_leaf <span class="kw">else </span>{
-            <span class="comment">// We either timed out or for some reason could not accept a proposal.
-            </span><span class="kw">return </span><span class="self">self</span>.high_qc;
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = maybe_block {
+            <span class="kw">let </span><span class="kw-2">mut </span>consensus = <span class="self">self</span>.consensus.write().<span class="kw">await</span>;
+
+            <span class="comment">// Ensure this view is in the view map for garbage collection, but do not overwrite if
+            // there is already a view there: the replica task may have inserted a `Leaf` view which
+            // contains strictly more information.
+            </span>consensus.state_map.entry(<span class="self">self</span>.cur_view).or_insert(View {
+                view_inner: ViewInner::DA {
+                    block: block.commit(),
+                },
+            });
+
+            <span class="comment">// Record the block we have promised to make available.
+            </span>consensus.saved_blocks.insert(block);
         };
 
-        <span class="comment">// Update state map and leaves.
-        </span><span class="kw">let </span>consensus = <span class="self">self</span>.consensus.upgradable_read().<span class="kw">await</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>consensus = RwLockUpgradableReadGuard::upgrade(consensus).<span class="kw">await</span>;
-        consensus.state_map.insert(
-            <span class="self">self</span>.cur_view,
-            View {
-                view_inner: ViewInner::Leaf {
-                    leaf: leaf.commit(),
-                },
-            },
-        );
-        consensus.saved_leaves.insert(leaf.commit(), leaf.clone());
-
-        <span class="comment">// We&#39;re only storing the last QC. We could store more but we&#39;re realistically only going to retrieve the last one.
-        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.api.store_leaf(<span class="self">self</span>.cur_view, leaf).<span class="kw">await </span>{
-            <span class="macro">error!</span>(<span class="string">&quot;Could not insert new anchor into the storage API: {:?}&quot;</span>, e);
-        }
         <span class="self">self</span>.high_qc
     }
 }

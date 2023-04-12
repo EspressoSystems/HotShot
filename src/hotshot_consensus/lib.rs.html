@@ -333,6 +333,73 @@
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The consensus layer for hotshot. This currently implements both sequencing and validating
 //! consensus
 
@@ -365,7 +432,8 @@
 <span class="kw">pub use </span>traits::ConsensusApi;
 <span class="kw">pub use </span>utils::{SendToTasks, View, ViewInner, ViewQueue};
 
-<span class="kw">use </span>commit::Commitment;
+<span class="kw">use </span>commit::{Commitment, Committable};
+<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>hotshot_types::certificate::QuorumCertificate;
 <span class="kw">use </span>hotshot_types::traits::metrics::Counter;
 <span class="kw">use </span>hotshot_types::{
@@ -377,7 +445,7 @@
     },
 };
 <span class="kw">use </span>std::{
-    collections::{BTreeMap, HashMap},
+    collections::{hash_map::Entry, BTreeMap, HashMap},
     sync::Arc,
 };
 <span class="kw">use </span>tracing::{error, warn};
@@ -449,6 +517,11 @@
     /// - contains undecided leaves
     /// - includes the MOST RECENT decided leaf
     </span><span class="kw">pub </span>saved_leaves: CommitmentMap&lt;LEAF&gt;,
+
+    <span class="doccomment">/// Saved blocks
+    ///
+    /// Contains the full block for every leaf in `saved_leaves` if that block is available.
+    </span><span class="kw">pub </span>saved_blocks: BlockStore&lt;TYPES::BlockType&gt;,
 
     <span class="doccomment">/// The `locked_qc` view number
     </span><span class="kw">pub </span>locked_view: TYPES::Time,
@@ -580,8 +653,7 @@
         </span>F: FnMut(<span class="kw-2">&amp;</span>LEAF) -&gt; bool,
     {
         <span class="kw">let </span><span class="kw-2">mut </span>next_leaf = <span class="kw">if let </span><span class="prelude-val">Some</span>(view) = <span class="self">self</span>.state_map.get(<span class="kw-2">&amp;</span>start_from) {
-            <span class="kw-2">*</span>view
-                .get_leaf_commitment()
+            view.get_leaf_commitment()
                 .ok_or_else(|| HotShotError::InvalidState {
                     context: <span class="macro">format!</span>(
                         <span class="string">&quot;Visited failed view {start_from:?} leaf. Expected successfuil leaf&quot;
@@ -641,9 +713,17 @@
         <span class="comment">// perform gc
         </span><span class="self">self</span>.state_map
             .range(old_anchor_view..new_anchor_view)
+            .filter_map(|(_view_number, view)| view.get_block_commitment())
+            .for_each(|block| {
+                <span class="self">self</span>.saved_blocks.remove(block);
+            });
+        <span class="self">self</span>.state_map
+            .range(old_anchor_view..new_anchor_view)
             .filter_map(|(_view_number, view)| view.get_leaf_commitment())
             .for_each(|leaf| {
-                <span class="kw">let </span>_removed = <span class="self">self</span>.saved_leaves.remove(leaf);
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(removed) = <span class="self">self</span>.saved_leaves.remove(<span class="kw-2">&amp;</span>leaf) {
+                    <span class="self">self</span>.saved_blocks.remove(removed.get_deltas_commitment());
+                }
             });
         <span class="self">self</span>.state_map = <span class="self">self</span>.state_map.split_off(<span class="kw-2">&amp;</span>new_anchor_view);
     }
@@ -665,8 +745,62 @@
         <span class="kw">let </span>leaf = view
             .get_leaf_commitment()
             .expect(<span class="string">&quot;Decided state not found! Consensus internally inconsistent&quot;</span>);
-        <span class="self">self</span>.saved_leaves.get(leaf).unwrap().clone()
+        <span class="self">self</span>.saved_leaves.get(<span class="kw-2">&amp;</span>leaf).unwrap().clone()
     }
+}
+
+<span class="doccomment">/// Mapping from block commitments to full blocks.
+///
+/// Entries in this mapping are reference-counted, so multiple consensus objects can refer to the
+/// same block, and the block will only be deleted after _all_ such objects are garbage collected.
+/// For example, multiple leaves may temporarily reference the same block on different branches,
+/// before all but one branch are ultimately garbage collected.
+</span><span class="attr">#[derive(Clone, Debug, Derivative)]
+#[derivative(Default(bound = <span class="string">&quot;&quot;</span>))]
+</span><span class="kw">pub struct </span>BlockStore&lt;BLOCK: Committable&gt;(HashMap&lt;Commitment&lt;BLOCK&gt;, (BLOCK, u64)&gt;);
+
+<span class="kw">impl</span>&lt;BLOCK: Committable&gt; BlockStore&lt;BLOCK&gt; {
+    <span class="doccomment">/// Save `block` for later retrieval.
+    ///
+    /// After calling this function, and before the corresponding call to [`remove`](Self::remove),
+    /// `self.get(block.commit())` will return `Some(block)`.
+    ///
+    /// This function will increment a reference count on the saved block, so that multiple calls to
+    /// [`insert`](Self::insert) for the same block result in multiple owning references to the
+    /// block. [`remove`](Self::remove) must be called once for each reference before the block will
+    /// be deallocated.
+    </span><span class="kw">pub fn </span>insert(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: BLOCK) {
+        <span class="self">self</span>.<span class="number">0
+            </span>.entry(block.commit())
+            .and_modify(|(<span class="kw">_</span>, refcount)| <span class="kw-2">*</span>refcount += <span class="number">1</span>)
+            .or_insert((block, <span class="number">1</span>));
+    }
+
+    <span class="doccomment">/// Get a saved block, if available.
+    ///
+    /// If a block has been saved with [`insert`](Self::insert), this function will retrieve it. It
+    /// may return [`None`] if a block with the given commitment has not been saved or if the block
+    /// has been dropped with [`remove`](Self::remove).
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, block: Commitment&lt;BLOCK&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>BLOCK&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.get(<span class="kw-2">&amp;</span>block).map(|(block, <span class="kw">_</span>)| block)
+    }
+
+    <span class="doccomment">/// Drop a reference to a saved block.
+    ///
+    /// If the block exists and this call drops the last reference to it, the block will be
+    /// returned. Otherwise, the return value is [`None`].
+    </span><span class="kw">pub fn </span>remove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: Commitment&lt;BLOCK&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;BLOCK&gt; {
+        <span class="kw">if let </span>Entry::Occupied(<span class="kw-2">mut </span>e) = <span class="self">self</span>.<span class="number">0</span>.entry(block) {
+            <span class="kw">let </span>(<span class="kw">_</span>, refcount) = e.get_mut();
+            <span class="kw-2">*</span>refcount -= <span class="number">1</span>;
+            <span class="kw">if </span><span class="kw-2">*</span>refcount == <span class="number">0 </span>{
+                <span class="kw">let </span>(block, <span class="kw">_</span>) = e.remove();
+                <span class="kw">return </span><span class="prelude-val">Some</span>(block);
+            }
+        }
+        <span class="prelude-val">None
+    </span>}
 }
 </code></pre></div>
 </section></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="hotshot_consensus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.2 (9eb3afe9e 2023-03-27)" data-search-js="search-98d53477a794af0b.js" data-settings-js="settings-c3c521c753752a1a.js" data-settings-css="settings-08ddfdda51b8ee2e.css" ></div></body></html>

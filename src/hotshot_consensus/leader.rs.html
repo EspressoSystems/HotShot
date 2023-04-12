@@ -213,11 +213,9 @@
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
 <a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`ValidatingLeader`] struct used for the leader step in the hotstuff consensus algorithm.
 
-</span><span class="kw">use crate</span>::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
+</span><span class="kw">use crate</span>::{CommitmentMap, Consensus, ConsensusApi};
 <span class="kw">use </span>async_compatibility_layer::{
     art::{async_sleep, async_timeout},
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
@@ -292,28 +290,26 @@
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>reached_decided = <span class="bool-val">false</span>;
 
-        <span class="kw">let </span>parent_leaf = <span class="kw">if let </span><span class="prelude-val">Some</span>(parent_view) = consensus.state_map.get(parent_view_number) {
-            <span class="kw">match </span><span class="kw-2">&amp;</span>parent_view.view_inner {
-                ViewInner::Leaf { leaf } =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(leaf) = consensus.saved_leaves.get(leaf) {
-                        <span class="kw">if </span>leaf.view_number == consensus.last_decided_view {
-                            reached_decided = <span class="bool-val">true</span>;
-                        }
-                        leaf
-                    } <span class="kw">else </span>{
-                        <span class="macro">warn!</span>(<span class="string">&quot;Failed to find high QC parent.&quot;</span>);
-                        <span class="kw">return </span><span class="self">self</span>.high_qc;
-                    }
-                }
-                ViewInner::Failed =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">&quot;Parent of high QC points to a failed QC&quot;</span>);
-                    <span class="kw">return </span><span class="self">self</span>.high_qc;
-                }
-            }
-        } <span class="kw">else </span>{
+        <span class="kw">let </span><span class="prelude-val">Some</span>(parent_view) = consensus.state_map.get(parent_view_number) <span class="kw">else </span>{
             <span class="macro">warn!</span>(<span class="string">&quot;Couldn&#39;t find high QC parent in state map.&quot;</span>);
             <span class="kw">return </span><span class="self">self</span>.high_qc;
         };
+        <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = parent_view.get_leaf_commitment() <span class="kw">else </span>{
+            <span class="macro">warn!</span>(
+                <span class="question-mark">?</span>parent_view_number,
+                <span class="question-mark">?</span>parent_view,
+                <span class="string">&quot;Parent of high QC points to a view without a proposal&quot;
+            </span>);
+            <span class="kw">return </span><span class="self">self</span>.high_qc;
+        };
+        <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = consensus.saved_leaves.get(<span class="kw-2">&amp;</span>leaf) <span class="kw">else </span>{
+            <span class="macro">warn!</span>(<span class="string">&quot;Failed to find high QC parent.&quot;</span>);
+            <span class="kw">return </span><span class="self">self</span>.high_qc;
+        };
+        <span class="kw">if </span>leaf.view_number == consensus.last_decided_view {
+            reached_decided = <span class="bool-val">true</span>;
+        }
+        <span class="kw">let </span>parent_leaf = leaf.clone();
 
         <span class="kw">let </span>original_parent_hash = parent_leaf.commit();
         <span class="kw">let </span>starting_state = <span class="kw-2">&amp;</span>parent_leaf.state;

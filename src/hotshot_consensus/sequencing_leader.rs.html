@@ -489,13 +489,10 @@
 <a href="#489" id="489">489</a>
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
-<a href="#493" id="493">493</a>
-<a href="#494" id="494">494</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
-</span><span class="kw">use crate</span>::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
+</span><span class="kw">use crate</span>::{CommitmentMap, Consensus, ConsensusApi};
 <span class="kw">use </span>async_compatibility_layer::channel::UnboundedReceiver;
 <span class="kw">use </span>async_compatibility_layer::{
     art::async_timeout,
@@ -650,26 +647,23 @@
     </span><span class="kw">async fn </span>parent_leaf(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;SequencingLeaf&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>parent_view_number = <span class="kw-2">&amp;</span><span class="self">self</span>.high_qc.view_number();
         <span class="kw">let </span>consensus = <span class="self">self</span>.consensus.read().<span class="kw">await</span>;
-        <span class="kw">let </span>parent_leaf = <span class="kw">if let </span><span class="prelude-val">Some</span>(parent_view) = consensus.state_map.get(parent_view_number) {
-            <span class="kw">match </span><span class="kw-2">&amp;</span>parent_view.view_inner {
-                ViewInner::Leaf { leaf } =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(leaf) = consensus.saved_leaves.get(leaf) {
-                        leaf
-                    } <span class="kw">else </span>{
-                        <span class="macro">warn!</span>(<span class="string">&quot;Failed to find high QC parent.&quot;</span>);
-                        <span class="kw">return </span><span class="prelude-val">None</span>;
-                    }
-                }
-                ViewInner::Failed =&gt; {
-                    <span class="macro">warn!</span>(<span class="string">&quot;Parent of high QC points to a failed QC&quot;</span>);
-                    <span class="kw">return </span><span class="prelude-val">None</span>;
-                }
-            }
-        } <span class="kw">else </span>{
+        <span class="kw">let </span><span class="prelude-val">Some</span>(parent_view) = consensus.state_map.get(parent_view_number) <span class="kw">else </span>{
             <span class="macro">warn!</span>(<span class="string">&quot;Couldn&#39;t find high QC parent in state map.&quot;</span>);
             <span class="kw">return </span><span class="prelude-val">None</span>;
         };
-        <span class="prelude-val">Some</span>(parent_leaf.clone())
+        <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = parent_view.get_leaf_commitment() <span class="kw">else </span>{
+            <span class="macro">warn!</span>(
+                <span class="question-mark">?</span>parent_view_number,
+                <span class="question-mark">?</span>parent_view,
+                <span class="string">&quot;Parent of high QC points to a view without a proposal&quot;
+            </span>);
+            <span class="kw">return </span><span class="prelude-val">None</span>;
+        };
+        <span class="kw">let </span><span class="prelude-val">Some</span>(leaf) = consensus.saved_leaves.get(<span class="kw-2">&amp;</span>leaf) <span class="kw">else </span>{
+            <span class="macro">warn!</span>(<span class="string">&quot;Failed to find high QC parent.&quot;</span>);
+            <span class="kw">return </span><span class="prelude-val">None</span>;
+        };
+        <span class="prelude-val">Some</span>(leaf.clone())
     }
     <span class="doccomment">/// return None if we can&#39;t get transactions
     </span><span class="kw">async fn </span>wait_for_transactions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;TYPES::Transaction&gt;&gt; {
