@@ -15,6 +15,7 @@ use super::{
     storage::{StorageError, StorageState, TestableStorage},
     State,
 };
+use commit::Committable;
 use crate::{
     data::LeafType,
     traits::{signature_key::SignatureKey, storage::Storage, Block},
@@ -323,7 +324,7 @@ pub trait NodeType:
     /// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `StateType::Time` is using.
-    type Time: ConsensusTime;
+    type Time: ConsensusTime + Committable;
     /// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `StateType::BlockType` is using.

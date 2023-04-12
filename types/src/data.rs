@@ -52,6 +52,14 @@ impl ConsensusTime for ViewNumber {
     }
 }
 
+impl Committable for ViewNumber {
+    fn commit(&self) -> Commitment<Self> {
+        let mut builder = commit::RawCommitmentBuilder::new("View Number Commitment");
+        builder.u64(self.0).finalize()
+
+    }
+}
+
 impl std::ops::Add<u64> for ViewNumber {
     type Output = ViewNumber;
 

@@ -58,24 +58,25 @@ pub enum Checked<T> {
 /// Data to vote on for different types of votes.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub enum VoteData<TYPES: NodeType, LEAF: LeafType> {
+pub enum VoteData<COMMITTABLE: Committable + Serialize> {
     /// Vote to provide availability for a block.
-    DA(Commitment<TYPES::BlockType>),
+    DA(Commitment<COMMITTABLE>),
     /// Vote to append a leaf to the log.
-    Yes(Commitment<LEAF>),
+    Yes(Commitment<COMMITTABLE>),
     /// Vote to reject a leaf from the log.
-    No(Commitment<LEAF>),
+    No(Commitment<COMMITTABLE>),
     /// Vote to time out and proceed to the next view.
-    Timeout(TYPES::Time),
+    Timeout(Commitment<COMMITTABLE>),
 }
 
-impl<TYPES: NodeType, LEAF: LeafType> VoteData<TYPES, LEAF> {
+impl<COMMITTABLE: Committable + Serialize> VoteData<COMMITTABLE> {
     /// Convert vote data into bytes.
     ///
     /// # Panics
     /// Panics if the serialization fails.
     pub fn as_bytes(&self) -> Vec<u8> {
         bincode_opts().serialize(&self).unwrap()
+        
     }
 }
 
@@ -211,7 +212,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
     /// Network used by [`Membership`](Self::Membership) to communicate.
     type Networking: CommunicationChannel<TYPES, M, Self::Proposal, Self::Vote, Self::Membership>;
     /// Commitments to items which are the subject of proposals and decisions.
-    type Commitment: Committable;
+    type Commitment: Committable + Serialize;
 
     /// Join a [`ConsensusExchange`] with the given identity (`pk` and `sk`).
     fn create(
@@ -253,7 +254,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
     }
 
     /// The contents of a vote on `commit`.
-    fn vote_data(&self, commit: Commitment<Self::Commitment>) -> VoteData<TYPES, LEAF>;
+    fn vote_data(&self, commit: Commitment<Self::Commitment>) -> VoteData<Self::Commitment>;
 
     /// Validate a QC.
     fn is_valid_cert(&self, qc: &Self::Certificate, commit: Commitment<Self::Commitment>) -> bool {
@@ -288,7 +289,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        data: VoteData<TYPES, LEAF>,
+        data: VoteData<Self::Commitment>,
         view_number: TYPES::Time,
         vote_token: Checked<TYPES::VoteTokenType>,
     ) -> bool {
@@ -314,7 +315,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
     #[doc(hidden)]
     fn accumulate_internal(
         &self,
-        vota_meta: VoteMetaData<TYPES, Self::Commitment, TYPES::VoteTokenType, TYPES::Time, LEAF>,
+        vota_meta: VoteMetaData<Self::Commitment, TYPES::VoteTokenType, TYPES::Time>,
         accumulator: VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>,
     ) -> Either<VoteAccumulator<TYPES::VoteTokenType, Self::Commitment>, Self::Certificate> {
         if !self.is_valid_vote(
@@ -445,7 +446,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::<TYPES, LEAF>::DA(block_commitment).as_bytes(),
+            &VoteData::<TYPES::BlockType>::DA(block_commitment).as_bytes(),
         );
         (self.public_key.to_bytes(), signature)
     }
@@ -468,7 +469,7 @@ impl<
             block_commitment,
             current_view,
             vote_token,
-            vote_data: VoteData::DA(block_commitment)
+            vote_data: VoteData::DA(block_commitment),
         })
     }
 }
@@ -516,7 +517,7 @@ impl<
             .make_vote_token(view_number, &self.private_key)
     }
 
-    fn vote_data(&self, commit: Commitment<Self::Commitment>) -> VoteData<TYPES, LEAF> {
+    fn vote_data(&self, commit: Commitment<Self::Commitment>) -> VoteData<Self::Commitment> {
         VoteData::DA(commit)
     }
 
@@ -677,7 +678,7 @@ impl<
             leaf_commitment,
             current_view,
             vote_token,
-            vote_data: VoteData::Yes(leaf_commitment)
+            vote_data: VoteData::Yes(leaf_commitment),
         }))
     }
     /// Sign a validating or commitment proposal.
@@ -701,7 +702,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::<TYPES, LEAF>::Yes(leaf_commitment).as_bytes(),
+            &VoteData::<LEAF>::Yes(leaf_commitment).as_bytes(),
         );
         (self.public_key.to_bytes(), signature)
     }
@@ -717,7 +718,7 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::<TYPES, LEAF>::No(leaf_commitment).as_bytes(),
+            &VoteData::<LEAF>::No(leaf_commitment).as_bytes(),
         );
         (self.public_key.to_bytes(), signature)
     }
@@ -732,7 +733,7 @@ impl<
     fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::<TYPES, LEAF>::Timeout(view_number).as_bytes(),
+            &VoteData::<TYPES::Time>::Timeout(view_number.commit()).as_bytes(),
         );
         (self.public_key.to_bytes(), signature)
     }
@@ -755,8 +756,7 @@ impl<
             leaf_commitment,
             current_view,
             vote_token,
-            vote_data: VoteData::No(leaf_commitment)
-
+            vote_data: VoteData::No(leaf_commitment),
         }))
     }
 
@@ -777,8 +777,7 @@ impl<
             signature,
             current_view,
             vote_token,
-            vote_data: VoteData::Timeout(current_view),
-
+            vote_data: VoteData::Timeout(current_view.commit()),
         }))
     }
 }
@@ -822,7 +821,7 @@ impl<
         &self.network
     }
 
-    fn vote_data(&self, commit: Commitment<Self::Commitment>) -> VoteData<TYPES, LEAF> {
+    fn vote_data(&self, commit: Commitment<Self::Commitment>) -> VoteData<Self::Commitment> {
         VoteData::Yes(commit)
     }
 

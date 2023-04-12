@@ -62,15 +62,15 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
 }
 
 /// Data from a vote needed to accumulate into a `SignedCertificate`
-pub struct VoteMetaData<TYPES: NodeType, C: Committable, T: VoteToken, TIME, LEAF: LeafType> {
+pub struct VoteMetaData<COMMITTABLE: Committable + Serialize, T: VoteToken, TIME> {
     /// Voter's public key
     pub encoded_key: EncodedPublicKey,
     /// Votes signature
     pub encoded_signature: EncodedSignature,
     /// Commitment to what's voted on.  E.g. the leaf for a `QuorumCertificate`
-    pub commitment: Commitment<C>,
+    pub commitment: Commitment<COMMITTABLE>,
     /// Data of the vote, yes, no, timeout, or DA
-    pub data: VoteData<TYPES, LEAF>,
+    pub data: VoteData<COMMITTABLE>,
     /// The votes's token
     pub vote_token: T,
     /// View number for the vote
