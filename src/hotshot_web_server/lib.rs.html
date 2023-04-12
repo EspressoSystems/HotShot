@@ -433,6 +433,8 @@
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
 <a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>config;
 
 <span class="kw">use </span>async_compatibility_layer::channel::OneShotReceiver;
@@ -443,6 +445,7 @@
 
 <span class="kw">use </span>hotshot_types::traits::signature_key::EncodedPublicKey;
 <span class="kw">use </span>hotshot_types::traits::signature_key::SignatureKey;
+<span class="kw">use </span>rand::SeedableRng;
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::io;
 <span class="kw">use </span>std::path::PathBuf;
@@ -464,8 +467,7 @@
 <span class="doccomment">/// How many transactions to keep in memory
 </span><span class="kw">const </span>MAX_TXNS: usize = <span class="number">10</span>;
 
-<span class="attr">#[derive(Default)]
-</span><span class="doccomment">/// State that tracks proposals and votes the server receives
+<span class="doccomment">/// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec&lt;u8&gt;` to not incur overhead from deserializing
 </span><span class="kw">struct </span>WebServerState&lt;KEY&gt; {
     <span class="doccomment">/// view number -&gt; proposals
@@ -486,6 +488,8 @@
     </span>shutdown: <span class="prelude-ty">Option</span>&lt;OneShotReceiver&lt;()&gt;&gt;,
     <span class="doccomment">/// stake table with leader keys
     </span>stake_table: Vec&lt;KEY&gt;,
+    <span class="doccomment">/// prng for generating endpoint
+    </span>_prng: rand::rngs::StdRng,
 }
 
 <span class="kw">impl</span>&lt;KEY: SignatureKey + <span class="lifetime">&#39;static</span>&gt; WebServerState&lt;KEY&gt; {
@@ -500,6 +504,7 @@
             stake_table: Vec::new(),
             vote_index: HashMap::new(),
             transactions: HashMap::new(),
+            _prng: rand::rngs::StdRng::from_entropy(),
         }
     }
     <span class="kw">pub fn </span>with_shutdown_signal(<span class="kw-2">mut </span><span class="self">self</span>, shutdown_listener: <span class="prelude-ty">Option</span>&lt;OneShotReceiver&lt;()&gt;&gt;) -&gt; <span class="self">Self </span>{
@@ -705,7 +710,6 @@
     </span>.post(<span class="string">&quot;poststaketable&quot;</span>, |req, state| {
         <span class="kw">async move </span>{
             <span class="comment">//works one key at a time for now
-            //= KEY::from_bytes(&amp;(req.body_bytes() as EncodedPublicKey));
             </span><span class="kw">let </span>key = req.body_bytes();
             state.post_staketable(key)
         }
