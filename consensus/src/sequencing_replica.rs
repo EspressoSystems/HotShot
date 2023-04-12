@@ -547,11 +547,9 @@ where
                 .rejected_transactions
                 .add(leaf.rejected.len());
 
-            let decide_sent = self.api.send_decide(
-                consensus.last_decided_view,
-                leaf_views,
-                new_decide_qc.unwrap(),
-            );
+            let decide_sent =
+                self.api
+                    .send_decide(new_anchor_view, leaf_views, new_decide_qc.unwrap());
             let old_anchor_view = consensus.last_decided_view;
             consensus
                 .collect_garbage(old_anchor_view, new_anchor_view)
