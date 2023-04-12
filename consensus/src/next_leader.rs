@@ -109,6 +109,7 @@ where
                                 &vote.signature.0,
                                 &vote.signature.1,
                                 vote.leaf_commitment,
+                                vote.vote_data,
                                 vote.vote_token.clone(),
                                 self.cur_view,
                                 accumlator,
@@ -122,18 +123,6 @@ where
                                         .add_point(vote_collection_start.elapsed().as_secs_f64());
                                     return qc;
                                 }
-                            }
-                            // If the signature on the vote is invalid, assume it's sent by
-                            // byzantine node and ignore.
-                            if !self.exchange.is_valid_vote(
-                                &vote.signature.0,
-                                &vote.signature.1,
-                                VoteData::Yes(vote.leaf_commitment),
-                                vote.current_view,
-                                // Ignoring deserialization errors below since we are getting rid of it soon
-                                Unchecked(vote.vote_token.clone()),
-                            ) {
-                                continue;
                             }
                         }
                         QuorumVote::Timeout(vote) => {

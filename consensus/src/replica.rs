@@ -214,7 +214,7 @@ where
                                 info!("We were chosen for committee on {:?}", self.cur_view);
 
                                 // Generate and send vote
-                                let message = self.exchange.create_yes_message(
+                                let message = self.exchange.create_no_message(
                                     leaf.justify_qc.commit(),
                                     leaf_commitment,
                                     self.cur_view,
