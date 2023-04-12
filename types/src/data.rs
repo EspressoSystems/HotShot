@@ -553,7 +553,8 @@ impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
         for (k, v) in &self.justify_qc.signatures {
             signatures_bytes.extend(&k.0);
             signatures_bytes.extend(&v.0 .0);
-            signatures_bytes.extend::<&[u8]>(v.1.commit().as_ref());
+            signatures_bytes.extend(&v.1.as_bytes());
+            signatures_bytes.extend::<&[u8]>(v.2.commit().as_ref());
         }
         commit::RawCommitmentBuilder::new("Leaf Comm")
             .u64_field("view_number", *self.view_number)
@@ -589,7 +590,8 @@ impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
         for (k, v) in &self.justify_qc.signatures {
             signatures_bytes.extend(&k.0);
             signatures_bytes.extend(&v.0 .0);
-            signatures_bytes.extend::<&[u8]>(v.1.commit().as_ref());
+            signatures_bytes.extend(&v.1.as_bytes());
+            signatures_bytes.extend::<&[u8]>(v.2.commit().as_ref());
         }
         commit::RawCommitmentBuilder::new("Leaf Comm")
             .u64_field("view_number", *self.view_number)

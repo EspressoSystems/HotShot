@@ -56,9 +56,9 @@ pub enum Checked<T> {
 }
 
 /// Data to vote on for different types of votes.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
-pub enum VoteData<COMMITTABLE: Committable + Serialize> {
+pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     /// Vote to provide availability for a block.
     DA(Commitment<COMMITTABLE>),
     /// Vote to append a leaf to the log.
@@ -69,7 +69,7 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize> {
     Timeout(Commitment<COMMITTABLE>),
 }
 
-impl<COMMITTABLE: Committable + Serialize> VoteData<COMMITTABLE> {
+impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
     /// Convert vote data into bytes.
     ///
     /// # Panics
@@ -107,15 +107,16 @@ pub trait ElectionConfig:
 }
 
 /// A certificate of some property which has been signed by a quroum of nodes.
+// TODO ED Change LEAF to COMMITTABLE
 pub trait SignedCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, LEAF>
 where
     Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,
-    LEAF: Committable,
+    LEAF: Committable + Serialize + Clone,
 {
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
         view_number: TIME,
-        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>,
+        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>,
         commit: Commitment<LEAF>,
     ) -> Self;
 
@@ -123,7 +124,7 @@ where
     fn view_number(&self) -> TIME;
 
     /// Get signatures.
-    fn signatures(&self) -> BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>;
+    fn signatures(&self) -> BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>;
 
     // TODO (da) the following functions should be refactored into a QC-specific trait.
 
@@ -212,7 +213,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
     /// Network used by [`Membership`](Self::Membership) to communicate.
     type Networking: CommunicationChannel<TYPES, M, Self::Proposal, Self::Vote, Self::Membership>;
     /// Commitments to items which are the subject of proposals and decisions.
-    type Commitment: Committable + Serialize;
+    type Commitment: Committable + Serialize + Clone;
 
     /// Join a [`ConsensusExchange`] with the given identity (`pk` and `sk`).
     fn create(
@@ -276,10 +277,10 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
                     &signature.1 .0,
                     self.vote_data(commit),
                     qc.view_number(),
-                    Checked::Unchecked(signature.1 .1.clone()),
+                    Checked::Unchecked(signature.1 .2.clone()),
                 )
             })
-            .fold(0, |acc, x| (acc + u64::from(x.1 .1.vote_count())));
+            .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
 
         stake >= u64::from(self.threshold())
     }
@@ -321,7 +322,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
         if !self.is_valid_vote(
             &vota_meta.encoded_key,
             &vota_meta.encoded_signature,
-            vota_meta.data,
+            vota_meta.data.clone(),
             vota_meta.view_number,
             // Ignoring deserialization errors below since we are getting rid of it soon
             Checked::Unchecked(vota_meta.vote_token.clone()),
@@ -333,7 +334,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
             vota_meta.commitment,
             (
                 vota_meta.encoded_key.clone(),
-                (vota_meta.encoded_signature.clone(), vota_meta.vote_token),
+                (vota_meta.encoded_signature.clone(), vota_meta.data, vota_meta.vote_token),
             ),
         )) {
             Either::Left(accumulator) => Either::Left(accumulator),

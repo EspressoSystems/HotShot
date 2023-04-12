@@ -126,24 +126,24 @@ pub trait Accumulator<T, U>: Sized {
 
 /// Mapping of commitments to vote tokens by key.
 type VoteMap<C, TOKEN> =
-    HashMap<Commitment<C>, (u64, BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>)>;
+    HashMap<Commitment<C>, (u64, BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<C>, TOKEN)>)>;
 
 /// Describe the process of collecting signatures on block or leaf commitment, to form a DAC or QC,
 /// respectively.
-pub struct VoteAccumulator<TOKEN, LEAF: Committable> {
+pub struct VoteAccumulator<TOKEN, LEAF: Committable + Serialize + Clone> {
     /// Map of all signatures accumlated so far
     pub vote_outcomes: VoteMap<LEAF, TOKEN>,
     /// threshold of stake needed to form a Certificate
     pub threshold: NonZeroU64,
 }
 
-impl<TOKEN, LEAF: Committable>
+impl<TOKEN, LEAF: Committable + Serialize + Clone>
     Accumulator<
         (
             Commitment<LEAF>,
-            (EncodedPublicKey, (EncodedSignature, TOKEN)),
+            (EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)),
         ),
-        BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>,
+        BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>,
     > for VoteAccumulator<TOKEN, LEAF>
 where
     TOKEN: Clone + VoteToken,
@@ -152,10 +152,10 @@ where
         mut self,
         val: (
             Commitment<LEAF>,
-            (EncodedPublicKey, (EncodedSignature, TOKEN)),
+            (EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)),
         ),
-    ) -> Either<Self, BTreeMap<EncodedPublicKey, (EncodedSignature, TOKEN)>> {
-        let (commitment, (key, (sig, token))) = val;
+    ) -> Either<Self, BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>> {
+        let (commitment, (key, (sig, vote_data, token))) = val;
 
         let (stake_casted, vote_map) = self
             .vote_outcomes
@@ -165,7 +165,7 @@ where
         // stake of all votes, in case they correspond to inconsistent
         // commitments.
         *stake_casted += u64::from(token.vote_count());
-        vote_map.insert(key, (sig, token));
+        vote_map.insert(key, (sig, vote_data, token));
 
         if *stake_casted >= u64::from(self.threshold) {
             let valid_signatures = self.vote_outcomes.remove(&commitment).unwrap().1;
