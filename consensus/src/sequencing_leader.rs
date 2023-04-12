@@ -443,7 +443,7 @@ where
             }
             match msg {
                 ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
-                    QuorumVote::Yes(vote) => {
+                    QuorumVote::Yes(vote) | QuorumVote::No(vote)=> {
                         if vote.signature.0
                             != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
                         {
@@ -469,9 +469,6 @@ where
                     }
                     QuorumVote::Timeout(vote) => {
                         qcs.insert(vote.justify_qc);
-                    }
-                    QuorumVote::No(_) => {
-                        warn!("The next leader has received an unexpected vote!");
                     }
                 },
                 ProcessedConsensusMessage::InternalTrigger(trigger) => match trigger {
