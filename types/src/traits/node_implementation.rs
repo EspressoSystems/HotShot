@@ -8,10 +8,11 @@ use serde::Deserialize;
 
 use super::{
     block_contents::Transaction,
+    consensus_type::{validating_consensus::ValidatingConsensusType, ConsensusType},
     election::{ConsensusExchange, ElectionConfig, VoteToken},
-    network::TestableNetworkingImplementation,
+    network::{NetworkMsg, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
-    state::{ConsensusTime, ConsensusType, TestableBlock, TestableState},
+    state::{ConsensusTime, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
     State,
 };
@@ -21,8 +22,8 @@ use crate::{
 };
 use crate::{data::TestableLeaf, message::Message};
 
-use std::fmt::Debug;
 use std::hash::Hash;
+use std::{fmt::Debug, marker::PhantomData};
 
 /// Node implementation aggregate trait
 ///
@@ -41,12 +42,67 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     /// Storage type for this consensus implementation
     type Storage: Storage<TYPES, Self::Leaf> + Clone;
 
+    // /// consensus type selected exchanges
+    // type Exchanges: ExchangesType<TYPES::ConsensusType>;
+
     /// Protocol for exchanging consensus proposals and votes.
     type QuorumExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
 
     /// Protocol for exchanging data availability proposals and votes.
     type CommitteeExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
 }
+
+// pub trait ExchangesType<Consensus: ConsensusType>: Send + Sync + Debug + Clone + 'static {
+//     type Exchanges;
+// }
+
+// /// ExchangesType ValidatingExchanges
+// struct ValidatingExchanges<
+//     Types: NodeType,
+//     I: NodeImplementation<Types>,
+//     Message: NetworkMsg,
+//     QuorumExchange: ConsensusExchange<Types, I::Leaf, Message>,
+// > {
+//     quorum_exchange: QuorumExchange,
+//     _phantom1: PhantomData<Types>,
+//     _phantom2: PhantomData<I>,
+//     _phantom3: PhantomData<Message>,
+// }
+
+// /// ExchangesType SequencingExchanges
+// struct SequencingExchanges<
+//     Types: NodeType,
+//     I: NodeImplementation<Types>,
+//     QuorumMessage: NetworkMsg,
+//     CommitteeMessage: NetworkMsg,
+//     QuorumExchange: ConsensusExchange<Types, I::Leaf, QuorumMessage>,
+//     CommitteeExchange: ConsensusExchange<Types, I::Leaf, CommitteeMessage>,
+// > {
+//     quorum_exchange: QuorumExchange,
+//     committee_exchange: CommitteeExchange,
+//     _phantom1: PhantomData<Types>,
+//     _phantom2: PhantomData<I>,
+//     _phantom3: PhantomData<QuorumMessage>,
+//     _phantom4: PhantomData<CommitteeMessage>,
+// }
+
+// /// ExchangeType
+// pub struct ExchangesTypeChooser<Consensus: ConsensusType> {
+//     _phantom1: PhantomData<Consensus>,
+// }
+
+// impl<
+//         Types: NodeType,
+//         I: NodeImplementation<Types>,
+//         Message: NetworkMsg,
+//         QuorumExchange: ConsensusExchange<Types, I::Leaf, Message>,
+//         Consensus: ConsensusType,
+//     > ExchangesType<Consensus> for ExchangesTypeChooser<Consensus>
+// where
+//     Consensus: ValidatingConsensusType,
+// {
+//     type Exchanges = ValidatingExchanges<Types, I, Message, QuorumExchange>;
+// }
 
 /// extra functions required on a node implementation to be usable by hotshot-testing
 #[allow(clippy::type_complexity)]

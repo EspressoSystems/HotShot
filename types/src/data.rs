@@ -7,10 +7,11 @@ use crate::{
     certificate::{DACertificate, QuorumCertificate},
     constants::genesis_proposer_id,
     traits::{
+        consensus_type::validating_consensus::ValidatingConsensusType,
         election::SignedCertificate,
         node_implementation::NodeType,
         signature_key::EncodedPublicKey,
-        state::{ConsensusTime, TestableBlock, TestableState, ValidatingConsensusType},
+        state::{ConsensusTime, TestableBlock, TestableState},
         storage::StoredView,
         Block, State,
     },

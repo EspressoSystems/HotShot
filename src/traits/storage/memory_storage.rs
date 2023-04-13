@@ -124,10 +124,10 @@ mod test {
     use hotshot_types::data::fake_commitment;
     use hotshot_types::data::{ValidatingLeaf, ViewNumber};
     use hotshot_types::traits::block_contents::dummy::{DummyBlock, DummyState};
+    use hotshot_types::traits::consensus_type::validating_consensus::ValidatingConsensus;
     use hotshot_types::traits::node_implementation::NodeType;
     use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
     use hotshot_types::traits::state::ConsensusTime;
-    use hotshot_types::traits::state::ValidatingConsensus;
     use hotshot_types::traits::Block;
     use std::collections::BTreeMap;
     use std::fmt::Debug;

@@ -3,7 +3,7 @@
 
 use crate::{
     utils::{Terminator, View, ViewInner},
-    Consensus, ConsensusApi,
+    Consensus, SequencingConsensusApi,
 };
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
@@ -37,7 +37,7 @@ use tracing::{error, info, instrument, warn};
 /// This view's replica for sequencing consensus.
 #[derive(Debug, Clone)]
 pub struct SequencingReplica<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
 > {
@@ -67,7 +67,7 @@ pub struct SequencingReplica<
 }
 
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         TYPES: NodeType,
         I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
     > SequencingReplica<A, TYPES, I>

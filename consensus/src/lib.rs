@@ -27,7 +27,7 @@ pub use next_leader::NextValidatingLeader;
 pub use replica::Replica;
 pub use sequencing_leader::{ConsensusLeader, ConsensusNextLeader, DALeader};
 pub use sequencing_replica::SequencingReplica;
-pub use traits::ConsensusApi;
+pub use traits::{ConsensusSharedApi, SequencingConsensusApi, ValidatingConsensusApi};
 pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
 
 use commit::Commitment;

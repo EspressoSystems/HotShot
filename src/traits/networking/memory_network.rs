@@ -562,7 +562,7 @@ mod tests {
     };
     use hotshot_types::{
         data::{ValidatingLeaf, ValidatingProposal},
-        traits::state::ValidatingConsensus,
+        traits::consensus_type::validating_consensus::ValidatingConsensus,
     };
 
     #[derive(

@@ -48,9 +48,9 @@ use bincode::Options;
 use commit::{Commitment, Committable};
 
 use hotshot_consensus::{
-    Consensus, ConsensusApi, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader, DALeader,
-    DAMember, NextValidatingLeader, Replica, SendToTasks, SequencingReplica, ValidatingLeader,
-    View, ViewInner, ViewQueue,
+    Consensus, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader, ConsensusSharedApi,
+    DALeader, DAMember, NextValidatingLeader, Replica, SendToTasks, SequencingConsensusApi,
+    SequencingReplica, ValidatingConsensusApi, ValidatingLeader, View, ViewInner, ViewQueue,
 };
 use hotshot_types::certificate::DACertificate;
 
@@ -68,12 +68,16 @@ use hotshot_types::{
         ProcessedConsensusMessage,
     },
     traits::{
+        consensus_type::{
+            sequencing_consensus::SequencingConsensus, validating_consensus::ValidatingConsensus,
+            ConsensusType,
+        },
         election::SignedCertificate,
         metrics::Metrics,
         network::{NetworkError, TransmitType},
         node_implementation::NodeType,
         signature_key::SignatureKey,
-        state::{ConsensusTime, ConsensusType, SequencingConsensus, ValidatingConsensus},
+        state::ConsensusTime,
         storage::StoredView,
         State,
     },
@@ -104,7 +108,7 @@ pub const H_512: usize = 64;
 pub const H_256: usize = 32;
 
 /// Holds the state needed to participate in `HotShot` consensus
-pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct HotShotInner<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The public key of this node
     public_key: TYPES::SignatureKey,
 
@@ -130,7 +134,7 @@ pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     event_sender: RwLock<Option<BroadcastSender<Event<TYPES, I::Leaf>>>>,
 
     /// Senders to the background tasks.
-    background_task_handle: tasks::TaskHandle<TYPES>,
+    background_task_handle: tasks::TaskHandle<CONSENSUS, TYPES>,
 
     /// a reference to the metrics that the implementor is using.
     metrics: Box<dyn Metrics>,
@@ -140,7 +144,7 @@ pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 #[derive(Clone)]
 pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Handle to internal hotshot implementation
-    inner: Arc<HotShotInner<TYPES, I>>,
+    inner: Arc<HotShotInner<CONSENSUS, TYPES, I>>,
 
     /// Transactions
     /// (this is shared btwn hotshot and `Consensus`)
@@ -150,6 +154,7 @@ pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementat
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<TYPES, I::Leaf>>>,
 
+    // TODO: figure out how to associate the following four maps with respective exchanges...
     /// for sending/recv-ing things with the DA member task
     member_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
 
@@ -200,7 +205,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
         info!("Creating a new hotshot");
-        let inner: Arc<HotShotInner<TYPES, I>> = Arc::new(HotShotInner {
+        let inner: Arc<HotShotInner<TYPES::ConsensusType, TYPES, I>> = Arc::new(HotShotInner {
             public_key,
             private_key,
             config,
@@ -760,7 +765,7 @@ where
 {
     #[instrument(skip(hotshot), fields(id = hotshot.id), name = "Validating View Runner Task", level = "error")]
     async fn run_view(hotshot: HotShot<TYPES::ConsensusType, TYPES, I>) -> Result<(), ()> {
-        let c_api = HotShotConsensusApi {
+        let c_api = HotShotValidatingConsensusApi {
             inner: hotshot.inner.clone(),
         };
         let start = Instant::now();
@@ -851,7 +856,7 @@ where
             _pd: PhantomData,
         };
         let replica_handle = async_spawn(async move {
-            Replica::<HotShotConsensusApi<TYPES, I>, TYPES, I>::run_view(replica).await
+            Replica::<HotShotValidatingConsensusApi<TYPES, I>, TYPES, I>::run_view(replica).await
         });
         task_handles.push(replica_handle);
 
@@ -883,7 +888,7 @@ where
                 _pd: PhantomData,
             };
             let next_leader_handle = async_spawn(async move {
-                NextValidatingLeader::<HotShotConsensusApi<TYPES, I>, TYPES, I>::run_view(
+                NextValidatingLeader::<HotShotValidatingConsensusApi<TYPES, I>, TYPES, I>::run_view(
                     next_leader,
                 )
                 .await
@@ -964,7 +969,7 @@ where
     // #[instrument]
     #[allow(clippy::too_many_lines)]
     async fn run_view(hotshot: HotShot<SequencingConsensus, TYPES, I>) -> Result<(), ()> {
-        let c_api = HotShotConsensusApi {
+        let c_api = HotShotSequencingConsensusApi {
             inner: hotshot.inner.clone(),
         };
 
@@ -1150,14 +1155,15 @@ where
 
 /// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
 #[derive(Clone)]
-struct HotShotConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+struct HotShotValidatingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`HotShotInner`]
-    inner: Arc<HotShotInner<TYPES, I>>,
+    inner: Arc<HotShotInner<TYPES::ConsensusType, TYPES, I>>,
 }
 
 #[async_trait]
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
-    hotshot_consensus::ConsensusApi<TYPES, I::Leaf, I> for HotShotConsensusApi<TYPES, I>
+    hotshot_consensus::ConsensusSharedApi<TYPES, I::Leaf, I>
+    for HotShotValidatingConsensusApi<TYPES, I>
 {
     fn total_nodes(&self) -> NonZeroUsize {
         self.inner.config.total_nodes
@@ -1185,6 +1191,171 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
         false
     }
 
+    async fn send_event(&self, event: Event<TYPES, I::Leaf>) {
+        debug!(?event, "send_event");
+        let mut event_sender = self.inner.event_sender.write().await;
+        if let Some(sender) = &*event_sender {
+            if let Err(e) = sender.send_async(event).await {
+                error!(?e, "Could not send event to event_sender");
+                *event_sender = None;
+            }
+        }
+    }
+
+    fn public_key(&self) -> &TYPES::SignatureKey {
+        &self.inner.public_key
+    }
+
+    fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey {
+        &self.inner.private_key
+    }
+
+    async fn store_leaf(
+        &self,
+        old_anchor_view: TYPES::Time,
+        leaf: I::Leaf,
+    ) -> std::result::Result<(), hotshot_types::traits::storage::StorageError> {
+        let view_to_insert = StoredView::from(leaf);
+        let storage = &self.inner.storage;
+        storage.append_single_view(view_to_insert).await?;
+        storage.cleanup_storage_up_to_view(old_anchor_view).await?;
+        storage.commit().await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
+    hotshot_consensus::ValidatingConsensusApi<TYPES, I::Leaf, I>
+    for HotShotValidatingConsensusApi<TYPES, I>
+{
+    async fn send_direct_message<
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+    >(
+        &self,
+        recipient: TYPES::SignatureKey,
+        message: ConsensusMessage<TYPES, I>,
+    ) -> std::result::Result<(), NetworkError> {
+        let inner = self.inner.clone();
+        debug!(?message, ?recipient, "send_direct_message");
+        async_spawn_local(async move {
+            inner
+                .quorum_exchange
+                .network()
+                .direct_message(
+                    Message {
+                        sender: inner.public_key.clone(),
+                        kind: message.into(),
+                    },
+                    recipient,
+                )
+                .await
+        });
+        Ok(())
+    }
+
+    // TODO remove and use exchange directly.
+    async fn send_broadcast_message<
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+    >(
+        &self,
+        message: ConsensusMessage<TYPES, I>,
+    ) -> std::result::Result<(), NetworkError> {
+        debug!(?message, "send_broadcast_message");
+        self.inner
+            .quorum_exchange
+            .network()
+            .broadcast_message(
+                Message {
+                    sender: self.inner.public_key.clone(),
+                    kind: message.into(),
+                },
+                // TODO this is morally wrong!
+                &self.inner.quorum_exchange.membership().clone(),
+            )
+            .await?;
+        Ok(())
+    }
+}
+
+/// A handle that exposes the interface that hotstuff needs to interact with [`HotShot`]
+#[derive(Clone)]
+struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// Reference to the [`HotShotInner`]
+    inner: Arc<HotShotInner<TYPES::ConsensusType, TYPES, I>>,
+}
+
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
+    hotshot_consensus::ConsensusSharedApi<TYPES, I::Leaf, I>
+    for HotShotSequencingConsensusApi<TYPES, I>
+{
+    fn total_nodes(&self) -> NonZeroUsize {
+        self.inner.config.total_nodes
+    }
+
+    fn propose_min_round_time(&self) -> Duration {
+        self.inner.config.propose_min_round_time
+    }
+
+    fn propose_max_round_time(&self) -> Duration {
+        self.inner.config.propose_max_round_time
+    }
+
+    fn max_transactions(&self) -> NonZeroUsize {
+        self.inner.config.max_transactions
+    }
+
+    fn min_transactions(&self) -> usize {
+        self.inner.config.min_transactions
+    }
+
+    /// Generates and encodes a vote token
+
+    async fn should_start_round(&self, _: TYPES::Time) -> bool {
+        false
+    }
+
+    async fn send_event(&self, event: Event<TYPES, I::Leaf>) {
+        debug!(?event, "send_event");
+        let mut event_sender = self.inner.event_sender.write().await;
+        if let Some(sender) = &*event_sender {
+            if let Err(e) = sender.send_async(event).await {
+                error!(?e, "Could not send event to event_sender");
+                *event_sender = None;
+            }
+        }
+    }
+
+    fn public_key(&self) -> &TYPES::SignatureKey {
+        &self.inner.public_key
+    }
+
+    fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey {
+        &self.inner.private_key
+    }
+
+    async fn store_leaf(
+        &self,
+        old_anchor_view: TYPES::Time,
+        leaf: I::Leaf,
+    ) -> std::result::Result<(), hotshot_types::traits::storage::StorageError> {
+        let view_to_insert = StoredView::from(leaf);
+        let storage = &self.inner.storage;
+        storage.append_single_view(view_to_insert).await?;
+        storage.cleanup_storage_up_to_view(old_anchor_view).await?;
+        storage.commit().await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
+    hotshot_consensus::SequencingConsensusApi<TYPES, I::Leaf, I>
+    for HotShotSequencingConsensusApi<TYPES, I>
+{
     async fn send_direct_message<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
@@ -1278,38 +1449,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
                 &self.inner.committee_exchange.membership().clone(),
             )
             .await?;
-        Ok(())
-    }
-
-    async fn send_event(&self, event: Event<TYPES, I::Leaf>) {
-        debug!(?event, "send_event");
-        let mut event_sender = self.inner.event_sender.write().await;
-        if let Some(sender) = &*event_sender {
-            if let Err(e) = sender.send_async(event).await {
-                error!(?e, "Could not send event to event_sender");
-                *event_sender = None;
-            }
-        }
-    }
-
-    fn public_key(&self) -> &TYPES::SignatureKey {
-        &self.inner.public_key
-    }
-
-    fn private_key(&self) -> &<TYPES::SignatureKey as SignatureKey>::PrivateKey {
-        &self.inner.private_key
-    }
-
-    async fn store_leaf(
-        &self,
-        old_anchor_view: TYPES::Time,
-        leaf: I::Leaf,
-    ) -> std::result::Result<(), hotshot_types::traits::storage::StorageError> {
-        let view_to_insert = StoredView::from(leaf);
-        let storage = &self.inner.storage;
-        storage.append_single_view(view_to_insert).await?;
-        storage.cleanup_storage_up_to_view(old_anchor_view).await?;
-        storage.commit().await?;
         Ok(())
     }
 }

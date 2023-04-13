@@ -18,9 +18,9 @@ use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
+        consensus_type::validating_consensus::ValidatingConsensus,
         election::QuorumExchange,
         node_implementation::NodeType,
-        state::ValidatingConsensus,
     },
     vote::QuorumVote,
 };

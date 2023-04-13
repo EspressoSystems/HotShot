@@ -1,7 +1,7 @@
 //! Contains the [`NextValidatingLeader`] struct used for the next leader step in the hotstuff consensus algorithm.
 
-use crate::ConsensusApi;
 use crate::ConsensusMetrics;
+use crate::ValidatingConsensusApi;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
 use either::Either;
@@ -31,7 +31,7 @@ use tracing::{info, instrument, warn};
 /// The next view's validating leader
 #[derive(custom_debug::Debug, Clone)]
 pub struct NextValidatingLeader<
-    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
+    A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
 > {
@@ -58,7 +58,7 @@ pub struct NextValidatingLeader<
 }
 
 impl<
-        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
+        A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
         TYPES: NodeType,
         I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
     > NextValidatingLeader<A, TYPES, I>

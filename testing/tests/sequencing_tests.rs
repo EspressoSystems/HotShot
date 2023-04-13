@@ -20,9 +20,9 @@ use hotshot_types::vote::QuorumVote;
 use hotshot_types::{
     data::{DAProposal, SequencingLeaf, ViewNumber},
     traits::{
+        consensus_type::sequencing_consensus::SequencingConsensus,
         election::{CommitteeExchange, QuorumExchange},
         node_implementation::NodeType,
-        state::SequencingConsensus,
     },
     vote::DAVote,
 };

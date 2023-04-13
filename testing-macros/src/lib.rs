@@ -191,8 +191,9 @@ impl TestData {
         let (consensus_type, leaf, vote, proposal, committee_exchange) =
             match supported_consensus_type {
                 SupportedConsensusTypes::SequencingConsensus => {
-                    let consensus_type =
-                        quote! { hotshot_types::traits::state::SequencingConsensus };
+                    let consensus_type = quote! {
+                        hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus
+                    };
                     let leaf = quote! {
                         hotshot_types::data::SequencingLeaf<TestTypes>
                     };
@@ -222,7 +223,7 @@ impl TestData {
                 }
                 SupportedConsensusTypes::ValidatingConsensus => {
                     let consensus_type = quote! {
-                        hotshot_types::traits::state::ValidatingConsensus
+                        hotshot_types::traits::consensus_type::validating_consensus::ValidatingConsensus
                     };
                     let leaf = quote! {
                         hotshot_types::data::ValidatingLeaf<TestTypes>

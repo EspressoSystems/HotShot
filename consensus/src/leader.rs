@@ -1,6 +1,6 @@
 //! Contains the [`ValidatingLeader`] struct used for the leader step in the hotstuff consensus algorithm.
 
-use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
+use crate::{utils::ViewInner, CommitmentMap, Consensus, ValidatingConsensusApi};
 use async_compatibility_layer::{
     art::{async_sleep, async_timeout},
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
@@ -17,8 +17,8 @@ use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, Proposal},
     traits::{
-        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
-        state::ValidatingConsensus, Block, State,
+        consensus_type::validating_consensus::ValidatingConsensus, election::SignedCertificate,
+        node_implementation::NodeType, signature_key::SignatureKey, Block, State,
     },
 };
 use std::marker::PhantomData;
@@ -27,7 +27,7 @@ use tracing::{error, info, instrument, warn};
 /// This view's validating leader
 #[derive(Debug, Clone)]
 pub struct ValidatingLeader<
-    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
+    A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
 > {
@@ -52,7 +52,7 @@ pub struct ValidatingLeader<
 }
 
 impl<
-        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
+        A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
         I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
     > ValidatingLeader<A, TYPES, I>

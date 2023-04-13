@@ -1,7 +1,7 @@
 //! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
-use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
+use crate::{utils::ViewInner, CommitmentMap, Consensus, SequencingConsensusApi};
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_compatibility_layer::{
     art::async_timeout,
@@ -25,8 +25,8 @@ use hotshot_types::{
     data::{CommitmentProposal, DAProposal, SequencingLeaf},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, Proposal},
     traits::{
-        election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
-        state::SequencingConsensus, Block,
+        consensus_type::sequencing_consensus::SequencingConsensus, election::SignedCertificate,
+        node_implementation::NodeType, signature_key::SignatureKey, Block,
     },
     vote::{DAVote, QuorumVote, VoteAccumulator},
 };
@@ -38,7 +38,7 @@ use tracing::{error, info, instrument, warn};
 /// This view's DA committee leader
 #[derive(Debug, Clone)]
 pub struct DALeader<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     // DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
     // QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
     TYPES: NodeType,
@@ -68,7 +68,7 @@ pub struct DALeader<
     pub _pd: PhantomData<I>,
 }
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         TYPES: NodeType,
         I: NodeImplementation<TYPES>,
     > DALeader<A, TYPES, I>
@@ -284,7 +284,7 @@ where
 /// Implemenation of the consensus leader for a DA/Sequencing consensus.  Handles sending out a proposal to the entire network
 /// For now this step happens after the `DALeader` completes it's proposal and collects enough votes.
 pub struct ConsensusLeader<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
 > {
@@ -312,7 +312,7 @@ pub struct ConsensusLeader<
     pub _pd: PhantomData<I>,
 }
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
     > ConsensusLeader<A, TYPES, I>
@@ -381,7 +381,7 @@ where
 
 /// Implenting the next leader.  Collect votes on the previous leaders proposal and return the QC
 pub struct ConsensusNextLeader<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
 > {
@@ -406,7 +406,7 @@ pub struct ConsensusNextLeader<
     pub _pd: PhantomData<I>,
 }
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
     > ConsensusNextLeader<A, TYPES, I>

@@ -2,7 +2,7 @@
 
 use crate::{
     utils::{Terminator, View, ViewInner},
-    Consensus, ConsensusApi,
+    Consensus, ValidatingConsensusApi,
 };
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
@@ -15,8 +15,8 @@ use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
     traits::{
-        node_implementation::NodeType, signature_key::SignatureKey, state::ValidatingConsensus,
-        Block, State,
+        consensus_type::validating_consensus::ValidatingConsensus, node_implementation::NodeType,
+        signature_key::SignatureKey, Block, State,
     },
     vote::{QuorumVote, TimeoutVote},
 };
@@ -30,7 +30,7 @@ use tracing::{error, info, instrument, warn};
 /// This view's replica
 #[derive(Debug, Clone)]
 pub struct Replica<
-    A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
+    A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     I: NodeImplementation<TYPES>,
 > {
@@ -57,7 +57,7 @@ pub struct Replica<
 }
 
 impl<
-        A: ConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
+        A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
         I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
     > Replica<A, TYPES, I>

@@ -1083,7 +1083,8 @@ impl ElectionConfig for VRFStakeTableConfig {}
 //         data::ViewNumber,
 //         traits::{
 //             block_contents::dummy::{DummyBlock, DummyTransaction},
-//             state::{dummy::DummyState, ValidatingConsensus},
+//             consensus_type::validating_consensus::ValidatingConsensus,
+//             state::dummy::DummyState,
 //         },
 //     };
 //     use jf_primitives::{

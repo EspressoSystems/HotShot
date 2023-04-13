@@ -3,7 +3,7 @@
 
 use crate::{
     utils::{View, ViewInner},
-    Consensus, ConsensusApi,
+    Consensus, SequencingConsensusApi,
 };
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard};
@@ -28,7 +28,7 @@ use tracing::{error, info, instrument, warn};
 /// This view's DA committee member.
 #[derive(Debug, Clone)]
 pub struct DAMember<
-    A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+    A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
 > {
@@ -55,7 +55,7 @@ pub struct DAMember<
 }
 
 impl<
-        A: ConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
+        A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         TYPES: NodeType,
         I: NodeImplementation<TYPES, Leaf = SequencingLeaf<TYPES>>,
     > DAMember<A, TYPES, I>

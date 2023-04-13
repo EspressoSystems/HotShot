@@ -26,9 +26,10 @@ use hotshot_types::{
     event::EventType,
     message::{ConsensusMessage, Proposal},
     traits::{
+        consensus_type::validating_consensus::ValidatingConsensus,
         election::{ConsensusExchange, SignedCertificate, TestableElection},
         node_implementation::NodeType,
-        state::{ConsensusTime, ValidatingConsensus},
+        state::ConsensusTime,
     },
     vote::QuorumVote,
 };
