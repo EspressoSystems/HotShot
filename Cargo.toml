@@ -141,7 +141,7 @@ jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0
 libp2p-swarm-derive = { version = "=0.32.0" }
 libp2p-networking = { path = "./libp2p-networking", version = "0.1.0", default-features = false }
 libp2p-identity = "0.1.1"
-libp2p = { version = "0.51.2", default-features = false, features = [
+libp2p = { version = "0.51.3", default-features = false, features = [
         "macros",
         "autonat",
         "deflate",
