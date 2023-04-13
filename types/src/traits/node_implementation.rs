@@ -8,7 +8,11 @@ use serde::Deserialize;
 
 use super::{
     block_contents::Transaction,
-    consensus_type::{validating_consensus::ValidatingConsensusType, ConsensusType},
+    consensus_type::{
+        sequencing_consensus::SequencingConsensusType,
+        validating_consensus::{ValidatingConsensus, ValidatingConsensusType},
+        ConsensusType,
+    },
     election::{ConsensusExchange, ElectionConfig, VoteToken},
     network::{NetworkMsg, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
@@ -52,9 +56,39 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     type CommitteeExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
 }
 
-// pub trait ExchangesType<Consensus: ConsensusType>: Send + Sync + Debug + Clone + 'static {
-//     type Exchanges;
-// }
+pub trait ExchangesType<
+    CONSENSUS: ConsensusType,
+    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    LEAF: LeafType<NodeType = TYPES>,
+    MESSAGE: NetworkMsg,
+>: Send + Sync + Debug + Clone + 'static
+{
+}
+
+pub trait ValidatingExchangesTypee<
+    CONSENSUS: ValidatingConsensusType,
+    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    LEAF: LeafType<NodeType = TYPES>,
+    MESSAGE: NetworkMsg,
+>: ExchangesType<CONSENSUS, TYPES, LEAF, MESSAGE>
+{
+    /// Protocol for exchanging consensus proposals and votes.
+    type QuorumExchange: ConsensusExchange<TYPES, LEAF, MESSAGE>;
+}
+
+pub trait SequencingExchangesTypee<
+    CONSENSUS: SequencingConsensusType,
+    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    LEAF: LeafType<NodeType = TYPES>,
+    MESSAGE: NetworkMsg,
+>: ExchangesType<CONSENSUS, TYPES, LEAF, MESSAGE>
+{
+    /// Protocol for exchanging consensus proposals and votes.
+    type QuorumExchange: ConsensusExchange<TYPES, LEAF, MESSAGE>;
+
+    /// Protocol for exchanging data availability proposals and votes.
+    type CommitteeExchange: ConsensusExchange<TYPES, LEAF, MESSAGE>;
+}
 
 // /// ExchangesType ValidatingExchanges
 // struct ValidatingExchanges<
