@@ -4,7 +4,7 @@
 //! can send, and vote accumulator that converts votes into certificates.
 
 use crate::{
-    certificate::QuorumCertificate,
+    certificate::{QuorumCertificate, YesNoSignature},
     data::LeafType,
     traits::{
         election::{VoteData, VoteToken},
@@ -155,7 +155,7 @@ impl<TOKEN, LEAF: Committable + Serialize + Clone>
             Commitment<LEAF>,
             (EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)),
         ),
-        BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>,
+        YesNoSignature<LEAF, TOKEN>,
     > for VoteAccumulator<TOKEN, LEAF>
 where
     TOKEN: Clone + VoteToken,
@@ -166,7 +166,7 @@ where
             Commitment<LEAF>,
             (EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)),
         ),
-    ) -> Either<Self, BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>> {
+    ) -> Either<Self, YesNoSignature<LEAF, TOKEN>> {
         let (commitment, (key, (sig, vote_data, token))) = val;
 
         let (total_stake_casted, total_vote_map) = self
@@ -204,11 +204,14 @@ where
         }
 
         if *total_stake_casted >= u64::from(self.success_threshold) {
-            if *yes_stake_casted >= u64::from(self.success_threshold)
-                || *no_stake_casted >= u64::from(self.failure_threshold)
+            if *yes_stake_casted >= u64::from(self.success_threshold) {
+                let valid_signatures = self.yes_vote_outcomes.remove(&commitment).unwrap().1;
+                return Either::Right(YesNoSignature::Yes(valid_signatures));
+            }
+            else if *no_stake_casted >= u64::from(self.failure_threshold)
             {
                 let valid_signatures = self.total_vote_outcomes.remove(&commitment).unwrap().1;
-                return Either::Right(valid_signatures);
+                return Either::Right(YesNoSignature::No(valid_signatures));
             }
         }
         Either::Left(self)

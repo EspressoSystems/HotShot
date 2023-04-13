@@ -4,7 +4,7 @@
 //! `HotShot`'s version of a block, and proposals, messages upon which to reach the consensus.
 
 use crate::{
-    certificate::{DACertificate, QuorumCertificate},
+    certificate::{DACertificate, QuorumCertificate, YesNoSignature},
     constants::genesis_proposer_id,
     traits::{
         election::SignedCertificate,
@@ -56,7 +56,6 @@ impl Committable for ViewNumber {
     fn commit(&self) -> Commitment<Self> {
         let mut builder = commit::RawCommitmentBuilder::new("View Number Commitment");
         builder.u64(self.0).finalize()
-
     }
 }
 
@@ -550,7 +549,20 @@ pub fn random_commitment<S: Committable>(rng: &mut dyn rand::RngCore) -> Commitm
 impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
     fn commit(&self) -> commit::Commitment<Self> {
         let mut signatures_bytes = vec![];
-        for (k, v) in &self.justify_qc.signatures {
+        let signatures = match &self.justify_qc.signatures {
+            // TODO ED Revisit the correctness of below block
+            YesNoSignature::Yes(signatures) => {
+                signatures_bytes.extend("Yes".as_bytes());
+
+                signatures
+            }
+            YesNoSignature::No(signatures) => {
+                signatures_bytes.extend("No".as_bytes());
+
+                signatures
+            }
+        };
+        for (k, v) in signatures {
             signatures_bytes.extend(&k.0);
             signatures_bytes.extend(&v.0 .0);
             signatures_bytes.extend(&v.1.as_bytes());
@@ -587,7 +599,20 @@ impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
             Either::Right(commitment) => *commitment,
         };
         let mut signatures_bytes = vec![];
-        for (k, v) in &self.justify_qc.signatures {
+        let signatures = match &self.justify_qc.signatures {
+            // TODO ED Revisit the correctness of below block
+            YesNoSignature::Yes(signatures) => {
+                signatures_bytes.extend("Yes".as_bytes());
+
+                signatures
+            }
+            YesNoSignature::No(signatures) => {
+                signatures_bytes.extend("No".as_bytes());
+
+                signatures
+            }
+        };
+        for (k, v) in signatures {
             signatures_bytes.extend(&k.0);
             signatures_bytes.extend(&v.0 .0);
             signatures_bytes.extend(&v.1.as_bytes());

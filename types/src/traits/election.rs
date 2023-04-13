@@ -3,7 +3,7 @@
 use super::node_implementation::{NodeImplementation, NodeType};
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
 use crate::certificate::VoteMetaData;
-use crate::certificate::{DACertificate, QuorumCertificate};
+use crate::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
 use crate::data::ProposalType;
 
 use crate::data::DAProposal;
@@ -111,11 +111,12 @@ pub trait SignedCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, LEAF>
 where
     Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,
     LEAF: Committable + Serialize + Clone,
+    TOKEN: VoteToken,
 {
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
         view_number: TIME,
-        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>,
+        signatures: YesNoSignature<LEAF, TOKEN>,
         commit: Commitment<LEAF>,
     ) -> Self;
 
@@ -123,7 +124,7 @@ where
     fn view_number(&self) -> TIME;
 
     /// Get signatures.
-    fn signatures(&self) -> BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>;
+    fn signatures(&self) -> YesNoSignature<LEAF, TOKEN>;
 
     // TODO (da) the following functions should be refactored into a QC-specific trait.
 
@@ -244,7 +245,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
         self.membership().success_threshold()
     }
 
-    /// Threshold required to know a success threshold will not be reached 
+    /// Threshold required to know a success threshold will not be reached
     fn failure_threshold(&self) -> NonZeroU64 {
         self.membership().failure_threshold()
     }
@@ -275,19 +276,35 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
             return false;
         }
 
-        let stake = qc
-            .signatures()
-            .iter()
-            .filter(|signature| {
+        // TODO ED Need to test the below block
+        let stake = match qc.signatures() {
+            YesNoSignature::Yes(raw_signatures) => raw_signatures.iter().filter(|signature| {
                 self.is_valid_vote(
                     signature.0,
                     &signature.1 .0,
-                    self.vote_data(commit),
+                    // TODO ED Make this a reference like parameters above? 
+                    signature.1 .1.clone(),
                     qc.view_number(),
                     Checked::Unchecked(signature.1 .2.clone()),
-                )
-            })
-            .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
+                ) 
+                // && signature.1.1 == VoteData::Yes(leaf_commitment)
+            }).fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count()))),
+            YesNoSignature::No(raw_signatures) => {1}
+        };
+
+        // let stake = qc
+        //     .signatures()
+        //     .iter()
+        //     .filter(|signature| {
+        //         self.is_valid_vote(
+        //             signature.0,
+        //             &signature.1 .0,
+        //             self.vote_data(commit),
+        //             qc.view_number(),
+        //             Checked::Unchecked(signature.1 .2.clone()),
+        //         )
+        //     })
+        //     .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
 
         stake >= u64::from(self.success_threshold())
     }
