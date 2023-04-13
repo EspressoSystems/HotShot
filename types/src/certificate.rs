@@ -5,7 +5,7 @@ use crate::{
     traits::{
         election::{SignedCertificate, VoteData, VoteToken},
         node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature},
+        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
         state::ConsensusTime,
     },
 };
@@ -67,6 +67,14 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
         BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TYPES::VoteTokenType)>,
     /// If this QC is for the genesis block
     pub is_genesis: bool,
+}
+
+// TODO ED Change LEAF to COMMITTABLE
+pub enum YesNoCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, LEAF, CERTIFICATE: SignedCertificate<SIGNATURE, TIME, TOKEN, LEAF>> 
+where LEAF: Committable + Serialize + Clone,
+{
+    Yes(SIGNATURE, TIME, TOKEN, LEAF, CERTIFICATE),
+    No(SIGNATURE, TIME, TOKEN, LEAF, CERTIFICATE)
 }
 
 /// Data from a vote needed to accumulate into a `SignedCertificate`
