@@ -214,7 +214,31 @@ where
                                 info!("We were chosen for committee on {:?}", self.cur_view);
 
                                 // Generate and send vote
-                                let message = self.exchange.create_no_message(
+                                // TODO ED Will remove once actual tests are in place
+                                // let message = if self.id % 4 == 0 {
+                                //     self.exchange.create_no_message(
+                                //         leaf.justify_qc.commit(),
+                                //         leaf_commitment,
+                                //         self.cur_view,
+                                //         vote_token,
+                                //     )
+                                // } else if self.id % 5 == 0 {
+                                //     self.exchange.create_timeout_message(
+                                //         leaf.justify_qc.clone(),
+                                //         self.cur_view,
+                                //         vote_token,
+                                //     )
+                                // }
+                                // else {
+                                //     self.exchange.create_yes_message(
+                                //         leaf.justify_qc.commit(),
+                                //         leaf_commitment,
+                                //         self.cur_view,
+                                //         vote_token,
+                                //     )
+                                // };
+
+                                let message = self.exchange.create_yes_message(
                                     leaf.justify_qc.commit(),
                                     leaf_commitment,
                                     self.cur_view,

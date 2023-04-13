@@ -76,7 +76,6 @@ impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
     /// Panics if the serialization fails.
     pub fn as_bytes(&self) -> Vec<u8> {
         bincode_opts().serialize(&self).unwrap()
-        
     }
 }
 
@@ -189,7 +188,10 @@ pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 's
     ) -> Result<Checked<TYPES::VoteTokenType>, ElectionError>;
 
     /// Returns the threshold for a specific `Membership` implementation
-    fn threshold(&self) -> NonZeroU64;
+    fn success_threshold(&self) -> NonZeroU64;
+
+    /// Returns the threshold for a specific `Membership` implementation
+    fn failure_threshold(&self) -> NonZeroU64;
 }
 
 /// Protocol for exchanging proposals and votes to make decisions in a distributed network.
@@ -238,8 +240,13 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
     }
 
     /// Threshold required to approve a [`Proposal`](Self::Proposal).
-    fn threshold(&self) -> NonZeroU64 {
-        self.membership().threshold()
+    fn success_threshold(&self) -> NonZeroU64 {
+        self.membership().success_threshold()
+    }
+
+    /// Threshold required to know a success threshold will not be reached 
+    fn failure_threshold(&self) -> NonZeroU64 {
+        self.membership().failure_threshold()
     }
 
     /// Attempts to generate a vote token for participation at time `view_number`.
@@ -282,7 +289,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
             })
             .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
 
-        stake >= u64::from(self.threshold())
+        stake >= u64::from(self.success_threshold())
     }
 
     /// Validate a vote by checking its signature and token.
@@ -334,7 +341,11 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
             vota_meta.commitment,
             (
                 vota_meta.encoded_key.clone(),
-                (vota_meta.encoded_signature.clone(), vota_meta.data, vota_meta.vote_token),
+                (
+                    vota_meta.encoded_signature.clone(),
+                    vota_meta.data,
+                    vota_meta.vote_token,
+                ),
             ),
         )) {
             Either::Left(accumulator) => Either::Left(accumulator),

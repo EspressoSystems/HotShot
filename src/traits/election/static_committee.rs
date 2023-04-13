@@ -146,8 +146,12 @@ where
         }
     }
 
-    fn threshold(&self) -> NonZeroU64 {
+    fn success_threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((self.nodes.len() as u64 * 2) / 3) + 1).unwrap()
+    }
+
+    fn failure_threshold(&self) -> NonZeroU64 {
+        NonZeroU64::new(((self.nodes.len() as u64) / 3) + 1).unwrap()
     }
 
     fn get_committee(

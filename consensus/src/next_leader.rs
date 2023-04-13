@@ -89,7 +89,8 @@ where
             total_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
-            threshold: self.exchange.threshold(),
+            success_threshold: self.exchange.success_threshold(),
+            failure_threshold: self.exchange.failure_threshold(),
         };
 
         let lock = self.vote_collection_chan.lock().await;

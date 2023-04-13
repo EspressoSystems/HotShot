@@ -135,6 +135,7 @@ type VoteMap<C, TOKEN> = HashMap<
 
 /// Describe the process of collecting signatures on block or leaf commitment, to form a DAC or QC,
 /// respectively.
+// TODO ED Change LEAF to COMMITTABLE
 pub struct VoteAccumulator<TOKEN, LEAF: Committable + Serialize + Clone> {
     /// Map of all signatures accumlated so far
     pub total_vote_outcomes: VoteMap<LEAF, TOKEN>,
@@ -142,8 +143,10 @@ pub struct VoteAccumulator<TOKEN, LEAF: Committable + Serialize + Clone> {
     pub yes_vote_outcomes: VoteMap<LEAF, TOKEN>,
     /// Map of all no signatures accumlated so far
     pub no_vote_outcomes: VoteMap<LEAF, TOKEN>,
-    /// threshold of stake needed to form a Certificate
-    pub threshold: NonZeroU64,
+    /// A quorum's worth of stake, generall 2f + 1
+    pub success_threshold: NonZeroU64,
+    /// Enough stake to know that we cannot possibly get a quorum, generally f + 1
+    pub failure_threshold: NonZeroU64,
 }
 
 impl<TOKEN, LEAF: Committable + Serialize + Clone>
@@ -166,19 +169,47 @@ where
     ) -> Either<Self, BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>> {
         let (commitment, (key, (sig, vote_data, token))) = val;
 
-        let (stake_casted, vote_map) = self
+        let (total_stake_casted, total_vote_map) = self
             .total_vote_outcomes
+            .entry(commitment)
+            .or_insert_with(|| (0, BTreeMap::new()));
+
+        let (yes_stake_casted, yes_vote_map) = self
+            .yes_vote_outcomes
+            .entry(commitment)
+            .or_insert_with(|| (0, BTreeMap::new()));
+
+        let (no_stake_casted, no_vote_map) = self
+            .no_vote_outcomes
             .entry(commitment)
             .or_insert_with(|| (0, BTreeMap::new()));
         // Accumulate the stake for each leaf commitment rather than the total
         // stake of all votes, in case they correspond to inconsistent
         // commitments.
-        *stake_casted += u64::from(token.vote_count());
-        vote_map.insert(key, (sig, vote_data, token));
+        *total_stake_casted += u64::from(token.vote_count());
+        total_vote_map.insert(key.clone(), (sig.clone(), vote_data.clone(), token.clone()));
 
-        if *stake_casted >= u64::from(self.threshold) {
-            let valid_signatures = self.total_vote_outcomes.remove(&commitment).unwrap().1;
-            return Either::Right(valid_signatures);
+        match vote_data {
+            VoteData::DA(commitment) | VoteData::Yes(commitment) => {
+                *yes_stake_casted += u64::from(token.vote_count());
+                yes_vote_map.insert(key, (sig, vote_data.clone(), token));
+            }
+            VoteData::No(commitment) => {
+                *no_stake_casted += u64::from(token.vote_count());
+                no_vote_map.insert(key, (sig, vote_data.clone(), token));
+            }
+            VoteData::Timeout(commitment) => {
+                unimplemented!()
+            }
+        }
+
+        if *total_stake_casted >= u64::from(self.success_threshold) {
+            if *yes_stake_casted >= u64::from(self.success_threshold)
+                || *no_stake_casted >= u64::from(self.failure_threshold)
+            {
+                let valid_signatures = self.total_vote_outcomes.remove(&commitment).unwrap().1;
+                return Either::Right(valid_signatures);
+            }
         }
         Either::Left(self)
     }

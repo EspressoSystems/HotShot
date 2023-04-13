@@ -102,7 +102,9 @@ where
             total_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
-            threshold,
+            // TODO ED Is this correct below? 
+            success_threshold: threshold, 
+            failure_threshold: threshold,
         };
 
         while let Ok(msg) = lock.recv().await {
@@ -273,7 +275,8 @@ where
         if let Some(cert) = self
             .wait_for_votes(
                 self.cur_view,
-                self.committee_exchange.threshold(),
+                // TODO ED Is this correct below? 
+                self.committee_exchange.success_threshold(),
                 block_commitment,
             )
             .await
@@ -436,7 +439,8 @@ where
             total_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
-            threshold: self.quorum_exchange.threshold(),
+            success_threshold: self.quorum_exchange.success_threshold(),
+            failure_threshold: self.quorum_exchange.failure_threshold(),
         };
 
         let lock = self.vote_collection_chan.lock().await;
