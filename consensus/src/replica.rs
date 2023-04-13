@@ -215,35 +215,35 @@ where
 
                                 // Generate and send vote
                                 // TODO ED Will remove once actual tests are in place
-                                // let message = if self.id % 4 == 0 {
-                                //     self.exchange.create_no_message(
-                                //         leaf.justify_qc.commit(),
-                                //         leaf_commitment,
-                                //         self.cur_view,
-                                //         vote_token,
-                                //     )
-                                // } else if self.id % 5 == 0 {
-                                //     self.exchange.create_timeout_message(
-                                //         leaf.justify_qc.clone(),
-                                //         self.cur_view,
-                                //         vote_token,
-                                //     )
-                                // }
-                                // else {
-                                //     self.exchange.create_yes_message(
-                                //         leaf.justify_qc.commit(),
-                                //         leaf_commitment,
-                                //         self.cur_view,
-                                //         vote_token,
-                                //     )
-                                // };
+                                let message = if self.id % 2 == 0 {
+                                    self.exchange.create_no_message(
+                                        leaf.justify_qc.commit(),
+                                        leaf_commitment,
+                                        self.cur_view,
+                                        vote_token,
+                                    )
+                                } else if self.id % 5 == 0 {
+                                    self.exchange.create_timeout_message(
+                                        leaf.justify_qc.clone(),
+                                        self.cur_view,
+                                        vote_token,
+                                    )
+                                }
+                                else {
+                                    self.exchange.create_yes_message(
+                                        leaf.justify_qc.commit(),
+                                        leaf_commitment,
+                                        self.cur_view,
+                                        vote_token,
+                                    )
+                                };
 
-                                let message = self.exchange.create_yes_message(
-                                    leaf.justify_qc.commit(),
-                                    leaf_commitment,
-                                    self.cur_view,
-                                    vote_token,
-                                );
+                                // let message = self.exchange.create_yes_message(
+                                //     leaf.justify_qc.commit(),
+                                //     leaf_commitment,
+                                //     self.cur_view,
+                                //     vote_token,
+                                // );
 
                                 let next_leader = self.exchange.get_leader(self.cur_view + 1);
 
