@@ -56,6 +56,7 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     type CommitteeExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
 }
 
+// TODO (Keyao) move exchange types to election.rs?
 pub trait ExchangesType<
     CONSENSUS: ConsensusType,
     TYPES: NodeType<ConsensusType = CONSENSUS>,

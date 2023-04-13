@@ -13,7 +13,6 @@ use hotshot::{
         NodeImplementation,
     },
 };
-use hotshot_types::message::Message;
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
     traits::{
@@ -24,6 +23,7 @@ use hotshot_types::{
     },
     vote::QuorumVote,
 };
+use hotshot_types::{message::Message, traits::node_implementation::ValidatingExchanges};
 use jf_primitives::{
     signatures::{
         bls::{BLSSignature, BLSVerKey},
@@ -126,6 +126,13 @@ type StaticCommunication = MemoryCommChannel<
 impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
     type Storage = MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>;
     type Leaf = ValidatingLeaf<VrfTestTypes>;
+    type Exchanges = ValidatingExchanges<
+        ValidatingConsensus,
+        VrfTestTypes,
+        ValidatingLeaf<VrfTestTypes>,
+        Message<VrfTestTypes, Self>,
+        Self::QuorumExchange,
+    >;
     type QuorumExchange = QuorumExchange<
         VrfTestTypes,
         ValidatingLeaf<VrfTestTypes>,
@@ -141,6 +148,13 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
     type Storage =
         MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
     type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
+    type Exchanges = ValidatingExchanges<
+        ValidatingConsensus,
+        StaticCommitteeTestTypes,
+        ValidatingLeaf<StaticCommitteeTestTypes>,
+        Message<StaticCommitteeTestTypes, Self>,
+        Self::QuorumExchange,
+    >;
     type QuorumExchange = QuorumExchange<
         StaticCommitteeTestTypes,
         ValidatingLeaf<StaticCommitteeTestTypes>,

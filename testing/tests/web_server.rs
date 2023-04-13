@@ -9,8 +9,11 @@ use hotshot_testing::{
     test_description::GeneralTestDescriptionBuilder, test_types::StaticCommitteeTestTypes,
 };
 use hotshot_types::message::Message;
-use hotshot_types::traits::election::QuorumExchange;
-use hotshot_types::traits::node_implementation::NodeImplementation;
+use hotshot_types::traits::{
+    consensus_type::validating_consensus::ValidatingConsensus,
+    election::QuorumExchange,
+    node_implementation::{NodeImplementation, ValidatingExchanges},
+};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     vote::QuorumVote,
@@ -35,6 +38,13 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
     type Storage =
         MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
     type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
+    type Exchanges = ValidatingExchanges<
+        ValidatingConsensus,
+        StaticCommitteeTestTypes,
+        ValidatingLeaf<StaticCommitteeTestTypes>,
+        Message<StaticCommitteeTestTypes, Self>,
+        Self::QuorumExchange,
+    >;
     type QuorumExchange = QuorumExchange<
         StaticCommitteeTestTypes,
         ValidatingLeaf<StaticCommitteeTestTypes>,

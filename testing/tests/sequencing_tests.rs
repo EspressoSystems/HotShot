@@ -22,7 +22,7 @@ use hotshot_types::{
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         election::{CommitteeExchange, QuorumExchange},
-        node_implementation::NodeType,
+        node_implementation::{NodeType, SequencingExchanges},
     },
     vote::DAVote,
 };
@@ -78,6 +78,14 @@ type StaticQuroumComm = MemoryCommChannel<
 impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
     type Leaf = SequencingLeaf<SequencingTestTypes>;
+    type Exchanges = SequencingExchanges<
+        SequencingConsensus,
+        SequencingTestTypes,
+        SequencingLeaf<SequencingTestTypes>,
+        Message<SequencingTestTypes, Self>,
+        Self::QuorumExchange,
+        Self::CommitteeExchange,
+    >;
     type QuorumExchange = QuorumExchange<
         SequencingTestTypes,
         Self::Leaf,
@@ -134,6 +142,14 @@ type StaticQuroumCommP2p = Libp2pCommChannel<
 impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
     type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
     type Leaf = SequencingLeaf<SequencingTestTypes>;
+    type Exchanges = SequencingExchanges<
+        SequencingConsensus,
+        SequencingTestTypes,
+        SequencingLeaf<SequencingTestTypes>,
+        Message<SequencingTestTypes, Self>,
+        Self::QuorumExchange,
+        Self::CommitteeExchange,
+    >;
     type QuorumExchange = QuorumExchange<
         SequencingTestTypes,
         Self::Leaf,
@@ -190,6 +206,14 @@ type StaticQuroumCommCentral = CentralizedCommChannel<
 impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
     type Storage = MemoryStorage<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>;
     type Leaf = SequencingLeaf<SequencingTestTypes>;
+    type Exchanges = SequencingExchanges<
+        SequencingConsensus,
+        SequencingTestTypes,
+        SequencingLeaf<SequencingTestTypes>,
+        Message<SequencingTestTypes, Self>,
+        Self::QuorumExchange,
+        Self::CommitteeExchange,
+    >;
     type QuorumExchange = QuorumExchange<
         SequencingTestTypes,
         Self::Leaf,
