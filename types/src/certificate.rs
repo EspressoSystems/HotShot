@@ -74,7 +74,8 @@ pub enum YesNoCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, LEAF, CERTIFICAT
 where LEAF: Committable + Serialize + Clone,
 {
     Yes(SIGNATURE, TIME, TOKEN, LEAF, CERTIFICATE),
-    No(SIGNATURE, TIME, TOKEN, LEAF, CERTIFICATE)
+    No(SIGNATURE, TIME, TOKEN, LEAF, CERTIFICATE),
+    DA(SIGNATURE, TIME, TOKEN, LEAF, CERTIFICATE)
 }
 
 /// Data from a vote needed to accumulate into a `SignedCertificate`
