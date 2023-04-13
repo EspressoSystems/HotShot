@@ -242,6 +242,8 @@ pub trait Run<
                 config.config.total_nodes.get() as u64
             )
         });
+
+        // TODO(nfy): replace with `Exchanges` generator
         let quorum_exchange = NODE::QuorumExchange::create(
             known_nodes.clone(),
             election_config.clone(),

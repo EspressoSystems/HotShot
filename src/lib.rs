@@ -108,7 +108,7 @@ pub const H_512: usize = 64;
 pub const H_256: usize = 32;
 
 /// Holds the state needed to participate in `HotShot` consensus
-pub struct HotShotInner<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub struct HotShotInner<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The public key of this node
     public_key: TYPES::SignatureKey,
 
@@ -124,6 +124,7 @@ pub struct HotShotInner<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplem
     /// This `HotShot` instance's storage backend
     storage: I::Storage,
 
+    // TODO: use associated type to replace the following two fields with same abstraction as in NodeImplementation
     /// This `HotShot` instance's way to interact with the nodes needed to form a quorum
     pub quorum_exchange: Arc<I::QuorumExchange>,
 
@@ -134,7 +135,7 @@ pub struct HotShotInner<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplem
     event_sender: RwLock<Option<BroadcastSender<Event<TYPES, I::Leaf>>>>,
 
     /// Senders to the background tasks.
-    background_task_handle: tasks::TaskHandle<CONSENSUS, TYPES>,
+    background_task_handle: tasks::TaskHandle<TYPES>,
 
     /// a reference to the metrics that the implementor is using.
     metrics: Box<dyn Metrics>,
@@ -144,7 +145,7 @@ pub struct HotShotInner<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplem
 #[derive(Clone)]
 pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Handle to internal hotshot implementation
-    inner: Arc<HotShotInner<CONSENSUS, TYPES, I>>,
+    inner: Arc<HotShotInner<TYPES, I>>,
 
     /// Transactions
     /// (this is shared btwn hotshot and `Consensus`)
@@ -154,7 +155,12 @@ pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementat
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<TYPES, I::Leaf>>>,
 
-    // TODO: figure out how to associate the following four maps with respective exchanges...
+    // TODO: use associated traits to pair these maps with respective exchanges
+    // e.g. per exchange
+    // struct ChannelMaps {
+    //    proposal_channel:Arc<RwLock<SendToTasks<TYPES, I>>>,
+    //    votes_channel<:Arc<RwLock<SendToTasks<TYPES, I>>>,
+    // }
     /// for sending/recv-ing things with the DA member task
     member_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
 
@@ -199,13 +205,14 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         // networking: I::Networking,
         storage: I::Storage,
+        // TODO(nfy): replace with `Exchanges`
         quorum_exchange: I::QuorumExchange,
         committee_exchange: I::CommitteeExchange,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         metrics: Box<dyn Metrics>,
     ) -> Result<Self, HotShotError<TYPES>> {
         info!("Creating a new hotshot");
-        let inner: Arc<HotShotInner<TYPES::ConsensusType, TYPES, I>> = Arc::new(HotShotInner {
+        let inner: Arc<HotShotInner<TYPES, I>> = Arc::new(HotShotInner {
             public_key,
             private_key,
             config,
@@ -396,6 +403,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         node_id: u64,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
         storage: I::Storage,
+        // TODO(nfy): replace with `Exchanges`
         quorum_exchange: I::QuorumExchange,
         committee_exchange: I::CommitteeExchange,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
@@ -1157,7 +1165,7 @@ where
 #[derive(Clone)]
 struct HotShotValidatingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`HotShotInner`]
-    inner: Arc<HotShotInner<TYPES::ConsensusType, TYPES, I>>,
+    inner: Arc<HotShotInner<TYPES, I>>,
 }
 
 #[async_trait]
@@ -1284,7 +1292,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
 #[derive(Clone)]
 struct HotShotSequencingConsensusApi<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Reference to the [`HotShotInner`]
-    inner: Arc<HotShotInner<TYPES::ConsensusType, TYPES, I>>,
+    inner: Arc<HotShotInner<TYPES, I>>,
 }
 
 #[async_trait]

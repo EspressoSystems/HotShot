@@ -29,8 +29,6 @@ use std::sync::{
 use tracing::{debug, error};
 
 #[cfg(feature = "hotshot-testing")]
-use crate::HotShotConsensusApi;
-#[cfg(feature = "hotshot-testing")]
 use commit::Commitment;
 #[cfg(feature = "hotshot-testing")]
 use hotshot_types::{message::ConsensusMessage, traits::signature_key::EncodedSignature};
@@ -304,10 +302,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     where
         I::QuorumExchange: QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
     {
-        let api = HotShotConsensusApi {
-            inner: self.hotshot.inner.clone(),
-        };
-        api.inner
+        let inner = self.hotshot.inner.clone();
+        inner
             .quorum_exchange
             .sign_validating_or_commitment_proposal::<I>(leaf_commitment)
     }
@@ -330,10 +326,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
             Vote = QuorumVote<TYPES, I::Leaf>,
         >,
     {
-        let api = HotShotConsensusApi {
-            inner: self.hotshot.inner.clone(),
-        };
-        api.inner.quorum_exchange.create_yes_message(
+        let inner = self.hotshot.inner.clone();
+        inner.quorum_exchange.create_yes_message(
             justify_qc_commitment,
             leaf_commitment,
             current_view,

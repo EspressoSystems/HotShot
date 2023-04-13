@@ -10,7 +10,7 @@ where
 }
 
 /// Consensus which provides availability and ordering but not execution.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SequencingConsensus;
 impl SequencingConsensusType for SequencingConsensus {}
 impl ConsensusType for SequencingConsensus {}

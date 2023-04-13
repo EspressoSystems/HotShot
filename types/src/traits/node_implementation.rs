@@ -46,8 +46,8 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     /// Storage type for this consensus implementation
     type Storage: Storage<TYPES, Self::Leaf> + Clone;
 
-    // /// consensus type selected exchanges
-    // type Exchanges: ExchangesType<TYPES::ConsensusType>;
+    /// consensus type selected exchanges
+    type Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, Self::Leaf, Message<TYPES, Self>>;
 
     /// Protocol for exchanging consensus proposals and votes.
     type QuorumExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
@@ -61,11 +61,11 @@ pub trait ExchangesType<
     TYPES: NodeType<ConsensusType = CONSENSUS>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
->: Send + Sync + Debug + Clone + 'static
+>: Send + Sync
 {
 }
 
-pub trait ValidatingExchangesTypee<
+pub trait ValidatingExchangesType<
     CONSENSUS: ValidatingConsensusType,
     TYPES: NodeType<ConsensusType = CONSENSUS>,
     LEAF: LeafType<NodeType = TYPES>,
@@ -76,7 +76,7 @@ pub trait ValidatingExchangesTypee<
     type QuorumExchange: ConsensusExchange<TYPES, LEAF, MESSAGE>;
 }
 
-pub trait SequencingExchangesTypee<
+pub trait SequencingExchangesType<
     CONSENSUS: SequencingConsensusType,
     TYPES: NodeType<ConsensusType = CONSENSUS>,
     LEAF: LeafType<NodeType = TYPES>,
@@ -90,53 +90,89 @@ pub trait SequencingExchangesTypee<
     type CommitteeExchange: ConsensusExchange<TYPES, LEAF, MESSAGE>;
 }
 
-// /// ExchangesType ValidatingExchanges
-// struct ValidatingExchanges<
-//     Types: NodeType,
-//     I: NodeImplementation<Types>,
-//     Message: NetworkMsg,
-//     QuorumExchange: ConsensusExchange<Types, I::Leaf, Message>,
-// > {
-//     quorum_exchange: QuorumExchange,
-//     _phantom1: PhantomData<Types>,
-//     _phantom2: PhantomData<I>,
-//     _phantom3: PhantomData<Message>,
-// }
+/// ExchangesType ValidatingExchanges
+#[derive(Clone, Debug)]
+pub struct ValidatingExchanges<
+    CONSENSUS: ValidatingConsensusType,
+    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    LEAF: LeafType<NodeType = TYPES>,
+    MESSAGE: NetworkMsg,
+    QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+> {
+    quorum_exchange: QUORUMEXCHANGE,
+    _phantom1: PhantomData<TYPES>,
+    _phantom2: PhantomData<LEAF>,
+    _phantom3: PhantomData<MESSAGE>,
+}
 
-// /// ExchangesType SequencingExchanges
-// struct SequencingExchanges<
-//     Types: NodeType,
-//     I: NodeImplementation<Types>,
-//     QuorumMessage: NetworkMsg,
-//     CommitteeMessage: NetworkMsg,
-//     QuorumExchange: ConsensusExchange<Types, I::Leaf, QuorumMessage>,
-//     CommitteeExchange: ConsensusExchange<Types, I::Leaf, CommitteeMessage>,
-// > {
-//     quorum_exchange: QuorumExchange,
-//     committee_exchange: CommitteeExchange,
-//     _phantom1: PhantomData<Types>,
-//     _phantom2: PhantomData<I>,
-//     _phantom3: PhantomData<QuorumMessage>,
-//     _phantom4: PhantomData<CommitteeMessage>,
-// }
+impl<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE>
+    ValidatingExchangesType<CONSENSUS, TYPES, LEAF, MESSAGE>
+    for ValidatingExchanges<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE>
+where
+    CONSENSUS: ValidatingConsensusType,
+    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    LEAF: LeafType<NodeType = TYPES>,
+    MESSAGE: NetworkMsg,
+    QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+{
+    type QuorumExchange = QUORUMEXCHANGE;
+}
 
-// /// ExchangeType
-// pub struct ExchangesTypeChooser<Consensus: ConsensusType> {
-//     _phantom1: PhantomData<Consensus>,
-// }
+impl<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE> ExchangesType<CONSENSUS, TYPES, LEAF, MESSAGE>
+    for ValidatingExchanges<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE>
+where
+    CONSENSUS: ValidatingConsensusType,
+    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    LEAF: LeafType<NodeType = TYPES>,
+    MESSAGE: NetworkMsg,
+    QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+{
+}
 
-// impl<
-//         Types: NodeType,
-//         I: NodeImplementation<Types>,
-//         Message: NetworkMsg,
-//         QuorumExchange: ConsensusExchange<Types, I::Leaf, Message>,
-//         Consensus: ConsensusType,
-//     > ExchangesType<Consensus> for ExchangesTypeChooser<Consensus>
-// where
-//     Consensus: ValidatingConsensusType,
-// {
-//     type Exchanges = ValidatingExchanges<Types, I, Message, QuorumExchange>;
-// }
+/// ExchangesType SequencingExchanges
+#[derive(Clone, Debug)]
+pub struct SequencingExchanges<
+    CONSENSUS: SequencingConsensusType,
+    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    LEAF: LeafType<NodeType = TYPES>,
+    MESSAGE: NetworkMsg,
+    QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+    COMMITTEEEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+> {
+    quorum_exchange: QUORUMEXCHANGE,
+    committee_exchange: COMMITTEEEXCHANGE,
+    _phantom1: PhantomData<TYPES>,
+    _phantom2: PhantomData<LEAF>,
+    _phantom3: PhantomData<MESSAGE>,
+}
+
+impl<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+    SequencingExchangesType<CONSENSUS, TYPES, LEAF, MESSAGE>
+    for SequencingExchanges<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+where
+    CONSENSUS: SequencingConsensusType,
+    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    LEAF: LeafType<NodeType = TYPES>,
+    MESSAGE: NetworkMsg,
+    QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+    COMMITTEEEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+{
+    type QuorumExchange = QUORUMEXCHANGE;
+    type CommitteeExchange = COMMITTEEEXCHANGE;
+}
+
+impl<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+    ExchangesType<CONSENSUS, TYPES, LEAF, MESSAGE>
+    for SequencingExchanges<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+where
+    CONSENSUS: SequencingConsensusType,
+    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    LEAF: LeafType<NodeType = TYPES>,
+    MESSAGE: NetworkMsg,
+    QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+    COMMITTEEEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+{
+}
 
 /// extra functions required on a node implementation to be usable by hotshot-testing
 #[allow(clippy::type_complexity)]

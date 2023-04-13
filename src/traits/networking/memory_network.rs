@@ -551,6 +551,7 @@ mod tests {
     use crate::traits::implementations::MemoryStorage;
     use async_compatibility_layer::logging::setup_logging;
     use hotshot_types::traits::election::QuorumExchange;
+    use hotshot_types::traits::node_implementation::ValidatingExchanges;
     use hotshot_types::{
         data::ViewNumber,
         message::{DataMessage, MessageKind},
@@ -607,6 +608,13 @@ mod tests {
             TestMembership,
             TestNetwork,
             Message<Test, Self>,
+        >;
+        type Exchanges = ValidatingExchanges<
+            ValidatingConsensus,
+            Test,
+            TestLeaf,
+            Message<Test, Self>,
+            Self::QuorumExchange,
         >;
         type CommitteeExchange = Self::QuorumExchange;
         type Leaf = TestLeaf;

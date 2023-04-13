@@ -1,6 +1,6 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use crate::{types::HotShotHandle, HotShot, HotShotConsensusApi, ViewRunner};
+use crate::{types::HotShotHandle, HotShot, ViewRunner};
 use async_compatibility_layer::{
     art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
     async_primitives::broadcast::channel,
@@ -282,9 +282,7 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 ) {
     info!("Launching network lookup task");
     let networking = hotshot.inner.quorum_exchange.network().clone();
-    let c_api = HotShotConsensusApi {
-        inner: hotshot.inner.clone(),
-    };
+    let inner = hotshot.inner.clone();
 
     let mut completion_map: HashMap<TYPES::Time, Arc<AtomicBool>> = HashMap::default();
 
@@ -296,8 +294,8 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
             let _result = networking
                 .inject_consensus_info((
                     (*cur_view),
-                    c_api.inner.quorum_exchange.is_leader(cur_view),
-                    c_api.inner.quorum_exchange.is_leader(cur_view + 1),
+                    inner.quorum_exchange.is_leader(cur_view),
+                    inner.quorum_exchange.is_leader(cur_view + 1),
                 ))
                 .await;
 
@@ -322,15 +320,15 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
                 .collect();
 
             // logic to look ahead
-            if !c_api.inner.quorum_exchange.is_leader(view_to_lookup) {
+            if !inner.quorum_exchange.is_leader(view_to_lookup) {
                 let is_done = Arc::new(AtomicBool::new(false));
                 completion_map.insert(view_to_lookup, is_done.clone());
-                let c_api = c_api.clone();
+                let inner = inner.clone();
                 let networking = networking.clone();
                 async_spawn_local(async move {
                     info!("starting lookup for {:?}", view_to_lookup);
                     let _result = networking
-                        .lookup_node(c_api.inner.quorum_exchange.get_leader(view_to_lookup))
+                        .lookup_node(inner.quorum_exchange.get_leader(view_to_lookup))
                         .await;
                     info!("finished lookup for {:?}", view_to_lookup);
                 });

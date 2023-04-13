@@ -10,7 +10,7 @@ where
 }
 
 /// Consensus which provides ordering and execution.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ValidatingConsensus;
 impl ConsensusType for ValidatingConsensus {}
 impl ValidatingConsensusType for ValidatingConsensus {}

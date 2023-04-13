@@ -205,6 +205,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
                 Message<TYPES, I>,
             >>::Membership::default_election_config(config.total_nodes.get() as u64)
         });
+
+        // TODO(nfy): replace with `Exchanges` generator
         let quorum_exchange = I::QuorumExchange::create(
             known_nodes.clone(),
             election_config.clone(),
