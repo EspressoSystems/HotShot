@@ -10,8 +10,7 @@ use super::{
     block_contents::Transaction,
     consensus_type::{
         sequencing_consensus::SequencingConsensusType,
-        validating_consensus::{ValidatingConsensus, ValidatingConsensusType},
-        ConsensusType,
+        validating_consensus::ValidatingConsensusType, ConsensusType,
     },
     election::{ConsensusExchange, ElectionConfig, VoteToken},
     network::{NetworkMsg, TestableNetworkingImplementation},
@@ -57,6 +56,7 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
 }
 
 // TODO (Keyao) move exchange types to election.rs?
+/// Contains the protocols for exchanging proposals and votes.
 pub trait ExchangesType<
     CONSENSUS: ConsensusType,
     TYPES: NodeType<ConsensusType = CONSENSUS>,
@@ -66,6 +66,7 @@ pub trait ExchangesType<
 {
 }
 
+/// An [`ExchangesType`] for validating consensus.
 pub trait ValidatingExchangesType<
     CONSENSUS: ValidatingConsensusType,
     TYPES: NodeType<ConsensusType = CONSENSUS>,
@@ -77,6 +78,7 @@ pub trait ValidatingExchangesType<
     type QuorumExchange: ConsensusExchange<TYPES, LEAF, MESSAGE>;
 }
 
+/// An [`ExchangesType`] for sequencing consensus.
 pub trait SequencingExchangesType<
     CONSENSUS: SequencingConsensusType,
     TYPES: NodeType<ConsensusType = CONSENSUS>,
@@ -100,10 +102,7 @@ pub struct ValidatingExchanges<
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
 > {
-    quorum_exchange: QUORUMEXCHANGE,
-    _phantom1: PhantomData<TYPES>,
-    _phantom2: PhantomData<LEAF>,
-    _phantom3: PhantomData<MESSAGE>,
+    _phantom: PhantomData<(TYPES, LEAF, MESSAGE, QUORUMEXCHANGE)>,
 }
 
 impl<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE>
@@ -140,11 +139,7 @@ pub struct SequencingExchanges<
     QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
     COMMITTEEEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
 > {
-    quorum_exchange: QUORUMEXCHANGE,
-    committee_exchange: COMMITTEEEXCHANGE,
-    _phantom1: PhantomData<TYPES>,
-    _phantom2: PhantomData<LEAF>,
-    _phantom3: PhantomData<MESSAGE>,
+    _phantom: PhantomData<(TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE)>,
 }
 
 impl<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>

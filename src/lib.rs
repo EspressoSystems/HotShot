@@ -49,8 +49,8 @@ use commit::{Commitment, Committable};
 
 use hotshot_consensus::{
     Consensus, ConsensusLeader, ConsensusMetrics, ConsensusNextLeader, ConsensusSharedApi,
-    DALeader, DAMember, NextValidatingLeader, Replica, SendToTasks, SequencingConsensusApi,
-    SequencingReplica, ValidatingConsensusApi, ValidatingLeader, View, ViewInner, ViewQueue,
+    DALeader, DAMember, NextValidatingLeader, Replica, SendToTasks, SequencingReplica,
+    ValidatingLeader, View, ViewInner, ViewQueue,
 };
 use hotshot_types::certificate::DACertificate;
 
