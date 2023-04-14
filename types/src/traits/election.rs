@@ -277,20 +277,55 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
         }
 
         // TODO ED Need to test the below block
-        let stake = match qc.signatures() {
-            YesNoSignature::Yes(raw_signatures) => raw_signatures.iter().filter(|signature| {
-                self.is_valid_vote(
-                    signature.0,
-                    &signature.1 .0,
-                    // TODO ED Make this a reference like parameters above? 
-                    signature.1 .1.clone(),
-                    qc.view_number(),
-                    Checked::Unchecked(signature.1 .2.clone()),
-                ) 
-                // && signature.1.1 == VoteData::Yes(leaf_commitment)
-            }).fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count()))),
-            YesNoSignature::No(raw_signatures) => {1}
-        };
+        match qc.signatures() {
+            YesNoSignature::Yes(raw_signatures) => {
+                let yes_votes = raw_signatures
+                    .iter()
+                    .filter(|signature| {
+                        self.is_valid_vote(
+                            signature.0,
+                            &signature.1 .0,
+                            // TODO ED Make this a reference like parameters above?
+                            signature.1 .1.clone(),
+                            qc.view_number(),
+                            Checked::Unchecked(signature.1 .2.clone()),
+                        ) && matches!(signature.1 .1, VoteData::Yes(leaf_commitment))
+                    })
+                    .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
+
+                yes_votes >= u64::from(self.success_threshold())
+            }
+            YesNoSignature::No(raw_signatures) => {
+                let yes_votes = raw_signatures
+                    .iter()
+                    .filter(|signature| {
+                        self.is_valid_vote(
+                            signature.0,
+                            &signature.1 .0,
+                            // TODO ED Make this a reference like parameters above?
+                            signature.1 .1.clone(),
+                            qc.view_number(),
+                            Checked::Unchecked(signature.1 .2.clone()),
+                        ) && matches!(signature.1 .1, VoteData::Yes(leaf_commitment))
+                    })
+                    .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
+                let no_votes = raw_signatures
+                    .iter()
+                    .filter(|signature| {
+                        self.is_valid_vote(
+                            signature.0,
+                            &signature.1 .0,
+                            // TODO ED Make this a reference like parameters above?
+                            signature.1 .1.clone(),
+                            qc.view_number(),
+                            Checked::Unchecked(signature.1 .2.clone()),
+                        ) && matches!(signature.1 .1, VoteData::No(leaf_commitment))
+                    })
+                    .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
+
+                    no_votes >= u64::from(self.failure_threshold()) && yes_votes + no_votes >= u64::from(self.success_threshold())
+            }
+        }
 
         // let stake = qc
         //     .signatures()
@@ -306,7 +341,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
         //     })
         //     .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
 
-        stake >= u64::from(self.success_threshold())
+        // stake >= u64::from(self.success_threshold())
     }
 
     /// Validate a vote by checking its signature and token.
