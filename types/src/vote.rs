@@ -207,9 +207,7 @@ where
             if *yes_stake_casted >= u64::from(self.success_threshold) {
                 let valid_signatures = self.yes_vote_outcomes.remove(&commitment).unwrap().1;
                 return Either::Right(YesNoSignature::Yes(valid_signatures));
-            }
-            else if *no_stake_casted >= u64::from(self.failure_threshold)
-            {
+            } else if *no_stake_casted >= u64::from(self.failure_threshold) {
                 let valid_signatures = self.total_vote_outcomes.remove(&commitment).unwrap().1;
                 return Either::Right(YesNoSignature::No(valid_signatures));
             }

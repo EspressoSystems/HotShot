@@ -15,12 +15,12 @@ use super::{
     storage::{StorageError, StorageState, TestableStorage},
     State,
 };
-use commit::Committable;
 use crate::{
     data::LeafType,
     traits::{signature_key::SignatureKey, storage::Storage, Block},
 };
 use crate::{data::TestableLeaf, message::Message};
+use commit::Committable;
 
 use std::fmt::Debug;
 use std::hash::Hash;

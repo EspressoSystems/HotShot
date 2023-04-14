@@ -102,8 +102,8 @@ where
             total_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
-            // TODO ED Is this correct below? 
-            success_threshold: threshold, 
+            // TODO ED Is this correct below?
+            success_threshold: threshold,
             failure_threshold: threshold,
         };
 
@@ -128,7 +128,7 @@ where
                         &vote.signature.0,
                         &vote.signature.1,
                         vote.block_commitment,
-                        vote.vote_data, 
+                        vote.vote_data,
                         vote.vote_token.clone(),
                         self.cur_view,
                         accumulator,
@@ -275,7 +275,7 @@ where
         if let Some(cert) = self
             .wait_for_votes(
                 self.cur_view,
-                // TODO ED Is this correct below? 
+                // TODO ED Is this correct below?
                 self.committee_exchange.success_threshold(),
                 block_commitment,
             )
@@ -451,7 +451,7 @@ where
             }
             match msg {
                 ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
-                    QuorumVote::Yes(vote) | QuorumVote::No(vote)=> {
+                    QuorumVote::Yes(vote) | QuorumVote::No(vote) => {
                         if vote.signature.0
                             != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
                         {

@@ -296,6 +296,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
                 yes_votes >= u64::from(self.success_threshold())
             }
             YesNoSignature::No(raw_signatures) => {
+                // TODO ED Fix this so it isn't doing a double iteration over signatures - for_each maybe
                 let yes_votes = raw_signatures
                     .iter()
                     .filter(|signature| {
@@ -323,7 +324,8 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
                     })
                     .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
 
-                    no_votes >= u64::from(self.failure_threshold()) && yes_votes + no_votes >= u64::from(self.success_threshold())
+                no_votes >= u64::from(self.failure_threshold())
+                    && yes_votes + no_votes >= u64::from(self.success_threshold())
             }
         }
 

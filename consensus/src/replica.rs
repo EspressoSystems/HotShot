@@ -228,8 +228,7 @@ where
                                         self.cur_view,
                                         vote_token,
                                     )
-                                }
-                                else {
+                                } else {
                                     self.exchange.create_yes_message(
                                         leaf.justify_qc.commit(),
                                         leaf_commitment,
