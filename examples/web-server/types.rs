@@ -27,6 +27,13 @@ pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
 impl NodeImplementation<VDemoTypes> for NodeImpl {
     type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
     type Leaf = ValidatingLeaf<VDemoTypes>;
+    type Exchanges = ValidatingExchanges<
+        ValidatingConsensus,
+        VDemoTypes,
+        ValidatingLeaf<VDemoTypes>,
+        Message<VDemoTypes, Self>,
+        Self::QuorumExchange,
+    >;
     type QuorumExchange = QuorumExchange<
         VDemoTypes,
         Self::Leaf,

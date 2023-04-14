@@ -7,6 +7,7 @@ use hotshot::{
     },
 };
 use hotshot_types::message::Message;
+use hotshot_types::traits::consensus_type::validating_consensus::ValidatingConsensus;
 use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
@@ -31,6 +32,13 @@ pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
 impl NodeImplementation<VDemoTypes> for NodeImpl {
     type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
     type Leaf = ValidatingLeaf<VDemoTypes>;
+    type Exchanges = ValidatingExchanges<
+        ValidatingConsensus,
+        VDemoTypes,
+        ValidatingLeaf<VDemoTypes>,
+        Message<VDemoTypes, Self>,
+        Self::QuorumExchange,
+    >;
     type QuorumExchange = QuorumExchange<
         VDemoTypes,
         Self::Leaf,

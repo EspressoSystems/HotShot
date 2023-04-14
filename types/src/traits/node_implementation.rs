@@ -93,7 +93,7 @@ pub trait SequencingExchangesType<
     type CommitteeExchange: ConsensusExchange<TYPES, LEAF, MESSAGE>;
 }
 
-/// ExchangesType ValidatingExchanges
+/// Implements [`ValidatingExchangesType`].
 #[derive(Clone, Debug)]
 pub struct ValidatingExchanges<
     CONSENSUS: ValidatingConsensusType,
@@ -102,6 +102,7 @@ pub struct ValidatingExchanges<
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
 > {
+    /// Phantom data.
     _phantom: PhantomData<(TYPES, LEAF, MESSAGE, QUORUMEXCHANGE)>,
 }
 
@@ -129,7 +130,7 @@ where
 {
 }
 
-/// ExchangesType SequencingExchanges
+/// Implementes [`SequencingExchangesType`].
 #[derive(Clone, Debug)]
 pub struct SequencingExchanges<
     CONSENSUS: SequencingConsensusType,
@@ -139,6 +140,7 @@ pub struct SequencingExchanges<
     QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
     COMMITTEEEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
 > {
+    /// Phantom data.
     _phantom: PhantomData<(TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE)>,
 }
 
