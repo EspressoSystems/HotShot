@@ -10,8 +10,7 @@ use super::{
     block_contents::Transaction,
     consensus_type::{
         sequencing_consensus::SequencingConsensusType,
-        validating_consensus::{ValidatingConsensus, ValidatingConsensusType},
-        ConsensusType,
+        validating_consensus::ValidatingConsensusType, ConsensusType,
     },
     election::{ConsensusExchange, ElectionConfig, VoteToken},
     network::{NetworkMsg, TestableNetworkingImplementation},
@@ -56,6 +55,8 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
     type CommitteeExchange: ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>;
 }
 
+// TODO (Keyao) move exchange types to election.rs?
+/// Contains the protocols for exchanging proposals and votes.
 pub trait ExchangesType<
     CONSENSUS: ConsensusType,
     TYPES: NodeType<ConsensusType = CONSENSUS>,
@@ -65,6 +66,7 @@ pub trait ExchangesType<
 {
 }
 
+/// An [`ExchangesType`] for validating consensus.
 pub trait ValidatingExchangesType<
     CONSENSUS: ValidatingConsensusType,
     TYPES: NodeType<ConsensusType = CONSENSUS>,
@@ -76,6 +78,7 @@ pub trait ValidatingExchangesType<
     type QuorumExchange: ConsensusExchange<TYPES, LEAF, MESSAGE>;
 }
 
+/// An [`ExchangesType`] for sequencing consensus.
 pub trait SequencingExchangesType<
     CONSENSUS: SequencingConsensusType,
     TYPES: NodeType<ConsensusType = CONSENSUS>,
@@ -90,7 +93,7 @@ pub trait SequencingExchangesType<
     type CommitteeExchange: ConsensusExchange<TYPES, LEAF, MESSAGE>;
 }
 
-/// ExchangesType ValidatingExchanges
+/// Implements [`ValidatingExchangesType`].
 #[derive(Clone, Debug)]
 pub struct ValidatingExchanges<
     CONSENSUS: ValidatingConsensusType,
@@ -99,10 +102,8 @@ pub struct ValidatingExchanges<
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
 > {
-    quorum_exchange: QUORUMEXCHANGE,
-    _phantom1: PhantomData<TYPES>,
-    _phantom2: PhantomData<LEAF>,
-    _phantom3: PhantomData<MESSAGE>,
+    /// Phantom data.
+    _phantom: PhantomData<(TYPES, LEAF, MESSAGE, QUORUMEXCHANGE)>,
 }
 
 impl<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE>
@@ -129,7 +130,7 @@ where
 {
 }
 
-/// ExchangesType SequencingExchanges
+/// Implementes [`SequencingExchangesType`].
 #[derive(Clone, Debug)]
 pub struct SequencingExchanges<
     CONSENSUS: SequencingConsensusType,
@@ -139,11 +140,8 @@ pub struct SequencingExchanges<
     QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
     COMMITTEEEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
 > {
-    quorum_exchange: QUORUMEXCHANGE,
-    committee_exchange: COMMITTEEEXCHANGE,
-    _phantom1: PhantomData<TYPES>,
-    _phantom2: PhantomData<LEAF>,
-    _phantom3: PhantomData<MESSAGE>,
+    /// Phantom data.
+    _phantom: PhantomData<(TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE)>,
 }
 
 impl<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>

@@ -17,10 +17,11 @@ use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::traits::node_implementation::QuorumProposal;
 use hotshot_types::traits::node_implementation::QuorumVoteType;
+use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::vote::DAVote;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
-    data::{CommitmentProposal, SequencingLeaf},
+    data::{CommitmentProposal, LeafType, SequencingLeaf},
     message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
@@ -91,31 +92,27 @@ where
             Commitment = TYPES::BlockType,
         > + CommitteeExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
-    // TODO (da) Move this function so that it can be used by leader, replica, and committee member logic.
-    /// Returns the parent leaf of the proposal we are voting on
-    async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
-        let parent_view_number = &self.high_qc.view_number();
+    /// The leaf from the genesis view.
+    ///
+    /// This will be used as the parent leaf for the proposal in the first view after genesis.
+    async fn genesis_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let consensus = self.consensus.read().await;
-        let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
-            match &parent_view.view_inner {
-                ViewInner::Leaf { leaf } => {
-                    if let Some(leaf) = consensus.saved_leaves.get(leaf) {
-                        leaf
-                    } else {
-                        warn!("Failed to find high QC parent.");
-                        return None;
-                    }
-                }
-                ViewInner::Failed => {
-                    warn!("Parent of high QC points to a failed QC");
-                    return None;
-                }
-            }
-        } else {
-            warn!("Couldn't find high QC parent in state map.");
+        let Some(genesis_view) = consensus.state_map.get(&TYPES::Time::genesis()) else {
+            warn!("Couldn't find genesis view in state map.");
             return None;
         };
-        Some(parent_leaf.clone())
+        let Some(leaf) = genesis_view.get_leaf_commitment() else {
+            warn!(
+                ?genesis_view,
+                "Genesis view points to a view without a leaf"
+            );
+            return None;
+        };
+        let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
+            warn!("Failed to find genesis leaf.");
+            return None;
+        };
+        Some(leaf.clone())
     }
 
     /// Replica task for sequencing consensus that spins until a vote can be made or timeout is
@@ -174,12 +171,19 @@ where
 
                                 // Construct the leaf.
                                 let justify_qc = p.data.justify_qc;
-                                let parent_commitment = match self.parent_leaf().await {
-                                    Some(parent) => parent.commit(),
-                                    None => {
-                                        break None;
-                                    }
+                                let parent = if justify_qc.is_genesis() {
+                                    self.genesis_leaf().await
+                                } else {
+                                    consensus
+                                        .saved_leaves
+                                        .get(&justify_qc.leaf_commitment())
+                                        .cloned()
                                 };
+                                let Some(parent) = parent else {
+                                    warn!("Proposal's parent missing from storage");
+                                    continue;
+                                };
+                                let parent_commitment = parent.commit();
                                 let block_commitment = p.data.block_commitment;
                                 let leaf = SequencingLeaf {
                                     view_number: self.cur_view,
@@ -202,6 +206,21 @@ where
                                 {
                                     invalid_qc = true;
                                     warn!("Invalid justify_qc in proposal!.");
+                                    message = self.quorum_exchange.create_no_message(
+                                        justify_qc_commitment,
+                                        leaf_commitment,
+                                        self.cur_view,
+                                        vote_token,
+                                    );
+                                }
+                                // Validate the `height`.
+                                else if leaf.height != parent.height + 1 {
+                                    invalid_qc = true;
+                                    warn!(
+                                        "Incorrect height in proposal (expected {}, got {})",
+                                        parent.height + 1,
+                                        leaf.height
+                                    );
                                     message = self.quorum_exchange.create_no_message(
                                         justify_qc_commitment,
                                         leaf_commitment,
@@ -438,6 +457,19 @@ where
                     }
                     // starting from the first iteration with a three chain, e.g. right after the else if case nested in the if case above
                     if new_decide_reached {
+                        let mut leaf = leaf.clone();
+
+                        // If the full block is available for this leaf, include it in the leaf
+                        // chain that we send to the client.
+                        if let Some(block) =
+                            consensus.saved_blocks.get(leaf.get_deltas_commitment())
+                        {
+                            if let Err(err) = leaf.fill_deltas(block.clone()) {
+                                warn!("unable to fill leaf {} with block {}, block will not be available: {}",
+                                    leaf.commit(), block.commit(), err);
+                            }
+                        }
+
                         leaf_views.push(leaf.clone());
                         if let Left(block) = &leaf.deltas {
                             let txns = block.contained_transactions();

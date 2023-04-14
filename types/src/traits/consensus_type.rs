@@ -3,6 +3,5 @@
 pub mod sequencing_consensus;
 pub mod validating_consensus;
 
-/// ConsensusType generalized trait
-pub trait ConsensusType: Clone + Send + Sync {
-}
+/// [`ConsensusType`] generalized trait
+pub trait ConsensusType: Clone + Send + Sync {}

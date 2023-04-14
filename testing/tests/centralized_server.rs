@@ -15,8 +15,11 @@ use hotshot_types::{
 };
 // use hotshot_utils::test_util::shutdown_logging;
 use hotshot_types::message::Message;
-use hotshot_types::traits::election::QuorumExchange;
-use hotshot_types::traits::node_implementation::NodeImplementation;
+use hotshot_types::traits::{
+    consensus_type::validating_consensus::ValidatingConsensus,
+    election::QuorumExchange,
+    node_implementation::{NodeImplementation, ValidatingExchanges},
+};
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use tracing::instrument;
 
@@ -43,6 +46,13 @@ type VrfCommunication = CentralizedCommChannel<
 impl NodeImplementation<VrfTestTypes> for VrfCentralizedImp {
     type Storage = MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>;
     type Leaf = ValidatingLeaf<VrfTestTypes>;
+    type Exchanges = ValidatingExchanges<
+        ValidatingConsensus,
+        VrfTestTypes,
+        ValidatingLeaf<VrfTestTypes>,
+        Message<VrfTestTypes, Self>,
+        Self::QuorumExchange,
+    >;
     type QuorumExchange = QuorumExchange<
         VrfTestTypes,
         ValidatingLeaf<VrfTestTypes>,
@@ -90,6 +100,13 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
     type Storage =
         MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
     type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
+    type Exchanges = ValidatingExchanges<
+        ValidatingConsensus,
+        StaticCommitteeTestTypes,
+        ValidatingLeaf<StaticCommitteeTestTypes>,
+        Message<StaticCommitteeTestTypes, Self>,
+        Self::QuorumExchange,
+    >;
     type QuorumExchange = QuorumExchange<
         StaticCommitteeTestTypes,
         ValidatingLeaf<StaticCommitteeTestTypes>,
