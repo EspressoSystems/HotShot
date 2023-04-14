@@ -1,10 +1,10 @@
 //! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
-
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
+    certificate::YesNoSignature,
     data::LeafType,
     traits::{
         node_implementation::NodeType,
