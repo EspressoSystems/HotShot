@@ -118,7 +118,7 @@ mod test {
     use crate::traits::election::static_committee::StaticVoteToken;
 
     use super::*;
-    use hotshot_types::certificate::QuorumCertificate;
+    use hotshot_types::certificate::{PQuorumCertificate, YesNoSignature};
     use hotshot_types::constants::genesis_proposer_id;
     use hotshot_types::data::fake_commitment;
     use hotshot_types::data::{ValidatingLeaf, ViewNumber};
