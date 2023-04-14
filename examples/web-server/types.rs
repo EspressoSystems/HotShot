@@ -5,8 +5,11 @@ use hotshot::{
     traits::{election::static_committee::GeneralStaticCommittee, implementations::WebCommChannel},
 };
 use hotshot_types::message::Message;
-use hotshot_types::traits::election::QuorumExchange;
-use hotshot_types::traits::node_implementation::NodeImplementation;
+use hotshot_types::traits::{
+    consensus_type::validating_consensus::ValidatingConsensus,
+    election::QuorumExchange,
+    node_implementation::{NodeImplementation, ValidatingExchanges},
+};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     traits::node_implementation::NodeType,
