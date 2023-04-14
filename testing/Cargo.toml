@@ -85,8 +85,10 @@ tokio = { version = "1", optional = true, features = [
 ] }
 tracing = "0.1.37"
 serde = { version = "1.0.159", features = ["derive"] }
+nll = { git = "https://github.com/EspressoSystems/nll.git" }
 
 [dev-dependencies]
+nll = { git = "https://github.com/EspressoSystems/nll.git" }
 async-lock = "2.7"
 proptest = "1.1.0"
 tempfile = "3.5.0"

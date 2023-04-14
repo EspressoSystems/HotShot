@@ -1,4 +1,5 @@
-use std::{collections::HashSet, num::NonZeroUsize, sync::Arc, time::Duration};
+use std::num::NonZeroUsize;
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use crate::{
     ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
@@ -38,7 +39,7 @@ pub struct GeneralTestDescriptionBuilder {
     /// `tx_per_round` transactions are submitted each round
     /// to random nodes for `num_rounds + failure_threshold`
     /// Ignored if `self.rounds` is set
-    pub txn_ids: Either<Vec<Vec<u64>>, usize>,
+    pub txn_ids: Either<Vec<Vec<usize>>, usize>,
     /// Base duration for next-view timeout, in milliseconds
     pub next_view_timeout: u64,
     /// The exponential backoff ration for the next-view timeout
@@ -124,7 +125,7 @@ pub struct DetailedTestDescriptionBuilder<TYPES: NodeType, I: TestableNodeImplem
     pub general_info: GeneralTestDescriptionBuilder,
 
     /// list of rounds
-    pub rounds: Option<Vec<Round<TYPES, I>>>,
+    pub round: Either<Round<TYPES, I>, RoundCheckDescription>,
 
     /// function to generate the runner
     pub gen_runner: GenRunner<TYPES, I>,
@@ -206,11 +207,10 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPE
             info!("EXECUTOR: NODE {:?} IS READY", idx);
         }
 
-        let len = self.rounds.len() as u64;
-        runner.with_rounds(self.rounds);
+        runner.with_round(self.round);
 
         runner
-            .execute_rounds(len, self.failure_threshold as u64)
+            .execute_rounds(self.num_sucessful_views, self.failure_threshold)
             .await
             .unwrap();
 
@@ -225,7 +225,7 @@ impl GeneralTestDescriptionBuilder {
     ) -> TestDescription<TYPES, I> {
         DetailedTestDescriptionBuilder {
             general_info: self,
-            rounds: None,
+            round: Either::Right(RoundCheckDescription::default()),
             gen_runner: None,
         }
         .build()
@@ -246,14 +246,13 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
             propose_max_round_time: self.general_info.propose_max_round_time,
         };
 
-        let rounds = if let Some(rounds) = self.rounds {
-            rounds
-        } else {
-            self.default_populate_rounds()
+        let rounds = match self.round {
+            Left(rounds) => rounds,
+            Right(desc) => desc.build(),
         };
 
         TestDescription {
-            rounds,
+            round: rounds,
             gen_runner: self.gen_runner,
             timing_config,
             network_reliability: self.general_info.network_reliability,
@@ -263,15 +262,44 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
             num_bootstrap_nodes: self.general_info.num_bootstrap_nodes,
             max_transactions: self.general_info.max_transactions,
             min_transactions: self.general_info.min_transactions,
+            num_sucessful_views: todo!(),
         }
+    }
+}
+
+impl Default for RoundCheckDescription {
+    fn default() -> Self {
+        RoundCheckDescription {
+            num_out_of_sync: 10,
+            max_consecutive_failed_rounds: 5,
+            check_leaf: true,
+            check_transactions: false,
+        }
+    }
+}
+
+/// description to be passed to the view checker
+pub struct RoundCheckDescription {
+    /// number of out of sync nodes before considered failed
+    pub num_out_of_sync: usize,
+    /// max number of consecutive rounds allowed to fail
+    pub max_consecutive_failed_rounds: usize,
+    /// whether or not to check the leaf
+    pub check_leaf: bool,
+    /// whether or not to check the transaction pool
+    pub check_transactions: bool,
+}
+impl RoundCheckDescription {
+    fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(&self) -> Round<TYPES, I> {
+        Round::default()
     }
 }
 
 /// Description of a test. Contains all metadata necessary to execute test
 pub struct TestDescription<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    /// TODO unneeded (should be sufficient to have gen runner)
+    /// TODO separate
     /// the ronds to run for the test
-    pub rounds: Vec<Round<TYPES, I>>,
+    pub round: Round<TYPES, I>,
     /// function to create a [`TestRunner`]
     pub gen_runner: GenRunner<TYPES, I>,
     /// timing information applied to hotshots
@@ -294,6 +322,8 @@ pub struct TestDescription<TYPES: NodeType, I: TestableNodeImplementation<TYPES>
     pub max_transactions: NonZeroUsize,
     /// Minimum transactions required for a block
     pub min_transactions: usize,
+    /// number of sucessful views
+    pub num_sucessful_views: usize,
 }
 
 /// type alias for generating a [`TestRunner`]
@@ -309,149 +339,154 @@ pub type TestSetup<TYPES, TRANS, I> =
 /// * `shut_down_ids`: vector of ids to shut down each round
 /// * `submitter_ids`: vector of ids to submit txns to each round
 /// * `num_rounds`: total number of rounds to generate
-pub fn default_submitter_id_to_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-    mut shut_down_ids: Vec<HashSet<u64>>,
-    submitter_ids: Vec<Vec<u64>>,
-    num_rounds: u64,
-) -> TestSetup<TYPES, TYPES::Transaction, I> {
-    // make sure the lengths match so zip doesn't spit out none
-    if shut_down_ids.len() < submitter_ids.len() {
-        shut_down_ids.append(&mut vec![
-            HashSet::new();
-            submitter_ids.len() - shut_down_ids.len()
-        ])
-    }
-
-    let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
-    for (round_ids, shutdown_ids) in submitter_ids.into_iter().zip(shut_down_ids.into_iter()) {
-        let run_round: RoundSetup<TYPES, TYPES::Transaction, I> = Box::new(
-            move |runner: &mut TestRunner<TYPES, I>| -> LocalBoxFuture<Vec<TYPES::Transaction>> {
-                async move {
-                    let mut rng = rand::thread_rng();
-                    for id in shutdown_ids.clone() {
-                        runner.shutdown(id).await.unwrap();
-                    }
-                    let mut txns = Vec::new();
-                    for id in round_ids.clone() {
-                        let new_txn = runner
-                            .add_random_transaction(Some(id as usize), &mut rng)
-                            .await;
-                        txns.push(new_txn);
-                    }
-                    txns
-                }
-                .boxed_local()
-            },
-        );
-        rounds.push(run_round);
-    }
-
-    // if there are not enough rounds, add some autogenerated ones to keep liveness
-    if num_rounds > rounds.len() as u64 {
-        let remaining_rounds = num_rounds - rounds.len() as u64;
-        // just enough to keep round going
-        let mut extra_rounds = default_randomized_ids_to_round(vec![], remaining_rounds, 1);
-        rounds.append(&mut extra_rounds);
-    }
-
-    rounds
-}
+// pub fn default_submitter_id_to_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+//     mut shut_down_ids: Vec<HashSet<u64>>,
+//     submitter_ids: Vec<Vec<u64>>,
+//     num_rounds: u64,
+// ) -> TestSetup<TYPES, TYPES::Transaction, I> {
+//     // make sure the lengths match so zip doesn't spit out none
+//     if shut_down_ids.len() < submitter_ids.len() {
+//         shut_down_ids.append(&mut vec![
+//             HashSet::new();
+//             submitter_ids.len() - shut_down_ids.len()
+//         ])
+//     }
+//
+//     let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
+//     for (round_ids, shutdown_ids) in submitter_ids.into_iter().zip(shut_down_ids.into_iter()) {
+//         let run_round: RoundSetup<TYPES, TYPES::Transaction, I> = Box::new(
+//             move |runner: &mut TestRunner<TYPES, I>| -> LocalBoxFuture<Vec<TYPES::Transaction>> {
+//                 async move {
+//                     let mut rng = rand::thread_rng();
+//                     for id in shutdown_ids.clone() {
+//                         runner.shutdown(id).await.unwrap();
+//                     }
+//                     let mut txns = Vec::new();
+//                     for id in round_ids.clone() {
+//                         let new_txn = runner
+//                             .add_random_transaction(Some(id as usize), &mut rng)
+//                             .await;
+//                         txns.push(new_txn);
+//                     }
+//                     txns
+//                 }
+//                 .boxed_local()
+//             },
+//         );
+//         rounds.push(run_round);
+//     }
+//
+//     // if there are not enough rounds, add some autogenerated ones to keep liveness
+//     if num_rounds > rounds.len() as u64 {
+//         let remaining_rounds = num_rounds - rounds.len() as u64;
+//         // just enough to keep round going
+//         let mut extra_rounds = default_randomized_ids_to_round(vec![], remaining_rounds, 1);
+//         rounds.append(&mut extra_rounds);
+//     }
+//
+//     rounds
+// }
 
 /// generate a randomized set of transactions each round
 /// * `shut_down_ids`: vec of ids to shut down each round
 /// * `txns_per_round`: number of transactions to submit each round
 /// * `num_rounds`: number of rounds
-pub fn default_randomized_ids_to_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-    shut_down_ids: Vec<HashSet<u64>>,
-    num_rounds: u64,
-    txns_per_round: u64,
-) -> TestSetup<TYPES, TYPES::Transaction, I> {
-    let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
-
-    for round_idx in 0..num_rounds {
-        let to_kill = shut_down_ids.get(round_idx as usize).cloned();
-        let run_round: RoundSetup<TYPES, TYPES::Transaction, I> = Box::new(
-            move |runner: &mut TestRunner<TYPES, I>| -> LocalBoxFuture<Vec<TYPES::Transaction>> {
-                async move {
-                    let mut rng = rand::thread_rng();
-                    if let Some(to_shut_down) = to_kill.clone() {
-                        for idx in to_shut_down {
-                            runner.shutdown(idx).await.unwrap();
-                        }
-                    }
-
-                    runner
-                        .add_random_transactions(txns_per_round as usize, &mut rng)
-                        .await
-                        .unwrap()
-                }
-                .boxed_local()
-            },
-        );
-
-        rounds.push(Box::new(run_round));
-    }
-
-    rounds
-}
+// pub fn default_randomized_ids_to_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+//     shut_down_ids: Vec<HashSet<u64>>,
+//     num_rounds: u64,
+//     txns_per_round: u64,
+// ) -> TestSetup<TYPES, TYPES::Transaction, I> {
+//     let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
+//
+//     for round_idx in 0..num_rounds {
+//         let to_kill = shut_down_ids.get(round_idx as usize).cloned();
+//         let run_round: RoundSetup<TYPES, TYPES::Transaction, I> = Box::new(
+//             move |runner: &mut TestRunner<TYPES, I>| -> LocalBoxFuture<Vec<TYPES::Transaction>> {
+//                 async move {
+//                     let mut rng = rand::thread_rng();
+//                     if let Some(to_shut_down) = to_kill.clone() {
+//                         for idx in to_shut_down {
+//                             runner.shutdown(idx).await.unwrap();
+//                         }
+//                     }
+//
+//                     runner
+//                         .add_random_transactions(txns_per_round as usize, &mut rng)
+//                         .await
+//                         .unwrap()
+//                 }
+//                 .boxed_local()
+//             },
+//         );
+//
+//         rounds.push(Box::new(run_round));
+//     }
+//
+//     rounds
+// }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
     DetailedTestDescriptionBuilder<TYPES, I>
 {
-    /// create rounds of consensus based on the data in `self`
-    pub fn default_populate_rounds(&self) -> Vec<Round<TYPES, I>> {
-        // total number of rounds to be prepared to run assuming there may be failures
-        let total_rounds = self.general_info.num_succeeds + self.general_info.failure_threshold;
-
-        let setups = match self.general_info.txn_ids.clone() {
-            Left(l) => default_submitter_id_to_round(
-                self.general_info.ids_to_shut_down.clone(),
-                l,
-                total_rounds as u64,
-            ),
-            Right(tx_per_round) => default_randomized_ids_to_round(
-                self.general_info.ids_to_shut_down.clone(),
-                total_rounds as u64,
-                tx_per_round as u64,
-            ),
-        };
-
-        setups
-            .into_iter()
-            .map(|setup| {
-                let safety_check_post: RoundPostSafetyCheck<TYPES, I> = Box::new(
-                    move |runner: &TestRunner<TYPES, I>,
-                          results: RoundResult<TYPES, I::Leaf>|
-                          -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
-                        async move {
-                            info!(?results);
-                            // this check is rather strict:
-                            // 1) all nodes have the SAME state
-                            // 2) no nodes failed
-                            runner.validate_node_states().await;
-
-                            if results.failures.is_empty() {
-                                Ok(())
-                            } else {
-                                error!(
-                                    "post safety check failed. Failing nodes {:?}",
-                                    results.failures
-                                );
-                                Err(ConsensusRoundError::ReplicasTimedOut {})
-                            }
-                        }
-                        .boxed_local()
-                    },
-                );
-
-                Round {
-                    setup_round: Some(setup),
-                    safety_check_post: Some(safety_check_post),
-                    safety_check_pre: None,
-                }
-            })
-            .collect::<Vec<_>>()
-    }
+    // /// create rounds of consensus based on the data in `self`
+    // pub fn default_populate_rounds(&self) -> Vec<Round<TYPES, I>> {
+    //     /// if we're calling this function, we have no rounds!
+    //     let desc = self.round.right().unwrap();
+    //     // total number of rounds to be prepared to run assuming there may be failures
+    //     let total_rounds = self.general_info.num_succeeds + self.general_info.failure_threshold;
+    //
+    //     let setups = match self.general_info.txn_ids.clone() {
+    //         Left(l) => default_submitter_id_to_round(
+    //             self.general_info.ids_to_shut_down.clone(),
+    //             l,
+    //             total_rounds as u64,
+    //         ),
+    //         Right(tx_per_round) => default_randomized_ids_to_round(
+    //             self.general_info.ids_to_shut_down.clone(),
+    //             total_rounds as u64,
+    //             tx_per_round as u64,
+    //         ),
+    //     };
+    //
+    //     setups
+    //         .into_iter()
+    //         .map(|setup| {
+    //             // FIXME we should be passing in a ctx about the run
+    //             // FIXME we should be returning "results" that we use to generate a report
+    //             let safety_check_post: RoundPostSafetyCheck<TYPES, I> = Box::new(
+    //                 move |runner: &TestRunner<TYPES, I>,
+    //                       results: RoundResult<TYPES, I::Leaf>|
+    //                       -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
+    //                     async move {
+    //                         info!(?results);
+    //                         error!("SAFETY CHECK BEING RUNNNN");
+    //                         // this check is rather strict:
+    //                         // 1) all nodes have the SAME state
+    //                         // 2) no nodes failed
+    //                         runner.validate_nodes(&desc, todo!()).await;
+    //
+    //                         if results.failures.is_empty() {
+    //                             Ok(())
+    //                         } else {
+    //                             error!(
+    //                                 "post safety check failed. Failing nodes {:?}",
+    //                                 results.failures
+    //                             );
+    //                             Err(ConsensusRoundError::ReplicasTimedOut {})
+    //                         }
+    //                     }
+    //                     .boxed_local()
+    //                 },
+    //             );
+    //
+    //             Round {
+    //                 setup_round: setup,
+    //                 safety_check_post: safety_check_post,
+    //                 safety_check_pre: None,
+    //             }
+    //         })
+    //         .collect::<Vec<_>>()
+    // }
 }
 
 /// given `num_nodes`, calculate min number of honest nodes

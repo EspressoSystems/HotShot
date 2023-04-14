@@ -1,15 +1,17 @@
 #![allow(clippy::type_complexity)]
 use std::sync::Arc;
 
-use either::Either::Right;
+use either::Either::{self, Right};
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::traits::TestableNodeImplementation;
 
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
-    test_description::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder},
+    test_description::{
+        DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder, RoundCheckDescription,
+    },
     test_types::{AppliedTestRunner, StaticCommitteeTestTypes, StaticNodeImplType},
-    ConsensusRoundError, RoundResult,
+    ConsensusRoundError, RoundPostSafetyCheck, RoundResult,
 };
 
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
@@ -64,11 +66,11 @@ async fn test_no_loss_network() {
                 network_reliability: Some(Arc::new(SynchronousNetwork::default())),
                 ..GeneralTestDescriptionBuilder::default()
             },
-            rounds: None,
+            round: Either::Right(RoundCheckDescription::default()),
             gen_runner: None,
         };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Box::new(
+    test.round.safety_check_post = RoundPostSafetyCheck(Arc::new(
         check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
     ));
     test.execute().await.unwrap();
@@ -91,14 +93,11 @@ async fn test_synchronous_network() {
                 txn_ids: Right(1),
                 ..GeneralTestDescriptionBuilder::default()
             },
-            rounds: None,
+            round: Either::Right(RoundCheckDescription::default()),
             gen_runner: None,
         };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Box::new(
-        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
-    ));
-    test.rounds[1].safety_check_post = Some(Box::new(
+    test.round.safety_check_post = RoundPostSafetyCheck(Arc::new(
         check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
     ));
     test.execute().await.unwrap();
@@ -124,14 +123,11 @@ async fn test_asynchronous_network() {
                 network_reliability: Some(Arc::new(AsynchronousNetwork::new(97, 100, 0, 5))),
                 ..GeneralTestDescriptionBuilder::default()
             },
-            rounds: None,
+            round: Either::Right(RoundCheckDescription::default()),
             gen_runner: None,
         };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Box::new(
-        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
-    ));
-    test.rounds[1].safety_check_post = Some(Box::new(
+    test.round.safety_check_post = RoundPostSafetyCheck(Arc::new(
         check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
     ));
     test.execute().await.unwrap();
@@ -160,14 +156,11 @@ async fn test_partially_synchronous_network() {
                 network_reliability: Some(Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst))),
                 ..GeneralTestDescriptionBuilder::default()
             },
-            rounds: None,
+            round: Either::Right(RoundCheckDescription::default()),
             gen_runner: None,
         };
     let mut test = description.build();
-    test.rounds[0].safety_check_post = Some(Box::new(
-        check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
-    ));
-    test.rounds[1].safety_check_post = Some(Box::new(
+    test.round.safety_check_post = RoundPostSafetyCheck(Arc::new(
         check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
     ));
     test.execute().await.unwrap();

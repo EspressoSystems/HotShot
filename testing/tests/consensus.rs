@@ -1,22 +1,29 @@
 use async_lock::Mutex;
 
+use nll::nll_todo::nll_todo;
+
 use commit::Committable;
-use either::Right;
+use either::{Either, Right};
 use futures::{
     future::{join_all, LocalBoxFuture},
     FutureExt,
 };
 use hotshot::{
-    certificate::QuorumCertificate, demos::vdemo::random_validating_leaf,
-    traits::TestableNodeImplementation,
+    certificate::QuorumCertificate,
+    demos::vdemo::random_validating_leaf,
+    traits::{NodeImplementation, TestableNodeImplementation},
+    types::HotShotHandle,
 };
 use hotshot_testing::{
-    test_description::{DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder},
+    test_description::{
+        DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder, RoundCheckDescription,
+    },
     test_types::{
         AppliedTestRunner, StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType,
         VrfTestTypes,
     },
-    ConsensusRoundError, RoundResult, SafetyFailedSnafu,
+    ConsensusRoundError, RoundPostSafetyCheck, RoundPreSafetyCheck, RoundResult, RoundSetup,
+    SafetyFailedSnafu,
 };
 
 use hotshot_types::message::Message;
@@ -450,17 +457,15 @@ async fn test_validating_proposal_queueing() {
                 failure_threshold: 0,
                 ..GeneralTestDescriptionBuilder::default()
             },
-            rounds: None,
+            round: Either::Right(RoundCheckDescription::default()),
             gen_runner: None,
         };
     let mut test = description.build();
 
-    for i in 0..num_rounds {
-        test.rounds[i].setup_round = Some(Box::new(test_validating_proposal_queueing_round_setup));
-        test.rounds[i].safety_check_post = Some(Box::new(
-            test_validating_proposal_queueing_post_safety_check,
-        ));
-    }
+    test.round.setup_round = RoundSetup(Arc::new(test_validating_proposal_queueing_round_setup));
+    test.round.safety_check_post = RoundPostSafetyCheck(Arc::new(
+        test_validating_proposal_queueing_post_safety_check,
+    ));
 
     test.execute().await.unwrap();
 }
@@ -485,16 +490,14 @@ async fn test_vote_queueing() {
                 txn_ids: Right(1),
                 ..GeneralTestDescriptionBuilder::default()
             },
-            rounds: None,
+            round: Either::Right(RoundCheckDescription::default()),
             gen_runner: None,
         };
     let mut test = description.build();
 
-    for i in 0..num_rounds {
-        test.rounds[i].setup_round = Some(Box::new(test_validating_vote_queueing_round_setup));
-        test.rounds[i].safety_check_post =
-            Some(Box::new(test_validating_vote_queueing_post_safety_check));
-    }
+    test.round.setup_round = RoundSetup(Arc::new(test_validating_vote_queueing_round_setup));
+    test.round.safety_check_post =
+        RoundPostSafetyCheck(Arc::new(test_validating_vote_queueing_post_safety_check));
 
     test.execute().await.unwrap();
 }
@@ -518,17 +521,15 @@ async fn test_bad_proposal() {
                 failure_threshold: 0,
                 ..GeneralTestDescriptionBuilder::default()
             },
-            rounds: None,
+            round: Either::Right(RoundCheckDescription::default()),
             gen_runner: None,
         };
     let mut test = description.build();
 
-    for i in 0..num_rounds {
-        test.rounds[i].setup_round = Some(Box::new(test_bad_validating_proposal_round_setup));
-        test.rounds[i].safety_check_post = Some(Box::new(
-            test_bad_validating_proposal_post_safety_check::<VrfTestTypes, StandardNodeImplType>,
-        ));
-    }
+    test.round.setup_round = RoundSetup(Arc::new(test_bad_validating_proposal_round_setup));
+    test.round.safety_check_post = RoundPostSafetyCheck(Arc::new(
+        test_bad_validating_proposal_post_safety_check::<VrfTestTypes, StandardNodeImplType>,
+    ));
 
     test.execute().await.unwrap();
 }
@@ -552,7 +553,7 @@ async fn test_single_node_network() {
                 txn_ids: Right(1),
                 ..GeneralTestDescriptionBuilder::default()
             },
-            rounds: None,
+            round: Either::Right(RoundCheckDescription::default()),
             gen_runner: None,
         };
     description.build().execute().await.unwrap();
@@ -583,7 +584,7 @@ async fn test_min_propose() {
                 txn_ids: Right(10),
                 ..GeneralTestDescriptionBuilder::default()
             },
-            rounds: None,
+            round: Either::Right(RoundCheckDescription::default()),
             gen_runner: None,
         };
     let start_time = Instant::now();
@@ -624,7 +625,7 @@ async fn test_max_propose() {
                 txn_ids: Right(1),
                 ..GeneralTestDescriptionBuilder::default()
             },
-            rounds: None,
+            round: Either::Right(RoundCheckDescription::default()),
             gen_runner: None,
         };
     let start_time = Instant::now();
@@ -659,45 +660,47 @@ async fn test_chain_height() {
     }
     .build::<StaticCommitteeTestTypes, StaticNodeImplType>();
 
-    let heights = Arc::new(Mutex::new(vec![0; start_nodes]));
-    for i in 0..num_rounds {
-        let heights = heights.clone();
-        test.rounds[i].safety_check_post = Some(Box::new(move |runner, _| {
-            async move {
-                let mut heights = heights.lock().await;
-                for (i, handle) in runner.nodes().enumerate() {
-                    let leaf = handle.get_decided_leaf().await;
-                    if leaf.justify_qc.is_genesis() {
-                        ensure!(
-                            leaf.get_height() == 0,
-                            SafetyFailedSnafu {
-                                description: format!(
-                                    "node {} has non-zero height {} for genesis leaf",
-                                    i,
-                                    leaf.get_height()
-                                ),
-                            }
-                        );
-                    } else {
-                        ensure!(
-                            leaf.get_height() == heights[i] + 1,
-                            SafetyFailedSnafu {
-                                description: format!(
-                                    "node {} has incorrect height {} for previous height {}",
-                                    i,
-                                    leaf.get_height(),
-                                    heights[i]
-                                ),
-                            }
-                        );
-                        heights[i] = leaf.get_height();
-                    }
-                }
-                Ok(())
-            }
-            .boxed_local()
-        }));
-    }
+    nll_todo::<()>();
+
+    // let heights = Arc::new(Mutex::new(vec![0; start_nodes]));
+    // for i in 0..num_rounds {
+    //     let heights = heights.clone();
+    //     test.round[i].safety_check_post = Some(Box::new(move |runner, _| {
+    //         async move {
+    //             let mut heights = heights.lock().await;
+    //             for (i, handle) in runner.nodes().enumerate() {
+    //                 let leaf = handle.get_decided_leaf().await;
+    //                 if leaf.justify_qc.is_genesis() {
+    //                     ensure!(
+    //                         leaf.get_height() == 0,
+    //                         SafetyFailedSnafu {
+    //                             description: format!(
+    //                                 "node {} has non-zero height {} for genesis leaf",
+    //                                 i,
+    //                                 leaf.get_height()
+    //                             ),
+    //                         }
+    //                     );
+    //                 } else {
+    //                     ensure!(
+    //                         leaf.get_height() == heights[i] + 1,
+    //                         SafetyFailedSnafu {
+    //                             description: format!(
+    //                                 "node {} has incorrect height {} for previous height {}",
+    //                                 i,
+    //                                 leaf.get_height(),
+    //                                 heights[i]
+    //                             ),
+    //                         }
+    //                     );
+    //                     heights[i] = leaf.get_height();
+    //                 }
+    //             }
+    //             Ok(())
+    //         }
+    //         .boxed_local()
+    //     }));
+    // }
 
     test.execute().await.unwrap();
 }
@@ -716,101 +719,109 @@ async fn test_decide_leaf_chain() {
         ..Default::default()
     }
     .build::<StaticCommitteeTestTypes, StaticNodeImplType>();
-    for round in &mut test.rounds {
-        // Collection of (handle, leaf) pairs collected at the start of the round. The leaf is the
-        // last decided leaf before the round, so that after the round we can check that the new
-        // leaf chain extends from it. The handle must be copied out of the round runner before the
-        // round starts so that it will buffer events emitted during the round.
+    // Collection of (handle, leaf) pairs collected at the start of the round. The leaf is the
+    // last decided leaf before the round, so that after the round we can check that the new
+    // leaf chain extends from it. The handle must be copied out of the round runner before the
+    // round starts so that it will buffer events emitted during the round.
+    let handles: Arc<
+        Mutex<
+            Vec<(
+                HotShotHandle<StaticCommitteeTestTypes, StaticNodeImplType>,
+                <StaticNodeImplType as NodeImplementation<StaticCommitteeTestTypes>>::Leaf,
+            )>,
+        >,
+    > = Arc::new(Mutex::new(vec![]));
+
+    // Initialize `handles` at the start of the round.
+    {
         let handles = Arc::new(Mutex::new(vec![]));
-
-        // Initialize `handles` at the start of the round.
-        {
+        test.round.safety_check_pre = RoundPreSafetyCheck(Arc::new(move |runner| {
             let handles = handles.clone();
-            round.safety_check_pre = Some(Box::new(move |runner| {
-                async move {
-                    *handles.lock().await =
-                        join_all(runner.nodes().map(|handle| async {
-                            (handle.clone(), handle.get_decided_leaf().await)
-                        }))
-                        .await;
-                    Ok(())
-                }
-                .boxed_local()
-            }));
-        }
-        round.safety_check_post = Some(Box::new(move |_, _| {
             async move {
-                for (mut handle, last_leaf) in std::mem::take(&mut *handles.lock().await) {
-                    // Get the decide event from this round.
-                    let (leaf_chain, qc) = loop {
-                        let event = handle
-                            .try_next_event()
-                            .map_err(|_| {
-                                SafetyFailedSnafu {
-                                    description: "HotShot shut down",
-                                }
-                                .build()
-                            })?
-                            .context(SafetyFailedSnafu {
-                                description: "round did not produce a Decide or ViewFinished event",
-                            })?;
-                        match event.event {
-                            EventType::Decide { leaf_chain, qc } => break (leaf_chain, qc),
-                            EventType::ViewFinished { view_number } => {
-                                tracing::warn!(
-                                    "round {:?} did not produce a decide, skipping safety check",
-                                    view_number
-                                );
-                                return Ok(());
-                            }
-                            _ => continue,
-                        }
-                    };
-                    tracing::info!("got decide {:?} {:?}", qc, leaf_chain);
-
-                    // Starting from `qc` and continuing with the `justify_qc` of each leaf in the
-                    // chain, the chain of QCs should justify the chain of leaves.
-                    let qcs = once(&*qc).chain(leaf_chain.iter().map(|leaf| &leaf.justify_qc));
-                    // The new leaf chain should extend from the previously decided leaf.
-                    let leaves = leaf_chain.iter().chain(once(&last_leaf));
-                    for (i, (qc, leaf)) in qcs.zip(leaves).enumerate() {
-                        if qc.is_genesis() {
-                            tracing::warn!("skipping validation of genesis QC");
-                            continue;
-                        }
-                        ensure!(
-                            qc.leaf_commitment() == leaf.commit(),
-                            SafetyFailedSnafu {
-                                description: format!(
-                                    "QC {}/{} justifies {}, but the parent leaf is {}",
-                                    i + 1,
-                                    leaf_chain.len() + 1,
-                                    qc.leaf_commitment(),
-                                    leaf.commit()
-                                ),
-                            }
-                        );
-                        //TODO (da) QC doesn't have block_commitment anymore. Should we check some
-                        // other field?
-                        // ensure!(
-                        //     qc.block_commitment == leaf.deltas.commit(),
-                        //     SafetyFailedSnafu {
-                        //         description: format!(
-                        //             "QC {}/{} justifies block {}, but parent leaf has block {}",
-                        //             i + 1,
-                        //             leaf_chain.len() + 1,
-                        //             qc.leaf_commitment,
-                        //             leaf.commit()
-                        //         ),
-                        //     }
-                        // );
-                    }
-                }
-
+                *handles.lock().await = join_all(
+                    runner
+                        .nodes()
+                        .map(|handle| async { (handle.clone(), handle.get_decided_leaf().await) }),
+                )
+                .await;
                 Ok(())
             }
             .boxed_local()
         }));
     }
+    test.round.safety_check_post = RoundPostSafetyCheck(Arc::new(move |_, _| {
+        let handles = handles.clone();
+        async move {
+            for (mut handle, last_leaf) in std::mem::take(&mut *handles.lock().await) {
+                // Get the decide event from this round.
+                let (leaf_chain, qc) = loop {
+                    let event = handle
+                        .try_next_event()
+                        .map_err(|_| {
+                            SafetyFailedSnafu {
+                                description: "HotShot shut down",
+                            }
+                            .build()
+                        })?
+                        .context(SafetyFailedSnafu {
+                            description: "round did not produce a Decide or ViewFinished event",
+                        })?;
+                    match event.event {
+                        EventType::Decide { leaf_chain, qc } => break (leaf_chain, qc),
+                        EventType::ViewFinished { view_number } => {
+                            tracing::warn!(
+                                "round {:?} did not produce a decide, skipping safety check",
+                                view_number
+                            );
+                            return Ok(());
+                        }
+                        _ => continue,
+                    }
+                };
+                tracing::info!("got decide {:?} {:?}", qc, leaf_chain);
+
+                // Starting from `qc` and continuing with the `justify_qc` of each leaf in the
+                // chain, the chain of QCs should justify the chain of leaves.
+                let qcs = once(&*qc).chain(leaf_chain.iter().map(|leaf| &leaf.justify_qc));
+                // The new leaf chain should extend from the previously decided leaf.
+                let leaves = leaf_chain.iter().chain(once(&last_leaf));
+                for (i, (qc, leaf)) in qcs.zip(leaves).enumerate() {
+                    if qc.is_genesis() {
+                        tracing::warn!("skipping validation of genesis QC");
+                        continue;
+                    }
+                    ensure!(
+                        qc.leaf_commitment() == leaf.commit(),
+                        SafetyFailedSnafu {
+                            description: format!(
+                                "QC {}/{} justifies {}, but the parent leaf is {}",
+                                i + 1,
+                                leaf_chain.len() + 1,
+                                qc.leaf_commitment(),
+                                leaf.commit()
+                            ),
+                        }
+                    );
+                    //TODO (da) QC doesn't have block_commitment anymore. Should we check some
+                    // other field?
+                    // ensure!(
+                    //     qc.block_commitment == leaf.deltas.commit(),
+                    //     SafetyFailedSnafu {
+                    //         description: format!(
+                    //             "QC {}/{} justifies block {}, but parent leaf has block {}",
+                    //             i + 1,
+                    //             leaf_chain.len() + 1,
+                    //             qc.leaf_commitment,
+                    //             leaf.commit()
+                    //         ),
+                    //     }
+                    // );
+                }
+            }
+
+            Ok(())
+        }
+        .boxed_local()
+    }));
     test.execute().await.unwrap();
 }

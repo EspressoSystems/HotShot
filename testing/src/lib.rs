@@ -35,7 +35,8 @@ use hotshot_types::{
     HotShotConfig,
 };
 use snafu::Snafu;
-use std::{collections::HashMap, fmt::Debug};
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use test_description::RoundCheckDescription;
 use tracing::{debug, error, info, warn};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
@@ -60,41 +61,139 @@ pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 }
 
 /// Type of function used for checking results after running a view of consensus
-pub type RoundPostSafetyCheck<TYPES, I> = Box<
-    dyn FnOnce(
-        &TestRunner<TYPES, I>,
-        RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
-    ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
->;
+#[derive(Clone)]
+pub struct RoundPostSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    pub  Arc<
+        dyn Fn(
+            &TestRunner<TYPES, I>,
+            RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+        ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
+    >,
+);
 
 /// Type of function used for configuring a round of consensus
-pub type RoundSetup<TYPES, TRANS, I> =
-    Box<dyn FnOnce(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<Vec<TRANS>>>;
+#[derive(Clone)]
+pub struct RoundSetup<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    pub Arc<dyn Fn(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<Vec<TYPES::Transaction>>>,
+);
 
 /// Type of function used for checking safety before beginnning consensus
-pub type RoundPreSafetyCheck<TYPES, I> =
-    Box<dyn FnOnce(&TestRunner<TYPES, I>) -> LocalBoxFuture<Result<(), ConsensusRoundError>>>;
+#[derive(Clone)]
+pub struct RoundPreSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    pub Arc<dyn Fn(&TestRunner<TYPES, I>) -> LocalBoxFuture<Result<(), ConsensusRoundError>>>,
+);
 
 /// functions to run a round of consensus
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
 pub struct Round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// Safety check before round is set up and run
     /// to ensure consistent state
-    pub safety_check_pre: Option<RoundPreSafetyCheck<TYPES, I>>,
+    pub safety_check_pre: RoundPreSafetyCheck<TYPES, I>,
 
     /// Round set up
-    pub setup_round: Option<RoundSetup<TYPES, TYPES::Transaction, I>>,
+    pub setup_round: RoundSetup<TYPES, I>,
 
     /// Safety check after round is complete
-    pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, I>>,
+    pub safety_check_post: RoundPostSafetyCheck<TYPES, I>,
+}
+
+// impl<TYPES, I> Clone for Round<TYPES, I>
+// where
+//     TYPES: NodeType,
+//     I: TestableNodeImplementation<TYPES>,
+// {
+//     fn clone(&self) -> Self {
+//         Round {
+//             safety_check_pre: self.safety_check_pre.clone_boxed(),
+//             setup_round: self.setup_round.clone_boxed(),
+//             safety_check_post: self.safety_check_post.clone_boxed(),
+//         }
+//     }
+// }
+//
+// trait CloneBoxedFn<T> {
+//     fn clone_boxed(&self) -> T;
+// }
+//
+// impl<F: ?Sized + Clone + 'static> CloneBoxedFn<Box<F>> for Box<F> {
+//     fn clone_boxed(&self) -> Box<F> {
+//         Box::new(self.as_ref().clone())
+//     }
+// }
+//
+// impl<T, F: ?Sized + CloneBoxedFn<T>> CloneBoxedFn<Box<F>> for Box<dyn Fn(&T) -> T> {
+//     fn clone_boxed(&self) -> Box<F> {
+//         Box::new(self.as_ref().clone_boxed())
+//     }
+// }
+//
+// impl<T, F: ?Sized + CloneBoxedFn<T>> CloneBoxedFn<Box<F>> for Box<dyn Fn(&mut T) -> T> {
+//     fn clone_boxed(&self) -> Box<F> {
+//         Box::new(self.as_ref().clone_boxed())
+//     }
+// }
+//
+// impl<T, F: ?Sized + CloneBoxedFn<T>> CloneBoxedFn<Box<F>> for Box<dyn Fn(&T, RoundResult<T, <I as NodeImplementation<TYPES>>::Leaf>) -> T> {
+//     fn clone_boxed(&self) -> Box<F> {
+//         Box::new(self.as_ref().clone_boxed())
+//     }
+// }
+//
+// impl<T, F: ?Sized + CloneBoxedFn<T>> CloneBoxedFn<Box<F>> for Box<dyn FnMut(&T) -> T> {
+//     fn clone_boxed(&self) -> Box<F> {
+//         Box::new(self.as_ref().clone_boxed())
+//     }
+// }
+//
+// impl<T, F: ?Sized + CloneBoxedFn<T>> CloneBoxedFn<Box<F>> for Box<dyn FnMut(&mut T) -> T> {
+//     fn clone_boxed(&self) -> Box<F> {
+//         Box::new(self.as_ref().clone_boxed())
+//     }
+// }
+//
+// impl<T, F: ?Sized + CloneBoxedFn<T>> CloneBoxedFn<Box<F>> for Box<dyn FnMut(&T, RoundResult<T, <I as NodeImplementation<TYPES>>::Leaf>) -> T> {
+//     fn clone_boxed(&self) -> Box<F> {
+//         Box::new(self.as_ref().clone_boxed())
+//     }
+// }
+
+pub fn default_safety_check_pre<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    _asdf: &TestRunner<TYPES, I>,
+) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
+    use futures::FutureExt;
+    async move { Ok(()) }.boxed()
+}
+
+pub fn default_setup_round<TYPES: NodeType, TRANS, I: TestableNodeImplementation<TYPES>>(
+    _asdf: &mut TestRunner<TYPES, I>,
+) -> LocalBoxFuture<Vec<TRANS>> {
+    use futures::FutureExt;
+    async move { vec![] }.boxed()
+}
+
+pub fn default_safety_check_post<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    _asdf: &TestRunner<TYPES, I>,
+    result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
+    use futures::FutureExt;
+    async move { Ok(()) }.boxed()
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I> {
     fn default() -> Self {
         Self {
-            safety_check_post: None,
-            setup_round: None,
-            safety_check_pre: None,
+            safety_check_post: RoundPostSafetyCheck(Arc::new(default_safety_check_post)),
+            setup_round: RoundSetup(Arc::new(default_setup_round)),
+            safety_check_pre: RoundPreSafetyCheck(Arc::new(default_safety_check_pre)),
+        }
+    }
+}
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Clone for Round<TYPES, I> {
+    fn clone(&self) -> Self {
+        Self {
+            safety_check_pre: self.safety_check_pre.clone(),
+            setup_round: self.setup_round.clone(),
+            safety_check_post: self.safety_check_post.clone(),
         }
     }
 }
@@ -108,7 +207,7 @@ pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     nodes: Vec<Node<TYPES, I>>,
     next_node_id: u64,
-    rounds: Vec<Round<TYPES, I>>,
+    round: Round<TYPES, I>,
 }
 
 struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
@@ -125,7 +224,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             default_node_config: launcher.config,
             nodes: Vec::new(),
             next_node_id: 0,
-            rounds: vec![],
+            round: Round::default(),
         }
     }
 
@@ -167,10 +266,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 
     /// replace round list
     #[allow(clippy::type_complexity)]
-    pub fn with_rounds(&mut self, rounds: Vec<Round<TYPES, I>>) {
-        self.rounds = rounds;
-        // we call pop, so reverse the array such that first element is on top
-        self.rounds.reverse();
+    pub fn with_round(&mut self, round: Round<TYPES, I>) {
+        self.round = round;
     }
 
     /// Get the next node id that would be used for `add_node_with_config`
@@ -247,8 +344,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     /// (for a definition of success defined by safety checks)
     pub async fn execute_rounds(
         &mut self,
-        num_success: u64,
-        fail_threshold: u64,
+        num_success: usize,
+        fail_threshold: usize,
     ) -> Result<(), ConsensusTestError> {
         let mut num_fails = 0;
         for i in 0..(num_success + fail_threshold) {
@@ -270,21 +367,22 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     /// - setting up the round (ex: submitting txns) or spinning up or down nodes
     /// - checking safety conditions to ensure that the round executed as expected
     pub async fn execute_round(&mut self) -> Result<(), ConsensusRoundError> {
-        if let Some(round) = self.rounds.pop() {
-            if let Some(safety_check_pre) = round.safety_check_pre {
-                safety_check_pre(self).await?;
-            }
+        let Round {
+            safety_check_pre,
+            setup_round,
+            safety_check_post,
+        } = self.round.clone();
 
-            let txns = if let Some(setup_fn) = round.setup_round {
-                setup_fn(self).await
-            } else {
-                vec![]
-            };
-            let results = self.run_one_round(txns).await;
-            if let Option::Some(safety_check_post) = round.safety_check_post {
-                safety_check_post(self, results).await?;
-            }
-        }
+        safety_check_pre.0(self).await?;
+
+        // let mut pre = &mut self.round.safety_check_pre;
+        //
+        // pre(self);
+        //
+        //
+        let txns = setup_round.0(self).await;
+        let results = self.run_one_round(txns).await;
+        safety_check_post.0(self, results).await?;
         Ok(())
     }
 
@@ -379,6 +477,34 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
+    /// Will validate that all nodes are on exactly the same state.
+    /// TODO `views_since_failed` should be contained within ctx
+    pub async fn validate_nodes(&self, desc: &RoundCheckDescription, views_since_failed: usize) {
+        let mut leaves = HashMap::<I::Leaf, usize>::new();
+
+        if desc.check_leaf {
+            let mut result = None;
+            // group all the leaves since thankfully leaf implements hash
+            for node in self.nodes.iter() {
+                let decide_leaf = node.handle.get_decided_leaf().await;
+                match leaves.entry(decide_leaf) {
+                    std::collections::hash_map::Entry::Occupied(mut o) => {
+                        *o.get_mut() += 1;
+                    }
+                    std::collections::hash_map::Entry::Vacant(v) => {
+                        v.insert(1);
+                    }
+                }
+            }
+            let collective = self.nodes().collect::<Vec<_>>().len() - desc.num_out_of_sync;
+            for (leaf, num_nodes) in leaves {
+                if num_nodes >= collective {
+                    result = Some(leaf);
+                }
+            }
+        }
+    }
+
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
         let mut leaves = Vec::<I::Leaf>::new();
