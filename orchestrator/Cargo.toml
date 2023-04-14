@@ -58,14 +58,12 @@ libp2p = { version = "0.51.2", default-features = false, features = [
         "websocket",
         "yamux",
 ] }
-# TODO ED reorder
 blake3 = { version = "1.3.3", optional = false, features = ["traits-preview"] }
-libp2p-networking = { path = "../libp2p-networking", version = "0.1.0", default-features = false }
-
 hotshot-types = { version = "0.1.0", path = "../types", default-features = false }
 hotshot-utils = { path = "../utils"}
-tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.1" }
+libp2p-networking = { path = "../libp2p-networking", version = "0.1.0", default-features = false }
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
+tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.1" }
 surf-disco = { git = "https://github.com/EspressoSystems/surf-disco.git", tag = "v0.4.1" }
 
 

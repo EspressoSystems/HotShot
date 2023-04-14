@@ -550,15 +550,12 @@ impl<TYPES: NodeType> Committable for ValidatingLeaf<TYPES> {
     fn commit(&self) -> commit::Commitment<Self> {
         let mut signatures_bytes = vec![];
         let signatures = match &self.justify_qc.signatures {
-            // TODO ED Revisit the correctness of below block
             YesNoSignature::Yes(signatures) => {
                 signatures_bytes.extend("Yes".as_bytes());
-
                 signatures
             }
             YesNoSignature::No(signatures) => {
                 signatures_bytes.extend("No".as_bytes());
-
                 signatures
             }
         };
@@ -600,7 +597,6 @@ impl<TYPES: NodeType> Committable for SequencingLeaf<TYPES> {
         };
         let mut signatures_bytes = vec![];
         let signatures = match &self.justify_qc.signatures {
-            // TODO ED Revisit the correctness of below block
             YesNoSignature::Yes(signatures) => {
                 signatures_bytes.extend("Yes".as_bytes());
 

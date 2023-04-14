@@ -48,7 +48,7 @@ impl<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey>
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(bound(deserialize = ""))]
-/// TODO ed - docs
+/// Vote token for a static committee
 pub struct StaticVoteToken<K: SignatureKey> {
     /// signature
     signature: EncodedSignature,

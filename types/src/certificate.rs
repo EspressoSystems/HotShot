@@ -147,15 +147,12 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Committable
             .u64_field("View number", *self.view_number.deref());
 
         let signatures = match self.signatures.clone() {
-            // TODO ED Revisit the correctness of below block
             YesNoSignature::Yes(signatures) => {
                 builder = builder.var_size_field("QC Type", "Yes".as_bytes());
-
                 signatures
             }
             YesNoSignature::No(signatures) => {
                 builder = builder.var_size_field("QC Type", "No".as_bytes());
-
                 signatures
             }
         };

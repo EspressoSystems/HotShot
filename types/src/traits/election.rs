@@ -69,7 +69,6 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     Timeout(Commitment<COMMITTABLE>),
 }
 
-
 impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
     #[must_use]
     /// Convert vote data into bytes.
@@ -110,33 +109,32 @@ pub trait ElectionConfig:
 }
 
 /// A certificate of some property which has been signed by a quroum of nodes.
-// TODO ED Change LEAF to COMMITTABLE
-pub trait SignedCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, LEAF>
+pub trait SignedCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, COMMITTABLE>
 where
     Self: Send + Sync + Clone + Serialize + for<'a> Deserialize<'a>,
-    LEAF: Committable + Serialize + Clone,
+    COMMITTABLE: Committable + Serialize + Clone,
     TOKEN: VoteToken,
 {
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
         view_number: TIME,
-        signatures: YesNoSignature<LEAF, TOKEN>,
-        commit: Commitment<LEAF>,
+        signatures: YesNoSignature<COMMITTABLE, TOKEN>,
+        commit: Commitment<COMMITTABLE>,
     ) -> Self;
 
     /// Get the view number.
     fn view_number(&self) -> TIME;
 
     /// Get signatures.
-    fn signatures(&self) -> YesNoSignature<LEAF, TOKEN>;
+    fn signatures(&self) -> YesNoSignature<COMMITTABLE, TOKEN>;
 
     // TODO (da) the following functions should be refactored into a QC-specific trait.
 
     /// Get the leaf commitment.
-    fn leaf_commitment(&self) -> Commitment<LEAF>;
+    fn leaf_commitment(&self) -> Commitment<COMMITTABLE>;
 
     /// Set the leaf commitment.
-    fn set_leaf_commitment(&mut self, commitment: Commitment<LEAF>);
+    fn set_leaf_commitment(&mut self, commitment: Commitment<COMMITTABLE>);
 
     /// Get whether the certificate is for the genesis block.
     fn is_genesis(&self) -> bool;
@@ -279,10 +277,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
         if leaf_commitment != commit {
             return false;
         }
-        
-        
-
-        // TODO ED Need to test the below block
+        // TODO ED Write a test to check this fails if leaf_commitment != what commit was signed over
         match qc.signatures() {
             YesNoSignature::Yes(raw_signatures) => {
                 let yes_votes = raw_signatures
@@ -291,7 +286,6 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
                         self.is_valid_vote(
                             signature.0,
                             &signature.1 .0,
-                            // TODO ED Make this a reference like parameters above?
                             signature.1 .1.clone(),
                             qc.view_number(),
                             Checked::Unchecked(signature.1 .2.clone()),
@@ -303,57 +297,30 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
             }
 
             YesNoSignature::No(raw_signatures) => {
-                // TODO ED Fix this so it isn't doing a double iteration over signatures - for_each maybe
-                // TODO ED Write a test to check this fails if leaf_commitment != what commit was signed over
-
-                let yes_votes = raw_signatures
-                    .iter()
-                    .filter(|signature| {
-                        self.is_valid_vote(
-                            signature.0,
-                            &signature.1 .0,
-                            // TODO ED Make this a reference like parameters above?
-                            signature.1 .1.clone(),
-                            qc.view_number(),
-                            Checked::Unchecked(signature.1 .2.clone()),
-                        ) && matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
-                    })
-                    .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
-                let no_votes = raw_signatures
-                    .iter()
-                    .filter(|signature| {
-                        
-                        self.is_valid_vote(
-                            signature.0,
-                            &signature.1 .0,
-                            // TODO ED Make this a reference like parameters above?
-                            signature.1 .1.clone(),
-                            qc.view_number(),
-                            Checked::Unchecked(signature.1 .2.clone()),
-                        ) && matches!(signature.1 .1, VoteData::No(thing) if thing == leaf_commitment)
-                    })
-                    .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
+                let mut yes_votes = 0;
+                let mut no_votes = 0;
+                for signature in &raw_signatures {
+                    if self.is_valid_vote(
+                        signature.0,
+                        &signature.1 .0,
+                        signature.1 .1.clone(),
+                        qc.view_number(),
+                        Checked::Unchecked(signature.1 .2.clone()),
+                    ) {
+                        if matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
+                        {
+                            yes_votes += u64::from(signature.1 .2.vote_count());
+                        } else if matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
+                        {
+                            no_votes += u64::from(signature.1 .2.vote_count());
+                        }
+                    }
+                }
 
                 no_votes >= u64::from(self.failure_threshold())
                     && yes_votes + no_votes >= u64::from(self.success_threshold())
             }
         }
-
-        // let stake = qc
-        //     .signatures()
-        //     .iter()
-        //     .filter(|signature| {
-        //         self.is_valid_vote(
-        //             signature.0,
-        //             &signature.1 .0,
-        //             self.vote_data(commit),
-        //             qc.view_number(),
-        //             Checked::Unchecked(signature.1 .2.clone()),
-        //         )
-        //     })
-        //     .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
-
-        // stake >= u64::from(self.success_threshold())
     }
 
     /// Validate a vote by checking its signature and token.

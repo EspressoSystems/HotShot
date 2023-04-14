@@ -102,7 +102,7 @@ where
             total_vote_outcomes: HashMap::new(),
             yes_vote_outcomes: HashMap::new(),
             no_vote_outcomes: HashMap::new(),
-            // TODO ED Is this correct below?
+            // TODO ED Revisit this once Yes/No votes are in place for DA
             success_threshold: threshold,
             failure_threshold: threshold,
         };
@@ -275,7 +275,6 @@ where
         if let Some(cert) = self
             .wait_for_votes(
                 self.cur_view,
-                // TODO ED Is this correct below?
                 self.committee_exchange.success_threshold(),
                 block_commitment,
             )
