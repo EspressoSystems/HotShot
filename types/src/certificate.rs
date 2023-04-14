@@ -60,19 +60,13 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     pub is_genesis: bool,
 }
 
-// // TODO ED Change LEAF to COMMITTABLE
-// pub enum YesNoCertificate<SIGNATURE: SignatureKey, TIME, TOKEN, LEAF, CERTIFICATE: SignedCertificate<SIGNATURE, TIME, TOKEN, LEAF>>
-// where LEAF: Committable + Serialize + Clone,
-// {
-//     Yes(SIGNATURE, TIME, TOKEN, LEAF, CERTIFICATE),
-//     No(SIGNATURE, TIME, TOKEN, LEAF, CERTIFICATE),
-//     DA(SIGNATURE, TIME, TOKEN, LEAF, CERTIFICATE)
-// }
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
+/// Enum representing whether a QC's signatures are for a 'Yes' or 'No' QC
 pub enum YesNoSignature<LEAF: Committable + Serialize + Clone, TOKEN: VoteToken> {
+    /// These signatures are for a 'Yes' QC
     Yes(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
+    /// These signatures are for a 'No' QC
     No(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
 }
 

@@ -190,15 +190,15 @@ where
         total_vote_map.insert(key.clone(), (sig.clone(), vote_data.clone(), token.clone()));
 
         match vote_data {
-            VoteData::DA(commitment) | VoteData::Yes(commitment) => {
+            VoteData::DA(_) | VoteData::Yes(_) => {
                 *yes_stake_casted += u64::from(token.vote_count());
-                yes_vote_map.insert(key, (sig, vote_data.clone(), token));
+                yes_vote_map.insert(key, (sig, vote_data, token));
             }
-            VoteData::No(commitment) => {
+            VoteData::No(_) => {
                 *no_stake_casted += u64::from(token.vote_count());
-                no_vote_map.insert(key, (sig, vote_data.clone(), token));
+                no_vote_map.insert(key, (sig, vote_data, token));
             }
-            VoteData::Timeout(commitment) => {
+            VoteData::Timeout(_) => {
                 unimplemented!()
             }
         }

@@ -15,7 +15,6 @@ use crate::traits::state::ConsensusTime;
 use crate::vote::VoteAccumulator;
 use crate::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote};
 use crate::{data::LeafType, traits::signature_key::SignatureKey};
-use async_tungstenite::tungstenite::error;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use either::Either;
@@ -72,6 +71,7 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
 
 
 impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
+    #[must_use]
     /// Convert vote data into bytes.
     ///
     /// # Panics
@@ -425,6 +425,8 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
 
     /// Add a vote to the accumulating signature.  Return The certificate if the vote
     /// brings us over the threshould, Else return the accumulator.
+    /// // TODO ED Pass in vote directly instead of its fields
+    #[allow(clippy::too_many_arguments)]
     fn accumulate_vote(
         &self,
         encoded_key: &EncodedPublicKey,
