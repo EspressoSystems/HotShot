@@ -15,6 +15,7 @@ use crate::traits::state::ConsensusTime;
 use crate::vote::VoteAccumulator;
 use crate::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote};
 use crate::{data::LeafType, traits::signature_key::SignatureKey};
+use async_tungstenite::tungstenite::error;
 use bincode::Options;
 use commit::{Commitment, Committable};
 use either::Either;
@@ -22,7 +23,7 @@ use hotshot_utils::bincode::bincode_opts;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -56,7 +57,7 @@ pub enum Checked<T> {
 }
 
 /// Data to vote on for different types of votes.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     /// Vote to provide availability for a block.
@@ -69,6 +70,7 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     Timeout(Commitment<COMMITTABLE>),
 }
 
+
 impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
     /// Convert vote data into bytes.
     ///
@@ -78,6 +80,8 @@ impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
         bincode_opts().serialize(&self).unwrap()
     }
 }
+
+// impl<COMMITTABLE: Committable + Serialize + Clone + PartialEq> Eq for VoteData<COMMITTABLE> {}
 
 /// Proof of this entity's right to vote, and of the weight of those votes
 pub trait VoteToken:
@@ -275,6 +279,8 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
         if leaf_commitment != commit {
             return false;
         }
+        
+        
 
         // TODO ED Need to test the below block
         match qc.signatures() {
@@ -289,14 +295,17 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
                             signature.1 .1.clone(),
                             qc.view_number(),
                             Checked::Unchecked(signature.1 .2.clone()),
-                        ) && matches!(signature.1 .1, VoteData::Yes(leaf_commitment))
+                        ) && matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
                     })
                     .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
 
                 yes_votes >= u64::from(self.success_threshold())
             }
+
             YesNoSignature::No(raw_signatures) => {
                 // TODO ED Fix this so it isn't doing a double iteration over signatures - for_each maybe
+                // TODO ED Write a test to check this fails if leaf_commitment != what commit was signed over
+
                 let yes_votes = raw_signatures
                     .iter()
                     .filter(|signature| {
@@ -307,12 +316,13 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
                             signature.1 .1.clone(),
                             qc.view_number(),
                             Checked::Unchecked(signature.1 .2.clone()),
-                        ) && matches!(signature.1 .1, VoteData::Yes(leaf_commitment))
+                        ) && matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
                     })
                     .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
                 let no_votes = raw_signatures
                     .iter()
                     .filter(|signature| {
+                        
                         self.is_valid_vote(
                             signature.0,
                             &signature.1 .0,
@@ -320,7 +330,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
                             signature.1 .1.clone(),
                             qc.view_number(),
                             Checked::Unchecked(signature.1 .2.clone()),
-                        ) && matches!(signature.1 .1, VoteData::No(leaf_commitment))
+                        ) && matches!(signature.1 .1, VoteData::No(thing) if thing == leaf_commitment)
                     })
                     .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
 

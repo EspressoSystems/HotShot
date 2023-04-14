@@ -222,7 +222,7 @@ where
                                         self.cur_view,
                                         vote_token,
                                     )
-                                } else if self.id % 5 == 0 {
+                                } else if self.id % 5 == 13 {
                                     self.exchange.create_timeout_message(
                                         leaf.justify_qc.clone(),
                                         self.cur_view,

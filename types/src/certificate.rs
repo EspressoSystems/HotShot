@@ -5,7 +5,7 @@ use crate::{
     traits::{
         election::{SignedCertificate, VoteData, VoteToken},
         node_implementation::NodeType,
-        signature_key::{EncodedPublicKey, EncodedSignature, SignatureKey},
+        signature_key::{EncodedPublicKey, EncodedSignature},
         state::ConsensusTime,
     },
 };
