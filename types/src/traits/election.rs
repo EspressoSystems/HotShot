@@ -391,10 +391,7 @@ pub trait CommitteeExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I>
-    where
-        I::CommitteeExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = DAVote<TYPES, I::Leaf>>;
+    ) -> ConsensusMessage<TYPES, I>;
 }
 
 /// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
@@ -455,11 +452,7 @@ impl<
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I>
-    where
-        I::CommitteeExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = DAVote<TYPES, I::Leaf>>,
-    {
+    ) -> ConsensusMessage<TYPES, I> {
         let signature = self.sign_da_vote(block_commitment);
         ConsensusMessage::<TYPES, I>::DAVote(DAVote {
             justify_qc_commitment,
@@ -563,9 +556,8 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
         vote_token: TYPES::VoteTokenType,
     ) -> ConsensusMessage<TYPES, I>
     where
-        <Self as ConsensusExchange<TYPES, LEAF, M>>::Certificate: commit::Committable,
-        I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>;
+        <Self as ConsensusExchange<TYPES, LEAF, M>>::Certificate: commit::Committable;
+
     /// Sign a validating or commitment proposal.
     fn sign_validating_or_commitment_proposal<I: NodeImplementation<TYPES>>(
         &self,
@@ -601,6 +593,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     /// This also allows for the high QC included with the vote to be spoofed in a MITM scenario,
     /// but it is outside our threat model.
     fn sign_timeout_vote(&self, view_number: TYPES::Time) -> (EncodedPublicKey, EncodedSignature);
+
     /// Create a message with a negative vote on validating or commitment proposal.
     fn create_no_message<I: NodeImplementation<TYPES>>(
         &self,
@@ -608,10 +601,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I>
-    where
-        I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>;
+    ) -> ConsensusMessage<TYPES, I>;
 
     /// Create a message with a timeout vote on validating or commitment proposal.
     fn create_timeout_message<I: NodeImplementation<TYPES>>(
@@ -619,10 +609,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
         justify_qc: QuorumCertificate<TYPES, LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I>
-    where
-        I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>;
+    ) -> ConsensusMessage<TYPES, I>;
 }
 
 /// Standard implementation of [`QuroumExchangeType`] based on Hot Stuff consensus.
@@ -663,11 +650,7 @@ impl<
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I>
-    where
-        I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>,
-    {
+    ) -> ConsensusMessage<TYPES, I> {
         let signature = self.sign_yes_vote(leaf_commitment);
         ConsensusMessage::<TYPES, I>::Vote(QuorumVote::Yes(YesOrNoVote {
             justify_qc_commitment,
@@ -740,11 +723,7 @@ impl<
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I>
-    where
-        I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>,
-    {
+    ) -> ConsensusMessage<TYPES, I> {
         let signature = self.sign_no_vote(leaf_commitment);
         ConsensusMessage::<TYPES, I>::Vote(QuorumVote::No(YesOrNoVote {
             justify_qc_commitment,
@@ -761,11 +740,7 @@ impl<
         justify_qc: QuorumCertificate<TYPES, LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I>
-    where
-        I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>,
-    {
+    ) -> ConsensusMessage<TYPES, I> {
         let signature = self.sign_timeout_vote(current_view);
         ConsensusMessage::<TYPES, I>::Vote(QuorumVote::Timeout(TimeoutVote {
             justify_qc,

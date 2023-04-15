@@ -7,10 +7,9 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use commit::Committable;
-use hotshot_types::message::Message;
 use hotshot_types::traits::election::{ConsensusExchange, QuorumExchangeType};
 use hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposal, QuorumVoteType,
+    NodeImplementation, QuorumProposalType, QuorumVoteType,
 };
 use hotshot_types::{
     certificate::QuorumCertificate,
@@ -21,6 +20,7 @@ use hotshot_types::{
         node_implementation::NodeType, signature_key::SignatureKey, Block, State,
     },
 };
+use hotshot_types::{message::Message, traits::node_implementation::ValidatingExchangesType};
 use std::marker::PhantomData;
 use std::{sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
@@ -30,7 +30,9 @@ pub struct ValidatingLeader<
     A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
-> {
+> where
+    I::Exchanges: ValidatingExchangesType<ValidatingConsensus, TYPES, LEAF, Message<TYPES, I>>,
+{
     /// id of node
     pub id: u64,
     /// Reference to consensus. Validating leader will require a read lock on this.
@@ -45,7 +47,7 @@ pub struct ValidatingLeader<
     pub api: A,
 
     /// the quorum exchange
-    pub exchange: Arc<I::QuorumExchange>,
+    pub exchange: Arc<I::Exchanges::QuorumExchange>,
 
     /// needed for type checking
     pub _pd: PhantomData<I>,
@@ -196,7 +198,7 @@ where
 
             if let Err(e) = self
                 .api
-                .send_broadcast_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(
+                .send_broadcast_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(
                     message.clone(),
                 )
                 .await

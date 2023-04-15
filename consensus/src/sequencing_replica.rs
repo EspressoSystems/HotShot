@@ -15,7 +15,7 @@ use hotshot_types::message::Message;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::node_implementation::QuorumProposal;
+use hotshot_types::traits::node_implementation::QuorumProposalType;
 use hotshot_types::traits::node_implementation::QuorumVoteType;
 use hotshot_types::traits::state::ConsensusTime;
 use hotshot_types::vote::DAVote;
@@ -305,7 +305,7 @@ where
                                     self.quorum_exchange.get_leader(self.cur_view + 1);
                                 if self
                                     .api
-                                    .send_direct_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(next_leader, message)
+                                    .send_direct_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(next_leader, message)
                                     .await
                                     .is_err()
                                 {
@@ -357,7 +357,7 @@ where
                                         // send timedout message to the next leader
                                         if let Err(e) = self
                                             .api
-                                            .send_direct_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(next_leader.clone(), timed_out_msg)
+                                            .send_direct_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(next_leader.clone(), timed_out_msg)
                                             .await
                                         {
                                             consensus.metrics.failed_to_send_messages.add(1);

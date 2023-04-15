@@ -18,7 +18,7 @@ use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
 
 use hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposal, QuorumVoteType,
+    NodeImplementation, QuorumProposalType, QuorumVoteType,
 };
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
@@ -365,7 +365,7 @@ where
         });
         if let Err(e) = self
             .api
-            .send_broadcast_message::<QuorumProposal<TYPES, I>, QuorumVoteType<TYPES, I>>(
+            .send_broadcast_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(
                 message.clone(),
             )
             .await
