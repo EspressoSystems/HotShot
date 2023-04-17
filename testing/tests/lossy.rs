@@ -11,7 +11,7 @@ use hotshot_testing::{
         DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder, RoundCheckDescription,
     },
     test_types::{AppliedTestRunner, StaticCommitteeTestTypes, StaticNodeImplType},
-    ConsensusRoundError, RoundPostSafetyCheck, RoundResult,
+    ConsensusRoundError, RoundCtx, RoundPostSafetyCheck, RoundResult,
 };
 
 use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
@@ -19,10 +19,11 @@ use tracing::{error, instrument};
 
 /// checks safety requirement; relatively lax
 /// marked as success if 2f+1 nodes "succeeded" and committed the same thing
-pub fn check_safety<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-    runner: &AppliedTestRunner<TYPES, I>,
+pub fn check_safety<'a, TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    runner: &'a AppliedTestRunner<TYPES, I>,
+    _ctx: &'a RoundCtx<TYPES, I>,
     results: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
+) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>> {
     async move {
         let num_nodes = runner.ids().len();
         if results.results.len() <= (2 * num_nodes) / 3 + 1 {

@@ -22,8 +22,8 @@ use hotshot_testing::{
         AppliedTestRunner, StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType,
         VrfTestTypes,
     },
-    ConsensusRoundError, RoundPostSafetyCheck, RoundPreSafetyCheck, RoundResult, RoundSetup,
-    SafetyFailedSnafu,
+    ConsensusRoundError, RoundCtx, RoundPostSafetyCheck, RoundPreSafetyCheck, RoundResult,
+    RoundSetup, SafetyFailedSnafu,
 };
 
 use hotshot_types::message::Message;
@@ -174,12 +174,14 @@ fn get_queue_len(is_past: bool, len: Option<usize>) -> QueuedMessageTense {
 
 /// Checks that votes are queued correctly for views 1..NUM_VIEWS
 fn test_validating_vote_queueing_post_safety_check<
+    'a,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, I>,
+    runner: &'a AppliedValidatingTestRunner<TYPES, I>,
+    _ctx: &'a RoundCtx<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
+) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>
 where
     I::QuorumExchange: QuorumExchangeType<
         TYPES,
@@ -227,11 +229,13 @@ where
 
 /// For 1..NUM_VIEWS submit votes to each node in the network
 fn test_validating_vote_queueing_round_setup<
+    'a,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
-    runner: &mut AppliedValidatingTestRunner<TYPES, I>,
-) -> LocalBoxFuture<Vec<TYPES::Transaction>>
+    runner: &'a mut AppliedValidatingTestRunner<TYPES, I>,
+    _ctx: &'a RoundCtx<TYPES, I>,
+) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>
 where
     I::QuorumExchange: QuorumExchangeType<
         TYPES,
@@ -260,12 +264,14 @@ where
 
 /// Checks views 0..NUM_VIEWS for whether proposal messages are properly queued
 fn test_validating_proposal_queueing_post_safety_check<
+    'a,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, I>,
+    runner: &'a AppliedValidatingTestRunner<TYPES, I>,
+    _cx: &'a RoundCtx<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
+) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>
 where
     I::QuorumExchange: QuorumExchangeType<
         TYPES,
@@ -315,11 +321,13 @@ where
 
 /// Submits proposals for 0..NUM_VIEWS rounds where `node_id` is the leader
 fn test_validating_proposal_queueing_round_setup<
+    'a,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
-    runner: &mut AppliedValidatingTestRunner<TYPES, I>,
-) -> LocalBoxFuture<Vec<TYPES::Transaction>>
+    runner: &'a mut AppliedValidatingTestRunner<TYPES, I>,
+    _ctx: &'a RoundCtx<TYPES, I>,
+) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>
 where
     I::QuorumExchange: QuorumExchangeType<
         TYPES,
@@ -346,11 +354,13 @@ where
 
 /// Submits proposals for views where `node_id` is not the leader, and submits multiple proposals for views where `node_id` is the leader
 fn test_bad_validating_proposal_round_setup<
+    'a,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
-    runner: &mut AppliedValidatingTestRunner<TYPES, I>,
-) -> LocalBoxFuture<Vec<TYPES::Transaction>>
+    runner: &'a mut AppliedValidatingTestRunner<TYPES, I>,
+    _ctx: &'a RoundCtx<TYPES, I>,
+) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>
 where
     I::QuorumExchange: QuorumExchangeType<
         TYPES,
@@ -379,12 +389,14 @@ where
 
 /// Checks nodes do not queue bad proposal messages
 fn test_bad_validating_proposal_post_safety_check<
+    'a,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
-    runner: &AppliedValidatingTestRunner<TYPES, I>,
+    runner: &'a AppliedValidatingTestRunner<TYPES, I>,
+    _ctx: &'a RoundCtx<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>>
+) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>
 where
     I::QuorumExchange: QuorumExchangeType<
         TYPES,
@@ -735,7 +747,7 @@ async fn test_decide_leaf_chain() {
     // Initialize `handles` at the start of the round.
     {
         let handles = Arc::new(Mutex::new(vec![]));
-        test.round.safety_check_pre = RoundPreSafetyCheck(Arc::new(move |runner| {
+        test.round.safety_check_pre = RoundPreSafetyCheck(Arc::new(move |runner, _ctx| {
             let handles = handles.clone();
             async move {
                 *handles.lock().await = join_all(
@@ -749,7 +761,7 @@ async fn test_decide_leaf_chain() {
             .boxed_local()
         }));
     }
-    test.round.safety_check_post = RoundPostSafetyCheck(Arc::new(move |_, _| {
+    test.round.safety_check_post = RoundPostSafetyCheck(Arc::new(move |_, _ctx, _| {
         let handles = handles.clone();
         async move {
             for (mut handle, last_leaf) in std::mem::take(&mut *handles.lock().await) {

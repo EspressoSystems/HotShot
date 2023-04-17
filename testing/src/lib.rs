@@ -19,6 +19,7 @@ pub mod test_types;
 
 pub use self::launcher::TestLauncher;
 
+use either::Either;
 use futures::future::LocalBoxFuture;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
@@ -26,6 +27,7 @@ use hotshot::{
     HotShot, HotShotError, HotShotInitializer, ViewRunner, H_256,
 };
 use hotshot_types::traits::election::ConsensusExchange;
+use nll::nll_todo::nll_todo;
 
 use hotshot_types::message::Message;
 use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
@@ -58,29 +60,51 @@ pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub results: HashMap<u64, StateAndBlock<LEAF::StateCommitmentType, LEAF::DeltasType>>,
     /// Nodes that failed to commit this round
     pub failures: HashMap<u64, HotShotError<TYPES>>,
+
+    /// whether or not the round succeeded (for a custom defn of succeeded)
+    pub success: bool,
+}
+
+/// context for a round
+/// TODO eventually we want these to just be futures
+/// that we poll when things are event driven
+/// this context will be passed around
+pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    prior_round_results: Vec<RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>>,
 }
 
 /// Type of function used for checking results after running a view of consensus
 #[derive(Clone)]
 pub struct RoundPostSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     pub  Arc<
-        dyn Fn(
-            &TestRunner<TYPES, I>,
+        dyn for<'a> Fn(
+            &'a TestRunner<TYPES, I>,
+            &'a RoundCtx<TYPES, I>,
             RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
-        ) -> LocalBoxFuture<Result<(), ConsensusRoundError>>,
+        ) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>,
     >,
 );
 
 /// Type of function used for configuring a round of consensus
 #[derive(Clone)]
 pub struct RoundSetup<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-    pub Arc<dyn Fn(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<Vec<TYPES::Transaction>>>,
+    pub  Arc<
+        dyn for<'a> Fn(
+            &'a mut TestRunner<TYPES, I>,
+            &'a RoundCtx<TYPES, I>,
+        ) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>,
+    >,
 );
 
 /// Type of function used for checking safety before beginnning consensus
 #[derive(Clone)]
 pub struct RoundPreSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-    pub Arc<dyn Fn(&TestRunner<TYPES, I>) -> LocalBoxFuture<Result<(), ConsensusRoundError>>>,
+    pub  Arc<
+        dyn for<'a> Fn(
+            &'a TestRunner<TYPES, I>,
+            &'a RoundCtx<TYPES, I>,
+        ) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>,
+    >,
 );
 
 /// functions to run a round of consensus
@@ -97,84 +121,27 @@ pub struct Round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub safety_check_post: RoundPostSafetyCheck<TYPES, I>,
 }
 
-// impl<TYPES, I> Clone for Round<TYPES, I>
-// where
-//     TYPES: NodeType,
-//     I: TestableNodeImplementation<TYPES>,
-// {
-//     fn clone(&self) -> Self {
-//         Round {
-//             safety_check_pre: self.safety_check_pre.clone_boxed(),
-//             setup_round: self.setup_round.clone_boxed(),
-//             safety_check_post: self.safety_check_post.clone_boxed(),
-//         }
-//     }
-// }
-//
-// trait CloneBoxedFn<T> {
-//     fn clone_boxed(&self) -> T;
-// }
-//
-// impl<F: ?Sized + Clone + 'static> CloneBoxedFn<Box<F>> for Box<F> {
-//     fn clone_boxed(&self) -> Box<F> {
-//         Box::new(self.as_ref().clone())
-//     }
-// }
-//
-// impl<T, F: ?Sized + CloneBoxedFn<T>> CloneBoxedFn<Box<F>> for Box<dyn Fn(&T) -> T> {
-//     fn clone_boxed(&self) -> Box<F> {
-//         Box::new(self.as_ref().clone_boxed())
-//     }
-// }
-//
-// impl<T, F: ?Sized + CloneBoxedFn<T>> CloneBoxedFn<Box<F>> for Box<dyn Fn(&mut T) -> T> {
-//     fn clone_boxed(&self) -> Box<F> {
-//         Box::new(self.as_ref().clone_boxed())
-//     }
-// }
-//
-// impl<T, F: ?Sized + CloneBoxedFn<T>> CloneBoxedFn<Box<F>> for Box<dyn Fn(&T, RoundResult<T, <I as NodeImplementation<TYPES>>::Leaf>) -> T> {
-//     fn clone_boxed(&self) -> Box<F> {
-//         Box::new(self.as_ref().clone_boxed())
-//     }
-// }
-//
-// impl<T, F: ?Sized + CloneBoxedFn<T>> CloneBoxedFn<Box<F>> for Box<dyn FnMut(&T) -> T> {
-//     fn clone_boxed(&self) -> Box<F> {
-//         Box::new(self.as_ref().clone_boxed())
-//     }
-// }
-//
-// impl<T, F: ?Sized + CloneBoxedFn<T>> CloneBoxedFn<Box<F>> for Box<dyn FnMut(&mut T) -> T> {
-//     fn clone_boxed(&self) -> Box<F> {
-//         Box::new(self.as_ref().clone_boxed())
-//     }
-// }
-//
-// impl<T, F: ?Sized + CloneBoxedFn<T>> CloneBoxedFn<Box<F>> for Box<dyn FnMut(&T, RoundResult<T, <I as NodeImplementation<TYPES>>::Leaf>) -> T> {
-//     fn clone_boxed(&self) -> Box<F> {
-//         Box::new(self.as_ref().clone_boxed())
-//     }
-// }
-
-pub fn default_safety_check_pre<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-    _asdf: &TestRunner<TYPES, I>,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
+pub fn default_safety_check_pre<'a, TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    _asdf: &'a TestRunner<TYPES, I>,
+    _ctx: &'a RoundCtx<TYPES, I>,
+) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>> {
     use futures::FutureExt;
     async move { Ok(()) }.boxed()
 }
 
-pub fn default_setup_round<TYPES: NodeType, TRANS, I: TestableNodeImplementation<TYPES>>(
-    _asdf: &mut TestRunner<TYPES, I>,
-) -> LocalBoxFuture<Vec<TRANS>> {
+pub fn default_setup_round<'a, TYPES: NodeType, TRANS, I: TestableNodeImplementation<TYPES>>(
+    _asdf: &'a mut TestRunner<TYPES, I>,
+    _ctx: &'a RoundCtx<TYPES, I>,
+) -> LocalBoxFuture<'a, Vec<TRANS>> {
     use futures::FutureExt;
     async move { vec![] }.boxed()
 }
 
-pub fn default_safety_check_post<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-    _asdf: &TestRunner<TYPES, I>,
-    result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
-) -> LocalBoxFuture<Result<(), ConsensusRoundError>> {
+pub fn default_safety_check_post<'a, TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    _asdf: &'a TestRunner<TYPES, I>,
+    _ctx: &'a RoundCtx<TYPES, I>,
+    _result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>> {
     use futures::FutureExt;
     async move { Ok(()) }.boxed()
 }
@@ -373,16 +340,16 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             safety_check_post,
         } = self.round.clone();
 
-        safety_check_pre.0(self).await?;
+        safety_check_pre.0(self, nll_todo()).await?;
 
         // let mut pre = &mut self.round.safety_check_pre;
         //
         // pre(self);
         //
         //
-        let txns = setup_round.0(self).await;
+        let txns = setup_round.0(self, nll_todo()).await;
         let results = self.run_one_round(txns).await;
-        safety_check_post.0(self, results).await?;
+        safety_check_post.0(self, nll_todo(), results).await?;
         Ok(())
     }
 
@@ -428,6 +395,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             txns,
             results,
             failures,
+            success: nll_todo(),
         }
     }
 
