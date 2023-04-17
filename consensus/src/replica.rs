@@ -8,7 +8,7 @@ use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
-use hotshot_types::traits::election::{ConsensusExchange, VoteData};
+use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposal};
 use hotshot_types::{
     certificate::QuorumCertificate,

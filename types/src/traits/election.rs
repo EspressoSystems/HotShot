@@ -289,7 +289,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
                             signature.1 .1.clone(),
                             qc.view_number(),
                             Checked::Unchecked(signature.1 .2.clone()),
-                        ) && matches!(signature.1 .1, VoteData::Yes(thing) if thing == leaf_commitment)
+                        ) && (matches!(signature.1 .1, VoteData::Yes(commit) if commit == leaf_commitment) || matches!(signature.1 .1, VoteData::DA(commit) if commit == leaf_commitment))
                     })
                     .fold(0, |acc, x| (acc + u64::from(x.1 .2.vote_count())));
 
