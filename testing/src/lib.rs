@@ -37,7 +37,7 @@ use hotshot_types::{
     HotShotConfig,
 };
 use snafu::Snafu;
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::{collections::HashMap, fmt::Debug, ops::Deref, sync::Arc};
 use test_description::RoundCheckDescription;
 use tracing::{debug, error, info, warn};
 
@@ -73,6 +73,14 @@ pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     prior_round_results: Vec<RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>>,
 }
 
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for RoundCtx<TYPES, I> {
+    fn default() -> Self {
+        Self {
+            prior_round_results: Default::default(),
+        }
+    }
+}
+
 /// Type of function used for checking results after running a view of consensus
 #[derive(Clone)]
 pub struct RoundPostSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
@@ -85,6 +93,20 @@ pub struct RoundPostSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<T
     >,
 );
 
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref
+    for RoundPostSafetyCheck<TYPES, I>
+{
+    type Target = dyn for<'a> Fn(
+        &'a TestRunner<TYPES, I>,
+        &'a RoundCtx<TYPES, I>,
+        RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+    ) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
+
 /// Type of function used for configuring a round of consensus
 #[derive(Clone)]
 pub struct RoundSetup<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
@@ -96,6 +118,17 @@ pub struct RoundSetup<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     >,
 );
 
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RoundSetup<TYPES, I> {
+    type Target = dyn for<'a> Fn(
+        &'a mut TestRunner<TYPES, I>,
+        &'a RoundCtx<TYPES, I>,
+    ) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
+
 /// Type of function used for checking safety before beginnning consensus
 #[derive(Clone)]
 pub struct RoundPreSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
@@ -106,6 +139,19 @@ pub struct RoundPreSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TY
         ) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>,
     >,
 );
+
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref
+    for RoundPreSafetyCheck<TYPES, I>
+{
+    type Target = dyn for<'a> Fn(
+        &'a TestRunner<TYPES, I>,
+        &'a RoundCtx<TYPES, I>,
+    ) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
 
 /// functions to run a round of consensus
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
@@ -315,8 +361,10 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         fail_threshold: usize,
     ) -> Result<(), ConsensusTestError> {
         let mut num_fails = 0;
+        // the default context starts as empty
+        let mut ctx = RoundCtx::<TYPES, I>::default();
         for i in 0..(num_success + fail_threshold) {
-            if let Err(e) = self.execute_round().await {
+            if let Err(e) = self.execute_round(&mut ctx).await {
                 num_fails += 1;
                 error!("failed round {:?} of consensus with error: {:?}", i, e);
                 if num_fails > fail_threshold {
@@ -333,23 +381,21 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     /// - checking the state of the hotshot
     /// - setting up the round (ex: submitting txns) or spinning up or down nodes
     /// - checking safety conditions to ensure that the round executed as expected
-    pub async fn execute_round(&mut self) -> Result<(), ConsensusRoundError> {
+    pub async fn execute_round(
+        &mut self,
+        ctx: &mut RoundCtx<TYPES, I>,
+    ) -> Result<(), ConsensusRoundError> {
         let Round {
             safety_check_pre,
             setup_round,
             safety_check_post,
         } = self.round.clone();
 
-        safety_check_pre.0(self, nll_todo()).await?;
+        safety_check_pre(self, ctx).await?;
 
-        // let mut pre = &mut self.round.safety_check_pre;
-        //
-        // pre(self);
-        //
-        //
-        let txns = setup_round.0(self, nll_todo()).await;
+        let txns = setup_round(self, ctx).await;
         let results = self.run_one_round(txns).await;
-        safety_check_post.0(self, nll_todo(), results).await?;
+        safety_check_post(self, ctx, results).await?;
         Ok(())
     }
 
