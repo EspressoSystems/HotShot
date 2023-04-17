@@ -1251,6 +1251,9 @@
 <a href="#1251" id="1251">1251</a>
 <a href="#1252" id="1252">1252</a>
 <a href="#1253" id="1253">1253</a>
+<a href="#1254" id="1254">1254</a>
+<a href="#1255" id="1255">1255</a>
+<a href="#1256" id="1256">1256</a>
 </pre><pre class="rust"><code><span class="kw">use </span>ark_bls12_381::Parameters <span class="kw">as </span>Param381;
 <span class="kw">use </span>ark_ec::bls12::Bls12Parameters;
 <span class="kw">use </span>bincode::Options;
@@ -1832,10 +1835,13 @@
         }
     }
 
-    <span class="kw">fn </span>threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
+    <span class="kw">fn </span>success_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
         NonZeroU64::new(((u64::from(<span class="self">self</span>.sortition_parameter) * <span class="number">2</span>) / <span class="number">3</span>) + <span class="number">1</span>).unwrap()
     }
 
+    <span class="kw">fn </span>failure_threshold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonZeroU64 {
+        NonZeroU64::new(((u64::from(<span class="self">self</span>.sortition_parameter)) / <span class="number">3</span>) + <span class="number">1</span>).unwrap()
+    }
     <span class="doccomment">/// TODO if we ever come back to using this, we&#39;ll need to change this
     /// this stub is incorrect as it stands right now
     </span><span class="kw">fn </span>get_committee(

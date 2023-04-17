@@ -197,6 +197,27 @@
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides two types of cerrtificates and their accumulators.
 
 </span><span class="kw">use crate</span>::{
@@ -234,8 +255,7 @@
     /// These formats are deliberatly done as a `Vec` instead of an array to prevent creating the
     /// assumption that singatures are constant in length
     /// TODO (da) make a separate vote token type for DA and QC
-    </span><span class="kw">pub </span>signatures: BTreeMap&lt;EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)&gt;,
-    <span class="comment">// no genesis bc not meaningful
+    </span><span class="kw">pub </span>signatures: YesNoSignature&lt;TYPES::BlockType, TYPES::VoteTokenType&gt;, <span class="comment">// no genesis bc not meaningful
 </span>}
 
 <span class="doccomment">/// The type used for Quorum Certificates
@@ -255,21 +275,31 @@
     <span class="doccomment">/// Which view this QC relates to
     </span><span class="kw">pub </span>view_number: TYPES::Time,
     <span class="doccomment">/// Threshold Signature
-    </span><span class="kw">pub </span>signatures: BTreeMap&lt;EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)&gt;,
+    </span><span class="kw">pub </span>signatures: YesNoSignature&lt;LEAF, TYPES::VoteTokenType&gt;,
     <span class="doccomment">/// If this QC is for the genesis block
     </span><span class="kw">pub </span>is_genesis: bool,
 }
 
+<span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
+#[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
+</span><span class="doccomment">/// Enum representing whether a QC&#39;s signatures are for a &#39;Yes&#39; or &#39;No&#39; QC
+</span><span class="kw">pub enum </span>YesNoSignature&lt;LEAF: Committable + Serialize + Clone, TOKEN: VoteToken&gt; {
+    <span class="doccomment">/// These signatures are for a &#39;Yes&#39; QC
+    </span>Yes(BTreeMap&lt;EncodedPublicKey, (EncodedSignature, VoteData&lt;LEAF&gt;, TOKEN)&gt;),
+    <span class="doccomment">/// These signatures are for a &#39;No&#39; QC
+    </span>No(BTreeMap&lt;EncodedPublicKey, (EncodedSignature, VoteData&lt;LEAF&gt;, TOKEN)&gt;),
+}
+
 <span class="doccomment">/// Data from a vote needed to accumulate into a `SignedCertificate`
-</span><span class="kw">pub struct </span>VoteMetaData&lt;TYPES: NodeType, C: Committable, T: VoteToken, TIME, LEAF: LeafType&gt; {
+</span><span class="kw">pub struct </span>VoteMetaData&lt;COMMITTABLE: Committable + Serialize + Clone, T: VoteToken, TIME&gt; {
     <span class="doccomment">/// Voter&#39;s public key
     </span><span class="kw">pub </span>encoded_key: EncodedPublicKey,
     <span class="doccomment">/// Votes signature
     </span><span class="kw">pub </span>encoded_signature: EncodedSignature,
     <span class="doccomment">/// Commitment to what&#39;s voted on.  E.g. the leaf for a `QuorumCertificate`
-    </span><span class="kw">pub </span>commitment: Commitment&lt;C&gt;,
+    </span><span class="kw">pub </span>commitment: Commitment&lt;COMMITTABLE&gt;,
     <span class="doccomment">/// Data of the vote, yes, no, timeout, or DA
-    </span><span class="kw">pub </span>data: VoteData&lt;TYPES, LEAF&gt;,
+    </span><span class="kw">pub </span>data: VoteData&lt;COMMITTABLE&gt;,
     <span class="doccomment">/// The votes&#39;s token
     </span><span class="kw">pub </span>vote_token: T,
     <span class="doccomment">/// View number for the vote
@@ -282,7 +312,8 @@
 {
     <span class="kw">fn </span>from_signatures_and_commitment(
         view_number: TYPES::Time,
-        signatures: BTreeMap&lt;EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)&gt;,
+        signatures: YesNoSignature&lt;LEAF, TYPES::VoteTokenType&gt;,
+
         commit: Commitment&lt;LEAF&gt;,
     ) -&gt; <span class="self">Self </span>{
         QuorumCertificate {
@@ -297,7 +328,7 @@
         <span class="self">self</span>.view_number
     }
 
-    <span class="kw">fn </span>signatures(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BTreeMap&lt;EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)&gt; {
+    <span class="kw">fn </span>signatures(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; YesNoSignature&lt;LEAF, TYPES::VoteTokenType&gt; {
         <span class="self">self</span>.signatures.clone()
     }
 
@@ -317,7 +348,7 @@
         <span class="self">Self </span>{
             leaf_commitment: fake_commitment::&lt;LEAF&gt;(),
             view_number: &lt;TYPES::Time <span class="kw">as </span>ConsensusTime&gt;::genesis(),
-            signatures: BTreeMap::default(),
+            signatures: YesNoSignature::Yes(BTreeMap::default()),
             is_genesis: <span class="bool-val">true</span>,
         }
     }
@@ -335,11 +366,22 @@
             .field(<span class="string">&quot;Leaf commitment&quot;</span>, <span class="self">self</span>.leaf_commitment)
             .u64_field(<span class="string">&quot;View number&quot;</span>, <span class="kw-2">*</span><span class="self">self</span>.view_number.deref());
 
-        <span class="kw">for </span>(idx, (k, v)) <span class="kw">in </span><span class="self">self</span>.signatures.iter().enumerate() {
+        <span class="kw">let </span>signatures = <span class="kw">match </span><span class="self">self</span>.signatures.clone() {
+            YesNoSignature::Yes(signatures) =&gt; {
+                builder = builder.var_size_field(<span class="string">&quot;QC Type&quot;</span>, <span class="string">&quot;Yes&quot;</span>.as_bytes());
+                signatures
+            }
+            YesNoSignature::No(signatures) =&gt; {
+                builder = builder.var_size_field(<span class="string">&quot;QC Type&quot;</span>, <span class="string">&quot;No&quot;</span>.as_bytes());
+                signatures
+            }
+        };
+        <span class="kw">for </span>(idx, (k, v)) <span class="kw">in </span>signatures.iter().enumerate() {
             builder = builder
                 .var_size_field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Signature {idx} public key&quot;</span>), <span class="kw-2">&amp;</span>k.<span class="number">0</span>)
                 .var_size_field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Signature {idx} signature&quot;</span>), <span class="kw-2">&amp;</span>v.<span class="number">0 </span>.<span class="number">0</span>)
-                .field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Signature {idx} signature&quot;</span>), v.<span class="number">1</span>.commit());
+                .var_size_field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Signature {idx} vote data&quot;</span>), <span class="kw-2">&amp;</span>v.<span class="number">1</span>.as_bytes())
+                .field(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Signature {idx} vote token&quot;</span>), v.<span class="number">2</span>.commit());
         }
 
         builder
@@ -358,7 +400,7 @@
 {
     <span class="kw">fn </span>from_signatures_and_commitment(
         view_number: TYPES::Time,
-        signatures: BTreeMap&lt;EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)&gt;,
+        signatures: YesNoSignature&lt;TYPES::BlockType, TYPES::VoteTokenType&gt;,
         commit: Commitment&lt;TYPES::BlockType&gt;,
     ) -&gt; <span class="self">Self </span>{
         DACertificate {
@@ -372,7 +414,7 @@
         <span class="self">self</span>.view_number
     }
 
-    <span class="kw">fn </span>signatures(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BTreeMap&lt;EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)&gt; {
+    <span class="kw">fn </span>signatures(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; YesNoSignature&lt;TYPES::BlockType, TYPES::VoteTokenType&gt; {
         <span class="self">self</span>.signatures.clone()
     }
 

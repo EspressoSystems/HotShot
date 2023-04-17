@@ -603,7 +603,7 @@
 <span class="kw">use </span>derivative::Derivative;
 
 <span class="kw">use </span>hotshot_types::{
-    certificate::QuorumCertificate,
+    certificate::{QuorumCertificate, YesNoSignature},
     constants::genesis_proposer_id,
     data::{random_commitment, LeafType, ValidatingLeaf, ViewNumber},
     traits::{
@@ -1150,7 +1150,7 @@
         <span class="comment">// block_commitment: random_commitment(rng),
         </span>leaf_commitment: random_commitment(rng),
         view_number: TYPES::Time::new(rng.gen()),
-        signatures: BTreeMap::default(),
+        signatures: YesNoSignature::Yes(BTreeMap::default()),
         is_genesis: rng.gen(),
     }
 }

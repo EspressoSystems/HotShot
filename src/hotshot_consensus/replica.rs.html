@@ -515,6 +515,25 @@
 <a href="#515" id="515">515</a>
 <a href="#516" id="516">516</a>
 <a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`Replica`] struct used for the replica step in the hotstuff consensus algorithm.
 
 </span><span class="kw">use crate</span>::{
@@ -535,7 +554,7 @@
         node_implementation::NodeType, signature_key::SignatureKey, state::ValidatingConsensus,
         Block, State,
     },
-    vote::{QuorumVote, TimeoutVote},
+    vote::QuorumVote,
 };
 <span class="kw">use </span>hotshot_types::{message::Message, traits::election::QuorumExchangeType};
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
@@ -731,6 +750,29 @@
                                 <span class="macro">info!</span>(<span class="string">&quot;We were chosen for committee on {:?}&quot;</span>, <span class="self">self</span>.cur_view);
 
                                 <span class="comment">// Generate and send vote
+                                // TODO ED Will remove the below code once actual tests are in place
+                                // let message = if self.id % 2 == 0 {
+                                //     self.exchange.create_no_message(
+                                //         leaf.justify_qc.commit(),
+                                //         leaf_commitment,
+                                //         self.cur_view,
+                                //         vote_token,
+                                //     )
+                                // } else if self.id % 5 == 0 {
+                                //     self.exchange.create_timeout_message(
+                                //         leaf.justify_qc.clone(),
+                                //         self.cur_view,
+                                //         vote_token,
+                                //     )
+                                // } else {
+                                //     self.exchange.create_yes_message(
+                                //         leaf.justify_qc.commit(),
+                                //         leaf_commitment,
+                                //         self.cur_view,
+                                //         vote_token,
+                                //     )
+                                // };
+
                                 </span><span class="kw">let </span>message = <span class="self">self</span>.exchange.create_yes_message(
                                     leaf.justify_qc.commit(),
                                     leaf_commitment,
@@ -763,7 +805,6 @@
 
                                 consensus.metrics.number_of_timeouts.add(<span class="number">1</span>);
 
-                                <span class="kw">let </span>signature = <span class="self">self</span>.exchange.sign_timeout_vote(<span class="self">self</span>.cur_view);
                                 <span class="kw">let </span>vote_token = <span class="self">self</span>.exchange.make_vote_token(<span class="self">self</span>.cur_view);
 
                                 <span class="kw">match </span>vote_token {
@@ -780,23 +821,20 @@
                                         );
                                     }
                                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(vote_token)) =&gt; {
-                                        <span class="kw">let </span>timed_out_msg = ConsensusMessage::Vote(
-                                            QuorumVote::Timeout(TimeoutVote {
-                                                justify_qc: <span class="self">self</span>.high_qc.clone(),
-                                                signature,
-                                                current_view: <span class="self">self</span>.cur_view,
-                                                vote_token,
-                                            }),
+                                        <span class="kw">let </span>timeout_msg = <span class="self">self</span>.exchange.create_timeout_message(
+                                            <span class="self">self</span>.high_qc.clone(),
+                                            <span class="self">self</span>.cur_view,
+                                            vote_token,
                                         );
                                         <span class="macro">warn!</span>(
                                             <span class="string">&quot;Timed out! Sending timeout to next leader {:?}&quot;</span>,
-                                            timed_out_msg
+                                            timeout_msg
                                         );
 
                                         <span class="comment">// send timedout message to the next leader
                                         </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self
                                             </span>.api
-                                            .send_direct_message::&lt;QuorumProposal&lt;TYPES, I&gt;, QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;&gt;(next_leader.clone(), timed_out_msg)
+                                            .send_direct_message::&lt;QuorumProposal&lt;TYPES, I&gt;, QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;&gt;(next_leader.clone(), timeout_msg)
                                             .<span class="kw">await
                                         </span>{
                                             consensus.metrics.failed_to_send_messages.add(<span class="number">1</span>);

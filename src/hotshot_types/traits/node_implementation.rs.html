@@ -342,6 +342,7 @@
 <a href="#342" id="342">342</a>
 <a href="#343" id="343">343</a>
 <a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -364,6 +365,7 @@
     traits::{signature_key::SignatureKey, storage::Storage, Block},
 };
 <span class="kw">use crate</span>::{data::TestableLeaf, message::Message};
+<span class="kw">use </span>commit::Committable;
 
 <span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::hash::Hash;
@@ -667,7 +669,7 @@ I::Leaf : TestableLeaf&lt;NodeType = TYPES&gt;,
     <span class="doccomment">/// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `StateType::Time` is using.
-    </span><span class="kw">type </span>Time: ConsensusTime;
+    </span><span class="kw">type </span>Time: ConsensusTime + Committable;
     <span class="doccomment">/// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `StateType::BlockType` is using.

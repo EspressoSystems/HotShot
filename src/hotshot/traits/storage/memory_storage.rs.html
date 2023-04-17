@@ -212,11 +212,9 @@
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
 </pre><pre class="rust"><code><span class="doccomment">//! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
-
 </span><span class="kw">use </span>async_lock::RwLock;
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>hotshot_types::{
@@ -334,7 +332,7 @@
     <span class="kw">use </span><span class="kw">crate</span>::traits::election::static_committee::StaticVoteToken;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span>hotshot_types::certificate::QuorumCertificate;
+    <span class="kw">use </span>hotshot_types::certificate::{QuorumCertificate, YesNoSignature};
     <span class="kw">use </span>hotshot_types::constants::genesis_proposer_id;
     <span class="kw">use </span>hotshot_types::data::fake_commitment;
     <span class="kw">use </span>hotshot_types::data::{ValidatingLeaf, ViewNumber};
@@ -389,7 +387,7 @@
                 <span class="comment">// block_commitment: dummy_block_commit,
                 </span>is_genesis: view_number == ViewNumber::genesis(),
                 leaf_commitment: dummy_leaf_commit,
-                signatures: BTreeMap::new(),
+                signatures: YesNoSignature::Yes(BTreeMap::new()),
                 view_number,
             },
             DummyBlock::random(rng),

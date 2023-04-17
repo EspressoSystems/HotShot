@@ -489,6 +489,12 @@
 <a href="#489" id="489">489</a>
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
@@ -590,8 +596,12 @@
     ) -&gt; <span class="prelude-ty">Option</span>&lt;DACertificate&lt;TYPES&gt;&gt; {
         <span class="kw">let </span>lock = <span class="self">self</span>.vote_collection_chan.lock().<span class="kw">await</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>accumulator = VoteAccumulator {
-            vote_outcomes: HashMap::new(),
-            threshold,
+            total_vote_outcomes: HashMap::new(),
+            yes_vote_outcomes: HashMap::new(),
+            no_vote_outcomes: HashMap::new(),
+            <span class="comment">// TODO ED Revisit this once Yes/No votes are in place for DA
+            </span>success_threshold: threshold,
+            failure_threshold: threshold,
         };
 
         <span class="kw">while let </span><span class="prelude-val">Ok</span>(msg) = lock.recv().<span class="kw">await </span>{
@@ -615,6 +625,7 @@
                         <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
                         <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
                         vote.block_commitment,
+                        vote.vote_data,
                         vote.vote_token.clone(),
                         <span class="self">self</span>.cur_view,
                         accumulator,
@@ -758,7 +769,7 @@
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cert) = <span class="self">self
             </span>.wait_for_votes(
                 <span class="self">self</span>.cur_view,
-                <span class="self">self</span>.committee_exchange.threshold(),
+                <span class="self">self</span>.committee_exchange.success_threshold(),
                 block_commitment,
             )
             .<span class="kw">await
@@ -918,8 +929,11 @@
         qcs.insert(<span class="self">self</span>.generic_qc.clone());
 
         <span class="kw">let </span><span class="kw-2">mut </span>accumulator = VoteAccumulator {
-            vote_outcomes: HashMap::new(),
-            threshold: <span class="self">self</span>.quorum_exchange.threshold(),
+            total_vote_outcomes: HashMap::new(),
+            yes_vote_outcomes: HashMap::new(),
+            no_vote_outcomes: HashMap::new(),
+            success_threshold: <span class="self">self</span>.quorum_exchange.success_threshold(),
+            failure_threshold: <span class="self">self</span>.quorum_exchange.failure_threshold(),
         };
 
         <span class="kw">let </span>lock = <span class="self">self</span>.vote_collection_chan.lock().<span class="kw">await</span>;
@@ -930,7 +944,7 @@
             }
             <span class="kw">match </span>msg {
                 ProcessedConsensusMessage::Vote(vote_message, sender) =&gt; <span class="kw">match </span>vote_message {
-                    QuorumVote::Yes(vote) =&gt; {
+                    QuorumVote::Yes(vote) | QuorumVote::No(vote) =&gt; {
                         <span class="kw">if </span>vote.signature.<span class="number">0
                             </span>!= &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::to_bytes(<span class="kw-2">&amp;</span>sender)
                         {
@@ -941,6 +955,7 @@
                             <span class="kw-2">&amp;</span>vote.signature.<span class="number">0</span>,
                             <span class="kw-2">&amp;</span>vote.signature.<span class="number">1</span>,
                             vote.leaf_commitment,
+                            vote.vote_data,
                             vote.vote_token.clone(),
                             <span class="self">self</span>.cur_view,
                             accumulator,
@@ -955,9 +970,6 @@
                     }
                     QuorumVote::Timeout(vote) =&gt; {
                         qcs.insert(vote.justify_qc);
-                    }
-                    QuorumVote::No(<span class="kw">_</span>) =&gt; {
-                        <span class="macro">warn!</span>(<span class="string">&quot;The next leader has received an unexpected vote!&quot;</span>);
                     }
                 },
                 ProcessedConsensusMessage::InternalTrigger(trigger) =&gt; <span class="kw">match </span>trigger {
