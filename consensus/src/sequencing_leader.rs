@@ -99,8 +99,12 @@ where
     ) -> Option<DACertificate<TYPES>> {
         let lock = self.vote_collection_chan.lock().await;
         let mut accumulator = VoteAccumulator {
-            vote_outcomes: HashMap::new(),
-            threshold,
+            total_vote_outcomes: HashMap::new(),
+            yes_vote_outcomes: HashMap::new(),
+            no_vote_outcomes: HashMap::new(),
+            // TODO ED Revisit this once Yes/No votes are in place for DA
+            success_threshold: threshold,
+            failure_threshold: threshold,
         };
 
         while let Ok(msg) = lock.recv().await {
@@ -124,6 +128,7 @@ where
                         &vote.signature.0,
                         &vote.signature.1,
                         vote.block_commitment,
+                        vote.vote_data,
                         vote.vote_token.clone(),
                         self.cur_view,
                         accumulator,
@@ -267,7 +272,7 @@ where
         if let Some(cert) = self
             .wait_for_votes(
                 self.cur_view,
-                self.committee_exchange.threshold(),
+                self.committee_exchange.success_threshold(),
                 block_commitment,
             )
             .await
@@ -427,8 +432,11 @@ where
         qcs.insert(self.generic_qc.clone());
 
         let mut accumulator = VoteAccumulator {
-            vote_outcomes: HashMap::new(),
-            threshold: self.quorum_exchange.threshold(),
+            total_vote_outcomes: HashMap::new(),
+            yes_vote_outcomes: HashMap::new(),
+            no_vote_outcomes: HashMap::new(),
+            success_threshold: self.quorum_exchange.success_threshold(),
+            failure_threshold: self.quorum_exchange.failure_threshold(),
         };
 
         let lock = self.vote_collection_chan.lock().await;
@@ -439,7 +447,7 @@ where
             }
             match msg {
                 ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
-                    QuorumVote::Yes(vote) => {
+                    QuorumVote::Yes(vote) | QuorumVote::No(vote) => {
                         if vote.signature.0
                             != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
                         {
@@ -450,6 +458,7 @@ where
                             &vote.signature.0,
                             &vote.signature.1,
                             vote.leaf_commitment,
+                            vote.vote_data,
                             vote.vote_token.clone(),
                             self.cur_view,
                             accumulator,
@@ -464,9 +473,6 @@ where
                     }
                     QuorumVote::Timeout(vote) => {
                         qcs.insert(vote.justify_qc);
-                    }
-                    QuorumVote::No(_) => {
-                        warn!("The next leader has received an unexpected vote!");
                     }
                 },
                 ProcessedConsensusMessage::InternalTrigger(trigger) => match trigger {

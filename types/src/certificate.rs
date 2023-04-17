@@ -35,8 +35,7 @@ pub struct DACertificate<TYPES: NodeType> {
     /// These formats are deliberatly done as a `Vec` instead of an array to prevent creating the
     /// assumption that singatures are constant in length
     /// TODO (da) make a separate vote token type for DA and QC
-    pub signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
-    // no genesis bc not meaningful
+    pub signatures: YesNoSignature<TYPES::BlockType, TYPES::VoteTokenType>, // no genesis bc not meaningful
 }
 
 /// The type used for Quorum Certificates
@@ -56,21 +55,31 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     /// Which view this QC relates to
     pub view_number: TYPES::Time,
     /// Threshold Signature
-    pub signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
+    pub signatures: YesNoSignature<LEAF, TYPES::VoteTokenType>,
     /// If this QC is for the genesis block
     pub is_genesis: bool,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
+#[serde(bound(deserialize = ""))]
+/// Enum representing whether a QC's signatures are for a 'Yes' or 'No' QC
+pub enum YesNoSignature<LEAF: Committable + Serialize + Clone, TOKEN: VoteToken> {
+    /// These signatures are for a 'Yes' QC
+    Yes(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
+    /// These signatures are for a 'No' QC
+    No(BTreeMap<EncodedPublicKey, (EncodedSignature, VoteData<LEAF>, TOKEN)>),
+}
+
 /// Data from a vote needed to accumulate into a `SignedCertificate`
-pub struct VoteMetaData<TYPES: NodeType, C: Committable, T: VoteToken, TIME, LEAF: LeafType> {
+pub struct VoteMetaData<COMMITTABLE: Committable + Serialize + Clone, T: VoteToken, TIME> {
     /// Voter's public key
     pub encoded_key: EncodedPublicKey,
     /// Votes signature
     pub encoded_signature: EncodedSignature,
     /// Commitment to what's voted on.  E.g. the leaf for a `QuorumCertificate`
-    pub commitment: Commitment<C>,
+    pub commitment: Commitment<COMMITTABLE>,
     /// Data of the vote, yes, no, timeout, or DA
-    pub data: VoteData<TYPES, LEAF>,
+    pub data: VoteData<COMMITTABLE>,
     /// The votes's token
     pub vote_token: T,
     /// View number for the vote
@@ -83,7 +92,8 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
 {
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
-        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
+        signatures: YesNoSignature<LEAF, TYPES::VoteTokenType>,
+
         commit: Commitment<LEAF>,
     ) -> Self {
         QuorumCertificate {
@@ -98,7 +108,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
         self.view_number
     }
 
-    fn signatures(&self) -> BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)> {
+    fn signatures(&self) -> YesNoSignature<LEAF, TYPES::VoteTokenType> {
         self.signatures.clone()
     }
 
@@ -118,7 +128,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>>
         Self {
             leaf_commitment: fake_commitment::<LEAF>(),
             view_number: <TYPES::Time as ConsensusTime>::genesis(),
-            signatures: BTreeMap::default(),
+            signatures: YesNoSignature::Yes(BTreeMap::default()),
             is_genesis: true,
         }
     }
@@ -136,11 +146,22 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Committable
             .field("Leaf commitment", self.leaf_commitment)
             .u64_field("View number", *self.view_number.deref());
 
-        for (idx, (k, v)) in self.signatures.iter().enumerate() {
+        let signatures = match self.signatures.clone() {
+            YesNoSignature::Yes(signatures) => {
+                builder = builder.var_size_field("QC Type", "Yes".as_bytes());
+                signatures
+            }
+            YesNoSignature::No(signatures) => {
+                builder = builder.var_size_field("QC Type", "No".as_bytes());
+                signatures
+            }
+        };
+        for (idx, (k, v)) in signatures.iter().enumerate() {
             builder = builder
                 .var_size_field(&format!("Signature {idx} public key"), &k.0)
                 .var_size_field(&format!("Signature {idx} signature"), &v.0 .0)
-                .field(&format!("Signature {idx} signature"), v.1.commit());
+                .var_size_field(&format!("Signature {idx} vote data"), &v.1.as_bytes())
+                .field(&format!("Signature {idx} vote token"), v.2.commit());
         }
 
         builder
@@ -159,7 +180,7 @@ impl<TYPES: NodeType>
 {
     fn from_signatures_and_commitment(
         view_number: TYPES::Time,
-        signatures: BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)>,
+        signatures: YesNoSignature<TYPES::BlockType, TYPES::VoteTokenType>,
         commit: Commitment<TYPES::BlockType>,
     ) -> Self {
         DACertificate {
@@ -173,7 +194,7 @@ impl<TYPES: NodeType>
         self.view_number
     }
 
-    fn signatures(&self) -> BTreeMap<EncodedPublicKey, (EncodedSignature, TYPES::VoteTokenType)> {
+    fn signatures(&self) -> YesNoSignature<TYPES::BlockType, TYPES::VoteTokenType> {
         self.signatures.clone()
     }
 

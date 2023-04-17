@@ -1,7 +1,6 @@
 //! [`HashMap`](std::collections::HashMap) and [`Vec`] based implementation of the storage trait
 //!
 //! This module provides a non-persisting, dummy adapter for the [`Storage`] trait
-
 use async_lock::RwLock;
 use async_trait::async_trait;
 use hotshot_types::{
@@ -119,7 +118,7 @@ mod test {
     use crate::traits::election::static_committee::StaticVoteToken;
 
     use super::*;
-    use hotshot_types::certificate::QuorumCertificate;
+    use hotshot_types::certificate::{QuorumCertificate, YesNoSignature};
     use hotshot_types::constants::genesis_proposer_id;
     use hotshot_types::data::fake_commitment;
     use hotshot_types::data::{ValidatingLeaf, ViewNumber};
@@ -174,7 +173,7 @@ mod test {
                 // block_commitment: dummy_block_commit,
                 is_genesis: view_number == ViewNumber::genesis(),
                 leaf_commitment: dummy_leaf_commit,
-                signatures: BTreeMap::new(),
+                signatures: YesNoSignature::Yes(BTreeMap::new()),
                 view_number,
             },
             DummyBlock::random(rng),
