@@ -8,6 +8,7 @@ use futures::FutureExt;
 
 use hotshot_types::traits::signature_key::EncodedPublicKey;
 use hotshot_types::traits::signature_key::SignatureKey;
+use rand::SeedableRng;
 use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
@@ -29,7 +30,6 @@ const MAX_VIEWS: usize = 10;
 /// How many transactions to keep in memory
 const MAX_TXNS: usize = 10;
 
-#[derive(Default)]
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
 struct WebServerState<KEY> {
@@ -51,6 +51,8 @@ struct WebServerState<KEY> {
     shutdown: Option<OneShotReceiver<()>>,
     /// stake table with leader keys
     stake_table: Vec<KEY>,
+    /// prng for generating endpoint
+    _prng: rand::rngs::StdRng,
 }
 
 impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
@@ -65,6 +67,7 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             stake_table: Vec::new(),
             vote_index: HashMap::new(),
             transactions: HashMap::new(),
+            _prng: rand::rngs::StdRng::from_entropy(),
         }
     }
     pub fn with_shutdown_signal(mut self, shutdown_listener: Option<OneShotReceiver<()>>) -> Self {
@@ -270,7 +273,6 @@ where
     .post("poststaketable", |req, state| {
         async move {
             //works one key at a time for now
-            //= KEY::from_bytes(&(req.body_bytes() as EncodedPublicKey));
             let key = req.body_bytes();
             state.post_staketable(key)
         }
