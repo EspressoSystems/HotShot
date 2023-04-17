@@ -8,6 +8,7 @@ use crate::{
     data::LeafType,
     traits::{
         election::{VoteData, VoteToken},
+        election::{VoteData, VoteToken},
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature},
     },
@@ -74,6 +75,8 @@ pub struct YesOrNoVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 #[serde(bound(deserialize = ""))]
 pub struct TimeoutVote<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The justification qc for this view
+    // TODO ED This should be the high_qc instead, and the signature should be over it,
+    // not just over the view number
     pub justify_qc: QuorumCertificate<TYPES, LEAF>,
     /// The signature share associated with this vote
     /// TODO ct/vrf make ConsensusMessage generic over I instead of serializing to a [`Vec<u8>`]
