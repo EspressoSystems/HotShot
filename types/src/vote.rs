@@ -8,7 +8,6 @@ use crate::{
     data::LeafType,
     traits::{
         election::{VoteData, VoteToken},
-        election::{VoteData, VoteToken},
         node_implementation::NodeType,
         signature_key::{EncodedPublicKey, EncodedSignature},
     },
