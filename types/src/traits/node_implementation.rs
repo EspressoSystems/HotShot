@@ -12,7 +12,7 @@ use super::{
         sequencing_consensus::SequencingConsensusType,
         validating_consensus::ValidatingConsensusType, ConsensusType,
     },
-    election::{ConsensusExchange, ElectionConfig, VoteToken},
+    election::{ConsensusExchange, ElectionConfig, QuorumExchange, VoteToken},
     network::{NetworkMsg, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, TestableBlock, TestableState},
@@ -172,7 +172,7 @@ where
     type QuorumExchange = QUORUMEXCHANGE;
 }
 
-/// Alias for the [`QuorumExchange`] type for either the validating or sequencing consensus.
+/// Alias for the [`QuorumExchange`] type.
 type QuorumEx<TYPES, I> = <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
     <TYPES as NodeType>::ConsensusType,
     TYPES,
@@ -180,25 +180,7 @@ type QuorumEx<TYPES, I> = <<I as NodeImplementation<TYPES>>::Exchanges as Exchan
     Message<TYPES, I>,
 >>::QuorumExchange;
 
-/// Alias for the [`QuorumExchange`] type for the validating consensus.
-type ValidatingQuorumEx<TYPES, I> =
-    <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
-        ValidatingConsensus,
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I>,
-    >>::QuorumExchange;
-
-/// Alias for the [`QuorumExchange`] type for the sequencing consensus.
-type SequencingQuorumEx<TYPES, I> =
-    <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
-        SequencingConsensus,
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I>,
-    >>::QuorumExchange;
-
-/// Alias for the [`CommitteeExchange`] type for the sequencing consensus.
+/// Alias for the [`CommitteeExchange`] type.
 type CommitteeEx<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::Exchanges as SequencingExchangesType<
         SequencingConsensus,
@@ -219,7 +201,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     ) -> Box<
         dyn Fn(
                 u64,
-            ) -> <Self::CommitteeExchange as ConsensusExchange<
+            ) -> <CommitteeEx<TYPES, Self> as ConsensusExchange<
                 TYPES,
                 Self::Leaf,
                 Message<TYPES, Self>,
@@ -235,35 +217,13 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     ) -> Box<
         dyn Fn(
                 u64,
-            ) -> <Self::QuorumExchange as ConsensusExchange<
+            ) -> <QuorumEx<TYPES, Self> as ConsensusExchange<
                 TYPES,
                 Self::Leaf,
                 Message<TYPES, Self>,
             >>::Networking
             + 'static,
     >;
-
-    /// Get the number of messages in-flight from quorum exchange.
-    ///
-    /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
-    fn quorum_in_flight_message_count(
-        network: &<Self::QuorumExchange as ConsensusExchange<
-            TYPES,
-            Self::Leaf,
-            Message<TYPES, Self>,
-        >>::Networking,
-    ) -> Option<usize>;
-
-    /// Get the number of messages in-flight from committee exchange.
-    ///
-    /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
-    fn committee_in_flight_message_count(
-        network: &<Self::CommitteeExchange as ConsensusExchange<
-            TYPES,
-            Self::Leaf,
-            Message<TYPES, Self>,
-        >>::Networking,
-    ) -> Option<usize>;
 
     /// Creates random transaction if possible
     /// otherwise panics
@@ -306,88 +266,6 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestableNodeImplementation<TYPES>
 for I
 where
-<ValidatingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking :
-TestableNetworkingImplementation<
-    TYPES,
-    Message<TYPES, I>,
-    <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Proposal,
-    <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Vote,
-    <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership,
->,
-TYPES::StateType : TestableState,
-TYPES::BlockType : TestableBlock,
-I::Storage : TestableStorage<TYPES, I::Leaf>,
-TYPES::SignatureKey : TestableSignatureKey,
-I::Leaf : TestableLeaf<NodeType = TYPES>,
-{
-    fn committee_generator(
-        expected_node_count: usize,
-        num_bootstrap: usize,
-        network_id: usize,
-    ) -> Box<dyn Fn(u64) -> <I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking + 'static> {
-panic!("Unexpected in validating consensus.");    
-}
-
-    fn quorum_generator(
-        expected_node_count: usize,
-        num_bootstrap: usize,
-        network_id: usize,
-    ) -> Box<dyn Fn(u64) -> <I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking + 'static> {
-        <<ValidatingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(expected_node_count, num_bootstrap, network_id)
-    }
-
-    fn quorum_in_flight_message_count(network: &<I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking) -> Option<usize> {
-        <<ValidatingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::in_flight_message_count(network)
-    }
-
-    fn committee_in_flight_message_count(network: &<I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking) -> Option<usize> {
-        panic!("Unexpected in validating consensus.");   
-     }
-
-    fn state_create_random_transaction(
-        state: Option<&TYPES::StateType>,
-        rng: &mut dyn rand::RngCore,
-        padding: u64,
-    ) -> <TYPES::BlockType as Block>::Transaction {
-        <TYPES::StateType as TestableState>::create_random_transaction(state, rng, padding)
-    }
-
-    fn leaf_create_random_transaction(
-        leaf: &Self::Leaf,
-        rng: &mut dyn rand::RngCore,
-        padding: u64,
-    ) -> <TYPES::BlockType as Block>::Transaction {
-        <Self::Leaf as TestableLeaf>::create_random_transaction(leaf, rng, padding)
-    }
-
-    fn block_genesis() -> TYPES::BlockType {
-        <TYPES::BlockType as TestableBlock>::genesis()
-    }
-
-    fn txn_count(block: &TYPES::BlockType) -> u64 {
-        <TYPES::BlockType as TestableBlock>::txn_count(block)
-
-    }
-
-    fn construct_tmp_storage() -> Result<Self::Storage, StorageError> {
-        <I::Storage as TestableStorage<TYPES, I::Leaf>>::construct_tmp_storage()
-
-    }
-
-    async fn get_full_state(storage: &Self::Storage) -> StorageState<TYPES, Self::Leaf> {
-        <I::Storage as TestableStorage<TYPES, I::Leaf>>::get_full_state(storage).await
-    }
-
-
-    fn generate_test_key(id: u64) -> <TYPES::SignatureKey as SignatureKey>::PrivateKey {
-        <TYPES::SignatureKey as TestableSignatureKey>::generate_test_key(id)
-    }
-}
-
-#[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestableNodeImplementation<TYPES>
-for I
-where
 <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking :
 TestableNetworkingImplementation<
     TYPES,
@@ -396,13 +274,13 @@ TestableNetworkingImplementation<
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Vote,
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership,
 >,
-<SequencingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking :
+<QuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking :
 TestableNetworkingImplementation<
     TYPES,
     Message<TYPES, I>,
-    <SequencingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Proposal,
-    <SequencingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Vote,
-    <SequencingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership,
+    <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Proposal,
+    <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Vote,
+    <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership,
 >,
 TYPES::StateType : TestableState,
 TYPES::BlockType : TestableBlock,
@@ -414,7 +292,7 @@ I::Leaf : TestableLeaf<NodeType = TYPES>,
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
-    ) -> Box<dyn Fn(u64) -> <I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking + 'static> {
+    ) -> Box<dyn Fn(u64) -> <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking + 'static> {
         <CommitteeEx<TYPES, I>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(expected_node_count, num_bootstrap, network_id)
     }
 
@@ -422,16 +300,8 @@ I::Leaf : TestableLeaf<NodeType = TYPES>,
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
-    ) -> Box<dyn Fn(u64) -> <I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking + 'static> {
-        <SequencingQuorumEx<TYPES, I>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(expected_node_count, num_bootstrap, network_id)
-    }
-
-    fn quorum_in_flight_message_count(network: &<I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking) -> Option<usize> {
-        <SequencingQuorumEx<TYPES, I>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::in_flight_message_count(network)
-    }
-
-    fn committee_in_flight_message_count(network: &<I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking) -> Option<usize> {
-        <CommitteeEx<TYPES, I>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::in_flight_message_count(network)
+    ) -> Box<dyn Fn(u64) -> <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking + 'static> {
+        <QuorumEx<TYPES, I>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(expected_node_count, num_bootstrap, network_id)
     }
 
     fn state_create_random_transaction(
