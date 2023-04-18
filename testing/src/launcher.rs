@@ -3,6 +3,7 @@ use super::{Generator, TestRunner};
 use hotshot::traits::TestableNodeImplementation;
 use hotshot::types::SignatureKey;
 
+use hotshot_types::traits::network::{TestableNetworkingImplementation, self};
 use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
 use hotshot_types::{
     traits::node_implementation::{NodeImplementation, NodeType},
@@ -22,7 +23,7 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
-    pub fn new(
+    pub fn new<NetworkType: TestableNetworkingImplementation> (
         expected_node_count: usize,
         num_bootstrap_nodes: usize,
         min_transactions: usize,
@@ -48,11 +49,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
             propose_min_round_time: Duration::from_millis(0),
             propose_max_round_time: Duration::from_millis(1000),
             election_config: Some(election_config),
-        };
-
+        }; 
+        let network = <I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking::NETWORK::generator(expected_node_count, num_bootstrap_nodes, 1).await;
         Self {
-            quorum_network: I::quorum_generator(expected_node_count, num_bootstrap_nodes, 1),
-            committee_network: I::committee_generator(expected_node_count, num_bootstrap_nodes, 2),
+            quorum_network: I::quorum_generator(&network),
+            committee_network: I::committee_generator(&network),
             storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
             block: Box::new(|_| I::block_genesis()),
             config,

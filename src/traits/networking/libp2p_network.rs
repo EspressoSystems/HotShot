@@ -117,11 +117,8 @@ pub struct Libp2pNetwork<M: NetworkMsg, K: SignatureKey + 'static> {
 impl<
         TYPES: NodeType,
         I: NodeImplementation<TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -202,20 +199,17 @@ where
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
                 let all_keys = all_keys.clone();
                 async_block_on(async move {
-                    Libp2pCommChannel(
-                        Libp2pNetwork::new(
-                            NoMetrics::boxed(),
-                            config,
-                            pubkey,
-                            bootstrap_addrs_ref,
-                            num_bootstrap,
-                            node_id as usize,
-                            all_keys,
-                        )
-                        .await
-                        .unwrap(),
-                        PhantomData,
+                    Libp2pNetwork::new(
+                        NoMetrics::boxed(),
+                        config,
+                        pubkey,
+                        bootstrap_addrs_ref,
+                        num_bootstrap,
+                        node_id as usize,
+                        all_keys,
                     )
+                    .await
+                    .unwrap()
                 })
             }
         })
@@ -473,7 +467,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
 }
 
 #[async_trait]
-impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, M, K> for Libp2pNetwork<M, K> {
+impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2pNetwork<M, K> {
     #[instrument(name = "Libp2pNetwork::ready_blocking", skip_all)]
     async fn wait_for_ready(&self) {
         self.wait_for_ready().await;
@@ -716,6 +710,8 @@ impl<
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
+    type NETWORK = Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>;
+
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
     }

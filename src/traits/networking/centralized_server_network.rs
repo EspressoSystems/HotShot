@@ -752,7 +752,7 @@ impl From<hotshot_centralized_server::Error> for Error {
 
 #[async_trait]
 impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static>
-    ConnectedNetwork<M, M, K> for CentralizedServerNetwork<K, E>
+    ConnectedNetwork<M, K> for CentralizedServerNetwork<K, E>
 {
     #[instrument(name = "CentralizedServer::ready_blocking", skip_all)]
     async fn wait_for_ready(&self) {
@@ -882,9 +882,10 @@ impl<
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
+    type NETWORK = CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>;
+    
     async fn wait_for_ready(&self) {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, I>,
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
@@ -894,7 +895,6 @@ impl<
     async fn is_ready(&self) -> bool {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
             Message<TYPES, I>,
-            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -902,7 +902,6 @@ impl<
 
     async fn shut_down(&self) -> () {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, I>,
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
@@ -937,7 +936,6 @@ impl<
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
             Message<TYPES, I>,
-            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::lookup_node(&self.0, pk)
         .await
@@ -952,11 +950,8 @@ impl<
 impl<
         TYPES: NodeType,
         I: NodeImplementation<TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -991,7 +986,7 @@ where
                 known_nodes[id as usize].clone(),
             );
             network.server_shutdown_signal = Some(sender);
-            CentralizedCommChannel(network, PhantomData::default())
+            network
         })
     }
 

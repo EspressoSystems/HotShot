@@ -515,12 +515,12 @@ impl<
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
+    type NETWORK = WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES, PROPOSAL, VOTE>;
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
         <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I>>,
-            SendMsg<Message<TYPES, I>>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
         .await;
@@ -530,8 +530,7 @@ impl<
     /// nonblocking
     async fn is_ready(&self) -> bool {
         <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I>>,
-            SendMsg<Message<TYPES, I>>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -542,8 +541,7 @@ impl<
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
         <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I>>,
-            SendMsg<Message<TYPES, I>>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
         .await;
@@ -590,8 +588,7 @@ impl<
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
         let result = <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I>>,
-            SendMsg<Message<TYPES, I>>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::recv_msgs(&self.0, transmit_type)
         .await;
@@ -612,8 +609,7 @@ impl<
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
         <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I>>,
-            SendMsg<Message<TYPES, I>>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(&self.0, tuple)
         .await
@@ -628,7 +624,7 @@ impl<
         TYPES: NodeType + 'static,
         PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
         VOTE: VoteType<TYPES> + 'static,
-    > ConnectedNetwork<RecvMsg<M>, SendMsg<M>, K>
+    > ConnectedNetwork<M, K>
     for WebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
 {
     /// Blocks until the network is successfully initialized
@@ -654,7 +650,7 @@ impl<
     /// blocking
     async fn broadcast_message(
         &self,
-        message: SendMsg<M>,
+        message: M,
         _recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
         self.post_message_to_web_server(message).await
@@ -662,7 +658,7 @@ impl<
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message(&self, message: SendMsg<M>, _recipient: K) -> Result<(), NetworkError> {
+    async fn direct_message(&self, message: M, _recipient: K) -> Result<(), NetworkError> {
         self.post_message_to_web_server(message).await
     }
 
@@ -673,7 +669,7 @@ impl<
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<RecvMsg<M>>, NetworkError> {
+    ) -> Result<Vec<M>, NetworkError> {
         match transmit_type {
             TransmitType::Direct => {
                 let mut queue = self.inner.direct_poll_queue.write().await;
@@ -721,9 +717,15 @@ impl<
         I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for WebServerNetwork<
+        Message<TYPES, I>,
+        TYPES::SignatureKey,
+        TYPES::ElectionConfigType,
+        TYPES,
+        PROPOSAL,
+        VOTE,
+    >
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -755,7 +757,7 @@ where
                 known_nodes[id as usize].clone(),
             );
             network.server_shutdown_signal = Some(sender);
-            WebCommChannel::new(network)
+            network
         })
     }
 

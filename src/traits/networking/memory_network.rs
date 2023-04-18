@@ -292,11 +292,8 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
 impl<
         TYPES: NodeType,
         I: NodeImplementation<TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -309,23 +306,18 @@ where
         Box::new(move |node_id| {
             let privkey = TYPES::SignatureKey::generate_test_key(node_id);
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
-            MemoryCommChannel::new(MemoryNetwork::new(
-                pubkey,
-                NoMetrics::boxed(),
-                master.clone(),
-                None,
-            ))
+            MemoryNetwork::new(pubkey, NoMetrics::boxed(), master.clone(), None)
         })
     }
 
     fn in_flight_message_count(&self) -> Option<usize> {
-        Some(self.0.inner.in_flight_message_count.load(Ordering::Relaxed))
+        Some(self.inner.in_flight_message_count.load(Ordering::Relaxed))
     }
 }
 
 // TODO instrument these functions
 #[async_trait]
-impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, M, K> for MemoryNetwork<M, K> {
+impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for MemoryNetwork<M, K> {
     #[instrument(name = "MemoryNetwork::ready_blocking")]
     async fn wait_for_ready(&self) {}
 
@@ -489,6 +481,8 @@ impl<
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
+    type NETWORK = MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>;
+
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
     }

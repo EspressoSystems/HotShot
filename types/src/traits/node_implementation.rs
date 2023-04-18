@@ -9,7 +9,7 @@ use serde::Deserialize;
 use super::{
     block_contents::Transaction,
     election::{ConsensusExchange, ElectionConfig, VoteToken},
-    network::TestableNetworkingImplementation,
+    network::{TestableNetworkingImplementation, TestableChannelImplementation, ConnectedNetwork},
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, ConsensusType, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
@@ -54,10 +54,8 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
 #[async_trait]
 pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES> {
     /// generates a network given an expected node count
-    fn committee_generator(
-        expected_node_count: usize,
-        num_bootstrap: usize,
-        network_id: usize,
+    fn committee_generator<N: ConnectedNetwork<Message<TYPES, Self>, TYPES::SignatureKey>>(
+        network: &N,
     ) -> Box<
         dyn Fn(
                 u64,
@@ -70,10 +68,8 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     >;
 
     /// generates a network given an expected node count
-    fn quorum_generator(
-        expected_node_count: usize,
-        num_bootstrap: usize,
-        network_id: usize,
+    fn quorum_generator<N: ConnectedNetwork<Message<TYPES, Self>, TYPES::SignatureKey>>(
+        network: &N,
     ) -> Box<
         dyn Fn(
                 u64,
@@ -88,24 +84,24 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     /// Get the number of messages in-flight from quorum exchange.
     ///
     /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
-    fn quorum_in_flight_message_count(
-        network: &<Self::QuorumExchange as ConsensusExchange<
-            TYPES,
-            Self::Leaf,
-            Message<TYPES, Self>,
-        >>::Networking,
-    ) -> Option<usize>;
+    // fn quorum_in_flight_message_count(
+    //     network: &<Self::QuorumExchange as ConsensusExchange<
+    //         TYPES,
+    //         Self::Leaf,
+    //         Message<TYPES, Self>,
+    //     >>::Networking,
+    // ) -> Option<usize>;
 
     /// Get the number of messages in-flight from committee exchange.
     ///
     /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
-    fn committee_in_flight_message_count(
-        network: &<Self::CommitteeExchange as ConsensusExchange<
-            TYPES,
-            Self::Leaf,
-            Message<TYPES, Self>,
-        >>::Networking,
-    ) -> Option<usize>;
+    // fn committee_in_flight_message_count(
+    //     network: &<Self::CommitteeExchange as ConsensusExchange<
+    //         TYPES,
+    //         Self::Leaf,
+    //         Message<TYPES, Self>,
+    //     >>::Networking,
+    // ) -> Option<usize>;
 
     /// Creates random transaction if possible
     /// otherwise panics
@@ -149,7 +145,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestableNodeImplementation<T
 for I
 where
 <I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking :
-TestableNetworkingImplementation<
+TestableChannelImplementation<
     TYPES,
     Message<TYPES, I>,
     <I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Proposal,
@@ -157,7 +153,7 @@ TestableNetworkingImplementation<
     <I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership,
 >,
 <I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking :
-TestableNetworkingImplementation<
+TestableChannelImplementation<
     TYPES,
     Message<TYPES, I>,
     <I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Proposal,
@@ -172,29 +168,25 @@ I::Leaf : TestableLeaf<NodeType = TYPES>,
 // <I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership : TestableElection<TYPES>,
 // <I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership : TestableElection<TYPES>,
 {
-    fn committee_generator(
-        expected_node_count: usize,
-        num_bootstrap: usize,
-        network_id: usize,
+    fn committee_generator<N: ConnectedNetwork<Message<TYPES, I>, TYPES::SignatureKey>> (
+        network: &N
     ) -> Box<dyn Fn(u64) -> <I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking + 'static> {
-        <<I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(expected_node_count, num_bootstrap, network_id)
+        <<I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking as TestableChannelImplementation<_, _, _, _, _>>::generate_network(network)
     }
 
-    fn quorum_generator(
-        expected_node_count: usize,
-        num_bootstrap: usize,
-        network_id: usize,
+    fn quorum_generator<N: ConnectedNetwork<Message<TYPES, I>, TYPES::SignatureKey>>(
+        network: &N
     ) -> Box<dyn Fn(u64) -> <I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking + 'static> {
-        <<I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(expected_node_count, num_bootstrap, network_id)
+        <<I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking as TestableChannelImplementation<_, _, _, _, _>>::generate_network(network)
     }
 
-    fn quorum_in_flight_message_count(network: &<I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking) -> Option<usize> {
-        <<I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::in_flight_message_count(network)
-    }
+    // fn quorum_in_flight_message_count(network: &<I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking) -> Option<usize> {
+    //     <<I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking as TestableChannelImplementation<_, _, _, _, _>>::in_flight_message_count(network)
+    // }
 
-    fn committee_in_flight_message_count(network: &<I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking) -> Option<usize> {
-        <<I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::in_flight_message_count(network)
-    }
+    // fn committee_in_flight_message_count(network: &<I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking) -> Option<usize> {
+    //     <<I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking as TestableChannelImplementation<_, _, _, _, _>>::in_flight_message_count(network)
+    // }
 
     fn state_create_random_transaction(
         state: Option<&TYPES::StateType>,
