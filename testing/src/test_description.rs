@@ -1,9 +1,10 @@
+use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use crate::{
-    ConsensusRoundError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
-    TestRunner,
+    ConsensusFailedError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
+    TestRunner, RoundPreSafetyCheck, RoundCtx,
 };
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use either::Either::{self, Left, Right};
@@ -19,6 +20,7 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
+use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use tracing::{error, info};
 
@@ -185,7 +187,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPE
     /// execute a consensus test based on `Self`
     /// total_nodes: num nodes to run with
     /// txn_ids: vec of vec of transaction ids to send each round
-    pub async fn execute(self) -> Result<(), ConsensusRoundError>
+    pub async fn execute(self) -> Result<(), ConsensusFailedError>
     where
         HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
     {
@@ -282,16 +284,131 @@ impl Default for RoundCheckDescription {
 pub struct RoundCheckDescription {
     /// number of out of sync nodes before considered failed
     pub num_out_of_sync: usize,
-    /// max number of consecutive rounds allowed to fail
+    /// max number of consecutive rounds allowed to not reach decide
     pub max_consecutive_failed_rounds: usize,
     /// whether or not to check the leaf
     pub check_leaf: bool,
     /// whether or not to check the transaction pool
     pub check_transactions: bool,
+    /// num of consecutive failed rounds before failing
+    pub num_failed_consecutive_rounds: usize,
+    /// num of total rounds allowed to fail
+    pub num_failed_rounds_total: usize,
 }
+
 impl RoundCheckDescription {
-    fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(&self) -> Round<TYPES, I> {
-        Round::default()
+    fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(&self) -> (RoundPreSafetyCheck<TYPES, I>, RoundPostSafetyCheck<TYPES, I>){
+        let pre = RoundPreSafetyCheck::default();
+
+        let post =
+            move |
+                runner: &TestRunner<TYPES, I>,
+                ctx: &mut RoundCtx<TYPES, I>,
+                result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>| -> LocalBoxFuture<Result<(), ConsensusFailedError>>
+                {
+            async move {
+                let mut leaves = HashMap::<I::Leaf, usize>::new();
+
+                if self.check_leaf {
+                    let mut result = None;
+                    // group all the leaves since thankfully leaf implements hash
+                    for node in runner.nodes.iter() {
+                        let decide_leaf = node.handle.get_decided_leaf().await;
+                        match leaves.entry(decide_leaf) {
+                            std::collections::hash_map::Entry::Occupied(mut o) => {
+                                *o.get_mut() += 1;
+                            }
+                            std::collections::hash_map::Entry::Vacant(v) => {
+                                v.insert(1);
+                            }
+                        }
+                    }
+                    let collective = runner.nodes().collect::<Vec<_>>().len() - self.num_out_of_sync;
+                    for (leaf, num_nodes) in leaves {
+                        if num_nodes >= collective {
+                            result = Some(leaf);
+                        }
+                    }
+                }
+
+                Ok(())
+            }.boxed_local()
+        };
+
+        (pre, RoundPostSafetyCheck(Arc::new(post)))
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum UpDown {
+    Up, Down
+}
+
+#[derive(Clone, Debug)]
+pub struct ChangeNode {
+    idx: usize,
+    view: usize,
+    updown: UpDown
+}
+
+// TODO make this fancier by varying the size
+/// describes how to set up the round
+/// very naive as it stands. We want to add in more support for spinning up and down nodes
+#[derive(Clone, Debug)]
+pub struct RoundSetupDescription {
+    /// TODO add in sampling
+    /// number of transactions to submit per view
+    pub num_txns_per_round: usize,
+    pub scheduled_changes: Vec<ChangeNode>
+}
+
+
+impl RoundSetupDescription {
+    fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(&self) -> RoundSetup<TYPES, I>{
+        let closure =
+            move |runner: &mut TestRunner<TYPES, I>, ctx: &RoundCtx<TYPES, I>| -> LocalBoxFuture<Vec<TYPES::Transaction>> {
+                let changes = self.scheduled_changes.clone();
+                let cur_view = ctx.prior_round_results.len() + 1;
+                async move {
+                    let updowns =
+                        changes.iter()
+                               .filter(|node| node.view == cur_view)
+                               .map(|node| {
+                                   match node.updown {
+                                       UpDown::Up => {
+                                           Either::Left(node.idx)
+                                       },
+                                       UpDown::Down => {
+                                           Either::Right(node.idx)
+                                       }
+                                   }
+
+                               });
+                    // maybe we should switch to itertools
+                    // they have saner either functions
+                    let startup = updowns.filter_map(|node| node.left());
+                    let shutdown = updowns.filter_map(|node| node.right());
+
+                    for node in startup {
+                        // TODO implement
+                        // runner.shutdown(node as u64 ).await.unwrap();
+                    }
+
+                    for node in shutdown {
+                        runner.shutdown(node as u64).await.unwrap();
+                    }
+
+                    let mut rng = rand::thread_rng();
+                    runner
+                        .add_random_transactions(self.num_txns_per_round as usize, &mut rng)
+                        .await
+                        .unwrap()
+                }.boxed_local()
+            };
+
+        RoundSetup(Arc::new(
+                closure
+        ))
     }
 }
 

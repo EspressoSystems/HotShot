@@ -22,7 +22,7 @@ use hotshot_testing::{
         AppliedTestRunner, StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType,
         VrfTestTypes,
     },
-    ConsensusRoundError, RoundCtx, RoundPostSafetyCheck, RoundPreSafetyCheck, RoundResult,
+    ConsensusFailedError, RoundCtx, RoundPostSafetyCheck, RoundPreSafetyCheck, RoundResult,
     RoundSetup, SafetyFailedSnafu,
 };
 
@@ -181,7 +181,7 @@ fn test_validating_vote_queueing_post_safety_check<
     runner: &'a AppliedValidatingTestRunner<TYPES, I>,
     _ctx: &'a RoundCtx<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
-) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>
+) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>
 where
     I::QuorumExchange: QuorumExchangeType<
         TYPES,
@@ -211,11 +211,11 @@ where
                 let queue_state = get_queue_len(is_past, len);
                 match queue_state {
                     QueuedMessageTense::Past(Some(len)) => {
-                        result = Err(ConsensusRoundError::SafetyFailed {
+                        result = Err(ConsensusFailedError::SafetyFailed {
                                                 description: format!("Past view's next leader receiver channel for node {node_id} still exists for {ref_view_number:?} with {len} items in it.  We are currently in {cur_view:?}")});
                     }
                     QueuedMessageTense::Future(None) => {
-                        result = Err(ConsensusRoundError::SafetyFailed {
+                        result = Err(ConsensusFailedError::SafetyFailed {
                             description: format!("Next ValidatingLeader did not properly queue future vote for {ref_view_number:?}.  We are currently in {cur_view:?}")});
                     }
                     _ => {}
@@ -271,7 +271,7 @@ fn test_validating_proposal_queueing_post_safety_check<
     runner: &'a AppliedValidatingTestRunner<TYPES, I>,
     _cx: &'a RoundCtx<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
-) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>
+) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>
 where
     I::QuorumExchange: QuorumExchangeType<
         TYPES,
@@ -302,11 +302,11 @@ where
                     let queue_state = get_queue_len(is_past, len);
                     match queue_state {
                         QueuedMessageTense::Past(Some(len)) => {
-                            result = Err(ConsensusRoundError::SafetyFailed {
+                            result = Err(ConsensusFailedError::SafetyFailed {
                                                     description: format!("Node {node_id}'s past view's replica receiver channel still exists for {ref_view_number:?} with {len} items in it.  We are currenltly in {cur_view:?}")});
                         }
                         QueuedMessageTense::Future(None) => {
-                            result = Err(ConsensusRoundError::SafetyFailed {
+                            result = Err(ConsensusFailedError::SafetyFailed {
                                 description: format!("Replica did not properly queue future proposal for {ref_view_number:?}.  We are currently in {cur_view:?}")});
                         }
                         _ => {}
@@ -396,7 +396,7 @@ fn test_bad_validating_proposal_post_safety_check<
     runner: &'a AppliedValidatingTestRunner<TYPES, I>,
     _ctx: &'a RoundCtx<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
-) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>
+) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>
 where
     I::QuorumExchange: QuorumExchangeType<
         TYPES,
@@ -427,16 +427,16 @@ where
                 let queue_state = get_queue_len(is_past, len);
                 match queue_state {
                     QueuedMessageTense::Past(Some(len)) => {
-                        result = Err(ConsensusRoundError::SafetyFailed {
+                        result = Err(ConsensusFailedError::SafetyFailed {
                             description: format!("Past view's replica receiver channel still exists for {ref_view_number:?} with {len} items in it.  We are currently in {cur_view:?}")});
                     }
                     QueuedMessageTense::Future(Some(len)) => {
                         if !is_upcoming_validating_leader && ref_view_number != cur_view {
-                            result = Err(ConsensusRoundError::SafetyFailed {
+                            result = Err(ConsensusFailedError::SafetyFailed {
                                 description: format!("Replica queued invalid Proposal message that was not sent from the leader for {ref_view_number:?}.  We are currently in {cur_view:?}")});
                         }
                         else if len > 1 {
-                            result = Err(ConsensusRoundError::SafetyFailed {
+                            result = Err(ConsensusFailedError::SafetyFailed {
                                 description: format!("Replica queued too many Proposal messages for {ref_view_number:?}.  We are currently in {cur_view:?}")});
 
                         }

@@ -71,12 +71,14 @@ pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 /// this context will be passed around
 pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     prior_round_results: Vec<RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>>,
+    views_since_progress: usize
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for RoundCtx<TYPES, I> {
     fn default() -> Self {
         Self {
             prior_round_results: Default::default(),
+            views_since_progress: 0
         }
     }
 }
@@ -87,9 +89,9 @@ pub struct RoundPostSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<T
     pub  Arc<
         dyn for<'a> Fn(
             &'a TestRunner<TYPES, I>,
-            &'a RoundCtx<TYPES, I>,
+            &mut 'a RoundCtx<TYPES, I>,
             RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
-        ) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>,
+        ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>,
     >,
 );
 
@@ -100,7 +102,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref
         &'a TestRunner<TYPES, I>,
         &'a RoundCtx<TYPES, I>,
         RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
-    ) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>;
+    ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -117,6 +119,14 @@ pub struct RoundSetup<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         ) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>,
     >,
 );
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RoundSetup<TYPES, I> {
+    fn constrain<F>(f: F) -> F
+        where
+            F: for<'a> Fn(&'a mut TestRunner<TYPES, I>, &'a RoundCtx<TYPES, I>) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>,
+        {
+            f
+        }
+}
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RoundSetup<TYPES, I> {
     type Target = dyn for<'a> Fn(
@@ -136,9 +146,17 @@ pub struct RoundPreSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TY
         dyn for<'a> Fn(
             &'a TestRunner<TYPES, I>,
             &'a RoundCtx<TYPES, I>,
-        ) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>,
+        ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>,
     >,
 );
+
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default
+    for RoundPreSafetyCheck<TYPES, I>
+{
+    fn default() -> Self {
+        Self(Arc::new(default_safety_check_pre))
+    }
+}
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref
     for RoundPreSafetyCheck<TYPES, I>
@@ -146,7 +164,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref
     type Target = dyn for<'a> Fn(
         &'a TestRunner<TYPES, I>,
         &'a RoundCtx<TYPES, I>,
-    ) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>>;
+    ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
@@ -170,7 +188,7 @@ pub struct Round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 pub fn default_safety_check_pre<'a, TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     _asdf: &'a TestRunner<TYPES, I>,
     _ctx: &'a RoundCtx<TYPES, I>,
-) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>> {
+) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>> {
     use futures::FutureExt;
     async move { Ok(()) }.boxed()
 }
@@ -185,9 +203,9 @@ pub fn default_setup_round<'a, TYPES: NodeType, TRANS, I: TestableNodeImplementa
 
 pub fn default_safety_check_post<'a, TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     _asdf: &'a TestRunner<TYPES, I>,
-    _ctx: &'a RoundCtx<TYPES, I>,
+    _ctx: &'a mut RoundCtx<TYPES, I>,
     _result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
-) -> LocalBoxFuture<'a, Result<(), ConsensusRoundError>> {
+) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>> {
     use futures::FutureExt;
     async move { Ok(()) }.boxed()
 }
@@ -384,7 +402,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     pub async fn execute_round(
         &mut self,
         ctx: &mut RoundCtx<TYPES, I>,
-    ) -> Result<(), ConsensusRoundError> {
+    ) -> Result<(), ConsensusFailedError> {
         let Round {
             safety_check_pre,
             setup_round,
@@ -458,14 +476,14 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     /// returns [`ConsensusRoundError::NoSuchNode`] if the node idx is either
     /// - already shut down
     /// - does not exist
-    pub async fn shutdown(&mut self, node_id: u64) -> Result<(), ConsensusRoundError> {
+    pub async fn shutdown(&mut self, node_id: u64) -> Result<(), ConsensusFailedError> {
         let maybe_idx = self.nodes.iter().position(|n| n.node_id == node_id);
         if let Some(idx) = maybe_idx {
             let node = self.nodes.remove(idx);
             node.handle.shut_down().await;
             Ok(())
         } else {
-            Err(ConsensusRoundError::NoSuchNode {
+            Err(ConsensusFailedError::NoSuchNode {
                 node_ids: self.ids(),
                 requested_id: node_id,
             })
@@ -646,7 +664,7 @@ pub enum TransactionError {
 /// when trying to reach consensus
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
-pub enum ConsensusRoundError {
+pub enum ConsensusFailedError {
     /// Safety condition failed
     SafetyFailed {
         /// description of error
