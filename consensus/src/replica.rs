@@ -32,7 +32,7 @@ use tracing::{error, info, instrument, warn};
 pub struct Replica<
     A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: NodeImplementation<TYPES>,
+    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
 > {
     /// id of node
     pub id: u64,

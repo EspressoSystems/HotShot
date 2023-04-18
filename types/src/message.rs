@@ -47,10 +47,10 @@ impl<
 }
 
 impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
         CONSENSUS: ValidatingConsensusType,
-        CONSENSUSMESSAGE: ValidatingMessageType<CONSENSUS, TYPES, I>,
+        TYPES: NodeType<ConsensusType = CONSENSUS>,
+        I: NodeImplementation<TYPES>,
+        CONSENSUSMESSAGE: ValidatingMessageType<TYPES, I>,
     > ViewMessage<TYPES> for Message<TYPES, I, CONSENSUSMESSAGE>
 {
     /// get the view number out of a message
@@ -69,10 +69,10 @@ impl<
 }
 
 impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
         CONSENSUS: SequencingConsensusType,
-        CONSENSUSMESSAGE: SequencingMessageType<CONSENSUS, TYPES, I>,
+        TYPES: NodeType<ConsensusType = CONSENSUS>,
+        I: NodeImplementation<TYPES>,
+        CONSENSUSMESSAGE: SequencingMessageType<TYPES, I>,
     > ViewMessage<TYPES> for Message<TYPES, I, CONSENSUSMESSAGE>
 {
     /// get the view number out of a message
@@ -143,21 +143,35 @@ pub enum InternalTrigger<TYPES: NodeType> {
 /// A processed consensus message for both validating and sequencing consensus.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub enum ProcessedGeneralConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub enum ProcessedGeneralConsensusMessage<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>,
+> {
     /// Leader's proposal for full Quorom voting
-    Proposal(Proposal<QuorumProposalType<TYPES, I>>, TYPES::SignatureKey),
+    Proposal(
+        Proposal<QuorumProposalType<TYPES, I, CONSENSUSMESSAGE>>,
+        TYPES::SignatureKey,
+    ),
     /// Replica's vote on a proposal.
-    Vote(QuorumVoteType<TYPES, I>, TYPES::SignatureKey),
+    Vote(
+        QuorumVoteType<TYPES, I, CONSENSUSMESSAGE>,
+        TYPES::SignatureKey,
+    ),
     /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedGeneralConsensusMessage<TYPES, I>>
-    for GeneralConsensusMessage<TYPES, I>
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>,
+    > From<ProcessedGeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>>
+    for GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>
 {
     /// row polymorphism would be great here
-    fn from(value: ProcessedGeneralConsensusMessage<TYPES, I>) -> Self {
+    fn from(value: ProcessedGeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>) -> Self {
         match value {
             ProcessedGeneralConsensusMessage::Proposal(p, _) => {
                 GeneralConsensusMessage::Proposal(p)
@@ -170,9 +184,17 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedGeneralConsens
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProcessedGeneralConsensusMessage<TYPES, I> {
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>,
+    > ProcessedGeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>
+{
     /// row polymorphism would be great here
-    pub fn new(value: GeneralConsensusMessage<TYPES, I>, sender: TYPES::SignatureKey) -> Self {
+    pub fn new(
+        value: GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>,
+        sender: TYPES::SignatureKey,
+    ) -> Self {
         match value {
             GeneralConsensusMessage::Proposal(p) => {
                 ProcessedGeneralConsensusMessage::Proposal(p, sender)
@@ -228,12 +250,16 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProcessedCommitteeConsensusM
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = "", serialize = ""))]
 /// Messages related to both validating and sequencing consensus.
-pub enum GeneralConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+pub enum GeneralConsensusMessage<
+    TYPES: NodeType,
+    I: NodeImplementation<TYPES>,
+    CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>,
+> {
     /// Leader's proposal for full quorum voting
-    Proposal(Proposal<QuorumProposalType<TYPES, I>>),
+    Proposal(Proposal<QuorumProposalType<TYPES, I, CONSENSUSMESSAGE>>),
 
     /// Replica's vote on a proposal.
-    Vote(QuorumVoteType<TYPES, I>),
+    Vote(QuorumVoteType<TYPES, I, CONSENSUSMESSAGE>),
 
     /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
@@ -257,26 +283,20 @@ pub trait ConsensusMessageType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 }
 
 /// Messages related to the validating consensus protocol.
-pub trait ValidatingMessageType<
-    CONSENSUS: ValidatingConsensusType,
-    TYPES: NodeType<ConsensusType = CONSENSUS>,
-    I: NodeImplementation<TYPES>,
->: ConsensusMessageType<TYPES, I>
+pub trait ValidatingMessageType<TYPES: NodeType, I: NodeImplementation<TYPES>>:
+    ConsensusMessageType<TYPES, I>
 {
 }
 
 /// Messages related to the sequencing consensus protocol.
-pub trait SequencingMessageType<
-    CONSENSUS: SequencingConsensusType,
-    TYPES: NodeType<ConsensusType = CONSENSUS>,
-    I: NodeImplementation<TYPES>,
->: ConsensusMessageType<TYPES, I>
+pub trait SequencingMessageType<TYPES: NodeType, I: NodeImplementation<TYPES>>:
+    ConsensusMessageType<TYPES, I>
 {
     type CommitteeConsensusMessage;
 }
 
 pub struct ValidatingMessage<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    GeneralConsensusMessage<TYPES, I>,
+    GeneralConsensusMessage<TYPES, I, ValidatingMessage<TYPES, I>>,
 );
 
 impl<
@@ -285,14 +305,14 @@ impl<
         I: NodeImplementation<TYPES>,
     > ConsensusMessageType<TYPES, I> for ValidatingMessage<TYPES, I>
 {
-    type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I>;
+    type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I, Self>;
 }
 
 impl<
         CONSENSUS: ValidatingConsensusType,
         TYPES: NodeType<ConsensusType = CONSENSUS>,
         I: NodeImplementation<TYPES>,
-    > ValidatingMessageType<CONSENSUS, TYPES, I> for ValidatingMessage<TYPES, I>
+    > ValidatingMessageType<TYPES, I> for ValidatingMessage<TYPES, I>
 {
 }
 
@@ -320,7 +340,10 @@ impl<
 }
 
 pub struct SequencingMessage<TYPES: NodeType, I: NodeImplementation<TYPES>>(
-    Either<GeneralConsensusMessage<TYPES, I>, CommitteeConsensusMessage<TYPES, I>>,
+    Either<
+        GeneralConsensusMessage<TYPES, I, SequencingMessage<TYPES, I>>,
+        CommitteeConsensusMessage<TYPES, I>,
+    >,
 );
 
 impl<
@@ -329,14 +352,11 @@ impl<
         I: NodeImplementation<TYPES>,
     > ConsensusMessageType<TYPES, I> for SequencingMessage<TYPES, I>
 {
-    type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I>;
+    type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I, Self>;
 }
 
-impl<
-        CONSENSUS: SequencingConsensusType,
-        TYPES: NodeType<ConsensusType = CONSENSUS>,
-        I: NodeImplementation<TYPES>,
-    > SequencingMessageType<CONSENSUS, TYPES, I> for SequencingMessage<TYPES, I>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> SequencingMessageType<TYPES, I>
+    for SequencingMessage<TYPES, I>
 {
     type CommitteeConsensusMessage = CommitteeConsensusMessage<TYPES, I>;
 }

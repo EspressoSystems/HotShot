@@ -7,7 +7,6 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use commit::Committable;
-use hotshot_types::traits::election::{ConsensusExchange, QuorumExchangeType};
 use hotshot_types::traits::node_implementation::{
     NodeImplementation, QuorumProposalType, QuorumVoteType,
 };
@@ -21,6 +20,10 @@ use hotshot_types::{
     },
 };
 use hotshot_types::{message::Message, traits::node_implementation::ValidatingExchangesType};
+use hotshot_types::{
+    message::ValidatingMessage,
+    traits::election::{ConsensusExchange, QuorumExchangeType},
+};
 use std::marker::PhantomData;
 use std::{sync::Arc, time::Instant};
 use tracing::{error, info, instrument, warn};
@@ -29,7 +32,7 @@ use tracing::{error, info, instrument, warn};
 pub struct ValidatingLeader<
     A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
+    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
 > where
     I::Exchanges: ValidatingExchangesType<ValidatingConsensus, TYPES, LEAF, Message<TYPES, I>>,
 {

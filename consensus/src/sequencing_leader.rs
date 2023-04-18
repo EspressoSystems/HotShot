@@ -23,7 +23,9 @@ use hotshot_types::traits::node_implementation::{
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, DAProposal, SequencingLeaf},
-    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, Proposal},
+    message::{
+        ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, Proposal, SequencingMessage,
+    },
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus, election::SignedCertificate,
         node_implementation::NodeType, signature_key::SignatureKey, Block,
@@ -39,10 +41,8 @@ use tracing::{error, info, instrument, warn};
 #[derive(Debug, Clone)]
 pub struct DALeader<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
-    // DA: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
-    // QUORUM: ConsensusExchange<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
     TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
+    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
 > {
     /// id of node
     pub id: u64,
@@ -70,7 +70,7 @@ pub struct DALeader<
 impl<
         A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
         TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
+        I: NodeImplementation<TYPES, SequencingMessage<TYPES, I>>,
     > DALeader<A, TYPES, I>
 where
     I::QuorumExchange: ConsensusExchange<
@@ -283,7 +283,7 @@ where
 pub struct ConsensusLeader<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
+    I: NodeImplementation<TYPES, SequencingMessage<TYPES, I>>,
 > {
     /// id of node
     pub id: u64,
@@ -380,7 +380,7 @@ where
 pub struct ConsensusNextLeader<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
+    I: NodeImplementation<TYPES, SequencingMessage<TYPES, I>>,
 > {
     /// id of node
     pub id: u64,

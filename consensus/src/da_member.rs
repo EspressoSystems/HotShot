@@ -8,7 +8,7 @@ use crate::{
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock};
 use commit::Committable;
-use hotshot_types::message::Message;
+use hotshot_types::message::{Message, SequencingMessage};
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{DAProposal, SequencingLeaf},
@@ -29,7 +29,7 @@ use tracing::{error, info, instrument, warn};
 pub struct DAMember<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
+    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, Self>>,
 > {
     /// ID of node.
     pub id: u64,

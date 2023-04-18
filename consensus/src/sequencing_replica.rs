@@ -22,7 +22,7 @@ use hotshot_types::vote::DAVote;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, LeafType, SequencingLeaf},
-    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
+    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage, SequencingMessage},
     traits::{
         election::SignedCertificate, node_implementation::NodeType, signature_key::SignatureKey,
         Block,
@@ -40,7 +40,7 @@ use tracing::{error, info, instrument, warn};
 pub struct SequencingReplica<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
+    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
 > {
     /// ID of node.
     pub id: u64,

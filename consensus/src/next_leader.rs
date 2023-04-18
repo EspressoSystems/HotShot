@@ -8,6 +8,7 @@ use either::Either;
 use hotshot_types::data::ValidatingLeaf;
 use hotshot_types::message::Message;
 use hotshot_types::message::ProcessedConsensusMessage;
+use hotshot_types::message::ValidatingMessage;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::election::{Checked::Unchecked, VoteData};
@@ -33,7 +34,7 @@ use tracing::{info, instrument, warn};
 pub struct NextValidatingLeader<
     A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
+    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
 > {
     /// id of node
     pub id: u64,
