@@ -7,11 +7,17 @@ use crate::certificate::{DACertificate, QuorumCertificate};
 use crate::data::ProposalType;
 
 use crate::data::DAProposal;
-use crate::message::{CommitteeConsensusMessage, GeneralConsensusMessage};
-use crate::message::{ConsensusMessageType, Message};
+use crate::message::{
+    CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, Message,
+    SequencingMessage,
+};
 use crate::traits::network::CommunicationChannel;
 use crate::traits::network::NetworkMsg;
-use crate::traits::state::ConsensusTime;
+use crate::traits::{
+    consensus_type::sequencing_consensus::SequencingConsensus,
+    node_implementation::{ExchangesType, SequencingExchangesType},
+    state::ConsensusTime,
+};
 use crate::vote::VoteAccumulator;
 use crate::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote};
 use crate::{data::LeafType, traits::signature_key::SignatureKey};
@@ -368,8 +374,11 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
 }
 
 /// A [`ConsensusExchange`] where participants vote to provide availability for blobs of data.
-pub trait CommitteeExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M: NetworkMsg>:
-    ConsensusExchange<TYPES, LEAF, M>
+pub trait CommitteeExchangeType<
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    LEAF: LeafType<NodeType = TYPES>,
+    M: NetworkMsg,
+>: ConsensusExchange<TYPES, LEAF, M>
 {
     /// Sign a DA proposal.
     fn sign_da_proposal(&self, block_commitment: &Commitment<TYPES::BlockType>)
@@ -391,12 +400,19 @@ pub trait CommitteeExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> CommitteeConsensusMessage<TYPES, I>;
+    ) -> CommitteeConsensusMessage<TYPES, I>
+    where
+        I::Exchanges: SequencingExchangesType<
+            SequencingConsensus,
+            TYPES,
+            LEAF,
+            Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        >;
 }
 
 /// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
 pub struct CommitteeExchange<
-    TYPES: NodeType,
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MEMBERSHIP: Membership<TYPES>,
     NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES, LEAF>, MEMBERSHIP>,
@@ -415,7 +431,7 @@ pub struct CommitteeExchange<
 }
 
 impl<
-        TYPES: NodeType,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
         LEAF: LeafType<NodeType = TYPES>,
         MEMBERSHIP: Membership<TYPES>,
         NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES, LEAF>, MEMBERSHIP>,
@@ -452,7 +468,15 @@ impl<
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> CommitteeConsensusMessage<TYPES, I> {
+    ) -> CommitteeConsensusMessage<TYPES, I>
+    where
+        I::Exchanges: SequencingExchangesType<
+            SequencingConsensus,
+            TYPES,
+            LEAF,
+            Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        >,
+    {
         let signature = self.sign_da_vote(block_commitment);
         CommitteeConsensusMessage::<TYPES, I>::DAVote(DAVote {
             justify_qc_commitment,
@@ -465,7 +489,7 @@ impl<
 }
 
 impl<
-        TYPES: NodeType,
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
         LEAF: LeafType<NodeType = TYPES>,
         MEMBERSHIP: Membership<TYPES>,
         NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES, LEAF>, MEMBERSHIP>,
@@ -550,7 +574,14 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     /// Create a message with a positive vote on validating or commitment proposal.
     fn create_yes_message<
         I: NodeImplementation<TYPES, Leaf = LEAF>,
-        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>,
+        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
+            + Clone
+            + Debug
+            + Send
+            + Sync
+            + 'static
+            + for<'a> Deserialize<'a>
+            + Serialize,
     >(
         &self,
         justify_qc_commitment: Commitment<Self::Certificate>,
@@ -559,7 +590,9 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
         vote_token: TYPES::VoteTokenType,
     ) -> GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>
     where
-        <Self as ConsensusExchange<TYPES, LEAF, M>>::Certificate: commit::Committable;
+        <Self as ConsensusExchange<TYPES, LEAF, M>>::Certificate: commit::Committable,
+        I::Exchanges:
+            ExchangesType<TYPES::ConsensusType, TYPES, LEAF, Message<TYPES, I, CONSENSUSMESSAGE>>;
 
     /// Sign a validating or commitment proposal.
     fn sign_validating_or_commitment_proposal<I: NodeImplementation<TYPES>>(
@@ -599,26 +632,54 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
 
     /// Create a message with a negative vote on validating or commitment proposal.
     fn create_no_message<
-        I: NodeImplementation<TYPES>,
-        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>,
+        I: NodeImplementation<TYPES, Leaf = LEAF>,
+        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
+            + Clone
+            + Debug
+            + Send
+            + Sync
+            + 'static
+            + for<'a> Deserialize<'a>
+            + Serialize,
     >(
         &self,
         justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>;
+    ) -> GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>
+    where
+        I::Exchanges: ExchangesType<
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I, CONSENSUSMESSAGE>,
+        >;
 
     /// Create a message with a timeout vote on validating or commitment proposal.
     fn create_timeout_message<
-        I: NodeImplementation<TYPES>,
-        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>,
+        I: NodeImplementation<TYPES, Leaf = LEAF>,
+        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
+            + Clone
+            + Debug
+            + Send
+            + Sync
+            + 'static
+            + for<'a> Deserialize<'a>
+            + Serialize,
     >(
         &self,
         justify_qc: QuorumCertificate<TYPES, LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>;
+    ) -> GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>
+    where
+        I::Exchanges: ExchangesType<
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I, CONSENSUSMESSAGE>,
+        >;
 }
 
 /// Standard implementation of [`QuroumExchangeType`] based on Hot Stuff consensus.
@@ -655,16 +716,27 @@ impl<
     /// Create a message with a positive vote on validating or commitment proposal.
     fn create_yes_message<
         I: NodeImplementation<TYPES, Leaf = LEAF>,
-        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>,
+        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
+            + Clone
+            + Debug
+            + Send
+            + Sync
+            + 'static
+            + for<'a> Deserialize<'a>
+            + Serialize,
     >(
         &self,
         justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE> {
+    ) -> GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>
+    where
+        I::Exchanges:
+            ExchangesType<TYPES::ConsensusType, TYPES, LEAF, Message<TYPES, I, CONSENSUSMESSAGE>>,
+    {
         let signature = self.sign_yes_vote(leaf_commitment);
-        GeneralConsensusMessage::<TYPES, I>::Vote(QuorumVote::Yes(YesOrNoVote {
+        GeneralConsensusMessage::<TYPES, I, CONSENSUSMESSAGE>::Vote(QuorumVote::Yes(YesOrNoVote {
             justify_qc_commitment,
             signature,
             leaf_commitment,
@@ -730,17 +802,28 @@ impl<
     }
     /// Create a message with a negative vote on validating or commitment proposal.
     fn create_no_message<
-        I: NodeImplementation<TYPES>,
-        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>,
+        I: NodeImplementation<TYPES, Leaf = LEAF>,
+        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
+            + Clone
+            + Debug
+            + Send
+            + Sync
+            + 'static
+            + for<'a> Deserialize<'a>
+            + Serialize,
     >(
         &self,
         justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
         leaf_commitment: Commitment<LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE> {
+    ) -> GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>
+    where
+        I::Exchanges:
+            ExchangesType<TYPES::ConsensusType, TYPES, LEAF, Message<TYPES, I, CONSENSUSMESSAGE>>,
+    {
         let signature = self.sign_no_vote(leaf_commitment);
-        GeneralConsensusMessage::<TYPES, I>::Vote(QuorumVote::No(YesOrNoVote {
+        GeneralConsensusMessage::<TYPES, I, CONSENSUSMESSAGE>::Vote(QuorumVote::No(YesOrNoVote {
             justify_qc_commitment,
             signature,
             leaf_commitment,
@@ -751,21 +834,38 @@ impl<
 
     /// Create a message with a timeout vote on validating or commitment proposal.
     fn create_timeout_message<
-        I: NodeImplementation<TYPES>,
-        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>,
+        I: NodeImplementation<TYPES, Leaf = LEAF>,
+        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
+            + Clone
+            + Debug
+            + Send
+            + Sync
+            + 'static
+            + for<'a> Deserialize<'a>
+            + Serialize,
     >(
         &self,
         justify_qc: QuorumCertificate<TYPES, LEAF>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE> {
+    ) -> GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>
+    where
+        I::Exchanges: ExchangesType<
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I, CONSENSUSMESSAGE>,
+        >,
+    {
         let signature = self.sign_timeout_vote(current_view);
-        GeneralConsensusMessage::<TYPES, I>::Vote(QuorumVote::Timeout(TimeoutVote {
-            justify_qc,
-            signature,
-            current_view,
-            vote_token,
-        }))
+        GeneralConsensusMessage::<TYPES, I, CONSENSUSMESSAGE>::Vote(QuorumVote::Timeout(
+            TimeoutVote {
+                justify_qc,
+                signature,
+                current_view,
+                vote_token,
+            },
+        ))
     }
 }
 

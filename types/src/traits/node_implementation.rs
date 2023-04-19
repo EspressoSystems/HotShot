@@ -4,7 +4,7 @@
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
 
 use async_trait::async_trait;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::{
     block_contents::Transaction,
@@ -12,7 +12,7 @@ use super::{
         sequencing_consensus::SequencingConsensusType,
         validating_consensus::ValidatingConsensusType, ConsensusType,
     },
-    election::{ConsensusExchange, ElectionConfig, QuorumExchange, VoteToken},
+    election::{ConsensusExchange, ElectionConfig, VoteToken},
     network::{NetworkMsg, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, TestableBlock, TestableState},
@@ -21,10 +21,7 @@ use super::{
 };
 use crate::{
     data::LeafType,
-    message::{
-        CommitteeConsensusMessage, ConsensusMessageType, SequencingMessage, SequencingMessageType,
-        ValidatingMessage, ValidatingMessageType,
-    },
+    message::{ConsensusMessageType, SequencingMessage, ValidatingMessage},
     traits::{
         consensus_type::{
             sequencing_consensus::SequencingConsensus, validating_consensus::ValidatingConsensus,
@@ -47,14 +44,24 @@ use std::{fmt::Debug, marker::PhantomData};
 /// It is recommended you implement this trait on a zero sized type, as `HotShot`does not actually
 /// store or keep a reference to any value implementing this trait.
 
-pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'static {
+pub trait NodeImplementation<TYPES: NodeType>:
+    Send + Sync + Debug + Clone + 'static + Serialize + for<'de> Deserialize<'de>
+{
     /// Leaf type for this consensus implementation
     type Leaf: LeafType<NodeType = TYPES>;
 
     /// Storage type for this consensus implementation
     type Storage: Storage<TYPES, Self::Leaf> + Clone;
 
-    type ConsensusMessage: ConsensusMessageType<TYPES, Self>;
+    /// Consensus message type.
+    type ConsensusMessage: ConsensusMessageType<TYPES, Self>
+        + Clone
+        + Debug
+        + Send
+        + Sync
+        + 'static
+        + for<'a> Deserialize<'a>
+        + Serialize;
 
     /// Consensus type selected exchanges.
     ///
@@ -280,10 +287,11 @@ pub trait TestableNodeImplementation<
 }
 
 #[async_trait]
-impl<TYPES: NodeType<ConsensusType = ValidatingConsensus>, I: NodeImplementation<TYPES>>
-    TestableNodeImplementation<ValidatingConsensus, TYPES> for I
+impl<
+        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, Self>>,
+    > TestableNodeImplementation<ValidatingConsensus, TYPES> for I
 where
-    <I as NodeImplementation<TYPES>>::ConsensusMessage: ValidatingMessageType<TYPES, I>,
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<
         ValidatingConsensus,
         TYPES,
@@ -322,12 +330,12 @@ where
     type CommitteeNetwork = ();
 
     fn committee_generator(
-        expected_node_count: usize,
-        num_bootstrap: usize,
-        network_id: usize,
+        _expected_node_count: usize,
+        _num_bootstrap: usize,
+        _network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self::CommitteeNetwork + 'static> {
         // This function is only useful for sequencing consensus.
-        ()
+        unimplemented!()
     }
 
     fn quorum_generator(
@@ -344,13 +352,15 @@ where
             >>::Networking
             + 'static,
     > {
-        <ValidatingQuorumEx<TYPES, I>::Networking as TestableNetworkingImplementation<
-            _,
-            _,
-            _,
-            _,
-            _,
-        >>::generator(expected_node_count, num_bootstrap, network_id)
+        <<ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+        >>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+        )
     }
 
     fn state_create_random_transaction(
@@ -391,10 +401,11 @@ where
 }
 
 #[async_trait]
-impl<TYPES: NodeType<ConsensusType = SequencingConsensus>, I: NodeImplementation<TYPES>>
-    TestableNodeImplementation<SequencingConsensus, TYPES> for I
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, Self>>,
+    > TestableNodeImplementation<SequencingConsensus, TYPES> for I
 where
-    <I as NodeImplementation<TYPES>>::ConsensusMessage: SequencingMessageType<TYPES, I>,
     <I as NodeImplementation<TYPES>>::Exchanges: SequencingExchangesType<
         SequencingConsensus,
         TYPES,
@@ -464,7 +475,15 @@ where
         num_bootstrap: usize,
         network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self::CommitteeNetwork + 'static> {
-        <CommitteeEx<TYPES, I>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(expected_node_count, num_bootstrap, network_id)
+        <<CommitteeEx<TYPES, I> as ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        >>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+        )
     }
 
     fn quorum_generator(
@@ -481,13 +500,15 @@ where
             >>::Networking
             + 'static,
     > {
-        <SequencingQuorumEx<TYPES, I>::Networking as TestableNetworkingImplementation<
-            _,
-            _,
-            _,
-            _,
-            _,
-        >>::generator(expected_node_count, num_bootstrap, network_id)
+        <<SequencingQuorumEx<TYPES, I> as ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        >>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+        )
     }
 
     fn state_create_random_transaction(
