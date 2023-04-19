@@ -65,4 +65,14 @@ DOC = """
 Post the stake table to the web server
 """
 
+# POST stake table
+[route.secret/:view_number/:secret]
+PATH = ["secret"]
+METHOD = "POST"
+":view_number" = "Integer"
+":secret" = "Literal"
+DOC = """
+Secret path for leader to post proposal for a given view
+"""
+
 

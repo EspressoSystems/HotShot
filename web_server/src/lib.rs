@@ -33,8 +33,8 @@ const MAX_TXNS: usize = 10;
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
 struct WebServerState<KEY> {
-    /// view number -> proposals
-    proposals: HashMap<u64, Vec<Vec<u8>>>,
+    /// view number -> (secret, proposal)
+    proposals: HashMap<u64, (String, Vec<u8>)>,
     /// view for oldest proposals in memory
     oldest_proposal: u64,
     /// view number -> Vec(index, vote)
@@ -88,6 +88,7 @@ pub trait WebServerDataSource<KEY> {
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
     fn post_staketable(&mut self, key: Vec<u8>) -> Result<(), Error>;
+    fn secret(&self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error>;
 }
 
 impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
@@ -189,6 +190,12 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         // KALEY TODO: need security checks here
         let new_key = KEY::from_bytes(&(EncodedPublicKey(key)));
         if let Some(new_key) = new_key {
+            let index = (*view_number % self.nodes.len() as u64) as usize;
+            //generate secret for endpoint when key is added
+            //KALEY: should this be completely random?? e.g. from entropy
+            let node_index = self.stake_table.len();
+            let secret = rand::rngs::StdRng::seed_from_u64(node_index).to_string();
+            self.proposals.insert(node_index, (secret, Vec::new()));
             self.stake_table.push(new_key);
             Ok(())
         } else {
@@ -197,6 +204,17 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
                 message: "Only signature keys can be added to stake table".to_string(),
             })
         }
+    }
+
+    //KALEY TODO: this is proposal submission sketch:
+    // -allow one submission
+    // -upon receiving proposal, generate and register new endpoint that routes to 
+    //  proposal submission handler method (post_proposal)
+    fn secret(&self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error> {
+        //* add proposal to hashmap
+        //* generate endpoint for the next time this node is leader
+        //sliding window of endpoints is essenentially the size of the nodes
+        Ok(())
     }
 }
 
@@ -277,6 +295,17 @@ where
             state.post_staketable(key)
         }
         .boxed()
+    })?
+    .post("secret", |req, state| {
+        async move {
+            let view_number: u64 = req.integer_param("view_number")?;
+            let secret: &str = req.string_param("secret")?;
+            //if secret is good (good means view_number->secret mapping is correct and view_number->proposal is empty)
+            state.
+                let proposal = req.body_bytes();
+                state.post_proposal(view_number, proposal)
+        }
+        .boxed()
     })?;
     Ok(api)
 }
@@ -290,6 +319,7 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
     let mut app = App::<State<KEY>, Error>::with_state(state);
 
     app.register_module("api", api).unwrap();
+    //KALEY TODO register first leader's proposal submission endpoint
     app.serve(format!("http://0.0.0.0:{DEFAULT_WEB_SERVER_PORT}"))
         .await
 }
@@ -303,6 +333,7 @@ mod test {
 
     use super::*;
     use async_compatibility_layer::art::async_spawn;
+    //use hotshot_types::traits::signature_key::EncodedPublicKey;
     use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
     use portpicker::pick_unused_port;
     use surf_disco::error::ClientError;
