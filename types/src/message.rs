@@ -65,10 +65,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Messa
     }
 }
 
+/// A message type agnostic description of a messages purpose
 pub enum MessagePurpose {
+    /// Message contains a proposal
     Proposal,
+    /// Message contains a vote
     Vote,
+    /// Message for internal use
     Internal,
+    /// Data message
     Data,
 }
 
@@ -157,12 +162,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProcessedConsensusMessage<TY
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = "", serialize = ""))]
 /// Messages related to the consensus protocol
-pub enum ConsensusMessage<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    // PROPOSAL: ProposalType<NodeType = TYPES>,
-    // VOTE: VoteType<TYPES>,
-> {
+pub enum ConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Leader's proposal for full quorum voting
     Proposal(Proposal<QuorumProposal<TYPES, I>>),
 

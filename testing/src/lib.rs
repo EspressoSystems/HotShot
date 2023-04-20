@@ -48,6 +48,35 @@ pub const N: usize = H_256;
 /// Alias for `(Vec<S>, Vec<B>)`. Used in [`RoundResult`].
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
+// TODO remove this really ugly type once we have `ConsensusExchanges` impl and can use that to do all generation
+/// Type for the underlying `ConnectedNetwork` that will be shared (for now) b/t Communication Channels
+pub type NetworkType<TYPES, I> =
+    <<<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        <I as NodeImplementation<TYPES>>::Leaf,
+        Message<TYPES, I>,
+    >>::Networking as CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            <I as NodeImplementation<TYPES>>::Leaf,
+            Message<TYPES, I>,
+        >>::Proposal,
+        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            <I as NodeImplementation<TYPES>>::Leaf,
+            Message<TYPES, I>,
+        >>::Vote,
+        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            <I as NodeImplementation<TYPES>>::Leaf,
+            Message<TYPES, I>,
+        >>::Membership,
+    >>::NETWORK;
+
+/// Wrapper Type for function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
+pub type NetworkGenerator<TYPES, I, T> = Box<dyn Fn(Arc<NetworkType<TYPES, I>>) -> T + 'static>;
 /// Result of running a round of consensus
 #[derive(Debug)]
 // TODO do we need static here
@@ -104,10 +133,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TY
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     network_generator: Generator<NetworkType<TYPES, I>>,
-    quorum_network_generator:
-        Box<dyn Fn(Arc<NetworkType<TYPES, I>>) -> QuorumNetwork<TYPES, I> + 'static>,
-    committee_network_generator:
-        Box<dyn Fn(Arc<NetworkType<TYPES, I>>) -> CommitteeNetwork<TYPES, I> + 'static>,
+    quorum_network_generator: NetworkGenerator<TYPES, I, QuorumNetwork<TYPES, I>>,
+    committee_network_generator: NetworkGenerator<TYPES, I, CommitteeNetwork<TYPES, I>>,
     storage_generator: Generator<I::Storage>,
     default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     nodes: Vec<Node<TYPES, I>>,
@@ -119,31 +146,6 @@ struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub node_id: u64,
     pub handle: HotShotHandle<TYPES, I>,
 }
-
-type NetworkType<TYPES, I> =
-    <<<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I>,
-    >>::Networking as CommunicationChannel<
-        TYPES,
-        Message<TYPES, I>,
-        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-            TYPES,
-            <I as NodeImplementation<TYPES>>::Leaf,
-            Message<TYPES, I>,
-        >>::Proposal,
-        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-            TYPES,
-            <I as NodeImplementation<TYPES>>::Leaf,
-            Message<TYPES, I>,
-        >>::Vote,
-        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-            TYPES,
-            <I as NodeImplementation<TYPES>>::Leaf,
-            Message<TYPES, I>,
-        >>::Membership,
-    >>::NETWORK;
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
     pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {

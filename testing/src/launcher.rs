@@ -1,52 +1,20 @@
-use super::{Generator, TestRunner};
+use super::{Generator, NetworkGenerator, NetworkType, TestRunner};
 
 use hotshot::traits::TestableNodeImplementation;
 use hotshot::types::SignatureKey;
 
-use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::network::{
-    CommunicationChannel, ConnectedNetwork, TestableNetworkingImplementation,
-};
 use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
 use hotshot_types::{
-    message::Message,
     traits::node_implementation::{NodeImplementation, NodeType},
     ExecutionType, HotShotConfig,
 };
-use std::sync::Arc;
 use std::{num::NonZeroUsize, time::Duration};
 
-type NetworkType<TYPES, I> =
-    <<<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I>,
-    >>::Networking as CommunicationChannel<
-        TYPES,
-        Message<TYPES, I>,
-        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-            TYPES,
-            <I as NodeImplementation<TYPES>>::Leaf,
-            Message<TYPES, I>,
-        >>::Proposal,
-        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-            TYPES,
-            <I as NodeImplementation<TYPES>>::Leaf,
-            Message<TYPES, I>,
-        >>::Vote,
-        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-            TYPES,
-            <I as NodeImplementation<TYPES>>::Leaf,
-            Message<TYPES, I>,
-        >>::Membership,
-    >>::NETWORK;
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
 pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(super) network: Generator<NetworkType<TYPES, I>>,
-    pub(super) quorum_network:
-        Box<dyn Fn(Arc<NetworkType<TYPES, I>>) -> QuorumNetwork<TYPES, I> + 'static>,
-    pub(super) committee_network:
-        Box<dyn Fn(Arc<NetworkType<TYPES, I>>) -> CommitteeNetwork<TYPES, I> + 'static>,
+    pub(super) quorum_network: NetworkGenerator<TYPES, I, QuorumNetwork<TYPES, I>>,
+    pub(super) committee_network: NetworkGenerator<TYPES, I, CommitteeNetwork<TYPES, I>>,
     pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     pub(super) block: Generator<TYPES::BlockType>,
     pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,

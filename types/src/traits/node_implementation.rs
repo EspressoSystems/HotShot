@@ -10,8 +10,7 @@ use super::{
     block_contents::Transaction,
     election::{ConsensusExchange, ElectionConfig, VoteToken},
     network::{
-        CommunicationChannel, ConnectedNetwork, TestableChannelImplementation,
-        TestableNetworkingImplementation,
+        CommunicationChannel, TestableChannelImplementation, TestableNetworkingImplementation,
     },
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, ConsensusType, TestableBlock, TestableState},
@@ -57,6 +56,7 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
 #[allow(clippy::type_complexity)]
 #[async_trait]
 pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES> {
+    /// generates a network given an expected node count
     fn network_generator(expected_node_count: usize, num_bootstrap_nodes: usize) -> Box<dyn Fn(u64) -> <<<Self as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
     TYPES,
     <Self as NodeImplementation<TYPES>>::Leaf,
@@ -68,7 +68,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     <Self::QuorumExchange as ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>>::Vote,
     <Self::QuorumExchange as ConsensusExchange<TYPES, Self::Leaf, Message<TYPES, Self>>>::Membership,
 >>::NETWORK + 'static>;
-    /// generates a network given an expected node count
+    /// generates a committee communication channel given the network
     fn committee_generator() -> Box<
         dyn Fn(
                 Arc<
@@ -104,7 +104,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
             + 'static,
     >;
 
-    /// generates a network given an expected node count
+    /// generates a quorum communication channel given the network
     fn quorum_generator() -> Box<
         dyn Fn(
                 Arc<

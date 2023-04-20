@@ -10,12 +10,7 @@ use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
-use super::{
-    election::Membership,
-    node_implementation::{NodeImplementation, NodeType},
-    signature_key::SignatureKey,
-};
-use crate::message::MessageKind;
+use super::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
 use crate::{data::ProposalType, message::MessagePurpose, vote::VoteType};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -143,7 +138,8 @@ pub trait NetworkMsg:
 pub trait ViewMessage<TYPES: NodeType> {
     /// get the view out of the message
     fn get_view_number(&self) -> TYPES::Time;
-    // TODO don't use this trait.
+    // TODO move out of this trait.
+    /// get the purpose of the message
     fn purpose(&self) -> MessagePurpose;
 }
 
@@ -158,6 +154,7 @@ pub trait CommunicationChannel<
     MEMBERSHIP: Membership<TYPES>,
 >: Clone + Send + Sync + 'static
 {
+    /// Underlying Network implementation's type
     type NETWORK: ConnectedNetwork<M, TYPES::SignatureKey>;
     /// Blocks until node is successfully initialized
     /// into the network
@@ -266,7 +263,7 @@ pub trait TestableNetworkingImplementation<TYPES: NodeType, M: NetworkMsg>:
     /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
     fn in_flight_message_count(&self) -> Option<usize>;
 }
-
+/// Describes additional functionality needed by the test communication channel
 pub trait TestableChannelImplementation<
     TYPES: NodeType,
     M: NetworkMsg,
@@ -276,6 +273,7 @@ pub trait TestableChannelImplementation<
     NETWORK: ConnectedNetwork<M, TYPES::SignatureKey>,
 >: CommunicationChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
 {
+    /// generates the `CommunicationChannel` given it's associated network type
     fn generate_network() -> Box<dyn Fn(Arc<NETWORK>) -> Self + 'static>;
 }
 
