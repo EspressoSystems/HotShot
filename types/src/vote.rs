@@ -24,6 +24,7 @@ pub trait VoteType<TYPES: NodeType>:
     Debug + Clone + 'static + Serialize + for<'a> Deserialize<'a> + Send + Sync + PartialEq
 {
     /// The view this vote was cast for.
+    // TODO ED Potentially change the name of this since it isn't current view for view sync votes 
     fn current_view(&self) -> TYPES::Time;
 }
 
