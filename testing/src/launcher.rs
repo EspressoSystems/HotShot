@@ -97,51 +97,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
 // TODO make these functions generic over the target networking/storage/other generics
 // so we can hotswap out
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
-    //     /// Set a custom quorum network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    //     pub fn with_quorum_network(
-    //         self,
-    //         quorum_network: impl Fn(u64, TYPES::SignatureKey) -> QuorumNetwork<TYPES, I> + 'static,
-    //     ) -> TestLauncher<TYPES, I> {
-    //         TestLauncher {
-    //             quorum_network: Box::new({
-    //                 move |node_id| {
-    //                     // FIXME perhaps this pk generation is a separate function
-    //                     // to add as an input
-    //                     // that way we don't rely on threshold crypto
-    //                     let priv_key = I::generate_test_key(node_id);
-    //                     let pubkey = TYPES::SignatureKey::from_private(&priv_key);
-    //                     quorum_network(node_id, pubkey)
-    //                 }
-    //             }),
-    //             committee_network: self.committee_network,
-    //             storage: self.storage,
-    //             block: self.block,
-    //             config: self.config,
-    //         }
-    //     }
-
-    //     /// Set a custom committee network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    //     pub fn with_committee_network(
-    //         self,
-    //         committee_network: impl Fn(u64, TYPES::SignatureKey) -> CommitteeNetwork<TYPES, I> + 'static,
-    //     ) -> TestLauncher<TYPES, I> {
-    //         TestLauncher {
-    //             quorum_network: self.quorum_network,
-    //             committee_network: Box::new({
-    //                 move |node_id| {
-    //                     // FIXME perhaps this pk generation is a separate function
-    //                     // to add as an input
-    //                     // that way we don't rely on threshold crypto
-    //                     let priv_key = I::generate_test_key(node_id);
-    //                     let pubkey = TYPES::SignatureKey::from_private(&priv_key);
-    //                     committee_network(node_id, pubkey)
-    //                 }
-    //             }),
-    //             storage: self.storage,
-    //             block: self.block,
-    //             config: self.config,
-    //         }
-    //     }
+    /// TODO: Add functions to allow injecting custom networks or communication channels
 
     /// Set a custom storage generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_storage(
