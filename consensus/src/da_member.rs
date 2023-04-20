@@ -147,6 +147,7 @@ where
                         warn!("DA committee member receieved a Non DA Proposal message. This is not what the member expects. Skipping.");
                         continue;
                     }
+                    ProcessedConsensusMessage::ViewSync(_) => todo!()
                 }
             }
             // fall through logic if we did not receive successfully from channel

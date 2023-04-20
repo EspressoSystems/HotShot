@@ -104,6 +104,8 @@ pub enum ProcessedConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
+
+    ViewSync(ViewSyncMessageType)
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedConsensusMessage<TYPES, I>>
@@ -117,6 +119,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedConsensusMessa
             ProcessedConsensusMessage::Vote(v, _) => ConsensusMessage::Vote(v),
             ProcessedConsensusMessage::DAVote(v, _) => ConsensusMessage::DAVote(v),
             ProcessedConsensusMessage::InternalTrigger(a) => ConsensusMessage::InternalTrigger(a),
+            ProcessedConsensusMessage::ViewSync(_) => todo!(),
         }
     }
 }
