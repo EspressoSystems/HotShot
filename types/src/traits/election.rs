@@ -200,7 +200,7 @@ pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 's
 /// An instance of [`ConsensusExchange`] represents the state of one participant in the protocol,
 /// allowing them to vote and query information about the overall state of the protocol (such as
 /// membership and leader status).
-pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M: NetworkMsg>:
+pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>:
     Send + Sync
 {
     /// A proposal for participants to vote on.
@@ -415,7 +415,7 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
 
 /// A [`ConsensusExchange`] where participants vote to provide availability for blobs of data.
 pub trait CommitteeExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M: NetworkMsg>:
-    ConsensusExchange<TYPES, LEAF, M>
+    ConsensusExchange<TYPES, M>
 {
     /// Sign a DA proposal.
     fn sign_da_proposal(&self, block_commitment: &Commitment<TYPES::BlockType>)
@@ -440,7 +440,7 @@ pub trait CommitteeExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES
     ) -> ConsensusMessage<TYPES, I>
     where
         I::CommitteeExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = DAVote<TYPES, I::Leaf>>;
+            ConsensusExchange<TYPES, Message<TYPES, I>, Vote = DAVote<TYPES, I::Leaf>>;
 }
 
 /// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
@@ -504,7 +504,7 @@ impl<
     ) -> ConsensusMessage<TYPES, I>
     where
         I::CommitteeExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = DAVote<TYPES, I::Leaf>>,
+            ConsensusExchange<TYPES, Message<TYPES, I>, Vote = DAVote<TYPES, I::Leaf>>,
     {
         let signature = self.sign_da_vote(block_commitment);
         ConsensusMessage::<TYPES, I>::DAVote(DAVote {
@@ -524,7 +524,7 @@ impl<
         MEMBERSHIP: Membership<TYPES>,
         NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES, LEAF>, MEMBERSHIP>,
         M: NetworkMsg,
-    > ConsensusExchange<TYPES, LEAF, M> for CommitteeExchange<TYPES, LEAF, MEMBERSHIP, NETWORK, M>
+    > ConsensusExchange<TYPES, M> for CommitteeExchange<TYPES, LEAF, MEMBERSHIP, NETWORK, M>
 {
     type Proposal = DAProposal<TYPES>;
     type Vote = DAVote<TYPES, LEAF>;
@@ -541,7 +541,7 @@ impl<
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
         let membership =
-            <Self as ConsensusExchange<TYPES, LEAF, M>>::Membership::create_election(keys, config);
+            <Self as ConsensusExchange<TYPES, M>>::Membership::create_election(keys, config);
         Self {
             network,
             membership,
@@ -600,7 +600,7 @@ impl<
 
 /// A [`ConsensusExchange`] where participants vote to append items to a log.
 pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M: NetworkMsg>:
-    ConsensusExchange<TYPES, LEAF, M>
+    ConsensusExchange<TYPES, M>
 {
     /// Create a message with a positive vote on validating or commitment proposal.
     fn create_yes_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
@@ -611,9 +611,9 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
         vote_token: TYPES::VoteTokenType,
     ) -> ConsensusMessage<TYPES, I>
     where
-        <Self as ConsensusExchange<TYPES, LEAF, M>>::Certificate: commit::Committable,
+        <Self as ConsensusExchange<TYPES, M>>::Certificate: commit::Committable,
         I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>;
+            ConsensusExchange<TYPES, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>;
     /// Sign a validating or commitment proposal.
     fn sign_validating_or_commitment_proposal<I: NodeImplementation<TYPES>>(
         &self,
@@ -659,7 +659,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     ) -> ConsensusMessage<TYPES, I>
     where
         I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>;
+            ConsensusExchange<TYPES, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>;
 
     /// Create a message with a timeout vote on validating or commitment proposal.
     fn create_timeout_message<I: NodeImplementation<TYPES>>(
@@ -670,7 +670,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
     ) -> ConsensusMessage<TYPES, I>
     where
         I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>;
+            ConsensusExchange<TYPES, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>;
 }
 
 /// Standard implementation of [`QuroumExchangeType`] based on Hot Stuff consensus.
@@ -714,7 +714,7 @@ impl<
     ) -> ConsensusMessage<TYPES, I>
     where
         I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>,
+            ConsensusExchange<TYPES, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>,
     {
         let signature = self.sign_yes_vote(leaf_commitment);
         ConsensusMessage::<TYPES, I>::Vote(QuorumVote::Yes(YesOrNoVote {
@@ -792,7 +792,7 @@ impl<
     ) -> ConsensusMessage<TYPES, I>
     where
         I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>,
+            ConsensusExchange<TYPES, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>,
     {
         let signature = self.sign_no_vote(leaf_commitment);
         ConsensusMessage::<TYPES, I>::Vote(QuorumVote::No(YesOrNoVote {
@@ -814,7 +814,7 @@ impl<
     ) -> ConsensusMessage<TYPES, I>
     where
         I::QuorumExchange:
-            ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>,
+            ConsensusExchange<TYPES, Message<TYPES, I>, Vote = QuorumVote<TYPES, LEAF>>,
     {
         let signature = self.sign_timeout_vote(current_view);
         ConsensusMessage::<TYPES, I>::Vote(QuorumVote::Timeout(TimeoutVote {
@@ -834,7 +834,7 @@ impl<
         MEMBERSHIP: Membership<TYPES>,
         NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, QuorumVote<TYPES, LEAF>, MEMBERSHIP>,
         M: NetworkMsg,
-    > ConsensusExchange<TYPES, LEAF, M>
+    > ConsensusExchange<TYPES, M>
     for QuorumExchange<TYPES, LEAF, PROPOSAL, MEMBERSHIP, NETWORK, M>
 {
     type Proposal = PROPOSAL;
@@ -852,7 +852,7 @@ impl<
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
         let membership =
-            <Self as ConsensusExchange<TYPES, LEAF, M>>::Membership::create_election(keys, config);
+            <Self as ConsensusExchange<TYPES, M>>::Membership::create_election(keys, config);
         Self {
             network,
             membership,
@@ -904,8 +904,8 @@ impl<
 }
 
 /// A [`ConsensusExchange`] where participants synchronize which view the network should be in.
-pub trait ViewSyncExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M: NetworkMsg>:
-    ConsensusExchange<TYPES, LEAF, M>
+pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
+    ConsensusExchange<TYPES, M>
 {
     fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> ConsensusMessage<TYPES, I>;
 
@@ -948,7 +948,7 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, QuorumVote<TYPES, LEAF>, MEMBERSHIP>,
         M: NetworkMsg,
-    > ViewSyncExchangeType<TYPES, LEAF, M>
+    > ViewSyncExchangeType<TYPES, M>
     for ViewSyncExchange<TYPES, LEAF, PROPOSAL, MEMBERSHIP, NETWORK, M>
 {
     fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> ConsensusMessage<TYPES, I> {
@@ -983,7 +983,7 @@ impl<
         MEMBERSHIP: Membership<TYPES>,
         NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, QuorumVote<TYPES, LEAF>, MEMBERSHIP>,
         M: NetworkMsg,
-    > ConsensusExchange<TYPES, LEAF, M>
+    > ConsensusExchange<TYPES, M>
     for ViewSyncExchange<TYPES, LEAF, PROPOSAL, MEMBERSHIP, NETWORK, M>
 {
     // TODO ED This impl is mostly a copy from above; it doesn't reflect view sync yet
@@ -1002,7 +1002,7 @@ impl<
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
         let membership =
-            <Self as ConsensusExchange<TYPES, LEAF, M>>::Membership::create_election(keys, config);
+            <Self as ConsensusExchange<TYPES, M>>::Membership::create_election(keys, config);
         Self {
             network,
             membership,

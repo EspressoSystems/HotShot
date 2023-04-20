@@ -201,7 +201,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         let election_config = config.election_config.clone().unwrap_or_else(|| {
             <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
                 TYPES,
-                I::Leaf,
                 Message<TYPES, I>,
             >>::Membership::default_election_config(config.total_nodes.get() as u64)
         });

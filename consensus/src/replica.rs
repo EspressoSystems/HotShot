@@ -64,7 +64,6 @@ impl<
 where
     I::QuorumExchange: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             Proposal = ValidatingProposal<TYPES, I::Leaf>,
             Vote = QuorumVote<TYPES, I::Leaf>,

@@ -757,7 +757,6 @@ impl<
 where
     I::QuorumExchange: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             Proposal = ValidatingProposal<TYPES, I::Leaf>,
             Vote = QuorumVote<TYPES, I::Leaf>,
@@ -951,7 +950,6 @@ impl<
 where
     I::QuorumExchange: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             Proposal = CommitmentProposal<TYPES, I::Leaf>,
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
@@ -960,7 +958,6 @@ where
         > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
     I::CommitteeExchange: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             Proposal = DAProposal<TYPES>,
             Certificate = DACertificate<TYPES>,

@@ -58,7 +58,6 @@ impl<
 where
     I::CommitteeExchange: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             Proposal = DAProposal<TYPES>,
             Vote = DAVote<TYPES, SequencingLeaf<TYPES>>,
