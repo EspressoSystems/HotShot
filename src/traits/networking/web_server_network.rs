@@ -110,6 +110,9 @@ impl<
                 hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {
                     return Err(WebServerNetworkError::EndpointError)
                 }
+                hotshot_types::message::ConsensusMessage::ViewSync(_) => {
+                    todo!()
+                }
             },
             hotshot_types::message::MessageKind::Data(message_kind) => match message_kind {
                 hotshot_types::message::DataMessage::SubmitTransaction(_, _) => {

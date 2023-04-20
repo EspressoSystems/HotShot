@@ -45,6 +45,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Messa
                 ConsensusMessage::InternalTrigger(trigger) => match trigger {
                     InternalTrigger::Timeout(v) => *v,
                 },
+                ConsensusMessage::ViewSync(_) => todo!(),
             },
             MessageKind::Data(DataMessage::SubmitTransaction(_, v)) => *v,
         }
@@ -129,6 +130,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProcessedConsensusMessage<TY
             ConsensusMessage::Vote(v) => ProcessedConsensusMessage::Vote(v, sender),
             ConsensusMessage::DAVote(v) => ProcessedConsensusMessage::DAVote(v, sender),
             ConsensusMessage::InternalTrigger(a) => ProcessedConsensusMessage::InternalTrigger(a),
+            ConsensusMessage::ViewSync(_) => todo!(),
         }
     }
 }
@@ -157,6 +159,31 @@ pub enum ConsensusMessage<
     /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
+
+    ViewSync(ViewSyncMessageType)
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "", serialize = ""))]
+pub enum ViewSyncMessageType {
+    Vote(ViewSyncVoteType),
+    Certificate(ViewSyncCertificateType)
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "", serialize = ""))]
+pub enum ViewSyncVoteType {
+    PreCommitVote, 
+    CommitVote,
+    FinalizeVote
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "", serialize = ""))]
+pub enum ViewSyncCertificateType {
+    PreCommitCertificate, 
+    CommitCertificate,
+    FinalizeCertificate
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusMessage<TYPES, I> {
@@ -179,6 +206,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusMessage<TYPES, I> {
             ConsensusMessage::InternalTrigger(trigger) => match trigger {
                 InternalTrigger::Timeout(time) => *time,
             },
+            ConsensusMessage::ViewSync(_) => todo!(),
         }
     }
 }

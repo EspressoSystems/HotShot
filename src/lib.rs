@@ -549,7 +549,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                 {
                     warn!("Failed to send to next leader!");
                 }
-            }
+            }, 
+            ConsensusMessage::ViewSync(_) => todo!(),
         };
     }
 
@@ -644,6 +645,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                 }
             }
             ConsensusMessage::DAProposal(_) => todo!(),
+            ConsensusMessage::ViewSync(_) => todo!(),
         }
     }
 
