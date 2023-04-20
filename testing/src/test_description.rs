@@ -310,16 +310,29 @@ pub struct RoundCheckDescription {
 impl RoundCheckDescription {
     fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(&self) -> (RoundPreSafetyCheck<TYPES, I>, RoundPostSafetyCheck<TYPES, I>){
         let pre = RoundPreSafetyCheck::default();
-        let Self {
-            num_out_of_sync,
-            max_consecutive_failed_rounds,
-            check_leaf,
-            check_state,
-            check_block,
-            check_transactions,
-            num_failed_consecutive_rounds,
-            num_failed_rounds_total,
-        } = self.clone();
+        let num_out_of_sync = self.num_out_of_sync;
+        let max_consecutive_failed_rounds = self.max_consecutive_failed_rounds;
+        let check_leaf = self.check_leaf;
+        let check_state = self.check_state;
+        let check_block = self.check_block;
+        let check_transactions = self.check_transactions;
+        let num_failed_consecutive_rounds = self.num_failed_consecutive_rounds;
+        let num_failed_rounds_total = self.num_failed_rounds_total;
+
+        // FIXME why doesn't the destructure work?
+        // this is a rustc bug and/or a RA bug
+        // RA claims that everything is a usize
+        // but when I use it inside the closure, it becomes a reference
+        // let Self {
+        //     num_out_of_sync,
+        //     max_consecutive_failed_rounds,
+        //     check_leaf,
+        //     check_state,
+        //     check_block,
+        //     check_transactions,
+        //     num_failed_consecutive_rounds,
+        //     num_failed_rounds_total,
+        // } = self.clone();
 
         let post =
             RoundPostSafetyCheck(Arc::new(move |
@@ -328,9 +341,8 @@ impl RoundCheckDescription {
                 round_result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>
             | -> LocalBoxFuture<Result<(), ConsensusFailedError>>
             {
-                let runner_nodes_1 = runner.nodes();
-                let runner_nodes_2 = runner.nodes();
-                let runner_nodes_3 = runner.nodes();
+                let runner_nodes = runner.nodes();
+                let collective = runner.nodes().collect::<Vec<_>>().len() - num_out_of_sync;
                 let views_since_progress = ctx.views_since_progress;
                 let total_failed_views = ctx.total_failed_views;
                 async move {
@@ -341,7 +353,7 @@ impl RoundCheckDescription {
                         return Err(ConsensusFailedError::NoTransactionsSubmitted)
                     }
 
-                    if round_result.failed_nodes.len() >= *num_out_of_sync  {
+                    if round_result.failed_nodes.len() >= num_out_of_sync  {
                         ctx.views_since_progress += 1;
                         ctx.total_failed_views += 1;
 
@@ -349,21 +361,20 @@ impl RoundCheckDescription {
                         ctx.views_since_progress = 0;
                     }
 
-                    if views_since_progress >= *num_failed_consecutive_rounds {
+                    if views_since_progress >= num_failed_consecutive_rounds {
                         return Err(ConsensusFailedError::TooManyConsecutiveFailures);
                     }
 
-                    if total_failed_views >= *num_failed_rounds_total {
+                    if total_failed_views >= num_failed_rounds_total {
                         return Err(ConsensusFailedError::TooManyViewFailures);
                     }
 
                     let mut result_leaves = None;
-                    let collective = runner_nodes_2.collect::<Vec<_>>().len() - num_out_of_sync;
 
-                    if *check_leaf {
+                    if check_leaf {
                         let mut leaves = HashMap::<I::Leaf, usize>::new();
                         // group all the leaves since thankfully leaf implements hash
-                        for node in runner_nodes_1 {
+                        for node in runner_nodes {
                             let decide_leaf = node.get_decided_leaf().await;
                             match leaves.entry(decide_leaf) {
                                 std::collections::hash_map::Entry::Occupied(mut o) => {
@@ -387,7 +398,7 @@ impl RoundCheckDescription {
 
                     let mut result_state = None;
 
-                    if *check_state {
+                    if check_state {
                         // TODO
                         let mut states = HashMap::<Vec<<I::Leaf as LeafType>::StateCommitmentType>, usize>::new();
                         // group all the leaves since thankfully leaf implements hash
@@ -417,7 +428,7 @@ impl RoundCheckDescription {
 
                     let mut result_block = None;
 
-                    if *check_block {
+                    if check_block {
                         let mut blocks = HashMap::<Vec<<I::Leaf as LeafType>::DeltasType>, usize>::new();
                         // group all the leaves since thankfully leaf implements hash
                         for (_idx, (_s, b)) in round_result.success_nodes.clone() {
