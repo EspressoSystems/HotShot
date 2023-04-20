@@ -28,11 +28,13 @@ use hotshot::{
 use hotshot_types::traits::election::ConsensusExchange;
 
 use hotshot_types::message::Message;
-use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
 use hotshot_types::{
     data::LeafType,
-    traits::{election::Membership, metrics::NoMetrics, node_implementation::NodeType},
+    traits::{
+        election::Membership, metrics::NoMetrics, node_implementation::NetworkType,
+        node_implementation::NodeType,
+    },
     HotShotConfig,
 };
 use snafu::Snafu;
@@ -47,33 +49,6 @@ pub const N: usize = H_256;
 
 /// Alias for `(Vec<S>, Vec<B>)`. Used in [`RoundResult`].
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
-
-// TODO remove this really ugly type once we have `ConsensusExchanges` impl and can use that to do all generation
-/// Type for the underlying `ConnectedNetwork` that will be shared (for now) b/t Communication Channels
-pub type NetworkType<TYPES, I> =
-    <<<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I>,
-    >>::Networking as CommunicationChannel<
-        TYPES,
-        Message<TYPES, I>,
-        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-            TYPES,
-            <I as NodeImplementation<TYPES>>::Leaf,
-            Message<TYPES, I>,
-        >>::Proposal,
-        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-            TYPES,
-            <I as NodeImplementation<TYPES>>::Leaf,
-            Message<TYPES, I>,
-        >>::Vote,
-        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-            TYPES,
-            <I as NodeImplementation<TYPES>>::Leaf,
-            Message<TYPES, I>,
-        >>::Membership,
-    >>::NETWORK;
 
 /// Wrapper Type for function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
 pub type NetworkGenerator<TYPES, I, T> = Box<dyn Fn(Arc<NetworkType<TYPES, I>>) -> T + 'static>;
