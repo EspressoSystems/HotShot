@@ -14,6 +14,7 @@ use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
     channel::{oneshot, OneShotSender},
 };
+use hotshot_types::message::MessagePurpose;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 
 use hotshot_web_server::{self, config};
@@ -27,7 +28,8 @@ use hotshot_types::{
         election::{ElectionConfig, Membership},
         network::{
             CommunicationChannel, ConnectedNetwork, NetworkError, NetworkMsg,
-            TestableNetworkingImplementation, TransmitType, WebServerNetworkError,
+            TestableChannelImplementation, TestableNetworkingImplementation, TransmitType,
+            WebServerNetworkError,
         },
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -57,13 +59,15 @@ pub struct WebCommChannel<
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    WebServerNetwork<
-        Message<TYPES, I>,
-        TYPES::SignatureKey,
-        TYPES::ElectionConfigType,
-        TYPES,
-        PROPOSAL,
-        VOTE,
+    Arc<
+        WebServerNetwork<
+            Message<TYPES, I>,
+            TYPES::SignatureKey,
+            TYPES::ElectionConfigType,
+            TYPES,
+            PROPOSAL,
+            VOTE,
+        >,
     >,
     PhantomData<(MEMBERSHIP, I)>,
 );
@@ -78,51 +82,18 @@ impl<
     /// Create new communication channel
     #[must_use]
     pub fn new(
-        network: WebServerNetwork<
-            Message<TYPES, I>,
-            TYPES::SignatureKey,
-            TYPES::ElectionConfigType,
-            TYPES,
-            PROPOSAL,
-            VOTE,
+        network: Arc<
+            WebServerNetwork<
+                Message<TYPES, I>,
+                TYPES::SignatureKey,
+                TYPES::ElectionConfigType,
+                TYPES,
+                PROPOSAL,
+                VOTE,
+            >,
         >,
     ) -> Self {
         Self(network, PhantomData::default())
-    }
-
-    /// Parses a message to find the appropriate endpoint
-    /// Returns a `SendMsg` containing the endpoint
-    fn parse_post_message(
-        message: Message<TYPES, I>,
-    ) -> Result<SendMsg<Message<TYPES, I>>, WebServerNetworkError> {
-        let view_number: TYPES::Time = message.get_view_number();
-
-        let endpoint = match &message.kind {
-            hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind {
-                hotshot_types::message::ConsensusMessage::Proposal(_)
-                | hotshot_types::message::ConsensusMessage::DAProposal(_) => {
-                    config::post_proposal_route(*view_number)
-                }
-                hotshot_types::message::ConsensusMessage::Vote(_)
-                | hotshot_types::message::ConsensusMessage::DAVote(_) => {
-                    config::post_vote_route(*view_number)
-                }
-                hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {
-                    return Err(WebServerNetworkError::EndpointError)
-                }
-            },
-            hotshot_types::message::MessageKind::Data(message_kind) => match message_kind {
-                hotshot_types::message::DataMessage::SubmitTransaction(_, _) => {
-                    config::post_transactions_route()
-                }
-            },
-        };
-
-        let network_msg: SendMsg<Message<TYPES, I>> = SendMsg {
-            message: Some(message),
-            endpoint,
-        };
-        Ok(network_msg)
     }
 }
 
@@ -377,7 +348,7 @@ impl<M: NetworkMsg> NetworkMsg for SendMsg<M> {}
 impl<M: NetworkMsg> NetworkMsg for RecvMsg<M> {}
 
 impl<
-        M: NetworkMsg + 'static,
+        M: NetworkMsg + 'static + ViewMessage<TYPES>,
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
@@ -492,6 +463,26 @@ impl<
 
         Ok(())
     }
+
+    /// Parses a message to find the appropriate endpoint
+    /// Returns a `SendMsg` containing the endpoint
+    fn parse_post_message(message: M) -> Result<SendMsg<M>, WebServerNetworkError> {
+        let view_number: TYPES::Time = message.get_view_number();
+
+        let endpoint = match &message.purpose() {
+            MessagePurpose::Proposal => config::post_proposal_route(*view_number),
+            MessagePurpose::Vote => config::post_vote_route(*view_number),
+            MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
+            MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
+            MessagePurpose::Data => return Err(WebServerNetworkError::EndpointError),
+        };
+
+        let network_msg: SendMsg<M> = SendMsg {
+            message: Some(message),
+            endpoint,
+        };
+        Ok(network_msg)
+    }
 }
 
 /// Enum for matching messages to their type
@@ -515,7 +506,14 @@ impl<
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
-    type NETWORK = WebServerNetwork<Message<TYPES, I>, TYPES::SignatureKey, TYPES::ElectionConfigType, TYPES, PROPOSAL, VOTE>;
+    type NETWORK = WebServerNetwork<
+        Message<TYPES, I>,
+        TYPES::SignatureKey,
+        TYPES::ElectionConfigType,
+        TYPES,
+        PROPOSAL,
+        VOTE,
+    >;
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
@@ -554,13 +552,7 @@ impl<
         message: Message<TYPES, I>,
         _election: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
-        let network_msg = Self::parse_post_message(message);
-        match network_msg {
-            Ok(network_msg) => self.0.broadcast_message(network_msg, BTreeSet::new()).await,
-            Err(network_msg) => Err(NetworkError::WebServer {
-                source: network_msg,
-            }),
-        }
+        self.0.broadcast_message(message, BTreeSet::new()).await
     }
 
     /// Sends a direct message to a specific node
@@ -570,13 +562,7 @@ impl<
         message: Message<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
-        let network_msg = Self::parse_post_message(message);
-        match network_msg {
-            Ok(network_msg) => self.0.direct_message(network_msg, recipient).await,
-            Err(network_msg) => Err(NetworkError::WebServer {
-                source: network_msg,
-            }),
-        }
+        self.0.direct_message(message, recipient).await
     }
 
     /// Moves out the entire queue of received messages of 'transmit_type`
@@ -587,18 +573,11 @@ impl<
         &self,
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
-        let result = <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
+        <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
             Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::recv_msgs(&self.0, transmit_type)
-        .await;
-
-        match result {
-            Ok(messages) => Ok(messages.iter().map(|x| x.get_message().unwrap()).collect()),
-            _ => Err(NetworkError::WebServer {
-                source: WebServerNetworkError::ClientError,
-            }),
-        }
+        .await
     }
 
     /// look up a node
@@ -618,14 +597,13 @@ impl<
 
 #[async_trait]
 impl<
-        M: NetworkMsg + 'static,
+        M: NetworkMsg + 'static + ViewMessage<TYPES>,
         K: SignatureKey + 'static,
         E: ElectionConfig + 'static,
         TYPES: NodeType + 'static,
         PROPOSAL: ProposalType<NodeType = TYPES> + 'static,
         VOTE: VoteType<TYPES> + 'static,
-    > ConnectedNetwork<M, K>
-    for WebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
+    > ConnectedNetwork<M, K> for WebServerNetwork<M, K, E, TYPES, PROPOSAL, VOTE>
 {
     /// Blocks until the network is successfully initialized
     async fn wait_for_ready(&self) {
@@ -653,31 +631,50 @@ impl<
         message: M,
         _recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
-        self.post_message_to_web_server(message).await
+        let network_msg = Self::parse_post_message(message);
+        match network_msg {
+            Ok(network_msg) => self.post_message_to_web_server(network_msg).await,
+            Err(network_msg) => Err(NetworkError::WebServer {
+                source: network_msg,
+            }),
+        }
     }
 
     /// Sends a direct message to a specific node
     /// blocking
     async fn direct_message(&self, message: M, _recipient: K) -> Result<(), NetworkError> {
-        self.post_message_to_web_server(message).await
+        let network_msg = Self::parse_post_message(message);
+        match network_msg {
+            Ok(network_msg) => self.post_message_to_web_server(network_msg).await,
+            Err(network_msg) => Err(NetworkError::WebServer {
+                source: network_msg,
+            }),
+        }
     }
 
     /// Moves out the entire queue of received messages of 'transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs(
-        &self,
-        transmit_type: TransmitType,
-    ) -> Result<Vec<M>, NetworkError> {
+    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError> {
         match transmit_type {
             TransmitType::Direct => {
                 let mut queue = self.inner.direct_poll_queue.write().await;
-                Ok(queue.drain(..).collect())
+                Ok(queue
+                    .drain(..)
+                    .collect::<Vec<_>>()
+                    .iter()
+                    .map(|x| x.get_message().unwrap())
+                    .collect())
             }
             TransmitType::Broadcast => {
                 let mut queue = self.inner.broadcast_poll_queue.write().await;
-                Ok(queue.drain(..).collect())
+                Ok(queue
+                    .drain(..)
+                    .collect::<Vec<_>>()
+                    .iter()
+                    .map(|x| x.get_message().unwrap())
+                    .collect())
             }
         }
     }
@@ -763,5 +760,49 @@ where
 
     fn in_flight_message_count(&self) -> Option<usize> {
         None
+    }
+}
+
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    >
+    TestableChannelImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        PROPOSAL,
+        VOTE,
+        MEMBERSHIP,
+        WebServerNetwork<
+            Message<TYPES, I>,
+            TYPES::SignatureKey,
+            TYPES::ElectionConfigType,
+            TYPES,
+            PROPOSAL,
+            VOTE,
+        >,
+    > for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+{
+    fn generate_network() -> Box<
+        dyn Fn(
+                Arc<
+                    WebServerNetwork<
+                        Message<TYPES, I>,
+                        TYPES::SignatureKey,
+                        TYPES::ElectionConfigType,
+                        TYPES,
+                        PROPOSAL,
+                        VOTE,
+                    >,
+                >,
+            ) -> Self
+            + 'static,
+    > {
+        Box::new(move |network| WebCommChannel::new(network))
     }
 }

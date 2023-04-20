@@ -49,6 +49,27 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Messa
             MessageKind::Data(DataMessage::SubmitTransaction(_, v)) => *v,
         }
     }
+    fn purpose(&self) -> MessagePurpose {
+        match &self.kind {
+            MessageKind::Consensus(message_kind) => match message_kind {
+                ConsensusMessage::Proposal(_) | ConsensusMessage::DAProposal(_) => {
+                    MessagePurpose::Proposal
+                }
+                ConsensusMessage::Vote(_) | ConsensusMessage::DAVote(_) => MessagePurpose::Vote,
+                ConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
+            },
+            MessageKind::Data(message_kind) => match message_kind {
+                DataMessage::SubmitTransaction(_, _) => MessagePurpose::Data,
+            },
+        }
+    }
+}
+
+pub enum MessagePurpose {
+    Proposal,
+    Vote,
+    Internal,
+    Data,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message

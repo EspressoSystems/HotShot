@@ -20,8 +20,8 @@ use hotshot_types::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
         network::{
-            CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation,
-            TransmitType,
+            CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableChannelImplementation,
+            TestableNetworkingImplementation, TransmitType,
         },
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -289,10 +289,8 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
     }
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
+    TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
     for MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>
 where
     TYPES::SignatureKey: TestableSignatureKey,
@@ -452,7 +450,7 @@ pub struct MemoryCommChannel<
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
+    Arc<MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>>,
     PhantomData<(I, PROPOSAL, VOTE, MEMBERSHIP)>,
 );
 
@@ -466,7 +464,7 @@ impl<
 {
     /// create new communication channel
     #[must_use]
-    pub fn new(network: MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>) -> Self {
+    pub fn new(network: Arc<MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>>) -> Self {
         Self(network, PhantomData::default())
     }
 }
@@ -527,6 +525,31 @@ impl<
     async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
         // Not required
         Ok(())
+    }
+}
+
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    >
+    TestableChannelImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        PROPOSAL,
+        VOTE,
+        MEMBERSHIP,
+        MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
+    > for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+{
+    fn generate_network(
+    ) -> Box<dyn Fn(Arc<MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>>) -> Self + 'static>
+    {
+        Box::new(move |network| MemoryCommChannel::new(network))
     }
 }
 

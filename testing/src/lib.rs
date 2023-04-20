@@ -28,6 +28,7 @@ use hotshot::{
 use hotshot_types::traits::election::ConsensusExchange;
 
 use hotshot_types::message::Message;
+use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
 use hotshot_types::{
     data::LeafType,
@@ -35,9 +36,9 @@ use hotshot_types::{
     HotShotConfig,
 };
 use snafu::Snafu;
+use std::sync::Arc;
 use std::{collections::HashMap, fmt::Debug};
 use tracing::{debug, error, info, warn};
-
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 
@@ -102,8 +103,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TY
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    quorum_network_generator: Generator<QuorumNetwork<TYPES, I>>,
-    committee_network_generator: Generator<CommitteeNetwork<TYPES, I>>,
+    network_generator: Generator<NetworkType<TYPES, I>>,
+    quorum_network_generator:
+        Box<dyn Fn(Arc<NetworkType<TYPES, I>>) -> QuorumNetwork<TYPES, I> + 'static>,
+    committee_network_generator:
+        Box<dyn Fn(Arc<NetworkType<TYPES, I>>) -> CommitteeNetwork<TYPES, I> + 'static>,
     storage_generator: Generator<I::Storage>,
     default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     nodes: Vec<Node<TYPES, I>>,
@@ -116,9 +120,35 @@ struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub handle: HotShotHandle<TYPES, I>,
 }
 
+type NetworkType<TYPES, I> =
+    <<<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        <I as NodeImplementation<TYPES>>::Leaf,
+        Message<TYPES, I>,
+    >>::Networking as CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            <I as NodeImplementation<TYPES>>::Leaf,
+            Message<TYPES, I>,
+        >>::Proposal,
+        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            <I as NodeImplementation<TYPES>>::Leaf,
+            Message<TYPES, I>,
+        >>::Vote,
+        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            <I as NodeImplementation<TYPES>>::Leaf,
+            Message<TYPES, I>,
+        >>::Membership,
+    >>::NETWORK;
+
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
     pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
+            network_generator: launcher.network,
             quorum_network_generator: launcher.quorum_network,
             committee_network_generator: launcher.committee_network,
             storage_generator: launcher.storage,
@@ -144,8 +174,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         let mut results = vec![];
         for _i in 0..count {
             let node_id = self.next_node_id;
-            let quorum_network = (self.quorum_network_generator)(node_id);
-            let committee_network = (self.committee_network_generator)(node_id);
+            let network = Arc::new((self.network_generator)(node_id));
+            let quorum_network = (self.quorum_network_generator)(network.clone());
+            let committee_network = (self.committee_network_generator)(network);
             let storage = (self.storage_generator)(node_id);
             let config = self.default_node_config.clone();
             let initializer =

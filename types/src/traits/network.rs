@@ -10,11 +10,17 @@ use tokio::time::error::Elapsed as TimeoutError;
 #[cfg(not(any(feature = "async-std-executor", feature = "tokio-executor")))]
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
-use super::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
-use crate::{data::ProposalType, vote::VoteType};
+use super::{
+    election::Membership,
+    node_implementation::{NodeImplementation, NodeType},
+    signature_key::SignatureKey,
+};
+use crate::message::MessageKind;
+use crate::{data::ProposalType, message::MessagePurpose, vote::VoteType};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
+use std::sync::Arc;
 use std::{collections::BTreeSet, time::Duration};
 
 impl From<NetworkNodeHandleError> for NetworkError {
@@ -137,6 +143,8 @@ pub trait NetworkMsg:
 pub trait ViewMessage<TYPES: NodeType> {
     /// get the view out of the message
     fn get_view_number(&self) -> TYPES::Time;
+    // TODO don't use this trait.
+    fn purpose(&self) -> MessagePurpose;
 }
 
 /// API for interacting directly with a consensus committee
@@ -151,7 +159,7 @@ pub trait CommunicationChannel<
 >: Clone + Send + Sync + 'static
 {
     type NETWORK: ConnectedNetwork<M, TYPES::SignatureKey>;
-        /// Blocks until node is successfully initialized
+    /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self);
 
@@ -243,10 +251,8 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 }
 
 /// Describes additional functionality needed by the test network implementation
-pub trait TestableNetworkingImplementation<
-    TYPES: NodeType,
-    M: NetworkMsg,
->: ConnectedNetwork<M, TYPES::SignatureKey>
+pub trait TestableNetworkingImplementation<TYPES: NodeType, M: NetworkMsg>:
+    ConnectedNetwork<M, TYPES::SignatureKey>
 {
     /// generates a network given an expected node count
     fn generator(
@@ -267,8 +273,10 @@ pub trait TestableChannelImplementation<
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
->: CommunicationChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP> {
-    fn generate_network<N: ConnectedNetwork<M, TYPES::SignatureKey>>(network: &N) -> Box<dyn Fn(u64) -> Self + 'static>;
+    NETWORK: ConnectedNetwork<M, TYPES::SignatureKey>,
+>: CommunicationChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
+{
+    fn generate_network() -> Box<dyn Fn(Arc<NETWORK>) -> Self + 'static>;
 }
 
 /// Changes that can occur in the network
