@@ -202,12 +202,23 @@ pub trait LeafType:
     /// Type of nodes participating in the network.
     type NodeType: NodeType;
     /// Type of block contained by this leaf.
-    type DeltasType: Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Send + Serialize + Sync;
+    type DeltasType:
+        Clone
+        + Debug
+        + for<'a> Deserialize<'a>
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + Send
+        + Serialize
+        + Sync;
     /// Commitment to the blockchain state.
     type StateCommitmentType: Clone
         + Debug
         + for<'a> Deserialize<'a>
         + PartialEq
+        + Eq
+        + std::hash::Hash
         + Send
         + Serialize
         + Sync;

@@ -21,17 +21,17 @@ use tracing::{error, instrument};
 /// marked as success if 2f+1 nodes "succeeded" and committed the same thing
 pub fn check_safety<'a, TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     runner: &'a AppliedTestRunner<TYPES, I>,
-    _ctx: &'a RoundCtx<TYPES, I>,
+    _ctx: &'a mut RoundCtx<TYPES, I>,
     results: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
 ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>> {
     async move {
         let num_nodes = runner.ids().len();
-        if results.results.len() <= (2 * num_nodes) / 3 + 1 {
+        if results.success_nodes.len() <= (2 * num_nodes) / 3 + 1 {
             return Err(ConsensusFailedError::TimedOutWithoutAnyLeader);
         }
-        let (first_node_idx, (first_states, first_blocks)) = results.results.iter().next().unwrap();
+        let (first_node_idx, (first_states, first_blocks)) = results.success_nodes.iter().next().unwrap();
 
-        for (i_idx, (i_states, i_blocks)) in results.results.clone() {
+        for (i_idx, (i_states, i_blocks)) in results.success_nodes.clone() {
             // first block/state most recent
             if first_blocks.get(0) != i_blocks.get(0) || first_states.get(0) != i_states.get(0) {
                 error!(

@@ -179,7 +179,7 @@ fn test_validating_vote_queueing_post_safety_check<
     I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &'a AppliedValidatingTestRunner<TYPES, I>,
-    _ctx: &'a RoundCtx<TYPES, I>,
+    _ctx: &'a mut RoundCtx<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>
 where
@@ -269,7 +269,7 @@ fn test_validating_proposal_queueing_post_safety_check<
     I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &'a AppliedValidatingTestRunner<TYPES, I>,
-    _cx: &'a RoundCtx<TYPES, I>,
+    _cx: &'a mut RoundCtx<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>
 where
@@ -394,7 +394,7 @@ fn test_bad_validating_proposal_post_safety_check<
     I: TestableNodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
 >(
     runner: &'a AppliedValidatingTestRunner<TYPES, I>,
-    _ctx: &'a RoundCtx<TYPES, I>,
+    _ctx: &'a mut RoundCtx<TYPES, I>,
     _results: RoundResult<TYPES, ValidatingLeaf<TYPES>>,
 ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>
 where

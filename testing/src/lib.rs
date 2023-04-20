@@ -51,15 +51,15 @@ pub const N: usize = H_256;
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
 /// Result of running a round of consensus
-#[derive(Debug)]
+#[derive(Debug, Default)]
 // TODO do we need static here
 pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Transactions that were submitted
     pub txns: Vec<TYPES::Transaction>,
     /// Nodes that committed this round
-    pub results: HashMap<u64, StateAndBlock<LEAF::StateCommitmentType, LEAF::DeltasType>>,
+    pub success_nodes: HashMap<u64, StateAndBlock<LEAF::StateCommitmentType, LEAF::DeltasType>>,
     /// Nodes that failed to commit this round
-    pub failures: HashMap<u64, HotShotError<TYPES>>,
+    pub failed_nodes: HashMap<u64, HotShotError<TYPES>>,
 
     /// whether or not the round succeeded (for a custom defn of succeeded)
     pub success: bool,
@@ -69,16 +69,19 @@ pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 /// TODO eventually we want these to just be futures
 /// that we poll when things are event driven
 /// this context will be passed around
+#[derive(Debug)]
 pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     prior_round_results: Vec<RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>>,
-    views_since_progress: usize
+    views_since_progress: usize,
+    total_failed_views: usize,
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for RoundCtx<TYPES, I> {
     fn default() -> Self {
         Self {
             prior_round_results: Default::default(),
-            views_since_progress: 0
+            views_since_progress: 0,
+            total_failed_views: 0,
         }
     }
 }
@@ -89,18 +92,30 @@ pub struct RoundPostSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<T
     pub  Arc<
         dyn for<'a> Fn(
             &'a TestRunner<TYPES, I>,
-            &mut 'a RoundCtx<TYPES, I>,
+            &'a mut RoundCtx<TYPES, I>,
             RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
         ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>,
     >,
 );
+
+/// Type of function used for checking results after running a view of consensus
+// #[derive(Clone)]
+// pub struct RoundPostSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+//     pub  Arc<
+//         dyn for<'a> Fn(
+//             &'a TestRunner<TYPES, I>,
+//             &'a mut RoundCtx<TYPES, I>,
+//             RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+//         ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>,
+//     >,
+// );
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref
     for RoundPostSafetyCheck<TYPES, I>
 {
     type Target = dyn for<'a> Fn(
         &'a TestRunner<TYPES, I>,
-        &'a RoundCtx<TYPES, I>,
+        &'a mut RoundCtx<TYPES, I>,
         RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
     ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>;
 
@@ -119,13 +134,12 @@ pub struct RoundSetup<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         ) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>,
     >,
 );
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RoundSetup<TYPES, I> {
-    fn constrain<F>(f: F) -> F
-        where
-            F: for<'a> Fn(&'a mut TestRunner<TYPES, I>, &'a RoundCtx<TYPES, I>) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>,
-        {
-            f
-        }
+
+pub fn constrain<TYPES: NodeType, I: TestableNodeImplementation<TYPES>, F>(f: F) -> F
+where
+    F: for<'a> Fn(&'a mut TestRunner<TYPES, I>, &'a RoundCtx<TYPES, I>) -> LocalBoxFuture<'a, Vec<TYPES::Transaction>>,
+{
+    f
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RoundSetup<TYPES, I> {
@@ -457,8 +471,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         }
         RoundResult {
             txns,
-            results,
-            failures,
+            success_nodes: results,
+            failed_nodes: failures,
             success: nll_todo(),
         }
     }
@@ -681,6 +695,8 @@ pub enum ConsensusFailedError {
     /// View times out with any node as the leader.
     TimedOutWithoutAnyLeader,
 
+    NoTransactionsSubmitted,
+
     /// replicas timed out
     ReplicasTimedOut,
 
@@ -692,6 +708,15 @@ pub enum ConsensusFailedError {
         /// source of error
         source: TransactionError,
     },
+    /// Too many consecutive failures
+    TooManyConsecutiveFailures,
+    /// too many view failures overall
+    TooManyViewFailures,
+    /// inconsistent leaves
+    InconsistentLeaves,
+    InconsistentStates,
+    InconsistentBlocks
+
 }
 
 /// An overarching consensus test failure

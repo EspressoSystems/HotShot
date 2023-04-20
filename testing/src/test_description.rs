@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
+use std::pin::Pin;
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use crate::{
@@ -8,9 +9,11 @@ use crate::{
 };
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use either::Either::{self, Left, Right};
+use futures::Future;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::traits::TestableNodeImplementation;
 use hotshot::{traits::NetworkReliability, types::Message, HotShot, HotShotError, ViewRunner};
+use hotshot_types::data::LeafType;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
     traits::{
@@ -250,7 +253,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
 
         let rounds = match self.round {
             Left(rounds) => rounds,
-            Right(desc) => desc.build(),
+            Right(desc) => nll_todo(),
         };
 
         TestDescription {
@@ -276,6 +279,10 @@ impl Default for RoundCheckDescription {
             max_consecutive_failed_rounds: 5,
             check_leaf: true,
             check_transactions: false,
+            check_state: true,
+            check_block: true,
+            num_failed_consecutive_rounds: 10,
+            num_failed_rounds_total: 10,
         }
     }
 }
@@ -288,6 +295,10 @@ pub struct RoundCheckDescription {
     pub max_consecutive_failed_rounds: usize,
     /// whether or not to check the leaf
     pub check_leaf: bool,
+    /// whether or not to check the state
+    pub check_state: bool,
+    /// whether or not to check the block
+    pub check_block: bool,
     /// whether or not to check the transaction pool
     pub check_transactions: bool,
     /// num of consecutive failed rounds before failing
@@ -299,43 +310,146 @@ pub struct RoundCheckDescription {
 impl RoundCheckDescription {
     fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(&self) -> (RoundPreSafetyCheck<TYPES, I>, RoundPostSafetyCheck<TYPES, I>){
         let pre = RoundPreSafetyCheck::default();
+        let Self {
+            num_out_of_sync,
+            max_consecutive_failed_rounds,
+            check_leaf,
+            check_state,
+            check_block,
+            check_transactions,
+            num_failed_consecutive_rounds,
+            num_failed_rounds_total,
+        } = self.clone();
 
         let post =
-            move |
+            RoundPostSafetyCheck(Arc::new(move |
                 runner: &TestRunner<TYPES, I>,
                 ctx: &mut RoundCtx<TYPES, I>,
-                result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>| -> LocalBoxFuture<Result<(), ConsensusFailedError>>
-                {
-            async move {
-                let mut leaves = HashMap::<I::Leaf, usize>::new();
+                round_result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>
+            | -> LocalBoxFuture<Result<(), ConsensusFailedError>>
+            {
+                let runner_nodes_1 = runner.nodes();
+                let runner_nodes_2 = runner.nodes();
+                let runner_nodes_3 = runner.nodes();
+                let views_since_progress = ctx.views_since_progress;
+                let total_failed_views = ctx.total_failed_views;
+                async move {
 
-                if self.check_leaf {
-                    let mut result = None;
-                    // group all the leaves since thankfully leaf implements hash
-                    for node in runner.nodes.iter() {
-                        let decide_leaf = node.handle.get_decided_leaf().await;
-                        match leaves.entry(decide_leaf) {
-                            std::collections::hash_map::Entry::Occupied(mut o) => {
-                                *o.get_mut() += 1;
-                            }
-                            std::collections::hash_map::Entry::Vacant(v) => {
-                                v.insert(1);
+                    // No transactions were submitted?
+                    // We won't make any progress. Err.
+                    if round_result.txns.is_empty(){
+                        return Err(ConsensusFailedError::NoTransactionsSubmitted)
+                    }
+
+                    if round_result.failed_nodes.len() >= *num_out_of_sync  {
+                        ctx.views_since_progress += 1;
+                        ctx.total_failed_views += 1;
+
+                    } else {
+                        ctx.views_since_progress = 0;
+                    }
+
+                    if views_since_progress >= *num_failed_consecutive_rounds {
+                        return Err(ConsensusFailedError::TooManyConsecutiveFailures);
+                    }
+
+                    if total_failed_views >= *num_failed_rounds_total {
+                        return Err(ConsensusFailedError::TooManyViewFailures);
+                    }
+
+                    let mut result_leaves = None;
+                    let collective = runner_nodes_2.collect::<Vec<_>>().len() - num_out_of_sync;
+
+                    if *check_leaf {
+                        let mut leaves = HashMap::<I::Leaf, usize>::new();
+                        // group all the leaves since thankfully leaf implements hash
+                        for node in runner_nodes_1 {
+                            let decide_leaf = node.get_decided_leaf().await;
+                            match leaves.entry(decide_leaf) {
+                                std::collections::hash_map::Entry::Occupied(mut o) => {
+                                    *o.get_mut() += 1;
+                                }
+                                std::collections::hash_map::Entry::Vacant(v) => {
+                                    v.insert(1);
+                                }
                             }
                         }
-                    }
-                    let collective = runner.nodes().collect::<Vec<_>>().len() - self.num_out_of_sync;
-                    for (leaf, num_nodes) in leaves {
-                        if num_nodes >= collective {
-                            result = Some(leaf);
+                        for (leaf, num_nodes) in leaves {
+                            if num_nodes >= collective {
+                                result_leaves = Some(leaf);
+                            }
+                        }
+
+                        if result_leaves.is_none() {
+                            return Err(ConsensusFailedError::InconsistentLeaves)
                         }
                     }
-                }
 
-                Ok(())
-            }.boxed_local()
-        };
+                    let mut result_state = None;
 
-        (pre, RoundPostSafetyCheck(Arc::new(post)))
+                    if *check_state {
+                        // TODO
+                        let mut states = HashMap::<Vec<<I::Leaf as LeafType>::StateCommitmentType>, usize>::new();
+                        // group all the leaves since thankfully leaf implements hash
+                        for (_idx, (s, _b)) in round_result.success_nodes.clone() {
+
+                            match states.entry(s) {
+                                std::collections::hash_map::Entry::Occupied(mut o) => {
+                                    *o.get_mut() += 1;
+                                }
+                                std::collections::hash_map::Entry::Vacant(v) => {
+                                    v.insert(1);
+                                }
+                            }
+
+                        }
+                        for (state, num_nodes) in states {
+                            if num_nodes >= collective {
+                                result_state = Some(state);
+                            }
+                        }
+
+                        if result_state.is_none() {
+                            return Err(ConsensusFailedError::InconsistentLeaves);
+                        }
+
+                    }
+
+                    let mut result_block = None;
+
+                    if *check_block {
+                        let mut blocks = HashMap::<Vec<<I::Leaf as LeafType>::DeltasType>, usize>::new();
+                        // group all the leaves since thankfully leaf implements hash
+                        for (_idx, (_s, b)) in round_result.success_nodes.clone() {
+
+                            match blocks.entry(b) {
+                                std::collections::hash_map::Entry::Occupied(mut o) => {
+                                    *o.get_mut() += 1;
+                                }
+                                std::collections::hash_map::Entry::Vacant(v) => {
+                                    v.insert(1);
+                                }
+                            }
+
+                        }
+                        for (block, num_nodes) in blocks {
+                            if num_nodes >= collective {
+                                result_block = Some(block);
+                            }
+                        }
+
+                        if result_block.is_none() {
+                            return Err(ConsensusFailedError::InconsistentLeaves);
+                        }
+
+                    }
+
+                    Ok(())
+
+                }.boxed_local()
+            }));
+
+        (pre, post)
     }
 }
 
@@ -365,28 +479,35 @@ pub struct RoundSetupDescription {
 
 impl RoundSetupDescription {
     fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(&self) -> RoundSetup<TYPES, I>{
-        let closure =
-            move |runner: &mut TestRunner<TYPES, I>, ctx: &RoundCtx<TYPES, I>| -> LocalBoxFuture<Vec<TYPES::Transaction>> {
-                let changes = self.scheduled_changes.clone();
+        let Self {
+            num_txns_per_round,
+            scheduled_changes,
+        } = self.clone();
+        RoundSetup(Arc::new(
+            move |
+                    runner: &mut TestRunner<TYPES, I>,
+                    ctx: &RoundCtx<TYPES, I>
+                | -> LocalBoxFuture<Vec<TYPES::Transaction>> {
+                let changes = scheduled_changes.clone();
                 let cur_view = ctx.prior_round_results.len() + 1;
                 async move {
                     let updowns =
                         changes.iter()
-                               .filter(|node| node.view == cur_view)
-                               .map(|node| {
-                                   match node.updown {
-                                       UpDown::Up => {
-                                           Either::Left(node.idx)
-                                       },
-                                       UpDown::Down => {
-                                           Either::Right(node.idx)
-                                       }
-                                   }
+                        .filter(|node| node.view == cur_view)
+                        .map(|node| {
+                            match node.updown {
+                                UpDown::Up => {
+                                    Either::Left(node.idx)
+                                },
+                                UpDown::Down => {
+                                    Either::Right(node.idx)
+                                }
+                            }
 
-                               });
+                        });
                     // maybe we should switch to itertools
                     // they have saner either functions
-                    let startup = updowns.filter_map(|node| node.left());
+                    let startup = updowns.clone().filter_map(|node| node.left());
                     let shutdown = updowns.filter_map(|node| node.right());
 
                     for node in startup {
@@ -400,15 +521,12 @@ impl RoundSetupDescription {
 
                     let mut rng = rand::thread_rng();
                     runner
-                        .add_random_transactions(self.num_txns_per_round as usize, &mut rng)
+                        .add_random_transactions(num_txns_per_round as usize, &mut rng)
                         .await
                         .unwrap()
                 }.boxed_local()
-            };
 
-        RoundSetup(Arc::new(
-                closure
-        ))
+            }))
     }
 }
 
