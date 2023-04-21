@@ -135,14 +135,10 @@ pub trait ConsensusSharedApi<
 pub trait ValidatingConsensusApi<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
-    I: NodeImplementation<TYPES>,
+    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
 >: ConsensusSharedApi<TYPES, LEAF, I> where
-    I::Exchanges: ValidatingExchangesType<
-        ValidatingConsensus,
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
-    >,
+    I::Exchanges:
+        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
 {
     /// Send a direct message to the given recipient
     async fn send_direct_message<PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>(
@@ -168,14 +164,10 @@ pub trait ValidatingConsensusApi<
 pub trait SequencingConsensusApi<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
-    I: NodeImplementation<TYPES>,
+    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
 >: ConsensusSharedApi<TYPES, LEAF, I> where
-    I::Exchanges: SequencingExchangesType<
-        SequencingConsensus,
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges:
+        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
 {
     /// Send a direct message to the given recipient
     async fn send_direct_message<PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>(

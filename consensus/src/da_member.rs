@@ -18,7 +18,8 @@ use hotshot_types::{
     },
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
-        election::{CommitteeExchangeType, ConsensusExchange},
+        election::{CommitteeExchangeType, ConsensusExchange, QuorumExchange, QuorumExchangeType},
+        network::NetworkMsg,
         node_implementation::{
             CommitteeEx, CommitteeVote, DAProposalType, NodeImplementation, NodeType,
             SequencingExchanges, SequencingExchangesType,
@@ -36,14 +37,14 @@ use tracing::{error, info, instrument, warn};
 pub struct DAMember<
     A: SequencingConsensusApi<TYPES, SequencingLeaf<TYPES>, I>,
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-> where
-    I::Exchanges: SequencingExchangesType<
-        SequencingConsensus,
+    I: NodeImplementation<
         TYPES,
-        I::Leaf,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Leaf = SequencingLeaf<TYPES>,
+        ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
+> where
+    I::Exchanges:
+        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
 {
     /// ID of node.
     pub id: u64,
@@ -77,12 +78,8 @@ impl<
         >,
     > DAMember<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<
-        SequencingConsensus,
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges:
+        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
 {
     /// DA committee member task that spins until a valid DA proposal can be signed or timeout is
     /// hit.
@@ -167,7 +164,7 @@ where
                                         info!("Sending vote to the leader {:?}", message);
 
                                         let consensus = self.consensus.read().await;
-                                        if self.api.send_direct_da_message::<DAProposalType<TYPES, I>, CommitteeVote<TYPES, I>>(sender, message).await.is_err() {
+                                        if self.api.send_direct_da_message::<DAProposalType<TYPES, I>, CommitteeVote<TYPES, I>>(sender, SequencingMessage(Right(message))).await.is_err() {
                                             consensus.metrics.failed_to_send_messages.add(1);
                                             warn!("Failed to send vote to the leader");
                                         } else {

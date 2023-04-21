@@ -40,12 +40,8 @@ pub struct Replica<
         ConsensusMessage = ValidatingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges: ValidatingExchangesType<
-        ValidatingConsensus,
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
-    >,
+    I::Exchanges:
+        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
 {
     /// id of node
     pub id: u64,
@@ -80,12 +76,8 @@ impl<
         >,
     > Replica<A, TYPES, I>
 where
-    I::Exchanges: ValidatingExchangesType<
-        ValidatingConsensus,
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
-    >,
+    I::Exchanges:
+        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
 {
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.

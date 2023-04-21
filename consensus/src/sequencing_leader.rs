@@ -51,12 +51,8 @@ pub struct DALeader<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges: SequencingExchangesType<
-        SequencingConsensus,
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges:
+        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
 {
     /// id of node
     pub id: u64,
@@ -92,12 +88,8 @@ impl<
         >,
     > DALeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<
-        SequencingConsensus,
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges:
+        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
 {
     /// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
     async fn wait_for_votes(
@@ -303,12 +295,8 @@ pub struct ConsensusLeader<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges: SequencingExchangesType<
-        SequencingConsensus,
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges:
+        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
 {
     /// id of node
     pub id: u64,
@@ -343,12 +331,8 @@ impl<
         >,
     > ConsensusLeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<
-        SequencingConsensus,
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges:
+        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
 {
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
@@ -406,12 +390,8 @@ pub struct ConsensusNextLeader<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges: SequencingExchangesType<
-        SequencingConsensus,
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges:
+        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
 {
     /// id of node
     pub id: u64,
@@ -445,12 +425,8 @@ impl<
         >,
     > ConsensusNextLeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<
-        SequencingConsensus,
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges:
+        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
 {
     /// Run one view of the next leader, collect votes and build a QC for the last views `CommitmentProposal`
     /// # Panics

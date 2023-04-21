@@ -10,7 +10,7 @@ use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::SequencingMessage,
+    message::{GeneralConsensusMessage, SequencingMessage},
     traits::{
         consensus_type::validating_consensus::ValidatingConsensus,
         election::SignedCertificate,
@@ -41,7 +41,6 @@ pub struct ValidatingLeader<
     >,
 > where
     I::Exchanges: ValidatingExchangesType<
-        ValidatingConsensus,
         TYPES,
         ValidatingLeaf<TYPES>,
         Message<TYPES, I, I::ConsensusMessage>,
@@ -78,10 +77,15 @@ impl<
     > ValidatingLeader<A, TYPES, I>
 where
     I::Exchanges: ValidatingExchangesType<
-        ValidatingConsensus,
         TYPES,
         ValidatingLeaf<TYPES>,
         Message<TYPES, I, I::ConsensusMessage>,
+    >,
+    ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        ValidatingLeaf<TYPES>,
+        Message<TYPES, I, I::ConsensusMessage>,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
     >,
 {
     /// Run one view of the leader task
@@ -207,7 +211,11 @@ where
                 .exchange
                 .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
             let data: ValidatingProposal<TYPES, ValidatingLeaf<TYPES>> = leaf.into();
-            let message = ValidatingMessage::<TYPES, I>::Proposal(Proposal { data, signature });
+            let message =
+                ValidatingMessage::<TYPES, I>(GeneralConsensusMessage::Proposal(Proposal {
+                    data,
+                    signature,
+                }));
             consensus
                 .metrics
                 .proposal_build_duration
@@ -216,7 +224,7 @@ where
 
             if let Err(e) = self
                 .api
-                .send_broadcast_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(
+                .send_broadcast_message::<QuorumProposalType<TYPES, I,ValidatingMessage<TYPES,I>>, QuorumVoteType<TYPES, I,ValidatingMessage<TYPES,I>>>(
                     message.clone(),
                 )
                 .await

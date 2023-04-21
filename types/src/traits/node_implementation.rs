@@ -12,7 +12,9 @@ use super::{
         sequencing_consensus::SequencingConsensusType,
         validating_consensus::ValidatingConsensusType, ConsensusType,
     },
-    election::{ConsensusExchange, ElectionConfig, VoteToken},
+    election::{
+        CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchangeType, VoteToken,
+    },
     network::{NetworkMsg, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, TestableBlock, TestableState},
@@ -84,7 +86,7 @@ pub trait ExchangesType<
 >: Send + Sync
 {
     /// Protocol for exchanging consensus proposals and votes.
-    type QuorumExchange: ConsensusExchange<TYPES, LEAF, MESSAGE>;
+    type QuorumExchange: QuorumExchangeType<TYPES, LEAF, MESSAGE>;
 
     /// Networking implementations for all exchanges.
     type Networks;
@@ -101,34 +103,31 @@ pub trait ExchangesType<
 
 /// An [`ExchangesType`] for validating consensus.
 pub trait ValidatingExchangesType<
-    CONSENSUS: ValidatingConsensusType,
-    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
->: ExchangesType<CONSENSUS, TYPES, LEAF, MESSAGE>
+>: ExchangesType<ValidatingConsensus, TYPES, LEAF, MESSAGE>
 {
 }
 
 /// An [`ExchangesType`] for sequencing consensus.
 pub trait SequencingExchangesType<
-    CONSENSUS: SequencingConsensusType,
-    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
->: ExchangesType<CONSENSUS, TYPES, LEAF, MESSAGE>
+>: ExchangesType<SequencingConsensus, TYPES, LEAF, MESSAGE>
 {
     /// Protocol for exchanging data availability proposals and votes.
-    type CommitteeExchange: ConsensusExchange<TYPES, LEAF, MESSAGE>;
+    type CommitteeExchange: CommitteeExchangeType<TYPES, LEAF, MESSAGE>;
 }
 
 /// Implements [`ValidatingExchangesType`].
 #[derive(Clone, Debug)]
 pub struct ValidatingExchanges<
-    CONSENSUS: ValidatingConsensusType,
-    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE>,
 > {
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
@@ -137,26 +136,23 @@ pub struct ValidatingExchanges<
     _phantom: PhantomData<(TYPES, LEAF, MESSAGE)>,
 }
 
-impl<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE>
-    ValidatingExchangesType<CONSENSUS, TYPES, LEAF, MESSAGE>
-    for ValidatingExchanges<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE>
+impl<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE> ValidatingExchangesType<TYPES, LEAF, MESSAGE>
+    for ValidatingExchanges<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE>
 where
-    CONSENSUS: ValidatingConsensusType,
-    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE>,
 {
 }
 
-impl<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE> ExchangesType<CONSENSUS, TYPES, LEAF, MESSAGE>
-    for ValidatingExchanges<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE>
+impl<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE> ExchangesType<ValidatingConsensus, TYPES, LEAF, MESSAGE>
+    for ValidatingExchanges<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE>
 where
-    CONSENSUS: ValidatingConsensusType,
-    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE>,
 {
     type QuorumExchange = QUORUMEXCHANGE;
     type Networks = QUORUMEXCHANGE::Networking;
@@ -178,12 +174,11 @@ where
 /// Implementes [`SequencingExchangesType`].
 #[derive(Clone, Debug)]
 pub struct SequencingExchanges<
-    CONSENSUS: SequencingConsensusType,
-    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
-    COMMITTEEEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE>,
+    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE>,
 > {
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
@@ -195,30 +190,28 @@ pub struct SequencingExchanges<
     _phantom: PhantomData<(TYPES, LEAF, MESSAGE)>,
 }
 
-impl<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
-    SequencingExchangesType<CONSENSUS, TYPES, LEAF, MESSAGE>
-    for SequencingExchanges<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+impl<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+    SequencingExchangesType<TYPES, LEAF, MESSAGE>
+    for SequencingExchanges<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
 where
-    CONSENSUS: SequencingConsensusType,
-    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
-    COMMITTEEEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE>,
+    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE>,
 {
     type CommitteeExchange = COMMITTEEEXCHANGE;
 }
 
-impl<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
-    ExchangesType<CONSENSUS, TYPES, LEAF, MESSAGE>
-    for SequencingExchanges<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+impl<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+    ExchangesType<SequencingConsensus, TYPES, LEAF, MESSAGE>
+    for SequencingExchanges<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
 where
-    CONSENSUS: SequencingConsensusType,
-    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
-    COMMITTEEEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE>,
+    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE>,
 {
     type QuorumExchange = QUORUMEXCHANGE;
     type Networks = (QUORUMEXCHANGE::Networking, COMMITTEEEXCHANGE::Networking);
@@ -276,7 +269,6 @@ pub type SequencingQuorumEx<TYPES, I> =
 /// Alias for the [`CommitteeExchange`] type.
 pub type CommitteeEx<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::Exchanges as SequencingExchangesType<
-        SequencingConsensus,
         TYPES,
         <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I, SequencingMessage<TYPES, I>>,
@@ -351,7 +343,6 @@ impl<
     > TestableNodeImplementation<ValidatingConsensus, TYPES> for I
 where
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<
-        ValidatingConsensus,
         TYPES,
         <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I, ValidatingMessage<TYPES, I>>,
@@ -465,7 +456,6 @@ impl<
     > TestableNodeImplementation<SequencingConsensus, TYPES> for I
 where
     <I as NodeImplementation<TYPES>>::Exchanges: SequencingExchangesType<
-        SequencingConsensus,
         TYPES,
         <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I, SequencingMessage<TYPES, I>>,

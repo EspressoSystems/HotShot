@@ -394,7 +394,9 @@ pub trait CommitteeExchangeType<
     ) -> (EncodedPublicKey, EncodedSignature);
 
     /// Create a message with a vote on DA proposal.
-    fn create_da_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
+    fn create_da_message<
+        I: NodeImplementation<TYPES, Leaf = LEAF, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    >(
         &self,
         justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
         block_commitment: Commitment<TYPES::BlockType>,
@@ -402,12 +404,8 @@ pub trait CommitteeExchangeType<
         vote_token: TYPES::VoteTokenType,
     ) -> CommitteeConsensusMessage<TYPES, I>
     where
-        I::Exchanges: SequencingExchangesType<
-            SequencingConsensus,
-            TYPES,
-            LEAF,
-            Message<TYPES, I, SequencingMessage<TYPES, I>>,
-        >;
+        I::Exchanges:
+            SequencingExchangesType<TYPES, LEAF, Message<TYPES, I, SequencingMessage<TYPES, I>>>;
 }
 
 /// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
@@ -462,7 +460,9 @@ impl<
         (self.public_key.to_bytes(), signature)
     }
     /// Create a message with a vote on DA proposal.
-    fn create_da_message<I: NodeImplementation<TYPES, Leaf = LEAF>>(
+    fn create_da_message<
+        I: NodeImplementation<TYPES, Leaf = LEAF, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    >(
         &self,
         justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
         block_commitment: Commitment<TYPES::BlockType>,
@@ -470,12 +470,8 @@ impl<
         vote_token: TYPES::VoteTokenType,
     ) -> CommitteeConsensusMessage<TYPES, I>
     where
-        I::Exchanges: SequencingExchangesType<
-            SequencingConsensus,
-            TYPES,
-            LEAF,
-            Message<TYPES, I, SequencingMessage<TYPES, I>>,
-        >,
+        I::Exchanges:
+            SequencingExchangesType<TYPES, LEAF, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
     {
         let signature = self.sign_da_vote(block_commitment);
         CommitteeConsensusMessage::<TYPES, I>::DAVote(DAVote {
@@ -573,7 +569,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
 {
     /// Create a message with a positive vote on validating or commitment proposal.
     fn create_yes_message<
-        I: NodeImplementation<TYPES, Leaf = LEAF>,
+        I: NodeImplementation<TYPES, Leaf = LEAF, ConsensusMessage = CONSENSUSMESSAGE>,
         CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
             + Clone
             + Debug
@@ -632,7 +628,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
 
     /// Create a message with a negative vote on validating or commitment proposal.
     fn create_no_message<
-        I: NodeImplementation<TYPES, Leaf = LEAF>,
+        I: NodeImplementation<TYPES, Leaf = LEAF, ConsensusMessage = CONSENSUSMESSAGE>,
         CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
             + Clone
             + Debug
@@ -658,7 +654,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
 
     /// Create a message with a timeout vote on validating or commitment proposal.
     fn create_timeout_message<
-        I: NodeImplementation<TYPES, Leaf = LEAF>,
+        I: NodeImplementation<TYPES, Leaf = LEAF, ConsensusMessage = CONSENSUSMESSAGE>,
         CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
             + Clone
             + Debug
@@ -715,7 +711,7 @@ impl<
 {
     /// Create a message with a positive vote on validating or commitment proposal.
     fn create_yes_message<
-        I: NodeImplementation<TYPES, Leaf = LEAF>,
+        I: NodeImplementation<TYPES, Leaf = LEAF, ConsensusMessage = CONSENSUSMESSAGE>,
         CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
             + Clone
             + Debug
@@ -802,7 +798,7 @@ impl<
     }
     /// Create a message with a negative vote on validating or commitment proposal.
     fn create_no_message<
-        I: NodeImplementation<TYPES, Leaf = LEAF>,
+        I: NodeImplementation<TYPES, Leaf = LEAF, ConsensusMessage = CONSENSUSMESSAGE>,
         CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
             + Clone
             + Debug
@@ -834,7 +830,7 @@ impl<
 
     /// Create a message with a timeout vote on validating or commitment proposal.
     fn create_timeout_message<
-        I: NodeImplementation<TYPES, Leaf = LEAF>,
+        I: NodeImplementation<TYPES, Leaf = LEAF, ConsensusMessage = CONSENSUSMESSAGE>,
         CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
             + Clone
             + Debug

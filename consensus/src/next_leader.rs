@@ -43,7 +43,6 @@ pub struct NextValidatingLeader<
     >,
 > where
     I::Exchanges: ValidatingExchangesType<
-        ValidatingConsensus,
         TYPES,
         ValidatingLeaf<TYPES>,
         Message<TYPES, I, I::ConsensusMessage>,
@@ -84,7 +83,6 @@ impl<
     > NextValidatingLeader<A, TYPES, I>
 where
     I::Exchanges: ValidatingExchangesType<
-        ValidatingConsensus,
         TYPES,
         ValidatingLeaf<TYPES>,
         Message<TYPES, I, I::ConsensusMessage>,

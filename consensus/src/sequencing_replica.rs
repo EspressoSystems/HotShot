@@ -50,12 +50,8 @@ pub struct SequencingReplica<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges: SequencingExchangesType<
-        SequencingConsensus,
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges:
+        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
 {
     /// ID of node.
     pub id: u64,
@@ -92,12 +88,8 @@ impl<
         >,
     > SequencingReplica<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<
-        SequencingConsensus,
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges:
+        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
 {
     /// The leaf from the genesis view.
     ///
