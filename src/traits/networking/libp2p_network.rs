@@ -21,7 +21,8 @@ use hotshot_types::{
         metrics::{Metrics, NoMetrics},
         network::{
             CommunicationChannel, ConnectedNetwork, FailedToSerializeSnafu, NetworkError,
-            NetworkMsg, TestableNetworkingImplementation, TransmitType,
+            NetworkMsg, TestableChannelImplementation, TestableNetworkingImplementation,
+            TransmitType,
         },
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -114,14 +115,9 @@ pub struct Libp2pNetwork<M: NetworkMsg, K: SignatureKey + 'static> {
     inner: Arc<Libp2pNetworkInner<M, K>>,
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
+    TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -202,20 +198,17 @@ where
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
                 let all_keys = all_keys.clone();
                 async_block_on(async move {
-                    Libp2pCommChannel(
-                        Libp2pNetwork::new(
-                            NoMetrics::boxed(),
-                            config,
-                            pubkey,
-                            bootstrap_addrs_ref,
-                            num_bootstrap,
-                            node_id as usize,
-                            all_keys,
-                        )
-                        .await
-                        .unwrap(),
-                        PhantomData,
+                    Libp2pNetwork::new(
+                        NoMetrics::boxed(),
+                        config,
+                        pubkey,
+                        bootstrap_addrs_ref,
+                        num_bootstrap,
+                        node_id as usize,
+                        all_keys,
                     )
+                    .await
+                    .unwrap()
                 })
             }
         })
@@ -473,7 +466,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
 }
 
 #[async_trait]
-impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, M, K> for Libp2pNetwork<M, K> {
+impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Libp2pNetwork<M, K> {
     #[instrument(name = "Libp2pNetwork::ready_blocking", skip_all)]
     async fn wait_for_ready(&self) {
         self.wait_for_ready().await;
@@ -684,7 +677,7 @@ pub struct Libp2pCommChannel<
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
+    Arc<Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>>,
     PhantomData<(TYPES, I, PROPOSAL, VOTE, MEMBERSHIP)>,
 );
 
@@ -698,7 +691,7 @@ impl<
 {
     /// create a new libp2p communication channel
     #[must_use]
-    pub fn new(network: Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>) -> Self {
+    pub fn new(network: Arc<Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>>) -> Self {
         Self(network, PhantomData::default())
     }
 }
@@ -716,6 +709,8 @@ impl<
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
+    type NETWORK = Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>;
+
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
     }
@@ -760,5 +755,30 @@ impl<
     async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
         // Not required
         Ok(())
+    }
+}
+
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    >
+    TestableChannelImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        PROPOSAL,
+        VOTE,
+        MEMBERSHIP,
+        Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
+    > for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+{
+    fn generate_network(
+    ) -> Box<dyn Fn(Arc<Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>>) -> Self + 'static>
+    {
+        Box::new(move |network| Libp2pCommChannel::new(network))
     }
 }

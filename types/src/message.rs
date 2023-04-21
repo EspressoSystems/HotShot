@@ -49,6 +49,32 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Messa
             MessageKind::Data(DataMessage::SubmitTransaction(_, v)) => *v,
         }
     }
+    fn purpose(&self) -> MessagePurpose {
+        match &self.kind {
+            MessageKind::Consensus(message_kind) => match message_kind {
+                ConsensusMessage::Proposal(_) | ConsensusMessage::DAProposal(_) => {
+                    MessagePurpose::Proposal
+                }
+                ConsensusMessage::Vote(_) | ConsensusMessage::DAVote(_) => MessagePurpose::Vote,
+                ConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
+            },
+            MessageKind::Data(message_kind) => match message_kind {
+                DataMessage::SubmitTransaction(_, _) => MessagePurpose::Data,
+            },
+        }
+    }
+}
+
+/// A message type agnostic description of a messages purpose
+pub enum MessagePurpose {
+    /// Message contains a proposal
+    Proposal,
+    /// Message contains a vote
+    Vote,
+    /// Message for internal use
+    Internal,
+    /// Data message
+    Data,
 }
 
 // TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -136,12 +162,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProcessedConsensusMessage<TY
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = "", serialize = ""))]
 /// Messages related to the consensus protocol
-pub enum ConsensusMessage<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES>,
-    // PROPOSAL: ProposalType<NodeType = TYPES>,
-    // VOTE: VoteType<TYPES>,
-> {
+pub enum ConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Leader's proposal for full quorum voting
     Proposal(Proposal<QuorumProposal<TYPES, I>>),
 
