@@ -944,7 +944,6 @@
 <a href="#944" id="944">944</a>
 <a href="#945" id="945">945</a>
 <a href="#946" id="946">946</a>
-<a href="#947" id="947">947</a>
 </pre><pre class="rust"><code><span class="kw">use </span>futures::Future;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>std::net::Ipv4Addr;
@@ -1512,46 +1511,48 @@
         config_builder.mesh_params(<span class="prelude-val">Some</span>(mesh_params));
 
         <span class="kw">let </span>node_config = config_builder.build().unwrap();
-        <span class="kw">let </span>network = Libp2pNetwork::new(
-            NoMetrics::boxed(),
-            node_config,
-            pubkey.clone(),
-            Arc::new(RwLock::new(
-                bootstrap_nodes
-                    .iter()
-                    .map(|(peer_id, addr)| (<span class="prelude-val">Some</span>(<span class="kw-2">*</span>peer_id), addr.clone()))
-                    .collect(),
-            )),
-            bs_len,
-            config.node_index <span class="kw">as </span>usize,
-            <span class="comment">// NOTE: this introduces an invariant that the keys are assigned using this indexed
-            // function
-            </span>{
-                <span class="kw">let </span><span class="kw-2">mut </span>keys = BTreeSet::new();
-                <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..config.config.total_nodes.get() {
-                    <span class="kw">let </span>pk = &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::generated_from_seed_indexed(
-                        config.seed,
-                        i <span class="kw">as </span>u64,
-                    )
-                    .<span class="number">0</span>;
-                    keys.insert(pk);
-                }
-                keys
-            },
-        )
-        .<span class="kw">await
-        </span>.map(
-            Libp2pCommChannel::&lt;
-                TYPES,
-                NODE,
-                ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
-                QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
-                MEMBERSHIP,
-            &gt;::new,
-        )
-        .unwrap();
+        <span class="kw">let </span>network = Arc::new(
+            Libp2pNetwork::new(
+                NoMetrics::boxed(),
+                node_config,
+                pubkey.clone(),
+                Arc::new(RwLock::new(
+                    bootstrap_nodes
+                        .iter()
+                        .map(|(peer_id, addr)| (<span class="prelude-val">Some</span>(<span class="kw-2">*</span>peer_id), addr.clone()))
+                        .collect(),
+                )),
+                bs_len,
+                config.node_index <span class="kw">as </span>usize,
+                <span class="comment">// NOTE: this introduces an invariant that the keys are assigned using this indexed
+                // function
+                </span>{
+                    <span class="kw">let </span><span class="kw-2">mut </span>keys = BTreeSet::new();
+                    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..config.config.total_nodes.get() {
+                        <span class="kw">let </span>pk =
+                            &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::generated_from_seed_indexed(
+                                config.seed,
+                                i <span class="kw">as </span>u64,
+                            )
+                            .<span class="number">0</span>;
+                        keys.insert(pk);
+                    }
+                    keys
+                },
+            )
+            .<span class="kw">await
+            </span>.unwrap(),
+        );
 
-        network.wait_for_ready().<span class="kw">await</span>;
+        <span class="kw">let </span>comm_channel = Libp2pCommChannel::&lt;
+            TYPES,
+            NODE,
+            ValidatingProposal&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
+            QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
+            MEMBERSHIP,
+        &gt;::new(network);
+
+        comm_channel.wait_for_ready().<span class="kw">await</span>;
 
         Libp2pRun {
             config,
@@ -1561,7 +1562,7 @@
             _identity: identity,
             _bound_addr: bound_addr,
             <span class="comment">// _socket: stream,
-            </span>network,
+            </span>network: comm_channel,
         }
     }
 
@@ -1684,12 +1685,9 @@
             Proposal&lt;TYPES&gt;,
             QuorumVote&lt;TYPES, ValidatingLeaf&lt;TYPES&gt;&gt;,
             MEMBERSHIP,
-        &gt; = WebCommChannel::new(WebServerNetwork::create(
-            <span class="kw-2">&amp;</span>host.to_string(),
-            port,
-            wait_between_polls,
-            pub_key,
-        ));
+        &gt; = WebCommChannel::new(
+            WebServerNetwork::create(<span class="kw-2">&amp;</span>host.to_string(), port, wait_between_polls, pub_key).into(),
+        );
         WebServerRun { config, network }
     }
 

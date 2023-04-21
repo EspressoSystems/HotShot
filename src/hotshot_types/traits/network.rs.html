@@ -286,6 +286,20 @@
 <a href="#286" id="286">286</a>
 <a href="#287" id="287">287</a>
 <a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! Contains types and traits used by `HotShot` to abstract over network access
@@ -299,10 +313,11 @@
 </span><span class="macro">std::compile_error! </span>{<span class="string">&quot;Either feature \&quot;async-std-executor\&quot; or feature \&quot;tokio-executor\&quot; must be enabled for this crate.&quot;</span>}
 
 <span class="kw">use super</span>::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
-<span class="kw">use crate</span>::{data::ProposalType, vote::VoteType};
+<span class="kw">use crate</span>::{data::ProposalType, message::MessagePurpose, vote::VoteType};
 <span class="kw">use </span>async_trait::async_trait;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>snafu::Snafu;
+<span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::{collections::BTreeSet, time::Duration};
 
 <span class="kw">impl </span>From&lt;NetworkNodeHandleError&gt; <span class="kw">for </span>NetworkError {
@@ -425,6 +440,9 @@
 </span><span class="kw">pub trait </span>ViewMessage&lt;TYPES: NodeType&gt; {
     <span class="doccomment">/// get the view out of the message
     </span><span class="kw">fn </span>get_view_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TYPES::Time;
+    <span class="comment">// TODO move out of this trait.
+    </span><span class="doccomment">/// get the purpose of the message
+    </span><span class="kw">fn </span>purpose(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MessagePurpose;
 }
 
 <span class="doccomment">/// API for interacting directly with a consensus committee
@@ -438,6 +456,8 @@
     MEMBERSHIP: Membership&lt;TYPES&gt;,
 &gt;: Clone + Send + Sync + <span class="lifetime">&#39;static
 </span>{
+    <span class="doccomment">/// Underlying Network implementation&#39;s type
+    </span><span class="kw">type </span>NETWORK: ConnectedNetwork&lt;M, TYPES::SignatureKey&gt;;
     <span class="doccomment">/// Blocks until node is successfully initialized
     /// into the network
     </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>);
@@ -487,7 +507,7 @@
 /// intended to be implemented for libp2p, the centralized server,
 /// and memory network
 </span><span class="attr">#[async_trait]
-</span><span class="kw">pub trait </span>ConnectedNetwork&lt;RECVMSG: NetworkMsg, SENDMSG: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>&gt;:
+</span><span class="kw">pub trait </span>ConnectedNetwork&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>&gt;:
     Clone + Send + Sync + <span class="lifetime">&#39;static
 </span>{
     <span class="doccomment">/// Blocks until the network is successfully initialized
@@ -505,19 +525,19 @@
     /// blocking
     </span><span class="kw">async fn </span>broadcast_message(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        message: SENDMSG,
+        message: M,
         recipients: BTreeSet&lt;K&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
 
     <span class="doccomment">/// Sends a direct message to a specific node
     /// blocking
-    </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: SENDMSG, recipient: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
+    </span><span class="kw">async fn </span>direct_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: M, recipient: K) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt;;
 
     <span class="doccomment">/// Moves out the entire queue of received messages of &#39;transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>, transmit_type: TransmitType) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;RECVMSG&gt;, NetworkError&gt;;
+    </span><span class="kw">async fn </span>recv_msgs(<span class="kw-2">&amp;</span><span class="self">self</span>, transmit_type: TransmitType) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;M&gt;, NetworkError&gt;;
 
     <span class="doccomment">/// look up a node
     /// blocking
@@ -530,13 +550,8 @@
 }
 
 <span class="doccomment">/// Describes additional functionality needed by the test network implementation
-</span><span class="kw">pub trait </span>TestableNetworkingImplementation&lt;
-    TYPES: NodeType,
-    M: NetworkMsg,
-    PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    VOTE: VoteType&lt;TYPES&gt;,
-    MEMBERSHIP: Membership&lt;TYPES&gt;,
-&gt;: CommunicationChannel&lt;TYPES, M, PROPOSAL, VOTE, MEMBERSHIP&gt;
+</span><span class="kw">pub trait </span>TestableNetworkingImplementation&lt;TYPES: NodeType, M: NetworkMsg&gt;:
+    ConnectedNetwork&lt;M, TYPES::SignatureKey&gt;
 {
     <span class="doccomment">/// generates a network given an expected node count
     </span><span class="kw">fn </span>generator(
@@ -549,6 +564,19 @@
     ///
     /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
     </span><span class="kw">fn </span>in_flight_message_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt;;
+}
+<span class="doccomment">/// Describes additional functionality needed by the test communication channel
+</span><span class="kw">pub trait </span>TestableChannelImplementation&lt;
+    TYPES: NodeType,
+    M: NetworkMsg,
+    PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+    VOTE: VoteType&lt;TYPES&gt;,
+    MEMBERSHIP: Membership&lt;TYPES&gt;,
+    NETWORK: ConnectedNetwork&lt;M, TYPES::SignatureKey&gt;,
+&gt;: CommunicationChannel&lt;TYPES, M, PROPOSAL, VOTE, MEMBERSHIP&gt;
+{
+    <span class="doccomment">/// generates the `CommunicationChannel` given it&#39;s associated network type
+    </span><span class="kw">fn </span>generate_network() -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;NETWORK&gt;) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt;;
 }
 
 <span class="doccomment">/// Changes that can occur in the network

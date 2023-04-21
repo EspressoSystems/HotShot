@@ -204,6 +204,27 @@
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Network message types
 //!
 //! This module contains types used to represent the various types of messages that
@@ -255,6 +276,32 @@
             MessageKind::Data(DataMessage::SubmitTransaction(<span class="kw">_</span>, v)) =&gt; <span class="kw-2">*</span>v,
         }
     }
+    <span class="kw">fn </span>purpose(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MessagePurpose {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.kind {
+            MessageKind::Consensus(message_kind) =&gt; <span class="kw">match </span>message_kind {
+                ConsensusMessage::Proposal(<span class="kw">_</span>) | ConsensusMessage::DAProposal(<span class="kw">_</span>) =&gt; {
+                    MessagePurpose::Proposal
+                }
+                ConsensusMessage::Vote(<span class="kw">_</span>) | ConsensusMessage::DAVote(<span class="kw">_</span>) =&gt; MessagePurpose::Vote,
+                ConsensusMessage::InternalTrigger(<span class="kw">_</span>) =&gt; MessagePurpose::Internal,
+            },
+            MessageKind::Data(message_kind) =&gt; <span class="kw">match </span>message_kind {
+                DataMessage::SubmitTransaction(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; MessagePurpose::Data,
+            },
+        }
+    }
+}
+
+<span class="doccomment">/// A message type agnostic description of a messages purpose
+</span><span class="kw">pub enum </span>MessagePurpose {
+    <span class="doccomment">/// Message contains a proposal
+    </span>Proposal,
+    <span class="doccomment">/// Message contains a vote
+    </span>Vote,
+    <span class="doccomment">/// Message for internal use
+    </span>Internal,
+    <span class="doccomment">/// Data message
+    </span>Data,
 }
 
 <span class="comment">// TODO (da) make it more customized to the consensus layer, maybe separating the specific message
@@ -342,12 +389,7 @@
 <span class="attr">#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>, serialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="doccomment">/// Messages related to the consensus protocol
-</span><span class="kw">pub enum </span>ConsensusMessage&lt;
-    TYPES: NodeType,
-    I: NodeImplementation&lt;TYPES&gt;,
-    <span class="comment">// PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-    // VOTE: VoteType&lt;TYPES&gt;,
-</span>&gt; {
+</span><span class="kw">pub enum </span>ConsensusMessage&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; {
     <span class="doccomment">/// Leader&#39;s proposal for full quorum voting
     </span>Proposal(Proposal&lt;QuorumProposal&lt;TYPES, I&gt;&gt;),
 

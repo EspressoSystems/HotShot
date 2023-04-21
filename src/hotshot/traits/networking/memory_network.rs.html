@@ -877,6 +877,23 @@
 <a href="#877" id="877">877</a>
 <a href="#878" id="878">878</a>
 <a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
 </pre><pre class="rust"><code><span class="doccomment">//! In memory network simulator
 //!
 //! This module provides an in-memory only simulation of an actual network, useful for unit and
@@ -899,8 +916,8 @@
         election::Membership,
         metrics::{Metrics, NoMetrics},
         network::{
-            CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation,
-            TransmitType,
+            CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableChannelImplementation,
+            TestableNetworkingImplementation, TransmitType,
         },
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -1168,14 +1185,9 @@
     }
 }
 
-<span class="kw">impl</span>&lt;
-        TYPES: NodeType,
-        I: NodeImplementation&lt;TYPES&gt;,
-        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
-        VOTE: VoteType&lt;TYPES&gt;,
-        MEMBERSHIP: Membership&lt;TYPES&gt;,
-    &gt; TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;
-    <span class="kw">for </span>MemoryCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+<span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt;
+    TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;
+    <span class="kw">for </span>MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;
 <span class="kw">where
     </span>TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -1188,23 +1200,18 @@
         Box::new(<span class="kw">move </span>|node_id| {
             <span class="kw">let </span>privkey = TYPES::SignatureKey::generate_test_key(node_id);
             <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>privkey);
-            MemoryCommChannel::new(MemoryNetwork::new(
-                pubkey,
-                NoMetrics::boxed(),
-                master.clone(),
-                <span class="prelude-val">None</span>,
-            ))
+            MemoryNetwork::new(pubkey, NoMetrics::boxed(), master.clone(), <span class="prelude-val">None</span>)
         })
     }
 
     <span class="kw">fn </span>in_flight_message_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
-        <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="number">0</span>.inner.in_flight_message_count.load(Ordering::Relaxed))
+        <span class="prelude-val">Some</span>(<span class="self">self</span>.inner.in_flight_message_count.load(Ordering::Relaxed))
     }
 }
 
 <span class="comment">// TODO instrument these functions
 </span><span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>&gt; ConnectedNetwork&lt;M, M, K&gt; <span class="kw">for </span>MemoryNetwork&lt;M, K&gt; {
+</span><span class="kw">impl</span>&lt;M: NetworkMsg, K: SignatureKey + <span class="lifetime">&#39;static</span>&gt; ConnectedNetwork&lt;M, K&gt; <span class="kw">for </span>MemoryNetwork&lt;M, K&gt; {
     <span class="attr">#[instrument(name = <span class="string">&quot;MemoryNetwork::ready_blocking&quot;</span>)]
     </span><span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {}
 
@@ -1339,7 +1346,7 @@
     VOTE: VoteType&lt;TYPES&gt;,
     MEMBERSHIP: Membership&lt;TYPES&gt;,
 &gt;(
-    MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;,
+    Arc&lt;MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;&gt;,
     PhantomData&lt;(I, PROPOSAL, VOTE, MEMBERSHIP)&gt;,
 );
 
@@ -1353,7 +1360,7 @@
 {
     <span class="doccomment">/// create new communication channel
     </span><span class="attr">#[must_use]
-    </span><span class="kw">pub fn </span>new(network: MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(network: Arc&lt;MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(network, PhantomData::default())
     }
 }
@@ -1368,6 +1375,8 @@
     &gt; CommunicationChannel&lt;TYPES, Message&lt;TYPES, I&gt;, PROPOSAL, VOTE, MEMBERSHIP&gt;
     <span class="kw">for </span>MemoryCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
 {
+    <span class="kw">type </span>NETWORK = MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;;
+
     <span class="kw">async fn </span>wait_for_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.<span class="number">0</span>.wait_for_ready().<span class="kw">await</span>;
     }
@@ -1412,6 +1421,31 @@
     <span class="kw">async fn </span>inject_consensus_info(<span class="kw-2">&amp;</span><span class="self">self</span>, _tuple: (u64, bool, bool)) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
         <span class="comment">// Not required
         </span><span class="prelude-val">Ok</span>(())
+    }
+}
+
+<span class="kw">impl</span>&lt;
+        TYPES: NodeType,
+        I: NodeImplementation&lt;TYPES&gt;,
+        PROPOSAL: ProposalType&lt;NodeType = TYPES&gt;,
+        VOTE: VoteType&lt;TYPES&gt;,
+        MEMBERSHIP: Membership&lt;TYPES&gt;,
+    &gt;
+    TestableChannelImplementation&lt;
+        TYPES,
+        Message&lt;TYPES, I&gt;,
+        PROPOSAL,
+        VOTE,
+        MEMBERSHIP,
+        MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;,
+    &gt; <span class="kw">for </span>MemoryCommChannel&lt;TYPES, I, PROPOSAL, VOTE, MEMBERSHIP&gt;
+<span class="kw">where
+    </span>TYPES::SignatureKey: TestableSignatureKey,
+{
+    <span class="kw">fn </span>generate_network(
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;MemoryNetwork&lt;Message&lt;TYPES, I&gt;, TYPES::SignatureKey&gt;&gt;) -&gt; <span class="self">Self </span>+ <span class="lifetime">&#39;static</span>&gt;
+    {
+        Box::new(<span class="kw">move </span>|network| MemoryCommChannel::new(network))
     }
 }
 

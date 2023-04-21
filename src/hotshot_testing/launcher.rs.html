@@ -126,47 +126,7 @@
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a>
-<a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a>
-<a href="#136" id="136">136</a>
-<a href="#137" id="137">137</a>
-<a href="#138" id="138">138</a>
-<a href="#139" id="139">139</a>
-<a href="#140" id="140">140</a>
-<a href="#141" id="141">141</a>
-<a href="#142" id="142">142</a>
-<a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a>
-<a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-</pre><pre class="rust"><code><span class="kw">use super</span>::{Generator, TestRunner};
+</pre><pre class="rust"><code><span class="kw">use super</span>::{Generator, NetworkGenerator, NetworkType, TestRunner};
 
 <span class="kw">use </span>hotshot::traits::TestableNodeImplementation;
 <span class="kw">use </span>hotshot::types::SignatureKey;
@@ -180,8 +140,9 @@
 
 <span class="doccomment">/// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
 </span><span class="kw">pub struct </span>TestLauncher&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
-    <span class="kw">pub</span>(<span class="kw">super</span>) quorum_network: Generator&lt;QuorumNetwork&lt;TYPES, I&gt;&gt;,
-    <span class="kw">pub</span>(<span class="kw">super</span>) committee_network: Generator&lt;CommitteeNetwork&lt;TYPES, I&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">super</span>) network: Generator&lt;NetworkType&lt;TYPES, I&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">super</span>) quorum_network: NetworkGenerator&lt;TYPES, I, QuorumNetwork&lt;TYPES, I&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">super</span>) committee_network: NetworkGenerator&lt;TYPES, I, CommitteeNetwork&lt;TYPES, I&gt;&gt;,
     <span class="kw">pub</span>(<span class="kw">super</span>) storage: Generator&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Storage&gt;,
     <span class="kw">pub</span>(<span class="kw">super</span>) block: Generator&lt;TYPES::BlockType&gt;,
     <span class="kw">pub</span>(<span class="kw">super</span>) config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
@@ -217,10 +178,11 @@
             propose_max_round_time: Duration::from_millis(<span class="number">1000</span>),
             election_config: <span class="prelude-val">Some</span>(election_config),
         };
-
+        <span class="kw">let </span>network = I::network_generator(expected_node_count, num_bootstrap_nodes);
         <span class="self">Self </span>{
-            quorum_network: I::quorum_generator(expected_node_count, num_bootstrap_nodes, <span class="number">1</span>),
-            committee_network: I::committee_generator(expected_node_count, num_bootstrap_nodes, <span class="number">2</span>),
+            network,
+            quorum_network: I::quorum_generator(),
+            committee_network: I::committee_generator(),
             storage: Box::new(|<span class="kw">_</span>| I::construct_tmp_storage().unwrap()),
             block: Box::new(|<span class="kw">_</span>| I::block_genesis()),
             config,
@@ -231,58 +193,15 @@
 <span class="comment">// TODO make these functions generic over the target networking/storage/other generics
 // so we can hotswap out
 </span><span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestLauncher&lt;TYPES, I&gt; {
-    <span class="doccomment">/// Set a custom quorum network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    </span><span class="kw">pub fn </span>with_quorum_network(
-        <span class="self">self</span>,
-        quorum_network: <span class="kw">impl </span>Fn(u64, TYPES::SignatureKey) -&gt; QuorumNetwork&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>,
-    ) -&gt; TestLauncher&lt;TYPES, I&gt; {
-        TestLauncher {
-            quorum_network: Box::new({
-                <span class="kw">move </span>|node_id| {
-                    <span class="comment">// FIXME perhaps this pk generation is a separate function
-                    // to add as an input
-                    // that way we don&#39;t rely on threshold crypto
-                    </span><span class="kw">let </span>priv_key = I::generate_test_key(node_id);
-                    <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>priv_key);
-                    quorum_network(node_id, pubkey)
-                }
-            }),
-            committee_network: <span class="self">self</span>.committee_network,
-            storage: <span class="self">self</span>.storage,
-            block: <span class="self">self</span>.block,
-            config: <span class="self">self</span>.config,
-        }
-    }
+    <span class="doccomment">/// TODO: Add functions to allow injecting custom networks or communication channels
 
-    <span class="doccomment">/// Set a custom committee network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    </span><span class="kw">pub fn </span>with_committee_network(
-        <span class="self">self</span>,
-        committee_network: <span class="kw">impl </span>Fn(u64, TYPES::SignatureKey) -&gt; CommitteeNetwork&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>,
-    ) -&gt; TestLauncher&lt;TYPES, I&gt; {
-        TestLauncher {
-            quorum_network: <span class="self">self</span>.quorum_network,
-            committee_network: Box::new({
-                <span class="kw">move </span>|node_id| {
-                    <span class="comment">// FIXME perhaps this pk generation is a separate function
-                    // to add as an input
-                    // that way we don&#39;t rely on threshold crypto
-                    </span><span class="kw">let </span>priv_key = I::generate_test_key(node_id);
-                    <span class="kw">let </span>pubkey = TYPES::SignatureKey::from_private(<span class="kw-2">&amp;</span>priv_key);
-                    committee_network(node_id, pubkey)
-                }
-            }),
-            storage: <span class="self">self</span>.storage,
-            block: <span class="self">self</span>.block,
-            config: <span class="self">self</span>.config,
-        }
-    }
-
-    <span class="doccomment">/// Set a custom storage generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
+    /// Set a custom storage generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     </span><span class="kw">pub fn </span>with_storage(
         <span class="self">self</span>,
         storage: <span class="kw">impl </span>Fn(u64) -&gt; I::Storage + <span class="lifetime">&#39;static</span>,
     ) -&gt; TestLauncher&lt;TYPES, I&gt; {
         TestLauncher {
+            network: <span class="self">self</span>.network,
             quorum_network: <span class="self">self</span>.quorum_network,
             committee_network: <span class="self">self</span>.committee_network,
             storage: Box::new(storage),
@@ -297,6 +216,7 @@
         block: <span class="kw">impl </span>Fn(u64) -&gt; TYPES::BlockType + <span class="lifetime">&#39;static</span>,
     ) -&gt; TestLauncher&lt;TYPES, I&gt; {
         TestLauncher {
+            network: <span class="self">self</span>.network,
             quorum_network: <span class="self">self</span>.quorum_network,
             committee_network: <span class="self">self</span>.committee_network,
             storage: <span class="self">self</span>.storage,

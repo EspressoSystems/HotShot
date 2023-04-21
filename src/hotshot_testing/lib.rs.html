@@ -543,6 +543,14 @@
 <a href="#543" id="543">543</a>
 <a href="#544" id="544">544</a>
 <a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Testing harness for the hotshot repository
 //!
 //! To build a test environment you can create a [`TestLauncher`] instance. This launcher can be configured to have a custom networking layer, initial state, etc.
@@ -576,13 +584,16 @@
 <span class="kw">use </span>hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
 <span class="kw">use </span>hotshot_types::{
     data::LeafType,
-    traits::{election::Membership, metrics::NoMetrics, node_implementation::NodeType},
+    traits::{
+        election::Membership, metrics::NoMetrics, node_implementation::NetworkType,
+        node_implementation::NodeType,
+    },
     HotShotConfig,
 };
 <span class="kw">use </span>snafu::Snafu;
+<span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::{collections::HashMap, fmt::Debug};
 <span class="kw">use </span>tracing::{debug, error, info, warn};
-
 <span class="doccomment">/// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 </span><span class="kw">pub type </span>Generator&lt;T&gt; = Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; T + <span class="lifetime">&#39;static</span>&gt;;
 
@@ -592,6 +603,8 @@
 <span class="doccomment">/// Alias for `(Vec&lt;S&gt;, Vec&lt;B&gt;)`. Used in [`RoundResult`].
 </span><span class="kw">pub type </span>StateAndBlock&lt;S, B&gt; = (Vec&lt;S&gt;, Vec&lt;B&gt;);
 
+<span class="doccomment">/// Wrapper Type for function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
+</span><span class="kw">pub type </span>NetworkGenerator&lt;TYPES, I, T&gt; = Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;NetworkType&lt;TYPES, I&gt;&gt;) -&gt; T + <span class="lifetime">&#39;static</span>&gt;;
 <span class="doccomment">/// Result of running a round of consensus
 </span><span class="attr">#[derive(Debug)]
 </span><span class="comment">// TODO do we need static here
@@ -647,8 +660,9 @@
 <span class="doccomment">/// The runner of a test network
 /// spin up and down nodes, execute rounds
 </span><span class="kw">pub struct </span>TestRunner&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; {
-    quorum_network_generator: Generator&lt;QuorumNetwork&lt;TYPES, I&gt;&gt;,
-    committee_network_generator: Generator&lt;CommitteeNetwork&lt;TYPES, I&gt;&gt;,
+    network_generator: Generator&lt;NetworkType&lt;TYPES, I&gt;&gt;,
+    quorum_network_generator: NetworkGenerator&lt;TYPES, I, QuorumNetwork&lt;TYPES, I&gt;&gt;,
+    committee_network_generator: NetworkGenerator&lt;TYPES, I, CommitteeNetwork&lt;TYPES, I&gt;&gt;,
     storage_generator: Generator&lt;I::Storage&gt;,
     default_node_config: HotShotConfig&lt;TYPES::SignatureKey, TYPES::ElectionConfigType&gt;,
     nodes: Vec&lt;Node&lt;TYPES, I&gt;&gt;,
@@ -664,6 +678,7 @@
 <span class="kw">impl</span>&lt;TYPES: NodeType, I: TestableNodeImplementation&lt;TYPES&gt;&gt; TestRunner&lt;TYPES, I&gt; {
     <span class="kw">pub</span>(<span class="self">self</span>) <span class="kw">fn </span>new(launcher: TestLauncher&lt;TYPES, I&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
+            network_generator: launcher.network,
             quorum_network_generator: launcher.quorum_network,
             committee_network_generator: launcher.committee_network,
             storage_generator: launcher.storage,
@@ -689,8 +704,9 @@
         <span class="kw">let </span><span class="kw-2">mut </span>results = <span class="macro">vec!</span>[];
         <span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..count {
             <span class="kw">let </span>node_id = <span class="self">self</span>.next_node_id;
-            <span class="kw">let </span>quorum_network = (<span class="self">self</span>.quorum_network_generator)(node_id);
-            <span class="kw">let </span>committee_network = (<span class="self">self</span>.committee_network_generator)(node_id);
+            <span class="kw">let </span>network = Arc::new((<span class="self">self</span>.network_generator)(node_id));
+            <span class="kw">let </span>quorum_network = (<span class="self">self</span>.quorum_network_generator)(network.clone());
+            <span class="kw">let </span>committee_network = (<span class="self">self</span>.committee_network_generator)(network);
             <span class="kw">let </span>storage = (<span class="self">self</span>.storage_generator)(node_id);
             <span class="kw">let </span>config = <span class="self">self</span>.default_node_config.clone();
             <span class="kw">let </span>initializer =
