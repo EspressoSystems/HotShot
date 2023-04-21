@@ -161,7 +161,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPE
             <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
                 TYPES,
                 I::Leaf,
-                Message<TYPES, I>,
+                Message<TYPES, I, I::ConsensusMessage>,
             >>::Membership::default_election_config(self.total_nodes as u64),
         );
         // modify runner to recognize timing params

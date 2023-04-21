@@ -3,16 +3,22 @@
 use async_trait::async_trait;
 
 use hotshot_types::certificate::QuorumCertificate;
-
-use hotshot_types::message::ConsensusMessage;
-
-use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
+use hotshot_types::message::{Message, SequencingMessage, ValidatingMessage};
+use hotshot_types::traits::node_implementation::{
+    NodeImplementation, NodeType, SequencingExchangesType, ValidatingExchangesType,
+};
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
     data::{LeafType, ProposalType},
     error::HotShotError,
     event::{Event, EventType},
-    traits::{network::NetworkError, signature_key::SignatureKey},
+    traits::{
+        consensus_type::{
+            sequencing_consensus::SequencingConsensus, validating_consensus::ValidatingConsensus,
+        },
+        network::NetworkError,
+        signature_key::SignatureKey,
+    },
     vote::VoteType,
 };
 
@@ -127,16 +133,22 @@ pub trait ConsensusSharedApi<
 /// [`HotStuff`]: struct.HotStuff.html
 #[async_trait]
 pub trait ValidatingConsensusApi<
-    TYPES: NodeType,
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     I: NodeImplementation<TYPES>,
->: ConsensusSharedApi<TYPES, LEAF, I>
+>: ConsensusSharedApi<TYPES, LEAF, I> where
+    I::Exchanges: ValidatingExchangesType<
+        ValidatingConsensus,
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+    >,
 {
     /// Send a direct message to the given recipient
     async fn send_direct_message<PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>(
         &self,
         recipient: TYPES::SignatureKey,
-        message: ConsensusMessage<TYPES, I>,
+        message: ValidatingMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Send a broadcast message to the entire network.
@@ -145,7 +157,7 @@ pub trait ValidatingConsensusApi<
         VOTE: VoteType<TYPES>,
     >(
         &self,
-        message: ConsensusMessage<TYPES, I>,
+        message: ValidatingMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError>;
 }
 
@@ -154,16 +166,22 @@ pub trait ValidatingConsensusApi<
 /// [`HotStuff`]: struct.HotStuff.html
 #[async_trait]
 pub trait SequencingConsensusApi<
-    TYPES: NodeType,
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     I: NodeImplementation<TYPES>,
->: ConsensusSharedApi<TYPES, LEAF, I>
+>: ConsensusSharedApi<TYPES, LEAF, I> where
+    I::Exchanges: SequencingExchangesType<
+        SequencingConsensus,
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+    >,
 {
     /// Send a direct message to the given recipient
     async fn send_direct_message<PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>(
         &self,
         recipient: TYPES::SignatureKey,
-        message: ConsensusMessage<TYPES, I>,
+        message: SequencingMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// send a direct message using the DA communication channel
@@ -173,7 +191,7 @@ pub trait SequencingConsensusApi<
     >(
         &self,
         recipient: TYPES::SignatureKey,
-        message: ConsensusMessage<TYPES, I>,
+        message: SequencingMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Send a broadcast message to the entire network.
@@ -182,12 +200,12 @@ pub trait SequencingConsensusApi<
         VOTE: VoteType<TYPES>,
     >(
         &self,
-        message: ConsensusMessage<TYPES, I>,
+        message: SequencingMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError>;
 
     /// Send a broadcast to the DA comitee, stub for now
     async fn send_da_broadcast(
         &self,
-        message: ConsensusMessage<TYPES, I>,
+        message: SequencingMessage<TYPES, I>,
     ) -> std::result::Result<(), NetworkError>;
 }

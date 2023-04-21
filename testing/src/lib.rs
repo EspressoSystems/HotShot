@@ -202,19 +202,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
                 TYPES,
                 I::Leaf,
-                Message<TYPES, I>,
+                Message<TYPES, I, I::ConsensusMessage>,
             >>::Membership::default_election_config(config.total_nodes.get() as u64)
         });
 
-        // TODO(nfy): replace with `Exchanges` generator
-        let quorum_exchange = I::QuorumExchange::create(
-            known_nodes.clone(),
-            election_config.clone(),
-            quorum_network,
-            public_key.clone(),
-            private_key.clone(),
-        );
-        let committee_exchange = I::CommitteeExchange::create(
+        let exchanges = I::Exchanges::create(
             known_nodes,
             election_config,
             committee_network,

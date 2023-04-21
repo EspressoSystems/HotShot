@@ -5,20 +5,22 @@ use crate::ValidatingConsensusApi;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
 use either::Either;
+use either::{Left, Right};
 use hotshot_types::data::ValidatingLeaf;
 use hotshot_types::message::Message;
-use hotshot_types::message::ProcessedConsensusMessage;
-use hotshot_types::message::ValidatingMessage;
+use hotshot_types::message::ProcessedGeneralConsensusMessage;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::election::{Checked::Unchecked, VoteData};
-use hotshot_types::traits::node_implementation::NodeImplementation;
-use hotshot_types::traits::node_implementation::NodeType;
+use hotshot_types::traits::node_implementation::{
+    NodeImplementation, NodeType, ValidatingExchangesType, ValidatingQuorumEx,
+};
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::vote::VoteAccumulator;
 use hotshot_types::{
     certificate::QuorumCertificate,
-    message::{ConsensusMessage, InternalTrigger},
+    message::{InternalTrigger, ValidatingMessage},
+    traits::consensus_type::validating_consensus::ValidatingConsensus,
     vote::QuorumVote,
 };
 use std::marker::PhantomData;
@@ -33,23 +35,36 @@ use tracing::{info, instrument, warn};
 #[derive(custom_debug::Debug, Clone)]
 pub struct NextValidatingLeader<
     A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
-> {
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = ValidatingLeaf<TYPES>,
+        ConsensusMessage = ValidatingMessage<TYPES, I>,
+    >,
+> where
+    I::Exchanges: ValidatingExchangesType<
+        ValidatingConsensus,
+        TYPES,
+        ValidatingLeaf<TYPES>,
+        Message<TYPES, I, I::ConsensusMessage>,
+    >,
+{
     /// id of node
     pub id: u64,
     /// generic_qc before starting this
     pub generic_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
-    pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
+    pub vote_collection_chan: Arc<
+        Mutex<UnboundedReceiver<ProcessedGeneralConsensusMessage<TYPES, I, I::ConsensusMessage>>>,
+    >,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// Limited access to the consensus protocol
     pub api: A,
 
     /// quorum exchange
-    pub exchange: Arc<I::QuorumExchange>,
+    pub exchange: Arc<ValidatingQuorumEx<TYPES, I>>,
     /// Metrics for reporting stats
     #[debug(skip)]
     pub metrics: Arc<ConsensusMetrics>,
@@ -60,17 +75,19 @@ pub struct NextValidatingLeader<
 
 impl<
         A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            ConsensusMessage = ValidatingMessage<TYPES, I>,
+        >,
     > NextValidatingLeader<A, TYPES, I>
 where
-    I::QuorumExchange: QuorumExchangeType<
+    I::Exchanges: ValidatingExchangesType<
+        ValidatingConsensus,
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I>,
-        Vote = QuorumVote<TYPES, I::Leaf>,
-        Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
-        Commitment = ValidatingLeaf<TYPES>,
+        Message<TYPES, I, I::ConsensusMessage>,
     >,
 {
     /// Run one view of the next leader task
@@ -94,11 +111,11 @@ where
         let lock = self.vote_collection_chan.lock().await;
         while let Ok(msg) = lock.recv().await {
             // If the message is for a different view number, skip it.
-            if Into::<ConsensusMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view {
+            if Into::<ValidatingMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view {
                 continue;
             }
             match msg {
-                ProcessedConsensusMessage::Vote(vote_message, sender) => {
+                ProcessedGeneralConsensusMessage::Vote(vote_message, sender) => {
                     match vote_message {
                         QuorumVote::Yes(vote) => {
                             if vote.signature.0
@@ -145,20 +162,14 @@ where
                         }
                     }
                 }
-                ProcessedConsensusMessage::InternalTrigger(trigger) => match trigger {
+                ProcessedGeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
                     InternalTrigger::Timeout(_) => {
                         self.api.send_next_leader_timeout(self.cur_view).await;
                         break;
                     }
                 },
-                ProcessedConsensusMessage::Proposal(_p, _sender) => {
+                ProcessedGeneralConsensusMessage::Proposal(_p, _sender) => {
                     warn!("The next leader has received an unexpected proposal!");
-                }
-                ProcessedConsensusMessage::DAProposal(_p, _sender) => {
-                    warn!("The next leader has received an unexpected DA proposal!");
-                }
-                ProcessedConsensusMessage::DAVote(_, _sender) => {
-                    warn!("The next leader has received an unexpected vote for a DA proposal!");
                 }
             }
         }

@@ -9,11 +9,13 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
 use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::node_implementation::{NodeImplementation, QuorumProposalType};
+use hotshot_types::traits::node_implementation::{
+    NodeImplementation, QuorumProposalType, ValidatingExchangesType, ValidatingQuorumEx,
+};
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, InternalTrigger, ProcessedConsensusMessage},
+    message::{InternalTrigger, ProcessedGeneralConsensusMessage, ValidatingMessage},
     traits::{
         consensus_type::validating_consensus::ValidatingConsensus, node_implementation::NodeType,
         signature_key::SignatureKey, Block, State,
@@ -32,16 +34,28 @@ use tracing::{error, info, instrument, warn};
 pub struct Replica<
     A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
-> {
+    I: NodeImplementation<
+        TYPES,
+        Leaf = ValidatingLeaf<TYPES>,
+        ConsensusMessage = ValidatingMessage<TYPES, I>,
+    >,
+> where
+    I::Exchanges: ValidatingExchangesType<
+        ValidatingConsensus,
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+    >,
+{
     /// id of node
     pub id: u64,
     /// Reference to consensus. Replica will require a write lock on this.
     pub consensus: Arc<RwLock<Consensus<TYPES, ValidatingLeaf<TYPES>>>>,
     /// channel for accepting leader proposals and timeouts messages
     #[allow(clippy::type_complexity)]
-    pub proposal_collection_chan:
-        Arc<Mutex<UnboundedReceiver<ProcessedConsensusMessage<TYPES, I>>>>,
+    pub proposal_collection_chan: Arc<
+        Mutex<UnboundedReceiver<ProcessedGeneralConsensusMessage<TYPES, I, I::ConsensusMessage>>>,
+    >,
     /// view number this view is executing in
     pub cur_view: TYPES::Time,
     /// genericQC from the pseudocode
@@ -50,7 +64,7 @@ pub struct Replica<
     pub api: A,
 
     /// quorum exchange
-    pub exchange: Arc<I::QuorumExchange>,
+    pub exchange: Arc<ValidatingQuorumEx<TYPES, I>>,
 
     /// neeeded to typecheck
     pub _pd: PhantomData<I>,
@@ -59,18 +73,19 @@ pub struct Replica<
 impl<
         A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            ConsensusMessage = ValidatingMessage<TYPES, I>,
+        >,
     > Replica<A, TYPES, I>
 where
-    I::QuorumExchange: ConsensusExchange<
-            TYPES,
-            I::Leaf,
-            Message<TYPES, I>,
-            Proposal = ValidatingProposal<TYPES, I::Leaf>,
-            Vote = QuorumVote<TYPES, I::Leaf>,
-            Certificate = QuorumCertificate<TYPES, I::Leaf>,
-            Commitment = ValidatingLeaf<TYPES>,
-        > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: ValidatingExchangesType<
+        ValidatingConsensus,
+        TYPES,
+        I::Leaf,
+        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+    >,
 {
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
@@ -91,12 +106,12 @@ where
             info!("recv-ed message {:?}", msg.clone());
             if let Ok(msg) = msg {
                 // stale/newer view messages should never reach this specific task's receive channel
-                if Into::<ConsensusMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view
+                if Into::<ValidatingMessage<_, _>>::into(msg.clone()).view_number() != self.cur_view
                 {
                     continue;
                 }
                 match msg {
-                    ProcessedConsensusMessage::Proposal(p, sender) => {
+                    ProcessedGeneralConsensusMessage::Proposal(p, sender) => {
                         if view_leader_key != sender {
                             continue;
                         }
@@ -239,7 +254,7 @@ where
                         }
                         break leaf;
                     }
-                    ProcessedConsensusMessage::InternalTrigger(trigger) => {
+                    ProcessedGeneralConsensusMessage::InternalTrigger(trigger) => {
                         match trigger {
                             InternalTrigger::Timeout(_) => {
                                 let next_leader = self.exchange.get_leader(self.cur_view + 1);
@@ -263,7 +278,7 @@ where
                                         );
                                     }
                                     Ok(Some(vote_token)) => {
-                                        let timed_out_msg = ConsensusMessage::Vote(
+                                        let timed_out_msg = ValidatingMessage::Vote(
                                             QuorumVote::Timeout(TimeoutVote {
                                                 justify_qc: self.high_qc.clone(),
                                                 signature,
@@ -300,16 +315,7 @@ where
                             }
                         }
                     }
-                    ProcessedConsensusMessage::DAProposal(_, _) => {
-                        warn!("Replica receieved a DA Proposal message. This is not what the replica expects. Skipping.");
-                        continue;
-                    }
-                    ProcessedConsensusMessage::Vote(_, _) => {
-                        // should only be for leader, never replica
-                        warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
-                        continue;
-                    }
-                    ProcessedConsensusMessage::DAVote(_, _) => {
+                    ProcessedGeneralConsensusMessage::Vote(_, _) => {
                         // should only be for leader, never replica
                         warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
                         continue;

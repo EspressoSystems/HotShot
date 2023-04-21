@@ -120,8 +120,14 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    >
+    TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I, I::ConsensusMessage>,
+        PROPOSAL,
+        VOTE,
+        MEMBERSHIP,
+    > for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -684,7 +690,7 @@ pub struct Libp2pCommChannel<
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
+    Libp2pNetwork<Message<TYPES, I, I::ConsensusMessage>, TYPES::SignatureKey>,
     PhantomData<(TYPES, I, PROPOSAL, VOTE, MEMBERSHIP)>,
 );
 
@@ -698,7 +704,9 @@ impl<
 {
     /// create a new libp2p communication channel
     #[must_use]
-    pub fn new(network: Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>) -> Self {
+    pub fn new(
+        network: Libp2pNetwork<Message<TYPES, I, I::ConsensusMessage>, TYPES::SignatureKey>,
+    ) -> Self {
         Self(network, PhantomData::default())
     }
 }
@@ -713,7 +721,8 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    >
+    CommunicationChannel<TYPES, Message<TYPES, I, I::ConsensusMessage>, PROPOSAL, VOTE, MEMBERSHIP>
     for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     async fn wait_for_ready(&self) {
@@ -730,7 +739,7 @@ impl<
 
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, I>,
+        message: Message<TYPES, I, I::ConsensusMessage>,
         membership: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
         let recipients =
@@ -740,7 +749,7 @@ impl<
 
     async fn direct_message(
         &self,
-        message: Message<TYPES, I>,
+        message: Message<TYPES, I, I::ConsensusMessage>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
@@ -749,7 +758,7 @@ impl<
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, I, I::ConsensusMessage>>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 

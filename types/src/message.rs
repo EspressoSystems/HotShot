@@ -349,6 +349,11 @@ where
     }
 }
 
+pub type ProcessedSequencingMessage<TYPES, I, CONSENSUSMESSAGE> = Either<
+    ProcessedGeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>,
+    ProcessedCommitteeConsensusMessage<TYPES, I>,
+>;
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = "", serialize = ""))]
 /// Messages related to both validating and sequencing consensus.
@@ -403,6 +408,8 @@ pub enum CommitteeConsensusMessage<
 pub trait ConsensusMessageType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Messages for both validating and sequencing consensus.
     type GeneralConsensusMessage;
+
+    type ProcessedConsensusMessage;
 }
 
 /// Messages related to the validating consensus protocol.
@@ -445,6 +452,7 @@ where
     >,
 {
     type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I, Self>;
+    type ProcessedConsensusMessage = ProcessedGeneralConsensusMessage<TYPES, I, Self>;
 }
 
 impl<TYPES: NodeType<ConsensusType = ValidatingConsensus>, I: NodeImplementation<TYPES>>
@@ -517,6 +525,7 @@ where
     >,
 {
     type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I, Self>;
+    type ProcessedConsensusMessage = ProcessedSequencingMessage<TYPES, I, Self>;
 }
 
 impl<TYPES: NodeType<ConsensusType = SequencingConsensus>, I: NodeImplementation<TYPES>>

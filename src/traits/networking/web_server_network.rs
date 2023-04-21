@@ -58,7 +58,7 @@ pub struct WebCommChannel<
     MEMBERSHIP: Membership<TYPES>,
 >(
     WebServerNetwork<
-        Message<TYPES, I>,
+        Message<TYPES, I, I::ConsensusMessage>,
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
         TYPES,
@@ -79,7 +79,7 @@ impl<
     #[must_use]
     pub fn new(
         network: WebServerNetwork<
-            Message<TYPES, I>,
+            Message<TYPES, I, I::ConsensusMessage>,
             TYPES::SignatureKey,
             TYPES::ElectionConfigType,
             TYPES,
@@ -93,8 +93,8 @@ impl<
     /// Parses a message to find the appropriate endpoint
     /// Returns a `SendMsg` containing the endpoint
     fn parse_post_message(
-        message: Message<TYPES, I>,
-    ) -> Result<SendMsg<Message<TYPES, I>>, WebServerNetworkError> {
+        message: Message<TYPES, I, I::ConsensusMessage>,
+    ) -> Result<SendMsg<Message<TYPES, I, I::ConsensusMessage>>, WebServerNetworkError> {
         let view_number: TYPES::Time = message.get_view_number();
 
         let endpoint = match &message.kind {
@@ -118,7 +118,7 @@ impl<
             },
         };
 
-        let network_msg: SendMsg<Message<TYPES, I>> = SendMsg {
+        let network_msg: SendMsg<Message<TYPES, I, I::ConsensusMessage>> = SendMsg {
             message: Some(message),
             endpoint,
         };
@@ -512,15 +512,16 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    >
+    CommunicationChannel<TYPES, Message<TYPES, I, I::ConsensusMessage>, PROPOSAL, VOTE, MEMBERSHIP>
     for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self) {
         <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I>>,
-            SendMsg<Message<TYPES, I>>,
+            RecvMsg<Message<TYPES, I, I::ConsensusMessage>>,
+            SendMsg<Message<TYPES, I, I::ConsensusMessage>>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
         .await;
@@ -530,8 +531,8 @@ impl<
     /// nonblocking
     async fn is_ready(&self) -> bool {
         <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I>>,
-            SendMsg<Message<TYPES, I>>,
+            RecvMsg<Message<TYPES, I, I::ConsensusMessage>>,
+            SendMsg<Message<TYPES, I, I::ConsensusMessage>>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -542,8 +543,8 @@ impl<
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
         <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I>>,
-            SendMsg<Message<TYPES, I>>,
+            RecvMsg<Message<TYPES, I, I::ConsensusMessage>>,
+            SendMsg<Message<TYPES, I, I::ConsensusMessage>>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
         .await;
@@ -553,7 +554,7 @@ impl<
     /// blocking
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, I>,
+        message: Message<TYPES, I, I::ConsensusMessage>,
         _election: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
         let network_msg = Self::parse_post_message(message);
@@ -569,7 +570,7 @@ impl<
     /// blocking
     async fn direct_message(
         &self,
-        message: Message<TYPES, I>,
+        message: Message<TYPES, I, I::ConsensusMessage>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         let network_msg = Self::parse_post_message(message);
@@ -588,10 +589,10 @@ impl<
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, I, I::ConsensusMessage>>, NetworkError> {
         let result = <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I>>,
-            SendMsg<Message<TYPES, I>>,
+            RecvMsg<Message<TYPES, I, I::ConsensusMessage>>,
+            SendMsg<Message<TYPES, I, I::ConsensusMessage>>,
             TYPES::SignatureKey,
         >>::recv_msgs(&self.0, transmit_type)
         .await;
@@ -612,8 +613,8 @@ impl<
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
         <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I>>,
-            SendMsg<Message<TYPES, I>>,
+            RecvMsg<Message<TYPES, I, I::ConsensusMessage>>,
+            SendMsg<Message<TYPES, I, I::ConsensusMessage>>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(&self.0, tuple)
         .await
@@ -722,8 +723,14 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    >
+    TestableNetworkingImplementation<
+        TYPES,
+        Message<TYPES, I, I::ConsensusMessage>,
+        PROPOSAL,
+        VOTE,
+        MEMBERSHIP,
+    > for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {

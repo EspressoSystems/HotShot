@@ -85,6 +85,18 @@ pub trait ExchangesType<
 {
     /// Protocol for exchanging consensus proposals and votes.
     type QuorumExchange: ConsensusExchange<TYPES, LEAF, MESSAGE>;
+
+    /// Networking implementations for all exchanges.
+    type Networks;
+
+    /// Create all exchanges.
+    fn create(
+        keys: Vec<TYPES::SignatureKey>,
+        config: TYPES::ElectionConfigType,
+        networks: Self::Networks,
+        pk: TYPES::SignatureKey,
+        sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    ) -> Self;
 }
 
 /// An [`ExchangesType`] for validating consensus.
@@ -118,8 +130,11 @@ pub struct ValidatingExchanges<
     MESSAGE: NetworkMsg,
     QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
 > {
+    /// Quorum exchange.
+    quorum_exchange: QUORUMEXCHANGE,
+
     /// Phantom data.
-    _phantom: PhantomData<(TYPES, LEAF, MESSAGE, QUORUMEXCHANGE)>,
+    _phantom: PhantomData<(TYPES, LEAF, MESSAGE)>,
 }
 
 impl<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE>
@@ -144,6 +159,20 @@ where
     QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
 {
     type QuorumExchange = QUORUMEXCHANGE;
+    type Networks = QUORUMEXCHANGE::Networking;
+
+    fn create(
+        keys: Vec<TYPES::SignatureKey>,
+        config: TYPES::ElectionConfigType,
+        networks: Self::Networks,
+        pk: TYPES::SignatureKey,
+        sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    ) -> Self {
+        Self {
+            quorum_exchange: QUORUMEXCHANGE::create(keys, config, networks, pk, sk),
+            _phantom: PhantomData,
+        }
+    }
 }
 
 /// Implementes [`SequencingExchangesType`].
@@ -156,8 +185,14 @@ pub struct SequencingExchanges<
     QUORUMEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
     COMMITTEEEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
 > {
+    /// Quorum exchange.
+    quorum_exchange: QUORUMEXCHANGE,
+
+    /// Committee exchange.
+    committee_exchange: COMMITTEEEXCHANGE,
+
     /// Phantom data.
-    _phantom: PhantomData<(TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE)>,
+    _phantom: PhantomData<(TYPES, LEAF, MESSAGE)>,
 }
 
 impl<CONSENSUS, TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
@@ -186,10 +221,33 @@ where
     COMMITTEEEXCHANGE: ConsensusExchange<TYPES, LEAF, MESSAGE>,
 {
     type QuorumExchange = QUORUMEXCHANGE;
+    type Networks = (QUORUMEXCHANGE::Networking, COMMITTEEEXCHANGE::Networking);
+
+    fn create(
+        keys: Vec<TYPES::SignatureKey>,
+        config: TYPES::ElectionConfigType,
+        networks: Self::Networks,
+        pk: TYPES::SignatureKey,
+        sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    ) -> Self {
+        let quorum_exchange = QUORUMEXCHANGE::create(
+            keys.clone(),
+            config.clone(),
+            networks.0,
+            pk.clone(),
+            sk.clone(),
+        );
+        let committee_exchange = COMMITTEEEXCHANGE::create(keys, config, networks.1, pk, sk);
+        Self {
+            quorum_exchange,
+            committee_exchange,
+            _phantom: PhantomData,
+        }
+    }
 }
 
 /// Alias for the [`QuorumExchange`] type.
-type QuorumEx<TYPES, I, CONSENSUSMESSAGE> =
+pub type QuorumEx<TYPES, I, CONSENSUSMESSAGE> =
     <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
         <TYPES as NodeType>::ConsensusType,
         TYPES,
@@ -198,7 +256,7 @@ type QuorumEx<TYPES, I, CONSENSUSMESSAGE> =
     >>::QuorumExchange;
 
 /// Alias for the [`CommitteeExchange`] type for validating consensus.
-type ValidatingQuorumEx<TYPES, I> =
+pub type ValidatingQuorumEx<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
         ValidatingConsensus,
         TYPES,
@@ -207,7 +265,7 @@ type ValidatingQuorumEx<TYPES, I> =
     >>::QuorumExchange;
 
 /// Alias for the [`CommitteeExchange`] type for sequencing consensus.
-type SequencingQuorumEx<TYPES, I> =
+pub type SequencingQuorumEx<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
         SequencingConsensus,
         TYPES,
@@ -216,7 +274,7 @@ type SequencingQuorumEx<TYPES, I> =
     >>::QuorumExchange;
 
 /// Alias for the [`CommitteeExchange`] type.
-type CommitteeEx<TYPES, I> =
+pub type CommitteeEx<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::Exchanges as SequencingExchangesType<
         SequencingConsensus,
         TYPES,

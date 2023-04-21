@@ -7,21 +7,23 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use commit::Committable;
-use hotshot_types::traits::node_implementation::{
-    NodeImplementation, QuorumProposalType, QuorumVoteType,
-};
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, Proposal},
+    message::SequencingMessage,
     traits::{
-        consensus_type::validating_consensus::ValidatingConsensus, election::SignedCertificate,
-        node_implementation::NodeType, signature_key::SignatureKey, Block, State,
+        consensus_type::validating_consensus::ValidatingConsensus,
+        election::SignedCertificate,
+        node_implementation::{
+            NodeImplementation, NodeType, QuorumProposalType, QuorumVoteType, ValidatingQuorumEx,
+        },
+        signature_key::SignatureKey,
+        Block, State,
     },
 };
 use hotshot_types::{message::Message, traits::node_implementation::ValidatingExchangesType};
 use hotshot_types::{
-    message::ValidatingMessage,
+    message::{Proposal, ValidatingMessage},
     traits::election::{ConsensusExchange, QuorumExchangeType},
 };
 use std::marker::PhantomData;
@@ -31,10 +33,19 @@ use tracing::{error, info, instrument, warn};
 #[derive(Debug, Clone)]
 pub struct ValidatingLeader<
     A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+    TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = ValidatingLeaf<TYPES>,
+        ConsensusMessage = ValidatingMessage<TYPES, I>,
+    >,
 > where
-    I::Exchanges: ValidatingExchangesType<ValidatingConsensus, TYPES, LEAF, Message<TYPES, I>>,
+    I::Exchanges: ValidatingExchangesType<
+        ValidatingConsensus,
+        TYPES,
+        ValidatingLeaf<TYPES>,
+        Message<TYPES, I, I::ConsensusMessage>,
+    >,
 {
     /// id of node
     pub id: u64,
@@ -50,7 +61,7 @@ pub struct ValidatingLeader<
     pub api: A,
 
     /// the quorum exchange
-    pub exchange: Arc<I::Exchanges::QuorumExchange>,
+    pub exchange: Arc<ValidatingQuorumEx<TYPES, I>>,
 
     /// needed for type checking
     pub _pd: PhantomData<I>,
@@ -59,15 +70,19 @@ pub struct ValidatingLeader<
 impl<
         A: ValidatingConsensusApi<TYPES, ValidatingLeaf<TYPES>, I>,
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            ConsensusMessage = ValidatingMessage<TYPES, I>,
+        >,
     > ValidatingLeader<A, TYPES, I>
 where
-    I::QuorumExchange: ConsensusExchange<
-            TYPES,
-            I::Leaf,
-            Message<TYPES, I>,
-            Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: ValidatingExchangesType<
+        ValidatingConsensus,
+        TYPES,
+        ValidatingLeaf<TYPES>,
+        Message<TYPES, I, I::ConsensusMessage>,
+    >,
 {
     /// Run one view of the leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Validating ValidatingLeader Task", level = "error")]
@@ -192,7 +207,7 @@ where
                 .exchange
                 .sign_validating_or_commitment_proposal::<I>(&leaf.commit());
             let data: ValidatingProposal<TYPES, ValidatingLeaf<TYPES>> = leaf.into();
-            let message = ConsensusMessage::<TYPES, I>::Proposal(Proposal { data, signature });
+            let message = ValidatingMessage::<TYPES, I>::Proposal(Proposal { data, signature });
             consensus
                 .metrics
                 .proposal_build_duration

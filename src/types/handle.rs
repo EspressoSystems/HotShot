@@ -298,10 +298,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     pub fn sign_validating_or_commitment_proposal(
         &self,
         leaf_commitment: &Commitment<I::Leaf>,
-    ) -> EncodedSignature
-    where
-        I::QuorumExchange: QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
-    {
+    ) -> EncodedSignature {
         let inner = self.hotshot.inner.clone();
         inner
             .quorum_exchange
@@ -316,16 +313,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> ConsensusMessage<TYPES, I>
-    where
-        I::QuorumExchange: QuorumExchangeType<
-            TYPES,
-            I::Leaf,
-            Message<TYPES, I>,
-            Certificate = QuorumCertificate<TYPES, I::Leaf>,
-            Vote = QuorumVote<TYPES, I::Leaf>,
-        >,
-    {
+    ) -> I::ConsensusMessage {
         let inner = self.hotshot.inner.clone();
         inner.quorum_exchange.create_yes_message(
             justify_qc_commitment,
