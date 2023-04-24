@@ -67,6 +67,16 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     No(Commitment<COMMITTABLE>),
     /// Vote to time out and proceed to the next view.
     Timeout(Commitment<COMMITTABLE>),
+
+    ViewSync(ViewSyncVoteData<COMMITTABLE>)
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[serde(bound(deserialize = ""))]
+pub enum ViewSyncVoteData<COMMITTABLE: Committable + Serialize + Clone> {
+    PreCommit(Commitment<COMMITTABLE>), 
+    Commit(Commitment<COMMITTABLE>),
+    Finalize(Commitment<COMMITTABLE>)
 }
 
 impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
