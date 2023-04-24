@@ -3,9 +3,11 @@
 use super::node_implementation::{NodeImplementation, NodeType};
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
 use crate::certificate::VoteMetaData;
+use crate::vote::ViewSyncData;
 use crate::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
 use crate::data::ProposalType;
-
+use crate::certificate::ViewSyncCertificate;
+use crate::vote::ViewSyncVote;
 use crate::data::DAProposal;
 use crate::message::ConsensusMessage;
 use crate::message::Message;
@@ -934,7 +936,7 @@ pub struct ViewSyncExchange<
     LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     MEMBERSHIP: Membership<TYPES>,
-    NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, QuorumVote<TYPES, LEAF>, MEMBERSHIP>,
+    NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, ViewSyncVote<TYPES>, MEMBERSHIP>,
     M: NetworkMsg,
 > {
     /// The network being used by this exchange.
@@ -954,7 +956,7 @@ impl<
         LEAF: LeafType<NodeType = TYPES>,
         MEMBERSHIP: Membership<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
-        NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, QuorumVote<TYPES, LEAF>, MEMBERSHIP>,
+        NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, ViewSyncVote<TYPES>, MEMBERSHIP>,
         M: NetworkMsg,
     > ViewSyncExchangeType<TYPES, M>
     for ViewSyncExchange<TYPES, LEAF, PROPOSAL, MEMBERSHIP, NETWORK, M>
@@ -989,18 +991,18 @@ impl<
         LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-        NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, QuorumVote<TYPES, LEAF>, MEMBERSHIP>,
+        NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, ViewSyncVote<TYPES>, MEMBERSHIP>,
         M: NetworkMsg,
     > ConsensusExchange<TYPES, M>
     for ViewSyncExchange<TYPES, LEAF, PROPOSAL, MEMBERSHIP, NETWORK, M>
 {
     // TODO ED This impl is mostly a copy from above; it doesn't reflect view sync yet
     type Proposal = PROPOSAL;
-    type Vote = QuorumVote<TYPES, LEAF>;
-    type Certificate = QuorumCertificate<TYPES, LEAF>;
+    type Vote = ViewSyncVote<TYPES>;
+    type Certificate = ViewSyncCertificate<TYPES>;
     type Membership = MEMBERSHIP;
     type Networking = NETWORK;
-    type Commitment = LEAF;
+    type Commitment = ViewSyncData<TYPES>;
 
     fn create(
         keys: Vec<TYPES::SignatureKey>,
@@ -1032,12 +1034,12 @@ impl<
         &self,
         encoded_key: &EncodedPublicKey,
         encoded_signature: &EncodedSignature,
-        leaf_commitment: Commitment<LEAF>,
+        leaf_commitment: Commitment<ViewSyncData<TYPES>>,
         vote_data: VoteData<Self::Commitment>,
         vote_token: TYPES::VoteTokenType,
         view_number: TYPES::Time,
-        accumlator: VoteAccumulator<TYPES::VoteTokenType, LEAF>,
-    ) -> Either<VoteAccumulator<TYPES::VoteTokenType, LEAF>, Self::Certificate> {
+        accumlator: VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>,
+    ) -> Either<VoteAccumulator<TYPES::VoteTokenType, ViewSyncData<TYPES>>, Self::Certificate> {
         let meta = VoteMetaData {
             encoded_key: encoded_key.clone(),
             encoded_signature: encoded_signature.clone(),

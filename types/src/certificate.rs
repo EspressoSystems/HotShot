@@ -9,6 +9,7 @@ use crate::{
         state::ConsensusTime,
     },
 };
+use crate::vote::ViewSyncData;
 use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
 use serde::{Deserialize, Serialize};
@@ -62,12 +63,12 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
 
 #[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
-pub struct ViewSyncCertificate<TYPES: NodeType, LEAF: Committable + Clone + Serialize> {
+pub struct ViewSyncCertificate<TYPES: NodeType> {
     pub relay: EncodedPublicKey,
     /// Which view this QC relates to
     pub round: TYPES::Time,
     /// Threshold Signature
-    pub signatures: YesNoSignature<LEAF, TYPES::VoteTokenType>,
+    pub signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
@@ -228,3 +229,50 @@ impl<TYPES: NodeType>
 }
 
 impl<TYPES: NodeType> Eq for DACertificate<TYPES> {}
+
+impl<TYPES: NodeType>
+    SignedCertificate<TYPES::SignatureKey, TYPES::Time, TYPES::VoteTokenType, ViewSyncData<TYPES>>
+    for ViewSyncCertificate<TYPES>
+{
+    /// Build a QC from the threshold signature and commitment
+    fn from_signatures_and_commitment(
+        view_number: TYPES::Time,
+        signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
+        commit: Commitment<ViewSyncData<TYPES>>,
+    ) -> Self {
+        todo!()
+    }
+
+    /// Get the view number.
+    fn view_number(&self) -> TYPES::Time {
+        todo!()
+    }
+
+    /// Get signatures.
+    fn signatures(&self) -> YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType> {
+        todo!()
+    }
+
+    // TODO (da) the following functions should be refactored into a QC-specific trait.
+
+    /// Get the leaf commitment.
+    fn leaf_commitment(&self) -> Commitment<ViewSyncData<TYPES>> {
+        todo!()
+    }
+
+    /// Set the leaf commitment.
+    fn set_leaf_commitment(&mut self, commitment: Commitment<ViewSyncData<TYPES>>) {
+        todo!()
+    }
+
+    /// Get whether the certificate is for the genesis block.
+    fn is_genesis(&self) -> bool {
+        todo!()
+    }
+
+    /// To be used only for generating the genesis quorum certificate; will fail if used anywhere else
+    fn genesis() -> Self {
+        todo!()
+    }
+}
+impl<TYPES: NodeType> Eq for ViewSyncCertificate<TYPES> {}

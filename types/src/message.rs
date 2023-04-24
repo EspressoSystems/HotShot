@@ -174,7 +174,7 @@ pub enum ConsensusMessage<
 pub enum ViewSyncMessageType<TYPES: NodeType> {
     // TODO ED Change this name to something other than stage
     Vote(ViewSyncStage<TYPES>),
-    Certificate(ViewSyncCertificate<TYPES, ViewSyncData>),
+    Certificate(ViewSyncCertificate<TYPES>),
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusMessage<TYPES, I> {
