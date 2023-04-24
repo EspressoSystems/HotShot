@@ -90,7 +90,7 @@ pub trait WebServerDataSource<KEY> {
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
     fn post_staketable(&mut self, key: Vec<u8>) -> Result<(), Error>;
-    fn secret(&self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error>;
+    fn post_secret_proposal(&self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error>;
     fn proposals(&self) -> HashMap<u64, (String, Vec<u8>)>;
 }
 
@@ -189,11 +189,9 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         // KALEY TODO: need security checks here
         let new_key = KEY::from_bytes(&(EncodedPublicKey(key)));
         if let Some(new_key) = new_key {
-            //let index = (*view_number % self.nodes.len() as u64) as usize;
-            //generate secret for endpoint when key is added
             let node_index = self.stake_table.len() as u64;
-            //secret should be completely random, and then wrapped with leader's pubkey
-            //let secret = rand::rngs::StdRng::seed_from_u64(node_index);
+            //generate secret for leader's first submission endpoint when key is added
+            //secret should be random, and then wrapped with leader's pubkey once encryption keys are added (next task)
             let secret = thread_rng().sample_iter(&Alphanumeric).take(30).map(char::from).collect();
             self.proposals.insert(node_index, (secret, Vec::new()));
             self.stake_table.push(new_key);
@@ -206,11 +204,9 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
     }
 
-    //KALEY TODO: this is proposal submission sketch:
-    // -allow one submission
-    // -upon receiving proposal, generate and register new endpoint that routes to 
-    //  proposal submission handler method (post_proposal)
-    fn secret(&self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error> {
+    //KALEY TODO: this will be merged with post_proposal once it is fully working,
+    //but keeping it separate to not break things in the meantime
+    fn post_secret_proposal(&self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error> {
         //* add proposal to hashmap
         //* generate endpoint for the next time this node is leader
         //sliding window of endpoints is essenentially the size of the nodes
@@ -276,15 +272,14 @@ where
             state.post_vote(view_number, vote)
         }
         .boxed()
-    })?
-    /* .post("postproposal", |req, state| {
+    })?.post("postproposal", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
             let proposal = req.body_bytes();
             state.post_proposal(view_number, proposal)
         }
         .boxed()
-    })?*/
+    })?
     .post("posttransaction", |req, state| {
         async move {
             let txns = req.body_bytes();
@@ -304,12 +299,11 @@ where
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
             let secret: &str = req.string_param("secret")?;
-            //if secret is good (good means view_number->secret mapping is correct and view_number->proposal is empty)
-            //let prop_check = state.proposals().get(&view_number);
+            //if secret is correct and view_number->proposal is empty, proposal is valid
             if let Some(&ref proposal) = state.proposals().get(&view_number) {
-                if proposal.0.eq(secret) && proposal.1.len() == 0 {
+                if proposal.0 == secret && proposal.1.len() == 0 {
                     let proposal = req.body_bytes();
-                    state.post_proposal(view_number, proposal)
+                    state.post_secret_proposal(view_number, proposal)
                 } else {
                     Err(ServerError {
                         status: StatusCode::BadRequest,
