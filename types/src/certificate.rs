@@ -60,6 +60,16 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     pub is_genesis: bool,
 }
 
+#[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
+#[serde(bound(deserialize = ""))]
+pub struct ViewSyncCertificate<TYPES: NodeType, LEAF: Committable + Clone + Serialize> {
+    pub relay: EncodedPublicKey,
+    /// Which view this QC relates to
+    pub round: TYPES::Time,
+    /// Threshold Signature
+    pub signatures: YesNoSignature<LEAF, TYPES::VoteTokenType>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 /// Enum representing whether a QC's signatures are for a 'Yes' or 'No' QC

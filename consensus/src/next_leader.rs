@@ -145,7 +145,7 @@ where
                 ProcessedConsensusMessage::DAVote(_, _sender) => {
                     warn!("The next leader has received an unexpected vote for a DA proposal!");
                 }
-                ProcessedConsensusMessage::ViewSync(_) => todo!()
+                ProcessedConsensusMessage::ViewSync(_) => todo!(),
             }
         }
 

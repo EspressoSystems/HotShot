@@ -151,7 +151,7 @@ where
                 ProcessedConsensusMessage::DAProposal(_p, _sender) => {
                     warn!("The next leader has received an unexpected proposal!");
                 }
-                ProcessedConsensusMessage::ViewSync(_) => todo!()
+                ProcessedConsensusMessage::ViewSync(_) => todo!(),
             }
         }
         None
@@ -486,7 +486,7 @@ where
                 ProcessedConsensusMessage::DAVote(_, _sender) => {
                     warn!("The next leader has received an unexpected DA vote!");
                 }
-                ProcessedConsensusMessage::ViewSync(_) => todo!()
+                ProcessedConsensusMessage::ViewSync(_) => todo!(),
             }
         }
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()

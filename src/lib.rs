@@ -549,7 +549,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
                 {
                     warn!("Failed to send to next leader!");
                 }
-            }, 
+            }
             ConsensusMessage::ViewSync(_) => todo!(),
         };
     }

@@ -57,11 +57,8 @@ impl<
         I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
     > ValidatingLeader<A, TYPES, I>
 where
-    I::QuorumExchange: ConsensusExchange<
-            TYPES,
-            Message<TYPES, I>,
-            Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::QuorumExchange: ConsensusExchange<TYPES, Message<TYPES, I>, Proposal = ValidatingProposal<TYPES, I::Leaf>>
+        + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Run one view of the leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Validating ValidatingLeader Task", level = "error")]

@@ -141,38 +141,43 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
 }
 
 #[async_trait]
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestableNodeImplementation<TYPES>
-for I
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> TestableNodeImplementation<TYPES> for I
 where
-<I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking :
-TestableNetworkingImplementation<
-    TYPES,
-    Message<TYPES, I>,
-    <I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
-    <I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
-    <I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
->,
-<I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking :
-TestableNetworkingImplementation<
-    TYPES,
-    Message<TYPES, I>,
-    <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
-    <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
-    <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
->,
-TYPES::StateType : TestableState,
-TYPES::BlockType : TestableBlock,
-I::Storage : TestableStorage<TYPES, I::Leaf>,
-TYPES::SignatureKey : TestableSignatureKey,
-I::Leaf : TestableLeaf<NodeType = TYPES>,
-// <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership : TestableElection<TYPES>,
-// <I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership : TestableElection<TYPES>,
+    <I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking:
+        TestableNetworkingImplementation<
+            TYPES,
+            Message<TYPES, I>,
+            <I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+            <I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+            <I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+        >,
+    <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking:
+        TestableNetworkingImplementation<
+            TYPES,
+            Message<TYPES, I>,
+            <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+            <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+            <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+        >,
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+    I::Storage: TestableStorage<TYPES, I::Leaf>,
+    TYPES::SignatureKey: TestableSignatureKey,
+    I::Leaf: TestableLeaf<NodeType = TYPES>,
+    // <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership : TestableElection<TYPES>,
+    // <I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership : TestableElection<TYPES>,
 {
     fn committee_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
-    ) -> Box<dyn Fn(u64) -> <I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking + 'static> {
+    ) -> Box<
+        dyn Fn(
+                u64,
+            )
+                -> <I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking
+            + 'static,
+    > {
         <<I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(expected_node_count, num_bootstrap, network_id)
     }
 
@@ -180,15 +185,25 @@ I::Leaf : TestableLeaf<NodeType = TYPES>,
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
-    ) -> Box<dyn Fn(u64) -> <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking + 'static> {
+    ) -> Box<
+        dyn Fn(
+                u64,
+            )
+                -> <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking
+            + 'static,
+    > {
         <<I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(expected_node_count, num_bootstrap, network_id)
     }
 
-    fn quorum_in_flight_message_count(network: &<I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking) -> Option<usize> {
+    fn quorum_in_flight_message_count(
+        network: &<I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking,
+    ) -> Option<usize> {
         <<I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::in_flight_message_count(network)
     }
 
-    fn committee_in_flight_message_count(network: &<I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking) -> Option<usize> {
+    fn committee_in_flight_message_count(
+        network: &<I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking,
+    ) -> Option<usize> {
         <<I::CommitteeExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::in_flight_message_count(network)
     }
 
@@ -208,26 +223,21 @@ I::Leaf : TestableLeaf<NodeType = TYPES>,
         <Self::Leaf as TestableLeaf>::create_random_transaction(leaf, rng, padding)
     }
 
-
-
     fn block_genesis() -> TYPES::BlockType {
         <TYPES::BlockType as TestableBlock>::genesis()
     }
 
     fn txn_count(block: &TYPES::BlockType) -> u64 {
         <TYPES::BlockType as TestableBlock>::txn_count(block)
-
     }
 
     fn construct_tmp_storage() -> Result<Self::Storage, StorageError> {
         <I::Storage as TestableStorage<TYPES, I::Leaf>>::construct_tmp_storage()
-
     }
 
     async fn get_full_state(storage: &Self::Storage) -> StorageState<TYPES, Self::Leaf> {
         <I::Storage as TestableStorage<TYPES, I::Leaf>>::get_full_state(storage).await
     }
-
 
     fn generate_test_key(id: u64) -> <TYPES::SignatureKey as SignatureKey>::PrivateKey {
         <TYPES::SignatureKey as TestableSignatureKey>::generate_test_key(id)

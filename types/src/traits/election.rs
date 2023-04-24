@@ -68,15 +68,15 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     /// Vote to time out and proceed to the next view.
     Timeout(Commitment<COMMITTABLE>),
 
-    ViewSync(ViewSyncVoteData<COMMITTABLE>)
+    ViewSync(ViewSyncVoteData<COMMITTABLE>),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub enum ViewSyncVoteData<COMMITTABLE: Committable + Serialize + Clone> {
-    PreCommit(Commitment<COMMITTABLE>), 
+    PreCommit(Commitment<COMMITTABLE>),
     Commit(Commitment<COMMITTABLE>),
-    Finalize(Commitment<COMMITTABLE>)
+    Finalize(Commitment<COMMITTABLE>),
 }
 
 impl<COMMITTABLE: Committable + Serialize + Clone> VoteData<COMMITTABLE> {
@@ -210,9 +210,7 @@ pub trait Membership<TYPES: NodeType>: Clone + Eq + PartialEq + Send + Sync + 's
 /// An instance of [`ConsensusExchange`] represents the state of one participant in the protocol,
 /// allowing them to vote and query information about the overall state of the protocol (such as
 /// membership and leader status).
-pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>:
-    Send + Sync
-{
+pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
     /// A proposal for participants to vote on.
     type Proposal: ProposalType<NodeType = TYPES>;
     /// A vote on a [`Proposal`](Self::Proposal).

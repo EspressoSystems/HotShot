@@ -3,7 +3,10 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
+use crate::certificate::ViewSyncCertificate;
 use crate::traits::network::ViewMessage;
+use crate::vote::ViewSyncData;
+use crate::vote::ViewSyncStage;
 use crate::{
     data::ProposalType,
     traits::{
@@ -105,7 +108,7 @@ pub enum ProcessedConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
 
-    ViewSync(ViewSyncMessageType)
+    ViewSync(ViewSyncMessageType<TYPES>),
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedConsensusMessage<TYPES, I>>
@@ -163,30 +166,15 @@ pub enum ConsensusMessage<
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
 
-    ViewSync(ViewSyncMessageType)
+    ViewSync(ViewSyncMessageType<TYPES>),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = "", serialize = ""))]
-pub enum ViewSyncMessageType {
-    Vote(ViewSyncVoteType),
-    Certificate(ViewSyncCertificateType)
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = "", serialize = ""))]
-pub enum ViewSyncVoteType {
-    PreCommitVote, 
-    CommitVote,
-    FinalizeVote
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = "", serialize = ""))]
-pub enum ViewSyncCertificateType {
-    PreCommitCertificate, 
-    CommitCertificate,
-    FinalizeCertificate
+pub enum ViewSyncMessageType<TYPES: NodeType> {
+    // TODO ED Change this name to something other than stage
+    Vote(ViewSyncStage<TYPES>),
+    Certificate(ViewSyncCertificate<TYPES, ViewSyncData>),
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusMessage<TYPES, I> {

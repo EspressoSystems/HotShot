@@ -332,7 +332,7 @@ where
                         warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
                         continue;
                     }
-                    ProcessedConsensusMessage::ViewSync(_) => todo!()
+                    ProcessedConsensusMessage::ViewSync(_) => todo!(),
                 }
             }
             // fall through logic if we did not receive successfully from channel
