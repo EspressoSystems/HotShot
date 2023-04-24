@@ -23,7 +23,8 @@ use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, DAProposal, SequencingLeaf},
     message::{
-        InternalTrigger, ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
+        CommitteeConsensusMessage, GeneralConsensusMessage, InternalTrigger,
+        ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
         ProcessedSequencingMessage, Proposal, SequencingMessage,
     },
     traits::{
@@ -88,8 +89,18 @@ impl<
         >,
     > DALeader<A, TYPES, I>
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+    >,
+    CommitteeEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        Message<TYPES, I, I::ConsensusMessage>,
+        Certificate = DACertificate<TYPES>,
+        Commitment = TYPES::BlockType,
+    >,
 {
     /// Accumulate votes for a proposal and return either the cert or None if the threshold was not reached in time
     async fn wait_for_votes(
@@ -257,7 +268,11 @@ where
             deltas: block.clone(),
             view_number: self.cur_view,
         };
-        let message = SequencingMessage::<TYPES, I>::DAProposal(Proposal { data, signature });
+        let message =
+            SequencingMessage::<TYPES, I>(Right(CommitteeConsensusMessage::DAProposal(Proposal {
+                data,
+                signature,
+            })));
         // Brodcast DA proposal
         if let Err(e) = self.api.send_da_broadcast(message.clone()).await {
             consensus.metrics.failed_to_send_messages.add(1);
@@ -331,8 +346,17 @@ impl<
         >,
     > ConsensusLeader<A, TYPES, I>
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+    >,
+    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        Message<TYPES, I, I::ConsensusMessage>,
+        Proposal = CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
+    >,
 {
     /// Run one view of the DA leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Sequencing DALeader Task", level = "error")]
@@ -363,13 +387,14 @@ where
             proposer_id: leaf.proposer_id,
         };
 
-        let message = SequencingMessage::<TYPES, I>::Proposal(Proposal {
-            data: proposal,
-            signature,
-        });
+        let message =
+            SequencingMessage::<TYPES, I>(Left(GeneralConsensusMessage::Proposal(Proposal {
+                data: proposal,
+                signature,
+            })));
         if let Err(e) = self
             .api
-            .send_broadcast_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(
+            .send_broadcast_message::<QuorumProposalType<TYPES, I,SequencingMessage<TYPES,I>>, QuorumVoteType<TYPES, I,SequencingMessage<TYPES,I>>>(
                 message.clone(),
             )
             .await
@@ -425,8 +450,18 @@ impl<
         >,
     > ConsensusNextLeader<A, TYPES, I>
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+    >,
+    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+        Commitment = SequencingLeaf<TYPES>,
+    >,
 {
     /// Run one view of the next leader, collect votes and build a QC for the last views `CommitmentProposal`
     /// # Panics

@@ -88,8 +88,26 @@ impl<
         >,
     > SequencingReplica<A, TYPES, I>
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+    >,
+    SequencingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Proposal = CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
+        Commitment = SequencingLeaf<TYPES>,
+    >,
+    CommitteeEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Certificate = DACertificate<TYPES>,
+        Commitment = TYPES::BlockType,
+    >,
 {
     /// The leaf from the genesis view.
     ///
@@ -309,7 +327,7 @@ where
                                             self.quorum_exchange.get_leader(self.cur_view + 1);
                                         if self
                                             .api
-                                            .send_direct_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(next_leader, message)
+                                            .send_direct_message::<QuorumProposalType<TYPES, I,SequencingMessage<TYPES,I>>, QuorumVoteType<TYPES, I,SequencingMessage<TYPES,I>>>(next_leader, SequencingMessage(Left(message)))
                                             .await
                                             .is_err()
                                         {
@@ -361,17 +379,34 @@ where
                                                 // send timedout message to the next leader
                                                 if let Err(e) = self
                                                     .api
-                                                    .send_direct_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(next_leader.clone(), timed_out_msg)
+                                                    .send_direct_message::<QuorumProposalType<
+                                                        TYPES,
+                                                        I,
+                                                        SequencingMessage<TYPES, I>,
+                                                    >, QuorumVoteType<
+                                                        TYPES,
+                                                        I,
+                                                        SequencingMessage<TYPES, I>,
+                                                    >>(
+                                                        next_leader.clone(),
+                                                        SequencingMessage(Left(timed_out_msg)),
+                                                    )
                                                     .await
                                                 {
-                                                    consensus.metrics.failed_to_send_messages.add(1);
+                                                    consensus
+                                                        .metrics
+                                                        .failed_to_send_messages
+                                                        .add(1);
                                                     warn!(
                                                         ?next_leader,
                                                         ?e,
                                                         "Could not send time out message to next_leader"
                                                     );
                                                 } else {
-                                                    consensus.metrics.outgoing_direct_messages.add(1);
+                                                    consensus
+                                                        .metrics
+                                                        .outgoing_direct_messages
+                                                        .add(1);
                                                 }
 
                                                 // exits from entire function

@@ -86,7 +86,7 @@ pub trait ExchangesType<
 >: Send + Sync
 {
     /// Protocol for exchanging consensus proposals and votes.
-    type QuorumExchange: QuorumExchangeType<TYPES, LEAF, MESSAGE>;
+    type QuorumExchange: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Debug;
 
     /// Networking implementations for all exchanges.
     type Networks;
@@ -118,7 +118,7 @@ pub trait SequencingExchangesType<
 >: ExchangesType<SequencingConsensus, TYPES, LEAF, MESSAGE>
 {
     /// Protocol for exchanging data availability proposals and votes.
-    type CommitteeExchange: CommitteeExchangeType<TYPES, LEAF, MESSAGE>;
+    type CommitteeExchange: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Debug;
 }
 
 /// Implements [`ValidatingExchangesType`].
@@ -142,7 +142,7 @@ where
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE>,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Debug,
 {
 }
 
@@ -152,7 +152,7 @@ where
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE>,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Debug,
 {
     type QuorumExchange = QUORUMEXCHANGE;
     type Networks = QUORUMEXCHANGE::Networking;
@@ -197,8 +197,8 @@ where
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE>,
-    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE>,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Debug,
+    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Debug,
 {
     type CommitteeExchange = COMMITTEEEXCHANGE;
 }
@@ -210,7 +210,7 @@ where
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE>,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Debug,
     COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE>,
 {
     type QuorumExchange = QUORUMEXCHANGE;

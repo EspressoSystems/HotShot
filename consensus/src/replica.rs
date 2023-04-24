@@ -9,20 +9,23 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
 use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::node_implementation::{
     NodeImplementation, QuorumProposalType, ValidatingExchangesType, ValidatingQuorumEx,
 };
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{InternalTrigger, ProcessedGeneralConsensusMessage, ValidatingMessage},
+    message::{
+        GeneralConsensusMessage, InternalTrigger, Message, ProcessedGeneralConsensusMessage,
+        ValidatingMessage,
+    },
     traits::{
         consensus_type::validating_consensus::ValidatingConsensus, node_implementation::NodeType,
         signature_key::SignatureKey, Block, State,
     },
     vote::{QuorumVote, TimeoutVote},
 };
-use hotshot_types::{message::Message, traits::election::QuorumExchangeType};
 use hotshot_utils::bincode::bincode_opts;
 use std::marker::PhantomData;
 use std::ops::Bound::{Excluded, Included};
@@ -78,6 +81,14 @@ impl<
 where
     I::Exchanges:
         ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
+    ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        ValidatingLeaf<TYPES>,
+        Message<TYPES, I, I::ConsensusMessage>,
+        Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+        Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        Commitment = ValidatingLeaf<TYPES>,
+    >,
 {
     /// portion of the replica task that spins until a valid QC can be signed or
     /// timeout is hit.
@@ -233,7 +244,7 @@ where
                                 info!("Sending vote to next leader {:?}", message);
                                 if self
                                     .api
-                                    .send_direct_message::<QuorumProposalType<TYPES, I>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(next_leader, message)
+                                    .send_direct_message::<QuorumProposalType<TYPES, I,ValidatingMessage<TYPES,I>>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(next_leader, ValidatingMessage(message))
                                     .await
                                     .is_err()
                                 {
@@ -270,7 +281,7 @@ where
                                         );
                                     }
                                     Ok(Some(vote_token)) => {
-                                        let timed_out_msg = ValidatingMessage::Vote(
+                                        let timed_out_msg = GeneralConsensusMessage::Vote(
                                             QuorumVote::Timeout(TimeoutVote {
                                                 justify_qc: self.high_qc.clone(),
                                                 signature,
@@ -286,7 +297,14 @@ where
                                         // send timedout message to the next leader
                                         if let Err(e) = self
                                             .api
-                                            .send_direct_message::<QuorumProposalType<TYPES, I>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(next_leader.clone(), timed_out_msg)
+                                            .send_direct_message::<QuorumProposalType<
+                                                TYPES,
+                                                I,
+                                                ValidatingMessage<TYPES, I>,
+                                            >, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(
+                                                next_leader.clone(),
+                                                ValidatingMessage(timed_out_msg),
+                                            )
                                             .await
                                         {
                                             consensus.metrics.failed_to_send_messages.add(1);

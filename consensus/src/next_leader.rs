@@ -87,6 +87,13 @@ where
         ValidatingLeaf<TYPES>,
         Message<TYPES, I, I::ConsensusMessage>,
     >,
+    ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
+        TYPES,
+        ValidatingLeaf<TYPES>,
+        Message<TYPES, I, I::ConsensusMessage>,
+        Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
+        Commitment = ValidatingLeaf<TYPES>,
+    >,
 {
     /// Run one view of the next leader task
     /// # Panics
