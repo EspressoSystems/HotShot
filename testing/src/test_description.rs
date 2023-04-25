@@ -160,7 +160,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPE
             self.min_transactions,
             <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
                 TYPES,
-                I::Leaf,
                 Message<TYPES, I>,
             >>::Membership::default_election_config(self.total_nodes as u64),
         );

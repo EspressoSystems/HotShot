@@ -31,13 +31,16 @@ use hotshot_types::message::Message;
 use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
 use hotshot_types::{
     data::LeafType,
-    traits::{election::Membership, metrics::NoMetrics, node_implementation::NodeType},
+    traits::{
+        election::Membership, metrics::NoMetrics, node_implementation::NetworkType,
+        node_implementation::NodeType,
+    },
     HotShotConfig,
 };
 use snafu::Snafu;
+use std::sync::Arc;
 use std::{collections::HashMap, fmt::Debug};
 use tracing::{debug, error, info, warn};
-
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 
@@ -47,6 +50,8 @@ pub const N: usize = H_256;
 /// Alias for `(Vec<S>, Vec<B>)`. Used in [`RoundResult`].
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
+/// Wrapper Type for function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
+pub type NetworkGenerator<TYPES, I, T> = Box<dyn Fn(Arc<NetworkType<TYPES, I>>) -> T + 'static>;
 /// Result of running a round of consensus
 #[derive(Debug)]
 // TODO do we need static here
@@ -102,8 +107,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TY
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    quorum_network_generator: Generator<QuorumNetwork<TYPES, I>>,
-    committee_network_generator: Generator<CommitteeNetwork<TYPES, I>>,
+    network_generator: Generator<NetworkType<TYPES, I>>,
+    quorum_network_generator: NetworkGenerator<TYPES, I, QuorumNetwork<TYPES, I>>,
+    committee_network_generator: NetworkGenerator<TYPES, I, CommitteeNetwork<TYPES, I>>,
     storage_generator: Generator<I::Storage>,
     default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     nodes: Vec<Node<TYPES, I>>,
@@ -119,6 +125,7 @@ struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
     pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
+            network_generator: launcher.network,
             quorum_network_generator: launcher.quorum_network,
             committee_network_generator: launcher.committee_network,
             storage_generator: launcher.storage,
@@ -144,8 +151,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         let mut results = vec![];
         for _i in 0..count {
             let node_id = self.next_node_id;
-            let quorum_network = (self.quorum_network_generator)(node_id);
-            let committee_network = (self.committee_network_generator)(node_id);
+            let network = Arc::new((self.network_generator)(node_id));
+            let quorum_network = (self.quorum_network_generator)(network.clone());
+            let committee_network = (self.committee_network_generator)(network);
             let storage = (self.storage_generator)(node_id);
             let config = self.default_node_config.clone();
             let initializer =
@@ -201,7 +209,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         let election_config = config.election_config.clone().unwrap_or_else(|| {
             <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
                 TYPES,
-                I::Leaf,
                 Message<TYPES, I>,
             >>::Membership::default_election_config(config.total_nodes.get() as u64)
         });
