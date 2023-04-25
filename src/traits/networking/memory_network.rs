@@ -305,6 +305,7 @@ impl<
     > for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
+    Message<TYPES, I, I::ConsensusMessage>: ViewMessage<TYPES>,
 {
     fn generator(
         _expected_node_count: usize,
@@ -458,7 +459,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, M, K> for Mem
 }
 
 /// memory identity communication channel
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MemoryCommChannel<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -497,6 +498,8 @@ impl<
     >
     CommunicationChannel<TYPES, Message<TYPES, I, I::ConsensusMessage>, PROPOSAL, VOTE, MEMBERSHIP>
     for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    Message<TYPES, I, I::ConsensusMessage>: ViewMessage<TYPES>,
 {
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
@@ -563,7 +566,7 @@ mod tests {
     use hotshot_types::traits::node_implementation::ValidatingExchanges;
     use hotshot_types::{
         data::ViewNumber,
-        message::{DataMessage, MessageKind},
+        message::{DataMessage, MessageKind, ValidatingMessage},
         traits::{
             signature_key::ed25519::{Ed25519Priv, Ed25519Pub},
             state::ConsensusTime,
@@ -574,6 +577,7 @@ mod tests {
         data::{ValidatingLeaf, ValidatingProposal},
         traits::consensus_type::validating_consensus::ValidatingConsensus,
     };
+    use serde::{Deserialize, Serialize};
 
     #[derive(
         Copy,
@@ -589,7 +593,7 @@ mod tests {
         serde::Deserialize,
     )]
     struct Test {}
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Deserialize, Serialize)]
     struct TestImpl {}
 
     // impl NetworkMsg for Test {}
@@ -610,22 +614,20 @@ mod tests {
     type TestNetwork = MemoryCommChannel<Test, TestImpl, TestProposal, TestVote, TestMembership>;
 
     impl NodeImplementation<Test> for TestImpl {
-        type QuorumExchange = QuorumExchange<
-            Test,
-            TestLeaf,
-            TestProposal,
-            TestMembership,
-            TestNetwork,
-            Message<Test, Self>,
-        >;
+        type ConsensusMessage = ValidatingMessage<Test, Self>;
         type Exchanges = ValidatingExchanges<
-            ValidatingConsensus,
             Test,
             TestLeaf,
-            Message<Test, Self>,
-            Self::QuorumExchange,
+            Message<Test, Self, ValidatingMessage<Test, Self>>,
+            QuorumExchange<
+                Test,
+                TestLeaf,
+                TestProposal,
+                TestMembership,
+                TestNetwork,
+                Message<Test, Self, ValidatingMessage<Test, Self>>,
+            >,
         >;
-        type CommitteeExchange = Self::QuorumExchange;
         type Leaf = TestLeaf;
         type Storage = MemoryStorage<Test, TestLeaf>;
     }
@@ -639,7 +641,10 @@ mod tests {
     /// derive EQ on `VoteType<TYPES>` and thereby message
     /// we are only sending data messages, though so we compare key and
     /// data message
-    fn fake_message_eq(message_1: Message<Test, TestImpl>, message_2: Message<Test, TestImpl>) {
+    fn fake_message_eq(
+        message_1: Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>,
+        message_2: Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>,
+    ) {
         assert_eq!(message_1.sender, message_2.sender);
         if let MessageKind::Data(DataMessage::SubmitTransaction(d_1, _)) = message_1.kind {
             if let MessageKind::Data(DataMessage::SubmitTransaction(d_2, _)) = message_2.kind {
@@ -657,7 +662,11 @@ mod tests {
     }
 
     /// create a message
-    fn gen_messages(num_messages: u64, seed: u64, pk: Ed25519Pub) -> Vec<Message<Test, TestImpl>> {
+    fn gen_messages(
+        num_messages: u64,
+        seed: u64,
+        pk: Ed25519Pub,
+    ) -> Vec<Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>> {
         let mut messages = Vec::new();
         for i in 0..num_messages {
             let message = Message {
@@ -692,8 +701,12 @@ mod tests {
     #[instrument]
     async fn spawn_single() {
         setup_logging();
-        let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
-            MasterMap::new();
+        let group: Arc<
+            MasterMap<
+                Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>,
+                <Test as NodeType>::SignatureKey,
+            >,
+        > = MasterMap::new();
         trace!(?group);
         let pub_key = get_pubkey();
         let _network = MemoryNetwork::new(pub_key, NoMetrics::boxed(), group, Option::None);
@@ -708,8 +721,12 @@ mod tests {
     #[instrument]
     async fn spawn_double() {
         setup_logging();
-        let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
-            MasterMap::new();
+        let group: Arc<
+            MasterMap<
+                Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>,
+                <Test as NodeType>::SignatureKey,
+            >,
+        > = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
         let _network_1 =
@@ -731,8 +748,12 @@ mod tests {
         // Create some dummy messages
 
         // Make and connect the networking instances
-        let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
-            MasterMap::new();
+        let group: Arc<
+            MasterMap<
+                Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>,
+                <Test as NodeType>::SignatureKey,
+            >,
+        > = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
         let network1 =
@@ -740,7 +761,8 @@ mod tests {
         let pub_key_2 = get_pubkey();
         let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
 
-        let first_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);
+        let first_messages: Vec<Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>> =
+            gen_messages(5, 100, pub_key_1);
 
         // Test 1 -> 2
         // Send messages
@@ -758,7 +780,8 @@ mod tests {
             fake_message_eq(sent_message, recv_message);
         }
 
-        let second_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 200, pub_key_2);
+        let second_messages: Vec<Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>> =
+            gen_messages(5, 200, pub_key_2);
 
         // Test 2 -> 1
         // Send messages
@@ -788,8 +811,12 @@ mod tests {
     async fn broadcast_queue() {
         setup_logging();
         // Make and connect the networking instances
-        let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
-            MasterMap::new();
+        let group: Arc<
+            MasterMap<
+                Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>,
+                <Test as NodeType>::SignatureKey,
+            >,
+        > = MasterMap::new();
         trace!(?group);
         let pub_key_1 = get_pubkey();
         let network1 =
@@ -797,7 +824,8 @@ mod tests {
         let pub_key_2 = get_pubkey();
         let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
 
-        let first_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);
+        let first_messages: Vec<Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>> =
+            gen_messages(5, 100, pub_key_1);
 
         // Test 1 -> 2
         // Send messages
@@ -818,7 +846,8 @@ mod tests {
             fake_message_eq(sent_message, recv_message);
         }
 
-        let second_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 200, pub_key_2);
+        let second_messages: Vec<Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>> =
+            gen_messages(5, 200, pub_key_2);
 
         // Test 2 -> 1
         // Send messages
@@ -851,7 +880,7 @@ mod tests {
         // setup_logging();
         //
         // let group: Arc<
-        //     MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>,
+        //     MasterMap<Message<Test, TestImpl,TestImpl::ConsensusMessage>, <Test as NodeType>::SignatureKey>,
         // > = MasterMap::new();
         // trace!(?group);
         // let pub_key_1 = get_pubkey();
@@ -860,7 +889,7 @@ mod tests {
         // let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
         //
         // // Create some dummy messages
-        // let messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);
+        // let messages: Vec<Message<Test, TestImpl,TestImpl::ConsensusMessage>> = gen_messages(5, 100, pub_key_1);
         //
         // // assert_eq!(network1.in_flight_message_count(), Some(0));
         // // assert_eq!(network2.in_flight_message_count(), Some(0));

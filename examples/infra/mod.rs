@@ -650,6 +650,7 @@ pub struct WebServerRun<
 > {
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     network: WebCommChannel<
+        TYPES::ConsensusType,
         TYPES,
         I,
         Proposal<TYPES>,
@@ -660,7 +661,7 @@ pub struct WebServerRun<
 
 #[async_trait]
 impl<
-        TYPES: NodeType,
+        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
         MEMBERSHIP: Membership<TYPES>,
         NODE: NodeImplementation<
             TYPES,
@@ -671,6 +672,7 @@ impl<
                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 MEMBERSHIP,
                 WebCommChannel<
+                    ValidaitngConsensus,
                     TYPES,
                     NODE,
                     ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
@@ -685,6 +687,7 @@ impl<
                 ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
                 MEMBERSHIP,
                 WebCommChannel<
+                    ValidaitngConsensus,
                     TYPES,
                     NODE,
                     ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
@@ -700,6 +703,7 @@ impl<
         TYPES,
         MEMBERSHIP,
         WebCommChannel<
+            ValidaitngConsensus,
             TYPES,
             NODE,
             ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
@@ -734,6 +738,7 @@ where
 
         // Create the network
         let network: WebCommChannel<
+            ValidaitngConsensus,
             TYPES,
             NODE,
             Proposal<TYPES>,
@@ -751,6 +756,7 @@ where
     fn get_network(
         &self,
     ) -> WebCommChannel<
+        ValidaitngConsensus,
         TYPES,
         NODE,
         Proposal<TYPES>,

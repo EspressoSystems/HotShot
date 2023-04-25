@@ -102,7 +102,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TY
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    quorum_network_generator: Generator<QuorumNetwork<TYPES, I>>,
+    quorum_network_generator: Generator<QuorumNetwork<TYPES, I, I::ConsensusMessage>>,
     committee_network_generator: Generator<CommitteeNetwork<TYPES, I>>,
     storage_generator: Generator<I::Storage>,
     default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
@@ -183,7 +183,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     /// For a simpler way to add nodes to this runner, see `add_nodes`
     pub async fn add_node_with_config(
         &mut self,
-        quorum_network: QuorumNetwork<TYPES, I>,
+        quorum_network: QuorumNetwork<TYPES, I, I::ConsensusMessage>,
         committee_network: CommitteeNetwork<TYPES, I>,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,

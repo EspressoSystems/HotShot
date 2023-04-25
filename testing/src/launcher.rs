@@ -12,7 +12,7 @@ use std::{num::NonZeroUsize, time::Duration};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
 pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    pub(super) quorum_network: Generator<QuorumNetwork<TYPES, I>>,
+    pub(super) quorum_network: Generator<QuorumNetwork<TYPES, I, I::ConsensusMessage>>,
     pub(super) committee_network: Generator<CommitteeNetwork<TYPES, I>>,
     pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     pub(super) block: Generator<TYPES::BlockType>,
@@ -66,7 +66,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
     /// Set a custom quorum network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_quorum_network(
         self,
-        quorum_network: impl Fn(u64, TYPES::SignatureKey) -> QuorumNetwork<TYPES, I> + 'static,
+        quorum_network: impl Fn(u64, TYPES::SignatureKey) -> QuorumNetwork<TYPES, I, I::ConsensusMessage>
+            + 'static,
     ) -> TestLauncher<TYPES, I> {
         TestLauncher {
             quorum_network: Box::new({

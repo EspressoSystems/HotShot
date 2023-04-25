@@ -23,6 +23,7 @@ use crate::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrN
 use crate::{data::LeafType, traits::signature_key::SignatureKey};
 use bincode::Options;
 use commit::{Commitment, Committable};
+use derivative::Derivative;
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
 use serde::Deserialize;
@@ -409,6 +410,8 @@ pub trait CommitteeExchangeType<
 }
 
 /// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct CommitteeExchange<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
@@ -423,6 +426,7 @@ pub struct CommitteeExchange<
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
     /// This participant's private key.
+    #[derivative(Debug = "ignore")]
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     #[doc(hidden)]
     _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP, M)>,
@@ -679,6 +683,8 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
 }
 
 /// Standard implementation of [`QuroumExchangeType`] based on Hot Stuff consensus.
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct QuorumExchange<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,
@@ -694,6 +700,7 @@ pub struct QuorumExchange<
     /// This participant's public key.
     public_key: TYPES::SignatureKey,
     /// This participant's private key.
+    #[derivative(Debug = "ignore")]
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     #[doc(hidden)]
     _pd: PhantomData<(LEAF, PROPOSAL, MEMBERSHIP, M)>,

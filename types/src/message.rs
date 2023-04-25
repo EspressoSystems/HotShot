@@ -435,7 +435,7 @@ pub trait ConsensusMessageType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Messages for both validating and sequencing consensus.
     type GeneralConsensusMessage;
 
-    type ProcessedConsensusMessage;
+    type ProcessedConsensusMessage: Send;
 }
 
 /// Messages related to the validating consensus protocol.

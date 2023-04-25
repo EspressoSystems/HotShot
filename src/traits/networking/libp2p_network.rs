@@ -130,6 +130,7 @@ impl<
     > for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
+    Message<TYPES, I, I::ConsensusMessage>: ViewMessage<TYPES>,
 {
     /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
     /// with the purpose of generating libp2p networks.
@@ -724,6 +725,8 @@ impl<
     >
     CommunicationChannel<TYPES, Message<TYPES, I, I::ConsensusMessage>, PROPOSAL, VOTE, MEMBERSHIP>
     for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    Message<TYPES, I, I::ConsensusMessage>: ViewMessage<TYPES>,
 {
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;

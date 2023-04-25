@@ -14,7 +14,20 @@ use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
     channel::{oneshot, OneShotSender},
 };
-use hotshot_types::traits::node_implementation::NodeImplementation;
+use either::Either::{Left, Right};
+use hotshot_types::traits::consensus_type::{
+    sequencing_consensus::SequencingConsensus, validating_consensus::ValidatingConsensus,
+    ConsensusType,
+};
+use hotshot_types::traits::node_implementation::{
+    NodeImplementation, SequencingExchangesType, ValidatingExchangesType,
+};
+use hotshot_types::{
+    data::{SequencingLeaf, ValidatingLeaf},
+    message::{
+        CommitteeConsensusMessage, GeneralConsensusMessage, SequencingMessage, ValidatingMessage,
+    },
+};
 
 use hotshot_web_server::{self, config};
 
@@ -51,7 +64,8 @@ use tracing::{error, info};
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone)]
 pub struct WebCommChannel<
-    TYPES: NodeType,
+    CONSENSUS: ConsensusType,
+    TYPES: NodeType<ConsensusType = CONSENSUS>,
     I: NodeImplementation<TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
@@ -67,13 +81,14 @@ pub struct WebCommChannel<
     >,
     PhantomData<(MEMBERSHIP, I)>,
 );
+
 impl<
         TYPES: NodeType,
         I: NodeImplementation<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    > WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// Create new communication channel
     #[must_use]
@@ -89,7 +104,33 @@ impl<
     ) -> Self {
         Self(network, PhantomData::default())
     }
+}
 
+trait ParsePost<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    fn parse_post_message(
+        message: Message<TYPES, I, I::ConsensusMessage>,
+    ) -> Result<SendMsg<Message<TYPES, I, I::ConsensusMessage>>, WebServerNetworkError>;
+}
+
+impl<
+        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            ConsensusMessage = ValidatingMessage<TYPES, I>,
+        >,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    > ParsePost<TYPES, I>
+    for WebCommChannel<ValidatingConsensus, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    I::Exchanges: ValidatingExchangesType<
+        TYPES,
+        ValidatingLeaf<TYPES>,
+        Message<TYPES, I, I::ConsensusMessage>,
+    >,
+{
     /// Parses a message to find the appropriate endpoint
     /// Returns a `SendMsg` containing the endpoint
     fn parse_post_message(
@@ -98,18 +139,71 @@ impl<
         let view_number: TYPES::Time = message.get_view_number();
 
         let endpoint = match &message.kind {
-            hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind {
-                hotshot_types::message::ConsensusMessage::Proposal(_)
-                | hotshot_types::message::ConsensusMessage::DAProposal(_) => {
-                    config::post_proposal_route(*view_number)
-                }
-                hotshot_types::message::ConsensusMessage::Vote(_)
-                | hotshot_types::message::ConsensusMessage::DAVote(_) => {
-                    config::post_vote_route(*view_number)
-                }
-                hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {
+            hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind.0 {
+                GeneralConsensusMessage::Proposal(_) => config::post_proposal_route(*view_number),
+                GeneralConsensusMessage::Vote(_) => config::post_vote_route(*view_number),
+                GeneralConsensusMessage::InternalTrigger(_) => {
                     return Err(WebServerNetworkError::EndpointError)
                 }
+            },
+            hotshot_types::message::MessageKind::Data(message_kind) => match message_kind {
+                hotshot_types::message::DataMessage::SubmitTransaction(_, _) => {
+                    config::post_transactions_route()
+                }
+            },
+        };
+
+        let network_msg: SendMsg<Message<TYPES, I, I::ConsensusMessage>> = SendMsg {
+            message: Some(message),
+            endpoint,
+        };
+        Ok(network_msg)
+    }
+}
+
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, I>,
+        >,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    > ParsePost<TYPES, I>
+    for WebCommChannel<SequencingConsensus, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    I::Exchanges: SequencingExchangesType<
+        TYPES,
+        SequencingLeaf<TYPES>,
+        Message<TYPES, I, I::ConsensusMessage>,
+    >,
+{
+    /// Parses a message to find the appropriate endpoint
+    /// Returns a `SendMsg` containing the endpoint
+    fn parse_post_message(
+        message: Message<TYPES, I, I::ConsensusMessage>,
+    ) -> Result<SendMsg<Message<TYPES, I, I::ConsensusMessage>>, WebServerNetworkError> {
+        let view_number: TYPES::Time = message.get_view_number();
+
+        let endpoint = match &message.kind {
+            hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind.0 {
+                Left(message) => match message {
+                    GeneralConsensusMessage::Proposal(_) => {
+                        config::post_proposal_route(*view_number)
+                    }
+                    GeneralConsensusMessage::Vote(_) => config::post_vote_route(*view_number),
+                    GeneralConsensusMessage::InternalTrigger(_) => {
+                        return Err(WebServerNetworkError::EndpointError)
+                    }
+                },
+                Right(message) => match message {
+                    CommitteeConsensusMessage::DAProposal(_) => {
+                        config::post_proposal_route(*view_number)
+                    }
+                    CommitteeConsensusMessage::DAVote(_) => config::post_vote_route(*view_number),
+                },
             },
             hotshot_types::message::MessageKind::Data(message_kind) => match message_kind {
                 hotshot_types::message::DataMessage::SubmitTransaction(_, _) => {
@@ -514,7 +608,9 @@ impl<
         MEMBERSHIP: Membership<TYPES>,
     >
     CommunicationChannel<TYPES, Message<TYPES, I, I::ConsensusMessage>, PROPOSAL, VOTE, MEMBERSHIP>
-    for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    Self: ParsePost<TYPES, I>,
 {
     /// Blocks until node is successfully initialized
     /// into the network
@@ -730,9 +826,11 @@ impl<
         PROPOSAL,
         VOTE,
         MEMBERSHIP,
-    > for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
+    Message<TYPES, I, I::ConsensusMessage>: ViewMessage<TYPES>,
+    WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>: ParsePost<TYPES, I>,
 {
     fn generator(
         expected_node_count: usize,

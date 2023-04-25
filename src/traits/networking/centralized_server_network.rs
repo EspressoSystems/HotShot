@@ -882,6 +882,8 @@ impl<
     >
     CommunicationChannel<TYPES, Message<TYPES, I, I::ConsensusMessage>, PROPOSAL, VOTE, MEMBERSHIP>
     for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    Message<TYPES, I, I::ConsensusMessage>: ViewMessage<TYPES>,
 {
     async fn wait_for_ready(&self) {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
@@ -966,6 +968,7 @@ impl<
     > for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
+    Message<TYPES, I, I::ConsensusMessage>: ViewMessage<TYPES>,
 {
     fn generator(
         expected_node_count: usize,

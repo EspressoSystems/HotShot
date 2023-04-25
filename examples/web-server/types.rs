@@ -23,7 +23,14 @@ pub struct NodeImpl {}
 pub type ThisLeaf = ValidatingLeaf<VDemoTypes>;
 pub type ThisMembership =
     GeneralStaticCommittee<VDemoTypes, ThisLeaf, <VDemoTypes as NodeType>::SignatureKey>;
-pub type ThisNetwork = WebCommChannel<VDemoTypes, NodeImpl, ThisProposal, ThisVote, ThisMembership>;
+pub type ThisNetwork = WebCommChannel<
+    ValidaitngConsensus,
+    VDemoTypes,
+    NodeImpl,
+    ThisProposal,
+    ThisVote,
+    ThisMembership,
+>;
 pub type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
 pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
 

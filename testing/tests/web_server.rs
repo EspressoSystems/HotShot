@@ -27,6 +27,7 @@ type StaticMembership =
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
 
 type StaticCommunication = WebCommChannel<
+    ValidaitngConsensus,
     StaticCommitteeTestTypes,
     StaticCentralizedImp,
     ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,

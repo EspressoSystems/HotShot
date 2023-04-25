@@ -3,9 +3,6 @@
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
 //! describing the overall behavior of a node, as a composition of implementations of the node trait.
 
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-
 use super::{
     block_contents::Transaction,
     consensus_type::{
@@ -15,7 +12,7 @@ use super::{
     election::{
         CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchangeType, VoteToken,
     },
-    network::{NetworkMsg, TestableNetworkingImplementation},
+    network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
@@ -34,6 +31,9 @@ use crate::{
     },
 };
 use crate::{data::TestableLeaf, message::Message};
+use async_compatibility_layer::async_primitives::broadcast::channel;
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 
 use std::hash::Hash;
 use std::{fmt::Debug, marker::PhantomData};
@@ -78,6 +78,7 @@ pub trait NodeImplementation<TYPES: NodeType>:
 
 // TODO (Keyao) move exchange types to election.rs?
 /// Contains the protocols for exchanging proposals and votes.
+#[async_trait]
 pub trait ExchangesType<
     CONSENSUS: ConsensusType,
     TYPES: NodeType<ConsensusType = CONSENSUS>,
@@ -99,6 +100,15 @@ pub trait ExchangesType<
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self;
+
+    fn quorum_exchange(&self) -> &Self::QuorumExchange;
+
+    /// Block the underlying networking interfaces until node is successfully initialized into the
+    /// networks.
+    async fn wait_for_networks_ready(&self);
+
+    /// Shut down the the underlying networking interfaces.
+    async fn shut_down_networks(&self);
 }
 
 /// An [`ExchangesType`] for validating consensus.
@@ -146,6 +156,7 @@ where
 {
 }
 
+#[async_trait]
 impl<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE> ExchangesType<ValidatingConsensus, TYPES, LEAF, MESSAGE>
     for ValidatingExchanges<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE>
 where
@@ -168,6 +179,18 @@ where
             quorum_exchange: QUORUMEXCHANGE::create(keys, config, networks, pk, sk),
             _phantom: PhantomData,
         }
+    }
+
+    fn quorum_exchange(&self) -> &Self::QuorumExchange {
+        &self.quorum_exchange
+    }
+
+    async fn wait_for_networks_ready(&self) {
+        self.quorum_exchange.network().wait_for_ready().await;
+    }
+
+    async fn shut_down_networks(&self) {
+        self.quorum_exchange.network().shut_down().await;
     }
 }
 
@@ -203,6 +226,7 @@ where
     type CommitteeExchange = COMMITTEEEXCHANGE;
 }
 
+#[async_trait]
 impl<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
     ExchangesType<SequencingConsensus, TYPES, LEAF, MESSAGE>
     for SequencingExchanges<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
@@ -236,6 +260,34 @@ where
             committee_exchange,
             _phantom: PhantomData,
         }
+    }
+
+    fn quorum_exchange(&self) -> &Self::QuorumExchange {
+        &self.quorum_exchange
+    }
+
+    async fn wait_for_networks_ready(&self) {
+        self.quorum_exchange.network().wait_for_ready().await;
+        self.committee_exchange.network().wait_for_ready().await;
+    }
+
+    async fn shut_down_networks(&self) {
+        self.quorum_exchange.network().shut_down().await;
+        self.committee_exchange.network().shut_down().await;
+    }
+}
+
+impl<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+    SequencingExchanges<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+where
+    TYPES: NodeType<ConsensusType = SequencingConsensus>,
+    LEAF: LeafType<NodeType = TYPES>,
+    MESSAGE: NetworkMsg,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Debug,
+    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE>,
+{
+    fn committee_exchange(&self) -> &COMMITTEEEXCHANGE {
+        &self.committee_exchange
     }
 }
 
