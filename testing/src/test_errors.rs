@@ -63,4 +63,8 @@ pub enum ConsensusTestError {
     /// Too many nodes failed
     TooManyFailures,
     CompletedTestSuccessfully,
+    ConsensusSafetyFailed {
+        /// description of error
+        description: String,
+    },
 }
