@@ -726,6 +726,7 @@ async fn test_decide_leaf_chain() {
     // last decided leaf before the round, so that after the round we can check that the new
     // leaf chain extends from it. The handle must be copied out of the round runner before the
     // round starts so that it will buffer events emitted during the round.
+    #[allow(clippy::type_complexity)]
     let handles: Arc<
         Mutex<
             Vec<(

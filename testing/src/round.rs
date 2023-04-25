@@ -115,6 +115,7 @@ pub fn empty_safety_check<'a, TYPES: NodeType, I: TestableNodeImplementation<TYP
 
 /// Type of function used for checking results after running a view of consensus
 #[derive(Clone)]
+#[allow(clippy::type_complexity)]
 pub struct RoundSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     pub  Arc<
         dyn for<'a> Fn(
@@ -127,6 +128,7 @@ pub struct RoundSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TYPES
 
 /// Type of function used for checking results after running a view of consensus
 #[derive(Clone)]
+#[allow(clippy::type_complexity)]
 pub struct RoundHook<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     pub  Arc<
         dyn for<'a> Fn(
@@ -161,6 +163,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RoundSafet
 
 /// Type of function used for configuring a round of consensus
 #[derive(Clone)]
+#[allow(clippy::type_complexity)]
 pub struct RoundSetup<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     pub  Arc<
         dyn for<'a> Fn(

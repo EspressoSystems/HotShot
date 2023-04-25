@@ -131,7 +131,7 @@ impl RoundSetupBuilder {
 
                     let mut rng = rand::thread_rng();
                     runner
-                        .add_random_transactions(num_txns_per_round as usize, &mut rng)
+                        .add_random_transactions(num_txns_per_round, &mut rng)
                         .await
                         .unwrap()
                 }
@@ -142,6 +142,7 @@ impl RoundSetupBuilder {
 }
 
 /// description to be passed to the view checker
+#[derive(Clone, Debug)]
 pub struct RoundSafetyCheckBuilder {
     /// number of out of sync nodes before considered failed
     pub num_out_of_sync: usize,
@@ -176,7 +177,7 @@ impl Default for RoundSafetyCheckBuilder {
 impl RoundSafetyCheckBuilder {
     /// builds a saety check based on a `RoundSafetyCheckBuilder`
     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-        &self,
+        self,
     ) -> RoundSafetyCheck<TYPES, I> {
         let Self {
             num_out_of_sync,
@@ -189,9 +190,9 @@ impl RoundSafetyCheckBuilder {
             check_transactions: _,
             num_failed_consecutive_rounds,
             num_failed_rounds_total,
-        }: Self = *(self.clone());
+        }: Self = self;
 
-        let post = RoundSafetyCheck(Arc::new(
+        RoundSafetyCheck(Arc::new(
             move |runner: &TestRunner<TYPES, I>,
                   ctx: &mut RoundCtx<TYPES, I>,
                   mut round_result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>|
@@ -327,8 +328,6 @@ impl RoundSafetyCheckBuilder {
                 }
                 .boxed_local()
             },
-        ));
-
-        post
+        ))
     }
 }
