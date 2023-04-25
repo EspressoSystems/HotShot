@@ -12,13 +12,13 @@ Return the proposal for a given view number
 """
 
 # POST a proposal, where the view is passed as an argument
-#[route.postproposal]
-#PATH = ["proposal/:view_number"]
-#METHOD = "POST"
-#":view_number" = "Integer"
-#DOC = """
-#Post the proposal for a given view_number
-#"""
+[route.postproposal]
+PATH = ["proposal/:view_number"]
+METHOD = "POST"
+":view_number" = "Integer"
+DOC = """
+Post the proposal for a given view_number
+"""
 
 # GET all the votes from a given index for a given view number
 [route.getvotes]
@@ -65,9 +65,9 @@ DOC = """
 Post the stake table to the web server
 """
 
-# POST stake table
-[route.secret/:view_number/:secret]
-PATH = ["secret"]
+# POST secret proposal
+[route.secret]
+PATH = ["secret/:view_number/:secret"]
 METHOD = "POST"
 ":view_number" = "Integer"
 ":secret" = "Literal"

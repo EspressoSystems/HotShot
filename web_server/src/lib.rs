@@ -79,6 +79,7 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
         self.shutdown = shutdown_listener;
         self
     }
+    
 }
 
 /// Trait defining methods needed for the `WebServerState`
@@ -95,6 +96,9 @@ pub trait WebServerDataSource<KEY> {
 }
 
 impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
+    fn proposals(&self) -> HashMap<u64, (String, Vec<u8>)> {
+        self.proposals.clone()
+    }
     /// Return all proposals the server has received for a particular view
     fn get_proposals(&self, view_number: u64) -> Result<Option<Vec<u8>>, Error> {
         match self.proposals.get(&view_number) {
@@ -172,7 +176,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         }
         self.proposals
             .entry(view_number)
-            .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal));
+            .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal))
+            .or_insert_with(|| (String::new(), proposal));
         Ok(())
     }
     /// Stores a received group of transactions in the `WebServerState`
@@ -242,9 +247,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         Ok(())
     }
 
-    fn proposals(&self) -> HashMap<u64, (String, Vec<u8>)> {
-        self.proposals.clone()
-    }
+    
 }
 
 #[derive(Args, Default)]
@@ -330,8 +333,8 @@ where
             let view_number: u64 = req.integer_param("view_number")?;
             let secret: &str = req.string_param("secret")?;
             //if secret is correct and view_number->proposal is empty, proposal is valid
-            if let Some(proposal) = state.proposals().get(&view_number) {
-                if proposal.0 == secret && proposal.1.is_empty() {
+            if let Some(prop) = state.proposals().get(&view_number) {
+                if prop.0 == secret && prop.1.is_empty() {
                     let proposal = req.body_bytes();
                     state.post_secret_proposal(view_number, proposal)
                 } else {
@@ -361,7 +364,6 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
     let mut app = App::<State<KEY>, Error>::with_state(state);
 
     app.register_module("api", api).unwrap();
-    //KALEY TODO register first leader's proposal submission endpoint
     app.serve(format!("http://0.0.0.0:{DEFAULT_WEB_SERVER_PORT}"))
         .await
 }
