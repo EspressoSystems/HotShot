@@ -21,7 +21,7 @@ use tide_disco::method::WriteState;
 use tide_disco::Api;
 use tide_disco::App;
 use tide_disco::StatusCode;
-use tracing::error;
+use tracing::info;
 
 type State<KEY> = RwLock<WebServerState<KEY>>;
 type Error = ServerError;
@@ -84,7 +84,7 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
 
 /// Trait defining methods needed for the `WebServerState`
 pub trait WebServerDataSource<KEY> {
-    fn get_proposals(&self, view_number: u64) -> Result<Option<Vec<u8>>, Error>;
+    fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<u8>>, Error>;
     fn get_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
@@ -100,7 +100,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         self.proposals.clone()
     }
     /// Return all proposals the server has received for a particular view
-    fn get_proposals(&self, view_number: u64) -> Result<Option<Vec<u8>>, Error> {
+    fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<u8>>, Error> {
         match self.proposals.get(&view_number) {
             Some(proposal) => Ok(Some(proposal.1.clone())),
             None => Err(ServerError {
@@ -165,7 +165,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Stores a received proposal in the `WebServerState`
     fn post_proposal(&mut self, view_number: u64, mut proposal: Vec<u8>) -> Result<(), Error> {
-        error!("Received proposal for view {}", view_number);
+        info!("Received proposal for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of view
         if self.proposals.len() >= MAX_VIEWS {
@@ -198,7 +198,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         if let Some(new_key) = new_key {
             let node_index = self.stake_table.len() as u64;
             //generate secret for leader's first submission endpoint when key is added
-            //secret should be random, and then wrapped with leader's pubkey once encryption keys are added (next task)
+            //secret should be random, and then wrapped with leader's pubkey once encryption keys are added 
+            // https://github.com/EspressoSystems/HotShot/issues/1141
             let secret = thread_rng()
                 .sample_iter(&Alphanumeric)
                 .take(30)
@@ -222,7 +223,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         view_number: u64,
         mut proposal: Vec<u8>,
     ) -> Result<(), Error> {
-        error!("Received proposal for view {}", view_number);
+        info!("Received proposal for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of views
         if self.proposals.len() >= MAX_VIEWS {
@@ -277,7 +278,7 @@ where
     api.get("getproposal", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
-            state.get_proposals(view_number)
+            state.get_proposal(view_number)
         }
         .boxed()
     })?
@@ -377,7 +378,6 @@ mod test {
 
     use super::*;
     use async_compatibility_layer::art::async_spawn;
-    //use hotshot_types::traits::signature_key::EncodedPublicKey;
     use hotshot_types::traits::signature_key::ed25519::Ed25519Pub;
     use portpicker::pick_unused_port;
     use surf_disco::error::ClientError;
