@@ -12,7 +12,7 @@ use hotshot::{
         NodeImplementation,
     },
 };
-use hotshot_testing::test_builder::{TestBuilder, TestMetadata};
+use hotshot_testing::test_builder::TestBuilder;
 use hotshot_types::data::CommitmentProposal;
 use hotshot_types::message::Message;
 

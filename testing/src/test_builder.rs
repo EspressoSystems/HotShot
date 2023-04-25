@@ -1,34 +1,20 @@
-///! public infra for describing tests
-use std::collections::HashMap;
 use std::num::NonZeroUsize;
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
-use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
-use either::Either::{self, Left, Right};
-use futures::Future;
-use futures::{future::LocalBoxFuture, FutureExt};
+use either::Either::Right;
+
 use hotshot::traits::TestableNodeImplementation;
-use hotshot::{traits::NetworkReliability, types::Message, HotShot, HotShotError, ViewRunner};
-use hotshot_types::data::LeafType;
-use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::{
-    traits::{
-        election::Membership,
-        network::CommunicationChannel,
-        node_implementation::{NodeImplementation, NodeType},
-    },
-    HotShotConfig,
-};
-use nll::nll_todo::nll_todo;
+use hotshot::{traits::NetworkReliability, HotShotError};
+
+use hotshot_types::traits::node_implementation::NodeType;
+
 use snafu::Snafu;
-use tracing::{error, info};
 
-use crate::round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup};
 use crate::round_builder::{RoundBuilder, RoundSafetyCheckBuilder, RoundSetupBuilder};
-use crate::test_errors::ConsensusFailedError;
-use crate::test_launcher::TestLauncher;
-use crate::test_runner::TestRunner;
 
+use crate::test_launcher::TestLauncher;
+
+/// metadata describing a test
 #[derive(Clone, Debug)]
 pub struct TestMetadata {
     /// Total number of nodes in the test
@@ -76,6 +62,7 @@ impl Default for TestMetadata {
 }
 
 impl TestMetadata {
+    /// generate a reasonable round description
     pub fn gen_sane_round_description<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         metadata: &TestMetadata,
     ) -> RoundBuilder<TYPES, I> {
@@ -177,6 +164,7 @@ pub struct TimingData {
     pub propose_max_round_time: Duration,
 }
 
+/// Builder for a test
 pub struct TestBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// metadata with which to generate round
     pub metadata: TestMetadata,

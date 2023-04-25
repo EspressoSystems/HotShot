@@ -9,7 +9,7 @@ use hotshot_types::{data::LeafType, traits::node_implementation::NodeType};
 
 use crate::{
     round_builder::{RoundSafetyCheckBuilder, RoundSetupBuilder},
-    test_errors::{ConsensusFailedError, ConsensusTestError},
+    test_errors::ConsensusTestError,
     test_runner::TestRunner,
 };
 
@@ -46,8 +46,12 @@ pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 /// this context will be passed around
 #[derive(Debug)]
 pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    /// results from previous rounds
     pub prior_round_results: Vec<RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>>,
+    /// views since we had a successful commit
     pub views_since_progress: usize,
+    /// totall number o failed views. TODO this will need to change
+    /// during the run view refactor
     pub total_failed_views: usize,
 }
 
@@ -61,6 +65,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for RoundCtx
     }
 }
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Round<TYPES, I> {
+    /// an empty `Round`
     pub fn empty() -> Self {
         Self {
             safety_check: RoundSafetyCheck(Arc::new(empty_safety_check)),
@@ -89,6 +94,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Clone for Round<TYPE
     }
 }
 
+/// an empty `RoundSetup`
 pub fn empty_setup_round<'a, TYPES: NodeType, TRANS, I: TestableNodeImplementation<TYPES>>(
     _asdf: &'a mut TestRunner<TYPES, I>,
     _ctx: &'a RoundCtx<TYPES, I>,
@@ -97,6 +103,7 @@ pub fn empty_setup_round<'a, TYPES: NodeType, TRANS, I: TestableNodeImplementati
     async move { vec![] }.boxed()
 }
 
+/// an empty `RoundSafetyCheck`
 pub fn empty_safety_check<'a, TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     _asdf: &'a TestRunner<TYPES, I>,
     _ctx: &'a mut RoundCtx<TYPES, I>,
@@ -118,19 +125,6 @@ pub struct RoundSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TYPES
     >,
 );
 
-#[derive(Clone)]
-pub struct RunnerBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-    pub Arc<dyn Fn(&Round<TYPES, I>) -> TestRunner<TYPES, I>>,
-);
-
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RunnerBuilder<TYPES, I> {
-    type Target = dyn Fn(&Round<TYPES, I>) -> TestRunner<TYPES, I>;
-
-    fn deref(&self) -> &Self::Target {
-        &*self.0
-    }
-}
-
 /// Type of function used for checking results after running a view of consensus
 #[derive(Clone)]
 pub struct RoundHook<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
@@ -138,7 +132,7 @@ pub struct RoundHook<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         dyn for<'a> Fn(
             &'a TestRunner<TYPES, I>,
             &'a RoundCtx<TYPES, I>,
-        ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>,
+        ) -> LocalBoxFuture<'a, Result<(), ConsensusTestError>>,
     >,
 );
 
@@ -146,7 +140,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RoundHook<
     type Target = dyn for<'a> Fn(
         &'a TestRunner<TYPES, I>,
         &'a RoundCtx<TYPES, I>,
-    ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>;
+    ) -> LocalBoxFuture<'a, Result<(), ConsensusTestError>>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0

@@ -10,7 +10,7 @@ use hotshot_types::{
 use std::{num::NonZeroUsize, time::Duration};
 
 use crate::round::Round;
-use crate::test_builder::{TestBuilder, TestMetadata, TimingData};
+use crate::test_builder::{TestMetadata, TimingData};
 use crate::test_runner::{Generator, TestRunner};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
@@ -18,10 +18,10 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(super) quorum_network: Generator<QuorumNetwork<TYPES, I>>,
     pub(super) committee_network: Generator<CommitteeNetwork<TYPES, I>>,
     pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
-    pub(super) block: Generator<TYPES::BlockType>,
     pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     // contains builder metadata that is used sporadically
     pub(super) metadata: TestMetadata,
+    /// round information
     pub(super) round: Round<TYPES, I>,
 }
 
@@ -88,7 +88,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
             quorum_network: I::quorum_generator(total_nodes, num_bootstrap_nodes, 1),
             committee_network: I::committee_generator(total_nodes, num_bootstrap_nodes, 2),
             storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
-            block: Box::new(|_| I::block_genesis()),
             config,
             metadata,
             round,
@@ -151,17 +150,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
         }
     }
 
-    /// Set a custom block generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_block(
-        self,
-        block: impl Fn(u64) -> TYPES::BlockType + 'static,
-    ) -> TestLauncher<TYPES, I> {
-        TestLauncher {
-            block: Box::new(block),
-            ..self
-        }
-    }
-
+    /// directly override the round information
     pub fn with_round(self, round: Round<TYPES, I>) -> TestLauncher<TYPES, I> {
         TestLauncher { round, ..self }
     }

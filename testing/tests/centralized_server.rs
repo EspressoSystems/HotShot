@@ -6,7 +6,7 @@ use hotshot::traits::{
     implementations::{CentralizedCommChannel, MemoryStorage},
 };
 use hotshot_testing::{
-    test_builder::{TestBuilder, TestMetadata},
+    test_builder::TestBuilder,
     test_types::{StaticCommitteeTestTypes, VrfTestTypes},
 };
 use hotshot_types::{

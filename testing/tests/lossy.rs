@@ -1,18 +1,13 @@
 #![allow(clippy::type_complexity)]
 use std::sync::Arc;
 
-use either::Either::{self, Right};
-use futures::{future::LocalBoxFuture, FutureExt};
-use hotshot::traits::TestableNodeImplementation;
-
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
-    round::{RoundCtx, RoundResult},
     test_builder::{TestBuilder, TestMetadata},
-    test_types::{AppliedTestRunner, StaticCommitteeTestTypes, StaticNodeImplType},
+    test_types::{StaticCommitteeTestTypes, StaticNodeImplType},
 };
-use hotshot_types::traits::node_implementation::{NodeImplementation, NodeType};
-use tracing::{error, instrument};
+
+use tracing::instrument;
 
 // tests base level of working synchronous network
 #[cfg_attr(

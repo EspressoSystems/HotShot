@@ -13,7 +13,7 @@ use hotshot_types::{
         metrics::NoMetrics,
         network::CommunicationChannel,
         node_implementation::{CommitteeNetwork, NodeType, QuorumNetwork},
-        signature_key::{SignatureKey, TestableSignatureKey},
+        signature_key::SignatureKey,
     },
     HotShotConfig,
 };
@@ -21,8 +21,8 @@ use tracing::{debug, error, info};
 
 use crate::{
     round::{Round, RoundCtx, RoundResult},
-    test_builder::{TestBuilder, TestMetadata},
-    test_errors::{ConsensusFailedError, ConsensusTestError},
+    test_builder::TestMetadata,
+    test_errors::ConsensusTestError,
     test_launcher::TestLauncher,
 };
 
@@ -56,12 +56,13 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             default_node_config: launcher.config,
             nodes: Vec::new(),
             next_node_id: 0,
-            round: Round::default(),
+            round: launcher.round,
             metadata: launcher.metadata,
         }
     }
 
-    pub async fn run_test(mut self) -> Result<(), ConsensusFailedError>
+    /// run the test
+    pub async fn run_test(mut self) -> Result<(), ConsensusTestError>
     where
         HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
     {
@@ -193,8 +194,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     /// (for a definition of success defined by safety checks)
     pub async fn execute_rounds(
         &mut self,
-        num_success: usize,
-        fail_threshold: usize,
+        _num_success: usize,
+        _fail_threshold: usize,
     ) -> Result<(), ConsensusTestError> {
         // the default context starts as empty
         let mut ctx = RoundCtx::<TYPES, I>::default();
@@ -297,14 +298,14 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     /// returns [`ConsensusRoundError::NoSuchNode`] if the node idx is either
     /// - already shut down
     /// - does not exist
-    pub async fn shutdown(&mut self, node_id: u64) -> Result<(), ConsensusFailedError> {
+    pub async fn shutdown(&mut self, node_id: u64) -> Result<(), ConsensusTestError> {
         let maybe_idx = self.nodes.iter().position(|n| n.node_id == node_id);
         if let Some(idx) = maybe_idx {
             let node = self.nodes.remove(idx);
             node.handle.shut_down().await;
             Ok(())
         } else {
-            Err(ConsensusFailedError::NoSuchNode {
+            Err(ConsensusTestError::NoSuchNode {
                 node_ids: self.ids(),
                 requested_id: node_id,
             })

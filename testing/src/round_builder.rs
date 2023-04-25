@@ -4,21 +4,26 @@ use either::Either::{self, Left, Right};
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::{data::LeafType, traits::node_implementation::NodeType};
-use nll::nll_todo::nll_todo;
+use tracing::error;
 
 use crate::{
     round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
-    test_errors::{ConsensusFailedError, ConsensusTestError},
+    test_errors::ConsensusTestError,
     test_runner::TestRunner,
 };
 
+/// a builder for a round
 pub struct RoundBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    /// the setup / description for the round
     pub setup: Either<RoundSetup<TYPES, I>, RoundSetupBuilder>,
+    /// the safety check for the round
     pub check: Either<RoundSafetyCheck<TYPES, I>, RoundSafetyCheckBuilder>,
+    /// the hooks to run each round
     pub hooks: Vec<RoundHook<TYPES, I>>,
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RoundBuilder<TYPES, I> {
+    /// build the `Round` from the description
     pub fn build(self) -> Round<TYPES, I> {
         let setup = match self.setup {
             Left(setup) => setup,
@@ -54,6 +59,7 @@ pub struct RoundSetupBuilder {
     /// TODO add in sampling
     /// number of transactions to submit per view
     pub num_txns_per_round: usize,
+    /// scheduled changes (spinning a node up or down)
     pub scheduled_changes: Vec<ChangeNode>,
 }
 
@@ -66,20 +72,28 @@ impl Default for RoundSetupBuilder {
     }
 }
 
+/// Spin the node up or down
 #[derive(Clone, Debug)]
 pub enum UpDown {
+    /// spin the node up
     Up,
+    /// spin the node down
     Down,
 }
 
+/// denotes a change in node state
 #[derive(Clone, Debug)]
 pub struct ChangeNode {
+    /// the index of the node
     idx: usize,
+    /// the view on which to take action
     view: usize,
+    /// spin the node up or down
     updown: UpDown,
 }
 
 impl RoundSetupBuilder {
+    /// build the round setup
     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         &self,
     ) -> RoundSetup<TYPES, I> {
@@ -106,7 +120,7 @@ impl RoundSetupBuilder {
                     let startup = updowns.clone().filter_map(|node| node.left());
                     let shutdown = updowns.filter_map(|node| node.right());
 
-                    for node in startup {
+                    for _node in startup {
                         // TODO implement
                         // runner.shutdown(node as u64 ).await.unwrap();
                     }
@@ -160,6 +174,7 @@ impl Default for RoundSafetyCheckBuilder {
 }
 
 impl RoundSafetyCheckBuilder {
+    /// builds a saety check based on a `RoundSafetyCheckBuilder`
     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         &self,
     ) -> RoundSafetyCheck<TYPES, I> {
@@ -168,7 +183,10 @@ impl RoundSafetyCheckBuilder {
             check_leaf,
             check_state,
             check_block,
-            check_transactions,
+            // TODO is it possible to do this check?
+            // We can't exactly check that the transactions all match those submitted
+            // since we only known about state commitment
+            check_transactions: _,
             num_failed_consecutive_rounds,
             num_failed_rounds_total,
         }: Self = *(self.clone());
@@ -179,142 +197,133 @@ impl RoundSafetyCheckBuilder {
                   mut round_result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>|
                   -> LocalBoxFuture<Result<(), ConsensusTestError>> {
                 let runner_nodes = runner.nodes();
-                let collective = runner.nodes().collect::<Vec<_>>().len() - num_out_of_sync;
+                let num_required_successful_nodes =
+                    runner.nodes().collect::<Vec<_>>().len() - num_out_of_sync;
                 async move {
-                    nll_todo()
-                    //
-                    // // No transactions were submitted?
-                    // // We won't make any progress. Err.
-                    // if round_result.txns.is_empty(){
-                    //     round_result.success = false;
-                    //     ctx.prior_round_results.push(round_result);
-                    //     return Err(ConsensusFailedError::NoTransactionsSubmitted)
-                    // }
-                    //
-                    // if round_result.failed_nodes.len() >= num_out_of_sync  {
-                    //     ctx.views_since_progress += 1;
-                    //     ctx.total_failed_views += 1;
-                    //
-                    // } else {
-                    //     ctx.views_since_progress = 0;
-                    // }
-                    //
-                    // if ctx.views_since_progress >= num_failed_consecutive_rounds {
-                    //     round_result.success = false;
-                    //     ctx.prior_round_results.push(round_result);
-                    //     return Err(ConsensusFailedError::TooManyConsecutiveFailures);
-                    // }
-                    //
-                    // if ctx.total_failed_views >= num_failed_rounds_total {
-                    //     round_result.success = false;
-                    //     ctx.prior_round_results.push(round_result);
-                    //     return Err(ConsensusFailedError::TooManyViewFailures);
-                    // }
-                    //
-                    // let mut result_leaves = None;
-                    //
-                    // if check_leaf {
-                    //     let mut leaves = HashMap::<I::Leaf, usize>::new();
-                    //     // group all the leaves since thankfully leaf implements hash
-                    //     for node in runner_nodes {
-                    //         let decide_leaf = node.get_decided_leaf().await;
-                    //         match leaves.entry(decide_leaf) {
-                    //             std::collections::hash_map::Entry::Occupied(mut o) => {
-                    //                 *o.get_mut() += 1;
-                    //             }
-                    //             std::collections::hash_map::Entry::Vacant(v) => {
-                    //                 v.insert(1);
-                    //             }
-                    //         }
-                    //     }
-                    //     for (leaf, num_nodes) in leaves {
-                    //         if num_nodes >= collective {
-                    //             result_leaves = Some(leaf);
-                    //         }
-                    //     }
-                    //
-                    //     if let Some(leaf) = result_leaves {
-                    //         round_result.agreed_leaf = Some(leaf);
-                    //
-                    //     } else {
-                    //         ctx.views_since_progress += 1;
-                    //         ctx.total_failed_views += 1;
-                    //         round_result.success = false;
-                    //         ctx.prior_round_results.push(round_result);
-                    //         return Err(ConsensusFailedError::InconsistentLeaves)
-                    //     }
-                    // }
-                    //
-                    // let mut result_state = None;
-                    //
-                    // if check_state {
-                    //     let mut states = HashMap::<<I::Leaf as LeafType>::StateCommitmentType, usize>::new();
-                    //     for (_idx, (s, _b)) in round_result.success_nodes.clone() {
-                    //
-                    //         let most_recent_state = s.iter().last();
-                    //
-                    //         // match states.entry(s) {
-                    //         //     std::collections::hash_map::Entry::Occupied(mut o) => {
-                    //         //         *o.get_mut() += 1;
-                    //         //     }
-                    //         //     std::collections::hash_map::Entry::Vacant(v) => {
-                    //         //         v.insert(1);
-                    //         //     }
-                    //         // }
-                    //
-                    //     }
-                    //     for (state, num_nodes) in states {
-                    //         if num_nodes >= collective {
-                    //             result_state = Some(state);
-                    //         }
-                    //     }
-                    //
-                    //     if let Some(state) = result_state {
-                    //         round_result.agreed_state = Some(state);
-                    //     } else {
-                    //         ctx.views_since_progress += 1;
-                    //         ctx.total_failed_views += 1;
-                    //         round_result.success = false;
-                    //         ctx.prior_round_results.push(round_result);
-                    //         return Err(ConsensusFailedError::InconsistentLeaves);
-                    //     }
-                    //
-                    // }
-                    //
-                    // let mut result_block = None;
-                    //
-                    // if check_block {
-                    //     let mut blocks = HashMap::<Vec<<I::Leaf as LeafType>::DeltasType>, usize>::new();
-                    //     for (_idx, (_s, b)) in round_result.success_nodes.clone() {
-                    //
-                    //         match blocks.entry(b) {
-                    //             std::collections::hash_map::Entry::Occupied(mut o) => {
-                    //                 *o.get_mut() += 1;
-                    //             }
-                    //             std::collections::hash_map::Entry::Vacant(v) => {
-                    //                 v.insert(1);
-                    //             }
-                    //         }
-                    //
-                    //     }
-                    //     for (block, num_nodes) in blocks {
-                    //         if num_nodes >= collective {
-                    //             result_block = Some(block);
-                    //         }
-                    //     }
-                    //
-                    //     if result_block.is_none() {
-                    //         ctx.views_since_progress += 1;
-                    //         ctx.total_failed_views += 1;
-                    //         round_result.success = false;
-                    //         ctx.prior_round_results.push(round_result);
-                    //         return Err(ConsensusFailedError::InconsistentLeaves);
-                    //     }
-                    //
-                    // }
-                    //
-                    // Ok(())
-                    //
+                    if round_result.txns.is_empty() {
+                        error!("No transations submitted this round. No progress will be made.");
+                    }
+
+                    if round_result.failed_nodes.len() >= num_out_of_sync {
+                        ctx.views_since_progress += 1;
+                        ctx.total_failed_views += 1;
+                    } else {
+                        ctx.views_since_progress = 0;
+                    }
+
+                    if ctx.views_since_progress >= num_failed_consecutive_rounds {
+                        round_result.success = false;
+                        ctx.prior_round_results.push(round_result);
+                        return Err(ConsensusTestError::TooManyConsecutiveFailures);
+                    }
+
+                    if ctx.total_failed_views >= num_failed_rounds_total {
+                        round_result.success = false;
+                        ctx.prior_round_results.push(round_result);
+                        return Err(ConsensusTestError::TooManyFailures);
+                    }
+
+                    // TODO this code is repetitive. Clean it up with either a function or doing
+                    // all three checks at once.
+                    let mut result_leaves = None;
+
+                    if check_leaf {
+                        let mut leaves = HashMap::<I::Leaf, usize>::new();
+                        // group all the leaves since thankfully leaf implements hash
+                        for node in runner_nodes {
+                            let decide_leaf = node.get_decided_leaf().await;
+                            match leaves.entry(decide_leaf) {
+                                std::collections::hash_map::Entry::Occupied(mut o) => {
+                                    *o.get_mut() += 1;
+                                }
+                                std::collections::hash_map::Entry::Vacant(v) => {
+                                    v.insert(1);
+                                }
+                            }
+                        }
+                        for (leaf, num_nodes) in leaves {
+                            if num_nodes >= num_required_successful_nodes {
+                                result_leaves = Some(leaf);
+                            }
+                        }
+
+                        if let Some(leaf) = result_leaves {
+                            round_result.agreed_leaf = Some(leaf);
+                        } else {
+                            ctx.views_since_progress += 1;
+                            ctx.total_failed_views += 1;
+                            round_result.success = false;
+                            ctx.prior_round_results.push(round_result);
+                            return Err(ConsensusTestError::InconsistentLeaves);
+                        }
+                    }
+
+                    let mut result_state = None;
+
+                    if check_state {
+                        let mut states =
+                            HashMap::<<I::Leaf as LeafType>::StateCommitmentType, usize>::new();
+                        for (_idx, (s, _b)) in round_result.success_nodes.clone() {
+                            if let Some(most_recent_state) = s.iter().last() {
+                                match states.entry(most_recent_state.clone()) {
+                                    std::collections::hash_map::Entry::Occupied(mut o) => {
+                                        *o.get_mut() += 1;
+                                    }
+                                    std::collections::hash_map::Entry::Vacant(v) => {
+                                        v.insert(1);
+                                    }
+                                }
+                            }
+                        }
+                        for (state, num_nodes) in states {
+                            if num_nodes >= num_required_successful_nodes {
+                                result_state = Some(state);
+                            }
+                        }
+
+                        if let Some(state) = result_state {
+                            round_result.agreed_state = Some(state);
+                        } else {
+                            ctx.views_since_progress += 1;
+                            ctx.total_failed_views += 1;
+                            round_result.success = false;
+                            ctx.prior_round_results.push(round_result);
+                            return Err(ConsensusTestError::InconsistentStates);
+                        }
+                    }
+
+                    let mut result_block = None;
+
+                    if check_block {
+                        let mut blocks = HashMap::<<I::Leaf as LeafType>::DeltasType, usize>::new();
+                        for (_idx, (_s, b)) in round_result.success_nodes.clone() {
+                            if let Some(most_recent_state) = b.iter().last() {
+                                match blocks.entry(most_recent_state.clone()) {
+                                    std::collections::hash_map::Entry::Occupied(mut o) => {
+                                        *o.get_mut() += 1;
+                                    }
+                                    std::collections::hash_map::Entry::Vacant(v) => {
+                                        v.insert(1);
+                                    }
+                                }
+                            }
+                        }
+                        for (block, num_nodes) in blocks {
+                            if num_nodes >= num_required_successful_nodes {
+                                result_block = Some(block);
+                            }
+                        }
+
+                        if result_block.is_none() {
+                            ctx.views_since_progress += 1;
+                            ctx.total_failed_views += 1;
+                            round_result.success = false;
+                            ctx.prior_round_results.push(round_result);
+                            return Err(ConsensusTestError::InconsistentBlocks);
+                        }
+                    }
+
+                    Ok(())
                 }
                 .boxed_local()
             },
