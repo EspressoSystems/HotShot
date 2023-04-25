@@ -61,6 +61,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Messa
                 }
                 ConsensusMessage::Vote(_) | ConsensusMessage::DAVote(_) => MessagePurpose::Vote,
                 ConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
+                ConsensusMessage::ViewSync(_) => todo!(),
             },
             MessageKind::Data(message_kind) => match message_kind {
                 DataMessage::SubmitTransaction(_, _) => MessagePurpose::Data,

@@ -95,45 +95,6 @@ impl<
     ) -> Self {
         Self(network, PhantomData::default())
     }
-
-    /// Parses a message to find the appropriate endpoint
-    /// Returns a `SendMsg` containing the endpoint
-    fn parse_post_message(
-        message: Message<TYPES, I>,
-    ) -> Result<SendMsg<Message<TYPES, I>>,
-    WebServerNetworkError> {
-        let view_number: TYPES::Time = message.get_view_number();
-
-        let endpoint = match &message.kind {
-            hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind {
-                hotshot_types::message::ConsensusMessage::Proposal(_)
-                | hotshot_types::message::ConsensusMessage::DAProposal(_) => {
-                    config::post_proposal_route(*view_number)
-                }
-                hotshot_types::message::ConsensusMessage::Vote(_)
-                | hotshot_types::message::ConsensusMessage::DAVote(_) => {
-                    config::post_vote_route(*view_number)
-                }
-                hotshot_types::message::ConsensusMessage::InternalTrigger(_) => {
-                    return Err(WebServerNetworkError::EndpointError)
-                }
-                hotshot_types::message::ConsensusMessage::ViewSync(_) => {
-                    todo!()
-                }
-            },
-            hotshot_types::message::MessageKind::Data(message_kind) => match message_kind {
-                hotshot_types::message::DataMessage::SubmitTransaction(_, _) => {
-                    config::post_transactions_route()
-                }
-            },
-        };
-
-        let network_msg: SendMsg<Message<TYPES, I>> = SendMsg {
-            message: Some(message),
-            endpoint,
-        };
-        Ok(network_msg)
-    }
 }
 
 /// The web server network state
