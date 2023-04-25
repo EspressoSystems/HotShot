@@ -238,7 +238,7 @@ pub trait Run<
                 MEMBERSHIP,
                 NETWORK,
                 Message<TYPES, NODE>,
-            > as ConsensusExchange<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, NODE>>>::Membership::default_election_config(
+            > as ConsensusExchange<TYPES, Message<TYPES, NODE>>>::Membership::default_election_config(
                 config.config.total_nodes.get() as u64
             )
         });
