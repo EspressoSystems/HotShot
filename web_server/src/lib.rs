@@ -8,9 +8,9 @@ use futures::FutureExt;
 
 use hotshot_types::traits::signature_key::EncodedPublicKey;
 use hotshot_types::traits::signature_key::SignatureKey;
-use rand::SeedableRng;
 use rand::rngs::StdRng;
-use rand::{thread_rng, distributions::Alphanumeric, Rng};
+use rand::SeedableRng;
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
@@ -90,7 +90,7 @@ pub trait WebServerDataSource<KEY> {
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
     fn post_staketable(&mut self, key: Vec<u8>) -> Result<(), Error>;
-    fn post_secret_proposal(&self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error>;
+    fn post_secret_proposal(&mut self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error>;
     fn proposals(&self) -> HashMap<u64, (String, Vec<u8>)>;
 }
 
@@ -98,7 +98,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     /// Return all proposals the server has received for a particular view
     fn get_proposals(&self, view_number: u64) -> Result<Option<Vec<u8>>, Error> {
         match self.proposals.get(&view_number) {
-            Some(&ref proposal) => Ok(Some(proposal.1.clone())),
+            Some(proposal) => Ok(Some(proposal.1.clone())),
             None => Err(ServerError {
                 status: StatusCode::NotImplemented,
                 message: format!("Proposal not found for view {view_number}"),
@@ -170,7 +170,9 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
                 self.oldest_proposal += 1;
             }
         }
-        self.proposals.entry(view_number).and_modify(| (_, empty_proposal) | empty_proposal.append(&mut proposal));
+        self.proposals
+            .entry(view_number)
+            .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal));
         Ok(())
     }
     /// Stores a received group of transactions in the `WebServerState`
@@ -192,7 +194,11 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             let node_index = self.stake_table.len() as u64;
             //generate secret for leader's first submission endpoint when key is added
             //secret should be random, and then wrapped with leader's pubkey once encryption keys are added (next task)
-            let secret = thread_rng().sample_iter(&Alphanumeric).take(30).map(char::from).collect();
+            let secret = thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(30)
+                .map(char::from)
+                .collect();
             self.proposals.insert(node_index, (secret, Vec::new()));
             self.stake_table.push(new_key);
             Ok(())
@@ -206,10 +212,33 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
     //KALEY TODO: this will be merged with post_proposal once it is fully working,
     //but keeping it separate to not break things in the meantime
-    fn post_secret_proposal(&self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error> {
-        //* add proposal to hashmap
-        //* generate endpoint for the next time this node is leader
-        //sliding window of endpoints is essenentially the size of the nodes
+    fn post_secret_proposal(
+        &mut self,
+        view_number: u64,
+        mut proposal: Vec<u8>,
+    ) -> Result<(), Error> {
+        error!("Received proposal for view {}", view_number);
+
+        // Only keep proposal history for MAX_VIEWS number of views
+        if self.proposals.len() >= MAX_VIEWS {
+            self.proposals.remove(&self.oldest_proposal);
+            while !self.proposals.contains_key(&self.oldest_proposal) {
+                self.oldest_proposal += 1;
+            }
+        }
+        self.proposals
+            .entry(view_number)
+            .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal));
+
+        //generate new secret for the next time this node is leader
+        let secret = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect();
+        let next_view_for_leader = view_number + self.stake_table.len() as u64;
+        self.proposals
+            .insert(next_view_for_leader, (secret, Vec::new()));
         Ok(())
     }
 
@@ -272,7 +301,8 @@ where
             state.post_vote(view_number, vote)
         }
         .boxed()
-    })?.post("postproposal", |req, state| {
+    })?
+    .post("postproposal", |req, state| {
         async move {
             let view_number: u64 = req.integer_param("view_number")?;
             let proposal = req.body_bytes();
@@ -300,20 +330,20 @@ where
             let view_number: u64 = req.integer_param("view_number")?;
             let secret: &str = req.string_param("secret")?;
             //if secret is correct and view_number->proposal is empty, proposal is valid
-            if let Some(&ref proposal) = state.proposals().get(&view_number) {
-                if proposal.0 == secret && proposal.1.len() == 0 {
+            if let Some(proposal) = state.proposals().get(&view_number) {
+                if proposal.0 == secret && proposal.1.is_empty() {
                     let proposal = req.body_bytes();
                     state.post_secret_proposal(view_number, proposal)
                 } else {
                     Err(ServerError {
                         status: StatusCode::BadRequest,
-                        message: "Proposal already submitted or wrong secret value".to_string()
-                    }) 
+                        message: "Proposal already submitted or wrong secret value".to_string(),
+                    })
                 }
             } else {
                 Err(ServerError {
                     status: StatusCode::BadRequest,
-                    message: format!("No endpoint for view number {} yet", view_number)
+                    message: format!("No endpoint for view number {} yet", view_number),
                 })
             }
         }
