@@ -740,7 +740,7 @@
 </span><span class="kw">pub async fn </span>network_task&lt;
     TYPES: NodeType,
     I: NodeImplementation&lt;TYPES&gt;,
-    EXCHANGE: ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
+    EXCHANGE: ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
 &gt;(
     hotshot: HotShot&lt;TYPES::ConsensusType, TYPES, I&gt;,
     shut_down: Arc&lt;AtomicBool&gt;,

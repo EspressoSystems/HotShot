@@ -243,7 +243,6 @@
 <span class="kw">where
     </span>I::CommitteeExchange: ConsensusExchange&lt;
             TYPES,
-            I::Leaf,
             Message&lt;TYPES, I&gt;,
             Proposal = DAProposal&lt;TYPES&gt;,
             Vote = DAVote&lt;TYPES, SequencingLeaf&lt;TYPES&gt;&gt;,
@@ -332,6 +331,7 @@
                         <span class="macro">warn!</span>(<span class="string">&quot;DA committee member receieved a Non DA Proposal message. This is not what the member expects. Skipping.&quot;</span>);
                         <span class="kw">continue</span>;
                     }
+                    ProcessedConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
                 }
             }
             <span class="comment">// fall through logic if we did not receive successfully from channel

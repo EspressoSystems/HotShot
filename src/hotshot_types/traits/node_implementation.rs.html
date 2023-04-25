@@ -367,9 +367,6 @@
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
 <a href="#369" id="369">369</a>
-<a href="#370" id="370">370</a>
-<a href="#371" id="371">371</a>
-<a href="#372" id="372">372</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Composite trait for node behavior
 //!
 //! This module defines the [`NodeImplementation`] trait, which is a composite trait used for
@@ -418,10 +415,10 @@
     </span><span class="kw">type </span>Storage: Storage&lt;TYPES, <span class="self">Self</span>::Leaf&gt; + Clone;
 
     <span class="doccomment">/// Protocol for exchanging consensus proposals and votes.
-    </span><span class="kw">type </span>QuorumExchange: ConsensusExchange&lt;TYPES, <span class="self">Self</span>::Leaf, Message&lt;TYPES, <span class="self">Self</span>&gt;&gt;;
+    </span><span class="kw">type </span>QuorumExchange: ConsensusExchange&lt;TYPES, Message&lt;TYPES, <span class="self">Self</span>&gt;&gt;;
 
     <span class="doccomment">/// Protocol for exchanging data availability proposals and votes.
-    </span><span class="kw">type </span>CommitteeExchange: ConsensusExchange&lt;TYPES, <span class="self">Self</span>::Leaf, Message&lt;TYPES, <span class="self">Self</span>&gt;&gt;;
+    </span><span class="kw">type </span>CommitteeExchange: ConsensusExchange&lt;TYPES, Message&lt;TYPES, <span class="self">Self</span>&gt;&gt;;
 }
 
 <span class="doccomment">/// extra functions required on a node implementation to be usable by hotshot-testing
@@ -439,7 +436,6 @@
                 Arc&lt;NetworkType&lt;TYPES, <span class="self">Self</span>&gt;&gt;,
             ) -&gt; &lt;<span class="self">Self</span>::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;
                 TYPES,
-                <span class="self">Self</span>::Leaf,
                 Message&lt;TYPES, <span class="self">Self</span>&gt;,
             &gt;&gt;::Networking
             + <span class="lifetime">&#39;static</span>,
@@ -451,7 +447,6 @@
                 Arc&lt;NetworkType&lt;TYPES, <span class="self">Self</span>&gt;&gt;,
             ) -&gt; &lt;<span class="self">Self</span>::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
                 TYPES,
-                <span class="self">Self</span>::Leaf,
                 Message&lt;TYPES, <span class="self">Self</span>&gt;,
             &gt;&gt;::Networking
             + <span class="lifetime">&#39;static</span>,
@@ -463,7 +458,6 @@
     </span><span class="comment">// fn quorum_in_flight_message_count(
     //     network: &amp;&lt;Self::QuorumExchange as ConsensusExchange&lt;
     //         TYPES,
-    //         Self::Leaf,
     //         Message&lt;TYPES, Self&gt;,
     //     &gt;&gt;::Networking,
     // ) -&gt; Option&lt;usize&gt;;
@@ -474,7 +468,6 @@
     </span><span class="comment">// fn committee_in_flight_message_count(
     //     network: &amp;&lt;Self::CommitteeExchange as ConsensusExchange&lt;
     //         TYPES,
-    //         Self::Leaf,
     //         Message&lt;TYPES, Self&gt;,
     //     &gt;&gt;::Networking,
     // ) -&gt; Option&lt;usize&gt;;
@@ -517,57 +510,75 @@
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TestableNodeImplementation&lt;TYPES&gt;
-<span class="kw">for </span>I
+</span><span class="kw">impl</span>&lt;TYPES: NodeType, I: NodeImplementation&lt;TYPES&gt;&gt; TestableNodeImplementation&lt;TYPES&gt; <span class="kw">for </span>I
 <span class="kw">where
-    </span>&lt;I::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Networking :
-    TestableChannelImplementation&lt;
-        TYPES,
-        Message&lt;TYPES, I&gt;,
-        &lt;I::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
-        &lt;I::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
-        &lt;I::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
-        NetworkType&lt;TYPES, I&gt;,
-    &gt;,
-    &lt;I::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Networking :
-    TestableChannelImplementation&lt;
-        TYPES,
-        Message&lt;TYPES, I&gt;,
-        &lt;I::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
-        &lt;I::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
-        &lt;I::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
-        NetworkType&lt;TYPES, I&gt;,
-    &gt;,
-    NetworkType&lt;TYPES, I&gt; : TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
-    TYPES::StateType : TestableState,
-    TYPES::BlockType : TestableBlock,
-    I::Storage : TestableStorage&lt;TYPES, I::Leaf&gt;,
-    TYPES::SignatureKey : TestableSignatureKey,
-    I::Leaf : TestableLeaf&lt;NodeType = TYPES&gt;,
-<span class="comment">// &lt;I::QuorumExchange as ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Membership : TestableElection&lt;TYPES&gt;,
-// &lt;I::CommitteeExchange as ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Membership : TestableElection&lt;TYPES&gt;,
+    </span>&lt;I::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Networking:
+        TestableChannelImplementation&lt;
+            TYPES,
+            Message&lt;TYPES, I&gt;,
+            &lt;I::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
+            &lt;I::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
+            &lt;I::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
+            NetworkType&lt;TYPES, I&gt;,
+        &gt;,
+    &lt;I::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Networking:
+        TestableChannelImplementation&lt;
+            TYPES,
+            Message&lt;TYPES, I&gt;,
+            &lt;I::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Proposal,
+            &lt;I::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Vote,
+            &lt;I::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Membership,
+            NetworkType&lt;TYPES, I&gt;,
+        &gt;,
+    NetworkType&lt;TYPES, I&gt;: TestableNetworkingImplementation&lt;TYPES, Message&lt;TYPES, I&gt;&gt;,
+    TYPES::StateType: TestableState,
+    TYPES::BlockType: TestableBlock,
+    I::Storage: TestableStorage&lt;TYPES, I::Leaf&gt;,
+    TYPES::SignatureKey: TestableSignatureKey,
+    I::Leaf: TestableLeaf&lt;NodeType = TYPES&gt;,
+    <span class="comment">// &lt;I::QuorumExchange as ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Membership : TestableElection&lt;TYPES&gt;,
+    // &lt;I::CommitteeExchange as ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Membership : TestableElection&lt;TYPES&gt;,
 </span>{
-    <span class="kw">fn </span>network_generator(expected_node_count: usize, num_bootstrap_nodes: usize) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; NetworkType&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>&gt; {
+    <span class="kw">fn </span>network_generator(
+        expected_node_count: usize,
+        num_bootstrap_nodes: usize,
+    ) -&gt; Box&lt;<span class="kw">dyn </span>Fn(u64) -&gt; NetworkType&lt;TYPES, I&gt; + <span class="lifetime">&#39;static</span>&gt; {
         &lt;NetworkType&lt;TYPES, I&gt; <span class="kw">as </span>TestableNetworkingImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generator(
-        expected_node_count,
-        num_bootstrap_nodes,
-        <span class="number">1</span>,
-    )
+            expected_node_count,
+            num_bootstrap_nodes,
+            <span class="number">1</span>,
+        )
     }
-    <span class="kw">fn </span>committee_generator () -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;NetworkType&lt;TYPES, I&gt;&gt;) -&gt; &lt;I::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Networking + <span class="lifetime">&#39;static</span>&gt; {
-        &lt;&lt;I::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network()
+    <span class="kw">fn </span>committee_generator() -&gt; Box&lt;
+        <span class="kw">dyn </span>Fn(
+                Arc&lt;NetworkType&lt;TYPES, I&gt;&gt;,
+            )
+                -&gt; &lt;I::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Networking
+            + <span class="lifetime">&#39;static</span>,
+    &gt; {
+        &lt;&lt;I::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network()
     }
 
-    <span class="kw">fn </span>quorum_generator() -&gt; Box&lt;<span class="kw">dyn </span>Fn(Arc&lt;NetworkType&lt;TYPES, I&gt;&gt;) -&gt; &lt;I::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Networking + <span class="lifetime">&#39;static</span>&gt; {
-        &lt;&lt;I::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network()
+    <span class="kw">fn </span>quorum_generator() -&gt; Box&lt;
+        <span class="kw">dyn </span>Fn(
+                Arc&lt;NetworkType&lt;TYPES, I&gt;&gt;,
+            )
+                -&gt; &lt;I::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Networking
+            + <span class="lifetime">&#39;static</span>,
+    &gt; {
+        &lt;&lt;I::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Networking <span class="kw">as </span>TestableChannelImplementation&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;::generate_network()
     }
 
-    <span class="comment">// fn quorum_in_flight_message_count(network: &amp;&lt;I::QuorumExchange as ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Networking) -&gt; Option&lt;usize&gt; {
-    //     &lt;&lt;I::QuorumExchange as ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Networking as TestableChannelImplementation&lt;_, _, _, _, _&gt;&gt;::in_flight_message_count(network)
+    <span class="comment">// fn quorum_in_flight_message_count(
+    //     network: &amp;&lt;I::QuorumExchange as ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Networking,
+    // ) -&gt; Option&lt;usize&gt; {
+    //     &lt;&lt;I::QuorumExchange as ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Networking as TestableNetworkingImplementation&lt;_, _, _, _, _&gt;&gt;::in_flight_message_count(network)
     // }
 
-    // fn committee_in_flight_message_count(network: &amp;&lt;I::CommitteeExchange as ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Networking) -&gt; Option&lt;usize&gt; {
-    //     &lt;&lt;I::CommitteeExchange as ConsensusExchange&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;&gt;::Networking as TestableChannelImplementation&lt;_, _, _, _, _&gt;&gt;::in_flight_message_count(network)
+    // fn committee_in_flight_message_count(
+    //     network: &amp;&lt;I::CommitteeExchange as ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Networking,
+    // ) -&gt; Option&lt;usize&gt; {
+    //     &lt;&lt;I::CommitteeExchange as ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;&gt;&gt;::Networking as TestableNetworkingImplementation&lt;_, _, _, _, _&gt;&gt;::in_flight_message_count(network)
     // }
 
     </span><span class="kw">fn </span>state_create_random_transaction(
@@ -586,26 +597,21 @@
         &lt;<span class="self">Self</span>::Leaf <span class="kw">as </span>TestableLeaf&gt;::create_random_transaction(leaf, rng, padding)
     }
 
-
-
     <span class="kw">fn </span>block_genesis() -&gt; TYPES::BlockType {
         &lt;TYPES::BlockType <span class="kw">as </span>TestableBlock&gt;::genesis()
     }
 
     <span class="kw">fn </span>txn_count(block: <span class="kw-2">&amp;</span>TYPES::BlockType) -&gt; u64 {
         &lt;TYPES::BlockType <span class="kw">as </span>TestableBlock&gt;::txn_count(block)
-
     }
 
     <span class="kw">fn </span>construct_tmp_storage() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Storage, StorageError&gt; {
         &lt;I::Storage <span class="kw">as </span>TestableStorage&lt;TYPES, I::Leaf&gt;&gt;::construct_tmp_storage()
-
     }
 
     <span class="kw">async fn </span>get_full_state(storage: <span class="kw-2">&amp;</span><span class="self">Self</span>::Storage) -&gt; StorageState&lt;TYPES, <span class="self">Self</span>::Leaf&gt; {
         &lt;I::Storage <span class="kw">as </span>TestableStorage&lt;TYPES, I::Leaf&gt;&gt;::get_full_state(storage).<span class="kw">await
     </span>}
-
 
     <span class="kw">fn </span>generate_test_key(id: u64) -&gt; &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey {
         &lt;TYPES::SignatureKey <span class="kw">as </span>TestableSignatureKey&gt;::generate_test_key(id)
@@ -616,7 +622,6 @@
 </span><span class="kw">pub type </span>QuorumProposal&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
-        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Proposal;
 
@@ -624,7 +629,6 @@
 </span><span class="kw">pub type </span>CommitteeProposal&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
-        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Proposal;
 
@@ -632,7 +636,6 @@
 </span><span class="kw">pub type </span>QuorumVoteType&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
-        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Vote;
 
@@ -640,7 +643,6 @@
 </span><span class="kw">pub type </span>CommitteeVote&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
-        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Vote;
 
@@ -648,7 +650,6 @@
 </span><span class="kw">pub type </span>QuorumNetwork&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
-        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Networking;
 
@@ -656,7 +657,6 @@
 </span><span class="kw">pub type </span>CommitteeNetwork&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
-        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Networking;
 
@@ -664,7 +664,6 @@
 </span><span class="kw">pub type </span>QuorumMembership&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
-        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Membership;
 
@@ -672,7 +671,6 @@
 </span><span class="kw">pub type </span>CommitteeMembership&lt;TYPES, I&gt; =
     &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::CommitteeExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
-        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Membership;
 <span class="comment">// TODO remove this really ugly type once we have `ConsensusExchanges` impl and can use that to do all generation
@@ -680,24 +678,20 @@
 </span><span class="kw">pub type </span>NetworkType&lt;TYPES, I&gt; =
     &lt;&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
         TYPES,
-        &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
         Message&lt;TYPES, I&gt;,
     &gt;&gt;::Networking <span class="kw">as </span>CommunicationChannel&lt;
         TYPES,
         Message&lt;TYPES, I&gt;,
         &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
             TYPES,
-            &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
             Message&lt;TYPES, I&gt;,
         &gt;&gt;::Proposal,
         &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
             TYPES,
-            &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
             Message&lt;TYPES, I&gt;,
         &gt;&gt;::Vote,
         &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
             TYPES,
-            &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf,
             Message&lt;TYPES, I&gt;,
         &gt;&gt;::Membership,
     &gt;&gt;::NETWORK;

@@ -1347,7 +1347,6 @@
 <a href="#1347" id="1347">1347</a>
 <a href="#1348" id="1348">1348</a>
 <a href="#1349" id="1349">1349</a>
-<a href="#1350" id="1350">1350</a>
 </pre><pre class="rust"><code><span class="attr">#![warn(
     clippy::all,
     clippy::pedantic,
@@ -1900,6 +1899,7 @@
                     <span class="macro">warn!</span>(<span class="string">&quot;Failed to send to next leader!&quot;</span>);
                 }
             }
+            ConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
         };
     }
 
@@ -1994,6 +1994,7 @@
                 }
             }
             ConsensusMessage::DAProposal(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
+            ConsensusMessage::ViewSync(<span class="kw">_</span>) =&gt; <span class="macro">todo!</span>(),
         }
     }
 
@@ -2105,7 +2106,6 @@
 <span class="kw">where
     </span>I::QuorumExchange: ConsensusExchange&lt;
             TYPES,
-            I::Leaf,
             Message&lt;TYPES, I&gt;,
             Proposal = ValidatingProposal&lt;TYPES, I::Leaf&gt;,
             Vote = QuorumVote&lt;TYPES, I::Leaf&gt;,
@@ -2299,7 +2299,6 @@
 <span class="kw">where
     </span>I::QuorumExchange: ConsensusExchange&lt;
             TYPES,
-            I::Leaf,
             Message&lt;TYPES, I&gt;,
             Proposal = CommitmentProposal&lt;TYPES, I::Leaf&gt;,
             Certificate = QuorumCertificate&lt;TYPES, I::Leaf&gt;,
@@ -2308,7 +2307,6 @@
         &gt; + QuorumExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
     I::CommitteeExchange: ConsensusExchange&lt;
             TYPES,
-            I::Leaf,
             Message&lt;TYPES, I&gt;,
             Proposal = DAProposal&lt;TYPES&gt;,
             Certificate = DACertificate&lt;TYPES&gt;,

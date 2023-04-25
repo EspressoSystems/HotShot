@@ -209,10 +209,6 @@
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`ValidatingLeader`] struct used for the leader step in the hotstuff consensus algorithm.
 
 </span><span class="kw">use crate</span>::{CommitmentMap, Consensus, ConsensusApi};
@@ -272,12 +268,8 @@
         I: NodeImplementation&lt;TYPES, Leaf = ValidatingLeaf&lt;TYPES&gt;&gt;,
     &gt; ValidatingLeader&lt;A, TYPES, I&gt;
 <span class="kw">where
-    </span>I::QuorumExchange: ConsensusExchange&lt;
-            TYPES,
-            I::Leaf,
-            Message&lt;TYPES, I&gt;,
-            Proposal = ValidatingProposal&lt;TYPES, I::Leaf&gt;,
-        &gt; + QuorumExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
+    </span>I::QuorumExchange: ConsensusExchange&lt;TYPES, Message&lt;TYPES, I&gt;, Proposal = ValidatingProposal&lt;TYPES, I::Leaf&gt;&gt;
+        + QuorumExchangeType&lt;TYPES, I::Leaf, Message&lt;TYPES, I&gt;&gt;,
 {
     <span class="doccomment">/// Run one view of the leader task
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>), fields(id = <span class="self">self</span>.id, view = <span class="kw-2">*</span><span class="self">self</span>.cur_view), name = <span class="string">&quot;Validating ValidatingLeader Task&quot;</span>, level = <span class="string">&quot;error&quot;</span>)]

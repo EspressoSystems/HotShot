@@ -550,7 +550,6 @@
 <a href="#550" id="550">550</a>
 <a href="#551" id="551">551</a>
 <a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Testing harness for the hotshot repository
 //!
 //! To build a test environment you can create a [`TestLauncher`] instance. This launcher can be configured to have a custom networking layer, initial state, etc.
@@ -762,7 +761,6 @@
         <span class="kw">let </span>election_config = config.election_config.clone().unwrap_or_else(|| {
             &lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::QuorumExchange <span class="kw">as </span>ConsensusExchange&lt;
                 TYPES,
-                I::Leaf,
                 Message&lt;TYPES, I&gt;,
             &gt;&gt;::Membership::default_election_config(config.total_nodes.get() <span class="kw">as </span>u64)
         });
