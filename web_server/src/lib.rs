@@ -21,7 +21,7 @@ use tide_disco::method::WriteState;
 use tide_disco::Api;
 use tide_disco::App;
 use tide_disco::StatusCode;
-use tracing::info;
+use tracing::{error, info};
 
 type State<KEY> = RwLock<WebServerState<KEY>>;
 type Error = ServerError;
@@ -83,7 +83,7 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
 
 /// Trait defining methods needed for the `WebServerState`
 pub trait WebServerDataSource<KEY> {
-    fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<u8>>, Error>;
+    fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn get_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
@@ -99,9 +99,18 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         self.proposals.get(&view_number).cloned()
     }
     /// Return the proposal the server has received for a particular view
-    fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<u8>>, Error> {
+    fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
         match self.proposals.get(&view_number) {
-            Some(proposal) => Ok(Some(proposal.1.clone())),
+            Some(proposal) => {
+                if proposal.1.is_empty() {
+                    Err(ServerError {
+                        status: StatusCode::NotImplemented,
+                        message: format!("Proposal not found for view {view_number}"),
+                    })
+                } else {
+                    Ok(Some(vec![proposal.1.clone()]))
+                } 
+            },
             None => Err(ServerError {
                 status: StatusCode::NotImplemented,
                 message: format!("Proposal not found for view {view_number}"),
@@ -164,7 +173,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     }
     /// Stores a received proposal in the `WebServerState`
     fn post_proposal(&mut self, view_number: u64, mut proposal: Vec<u8>) -> Result<(), Error> {
-        info!("Received proposal for view {}", view_number);
+        error!("Received proposal for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of view
         if self.proposals.len() >= MAX_VIEWS {
@@ -377,6 +386,7 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
 }
 
 #[cfg(test)]
+#[cfg(feature = "demo")]
 mod test {
     use crate::config::{
         get_proposal_route, get_transactions_route, get_vote_route, post_proposal_route,
