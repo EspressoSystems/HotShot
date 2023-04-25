@@ -2,18 +2,18 @@
 
 use super::node_implementation::{NodeImplementation, NodeType};
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
-use crate::certificate::VoteMetaData;
-use crate::vote::ViewSyncData;
-use crate::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
-use crate::data::ProposalType;
 use crate::certificate::ViewSyncCertificate;
-use crate::vote::ViewSyncVote;
+use crate::certificate::VoteMetaData;
+use crate::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
 use crate::data::DAProposal;
+use crate::data::ProposalType;
 use crate::message::ConsensusMessage;
 use crate::message::Message;
 use crate::traits::network::CommunicationChannel;
 use crate::traits::network::NetworkMsg;
 use crate::traits::state::ConsensusTime;
+use crate::vote::ViewSyncData;
+use crate::vote::ViewSyncVote;
 use crate::vote::VoteAccumulator;
 use crate::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote};
 use crate::{data::LeafType, traits::signature_key::SignatureKey};
@@ -69,15 +69,19 @@ pub enum VoteData<COMMITTABLE: Committable + Serialize + Clone> {
     No(Commitment<COMMITTABLE>),
     /// Vote to time out and proceed to the next view.
     Timeout(Commitment<COMMITTABLE>),
-
+    /// Vote to synch the network on a particular view
     ViewSync(ViewSyncVoteData<COMMITTABLE>),
 }
 
+/// Data which `ViewSyncVotes` are signed over
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub enum ViewSyncVoteData<COMMITTABLE: Committable + Serialize + Clone> {
+    /// A precommit vote
     PreCommit(Commitment<COMMITTABLE>),
+    /// A commit vote
     Commit(Commitment<COMMITTABLE>),
+    /// A finalize vote
     Finalize(Commitment<COMMITTABLE>),
 }
 
@@ -400,7 +404,6 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
 
     /// Add a vote to the accumulating signature.  Return The certificate if the vote
     /// brings us over the threshould, Else return the accumulator.
-    /// // TODO ED Pass in vote directly instead of its fields
     #[allow(clippy::too_many_arguments)]
     fn accumulate_vote(
         &self,
@@ -917,23 +920,28 @@ impl<
 pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     ConsensusExchange<TYPES, M>
 {
+    /// Creates a precommit vote
     fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> ConsensusMessage<TYPES, I>;
 
+    /// Signs a precommit vote
     fn sign_precommit_message(&self) -> (EncodedPublicKey, EncodedSignature);
 
+    /// Creates a commit vote
     fn create_commit_message<I: NodeImplementation<TYPES>>(&self) -> ConsensusMessage<TYPES, I>;
 
+    /// Signs a commit vote
     fn sign_commit_message(&self) -> (EncodedPublicKey, EncodedSignature);
 
+    /// Creates a finalize vote
     fn create_finalize_message<I: NodeImplementation<TYPES>>(&self) -> ConsensusMessage<TYPES, I>;
 
+    /// Sings a finalize vote
     fn sign_finalize_message(&self) -> (EncodedPublicKey, EncodedSignature);
 }
 
 /// Standard implementation of [`ViewSyncExchangeType`] based on Hot Stuff consensus.
 pub struct ViewSyncExchange<
     TYPES: NodeType,
-    LEAF: LeafType<NodeType = TYPES>,
     PROPOSAL: ProposalType<NodeType = TYPES>,
     MEMBERSHIP: Membership<TYPES>,
     NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, ViewSyncVote<TYPES>, MEMBERSHIP>,
@@ -948,18 +956,16 @@ pub struct ViewSyncExchange<
     /// This participant's private key.
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     #[doc(hidden)]
-    _pd: PhantomData<(LEAF, PROPOSAL, MEMBERSHIP, M)>,
+    _pd: PhantomData<(PROPOSAL, MEMBERSHIP, M)>,
 }
 
 impl<
         TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
         MEMBERSHIP: Membership<TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, ViewSyncVote<TYPES>, MEMBERSHIP>,
         M: NetworkMsg,
-    > ViewSyncExchangeType<TYPES, M>
-    for ViewSyncExchange<TYPES, LEAF, PROPOSAL, MEMBERSHIP, NETWORK, M>
+    > ViewSyncExchangeType<TYPES, M> for ViewSyncExchange<TYPES, PROPOSAL, MEMBERSHIP, NETWORK, M>
 {
     fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> ConsensusMessage<TYPES, I> {
         todo!()
@@ -988,15 +994,12 @@ impl<
 
 impl<
         TYPES: NodeType,
-        LEAF: LeafType<NodeType = TYPES>,
         PROPOSAL: ProposalType<NodeType = TYPES>,
         MEMBERSHIP: Membership<TYPES>,
         NETWORK: CommunicationChannel<TYPES, M, PROPOSAL, ViewSyncVote<TYPES>, MEMBERSHIP>,
         M: NetworkMsg,
-    > ConsensusExchange<TYPES, M>
-    for ViewSyncExchange<TYPES, LEAF, PROPOSAL, MEMBERSHIP, NETWORK, M>
+    > ConsensusExchange<TYPES, M> for ViewSyncExchange<TYPES, PROPOSAL, MEMBERSHIP, NETWORK, M>
 {
-    // TODO ED This impl is mostly a copy from above; it doesn't reflect view sync yet
     type Proposal = PROPOSAL;
     type Vote = ViewSyncVote<TYPES>;
     type Certificate = ViewSyncCertificate<TYPES>;
@@ -1026,7 +1029,7 @@ impl<
         &self.network
     }
 
-    fn vote_data(&self, commit: Commitment<Self::Commitment>) -> VoteData<Self::Commitment> {
+    fn vote_data(&self, _commit: Commitment<Self::Commitment>) -> VoteData<Self::Commitment> {
         todo!()
     }
 

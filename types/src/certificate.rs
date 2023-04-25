@@ -1,5 +1,6 @@
 //! Provides two types of cerrtificates and their accumulators.
 
+use crate::vote::ViewSyncData;
 use crate::{
     data::{fake_commitment, LeafType},
     traits::{
@@ -9,7 +10,6 @@ use crate::{
         state::ConsensusTime,
     },
 };
-use crate::vote::ViewSyncData;
 use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
 use serde::{Deserialize, Serialize};
@@ -61,11 +61,13 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     pub is_genesis: bool,
 }
 
+/// A view sync certificate representing a quorum of votes for a particular view sync phase
 #[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
 #[serde(bound(deserialize = ""))]
 pub struct ViewSyncCertificate<TYPES: NodeType> {
+    /// Relay the votes are intended for
     pub relay: EncodedPublicKey,
-    /// Which view this QC relates to
+    /// View number the network is attempting to synchronize on
     pub round: TYPES::Time,
     /// Threshold Signature
     pub signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
@@ -236,9 +238,9 @@ impl<TYPES: NodeType>
 {
     /// Build a QC from the threshold signature and commitment
     fn from_signatures_and_commitment(
-        view_number: TYPES::Time,
-        signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
-        commit: Commitment<ViewSyncData<TYPES>>,
+        _view_number: TYPES::Time,
+        _signatures: YesNoSignature<ViewSyncData<TYPES>, TYPES::VoteTokenType>,
+        _commit: Commitment<ViewSyncData<TYPES>>,
     ) -> Self {
         todo!()
     }
@@ -261,7 +263,7 @@ impl<TYPES: NodeType>
     }
 
     /// Set the leaf commitment.
-    fn set_leaf_commitment(&mut self, commitment: Commitment<ViewSyncData<TYPES>>) {
+    fn set_leaf_commitment(&mut self, _commitment: Commitment<ViewSyncData<TYPES>>) {
         todo!()
     }
 

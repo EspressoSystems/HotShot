@@ -5,8 +5,6 @@
 
 use crate::certificate::ViewSyncCertificate;
 use crate::traits::network::ViewMessage;
-use crate::vote::ViewSyncData;
-use crate::vote::ViewSyncStage;
 use crate::{
     data::ProposalType,
     traits::{
@@ -17,7 +15,7 @@ use crate::{
         },
         signature_key::EncodedSignature,
     },
-    vote::VoteType,
+    vote::{ViewSyncVote, VoteType},
 };
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
@@ -38,6 +36,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkMsg for Message<TYPES
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Message<TYPES, I> {
     /// get the view number out of a message
+    /// # Panics
+    /// Unimplemented features - TODO ED remove this panic when implementation is finished
     fn get_view_number(&self) -> TYPES::Time {
         match &self.kind {
             MessageKind::Consensus(c) => match c {
@@ -107,7 +107,7 @@ pub enum ProcessedConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
-
+    /// A view sync related message - either a vote or certificate
     ViewSync(ViewSyncMessageType<TYPES>),
 }
 
@@ -115,6 +115,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedConsensusMessa
     for ConsensusMessage<TYPES, I>
 {
     /// row polymorphism would be great here
+    /// # Panics
+    /// Unimplemented features - TODO ED remove this panic when implementation is finished
     fn from(value: ProcessedConsensusMessage<TYPES, I>) -> Self {
         match value {
             ProcessedConsensusMessage::Proposal(p, _) => ConsensusMessage::Proposal(p),
@@ -129,6 +131,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedConsensusMessa
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProcessedConsensusMessage<TYPES, I> {
     /// row polymorphism would be great here
+    /// # Panics
+    /// Unimplemented features - TODO ED remove this panic when implementation is finished
     pub fn new(value: ConsensusMessage<TYPES, I>, sender: TYPES::SignatureKey) -> Self {
         match value {
             ConsensusMessage::Proposal(p) => ProcessedConsensusMessage::Proposal(p, sender),
@@ -166,20 +170,25 @@ pub enum ConsensusMessage<
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
 
+    /// View Sync related message - either a vote or certificate
     ViewSync(ViewSyncMessageType<TYPES>),
 }
 
+/// A view sync message
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = "", serialize = ""))]
 pub enum ViewSyncMessageType<TYPES: NodeType> {
-    // TODO ED Change this name to something other than stage
-    Vote(ViewSyncStage<TYPES>),
+    /// A view sync vote
+    Vote(ViewSyncVote<TYPES>),
+    /// A view sync certificate
     Certificate(ViewSyncCertificate<TYPES>),
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusMessage<TYPES, I> {
     /// The view number of the (leader|replica) when the message was sent
     /// or the view of the timeout
+    /// # Panics
+    /// Unimplemented features - TODO ED remove this panic when implementation is finished
     pub fn view_number(&self) -> TYPES::Time {
         match self {
             ConsensusMessage::Proposal(p) => {
