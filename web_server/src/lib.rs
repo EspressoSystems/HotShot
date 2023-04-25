@@ -79,7 +79,6 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
         self.shutdown = shutdown_listener;
         self
     }
-    
 }
 
 /// Trait defining methods needed for the `WebServerState`
@@ -198,7 +197,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         if let Some(new_key) = new_key {
             let node_index = self.stake_table.len() as u64;
             //generate secret for leader's first submission endpoint when key is added
-            //secret should be random, and then wrapped with leader's pubkey once encryption keys are added 
+            //secret should be random, and then wrapped with leader's pubkey once encryption keys are added
             // https://github.com/EspressoSystems/HotShot/issues/1141
             let secret = thread_rng()
                 .sample_iter(&Alphanumeric)
@@ -247,8 +246,6 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             .insert(next_view_for_leader, (secret, Vec::new()));
         Ok(())
     }
-
-    
 }
 
 #[derive(Args, Default)]
