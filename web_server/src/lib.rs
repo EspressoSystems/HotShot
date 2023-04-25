@@ -98,7 +98,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     fn proposals(&self) -> HashMap<u64, (String, Vec<u8>)> {
         self.proposals.clone()
     }
-    /// Return all proposals the server has received for a particular view
+    /// Return the proposal the server has received for a particular view
     fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<u8>>, Error> {
         match self.proposals.get(&view_number) {
             Some(proposal) => Ok(Some(proposal.1.clone())),
