@@ -9,7 +9,9 @@ use serde::Deserialize;
 use super::{
     block_contents::Transaction,
     election::{ConsensusExchange, ElectionConfig, VoteToken},
-    network::TestableNetworkingImplementation,
+    network::{
+        CommunicationChannel, TestableChannelImplementation, TestableNetworkingImplementation,
+    },
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, ConsensusType, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
@@ -24,6 +26,7 @@ use commit::Committable;
 
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::sync::Arc;
 
 /// Node implementation aggregate trait
 ///
@@ -54,13 +57,14 @@ pub trait NodeImplementation<TYPES: NodeType>: Send + Sync + Debug + Clone + 'st
 #[async_trait]
 pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES> {
     /// generates a network given an expected node count
-    fn committee_generator(
+    fn network_generator(
         expected_node_count: usize,
-        num_bootstrap: usize,
-        network_id: usize,
-    ) -> Box<
+        num_bootstrap_nodes: usize,
+    ) -> Box<dyn Fn(u64) -> NetworkType<TYPES, Self> + 'static>;
+    /// generates a committee communication channel given the network
+    fn committee_generator() -> Box<
         dyn Fn(
-                u64,
+                Arc<NetworkType<TYPES, Self>>,
             ) -> <Self::CommitteeExchange as ConsensusExchange<
                 TYPES,
                 Message<TYPES, Self>,
@@ -68,14 +72,10 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
             + 'static,
     >;
 
-    /// generates a network given an expected node count
-    fn quorum_generator(
-        expected_node_count: usize,
-        num_bootstrap: usize,
-        network_id: usize,
-    ) -> Box<
+    /// generates a quorum communication channel given the network
+    fn quorum_generator() -> Box<
         dyn Fn(
-                u64,
+                Arc<NetworkType<TYPES, Self>>,
             ) -> <Self::QuorumExchange as ConsensusExchange<
                 TYPES,
                 Message<TYPES, Self>,
@@ -92,6 +92,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
             Message<TYPES, Self>,
         >>::Networking,
     ) -> Option<usize>;
+
 
     /// Get the number of messages in-flight from committee exchange.
     ///
@@ -299,7 +300,32 @@ pub type CommitteeMembership<TYPES, I> =
         TYPES,
         Message<TYPES, I>,
     >>::Membership;
-
+// TODO remove this really ugly type once we have `ConsensusExchanges` impl and can use that to do all generation
+/// Type for the underlying `ConnectedNetwork` that will be shared (for now) b/t Communication Channels
+pub type NetworkType<TYPES, I> =
+    <<<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+        TYPES,
+        <I as NodeImplementation<TYPES>>::Leaf,
+        Message<TYPES, I>,
+    >>::Networking as CommunicationChannel<
+        TYPES,
+        Message<TYPES, I>,
+        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            <I as NodeImplementation<TYPES>>::Leaf,
+            Message<TYPES, I>,
+        >>::Proposal,
+        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            <I as NodeImplementation<TYPES>>::Leaf,
+            Message<TYPES, I>,
+        >>::Vote,
+        <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            TYPES,
+            <I as NodeImplementation<TYPES>>::Leaf,
+            Message<TYPES, I>,
+        >>::Membership,
+    >>::NETWORK;
 /// Trait with all the type definitions that are used in the current hotshot setup.
 pub trait NodeType:
     Clone

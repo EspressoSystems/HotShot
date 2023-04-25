@@ -565,46 +565,48 @@ where
         config_builder.mesh_params(Some(mesh_params));
 
         let node_config = config_builder.build().unwrap();
-        let network = Libp2pNetwork::new(
-            NoMetrics::boxed(),
-            node_config,
-            pubkey.clone(),
-            Arc::new(RwLock::new(
-                bootstrap_nodes
-                    .iter()
-                    .map(|(peer_id, addr)| (Some(*peer_id), addr.clone()))
-                    .collect(),
-            )),
-            bs_len,
-            config.node_index as usize,
-            // NOTE: this introduces an invariant that the keys are assigned using this indexed
-            // function
-            {
-                let mut keys = BTreeSet::new();
-                for i in 0..config.config.total_nodes.get() {
-                    let pk = <TYPES::SignatureKey as SignatureKey>::generated_from_seed_indexed(
-                        config.seed,
-                        i as u64,
-                    )
-                    .0;
-                    keys.insert(pk);
-                }
-                keys
-            },
-        )
-        .await
-        .map(
-            Libp2pCommChannel::<
-                TYPES,
-                NODE,
-                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-                MEMBERSHIP,
-            >::new,
-        )
-        .unwrap();
+        let network = Arc::new(
+            Libp2pNetwork::new(
+                NoMetrics::boxed(),
+                node_config,
+                pubkey.clone(),
+                Arc::new(RwLock::new(
+                    bootstrap_nodes
+                        .iter()
+                        .map(|(peer_id, addr)| (Some(*peer_id), addr.clone()))
+                        .collect(),
+                )),
+                bs_len,
+                config.node_index as usize,
+                // NOTE: this introduces an invariant that the keys are assigned using this indexed
+                // function
+                {
+                    let mut keys = BTreeSet::new();
+                    for i in 0..config.config.total_nodes.get() {
+                        let pk =
+                            <TYPES::SignatureKey as SignatureKey>::generated_from_seed_indexed(
+                                config.seed,
+                                i as u64,
+                            )
+                            .0;
+                        keys.insert(pk);
+                    }
+                    keys
+                },
+            )
+            .await
+            .unwrap(),
+        );
 
-        network.wait_for_ready().await;
+        let comm_channel = Libp2pCommChannel::<
+            TYPES,
+            NODE,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        >::new(network);
+
+        comm_channel.wait_for_ready().await;
 
         Libp2pRun {
             config,
@@ -614,7 +616,7 @@ where
             _identity: identity,
             _bound_addr: bound_addr,
             // _socket: stream,
-            network,
+            network: comm_channel,
         }
     }
 
@@ -737,12 +739,9 @@ where
             Proposal<TYPES>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
-        > = WebCommChannel::new(WebServerNetwork::create(
-            &host.to_string(),
-            port,
-            wait_between_polls,
-            pub_key,
-        ));
+        > = WebCommChannel::new(
+            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key).into(),
+        );
         WebServerRun { config, network }
     }
 
