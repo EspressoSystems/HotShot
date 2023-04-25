@@ -7,8 +7,8 @@ use hotshot::traits::TestableNodeImplementation;
 
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
-    test_description::{
-        DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder, RoundCheckDescription,
+    test_builder::{
+        TestMetadata, TestMetadata, RoundCheckBuilder,
     },
     test_types::{AppliedTestRunner, StaticCommitteeTestTypes, StaticNodeImplType},
     ConsensusFailedError, RoundCtx, RoundPostSafetyCheck, RoundResult,
@@ -60,14 +60,14 @@ pub fn check_safety<'a, TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
 #[instrument]
 async fn test_no_loss_network() {
     let description =
-        DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
-            general_info: GeneralTestDescriptionBuilder {
+        TestMetadata::<StaticCommitteeTestTypes, StaticNodeImplType> {
+            metadata: TestMetadata {
                 total_nodes: 10,
                 start_nodes: 10,
                 network_reliability: Some(Arc::new(SynchronousNetwork::default())),
-                ..GeneralTestDescriptionBuilder::default()
+                ..TestMetadata::default()
             },
-            round: Either::Right(RoundCheckDescription::default()),
+            round: Either::Right(RoundCheckBuilder::default()),
             gen_runner: None,
         };
     let mut test = description.build();
@@ -86,15 +86,15 @@ async fn test_no_loss_network() {
 #[instrument]
 async fn test_synchronous_network() {
     let description =
-        DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
-            general_info: GeneralTestDescriptionBuilder {
+        TestMetadata::<StaticCommitteeTestTypes, StaticNodeImplType> {
+            metadata: TestMetadata {
                 total_nodes: 5,
                 start_nodes: 5,
                 num_succeeds: 2,
                 txn_ids: Right(1),
-                ..GeneralTestDescriptionBuilder::default()
+                ..TestMetadata::default()
             },
-            round: Either::Right(RoundCheckDescription::default()),
+            round: Either::Right(RoundCheckBuilder::default()),
             gen_runner: None,
         };
     let mut test = description.build();
@@ -114,17 +114,17 @@ async fn test_synchronous_network() {
 #[ignore]
 async fn test_asynchronous_network() {
     let description =
-        DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
-            general_info: GeneralTestDescriptionBuilder {
+        TestMetadata::<StaticCommitteeTestTypes, StaticNodeImplType> {
+            metadata: TestMetadata {
                 total_nodes: 5,
                 start_nodes: 5,
                 num_succeeds: 2,
                 txn_ids: Right(1),
                 failure_threshold: 5,
                 network_reliability: Some(Arc::new(AsynchronousNetwork::new(97, 100, 0, 5))),
-                ..GeneralTestDescriptionBuilder::default()
+                ..TestMetadata::default()
             },
-            round: Either::Right(RoundCheckDescription::default()),
+            round: Either::Right(RoundCheckBuilder::default()),
             gen_runner: None,
         };
     let mut test = description.build();
@@ -148,16 +148,16 @@ async fn test_partially_synchronous_network() {
     let gst = std::time::Duration::new(10, 0);
 
     let description =
-        DetailedTestDescriptionBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
-            general_info: GeneralTestDescriptionBuilder {
+        TestMetadata::<StaticCommitteeTestTypes, StaticNodeImplType> {
+            metadata: TestMetadata {
                 total_nodes: 5,
                 start_nodes: 5,
                 num_succeeds: 2,
                 txn_ids: Right(1),
                 network_reliability: Some(Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst))),
-                ..GeneralTestDescriptionBuilder::default()
+                ..TestMetadata::default()
             },
-            round: Either::Right(RoundCheckDescription::default()),
+            round: Either::Right(RoundCheckBuilder::default()),
             gen_runner: None,
         };
     let mut test = description.build();

@@ -6,7 +6,7 @@ use hotshot::traits::{
     implementations::{CentralizedCommChannel, MemoryStorage},
 };
 use hotshot_testing::{
-    test_description::GeneralTestDescriptionBuilder,
+    test_builder::TestMetadata,
     test_types::{StaticCommitteeTestTypes, VrfTestTypes},
 };
 use hotshot_types::{
@@ -62,7 +62,7 @@ impl NodeImplementation<VrfTestTypes> for VrfCentralizedImp {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn centralized_server_network_vrf() {
-    let description = GeneralTestDescriptionBuilder::default_multiple_rounds();
+    let description = TestMetadata::default_multiple_rounds();
 
     description
         .build::<VrfTestTypes, VrfCentralizedImp>()
@@ -109,7 +109,7 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn centralized_server_network() {
-    let description = GeneralTestDescriptionBuilder::default_multiple_rounds();
+    let description = TestMetadata::default_multiple_rounds();
 
     description
         .build::<StaticCommitteeTestTypes, StaticCentralizedImp>()
@@ -129,7 +129,7 @@ async fn centralized_server_network() {
 #[instrument]
 #[ignore]
 async fn test_stress_centralized_server_network() {
-    let description = GeneralTestDescriptionBuilder::default_stress();
+    let description = TestMetadata::default_stress();
 
     description
         .build::<StaticCommitteeTestTypes, StaticCentralizedImp>()

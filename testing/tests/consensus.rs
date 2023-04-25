@@ -15,8 +15,8 @@ use hotshot::{
     types::HotShotHandle,
 };
 use hotshot_testing::{
-    test_description::{
-        DetailedTestDescriptionBuilder, GeneralTestDescriptionBuilder, RoundCheckDescription,
+    test_builder::{
+        TestMetadata, TestMetadata, RoundCheckBuilder,
     },
     test_types::{
         AppliedTestRunner, StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType,
@@ -460,16 +460,16 @@ where
 #[ignore]
 async fn test_validating_proposal_queueing() {
     let num_rounds = 10;
-    let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
-        DetailedTestDescriptionBuilder {
-            general_info: GeneralTestDescriptionBuilder {
+    let description: TestMetadata<VrfTestTypes, StandardNodeImplType> =
+        TestMetadata {
+            metadata: TestMetadata {
                 total_nodes: 4,
                 start_nodes: 4,
                 num_succeeds: num_rounds,
                 failure_threshold: 0,
-                ..GeneralTestDescriptionBuilder::default()
+                ..TestMetadata::default()
             },
-            round: Either::Right(RoundCheckDescription::default()),
+            round: Either::Right(RoundCheckBuilder::default()),
             gen_runner: None,
         };
     let mut test = description.build();
@@ -492,17 +492,17 @@ async fn test_validating_proposal_queueing() {
 #[ignore]
 async fn test_vote_queueing() {
     let num_rounds = 10;
-    let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
-        DetailedTestDescriptionBuilder {
-            general_info: GeneralTestDescriptionBuilder {
+    let description: TestMetadata<VrfTestTypes, StandardNodeImplType> =
+        TestMetadata {
+            metadata: TestMetadata {
                 total_nodes: 4,
                 start_nodes: 4,
                 num_succeeds: num_rounds,
                 failure_threshold: 0,
                 txn_ids: Right(1),
-                ..GeneralTestDescriptionBuilder::default()
+                ..TestMetadata::default()
             },
-            round: Either::Right(RoundCheckDescription::default()),
+            round: Either::Right(RoundCheckBuilder::default()),
             gen_runner: None,
         };
     let mut test = description.build();
@@ -524,16 +524,16 @@ async fn test_vote_queueing() {
 #[ignore]
 async fn test_bad_proposal() {
     let num_rounds = 10;
-    let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
-        DetailedTestDescriptionBuilder {
-            general_info: GeneralTestDescriptionBuilder {
+    let description: TestMetadata<VrfTestTypes, StandardNodeImplType> =
+        TestMetadata {
+            metadata: TestMetadata {
                 total_nodes: 4,
                 start_nodes: 4,
                 num_succeeds: num_rounds,
                 failure_threshold: 0,
-                ..GeneralTestDescriptionBuilder::default()
+                ..TestMetadata::default()
             },
-            round: Either::Right(RoundCheckDescription::default()),
+            round: Either::Right(RoundCheckBuilder::default()),
             gen_runner: None,
         };
     let mut test = description.build();
@@ -555,17 +555,17 @@ async fn test_bad_proposal() {
 #[instrument]
 async fn test_single_node_network() {
     let num_rounds = 100;
-    let description: DetailedTestDescriptionBuilder<StaticCommitteeTestTypes, StaticNodeImplType> =
-        DetailedTestDescriptionBuilder {
-            general_info: GeneralTestDescriptionBuilder {
+    let description: TestMetadata<StaticCommitteeTestTypes, StaticNodeImplType> =
+        TestMetadata {
+            metadata: TestMetadata {
                 total_nodes: 1,
                 start_nodes: 1,
                 num_succeeds: num_rounds,
                 failure_threshold: 0,
                 txn_ids: Right(1),
-                ..GeneralTestDescriptionBuilder::default()
+                ..TestMetadata::default()
             },
-            round: Either::Right(RoundCheckDescription::default()),
+            round: Either::Right(RoundCheckBuilder::default()),
             gen_runner: None,
         };
     description.build().execute().await.unwrap();
@@ -583,9 +583,9 @@ async fn test_min_propose() {
     let num_rounds = 5;
     let propose_min_round_time = Duration::new(1, 0);
     let propose_max_round_time = Duration::new(5, 0);
-    let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
-        DetailedTestDescriptionBuilder {
-            general_info: GeneralTestDescriptionBuilder {
+    let description: TestMetadata<VrfTestTypes, StandardNodeImplType> =
+        TestMetadata {
+            metadata: TestMetadata {
                 total_nodes: 5,
                 start_nodes: 5,
                 num_succeeds: num_rounds,
@@ -594,9 +594,9 @@ async fn test_min_propose() {
                 propose_max_round_time,
                 next_view_timeout: 10000,
                 txn_ids: Right(10),
-                ..GeneralTestDescriptionBuilder::default()
+                ..TestMetadata::default()
             },
-            round: Either::Right(RoundCheckDescription::default()),
+            round: Either::Right(RoundCheckBuilder::default()),
             gen_runner: None,
         };
     let start_time = Instant::now();
@@ -623,9 +623,9 @@ async fn test_max_propose() {
     let propose_min_round_time = Duration::new(0, 0);
     let propose_max_round_time = Duration::new(1, 0);
     let min_transactions: usize = 10;
-    let description: DetailedTestDescriptionBuilder<VrfTestTypes, StandardNodeImplType> =
-        DetailedTestDescriptionBuilder {
-            general_info: GeneralTestDescriptionBuilder {
+    let description: TestMetadata<VrfTestTypes, StandardNodeImplType> =
+        TestMetadata {
+            metadata: TestMetadata {
                 total_nodes: 5,
                 start_nodes: 5,
                 num_succeeds: num_rounds,
@@ -635,9 +635,9 @@ async fn test_max_propose() {
                 next_view_timeout: 10000,
                 min_transactions,
                 txn_ids: Right(1),
-                ..GeneralTestDescriptionBuilder::default()
+                ..TestMetadata::default()
             },
-            round: Either::Right(RoundCheckDescription::default()),
+            round: Either::Right(RoundCheckBuilder::default()),
             gen_runner: None,
         };
     let start_time = Instant::now();
@@ -663,7 +663,7 @@ async fn test_chain_height() {
     let total_nodes = 6;
     let start_nodes = 4;
 
-    let mut test = GeneralTestDescriptionBuilder {
+    let mut test = TestMetadata {
         total_nodes,
         start_nodes,
         num_succeeds: num_rounds,
@@ -725,7 +725,7 @@ async fn test_chain_height() {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_decide_leaf_chain() {
-    let mut test = GeneralTestDescriptionBuilder {
+    let mut test = TestMetadata {
         num_succeeds: 10,
         failure_threshold: 0,
         ..Default::default()

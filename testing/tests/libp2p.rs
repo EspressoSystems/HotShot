@@ -6,7 +6,7 @@ use hotshot::{
     types::Message,
 };
 use hotshot_testing::{
-    test_description::GeneralTestDescriptionBuilder, test_types::StaticCommitteeTestTypes,
+    test_builder::TestMetadata, test_types::StaticCommitteeTestTypes,
 };
 use hotshot_types::traits::election::QuorumExchange;
 
@@ -54,7 +54,7 @@ impl NodeImplementation<StaticCommitteeTestTypes> for Libp2pImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn libp2p_network() {
-    let description = GeneralTestDescriptionBuilder::default_multiple_rounds();
+    let description = TestMetadata::default_multiple_rounds();
 
     description
         .build::<StaticCommitteeTestTypes, Libp2pImpl>()
@@ -72,7 +72,7 @@ async fn libp2p_network() {
 #[instrument]
 #[ignore]
 async fn test_stress_libp2p_network() {
-    let description = GeneralTestDescriptionBuilder::default_stress();
+    let description = TestMetadata::default_stress();
 
     description
         .build::<StaticCommitteeTestTypes, Libp2pImpl>()

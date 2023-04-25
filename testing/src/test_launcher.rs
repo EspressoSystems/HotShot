@@ -1,14 +1,17 @@
-use super::{Generator, TestRunner};
-
 use hotshot::traits::TestableNodeImplementation;
-use hotshot::types::SignatureKey;
+use hotshot::types::{SignatureKey, Message};
 
+use hotshot_types::traits::election::{ConsensusExchange,Membership};
 use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
 use hotshot_types::{
     traits::node_implementation::{NodeImplementation, NodeType},
     ExecutionType, HotShotConfig,
 };
 use std::{num::NonZeroUsize, time::Duration};
+
+use crate::round::Round;
+use crate::test_builder::{TestBuilder, TestMetadata, TimingData};
+use crate::test_runner::{Generator, TestRunner};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
 pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
@@ -17,18 +20,26 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     pub(super) block: Generator<TYPES::BlockType>,
     pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    // contains builder metadata that is used sporadically
+    pub(super) metadata: TestMetadata,
+    pub(super) round: Round<TYPES, I>
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
     pub fn new(
-        expected_node_count: usize,
-        num_bootstrap_nodes: usize,
-        min_transactions: usize,
-        election_config: TYPES::ElectionConfigType,
+        metadata: TestMetadata,
+        round: Round<TYPES, I>,
     ) -> Self {
-        let known_nodes = (0..expected_node_count)
+        let TestMetadata {
+            total_nodes,
+            num_bootstrap_nodes,
+            min_transactions,
+            timing_data,
+            ..
+        } = metadata;
+        let known_nodes = (0..total_nodes)
             .map(|id| {
                 let priv_key = I::generate_test_key(id as u64);
                 TYPES::SignatureKey::from_private(&priv_key)
@@ -36,7 +47,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
             .collect();
         let config = HotShotConfig {
             execution_type: ExecutionType::Incremental,
-            total_nodes: NonZeroUsize::new(expected_node_count).unwrap(),
+            total_nodes: NonZeroUsize::new(total_nodes).unwrap(),
             num_bootstrap: num_bootstrap_nodes,
             min_transactions,
             max_transactions: NonZeroUsize::new(99999).unwrap(),
@@ -47,16 +58,45 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
             start_delay: 1,
             propose_min_round_time: Duration::from_millis(0),
             propose_max_round_time: Duration::from_millis(1000),
-            election_config: Some(election_config),
+            // TODO what's the difference between this and the second config?
+            election_config:
+            Some(<<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+                TYPES,
+                I::Leaf,
+                Message<TYPES, I>,
+            >>::Membership::default_election_config(total_nodes as u64)),
         };
+        let TimingData {
+            next_view_timeout,
+            timeout_ratio,
+            round_start_delay,
+            start_delay,
+            propose_min_round_time,
+            propose_max_round_time,
+        } = timing_data;
+
+        let mod_config =
+            // TODO this should really be using the timing config struct
+            |a: &mut HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>| {
+                a.next_view_timeout = next_view_timeout;
+                a.timeout_ratio = timeout_ratio;
+                a.round_start_delay = round_start_delay;
+                a.start_delay = start_delay;
+                a.propose_min_round_time = propose_min_round_time;
+                a.propose_max_round_time = propose_max_round_time;
+            };
 
         Self {
-            quorum_network: I::quorum_generator(expected_node_count, num_bootstrap_nodes, 1),
-            committee_network: I::committee_generator(expected_node_count, num_bootstrap_nodes, 2),
+            quorum_network: I::quorum_generator(total_nodes, num_bootstrap_nodes, 1),
+            committee_network: I::committee_generator(total_nodes, num_bootstrap_nodes, 2),
             storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
             block: Box::new(|_| I::block_genesis()),
             config,
-        }
+            metadata,
+            round,
+        }.modify_default_config(
+            mod_config
+        )
     }
 }
 
@@ -79,10 +119,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
                     quorum_network(node_id, pubkey)
                 }
             }),
-            committee_network: self.committee_network,
-            storage: self.storage,
-            block: self.block,
-            config: self.config,
+            ..self
         }
     }
 
@@ -92,7 +129,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
         committee_network: impl Fn(u64, TYPES::SignatureKey) -> CommitteeNetwork<TYPES, I> + 'static,
     ) -> TestLauncher<TYPES, I> {
         TestLauncher {
-            quorum_network: self.quorum_network,
             committee_network: Box::new({
                 move |node_id| {
                     // FIXME perhaps this pk generation is a separate function
@@ -103,9 +139,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
                     committee_network(node_id, pubkey)
                 }
             }),
-            storage: self.storage,
-            block: self.block,
-            config: self.config,
+            ..self
         }
     }
 
@@ -115,11 +149,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
         storage: impl Fn(u64) -> I::Storage + 'static,
     ) -> TestLauncher<TYPES, I> {
         TestLauncher {
-            quorum_network: self.quorum_network,
-            committee_network: self.committee_network,
             storage: Box::new(storage),
-            block: self.block,
-            config: self.config,
+            ..self
         }
     }
 
@@ -129,11 +160,18 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
         block: impl Fn(u64) -> TYPES::BlockType + 'static,
     ) -> TestLauncher<TYPES, I> {
         TestLauncher {
-            quorum_network: self.quorum_network,
-            committee_network: self.committee_network,
-            storage: self.storage,
             block: Box::new(block),
-            config: self.config,
+            ..self
+        }
+    }
+
+    pub fn with_round(
+        self,
+        round: Round<TYPES, I>,
+    ) -> TestLauncher<TYPES, I> {
+        TestLauncher {
+            round,
+            ..self
         }
     }
 

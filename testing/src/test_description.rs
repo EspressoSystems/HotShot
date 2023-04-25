@@ -4,8 +4,8 @@ use std::pin::Pin;
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use crate::{
-    ConsensusFailedError, Round, RoundPostSafetyCheck, RoundResult, RoundSetup, TestLauncher,
-    TestRunner, RoundPreSafetyCheck, RoundCtx,
+    ConsensusFailedError, Round, RoundSafetyCheck, RoundResult, RoundSetup, TestLauncher,
+    TestRunner, RoundPreSafetyCheck, RoundCtx, RoundHook,
 };
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use either::Either::{self, Left, Right};
@@ -29,33 +29,28 @@ use tracing::{error, info};
 
 ///! public infra for describing tests
 
+pub struct TestBuilder {
+    runner_builder: RunnerBuilder,
+    round_builder: RoundBuilder,
+}
+
 /// TODO this should be taking in a election config
-pub struct GeneralTestDescriptionBuilder {
+pub struct RunnerBuilder {
     /// Total number of nodes in the test
     pub total_nodes: usize,
     /// nodes available at start
     pub start_nodes: usize,
     /// number of successful/passing rounds required for test to pass
+    /// equivalent to num_sucessful_views
     pub num_succeeds: usize,
     /// max number of failing rounds before test is failed
     pub failure_threshold: usize,
-    /// Either a list of transactions submitter indexes to
-    /// submit a random txn with each round, OR
-    /// `tx_per_round` transactions are submitted each round
-    /// to random nodes for `num_rounds + failure_threshold`
-    /// Ignored if `self.rounds` is set
-    pub txn_ids: Either<Vec<Vec<usize>>, usize>,
-    /// Base duration for next-view timeout, in milliseconds
-    pub next_view_timeout: u64,
-    /// The exponential backoff ration for the next-view timeout
-    pub timeout_ratio: (u64, u64),
-    /// The delay a leader inserts before starting pre-commit, in milliseconds
-    pub round_start_delay: u64,
-    /// Delay after init before starting consensus, in milliseconds
-    pub start_delay: u64,
-    /// List of ids to shut down after spinning up
-    pub ids_to_shut_down: Vec<HashSet<u64>>,
+    /// number of txn per round
+    /// TODO in the future we should make this sample from a distribution
+    /// much like how network reliability is implemented
+    pub num_txns_per_round: usize,
     /// Description of the network reliability
+    /// `None` == perfect network
     pub network_reliability: Option<Arc<dyn NetworkReliability>>,
     /// number of bootstrap nodes
     pub num_bootstrap_nodes: usize,
@@ -63,13 +58,11 @@ pub struct GeneralTestDescriptionBuilder {
     pub max_transactions: NonZeroUsize,
     /// Minimum transactions required for a block
     pub min_transactions: usize,
-    /// The minimum amount of time a leader has to wait to start a round
-    pub propose_min_round_time: Duration,
-    /// The maximum amount of time a leader can wait to start a round
-    pub propose_max_round_time: Duration,
+    /// timing data
+    pub timing_data: TimingData
 }
 
-impl Default for GeneralTestDescriptionBuilder {
+impl Default for RunnerBuilder {
     /// by default, just a single round
     fn default() -> Self {
         Self {
@@ -77,47 +70,105 @@ impl Default for GeneralTestDescriptionBuilder {
             start_nodes: 5,
             num_succeeds: 1,
             failure_threshold: 0,
-            txn_ids: Right(1),
-            next_view_timeout: 10000,
-            timeout_ratio: (11, 10),
-            round_start_delay: 1,
-            start_delay: 1,
-            ids_to_shut_down: Vec::new(),
             network_reliability: None,
             num_bootstrap_nodes: 5,
-            propose_min_round_time: Duration::new(0, 0),
-            propose_max_round_time: Duration::new(5, 0),
             max_transactions: NonZeroUsize::new(999999).unwrap(),
             min_transactions: 0,
+            timing_data: TimingData::default(),
+            num_txns_per_round: 20,
         }
     }
 }
 
-impl GeneralTestDescriptionBuilder {
+impl Default for TimingData {
+    fn default() -> Self {
+        Self {
+            next_view_timeout: 10000,
+            timeout_ratio: (11, 10),
+            round_start_delay: 1,
+            start_delay: 1,
+            propose_min_round_time: Duration::new(0, 0),
+            propose_max_round_time: Duration::new(5, 0),
+        }
+    }
+}
+
+impl Default for RoundSetupBuilder {
+    fn default() -> Self {
+        Self {
+            num_txns_per_round: 30,
+            scheduled_changes: vec![]
+        }
+    }
+}
+
+pub struct RoundBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    setup: Either<RoundSetup<TYPES, I>, RoundSetupBuilder>,
+    check: Either<RoundPostSafetyCheck<TYPES, I>, RoundCheckBuilder>,
+    hooks: Vec<RoundHook<TYPES, I>>
+}
+
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for RoundBuilder<TYPES, I> {
+    fn default() -> Self {
+        Self {
+            setup: Either::Right(RoundSetupBuilder::default()),
+            check: Either::Right(RoundCheckBuilder::default()),
+            hooks: vec![]
+        }
+    }
+}
+
+
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RoundBuilder<TYPES, I> {
+    pub fn build(&self) -> Round<TYPES, I> {
+        let setup = match self.setup {
+            Left(setup) => setup,
+            Right(desc) => desc.build(),
+        };
+        let check = match self.check {
+            Left(check) => check,
+            Right(desc) => desc.build(),
+        };
+        Round {
+            setup_round: setup,
+            safety_check_post: check,
+            hooks: self.hooks,
+        }
+    }
+}
+
+impl RunnerBuilder {
     /// Default constructor for multiple rounds.
     pub fn default_multiple_rounds() -> Self {
-        GeneralTestDescriptionBuilder {
-            round_start_delay: 25,
+        RunnerBuilder {
             total_nodes: 10,
             start_nodes: 10,
             num_succeeds: 20,
-            start_delay: 120000,
-            ..GeneralTestDescriptionBuilder::default()
+            timing_data: TimingData {
+                start_delay: 120000,
+                round_start_delay: 25,
+                ..TimingData::default()
+
+            },
+            ..RunnerBuilder::default()
         }
     }
 
     /// Default constructor for stress testing.
     pub fn default_stress() -> Self {
-        GeneralTestDescriptionBuilder {
-            round_start_delay: 25,
+        RunnerBuilder {
             num_bootstrap_nodes: 15,
-            timeout_ratio: (1, 1),
             total_nodes: 100,
             start_nodes: 100,
             num_succeeds: 5,
-            next_view_timeout: 2000,
-            start_delay: 20000,
-            ..GeneralTestDescriptionBuilder::default()
+            timing_data: TimingData {
+                next_view_timeout: 2000,
+                timeout_ratio: (1, 1),
+                start_delay: 20000,
+                round_start_delay: 25,
+                ..TimingData::default()
+            },
+            ..RunnerBuilder::default()
         }
     }
 }
@@ -125,15 +176,12 @@ impl GeneralTestDescriptionBuilder {
 /// fine-grained spec of test
 /// including what should be run every round
 /// and how to generate more rounds
-pub struct DetailedTestDescriptionBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct TestBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// generic information used for the test
-    pub general_info: GeneralTestDescriptionBuilder,
+    pub metadata: RunnerBuilder,
 
-    /// list of rounds
-    pub round: Either<Round<TYPES, I>, RoundCheckDescription>,
-
-    /// function to generate the runner
-    pub gen_runner: GenRunner<TYPES, I>,
+    /// list of round descriptions
+    pub round: RoundBuilder<TYPES, I>,
 }
 
 #[derive(Debug, Snafu)]
@@ -157,8 +205,7 @@ pub struct TimingData {
     pub propose_max_round_time: Duration,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPES, I> {
-    /// default implementation of generate runner
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RunnerBuilder<TYPES, I> {
     pub fn gen_runner(&self) -> TestRunner<TYPES, I> {
         let launcher = TestLauncher::new(
             self.total_nodes,
@@ -170,7 +217,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPE
                 Message<TYPES, I>,
             >>::Membership::default_election_config(self.total_nodes as u64),
         );
-        // modify runner to recognize timing params
+        // FIXME timing config should be used here... but this breaks other things
         let set_timing_params =
             |a: &mut HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>| {
                 a.next_view_timeout = self.timing_config.next_view_timeout;
@@ -187,6 +234,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPE
             .modify_default_config(set_timing_params)
             .launch()
     }
+}
+
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Test<TYPES, I> {
     /// execute a consensus test based on `Self`
     /// total_nodes: num nodes to run with
     /// txn_ids: vec of vec of transaction ids to send each round
@@ -223,58 +273,51 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPE
     }
 }
 
-impl GeneralTestDescriptionBuilder {
-    /// build a test description from the builder
+impl RunnerBuilder {
+    /// build a test description with "sane" defaults
+    /// from test metadata
     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         self,
-    ) -> TestDescription<TYPES, I> {
-        DetailedTestDescriptionBuilder {
-            general_info: self,
-            round: Either::Right(RoundCheckDescription::default()),
-            gen_runner: None,
+    ) -> Test<TYPES, I> {
+        let round_description = self.gen_round_descriptions();
+        Test {
+            round: round_description.build(),
+            gen_runner: self.gen_runner(),
         }
-        .build()
+    }
+
+    pub fn gen_round_descriptions<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(&self) -> RoundBuilder<TYPES, I> {
+        let setup_desc = RoundSetupBuilder {
+            num_txns_per_round: self.num_txns_per_round,
+            scheduled_changes: vec![]
+        };
+        let check_desc = RoundCheckBuilder {
+            num_out_of_sync: todo!(),
+            max_consecutive_failed_rounds: todo!(),
+            check_leaf: todo!(),
+            check_state: todo!(),
+            check_block: todo!(),
+            check_transactions: todo!(),
+            num_failed_consecutive_rounds: todo!(),
+            num_failed_rounds_total: todo!(),
+        };
     }
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
-    DetailedTestDescriptionBuilder<TYPES, I>
+    TestBuilder<TYPES, I>
 {
     /// build a test description from a detailed testing spec
-    pub fn build(self) -> TestDescription<TYPES, I> {
-        let timing_config = TimingData {
-            next_view_timeout: self.general_info.next_view_timeout,
-            timeout_ratio: self.general_info.timeout_ratio,
-            round_start_delay: self.general_info.round_start_delay,
-            start_delay: self.general_info.start_delay,
-            propose_min_round_time: self.general_info.propose_min_round_time,
-            propose_max_round_time: self.general_info.propose_max_round_time,
-        };
+    pub fn build(self) -> Test<TYPES, I> {
+        let round = self.round.build();
 
-        let rounds = match self.round {
-            Left(rounds) => rounds,
-            Right(desc) => nll_todo(),
-        };
-
-        TestDescription {
-            round: rounds,
-            gen_runner: self.gen_runner,
-            timing_config,
-            network_reliability: self.general_info.network_reliability,
-            total_nodes: self.general_info.total_nodes,
-            start_nodes: self.general_info.start_nodes,
-            failure_threshold: self.general_info.failure_threshold,
-            num_bootstrap_nodes: self.general_info.num_bootstrap_nodes,
-            max_transactions: self.general_info.max_transactions,
-            min_transactions: self.general_info.min_transactions,
-            num_sucessful_views: todo!(),
-        }
+        nll_todo()
     }
 }
 
-impl Default for RoundCheckDescription {
+impl Default for RoundCheckBuilder {
     fn default() -> Self {
-        RoundCheckDescription {
+        RoundCheckBuilder {
             num_out_of_sync: 10,
             max_consecutive_failed_rounds: 5,
             check_leaf: true,
@@ -288,7 +331,7 @@ impl Default for RoundCheckDescription {
 }
 
 /// description to be passed to the view checker
-pub struct RoundCheckDescription {
+pub struct RoundCheckBuilder {
     /// number of out of sync nodes before considered failed
     pub num_out_of_sync: usize,
     /// max number of consecutive rounds allowed to not reach decide
@@ -307,49 +350,35 @@ pub struct RoundCheckDescription {
     pub num_failed_rounds_total: usize,
 }
 
-impl RoundCheckDescription {
-    fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(&self) -> (RoundPreSafetyCheck<TYPES, I>, RoundPostSafetyCheck<TYPES, I>){
-        let pre = RoundPreSafetyCheck::default();
-        let num_out_of_sync = self.num_out_of_sync;
-        let max_consecutive_failed_rounds = self.max_consecutive_failed_rounds;
-        let check_leaf = self.check_leaf;
-        let check_state = self.check_state;
-        let check_block = self.check_block;
-        let check_transactions = self.check_transactions;
-        let num_failed_consecutive_rounds = self.num_failed_consecutive_rounds;
-        let num_failed_rounds_total = self.num_failed_rounds_total;
-
-        // FIXME why doesn't the destructure work?
-        // this is a rustc bug and/or a RA bug
-        // RA claims that everything is a usize
-        // but when I use it inside the closure, it becomes a reference
-        // let Self {
-        //     num_out_of_sync,
-        //     max_consecutive_failed_rounds,
-        //     check_leaf,
-        //     check_state,
-        //     check_block,
-        //     check_transactions,
-        //     num_failed_consecutive_rounds,
-        //     num_failed_rounds_total,
-        // } = self.clone();
+impl RoundCheckBuilder {
+    fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(&self) -> RoundPostSafetyCheck<TYPES, I> {
+        let Self {
+            num_out_of_sync,
+            max_consecutive_failed_rounds,
+            check_leaf,
+            check_state,
+            check_block,
+            check_transactions,
+            num_failed_consecutive_rounds,
+            num_failed_rounds_total,
+        } : Self = *(self.clone());
 
         let post =
             RoundPostSafetyCheck(Arc::new(move |
                 runner: &TestRunner<TYPES, I>,
                 ctx: &mut RoundCtx<TYPES, I>,
-                round_result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>
+                mut round_result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>
             | -> LocalBoxFuture<Result<(), ConsensusFailedError>>
             {
                 let runner_nodes = runner.nodes();
                 let collective = runner.nodes().collect::<Vec<_>>().len() - num_out_of_sync;
-                let views_since_progress = ctx.views_since_progress;
-                let total_failed_views = ctx.total_failed_views;
                 async move {
 
                     // No transactions were submitted?
                     // We won't make any progress. Err.
                     if round_result.txns.is_empty(){
+                        round_result.success = false;
+                        ctx.prior_round_results.push(round_result);
                         return Err(ConsensusFailedError::NoTransactionsSubmitted)
                     }
 
@@ -361,11 +390,15 @@ impl RoundCheckDescription {
                         ctx.views_since_progress = 0;
                     }
 
-                    if views_since_progress >= num_failed_consecutive_rounds {
+                    if ctx.views_since_progress >= num_failed_consecutive_rounds {
+                        round_result.success = false;
+                        ctx.prior_round_results.push(round_result);
                         return Err(ConsensusFailedError::TooManyConsecutiveFailures);
                     }
 
-                    if total_failed_views >= num_failed_rounds_total {
+                    if ctx.total_failed_views >= num_failed_rounds_total {
+                        round_result.success = false;
+                        ctx.prior_round_results.push(round_result);
                         return Err(ConsensusFailedError::TooManyViewFailures);
                     }
 
@@ -391,7 +424,14 @@ impl RoundCheckDescription {
                             }
                         }
 
-                        if result_leaves.is_none() {
+                        if let Some(leaf) = result_leaves {
+                            round_result.agreed_leaf = Some(leaf);
+
+                        } else {
+                            ctx.views_since_progress += 1;
+                            ctx.total_failed_views += 1;
+                            round_result.success = false;
+                            ctx.prior_round_results.push(round_result);
                             return Err(ConsensusFailedError::InconsistentLeaves)
                         }
                     }
@@ -399,19 +439,19 @@ impl RoundCheckDescription {
                     let mut result_state = None;
 
                     if check_state {
-                        // TODO
-                        let mut states = HashMap::<Vec<<I::Leaf as LeafType>::StateCommitmentType>, usize>::new();
-                        // group all the leaves since thankfully leaf implements hash
+                        let mut states = HashMap::<<I::Leaf as LeafType>::StateCommitmentType, usize>::new();
                         for (_idx, (s, _b)) in round_result.success_nodes.clone() {
 
-                            match states.entry(s) {
-                                std::collections::hash_map::Entry::Occupied(mut o) => {
-                                    *o.get_mut() += 1;
-                                }
-                                std::collections::hash_map::Entry::Vacant(v) => {
-                                    v.insert(1);
-                                }
-                            }
+                            let most_recent_state = s.iter().last();
+
+                            // match states.entry(s) {
+                            //     std::collections::hash_map::Entry::Occupied(mut o) => {
+                            //         *o.get_mut() += 1;
+                            //     }
+                            //     std::collections::hash_map::Entry::Vacant(v) => {
+                            //         v.insert(1);
+                            //     }
+                            // }
 
                         }
                         for (state, num_nodes) in states {
@@ -420,7 +460,13 @@ impl RoundCheckDescription {
                             }
                         }
 
-                        if result_state.is_none() {
+                        if let Some(state) = result_state {
+                            round_result.agreed_state = Some(state);
+                        } else {
+                            ctx.views_since_progress += 1;
+                            ctx.total_failed_views += 1;
+                            round_result.success = false;
+                            ctx.prior_round_results.push(round_result);
                             return Err(ConsensusFailedError::InconsistentLeaves);
                         }
 
@@ -430,7 +476,6 @@ impl RoundCheckDescription {
 
                     if check_block {
                         let mut blocks = HashMap::<Vec<<I::Leaf as LeafType>::DeltasType>, usize>::new();
-                        // group all the leaves since thankfully leaf implements hash
                         for (_idx, (_s, b)) in round_result.success_nodes.clone() {
 
                             match blocks.entry(b) {
@@ -450,6 +495,10 @@ impl RoundCheckDescription {
                         }
 
                         if result_block.is_none() {
+                            ctx.views_since_progress += 1;
+                            ctx.total_failed_views += 1;
+                            round_result.success = false;
+                            ctx.prior_round_results.push(round_result);
                             return Err(ConsensusFailedError::InconsistentLeaves);
                         }
 
@@ -460,7 +509,7 @@ impl RoundCheckDescription {
                 }.boxed_local()
             }));
 
-        (pre, post)
+        post
     }
 }
 
@@ -480,7 +529,7 @@ pub struct ChangeNode {
 /// describes how to set up the round
 /// very naive as it stands. We want to add in more support for spinning up and down nodes
 #[derive(Clone, Debug)]
-pub struct RoundSetupDescription {
+pub struct RoundSetupBuilder {
     /// TODO add in sampling
     /// number of transactions to submit per view
     pub num_txns_per_round: usize,
@@ -488,7 +537,7 @@ pub struct RoundSetupDescription {
 }
 
 
-impl RoundSetupDescription {
+impl RoundSetupBuilder {
     fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(&self) -> RoundSetup<TYPES, I>{
         let Self {
             num_txns_per_round,
@@ -542,43 +591,21 @@ impl RoundSetupDescription {
 }
 
 /// Description of a test. Contains all metadata necessary to execute test
-pub struct TestDescription<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    /// TODO separate
-    /// the ronds to run for the test
+pub struct Test<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    /// hooks to run during the test
+    /// TODO long term this is the task
     pub round: Round<TYPES, I>,
     /// function to create a [`TestRunner`]
     pub gen_runner: GenRunner<TYPES, I>,
-    /// timing information applied to hotshots
-    pub timing_config: TimingData,
-    /// TODO this should be implementation detail of network (perhaps fed into
-    /// constructor/generator).
-    /// Description of the network reliability (dropped/mutated packets etc)
-    /// if `None`, good networking conditions are assumed
-    pub network_reliability: Option<Arc<dyn NetworkReliability>>,
-    /// Total number of nodes in the test
-    pub total_nodes: usize,
-    /// nodes available at start
-    /// The rest are assumed to be started in the round setup
-    pub start_nodes: usize,
-    /// max number of failing rounds before test is failed
-    pub failure_threshold: usize,
-    /// number bootstrap nodes
-    pub num_bootstrap_nodes: usize,
-    /// Maximum transactions allowed in a block
-    pub max_transactions: NonZeroUsize,
-    /// Minimum transactions required for a block
-    pub min_transactions: usize,
-    /// number of sucessful views
-    pub num_sucessful_views: usize,
 }
 
 /// type alias for generating a [`TestRunner`]
 pub type GenRunner<TYPES, I> =
-    Option<Arc<dyn Fn(&TestDescription<TYPES, I>) -> TestRunner<TYPES, I>>>;
+    Option<Arc<dyn Fn(&Test<TYPES, I>) -> TestRunner<TYPES, I>>>;
 
 /// type alias for doing setup for a consensus round
-pub type TestSetup<TYPES, TRANS, I> =
-    Vec<Box<dyn FnOnce(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<Vec<TRANS>>>>;
+// pub type TestSetup<TYPES, TRANS, I> =
+//     Vec<Box<dyn FnOnce(&mut TestRunner<TYPES, I>) -> LocalBoxFuture<Vec<TRANS>>>>;
 
 /// given a description of rounds, generates such rounds
 /// args
@@ -672,7 +699,7 @@ pub type TestSetup<TYPES, TRANS, I> =
 // }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
-    DetailedTestDescriptionBuilder<TYPES, I>
+    TestBuilder<TYPES, I>
 {
     // /// create rounds of consensus based on the data in `self`
     // pub fn default_populate_rounds(&self) -> Vec<Round<TYPES, I>> {

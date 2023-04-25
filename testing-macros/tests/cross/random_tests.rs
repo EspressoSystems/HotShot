@@ -1,7 +1,7 @@
 #[cfg(feature = "slow-tests")]
 use either::Either::Right;
 #[cfg(feature = "slow-tests")]
-use hotshot_testing::test_description::{get_tolerance, GeneralTestDescriptionBuilder};
+use hotshot_testing::test_builder::{get_tolerance, TestMetadata};
 use hotshot_testing_macros::cross_all_types;
 #[cfg(feature = "slow-tests")]
 use std::{collections::HashSet, iter::FromIterator};
