@@ -202,8 +202,7 @@ pub trait LeafType:
     /// Type of nodes participating in the network.
     type NodeType: NodeType;
     /// Type of block contained by this leaf.
-    type DeltasType:
-        Clone
+    type DeltasType: Clone
         + Debug
         + for<'a> Deserialize<'a>
         + PartialEq

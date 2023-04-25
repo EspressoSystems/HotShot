@@ -53,8 +53,7 @@ pub enum ConsensusFailedError {
     /// inconsistent leaves
     InconsistentLeaves,
     InconsistentStates,
-    InconsistentBlocks
-
+    InconsistentBlocks,
 }
 
 /// An overarching consensus test failure
@@ -63,5 +62,5 @@ pub enum ConsensusFailedError {
 pub enum ConsensusTestError {
     /// Too many nodes failed
     TooManyFailures,
-    CompletedTestSuccessfully
+    CompletedTestSuccessfully,
 }

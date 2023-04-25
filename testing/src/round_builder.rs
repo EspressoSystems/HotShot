@@ -1,18 +1,21 @@
-use std::{sync::Arc, collections::HashMap};
+use std::{collections::HashMap, sync::Arc};
 
 use either::Either::{self, Left, Right};
 use futures::{future::LocalBoxFuture, FutureExt};
-use hotshot::traits::{TestableNodeImplementation, NodeImplementation};
-use hotshot_types::{traits::node_implementation::NodeType, data::LeafType};
+use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
+use hotshot_types::{data::LeafType, traits::node_implementation::NodeType};
 use nll::nll_todo::nll_todo;
 
-use crate::{round::{RoundSetup, RoundCtx, RoundSafetyCheck, RoundHook, RoundResult, Round}, test_runner::TestRunner, test_errors::{ConsensusFailedError, ConsensusTestError}};
-
+use crate::{
+    round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
+    test_errors::{ConsensusFailedError, ConsensusTestError},
+    test_runner::TestRunner,
+};
 
 pub struct RoundBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub setup: Either<RoundSetup<TYPES, I>, RoundSetupBuilder>,
     pub check: Either<RoundSafetyCheck<TYPES, I>, RoundSafetyCheckBuilder>,
-    pub hooks: Vec<RoundHook<TYPES, I>>
+    pub hooks: Vec<RoundHook<TYPES, I>>,
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RoundBuilder<TYPES, I> {
@@ -33,13 +36,12 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RoundBuilder<TYPES, 
     }
 }
 
-
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for RoundBuilder<TYPES, I> {
     fn default() -> Self {
         Self {
             setup: Right(RoundSetupBuilder::default()),
             check: Right(RoundSafetyCheckBuilder::default()),
-            hooks: vec![]
+            hooks: vec![],
         }
     }
 }
@@ -52,59 +54,52 @@ pub struct RoundSetupBuilder {
     /// TODO add in sampling
     /// number of transactions to submit per view
     pub num_txns_per_round: usize,
-    pub scheduled_changes: Vec<ChangeNode>
+    pub scheduled_changes: Vec<ChangeNode>,
 }
 
 impl Default for RoundSetupBuilder {
     fn default() -> Self {
         Self {
             num_txns_per_round: 30,
-            scheduled_changes: vec![]
+            scheduled_changes: vec![],
         }
     }
 }
 
 #[derive(Clone, Debug)]
 pub enum UpDown {
-    Up, Down
+    Up,
+    Down,
 }
 
 #[derive(Clone, Debug)]
 pub struct ChangeNode {
     idx: usize,
     view: usize,
-    updown: UpDown
+    updown: UpDown,
 }
 
-
-
 impl RoundSetupBuilder {
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(&self) -> RoundSetup<TYPES, I>{
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+        &self,
+    ) -> RoundSetup<TYPES, I> {
         let Self {
             num_txns_per_round,
             scheduled_changes,
         } = self.clone();
         RoundSetup(Arc::new(
-            move |
-                    runner: &mut TestRunner<TYPES, I>,
-                    ctx: &RoundCtx<TYPES, I>
-                | -> LocalBoxFuture<Vec<TYPES::Transaction>> {
+            move |runner: &mut TestRunner<TYPES, I>,
+                  ctx: &RoundCtx<TYPES, I>|
+                  -> LocalBoxFuture<Vec<TYPES::Transaction>> {
                 let changes = scheduled_changes.clone();
                 let cur_view = ctx.prior_round_results.len() + 1;
                 async move {
-                    let updowns =
-                        changes.iter()
+                    let updowns = changes
+                        .iter()
                         .filter(|node| node.view == cur_view)
-                        .map(|node| {
-                            match node.updown {
-                                UpDown::Up => {
-                                    Either::Left(node.idx)
-                                },
-                                UpDown::Down => {
-                                    Either::Right(node.idx)
-                                }
-                            }
-
+                        .map(|node| match node.updown {
+                            UpDown::Up => Either::Left(node.idx),
+                            UpDown::Down => Either::Right(node.idx),
                         });
                     // maybe we should switch to itertools
                     // they have saner either functions
@@ -125,9 +120,10 @@ impl RoundSetupBuilder {
                         .add_random_transactions(num_txns_per_round as usize, &mut rng)
                         .await
                         .unwrap()
-                }.boxed_local()
-
-            }))
+                }
+                .boxed_local()
+            },
+        ))
     }
 }
 
@@ -163,9 +159,10 @@ impl Default for RoundSafetyCheckBuilder {
     }
 }
 
-
 impl RoundSafetyCheckBuilder {
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(&self) -> RoundSafetyCheck<TYPES, I> {
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+        &self,
+    ) -> RoundSafetyCheck<TYPES, I> {
         let Self {
             num_out_of_sync,
             check_leaf,
@@ -174,15 +171,13 @@ impl RoundSafetyCheckBuilder {
             check_transactions,
             num_failed_consecutive_rounds,
             num_failed_rounds_total,
-        } : Self = *(self.clone());
+        }: Self = *(self.clone());
 
-        let post =
-            RoundSafetyCheck(Arc::new(move |
-                runner: &TestRunner<TYPES, I>,
-                ctx: &mut RoundCtx<TYPES, I>,
-                mut round_result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>
-            | -> LocalBoxFuture<Result<(), ConsensusTestError>>
-            {
+        let post = RoundSafetyCheck(Arc::new(
+            move |runner: &TestRunner<TYPES, I>,
+                  ctx: &mut RoundCtx<TYPES, I>,
+                  mut round_result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>|
+                  -> LocalBoxFuture<Result<(), ConsensusTestError>> {
                 let runner_nodes = runner.nodes();
                 let collective = runner.nodes().collect::<Vec<_>>().len() - num_out_of_sync;
                 async move {
@@ -320,8 +315,10 @@ impl RoundSafetyCheckBuilder {
                     //
                     // Ok(())
                     //
-                }.boxed_local()
-            }));
+                }
+                .boxed_local()
+            },
+        ));
 
         post
     }

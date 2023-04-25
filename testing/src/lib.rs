@@ -9,10 +9,10 @@
 #![warn(missing_docs)]
 #![ doc = include_str!("../README.md")]
 
-/// test launcher infrastructure
-pub mod test_launcher;
 /// implementations of various networking models
 pub mod network_reliability;
+/// test launcher infrastructure
+pub mod test_launcher;
 
 /// structs and infra to describe the tests to be written
 pub mod test_builder;

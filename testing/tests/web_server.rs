@@ -5,9 +5,7 @@ use hotshot::traits::{
     implementations::{MemoryStorage, WebCommChannel},
 };
 
-use hotshot_testing::{
-    test_builder::TestMetadata, test_types::StaticCommitteeTestTypes,
-};
+use hotshot_testing::{test_builder::TestMetadata, test_types::StaticCommitteeTestTypes};
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::traits::node_implementation::NodeImplementation;

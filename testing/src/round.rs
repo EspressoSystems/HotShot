@@ -1,10 +1,17 @@
-use std::{collections::HashMap, sync::Arc, ops::Deref};
+use std::{collections::HashMap, ops::Deref, sync::Arc};
 
 use futures::future::LocalBoxFuture;
-use hotshot::{HotShotError, traits::{TestableNodeImplementation, NodeImplementation}};
-use hotshot_types::{traits::node_implementation::NodeType, data::LeafType};
+use hotshot::{
+    traits::{NodeImplementation, TestableNodeImplementation},
+    HotShotError,
+};
+use hotshot_types::{data::LeafType, traits::node_implementation::NodeType};
 
-use crate::{test_runner::TestRunner, test_errors::{ConsensusFailedError, ConsensusTestError}, round_builder::{RoundSafetyCheckBuilder, RoundSetupBuilder}};
+use crate::{
+    round_builder::{RoundSafetyCheckBuilder, RoundSetupBuilder},
+    test_errors::{ConsensusFailedError, ConsensusTestError},
+    test_runner::TestRunner,
+};
 
 /// Alias for `(Vec<S>, Vec<B>)`. Used in [`RoundResult`].
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
@@ -58,19 +65,17 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Round<TYPES, I> {
         Self {
             safety_check: RoundSafetyCheck(Arc::new(empty_safety_check)),
             setup_round: RoundSetup(Arc::new(empty_setup_round)),
-            hooks: vec![]
-
+            hooks: vec![],
         }
     }
 }
-
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I> {
     fn default() -> Self {
         Self {
             safety_check: RoundSafetyCheckBuilder::default().build(),
             setup_round: RoundSetupBuilder::default().build(),
-            hooks: vec![]
+            hooks: vec![],
         }
     }
 }
@@ -79,7 +84,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Clone for Round<TYPE
         Self {
             setup_round: self.setup_round.clone(),
             safety_check: self.safety_check.clone(),
-            hooks: self.hooks.clone()
+            hooks: self.hooks.clone(),
         }
     }
 }
@@ -115,21 +120,16 @@ pub struct RoundSafetyCheck<TYPES: NodeType, I: TestableNodeImplementation<TYPES
 
 #[derive(Clone)]
 pub struct RunnerBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-    pub Arc<
-        dyn Fn(&Round<TYPES, I>) -> TestRunner<TYPES, I>>
+    pub Arc<dyn Fn(&Round<TYPES, I>) -> TestRunner<TYPES, I>>,
 );
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref
-    for RunnerBuilder<TYPES, I>
-{
-    type Target =
-        dyn Fn(&Round<TYPES, I>) -> TestRunner<TYPES, I>;
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RunnerBuilder<TYPES, I> {
+    type Target = dyn Fn(&Round<TYPES, I>) -> TestRunner<TYPES, I>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
     }
 }
-
 
 /// Type of function used for checking results after running a view of consensus
 #[derive(Clone)]
@@ -142,23 +142,18 @@ pub struct RoundHook<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
     >,
 );
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref
-    for RoundHook<TYPES, I>
-{
-    type Target =
-        dyn for<'a> Fn(
-            &'a TestRunner<TYPES, I>,
-            &'a RoundCtx<TYPES, I>,
-        ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>;
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RoundHook<TYPES, I> {
+    type Target = dyn for<'a> Fn(
+        &'a TestRunner<TYPES, I>,
+        &'a RoundCtx<TYPES, I>,
+    ) -> LocalBoxFuture<'a, Result<(), ConsensusFailedError>>;
 
     fn deref(&self) -> &Self::Target {
         &*self.0
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref
-    for RoundSafetyCheck<TYPES, I>
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Deref for RoundSafetyCheck<TYPES, I> {
     type Target = dyn for<'a> Fn(
         &'a TestRunner<TYPES, I>,
         &'a mut RoundCtx<TYPES, I>,

@@ -7,9 +7,7 @@ use hotshot::traits::TestableNodeImplementation;
 
 use hotshot_testing::{
     network_reliability::{AsynchronousNetwork, PartiallySynchronousNetwork, SynchronousNetwork},
-    test_builder::{
-        TestMetadata, TestMetadata, RoundCheckBuilder,
-    },
+    test_builder::{RoundCheckBuilder, TestMetadata, TestMetadata},
     test_types::{AppliedTestRunner, StaticCommitteeTestTypes, StaticNodeImplType},
     ConsensusFailedError, RoundCtx, RoundPostSafetyCheck, RoundResult,
 };
@@ -29,7 +27,8 @@ pub fn check_safety<'a, TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         if results.success_nodes.len() <= (2 * num_nodes) / 3 + 1 {
             return Err(ConsensusFailedError::TimedOutWithoutAnyLeader);
         }
-        let (first_node_idx, (first_states, first_blocks)) = results.success_nodes.iter().next().unwrap();
+        let (first_node_idx, (first_states, first_blocks)) =
+            results.success_nodes.iter().next().unwrap();
 
         for (i_idx, (i_states, i_blocks)) in results.success_nodes.clone() {
             // first block/state most recent
@@ -59,17 +58,16 @@ pub fn check_safety<'a, TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_no_loss_network() {
-    let description =
-        TestMetadata::<StaticCommitteeTestTypes, StaticNodeImplType> {
-            metadata: TestMetadata {
-                total_nodes: 10,
-                start_nodes: 10,
-                network_reliability: Some(Arc::new(SynchronousNetwork::default())),
-                ..TestMetadata::default()
-            },
-            round: Either::Right(RoundCheckBuilder::default()),
-            gen_runner: None,
-        };
+    let description = TestMetadata::<StaticCommitteeTestTypes, StaticNodeImplType> {
+        metadata: TestMetadata {
+            total_nodes: 10,
+            start_nodes: 10,
+            network_reliability: Some(Arc::new(SynchronousNetwork::default())),
+            ..TestMetadata::default()
+        },
+        round: Either::Right(RoundCheckBuilder::default()),
+        gen_runner: None,
+    };
     let mut test = description.build();
     test.round.safety_check_post = RoundPostSafetyCheck(Arc::new(
         check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
@@ -85,18 +83,17 @@ async fn test_no_loss_network() {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_synchronous_network() {
-    let description =
-        TestMetadata::<StaticCommitteeTestTypes, StaticNodeImplType> {
-            metadata: TestMetadata {
-                total_nodes: 5,
-                start_nodes: 5,
-                num_succeeds: 2,
-                txn_ids: Right(1),
-                ..TestMetadata::default()
-            },
-            round: Either::Right(RoundCheckBuilder::default()),
-            gen_runner: None,
-        };
+    let description = TestMetadata::<StaticCommitteeTestTypes, StaticNodeImplType> {
+        metadata: TestMetadata {
+            total_nodes: 5,
+            start_nodes: 5,
+            num_succeeds: 2,
+            txn_ids: Right(1),
+            ..TestMetadata::default()
+        },
+        round: Either::Right(RoundCheckBuilder::default()),
+        gen_runner: None,
+    };
     let mut test = description.build();
     test.round.safety_check_post = RoundPostSafetyCheck(Arc::new(
         check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
@@ -113,20 +110,19 @@ async fn test_synchronous_network() {
 #[instrument]
 #[ignore]
 async fn test_asynchronous_network() {
-    let description =
-        TestMetadata::<StaticCommitteeTestTypes, StaticNodeImplType> {
-            metadata: TestMetadata {
-                total_nodes: 5,
-                start_nodes: 5,
-                num_succeeds: 2,
-                txn_ids: Right(1),
-                failure_threshold: 5,
-                network_reliability: Some(Arc::new(AsynchronousNetwork::new(97, 100, 0, 5))),
-                ..TestMetadata::default()
-            },
-            round: Either::Right(RoundCheckBuilder::default()),
-            gen_runner: None,
-        };
+    let description = TestMetadata::<StaticCommitteeTestTypes, StaticNodeImplType> {
+        metadata: TestMetadata {
+            total_nodes: 5,
+            start_nodes: 5,
+            num_succeeds: 2,
+            txn_ids: Right(1),
+            failure_threshold: 5,
+            network_reliability: Some(Arc::new(AsynchronousNetwork::new(97, 100, 0, 5))),
+            ..TestMetadata::default()
+        },
+        round: Either::Right(RoundCheckBuilder::default()),
+        gen_runner: None,
+    };
     let mut test = description.build();
     test.round.safety_check_post = RoundPostSafetyCheck(Arc::new(
         check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,
@@ -147,19 +143,18 @@ async fn test_partially_synchronous_network() {
     let sn = SynchronousNetwork::new(10, 0);
     let gst = std::time::Duration::new(10, 0);
 
-    let description =
-        TestMetadata::<StaticCommitteeTestTypes, StaticNodeImplType> {
-            metadata: TestMetadata {
-                total_nodes: 5,
-                start_nodes: 5,
-                num_succeeds: 2,
-                txn_ids: Right(1),
-                network_reliability: Some(Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst))),
-                ..TestMetadata::default()
-            },
-            round: Either::Right(RoundCheckBuilder::default()),
-            gen_runner: None,
-        };
+    let description = TestMetadata::<StaticCommitteeTestTypes, StaticNodeImplType> {
+        metadata: TestMetadata {
+            total_nodes: 5,
+            start_nodes: 5,
+            num_succeeds: 2,
+            txn_ids: Right(1),
+            network_reliability: Some(Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst))),
+            ..TestMetadata::default()
+        },
+        round: Either::Right(RoundCheckBuilder::default()),
+        gen_runner: None,
+    };
     let mut test = description.build();
     test.round.safety_check_post = RoundPostSafetyCheck(Arc::new(
         check_safety::<StaticCommitteeTestTypes, StaticNodeImplType>,

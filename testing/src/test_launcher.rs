@@ -1,7 +1,7 @@
 use hotshot::traits::TestableNodeImplementation;
-use hotshot::types::{SignatureKey, Message};
+use hotshot::types::{Message, SignatureKey};
 
-use hotshot_types::traits::election::{ConsensusExchange,Membership};
+use hotshot_types::traits::election::{ConsensusExchange, Membership};
 use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
 use hotshot_types::{
     traits::node_implementation::{NodeImplementation, NodeType},
@@ -22,16 +22,13 @@ pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     // contains builder metadata that is used sporadically
     pub(super) metadata: TestMetadata,
-    pub(super) round: Round<TYPES, I>
+    pub(super) round: Round<TYPES, I>,
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
-    pub fn new(
-        metadata: TestMetadata,
-        round: Round<TYPES, I>,
-    ) -> Self {
+    pub fn new(metadata: TestMetadata, round: Round<TYPES, I>) -> Self {
         let TestMetadata {
             total_nodes,
             num_bootstrap_nodes,
@@ -59,12 +56,13 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
             propose_min_round_time: Duration::from_millis(0),
             propose_max_round_time: Duration::from_millis(1000),
             // TODO what's the difference between this and the second config?
-            election_config:
-            Some(<<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
-                TYPES,
-                I::Leaf,
-                Message<TYPES, I>,
-            >>::Membership::default_election_config(total_nodes as u64)),
+            election_config: Some(
+                <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+                    TYPES,
+                    I::Leaf,
+                    Message<TYPES, I>,
+                >>::Membership::default_election_config(total_nodes as u64),
+            ),
         };
         let TimingData {
             next_view_timeout,
@@ -94,9 +92,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
             config,
             metadata,
             round,
-        }.modify_default_config(
-            mod_config
-        )
+        }
+        .modify_default_config(mod_config)
     }
 }
 
@@ -165,14 +162,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
         }
     }
 
-    pub fn with_round(
-        self,
-        round: Round<TYPES, I>,
-    ) -> TestLauncher<TYPES, I> {
-        TestLauncher {
-            round,
-            ..self
-        }
+    pub fn with_round(self, round: Round<TYPES, I>) -> TestLauncher<TYPES, I> {
+        TestLauncher { round, ..self }
     }
 
     /// Set the default config of each node. Note that this can also be overwritten per-node in the [`TestLauncher`].

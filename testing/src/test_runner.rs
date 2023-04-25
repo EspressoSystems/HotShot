@@ -1,23 +1,33 @@
 use std::collections::HashMap;
 
-use async_compatibility_layer::logging::{setup_logging, setup_backtrace};
-use hotshot::{types::{HotShotHandle, Message},
+use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
+use hotshot::{
+    traits::{NodeImplementation, TestableNodeImplementation},
+    types::{HotShotHandle, Message},
+    HotShot, HotShotInitializer, ViewRunner,
+};
+use hotshot_types::{
     traits::{
-        TestableNodeImplementation,
-        NodeImplementation,
+        election::ConsensusExchange,
+        election::Membership,
+        metrics::NoMetrics,
+        network::CommunicationChannel,
+        node_implementation::{CommitteeNetwork, NodeType, QuorumNetwork},
+        signature_key::{SignatureKey, TestableSignatureKey},
     },
-HotShot, ViewRunner, HotShotInitializer};
-use hotshot_types::{traits::{
-    election::Membership,
-    network::CommunicationChannel,
-    node_implementation::{NodeType, QuorumNetwork, CommitteeNetwork}, election::ConsensusExchange, metrics::NoMetrics, signature_key::{SignatureKey, TestableSignatureKey}}, HotShotConfig};
-use tracing::{error, info, debug};
+    HotShotConfig,
+};
+use tracing::{debug, error, info};
 
-use crate::{round::{Round, RoundCtx, RoundResult}, test_launcher::TestLauncher, test_errors::{ConsensusTestError, ConsensusFailedError}, test_builder::{TestBuilder, TestMetadata}};
+use crate::{
+    round::{Round, RoundCtx, RoundResult},
+    test_builder::{TestBuilder, TestMetadata},
+    test_errors::{ConsensusFailedError, ConsensusTestError},
+    test_launcher::TestLauncher,
+};
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
-
 
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
@@ -29,7 +39,7 @@ pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     nodes: Vec<Node<TYPES, I>>,
     next_node_id: u64,
     round: Round<TYPES, I>,
-    metadata: TestMetadata
+    metadata: TestMetadata,
 }
 
 struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
@@ -67,13 +77,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             info!("EXECUTOR: NODE {:?} IS READY", idx);
         }
 
-        self
-            .execute_rounds(self.metadata.num_succeeds, self.metadata.failure_threshold)
+        self.execute_rounds(self.metadata.num_succeeds, self.metadata.failure_threshold)
             .await
             .unwrap();
 
         Ok(())
-
     }
 
     /// Add `count` nodes to the network. These will be spawned with the default node config and state
@@ -193,10 +201,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         loop {
             if let Err(e) = self.execute_round(&mut ctx).await {
                 match e {
-                    ConsensusTestError::CompletedTestSuccessfully => {
-                        return Ok(())
-                    },
-                    e => return Err(e)
+                    ConsensusTestError::CompletedTestSuccessfully => return Ok(()),
+                    e => return Err(e),
                 }
             }
         }
@@ -369,4 +375,3 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         Some(result)
     }
 }
-
