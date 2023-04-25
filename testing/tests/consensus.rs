@@ -129,7 +129,7 @@ async fn submit_validating_vote<
         Certificate = QuorumCertificate<TYPES, I::Leaf>,
         Vote = QuorumVote<TYPES, I::Leaf>,
     >,
-    <I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership:
+    <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership:
         TestableElection<TYPES>,
 {
     let mut rng = rand::thread_rng();
@@ -142,7 +142,7 @@ async fn submit_validating_vote<
         leaf.justify_qc.commit(),
         leaf.commit(),
         leaf.view_number,
-<<I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership as TestableElection<TYPES>>::generate_test_vote_token(),
+<<I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership as TestableElection<TYPES>>::generate_test_vote_token(),
     );
 
     let recipient = runner
@@ -234,7 +234,7 @@ where
         Certificate = QuorumCertificate<TYPES, I::Leaf>,
         Vote = QuorumVote<TYPES, I::Leaf>,
     >,
-    <I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership:
+    <I::QuorumExchange as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership:
         TestableElection<TYPES>,
 {
     async move {

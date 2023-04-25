@@ -75,14 +75,12 @@ impl<
 where
     I::QuorumExchange: ConsensusExchange<
         TYPES,
-        I::Leaf,
         Message<TYPES, I>,
         Proposal = CommitmentProposal<TYPES, I::Leaf>,
         Vote = QuorumVote<TYPES, I::Leaf>,
     >,
     I::CommitteeExchange: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             Proposal = DAProposal<TYPES>,
             Vote = DAVote<TYPES, I::Leaf>,
@@ -153,6 +151,7 @@ where
                 ProcessedConsensusMessage::DAProposal(_p, _sender) => {
                     warn!("The next leader has received an unexpected proposal!");
                 }
+                ProcessedConsensusMessage::ViewSync(_) => todo!(),
             }
         }
         None
@@ -321,14 +320,12 @@ impl<
 where
     I::QuorumExchange: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             Proposal = CommitmentProposal<TYPES, I::Leaf>,
             // Vote = QuorumVote<TYPES, I::Leaf>,
         > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
     I::CommitteeExchange: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             // Proposal = DAProposal<TYPES>,
             // Vote = DAVote<TYPES, I::Leaf>,
@@ -415,7 +412,6 @@ impl<
 where
     I::QuorumExchange: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             Proposal = CommitmentProposal<TYPES, I::Leaf>,
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
@@ -490,6 +486,7 @@ where
                 ProcessedConsensusMessage::DAVote(_, _sender) => {
                     warn!("The next leader has received an unexpected DA vote!");
                 }
+                ProcessedConsensusMessage::ViewSync(_) => todo!(),
             }
         }
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()

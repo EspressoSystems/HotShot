@@ -3,6 +3,7 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
+use crate::certificate::ViewSyncCertificate;
 use crate::traits::network::ViewMessage;
 use crate::{
     data::ProposalType,
@@ -14,7 +15,7 @@ use crate::{
         },
         signature_key::EncodedSignature,
     },
-    vote::VoteType,
+    vote::{ViewSyncVote, VoteType},
 };
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
@@ -35,6 +36,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkMsg for Message<TYPES
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Message<TYPES, I> {
     /// get the view number out of a message
+    /// # Panics
+    /// Unimplemented features - TODO ED remove this panic when implementation is finished
     fn get_view_number(&self) -> TYPES::Time {
         match &self.kind {
             MessageKind::Consensus(c) => match c {
@@ -45,6 +48,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Messa
                 ConsensusMessage::InternalTrigger(trigger) => match trigger {
                     InternalTrigger::Timeout(v) => *v,
                 },
+                ConsensusMessage::ViewSync(_) => todo!(),
             },
             MessageKind::Data(DataMessage::SubmitTransaction(_, v)) => *v,
         }
@@ -57,6 +61,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Messa
                 }
                 ConsensusMessage::Vote(_) | ConsensusMessage::DAVote(_) => MessagePurpose::Vote,
                 ConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
+                ConsensusMessage::ViewSync(_) => todo!(),
             },
             MessageKind::Data(message_kind) => match message_kind {
                 DataMessage::SubmitTransaction(_, _) => MessagePurpose::Data,
@@ -129,12 +134,16 @@ pub enum ProcessedConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>
     /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
+    /// A view sync related message - either a vote or certificate
+    ViewSync(ViewSyncMessageType<TYPES>),
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedConsensusMessage<TYPES, I>>
     for ConsensusMessage<TYPES, I>
 {
     /// row polymorphism would be great here
+    /// # Panics
+    /// Unimplemented features - TODO ED remove this panic when implementation is finished
     fn from(value: ProcessedConsensusMessage<TYPES, I>) -> Self {
         match value {
             ProcessedConsensusMessage::Proposal(p, _) => ConsensusMessage::Proposal(p),
@@ -142,12 +151,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedConsensusMessa
             ProcessedConsensusMessage::Vote(v, _) => ConsensusMessage::Vote(v),
             ProcessedConsensusMessage::DAVote(v, _) => ConsensusMessage::DAVote(v),
             ProcessedConsensusMessage::InternalTrigger(a) => ConsensusMessage::InternalTrigger(a),
+            ProcessedConsensusMessage::ViewSync(_) => todo!(),
         }
     }
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProcessedConsensusMessage<TYPES, I> {
     /// row polymorphism would be great here
+    /// # Panics
+    /// Unimplemented features - TODO ED remove this panic when implementation is finished
     pub fn new(value: ConsensusMessage<TYPES, I>, sender: TYPES::SignatureKey) -> Self {
         match value {
             ConsensusMessage::Proposal(p) => ProcessedConsensusMessage::Proposal(p, sender),
@@ -155,6 +167,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProcessedConsensusMessage<TY
             ConsensusMessage::Vote(v) => ProcessedConsensusMessage::Vote(v, sender),
             ConsensusMessage::DAVote(v) => ProcessedConsensusMessage::DAVote(v, sender),
             ConsensusMessage::InternalTrigger(a) => ProcessedConsensusMessage::InternalTrigger(a),
+            ConsensusMessage::ViewSync(_) => todo!(),
         }
     }
 }
@@ -178,11 +191,26 @@ pub enum ConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
+
+    /// View Sync related message - either a vote or certificate
+    ViewSync(ViewSyncMessageType<TYPES>),
+}
+
+/// A view sync message
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "", serialize = ""))]
+pub enum ViewSyncMessageType<TYPES: NodeType> {
+    /// A view sync vote
+    Vote(ViewSyncVote<TYPES>),
+    /// A view sync certificate
+    Certificate(ViewSyncCertificate<TYPES>),
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusMessage<TYPES, I> {
     /// The view number of the (leader|replica) when the message was sent
     /// or the view of the timeout
+    /// # Panics
+    /// Unimplemented features - TODO ED remove this panic when implementation is finished
     pub fn view_number(&self) -> TYPES::Time {
         match self {
             ConsensusMessage::Proposal(p) => {
@@ -200,6 +228,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ConsensusMessage<TYPES, I> {
             ConsensusMessage::InternalTrigger(trigger) => match trigger {
                 InternalTrigger::Timeout(time) => *time,
             },
+            ConsensusMessage::ViewSync(_) => todo!(),
         }
     }
 }
