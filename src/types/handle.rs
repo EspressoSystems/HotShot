@@ -16,12 +16,12 @@ use hotshot_types::{
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
-    message::{ConsensusMessageType, MessageKind},
+    message::{ConsensusMessageType, GeneralConsensusMessage, MessageKind},
     traits::{
         election::ConsensusExchange,
         election::SignedCertificate,
         network::CommunicationChannel,
-        node_implementation::{ExchangesType, NodeType},
+        node_implementation::{ExchangesType, NodeType, QuorumEx},
         state::ConsensusTime,
         storage::Storage,
     },
@@ -309,7 +309,19 @@ where
         leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> I::ConsensusMessage {
+    ) -> GeneralConsensusMessage<TYPES, I, I::ConsensusMessage>
+    where
+        QuorumEx<TYPES, I, I::ConsensusMessage>: ConsensusExchange<
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I, I::ConsensusMessage>,
+            Certificate = QuorumCertificate<TYPES, I::Leaf>,
+        >,
+    {
+        use hotshot_types::{
+            message::GeneralConsensusMessage, traits::node_implementation::QuorumEx,
+        };
+
         let inner = self.hotshot.inner.clone();
         inner.exchanges.quorum_exchange().create_yes_message(
             justify_qc_commitment,

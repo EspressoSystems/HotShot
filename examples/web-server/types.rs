@@ -42,16 +42,14 @@ impl NodeImplementation<VDemoTypes> for NodeImpl {
         VDemoTypes,
         ValidatingLeaf<VDemoTypes>,
         Message<VDemoTypes, Self>,
-        Self::QuorumExchange,
+        QuorumExchange<
+            VDemoTypes,
+            Self::Leaf,
+            ThisProposal,
+            ThisMembership,
+            ThisNetwork,
+            Message<VDemoTypes, Self>,
+        >,
     >;
-    type QuorumExchange = QuorumExchange<
-        VDemoTypes,
-        Self::Leaf,
-        ThisProposal,
-        ThisMembership,
-        ThisNetwork,
-        Message<VDemoTypes, Self>,
-    >;
-    type CommitteeExchange = Self::QuorumExchange;
 }
 pub type ThisRun = WebServerRun<VDemoTypes, NodeImpl, ThisMembership>;

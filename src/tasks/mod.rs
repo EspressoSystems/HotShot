@@ -39,8 +39,9 @@ std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-e
 /// A handle with senders to send events to the background runners.
 #[derive(Default)]
 pub struct TaskHandle<TYPES: NodeType> {
-    /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized early on in the [`HotShot`] struct. It should be safe to `unwrap` this.
-    inner: RwLock<Option<TaskHandleInner>>,
+    /// Inner struct of the [`TaskHandle`]. This is `None` by default but should be initialized
+    /// early on in the [`HotShot`] struct. It should be safe to `unwrap` this.
+    pub(crate) inner: RwLock<Option<TaskHandleInner>>,
     /// Reference to the [`NodeType`] used in this configuration
     _types: PhantomData<TYPES>,
 }
@@ -162,7 +163,7 @@ pub(crate) struct TaskHandleInner {
 
     /// same as hotshot's view_timeout such that
     /// there is not an accidental race between the two
-    shutdown_timeout: Duration,
+    pub(crate) shutdown_timeout: Duration,
 }
 
 /// main thread driving consensus

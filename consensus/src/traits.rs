@@ -9,7 +9,7 @@ use hotshot_types::traits::node_implementation::{
 };
 use hotshot_types::traits::storage::StorageError;
 use hotshot_types::{
-    data::{LeafType, ProposalType},
+    data::{LeafType, ProposalType, ValidatingLeaf},
     error::HotShotError,
     event::{Event, EventType},
     traits::{
@@ -135,10 +135,17 @@ pub trait ConsensusSharedApi<
 pub trait ValidatingConsensusApi<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
-    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = ValidatingLeaf<TYPES>,
+        ConsensusMessage = ValidatingMessage<TYPES, I>,
+    >,
 >: ConsensusSharedApi<TYPES, LEAF, I> where
-    I::Exchanges:
-        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
+    I::Exchanges: ValidatingExchangesType<
+        TYPES,
+        ValidatingLeaf<TYPES>,
+        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+    >,
 {
     /// Send a direct message to the given recipient
     async fn send_direct_message<PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>(

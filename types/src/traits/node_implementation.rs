@@ -10,7 +10,8 @@ use super::{
         validating_consensus::ValidatingConsensusType, ConsensusType,
     },
     election::{
-        CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchangeType, VoteToken,
+        CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchange,
+        QuorumExchangeType, VoteToken,
     },
     network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
@@ -18,8 +19,9 @@ use super::{
     storage::{StorageError, StorageState, TestableStorage},
     State,
 };
+use crate::{data::TestableLeaf, message::Message};
 use crate::{
-    data::LeafType,
+    data::{LeafType, SequencingLeaf, ValidatingLeaf},
     message::{ConsensusMessageType, SequencingMessage, ValidatingMessage},
     traits::{
         consensus_type::{
@@ -30,7 +32,6 @@ use crate::{
         Block,
     },
 };
-use crate::{data::TestableLeaf, message::Message};
 use async_compatibility_layer::async_primitives::broadcast::channel;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -87,7 +88,7 @@ pub trait ExchangesType<
 >: Send + Sync
 {
     /// Protocol for exchanging consensus proposals and votes.
-    type QuorumExchange: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Debug;
+    type QuorumExchange: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Copy + Debug;
 
     /// Networking implementations for all exchanges.
     type Networks;
@@ -128,7 +129,9 @@ pub trait SequencingExchangesType<
 >: ExchangesType<SequencingConsensus, TYPES, LEAF, MESSAGE>
 {
     /// Protocol for exchanging data availability proposals and votes.
-    type CommitteeExchange: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Debug;
+    type CommitteeExchange: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Copy + Debug;
+
+    fn committee_exchange(&self) -> &Self::CommitteeExchange;
 }
 
 /// Implements [`ValidatingExchangesType`].
@@ -152,7 +155,7 @@ where
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Debug,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Copy + Debug,
 {
 }
 
@@ -163,7 +166,7 @@ where
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Debug,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Copy + Debug,
 {
     type QuorumExchange = QUORUMEXCHANGE;
     type Networks = QUORUMEXCHANGE::Networking;
@@ -220,10 +223,14 @@ where
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Debug,
-    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Debug,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Copy + Debug,
+    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Copy + Debug,
 {
     type CommitteeExchange = COMMITTEEEXCHANGE;
+
+    fn committee_exchange(&self) -> &COMMITTEEEXCHANGE {
+        &self.committee_exchange
+    }
 }
 
 #[async_trait]
@@ -234,8 +241,8 @@ where
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Debug,
-    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE>,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Copy + Debug,
+    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Copy,
 {
     type QuorumExchange = QUORUMEXCHANGE;
     type Networks = (QUORUMEXCHANGE::Networking, COMMITTEEEXCHANGE::Networking);
@@ -277,20 +284,6 @@ where
     }
 }
 
-impl<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
-    SequencingExchanges<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
-where
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    LEAF: LeafType<NodeType = TYPES>,
-    MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Debug,
-    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE>,
-{
-    fn committee_exchange(&self) -> &COMMITTEEEXCHANGE {
-        &self.committee_exchange
-    }
-}
-
 /// Alias for the [`QuorumExchange`] type.
 pub type QuorumEx<TYPES, I, CONSENSUSMESSAGE> =
     <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
@@ -305,7 +298,7 @@ pub type ValidatingQuorumEx<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
         ValidatingConsensus,
         TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
+        ValidatingLeaf<TYPES>,
         Message<TYPES, I, ValidatingMessage<TYPES, I>>,
     >>::QuorumExchange;
 
@@ -314,7 +307,7 @@ pub type SequencingQuorumEx<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
         SequencingConsensus,
         TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
+        SequencingLeaf<TYPES>,
         Message<TYPES, I, SequencingMessage<TYPES, I>>,
     >>::QuorumExchange;
 
@@ -322,7 +315,7 @@ pub type SequencingQuorumEx<TYPES, I> =
 pub type CommitteeEx<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::Exchanges as SequencingExchangesType<
         TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
+        SequencingLeaf<TYPES>,
         Message<TYPES, I, SequencingMessage<TYPES, I>>,
     >>::CommitteeExchange;
 
@@ -391,7 +384,11 @@ pub trait TestableNodeImplementation<
 #[async_trait]
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, Self>>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            ConsensusMessage = ValidatingMessage<TYPES, Self>,
+        >,
     > TestableNodeImplementation<ValidatingConsensus, TYPES> for I
 where
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<
@@ -504,57 +501,61 @@ where
 #[async_trait]
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, Self>>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = SequencingLeaf<TYPES>,
+            ConsensusMessage = SequencingMessage<TYPES, Self>,
+        >,
     > TestableNodeImplementation<SequencingConsensus, TYPES> for I
 where
     <I as NodeImplementation<TYPES>>::Exchanges: SequencingExchangesType<
         TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
+        SequencingLeaf<TYPES>,
         Message<TYPES, I, SequencingMessage<TYPES, I>>,
     >,
     <CommitteeEx<TYPES, I> as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        SequencingLeaf<TYPES>,
         Message<TYPES, I, SequencingMessage<TYPES, I>>,
     >>::Networking: TestableNetworkingImplementation<
         TYPES,
         Message<TYPES, I, SequencingMessage<TYPES, I>>,
         <CommitteeEx<TYPES, I> as ConsensusExchange<
             TYPES,
-            I::Leaf,
+            SequencingLeaf<TYPES>,
             Message<TYPES, I, SequencingMessage<TYPES, I>>,
         >>::Proposal,
         <CommitteeEx<TYPES, I> as ConsensusExchange<
             TYPES,
-            I::Leaf,
+            SequencingLeaf<TYPES>,
             Message<TYPES, I, SequencingMessage<TYPES, I>>,
         >>::Vote,
         <CommitteeEx<TYPES, I> as ConsensusExchange<
             TYPES,
-            I::Leaf,
+            SequencingLeaf<TYPES>,
             Message<TYPES, I, SequencingMessage<TYPES, I>>,
         >>::Membership,
     >,
     <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
         TYPES,
-        I::Leaf,
+        SequencingLeaf<TYPES>,
         Message<TYPES, I, SequencingMessage<TYPES, I>>,
     >>::Networking: TestableNetworkingImplementation<
         TYPES,
         Message<TYPES, I, SequencingMessage<TYPES, I>>,
         <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
-            I::Leaf,
+            SequencingLeaf<TYPES>,
             Message<TYPES, I, SequencingMessage<TYPES, I>>,
         >>::Proposal,
         <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
-            I::Leaf,
+            SequencingLeaf<TYPES>,
             Message<TYPES, I, SequencingMessage<TYPES, I>>,
         >>::Vote,
         <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
-            I::Leaf,
+            SequencingLeaf<TYPES>,
             Message<TYPES, I, SequencingMessage<TYPES, I>>,
         >>::Membership,
     >,

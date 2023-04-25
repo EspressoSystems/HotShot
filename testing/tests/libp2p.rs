@@ -42,17 +42,15 @@ impl NodeImplementation<StaticCommitteeTestTypes> for Libp2pImpl {
         StaticCommitteeTestTypes,
         ValidatingLeaf<StaticCommitteeTestTypes>,
         Message<StaticCommitteeTestTypes, Self>,
-        Self::QuorumExchange,
+        QuorumExchange<
+            StaticCommitteeTestTypes,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticMembership,
+            StaticCommunication,
+            Message<StaticCommitteeTestTypes, Libp2pImpl>,
+        >,
     >;
-    type QuorumExchange = QuorumExchange<
-        StaticCommitteeTestTypes,
-        ValidatingLeaf<StaticCommitteeTestTypes>,
-        ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-        StaticMembership,
-        StaticCommunication,
-        Message<StaticCommitteeTestTypes, Libp2pImpl>,
-    >;
-    type CommitteeExchange = Self::QuorumExchange;
 }
 
 /// libp2p network test

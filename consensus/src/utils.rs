@@ -65,15 +65,15 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Deref for View<TYPES, LE
     }
 }
 
-/// struct containing messages for a view to send to replica
+/// struct containing messages for a view to send to a replica or DA committee member.
 #[derive(Clone)]
 pub struct ViewQueue<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// to send networking events to Replica
+    /// to send networking events to a replica or DA committee member.
     pub sender_chan: UnboundedSender<
         <I::ConsensusMessage as ConsensusMessageType<TYPES, I>>::ProcessedConsensusMessage,
     >,
 
-    /// to recv networking events for Replica
+    /// to recv networking events for a replica or DA committee member.
     pub receiver_chan: Arc<
         Mutex<
             UnboundedReceiver<

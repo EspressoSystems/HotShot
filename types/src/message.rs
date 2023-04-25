@@ -8,7 +8,7 @@ use crate::traits::consensus_type::validating_consensus::ValidatingConsensus;
 use crate::traits::network::ViewMessage;
 use crate::vote::{DAVote, QuorumVote};
 use crate::{
-    data::ProposalType,
+    data::{ProposalType, ValidatingLeaf},
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         network::NetworkMsg,
@@ -48,7 +48,7 @@ pub struct Message<
     pub kind: MessageKind<TYPES, I, CONSENSUSMESSAGE>,
 
     /// Phantom data.
-    _phantom: PhantomData<I>,
+    pub _phantom: PhantomData<I>,
 }
 
 impl<
@@ -68,7 +68,11 @@ impl<
 
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            ConsensusMessage = ValidatingMessage<TYPES, I>,
+        >,
     > ViewMessage<TYPES> for Message<TYPES, I, ValidatingMessage<TYPES, I>>
 where
     I::Exchanges:
@@ -138,7 +142,11 @@ pub enum MessageKind<
 
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            ConsensusMessage = ValidatingMessage<TYPES, I>,
+        >,
     > From<ValidatingMessage<TYPES, I>> for MessageKind<TYPES, I, ValidatingMessage<TYPES, I>>
 where
     I::Exchanges:
@@ -245,7 +253,11 @@ where
 
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            ConsensusMessage = ValidatingMessage<TYPES, I>,
+        >,
     > From<ProcessedGeneralConsensusMessage<TYPES, I, ValidatingMessage<TYPES, I>>>
     for ValidatingMessage<TYPES, I>
 where
@@ -384,6 +396,23 @@ where
     }
 }
 
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    > From<ProcessedGeneralConsensusMessage<TYPES, I, SequencingMessage<TYPES, I>>>
+    for ProcessedSequencingMessage<TYPES, I, SequencingMessage<TYPES, I>>
+where
+    I::Exchanges:
+        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+{
+    /// row polymorphism would be great here
+    fn from(
+        value: ProcessedGeneralConsensusMessage<TYPES, I, SequencingMessage<TYPES, I>>,
+    ) -> Self {
+        Left(value)
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = "", serialize = ""))]
 /// Messages related to both validating and sequencing consensus.
@@ -461,15 +490,26 @@ pub trait SequencingMessageType<
 #[serde(bound(deserialize = "", serialize = ""))]
 pub struct ValidatingMessage<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+    I: NodeImplementation<
+        TYPES,
+        Leaf = ValidatingLeaf<TYPES>,
+        ConsensusMessage = ValidatingMessage<TYPES, I>,
+    >,
 >(pub GeneralConsensusMessage<TYPES, I, ValidatingMessage<TYPES, I>>)
 where
-    I::Exchanges:
-        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>;
+    I::Exchanges: ValidatingExchangesType<
+        TYPES,
+        ValidatingLeaf<TYPES>,
+        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+    >;
 
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            ConsensusMessage = ValidatingMessage<TYPES, I>,
+        >,
     > ConsensusMessageType<TYPES, I> for ValidatingMessage<TYPES, I>
 where
     I::Exchanges:
@@ -481,7 +521,11 @@ where
 
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            ConsensusMessage = ValidatingMessage<TYPES, I>,
+        >,
     > ValidatingMessageType<TYPES, I> for ValidatingMessage<TYPES, I>
 where
     I::Exchanges:
@@ -491,7 +535,11 @@ where
 
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+        I: NodeImplementation<
+            TYPES,
+            Leaf = ValidatingLeaf<TYPES>,
+            ConsensusMessage = ValidatingMessage<TYPES, I>,
+        >,
     > ValidatingMessage<TYPES, I>
 where
     I::Exchanges:

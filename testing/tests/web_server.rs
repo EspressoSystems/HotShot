@@ -44,17 +44,15 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
         StaticCommitteeTestTypes,
         ValidatingLeaf<StaticCommitteeTestTypes>,
         Message<StaticCommitteeTestTypes, Self>,
-        Self::QuorumExchange,
+        QuorumExchange<
+            StaticCommitteeTestTypes,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticMembership,
+            StaticCommunication,
+            Message<StaticCommitteeTestTypes, Self>,
+        >,
     >;
-    type QuorumExchange = QuorumExchange<
-        StaticCommitteeTestTypes,
-        ValidatingLeaf<StaticCommitteeTestTypes>,
-        ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-        StaticMembership,
-        StaticCommunication,
-        Message<StaticCommitteeTestTypes, Self>,
-    >;
-    type CommitteeExchange = Self::QuorumExchange;
 }
 
 /// Web server network test

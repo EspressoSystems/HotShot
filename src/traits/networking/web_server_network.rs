@@ -25,7 +25,8 @@ use hotshot_types::traits::node_implementation::{
 use hotshot_types::{
     data::{SequencingLeaf, ValidatingLeaf},
     message::{
-        CommitteeConsensusMessage, GeneralConsensusMessage, SequencingMessage, ValidatingMessage,
+        CommitteeConsensusMessage, DataMessage, GeneralConsensusMessage, MessageKind,
+        SequencingMessage, ValidatingMessage,
     },
 };
 
@@ -139,18 +140,17 @@ where
         let view_number: TYPES::Time = message.get_view_number();
 
         let endpoint = match &message.kind {
-            hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind.0 {
+            MessageKind::Consensus(message_kind) => match message_kind.0 {
                 GeneralConsensusMessage::Proposal(_) => config::post_proposal_route(*view_number),
                 GeneralConsensusMessage::Vote(_) => config::post_vote_route(*view_number),
                 GeneralConsensusMessage::InternalTrigger(_) => {
                     return Err(WebServerNetworkError::EndpointError)
                 }
             },
-            hotshot_types::message::MessageKind::Data(message_kind) => match message_kind {
-                hotshot_types::message::DataMessage::SubmitTransaction(_, _) => {
-                    config::post_transactions_route()
-                }
+            MessageKind::Data(message_kind) => match message_kind {
+                DataMessage::SubmitTransaction(_, _) => config::post_transactions_route(),
             },
+            MessageKind::_Unreachable(_) => unimplemented!(),
         };
 
         let network_msg: SendMsg<Message<TYPES, I, I::ConsensusMessage>> = SendMsg {
@@ -188,7 +188,7 @@ where
         let view_number: TYPES::Time = message.get_view_number();
 
         let endpoint = match &message.kind {
-            hotshot_types::message::MessageKind::Consensus(message_kind) => match message_kind.0 {
+            MessageKind::Consensus(message_kind) => match &message_kind.0 {
                 Left(message) => match message {
                     GeneralConsensusMessage::Proposal(_) => {
                         config::post_proposal_route(*view_number)
@@ -205,11 +205,10 @@ where
                     CommitteeConsensusMessage::DAVote(_) => config::post_vote_route(*view_number),
                 },
             },
-            hotshot_types::message::MessageKind::Data(message_kind) => match message_kind {
-                hotshot_types::message::DataMessage::SubmitTransaction(_, _) => {
-                    config::post_transactions_route()
-                }
+            MessageKind::Data(message_kind) => match message_kind {
+                DataMessage::SubmitTransaction(_, _) => config::post_transactions_route(),
             },
+            MessageKind::_Unreachable(_) => unimplemented!(),
         };
 
         let network_msg: SendMsg<Message<TYPES, I, I::ConsensusMessage>> = SendMsg {

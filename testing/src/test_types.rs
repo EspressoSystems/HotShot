@@ -131,17 +131,15 @@ impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
         VrfTestTypes,
         ValidatingLeaf<VrfTestTypes>,
         Message<VrfTestTypes, Self>,
-        Self::QuorumExchange,
+        QuorumExchange<
+            VrfTestTypes,
+            ValidatingLeaf<VrfTestTypes>,
+            ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+            VrfMembership,
+            VrfCommunication,
+            Message<VrfTestTypes, Self>,
+        >,
     >;
-    type QuorumExchange = QuorumExchange<
-        VrfTestTypes,
-        ValidatingLeaf<VrfTestTypes>,
-        ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-        VrfMembership,
-        VrfCommunication,
-        Message<VrfTestTypes, Self>,
-    >;
-    type CommitteeExchange = Self::QuorumExchange;
 }
 
 impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
@@ -153,17 +151,15 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
         StaticCommitteeTestTypes,
         ValidatingLeaf<StaticCommitteeTestTypes>,
         Message<StaticCommitteeTestTypes, Self>,
-        Self::QuorumExchange,
+        QuorumExchange<
+            StaticCommitteeTestTypes,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticMembership,
+            StaticCommunication,
+            Message<StaticCommitteeTestTypes, Self>,
+        >,
     >;
-    type QuorumExchange = QuorumExchange<
-        StaticCommitteeTestTypes,
-        ValidatingLeaf<StaticCommitteeTestTypes>,
-        ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-        StaticMembership,
-        StaticCommunication,
-        Message<StaticCommitteeTestTypes, Self>,
-    >;
-    type CommitteeExchange = Self::QuorumExchange;
 }
 
 /// type alias for the test runner type

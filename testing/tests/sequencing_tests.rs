@@ -83,23 +83,21 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
         SequencingTestTypes,
         SequencingLeaf<SequencingTestTypes>,
         Message<SequencingTestTypes, Self>,
-        Self::QuorumExchange,
-        Self::CommitteeExchange,
-    >;
-    type QuorumExchange = QuorumExchange<
-        SequencingTestTypes,
-        Self::Leaf,
-        CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-        StaticMembership,
-        StaticQuroumComm,
-        Message<SequencingTestTypes, Self>,
-    >;
-    type CommitteeExchange = CommitteeExchange<
-        SequencingTestTypes,
-        Self::Leaf,
-        StaticMembership,
-        StaticDAComm,
-        Message<SequencingTestTypes, Self>,
+        QuorumExchange<
+            SequencingTestTypes,
+            Self::Leaf,
+            CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticMembership,
+            StaticQuroumComm,
+            Message<SequencingTestTypes, Self>,
+        >,
+        CommitteeExchange<
+            SequencingTestTypes,
+            Self::Leaf,
+            StaticMembership,
+            StaticDAComm,
+            Message<SequencingTestTypes, Self>,
+        >,
     >;
 }
 
@@ -147,23 +145,21 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
         SequencingTestTypes,
         SequencingLeaf<SequencingTestTypes>,
         Message<SequencingTestTypes, Self>,
-        Self::QuorumExchange,
-        Self::CommitteeExchange,
-    >;
-    type QuorumExchange = QuorumExchange<
-        SequencingTestTypes,
-        Self::Leaf,
-        CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-        StaticMembership,
-        StaticQuroumCommP2p,
-        Message<SequencingTestTypes, Self>,
-    >;
-    type CommitteeExchange = CommitteeExchange<
-        SequencingTestTypes,
-        Self::Leaf,
-        StaticMembership,
-        StaticDACommP2p,
-        Message<SequencingTestTypes, Self>,
+        QuorumExchange<
+            SequencingTestTypes,
+            Self::Leaf,
+            CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticMembership,
+            StaticQuroumCommP2p,
+            Message<SequencingTestTypes, Self>,
+        >,
+        CommitteeExchange<
+            SequencingTestTypes,
+            Self::Leaf,
+            StaticMembership,
+            StaticDACommP2p,
+            Message<SequencingTestTypes, Self>,
+        >,
     >;
 }
 
@@ -211,23 +207,21 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
         SequencingTestTypes,
         SequencingLeaf<SequencingTestTypes>,
         Message<SequencingTestTypes, Self>,
-        Self::QuorumExchange,
-        Self::CommitteeExchange,
-    >;
-    type QuorumExchange = QuorumExchange<
-        SequencingTestTypes,
-        Self::Leaf,
-        CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
-        StaticMembership,
-        StaticQuroumCommCentral,
-        Message<SequencingTestTypes, Self>,
-    >;
-    type CommitteeExchange = CommitteeExchange<
-        SequencingTestTypes,
-        Self::Leaf,
-        StaticMembership,
-        StaticDACommCentral,
-        Message<SequencingTestTypes, Self>,
+        QuorumExchange<
+            SequencingTestTypes,
+            Self::Leaf,
+            CommitmentProposal<SequencingTestTypes, SequencingLeaf<SequencingTestTypes>>,
+            StaticMembership,
+            StaticQuroumCommCentral,
+            Message<SequencingTestTypes, Self>,
+        >,
+        CommitteeExchange<
+            SequencingTestTypes,
+            Self::Leaf,
+            StaticMembership,
+            StaticDACommCentral,
+            Message<SequencingTestTypes, Self>,
+        >,
     >;
 }
 
