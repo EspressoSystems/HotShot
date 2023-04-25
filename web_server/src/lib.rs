@@ -91,12 +91,12 @@ pub trait WebServerDataSource<KEY> {
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
     fn post_staketable(&mut self, key: Vec<u8>) -> Result<(), Error>;
     fn post_secret_proposal(&mut self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error>;
-    fn proposals(&self) -> HashMap<u64, (String, Vec<u8>)>;
+    fn proposal(&self, view_number: u64) -> Option<(String, Vec<u8>)>;
 }
 
 impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
-    fn proposals(&self) -> HashMap<u64, (String, Vec<u8>)> {
-        self.proposals.clone()
+    fn proposal(&self, view_number: u64) -> Option<(String, Vec<u8>)> {
+        self.proposals.get(&view_number).cloned()
     }
     /// Return the proposal the server has received for a particular view
     fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<u8>>, Error> {
@@ -331,14 +331,24 @@ where
             let view_number: u64 = req.integer_param("view_number")?;
             let secret: &str = req.string_param("secret")?;
             //if secret is correct and view_number->proposal is empty, proposal is valid
-            if let Some(prop) = state.proposals().get(&view_number) {
-                if prop.0 == secret && prop.1.is_empty() {
-                    let proposal = req.body_bytes();
-                    state.post_secret_proposal(view_number, proposal)
+            if let Some(prop) = state.proposal(view_number) {
+                if prop.1.is_empty() {
+                    if prop.0 == secret {
+                        let proposal = req.body_bytes();
+                        state.post_secret_proposal(view_number, proposal)
+                    } else {
+                        Err(ServerError {
+                            status: StatusCode::BadRequest,
+                            message: format!(
+                                "Wrong secret value for proposal for view {:?}",
+                                view_number
+                            ),
+                        })
+                    }
                 } else {
                     Err(ServerError {
                         status: StatusCode::BadRequest,
-                        message: "Proposal already submitted or wrong secret value".to_string(),
+                        message: format!("Proposal already submitted for view {:?}", view_number),
                     })
                 }
             } else {
