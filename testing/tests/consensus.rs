@@ -1,10 +1,24 @@
 use async_lock::Mutex;
 
-use hotshot_testing::{test_types::{AppliedTestRunner, VrfTestTypes, StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType}, round::{RoundCtx, RoundResult, RoundSetup, RoundSafetyCheck, Round}, test_errors::{ConsensusFailedError, ConsensusTestError}, test_builder::{TestBuilder, TestMetadata, TimingData}, round_builder::RoundBuilder};
+use hotshot_testing::{
+    round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
+    round_builder::RoundBuilder,
+    test_builder::{TestBuilder, TestMetadata, TimingData},
+    test_errors::{
+        ConsensusFailedError, ConsensusSafetyFailedSnafu, ConsensusTestError, SafetyFailedSnafu,
+    },
+    test_types::{
+        AppliedTestRunner, StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType,
+        VrfTestTypes,
+    },
+};
 use nll::nll_todo::nll_todo;
 
 use commit::Committable;
-use either::{Either::{self, Left}, Right};
+use either::{
+    Either::{self, Left},
+    Right,
+};
 use futures::{
     future::{join_all, LocalBoxFuture},
     FutureExt,
@@ -30,7 +44,7 @@ use hotshot_types::{
     vote::QuorumVote,
 };
 
-use snafu::{ensure, OptionExt};
+use snafu::{ensure, OptionExt, ResultExt};
 
 use std::iter::once;
 use std::sync::Arc;
@@ -450,24 +464,25 @@ where
 #[ignore]
 async fn test_validating_proposal_queueing() {
     let num_rounds = 10;
-    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> =
-        TestBuilder {
-            metadata: TestMetadata {
-                total_nodes: 4,
-                start_nodes: 4,
-                num_succeeds: num_rounds,
-                failure_threshold: 0,
-                ..TestMetadata::default()
-            },
-            over_ride: Some(RoundBuilder {
-                hooks: Vec::new(),
-                setup: Either::Left(RoundSetup(Arc::new(test_validating_proposal_queueing_round_setup))),
-                check: Either::Left(RoundSafetyCheck(Arc::new(test_validating_proposal_queueing_post_safety_check))),
-            }),
-        };
-    let mut test = builder.build().launch();
-
-    test.run_test().await.unwrap();
+    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> = TestBuilder {
+        metadata: TestMetadata {
+            total_nodes: 4,
+            start_nodes: 4,
+            num_succeeds: num_rounds,
+            failure_threshold: 0,
+            ..TestMetadata::default()
+        },
+        over_ride: Some(RoundBuilder {
+            hooks: Vec::new(),
+            setup: Either::Left(RoundSetup(Arc::new(
+                test_validating_proposal_queueing_round_setup,
+            ))),
+            check: Either::Left(RoundSafetyCheck(Arc::new(
+                test_validating_proposal_queueing_post_safety_check,
+            ))),
+        }),
+    };
+    builder.build().launch().run_test().await.unwrap();
 }
 
 /// Tests that next leaders receive and queue valid vote messages properly
@@ -480,23 +495,26 @@ async fn test_validating_proposal_queueing() {
 #[ignore]
 async fn test_vote_queueing() {
     let num_rounds = 10;
-    let setup = Left(RoundSetup(Arc::new(test_validating_vote_queueing_round_setup)));
-    let check = Left(RoundSafetyCheck(Arc::new(test_validating_vote_queueing_post_safety_check)));
-    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> =
-        TestBuilder {
-            metadata: TestMetadata {
-                total_nodes: 4,
-                start_nodes: 4,
-                num_succeeds: num_rounds,
-                failure_threshold: 0,
-                ..TestMetadata::default()
-            },
-            over_ride: Some(RoundBuilder {
-                setup,
-                check,
-                hooks: Vec::new()
-            }),
-        };
+    let setup = Left(RoundSetup(Arc::new(
+        test_validating_vote_queueing_round_setup,
+    )));
+    let check = Left(RoundSafetyCheck(Arc::new(
+        test_validating_vote_queueing_post_safety_check,
+    )));
+    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> = TestBuilder {
+        metadata: TestMetadata {
+            total_nodes: 4,
+            start_nodes: 4,
+            num_succeeds: num_rounds,
+            failure_threshold: 0,
+            ..TestMetadata::default()
+        },
+        over_ride: Some(RoundBuilder {
+            setup,
+            check,
+            hooks: Vec::new(),
+        }),
+    };
 
     builder.build().launch().run_test().await.unwrap();
 }
@@ -511,25 +529,26 @@ async fn test_vote_queueing() {
 #[ignore]
 async fn test_bad_proposal() {
     let num_rounds = 10;
-    let setup = Left(RoundSetup(Arc::new(test_bad_validating_proposal_round_setup)));
+    let setup = Left(RoundSetup(Arc::new(
+        test_bad_validating_proposal_round_setup,
+    )));
     let check = Left(RoundSafetyCheck(Arc::new(
         test_bad_validating_proposal_post_safety_check::<VrfTestTypes, StandardNodeImplType>,
     )));
-    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> =
-        TestBuilder {
-            metadata: TestMetadata {
-                total_nodes: 4,
-                start_nodes: 4,
-                num_succeeds: num_rounds,
-                failure_threshold: 0,
-                ..TestMetadata::default()
-            },
-            over_ride: Some(RoundBuilder {
-                setup,
-                check,
-                hooks: vec![]
-            }),
-        };
+    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> = TestBuilder {
+        metadata: TestMetadata {
+            total_nodes: 4,
+            start_nodes: 4,
+            num_succeeds: num_rounds,
+            failure_threshold: 0,
+            ..TestMetadata::default()
+        },
+        over_ride: Some(RoundBuilder {
+            setup,
+            check,
+            hooks: vec![],
+        }),
+    };
     builder.build().launch().run_test().await.unwrap();
 }
 
@@ -542,17 +561,16 @@ async fn test_bad_proposal() {
 #[instrument]
 async fn test_single_node_network() {
     let num_rounds = 100;
-    let builder: TestBuilder<StaticCommitteeTestTypes, StaticNodeImplType> =
-        TestBuilder {
-            metadata: TestMetadata {
-                total_nodes: 1,
-                start_nodes: 1,
-                num_succeeds: num_rounds,
-                failure_threshold: 0,
-                ..TestMetadata::default()
-            },
-            over_ride: None
-        };
+    let builder: TestBuilder<StaticCommitteeTestTypes, StaticNodeImplType> = TestBuilder {
+        metadata: TestMetadata {
+            total_nodes: 1,
+            start_nodes: 1,
+            num_succeeds: num_rounds,
+            failure_threshold: 0,
+            ..TestMetadata::default()
+        },
+        over_ride: None,
+    };
     builder.build().launch().run_test().await.unwrap();
 }
 
@@ -568,23 +586,22 @@ async fn test_min_propose() {
     let num_rounds = 5;
     let propose_min_round_time = Duration::new(1, 0);
     let propose_max_round_time = Duration::new(5, 0);
-    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> =
-        TestBuilder {
-            metadata: TestMetadata {
-                total_nodes: 5,
-                start_nodes: 5,
-                num_succeeds: num_rounds,
-                failure_threshold: 0,
-                timing_data: TimingData {
-                    propose_min_round_time,
-                    propose_max_round_time,
-                    next_view_timeout: 10000,
-                    ..TimingData::default()
-                },
-                ..TestMetadata::default()
+    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> = TestBuilder {
+        metadata: TestMetadata {
+            total_nodes: 5,
+            start_nodes: 5,
+            num_succeeds: num_rounds,
+            failure_threshold: 0,
+            timing_data: TimingData {
+                propose_min_round_time,
+                propose_max_round_time,
+                next_view_timeout: 10000,
+                ..TimingData::default()
             },
-            over_ride: None,
-        };
+            ..TestMetadata::default()
+        },
+        over_ride: None,
+    };
     let start_time = Instant::now();
     builder.build().launch().run_test().await.unwrap();
     let duration = Instant::now() - start_time;
@@ -609,24 +626,23 @@ async fn test_max_propose() {
     let propose_min_round_time = Duration::new(0, 0);
     let propose_max_round_time = Duration::new(1, 0);
     let min_transactions: usize = 10;
-    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> =
-        TestBuilder {
-            metadata: TestMetadata {
-                total_nodes: 5,
-                start_nodes: 5,
-                num_succeeds: num_rounds,
-                failure_threshold: 0,
-                min_transactions,
-                timing_data: TimingData {
-                    propose_min_round_time,
-                    propose_max_round_time,
-                    next_view_timeout: 10000,
-                    ..TimingData::default()
-                },
-                ..TestMetadata::default()
+    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> = TestBuilder {
+        metadata: TestMetadata {
+            total_nodes: 5,
+            start_nodes: 5,
+            num_succeeds: num_rounds,
+            failure_threshold: 0,
+            min_transactions,
+            timing_data: TimingData {
+                propose_min_round_time,
+                propose_max_round_time,
+                next_view_timeout: 10000,
+                ..TimingData::default()
             },
-            over_ride: None,
-        };
+            ..TestMetadata::default()
+        },
+        over_ride: None,
+    };
     let start_time = Instant::now();
     builder.build().launch().run_test().await.unwrap();
     let duration = Instant::now() - start_time;
@@ -712,8 +728,7 @@ async fn test_chain_height() {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_decide_leaf_chain() {
-    let mut round = Round::default();
-
+    let mut round = Round::<StaticCommitteeTestTypes, StaticNodeImplType>::default();
 
     // Collection of (handle, leaf) pairs collected at the start of the round. The leaf is the
     // last decided leaf before the round, so that after the round we can check that the new
@@ -731,7 +746,7 @@ async fn test_decide_leaf_chain() {
     // Initialize `handles` at the start of the round.
     {
         let handles = Arc::new(Mutex::new(vec![]));
-        test.round.safety_check_pre = RoundPreSafetyCheck(Arc::new(move |runner, _ctx| {
+        round.hooks = vec![RoundHook(Arc::new(move |runner, _ctx| {
             let handles = handles.clone();
             async move {
                 *handles.lock().await = join_all(
@@ -743,9 +758,9 @@ async fn test_decide_leaf_chain() {
                 Ok(())
             }
             .boxed_local()
-        }));
+        }))];
     }
-    round.check = RoundPostSafetyCheck(Arc::new(move |_, _ctx, _| {
+    round.safety_check = RoundSafetyCheck(Arc::new(move |_, _ctx, _| {
         let handles = handles.clone();
         async move {
             for (mut handle, last_leaf) in std::mem::take(&mut *handles.lock().await) {
@@ -754,12 +769,12 @@ async fn test_decide_leaf_chain() {
                     let event = handle
                         .try_next_event()
                         .map_err(|_| {
-                            SafetyFailedSnafu {
+                            ConsensusSafetyFailedSnafu {
                                 description: "HotShot shut down",
                             }
                             .build()
                         })?
-                        .context(SafetyFailedSnafu {
+                        .context(ConsensusSafetyFailedSnafu {
                             description: "round did not produce a Decide or ViewFinished event",
                         })?;
                     match event.event {
@@ -788,7 +803,7 @@ async fn test_decide_leaf_chain() {
                     }
                     ensure!(
                         qc.leaf_commitment() == leaf.commit(),
-                        SafetyFailedSnafu {
+                        ConsensusSafetyFailedSnafu {
                             description: format!(
                                 "QC {}/{} justifies {}, but the parent leaf is {}",
                                 i + 1,
@@ -819,7 +834,7 @@ async fn test_decide_leaf_chain() {
         }
         .boxed_local()
     }));
-    let mut test = TestBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
+    let mut builder = TestBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
         metadata: TestMetadata {
             num_succeeds: 10,
             failure_threshold: 0,
@@ -828,7 +843,5 @@ async fn test_decide_leaf_chain() {
         over_ride: Some(RoundBuilder::default()),
     };
 
-    test.execute().await.unwrap();
+    builder.build().launch().run_test().await.unwrap();
 }
-
-

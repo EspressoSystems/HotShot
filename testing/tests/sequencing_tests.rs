@@ -12,7 +12,7 @@ use hotshot::{
         NodeImplementation,
     },
 };
-use hotshot_testing::test_builder::TestMetadata;
+use hotshot_testing::test_builder::{TestBuilder, TestMetadata};
 use hotshot_types::data::CommitmentProposal;
 use hotshot_types::message::Message;
 
@@ -103,13 +103,10 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn sequencing_memory_network_test() {
-    let builder = TestMetadata::default_multiple_rounds();
+    let builder =
+        TestBuilder::<SequencingTestTypes, SequencingMemoryImpl>::default_multiple_rounds();
 
-    builder
-        .build::<SequencingTestTypes, SequencingMemoryImpl>()
-        .execute()
-        .await
-        .unwrap();
+    builder.build().launch().run_test().await.unwrap();
 }
 
 #[derive(Clone, Debug)]
@@ -159,13 +156,10 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn sequencing_libp2p_test() {
-    let builder = TestMetadata::default_multiple_rounds();
+    let builder =
+        TestBuilder::<SequencingTestTypes, SequencingLibP2PImpl>::default_multiple_rounds();
 
-    builder
-        .build::<SequencingTestTypes, SequencingLibP2PImpl>()
-        .execute()
-        .await
-        .unwrap();
+    builder.build().launch().run_test().await.unwrap();
 }
 
 #[derive(Clone, Debug)]
@@ -215,11 +209,8 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn sequencing_centralized_server_test() {
-    let builder = TestMetadata::default_multiple_rounds();
+    let builder =
+        TestBuilder::<SequencingTestTypes, SequencingCentralImpl>::default_multiple_rounds();
 
-    builder
-        .build::<SequencingTestTypes, SequencingCentralImpl>()
-        .execute()
-        .await
-        .unwrap();
+    builder.build().launch().run_test().await.unwrap();
 }

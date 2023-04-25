@@ -5,7 +5,10 @@ use hotshot::traits::{
     implementations::{MemoryStorage, WebCommChannel},
 };
 
-use hotshot_testing::{test_builder::TestMetadata, test_types::StaticCommitteeTestTypes};
+use hotshot_testing::{
+    test_builder::{TestBuilder, TestMetadata, TimingData},
+    test_types::StaticCommitteeTestTypes,
+};
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::QuorumExchange;
 use hotshot_types::traits::node_implementation::NodeImplementation;
@@ -52,18 +55,20 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn centralized_server_network() {
-    let description = TestMetadata {
-        round_start_delay: 25,
-        num_succeeds: 5,
-        next_view_timeout: 3000,
-        start_delay: 120000,
-        ..TestMetadata::default()
+    let builder = TestBuilder::<StaticCommitteeTestTypes, StaticCentralizedImp> {
+        metadata: TestMetadata {
+            timing_data: TimingData {
+                round_start_delay: 25,
+                next_view_timeout: 3000,
+                start_delay: 120000,
+                ..Default::default()
+            },
+            num_succeeds: 5,
+            ..TestMetadata::default()
+        },
+        over_ride: None,
     };
 
-    description
-        .build::<StaticCommitteeTestTypes, StaticCentralizedImp>()
-        .execute()
-        .await
-        .unwrap();
+    builder.build().launch().run_test().await.unwrap();
     shutdown_logging();
 }

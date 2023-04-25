@@ -23,12 +23,11 @@ use nll::nll_todo::nll_todo;
 use snafu::Snafu;
 use tracing::{error, info};
 
-use crate::round::{RoundSetup, RoundSafetyCheck, RoundHook, Round, RoundCtx, RoundResult};
-use crate::round_builder::{RoundBuilder, RoundSetupBuilder, RoundSafetyCheckBuilder};
+use crate::round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup};
+use crate::round_builder::{RoundBuilder, RoundSafetyCheckBuilder, RoundSetupBuilder};
 use crate::test_errors::ConsensusFailedError;
 use crate::test_launcher::TestLauncher;
 use crate::test_runner::TestRunner;
-
 
 #[derive(Clone, Debug)]
 pub struct TestMetadata {
@@ -77,7 +76,9 @@ impl Default for TestMetadata {
 }
 
 impl TestMetadata {
-    pub fn gen_sane_round_description<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(metadata: &TestMetadata) -> RoundBuilder<TYPES, I>{
+    pub fn gen_sane_round_description<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+        metadata: &TestMetadata,
+    ) -> RoundBuilder<TYPES, I> {
         RoundBuilder {
             setup: Right(RoundSetupBuilder {
                 num_txns_per_round: metadata.num_txns_per_round,
@@ -88,7 +89,6 @@ impl TestMetadata {
             }),
             hooks: vec![],
         }
-
     }
 }
 
@@ -105,8 +105,6 @@ impl Default for TimingData {
     }
 }
 
-
-
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestBuilder<TYPES, I> {
     /// Default constructor for multiple rounds.
     pub fn default_multiple_rounds() -> Self {
@@ -119,7 +117,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestBuilder<TYPES, I
                     start_delay: 120000,
                     round_start_delay: 25,
                     ..TimingData::default()
-
                 },
                 ..TestMetadata::default()
             },
@@ -151,10 +148,12 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestBuilder<TYPES, I
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for TestBuilder<TYPES, I> {
     fn default() -> Self {
-        Self { metadata: Default::default(), over_ride: None }
+        Self {
+            metadata: Default::default(),
+            over_ride: None,
+        }
     }
 }
-
 
 #[derive(Debug, Snafu)]
 enum RoundError<TYPES: NodeType> {
@@ -185,19 +184,14 @@ pub struct TestBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub over_ride: Option<RoundBuilder<TYPES, I>>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestBuilder<TYPES, I>
-{
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestBuilder<TYPES, I> {
     /// build a test description from a detailed testing spec
     pub fn build(self) -> TestLauncher<TYPES, I> {
-        let round =
-            match self.over_ride {
-                Some(over_ride) => {
-                    over_ride
-                }
-                None => {
-                    TestMetadata::gen_sane_round_description(&self.metadata)
-                }
-            }.build();
+        let round = match self.over_ride {
+            Some(over_ride) => over_ride,
+            None => TestMetadata::gen_sane_round_description(&self.metadata),
+        }
+        .build();
         TestLauncher::new(self.metadata, round)
     }
 }
@@ -212,5 +206,3 @@ pub fn get_threshold(num_nodes: u64) -> u64 {
 pub fn get_tolerance(num_nodes: u64) -> u64 {
     num_nodes - get_threshold(num_nodes)
 }
-
-
