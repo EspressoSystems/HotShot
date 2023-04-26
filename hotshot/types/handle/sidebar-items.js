@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["HotShotHandle","Event streaming handle for a [`HotShot`] instance running in the background"]]};
+window.SIDEBAR_ITEMS = {"static":["CALLSITE","META"],"struct":["HotShotHandle"]};

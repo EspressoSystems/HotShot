@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":[["LOOK_AHEAD","the number of views to gather information for ahead of time"]],"fn":[["genesis_proposer_id","the genesis proposer pk unfortunately need to allocate on the heap (for vec), so this ends up as a function instead of a const"]]};
+window.SIDEBAR_ITEMS = {"constant":["LOOK_AHEAD"],"fn":["genesis_proposer_id"]};

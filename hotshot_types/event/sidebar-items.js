@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["EventType","The type and contents of a status event emitted by a `HotShot` instance"]],"struct":[["Event","A status event emitted by a `HotShot` instance"]]};
+window.SIDEBAR_ITEMS = {"enum":["EventType"],"struct":["Event"]};

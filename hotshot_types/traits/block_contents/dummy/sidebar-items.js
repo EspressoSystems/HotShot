@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["DummyTransaction","dummy transaction. No functionality"]],"struct":[["DummyBlock","The dummy block"],["DummyError","Dummy error"]]};
+window.SIDEBAR_ITEMS = {"enum":["DummyTransaction"],"struct":["DummyBlock","DummyError"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":[["NodeImplementation","Node implementation aggregate trait"],["TestableNodeImplementation","extra functions required on a node implementation to be usable by hotshot-testing"]]};
+window.SIDEBAR_ITEMS = {"trait":["NodeImplementation","TestableNodeImplementation"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["DMEvent","Lilst of direct message output events"]],"struct":[["DMBehaviour","Wrapper metadata around libp2p’s request response usage: direct message peer"],["DMRequest","Request to direct message a peert"]]};
+window.SIDEBAR_ITEMS = {"enum":["DMEvent"],"static":["CALLSITE","META"],"struct":["DMBehaviour","DMRequest"]};

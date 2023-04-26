@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["Multiaddr","Representation of a Multiaddr."],["PeerId","Identifier of a peer of the network."]]};
+window.SIDEBAR_ITEMS = {"struct":["Multiaddr","PeerId"]};

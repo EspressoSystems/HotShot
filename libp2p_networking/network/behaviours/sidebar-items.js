@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["dht","Wrapper around Kademlia"],["direct_message","Wrapper around `RequestResponse`"],["direct_message_codec","Implementation of a codec for sending messages for `RequestResponse`"],["exponential_backoff","exponential backoff type"],["gossip","Wrapper around gossipsub"]]};
+window.SIDEBAR_ITEMS = {"mod":["dht","direct_message","direct_message_codec","exponential_backoff","gossip"]};

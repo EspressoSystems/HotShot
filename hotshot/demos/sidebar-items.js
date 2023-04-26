@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["sdemo","this is a demo for sequencing consensus Sequencing consensus demo"],["vdemo","this is a demo for validating consensus Validating (vanilla) consensus demo"]]};
+window.SIDEBAR_ITEMS = {"mod":["sdemo","vdemo"]};

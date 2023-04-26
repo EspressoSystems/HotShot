@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["set_config",""]],"struct":[["RoundConfig","Contains information about the current round"]]};
+window.SIDEBAR_ITEMS = {"fn":["set_config"],"static":["CALLSITE","META"],"struct":["RoundConfig"]};

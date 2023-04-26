@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["NodeImpl",""]],"type":[["ThisLeaf",""],["ThisMembership",""],["ThisNetwork",""],["ThisProposal",""],["ThisRun",""],["ThisVote",""]]};
+window.SIDEBAR_ITEMS = {"struct":["NodeImpl"],"type":["ThisLeaf","ThisMembership","ThisNetwork","ThisProposal","ThisRun","ThisVote"]};

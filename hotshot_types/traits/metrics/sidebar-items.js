@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["NoMetrics","Use this if you’re not planning to use any metrics. All methods are implemented as a no-op"]],"trait":[["Counter","An ever-incrementing counter"],["Gauge","A gauge that stores the latest value."],["Histogram","A histogram which will record a series of points."],["Label","A label that stores the last string value."],["Metrics","The metrics type."]]};
+window.SIDEBAR_ITEMS = {"struct":["NoMetrics"],"trait":["Counter","Gauge","Histogram","Label","Metrics"]};

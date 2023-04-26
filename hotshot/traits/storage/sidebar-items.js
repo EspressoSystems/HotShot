@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["memory_storage","`HashMap` and [`Vec`] based implementation of the storage trait"]],"trait":[["Storage","Abstraction over on disk persistence of node state"]],"type":[["Result","Result for a storage type"]]};
+window.SIDEBAR_ITEMS = {"mod":["memory_storage"],"trait":["Storage"],"type":["Result"]};

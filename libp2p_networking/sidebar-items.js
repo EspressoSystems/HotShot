@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["message","Example message used by the UI library"],["network","Network logic"],["reexport","symbols needed to implement a networking instance over libp2p-netorking"]]};
+window.SIDEBAR_ITEMS = {"mod":["message","network","reexport"]};

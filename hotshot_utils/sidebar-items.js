@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["bincode","Provides bincode options"]]};
+window.SIDEBAR_ITEMS = {"mod":["bincode"]};

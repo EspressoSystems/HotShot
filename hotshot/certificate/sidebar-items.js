@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["QuorumCertificate","The type used for Quorum Certificates"]]};
+window.SIDEBAR_ITEMS = {"struct":["QuorumCertificate"]};

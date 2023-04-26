@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["bincode_opts","For the wire format, we use bincode with the following options:"]]};
+window.SIDEBAR_ITEMS = {"fn":["bincode_opts"]};

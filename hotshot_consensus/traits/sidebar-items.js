@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":[["ConsensusApi","The API that `HotStuff` needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`."]]};
+window.SIDEBAR_ITEMS = {"trait":["ConsensusApi"]};

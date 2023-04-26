@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["ValidatingLeader","This view’s validating leader"]]};
+window.SIDEBAR_ITEMS = {"static":["CALLSITE","META"],"struct":["ValidatingLeader"]};

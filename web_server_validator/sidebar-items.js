@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["main",""]],"mod":[["infra",""],["types",""]]};
+window.SIDEBAR_ITEMS = {"fn":["main"],"mod":["infra","types"],"static":["CALLSITE","META"]};

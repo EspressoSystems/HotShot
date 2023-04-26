@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["ed25519_priv","`Ed25519Priv` implementation"],["ed25519_pub","`Ed25519Pub` implementation"]],"struct":[["Ed25519Priv","Private key type for a ed25519 keypair"],["Ed25519Pub","Public key type for an ed25519 [`SignatureKey`] pair"]]};
+window.SIDEBAR_ITEMS = {"mod":["ed25519_priv","ed25519_pub"],"struct":["Ed25519Priv","Ed25519Pub"]};
