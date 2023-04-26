@@ -474,7 +474,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> CentralizedServerNe
             .send(((ToServer::Results(results), Vec::new()), Some(sender)))
             .await;
         // Wait until it's successfully send before shutting down
-        let _ = receiver.recv().await;
+        let _: Result<_, _> = receiver.recv().await;
     }
 
     /// Returns `true` if the server indicated that the current run was ready to start
