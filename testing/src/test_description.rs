@@ -8,13 +8,16 @@ use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use either::Either::{self, Left, Right};
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::traits::TestableNodeImplementation;
-use hotshot::{traits::NetworkReliability, types::Message, HotShot, HotShotError, ViewRunner};
+use hotshot::{
+    traits::NetworkReliability, types::Message, HotShot, HotShotError, HotShotType, ViewRunner,
+};
 use hotshot_types::traits::election::ConsensusExchange;
+use hotshot_types::traits::node_implementation::{QuorumEx, ValidatingQuorumEx};
 use hotshot_types::{
     traits::{
         election::Membership,
         network::CommunicationChannel,
-        node_implementation::{NodeImplementation, NodeType},
+        node_implementation::{ExchangesType, NodeImplementation, NodeType, QuorumNetwork},
     },
     HotShotConfig,
 };
@@ -119,7 +122,10 @@ impl GeneralTestDescriptionBuilder {
 /// fine-grained spec of test
 /// including what should be run every round
 /// and how to generate more rounds
-pub struct DetailedTestDescriptionBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct DetailedTestDescriptionBuilder<
+    TYPES: NodeType,
+    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
+> {
     /// generic information used for the test
     pub general_info: GeneralTestDescriptionBuilder,
 
@@ -151,14 +157,18 @@ pub struct TimingData {
     pub propose_max_round_time: Duration,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+    TestDescription<TYPES, I>
+where
+    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+{
     /// default implementation of generate runner
     pub fn gen_runner(&self) -> TestRunner<TYPES, I> {
         let launcher = TestLauncher::new(
             self.total_nodes,
             self.num_bootstrap_nodes,
             self.min_transactions,
-            <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            <QuorumEx<TYPES, I, I::ConsensusMessage> as ConsensusExchange<
                 TYPES,
                 I::Leaf,
                 Message<TYPES, I, I::ConsensusMessage>,
@@ -187,6 +197,17 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPE
     pub async fn execute(self) -> Result<(), ConsensusRoundError>
     where
         HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+        I::Exchanges: ExchangesType<
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I, I::ConsensusMessage>,
+            Networks = (
+                QuorumNetwork<TYPES, I, I::ConsensusMessage>,
+                I::CommitteeNetwork,
+            ),
+        >,
     {
         setup_logging();
         setup_backtrace();
@@ -201,8 +222,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPE
         runner.add_nodes(self.start_nodes).await;
 
         for (idx, node) in runner.nodes().collect::<Vec<_>>().iter().enumerate().rev() {
-            node.quorum_network().wait_for_ready().await;
-            node.committee_network().wait_for_ready().await;
+            node.wait_for_networks_ready().await;
             info!("EXECUTOR: NODE {:?} IS READY", idx);
         }
 
@@ -220,9 +240,12 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPE
 
 impl GeneralTestDescriptionBuilder {
     /// build a test description from the builder
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
         self,
-    ) -> TestDescription<TYPES, I> {
+    ) -> TestDescription<TYPES, I>
+    where
+        HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+    {
         DetailedTestDescriptionBuilder {
             general_info: self,
             rounds: None,
@@ -232,8 +255,10 @@ impl GeneralTestDescriptionBuilder {
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
     DetailedTestDescriptionBuilder<TYPES, I>
+where
+    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
 {
     /// build a test description from a detailed testing spec
     pub fn build(self) -> TestDescription<TYPES, I> {
@@ -268,7 +293,10 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
 }
 
 /// Description of a test. Contains all metadata necessary to execute test
-pub struct TestDescription<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct TestDescription<
+    TYPES: NodeType,
+    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
+> {
     /// TODO unneeded (should be sufficient to have gen runner)
     /// the ronds to run for the test
     pub rounds: Vec<Round<TYPES, I>>,
@@ -309,11 +337,17 @@ pub type TestSetup<TYPES, TRANS, I> =
 /// * `shut_down_ids`: vector of ids to shut down each round
 /// * `submitter_ids`: vector of ids to submit txns to each round
 /// * `num_rounds`: total number of rounds to generate
-pub fn default_submitter_id_to_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+pub fn default_submitter_id_to_round<
+    TYPES: NodeType,
+    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
+>(
     mut shut_down_ids: Vec<HashSet<u64>>,
     submitter_ids: Vec<Vec<u64>>,
     num_rounds: u64,
-) -> TestSetup<TYPES, TYPES::Transaction, I> {
+) -> TestSetup<TYPES, TYPES::Transaction, I>
+where
+    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+{
     // make sure the lengths match so zip doesn't spit out none
     if shut_down_ids.len() < submitter_ids.len() {
         shut_down_ids.append(&mut vec![
@@ -361,11 +395,17 @@ pub fn default_submitter_id_to_round<TYPES: NodeType, I: TestableNodeImplementat
 /// * `shut_down_ids`: vec of ids to shut down each round
 /// * `txns_per_round`: number of transactions to submit each round
 /// * `num_rounds`: number of rounds
-pub fn default_randomized_ids_to_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+pub fn default_randomized_ids_to_round<
+    TYPES: NodeType,
+    I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
+>(
     shut_down_ids: Vec<HashSet<u64>>,
     num_rounds: u64,
     txns_per_round: u64,
-) -> TestSetup<TYPES, TYPES::Transaction, I> {
+) -> TestSetup<TYPES, TYPES::Transaction, I>
+where
+    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+{
     let mut rounds: TestSetup<TYPES, TYPES::Transaction, I> = Vec::new();
 
     for round_idx in 0..num_rounds {
@@ -395,11 +435,14 @@ pub fn default_randomized_ids_to_round<TYPES: NodeType, I: TestableNodeImplement
     rounds
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
     DetailedTestDescriptionBuilder<TYPES, I>
 {
     /// create rounds of consensus based on the data in `self`
-    pub fn default_populate_rounds(&self) -> Vec<Round<TYPES, I>> {
+    pub fn default_populate_rounds(&self) -> Vec<Round<TYPES, I>>
+    where
+        HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+    {
         // total number of rounds to be prepared to run assuming there may be failures
         let total_rounds = self.general_info.num_succeeds + self.general_info.failure_threshold;
 

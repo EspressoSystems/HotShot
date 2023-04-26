@@ -15,6 +15,7 @@ use hotshot::{
 };
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal, ViewNumber},
+    message::ValidatingMessage,
     traits::{
         block_contents::dummy::{DummyBlock, DummyTransaction},
         consensus_type::validating_consensus::ValidatingConsensus,
@@ -31,6 +32,7 @@ use jf_primitives::{
     },
     vrf::blsvrf::BLSVRFScheme,
 };
+use serde::{Deserialize, Serialize};
 
 #[derive(
     Copy,
@@ -86,7 +88,7 @@ impl NodeType for StaticCommitteeTestTypes {
 }
 
 /// type alias for a "usable" node impl type
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct StandardNodeImplType {}
 
 /// type alias for membership using vrf types
@@ -109,7 +111,7 @@ pub type VrfCommunication = MemoryCommChannel<
 >;
 
 /// type alias for static committee node
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct StaticNodeImplType {}
 
 type StaticMembership =
@@ -123,44 +125,49 @@ type StaticCommunication = MemoryCommChannel<
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
 >;
 
-impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
-    type Storage = MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>;
-    type Leaf = ValidatingLeaf<VrfTestTypes>;
-    type Exchanges = ValidatingExchanges<
-        ValidatingConsensus,
-        VrfTestTypes,
-        ValidatingLeaf<VrfTestTypes>,
-        Message<VrfTestTypes, Self>,
-        QuorumExchange<
-            VrfTestTypes,
-            ValidatingLeaf<VrfTestTypes>,
-            ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-            VrfMembership,
-            VrfCommunication,
-            Message<VrfTestTypes, Self>,
-        >,
-    >;
-}
+// TODO (Keyao) Restore code after fixing "overflow evaludating" error.
+// impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
+//     type Storage = MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>;
+//     type Leaf = ValidatingLeaf<VrfTestTypes>;
+//     type Exchanges = ValidatingExchanges<
+//         VrfTestTypes,
+//         ValidatingLeaf<VrfTestTypes>,
+//         Message<VrfTestTypes, Self, ValidatingMessage<VrfTestTypes, Self>>,
+//         QuorumExchange<
+//             VrfTestTypes,
+//             ValidatingLeaf<VrfTestTypes>,
+//             ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+//             VrfMembership,
+//             VrfCommunication,
+//             Message<VrfTestTypes, Self, ValidatingMessage<VrfTestTypes, Self>>,
+//         >,
+//     >;
+//     type ConsensusMessage = ValidatingMessage<VrfTestTypes, Self>;
+// }
 
-impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
-    type Storage =
-        MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
-    type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
-    type Exchanges = ValidatingExchanges<
-        ValidatingConsensus,
-        StaticCommitteeTestTypes,
-        ValidatingLeaf<StaticCommitteeTestTypes>,
-        Message<StaticCommitteeTestTypes, Self>,
-        QuorumExchange<
-            StaticCommitteeTestTypes,
-            ValidatingLeaf<StaticCommitteeTestTypes>,
-            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-            StaticMembership,
-            StaticCommunication,
-            Message<StaticCommitteeTestTypes, Self>,
-        >,
-    >;
-}
+// impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
+//     type Storage =
+//         MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
+//     type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
+//     type Exchanges = ValidatingExchanges<
+//         StaticCommitteeTestTypes,
+//         ValidatingLeaf<StaticCommitteeTestTypes>,
+//         Message<StaticCommitteeTestTypes, Self, ValidatingMessage<StaticCommitteeTestTypes, Self>>,
+//         QuorumExchange<
+//             StaticCommitteeTestTypes,
+//             ValidatingLeaf<StaticCommitteeTestTypes>,
+//             ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+//             StaticMembership,
+//             StaticCommunication,
+//             Message<
+//                 StaticCommitteeTestTypes,
+//                 Self,
+//                 ValidatingMessage<StaticCommitteeTestTypes, Self>,
+//             >,
+//         >,
+//     >;
+//     type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
+// }
 
 /// type alias for the test runner type
 pub type AppliedTestRunner<TYPES, I> = TestRunner<TYPES, I>;

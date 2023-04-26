@@ -63,7 +63,7 @@ use std::{
 use surf_disco::error::ClientError;
 use tracing::{error, info};
 /// Represents the communication channel abstraction for the web server
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WebCommChannel<
     CONSENSUS: ConsensusType,
     TYPES: NodeType<ConsensusType = CONSENSUS>,

@@ -23,12 +23,14 @@ use futures::future::LocalBoxFuture;
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     types::{HotShotHandle, SignatureKey},
-    HotShot, HotShotError, HotShotInitializer, ViewRunner, H_256,
+    HotShot, HotShotError, HotShotInitializer, HotShotType, ViewRunner, H_256,
 };
-use hotshot_types::traits::election::ConsensusExchange;
-
 use hotshot_types::message::Message;
 use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
+use hotshot_types::traits::{
+    election::ConsensusExchange,
+    node_implementation::{ExchangesType, QuorumEx, ValidatingQuorumEx},
+};
 use hotshot_types::{
     data::LeafType,
     traits::{election::Membership, metrics::NoMetrics, node_implementation::NodeType},
@@ -77,7 +79,7 @@ pub type RoundPreSafetyCheck<TYPES, I> =
 
 /// functions to run a round of consensus
 /// the control flow is: (1) pre safety check, (2) setup round, (3) post safety check
-pub struct Round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct Round<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
     /// Safety check before round is set up and run
     /// to ensure consistent state
     pub safety_check_pre: Option<RoundPreSafetyCheck<TYPES, I>>,
@@ -89,7 +91,9 @@ pub struct Round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub safety_check_post: Option<RoundPostSafetyCheck<TYPES, I>>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Default
+    for Round<TYPES, I>
+{
     fn default() -> Self {
         Self {
             safety_check_post: None,
@@ -101,9 +105,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for Round<TY
 
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
-pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
     quorum_network_generator: Generator<QuorumNetwork<TYPES, I, I::ConsensusMessage>>,
-    committee_network_generator: Generator<CommitteeNetwork<TYPES, I>>,
+    committee_network_generator: Generator<I::CommitteeNetwork>,
     storage_generator: Generator<I::Storage>,
     default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     nodes: Vec<Node<TYPES, I>>,
@@ -111,12 +115,16 @@ pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     rounds: Vec<Round<TYPES, I>>,
 }
 
-struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
     pub node_id: u64,
     pub handle: HotShotHandle<TYPES, I>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+    TestRunner<TYPES, I>
+where
+    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+{
     pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
             quorum_network_generator: launcher.quorum_network,
@@ -140,6 +148,16 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     pub async fn add_nodes(&mut self, count: usize) -> Vec<u64>
     where
         HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        I::Exchanges: ExchangesType<
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I, I::ConsensusMessage>,
+            Networks = (
+                QuorumNetwork<TYPES, I, I::ConsensusMessage>,
+                I::CommitteeNetwork,
+            ),
+        >,
     {
         let mut results = vec![];
         for _i in 0..count {
@@ -184,13 +202,23 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     pub async fn add_node_with_config(
         &mut self,
         quorum_network: QuorumNetwork<TYPES, I, I::ConsensusMessage>,
-        committee_network: CommitteeNetwork<TYPES, I>,
+        committee_network: I::CommitteeNetwork,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> u64
     where
         HotShot<TYPES::ConsensusType, TYPES, I>: ViewRunner<TYPES, I>,
+        I::Exchanges: ExchangesType<
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I, I::ConsensusMessage>,
+            Networks = (
+                QuorumNetwork<TYPES, I, I::ConsensusMessage>,
+                I::CommitteeNetwork,
+            ),
+        >,
     {
         let node_id = self.next_node_id;
         self.next_node_id += 1;
@@ -199,7 +227,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         let private_key = I::generate_test_key(node_id);
         let public_key = TYPES::SignatureKey::from_private(&private_key);
         let election_config = config.election_config.clone().unwrap_or_else(|| {
-            <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
+            <QuorumEx<TYPES, I, I::ConsensusMessage> as ConsensusExchange<
                 TYPES,
                 I::Leaf,
                 Message<TYPES, I, I::ConsensusMessage>,
@@ -209,7 +237,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         let exchanges = I::Exchanges::create(
             known_nodes,
             election_config,
-            committee_network,
+            (quorum_network, committee_network),
             public_key.clone(),
             private_key.clone(),
         );
@@ -219,8 +247,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             node_id,
             config,
             storage,
-            quorum_exchange,
-            committee_exchange,
+            exchanges,
             initializer,
             NoMetrics::boxed(),
         )
@@ -372,7 +399,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+    TestRunner<TYPES, I>
+{
     /// Will validate that all nodes are on exactly the same state.
     pub async fn validate_node_states(&self) {
         let mut leaves = Vec::<I::Leaf>::new();
@@ -435,7 +464,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 
 // FIXME make these return some sort of generic error.
 // corresponding issue: <https://github.com/EspressoSystems/hotshot/issues/181>
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+    TestRunner<TYPES, I>
+{
     /// Add a random transaction to this runner.
     pub async fn add_random_transaction(
         &self,

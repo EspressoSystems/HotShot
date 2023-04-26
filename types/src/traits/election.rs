@@ -411,7 +411,7 @@ pub trait CommitteeExchangeType<
 
 /// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
 #[derive(Derivative)]
-#[derivative(Debug)]
+#[derivative(Clone, Debug)]
 pub struct CommitteeExchange<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
@@ -684,7 +684,7 @@ pub trait QuorumExchangeType<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, 
 
 /// Standard implementation of [`QuroumExchangeType`] based on Hot Stuff consensus.
 #[derive(Derivative)]
-#[derivative(Debug)]
+#[derivative(Clone, Debug)]
 pub struct QuorumExchange<
     TYPES: NodeType,
     LEAF: LeafType<NodeType = TYPES>,

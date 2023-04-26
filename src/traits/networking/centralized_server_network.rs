@@ -833,7 +833,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static, E: ElectionConfig + 'static>
 }
 
 /// libp2p identity communication channel
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CentralizedCommChannel<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,

@@ -683,7 +683,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, M, K> for Lib
 }
 
 /// libp2p identity communication channel
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Libp2pCommChannel<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,

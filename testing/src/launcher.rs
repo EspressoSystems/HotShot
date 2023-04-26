@@ -1,8 +1,7 @@
 use super::{Generator, TestRunner};
 
-use hotshot::traits::TestableNodeImplementation;
 use hotshot::types::SignatureKey;
-
+use hotshot::{traits::TestableNodeImplementation, HotShot, HotShotType};
 use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
 use hotshot_types::{
     traits::node_implementation::{NodeImplementation, NodeType},
@@ -11,15 +10,18 @@ use hotshot_types::{
 use std::{num::NonZeroUsize, time::Duration};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
-pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+{
     pub(super) quorum_network: Generator<QuorumNetwork<TYPES, I, I::ConsensusMessage>>,
-    pub(super) committee_network: Generator<CommitteeNetwork<TYPES, I>>,
+    pub(super) committee_network: Generator<I::CommitteeNetwork>,
     pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     pub(super) block: Generator<TYPES::BlockType>,
     pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+    TestLauncher<TYPES, I>
+{
     /// Create a new launcher.
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
     pub fn new(
@@ -62,7 +64,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
 
 // TODO make these functions generic over the target networking/storage/other generics
 // so we can hotswap out
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+    TestLauncher<TYPES, I>
+{
     /// Set a custom quorum network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_quorum_network(
         self,
@@ -90,7 +94,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
     /// Set a custom committee network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_committee_network(
         self,
-        committee_network: impl Fn(u64, TYPES::SignatureKey) -> CommitteeNetwork<TYPES, I> + 'static,
+        committee_network: impl Fn(u64, TYPES::SignatureKey) -> I::CommitteeNetwork + 'static,
     ) -> TestLauncher<TYPES, I> {
         TestLauncher {
             quorum_network: self.quorum_network,
@@ -157,7 +161,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
+    TestLauncher<TYPES, I>
+where
+    HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+{
     /// Launch the [`TestRunner`]. This function is only available if the following conditions are met:
     ///
     /// - `NETWORK` implements and [`hotshot_types::traits::network::TestableNetworkingImplementation`]

@@ -141,31 +141,14 @@ pub enum MessageKind<
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = ValidatingLeaf<TYPES>,
-            ConsensusMessage = ValidatingMessage<TYPES, I>,
-        >,
-    > From<ValidatingMessage<TYPES, I>> for MessageKind<TYPES, I, ValidatingMessage<TYPES, I>>
-where
-    I::Exchanges:
-        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES, ConsensusMessage = CONSENSUSMESSAGE>,
+        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I> + for<'a> Deserialize<'a> + Serialize,
+    > MessageKind<TYPES, I, CONSENSUSMESSAGE>
 {
-    fn from(m: ValidatingMessage<TYPES, I>) -> Self {
-        Self::Consensus(m)
-    }
-}
-
-impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > From<SequencingMessage<TYPES, I>> for MessageKind<TYPES, I, SequencingMessage<TYPES, I>>
-where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
-{
-    fn from(m: SequencingMessage<TYPES, I>) -> Self {
+    // Can't implement `From<CONSENSUSMESSAGE>` directly due to potential conflict with
+    // `From<DataMessage>`.
+    pub fn from_consensus_message(m: CONSENSUSMESSAGE) -> Self {
         Self::Consensus(m)
     }
 }

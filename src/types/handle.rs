@@ -71,10 +71,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> Clone for HotShotH
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPES, I>
-where
-    MessageKind<TYPES, I, I::ConsensusMessage>: From<I::ConsensusMessage>,
-{
+impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPES, I> {
     /// Will return the next event in the queue
     ///
     /// # Errors
@@ -334,7 +331,10 @@ where
     /// Wrapper around `HotShotConsensusApi`'s `send_broadcast_consensus_message` function
     #[cfg(feature = "hotshot-testing")]
     pub async fn send_broadcast_consensus_message(&self, msg: I::ConsensusMessage) {
-        let _result = self.hotshot.send_broadcast_message(msg).await;
+        let _result = self
+            .hotshot
+            .send_broadcast_message(MessageKind::from_consensus_message(msg))
+            .await;
     }
 
     /// Wrapper around `HotShotConsensusApi`'s `send_direct_consensus_message` function
@@ -344,7 +344,10 @@ where
         msg: I::ConsensusMessage,
         recipient: TYPES::SignatureKey,
     ) {
-        let _result = self.hotshot.send_direct_message(msg, recipient).await;
+        let _result = self
+            .hotshot
+            .send_direct_message(MessageKind::from_consensus_message(msg), recipient)
+            .await;
     }
 
     /// Get length of the replica's receiver channel

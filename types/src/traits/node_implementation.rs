@@ -88,7 +88,7 @@ pub trait ExchangesType<
 >: Send + Sync
 {
     /// Protocol for exchanging consensus proposals and votes.
-    type QuorumExchange: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Copy + Debug;
+    type QuorumExchange: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug;
 
     /// Networking implementations for all exchanges.
     type Networks;
@@ -129,7 +129,7 @@ pub trait SequencingExchangesType<
 >: ExchangesType<SequencingConsensus, TYPES, LEAF, MESSAGE>
 {
     /// Protocol for exchanging data availability proposals and votes.
-    type CommitteeExchange: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Copy + Debug;
+    type CommitteeExchange: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug;
 
     fn committee_exchange(&self) -> &Self::CommitteeExchange;
 }
@@ -155,7 +155,7 @@ where
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Copy + Debug,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug,
 {
 }
 
@@ -166,10 +166,10 @@ where
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Copy + Debug,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug,
 {
     type QuorumExchange = QUORUMEXCHANGE;
-    type Networks = QUORUMEXCHANGE::Networking;
+    type Networks = (QUORUMEXCHANGE::Networking, ());
 
     fn create(
         keys: Vec<TYPES::SignatureKey>,
@@ -179,7 +179,7 @@ where
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
         Self {
-            quorum_exchange: QUORUMEXCHANGE::create(keys, config, networks, pk, sk),
+            quorum_exchange: QUORUMEXCHANGE::create(keys, config, networks.0, pk, sk),
             _phantom: PhantomData,
         }
     }
@@ -223,8 +223,8 @@ where
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Copy + Debug,
-    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Copy + Debug,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug,
+    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug,
 {
     type CommitteeExchange = COMMITTEEEXCHANGE;
 
@@ -241,8 +241,8 @@ where
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Copy + Debug,
-    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Copy,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug,
+    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Clone,
 {
     type QuorumExchange = QUORUMEXCHANGE;
     type Networks = (QUORUMEXCHANGE::Networking, COMMITTEEEXCHANGE::Networking);

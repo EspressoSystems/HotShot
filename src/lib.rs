@@ -654,14 +654,14 @@ where
         let shut_down = Arc::new(AtomicBool::new(false));
         let started = Arc::new(AtomicBool::new(false));
 
-        let exchange = *self.inner.exchanges.quorum_exchange();
+        let exchange = self.inner.exchanges.quorum_exchange();
 
         let network_broadcast_task_handle = async_spawn(
             tasks::network_task(
                 self.clone(),
                 shut_down.clone(),
                 TransmitType::Broadcast,
-                exchange.into(),
+                exchange.clone().into(),
             )
             .instrument(info_span!("HotShot Broadcast Task",)),
         );
@@ -670,7 +670,7 @@ where
                 self.clone(),
                 shut_down.clone(),
                 TransmitType::Direct,
-                exchange.into(),
+                exchange.clone().into(),
             )
             .instrument(info_span!("HotShot Direct Task",)),
         );
@@ -868,15 +868,15 @@ where
         let shut_down = Arc::new(AtomicBool::new(false));
         let started = Arc::new(AtomicBool::new(false));
 
-        let exchange = *self.inner.exchanges.quorum_exchange();
-        let committee_exchange = *self.inner.exchanges.committee_exchange();
+        let exchange = self.inner.exchanges.quorum_exchange();
+        let committee_exchange = self.inner.exchanges.committee_exchange();
 
         let network_broadcast_task_handle = async_spawn(
             tasks::network_task(
                 self.clone(),
                 shut_down.clone(),
                 TransmitType::Broadcast,
-                exchange.into(),
+                exchange.clone().into(),
             )
             .instrument(info_span!("HotShot Broadcast Task",)),
         );
@@ -885,7 +885,7 @@ where
                 self.clone(),
                 shut_down.clone(),
                 TransmitType::Direct,
-                exchange.into(),
+                exchange.clone().into(),
             )
             .instrument(info_span!("HotShot Direct Task",)),
         );
@@ -895,7 +895,7 @@ where
                 self.clone(),
                 shut_down.clone(),
                 TransmitType::Broadcast,
-                committee_exchange.into(),
+                committee_exchange.clone().into(),
             )
             .instrument(info_span!("HotShot DA Broadcast Task",)),
         );
@@ -904,7 +904,7 @@ where
                 self.clone(),
                 shut_down.clone(),
                 TransmitType::Direct,
-                committee_exchange.into(),
+                committee_exchange.clone().into(),
             )
             .instrument(info_span!("HotShot DA Direct Task",)),
         );
@@ -1251,7 +1251,7 @@ where
         metrics.current_view.set(*cur_view as usize);
 
         let mut task_handles = Vec::new();
-        let quorum_exchange = *c_api.inner.exchanges.quorum_exchange();
+        let quorum_exchange = c_api.inner.exchanges.quorum_exchange();
 
         // replica always runs? TODO this will change once vrf integration is added
         let replica = Replica {
@@ -1261,7 +1261,7 @@ where
             cur_view,
             high_qc: high_qc.clone(),
             api: c_api.clone(),
-            exchange: quorum_exchange.into(),
+            exchange: quorum_exchange.clone().into(),
             _pd: PhantomData,
         };
         let replica_handle = async_spawn(async move {
@@ -1269,7 +1269,7 @@ where
         });
         task_handles.push(replica_handle);
 
-        if quorum_exchange.is_leader(cur_view) {
+        if quorum_exchange.clone().is_leader(cur_view) {
             let leader = ValidatingLeader {
                 id: hotshot.id,
                 consensus: hotshot.hotstuff.clone(),
@@ -1277,14 +1277,14 @@ where
                 cur_view,
                 transactions: txns,
                 api: c_api.clone(),
-                exchange: quorum_exchange.into(),
+                exchange: quorum_exchange.clone().into(),
                 _pd: PhantomData,
             };
             let leader_handle = async_spawn(async move { leader.run_view().await });
             task_handles.push(leader_handle);
         }
 
-        if quorum_exchange.is_leader(cur_view + 1) {
+        if quorum_exchange.clone().is_leader(cur_view + 1) {
             let next_leader = NextValidatingLeader {
                 id: hotshot.id,
                 generic_qc: high_qc,
@@ -1292,7 +1292,7 @@ where
                 vote_collection_chan: recv_next_leader.unwrap(),
                 cur_view,
                 api: c_api.clone(),
-                exchange: quorum_exchange.into(),
+                exchange: quorum_exchange.clone().into(),
                 metrics,
                 _pd: PhantomData,
             };
@@ -1453,10 +1453,9 @@ where
         .await;
 
         let mut task_handles = Vec::new();
-        let committee_exchange = *c_api.inner.exchanges.committee_exchange();
-        let quorum_exchange = *c_api.inner.exchanges.quorum_exchange();
-
-        if quorum_exchange.is_leader(cur_view) {
+        let committee_exchange = c_api.inner.exchanges.committee_exchange().clone();
+        let quorum_exchange = c_api.inner.exchanges.quorum_exchange().clone();
+        if quorum_exchange.clone().is_leader(cur_view) {
             let da_leader = DALeader {
                 id: hotshot.id,
                 consensus: hotshot.hotstuff.clone(),
@@ -1464,8 +1463,8 @@ where
                 cur_view,
                 transactions: txns,
                 api: c_api.clone(),
-                committee_exchange: committee_exchange.into(),
-                quorum_exchange: quorum_exchange.into(),
+                committee_exchange: committee_exchange.clone().into(),
+                quorum_exchange: quorum_exchange.clone().into(),
                 vote_collection_chan: recv_da_vote,
                 _pd: PhantomData,
             };
@@ -1485,14 +1484,16 @@ where
                     parent,
                     cur_view,
                     api: api.clone(),
-                    quorum_exchange: quorum_exchange.into(),
+                    quorum_exchange: quorum_exchange.clone().into(),
                     _pd: PhantomData,
                 };
                 consensus_leader.run_view().await
             });
             task_handles.push(leader_handle);
         }
-        if quorum_exchange.is_leader(cur_view + 1) {
+
+        let quorum_exchange = c_api.inner.exchanges.quorum_exchange();
+        if quorum_exchange.clone().is_leader(cur_view + 1) {
             let next_leader = ConsensusNextLeader {
                 id: hotshot.id,
                 consensus: hotshot.hotstuff.clone(),
@@ -1500,7 +1501,7 @@ where
                 api: c_api.clone(),
                 generic_qc: high_qc.clone(),
                 vote_collection_chan: recv_commitment_vote_chan,
-                quorum_exchange: quorum_exchange.into(),
+                quorum_exchange: quorum_exchange.clone().into(),
                 _pd: PhantomData,
             };
             let next_leader_handle = async_spawn(async move { next_leader.run_view().await });
@@ -1513,7 +1514,7 @@ where
             cur_view,
             high_qc: high_qc.clone(),
             api: c_api.clone(),
-            exchange: committee_exchange.into(),
+            exchange: committee_exchange.clone().into(),
             _pd: PhantomData,
         };
         let member_handle = async_spawn(async move { da_member.run_view().await });
@@ -1525,8 +1526,8 @@ where
             cur_view,
             high_qc: high_qc.clone(),
             api: c_api.clone(),
-            committee_exchange: committee_exchange.into(),
-            quorum_exchange: quorum_exchange.into(),
+            committee_exchange: committee_exchange.clone().into(),
+            quorum_exchange: quorum_exchange.clone().into(),
             _pd: PhantomData,
         };
         let replica_handle = async_spawn(async move { replica.run_view().await });
@@ -1673,7 +1674,7 @@ where
                 .direct_message(
                     Message {
                         sender: inner.public_key.clone(),
-                        kind: message.into(),
+                        kind: MessageKind::from_consensus_message(message),
                         _phantom: PhantomData,
                     },
                     recipient,
@@ -1699,7 +1700,7 @@ where
             .broadcast_message(
                 Message {
                     sender: self.inner.public_key.clone(),
-                    kind: message.into(),
+                    kind: MessageKind::from_consensus_message(message),
                     _phantom: PhantomData,
                 },
                 // TODO this is morally wrong!
@@ -1809,7 +1810,7 @@ where
                 .direct_message(
                     Message {
                         sender: inner.public_key.clone(),
-                        kind: message.into(),
+                        kind: MessageKind::from_consensus_message(message),
                         _phantom: PhantomData,
                     },
                     recipient,
@@ -1837,7 +1838,7 @@ where
                 .direct_message(
                     Message {
                         sender: inner.public_key.clone(),
-                        kind: message.into(),
+                        kind: MessageKind::from_consensus_message(message),
                         _phantom: PhantomData,
                     },
                     recipient,
@@ -1863,7 +1864,7 @@ where
             .broadcast_message(
                 Message {
                     sender: self.inner.public_key.clone(),
-                    kind: message.into(),
+                    kind: MessageKind::from_consensus_message(message),
                     _phantom: PhantomData,
                 },
                 // TODO this is morally wrong!
@@ -1885,7 +1886,7 @@ where
             .broadcast_message(
                 Message {
                     sender: self.inner.public_key.clone(),
-                    kind: message.into(),
+                    kind: MessageKind::from_consensus_message(message),
                     _phantom: PhantomData,
                 },
                 // TODO this is morally wrong!
