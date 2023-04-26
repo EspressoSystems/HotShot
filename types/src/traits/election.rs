@@ -30,6 +30,7 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use tracing::error;
+use jf_primitives::aead::KeyPair;
 
 /// Error for election problems
 #[derive(Snafu, Debug)]
@@ -239,6 +240,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
         network: Self::Networking,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        ek: jf_primitives::aead::KeyPair,
     ) -> Self;
 
     /// The network being used by this exchange.
@@ -472,6 +474,8 @@ pub struct CommitteeExchange<
     public_key: TYPES::SignatureKey,
     /// This participant's private key.
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    /// This participant's encryption key.
+    encryption_key: jf_primitives::aead::KeyPair,
     #[doc(hidden)]
     _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP, M)>,
 }
@@ -552,6 +556,7 @@ impl<
         network: Self::Networking,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         let membership =
             <Self as ConsensusExchange<TYPES, M>>::Membership::create_election(keys, config);
@@ -560,6 +565,7 @@ impl<
             membership,
             public_key: pk,
             private_key: sk,
+            encryption_key: ek,
             _pd: PhantomData,
         }
     }
@@ -703,6 +709,8 @@ pub struct QuorumExchange<
     public_key: TYPES::SignatureKey,
     /// This participant's private key.
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    /// This participant's encryption key
+    encryption_key: KeyPair,
     #[doc(hidden)]
     _pd: PhantomData<(LEAF, PROPOSAL, MEMBERSHIP, M)>,
 }
@@ -863,6 +871,7 @@ impl<
         network: Self::Networking,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         let membership =
             <Self as ConsensusExchange<TYPES, M>>::Membership::create_election(keys, config);
@@ -871,6 +880,7 @@ impl<
             membership,
             public_key: pk,
             private_key: sk,
+            encryption_key: ek,
             _pd: PhantomData,
         }
     }
@@ -955,6 +965,8 @@ pub struct ViewSyncExchange<
     public_key: TYPES::SignatureKey,
     /// This participant's private key.
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+    /// This participant's encryption key.
+    encryption_key: jf_primitives::aead::KeyPair,
     #[doc(hidden)]
     _pd: PhantomData<(PROPOSAL, MEMBERSHIP, M)>,
 }
@@ -1013,6 +1025,7 @@ impl<
         network: Self::Networking,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         let membership =
             <Self as ConsensusExchange<TYPES, M>>::Membership::create_election(keys, config);
@@ -1021,6 +1034,7 @@ impl<
             membership,
             public_key: pk,
             private_key: sk,
+            encryption_key: ek,
             _pd: PhantomData,
         }
     }
