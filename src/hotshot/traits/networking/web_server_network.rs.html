@@ -805,7 +805,6 @@
 <a href="#805" id="805">805</a>
 <a href="#806" id="806">806</a>
 <a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A network implementation that connects to a web server.
 //!
 //! To run the web server, see the `./web_server/` folder in this repo.
@@ -1280,9 +1279,8 @@
         <span class="kw">let </span>endpoint = <span class="kw">match </span><span class="kw-2">&amp;</span>message.purpose() {
             MessagePurpose::Proposal =&gt; config::post_proposal_route(<span class="kw-2">*</span>view_number),
             MessagePurpose::Vote =&gt; config::post_vote_route(<span class="kw-2">*</span>view_number),
-            MessagePurpose::Internal | MessagePurpose::Data =&gt; {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(WebServerNetworkError::EndpointError)
-            }
+            MessagePurpose::Data =&gt; config::post_transactions_route(),
+            MessagePurpose::Internal =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(WebServerNetworkError::EndpointError),
         };
 
         <span class="kw">let </span>network_msg: SendMsg&lt;M&gt; = SendMsg {
