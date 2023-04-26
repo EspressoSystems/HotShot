@@ -12,7 +12,7 @@ use hotshot_types::{
         election::Membership,
         metrics::NoMetrics,
         network::CommunicationChannel,
-        node_implementation::{CommitteeNetwork, NetworkType, NodeType, QuorumNetwork},
+        node_implementation::{CommitteeNetwork, NodeType, QuorumNetwork},
         signature_key::SignatureKey,
     },
     HotShotConfig,
@@ -20,10 +20,10 @@ use hotshot_types::{
 use tracing::{debug, error, info};
 
 use crate::{
-    round::{NetworkGenerator, Round, RoundCtx, RoundResult},
+    round::{Round, RoundCtx, RoundResult},
     test_builder::TestMetadata,
     test_errors::ConsensusTestError,
-    test_launcher::TestLauncher,
+    test_launcher::{ResourceGenerators, TestLauncher},
 };
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
@@ -32,11 +32,7 @@ pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    network_generator: Generator<NetworkType<TYPES, I>>,
-    quorum_network_generator: NetworkGenerator<TYPES, I, QuorumNetwork<TYPES, I>>,
-    committee_network_generator: NetworkGenerator<TYPES, I, CommitteeNetwork<TYPES, I>>,
-    storage_generator: Generator<I::Storage>,
-    default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    generator: ResourceGenerators<TYPES, I>,
     nodes: Vec<Node<TYPES, I>>,
     next_node_id: u64,
     round: Round<TYPES, I>,
@@ -51,11 +47,7 @@ struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
     pub(crate) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
-            network_generator: launcher.network,
-            quorum_network_generator: launcher.quorum_network,
-            committee_network_generator: launcher.committee_network,
-            storage_generator: launcher.storage,
-            default_node_config: launcher.config,
+            generator: launcher.generator,
             nodes: Vec::new(),
             next_node_id: 0,
             round: launcher.round,
@@ -95,11 +87,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         let mut results = vec![];
         for _i in 0..count {
             let node_id = self.next_node_id;
-            let network = Arc::new((self.network_generator)(node_id));
-            let quorum_network = (self.quorum_network_generator)(network.clone());
-            let committee_network = (self.committee_network_generator)(network);
-            let storage = (self.storage_generator)(node_id);
-            let config = self.default_node_config.clone();
+            let network = Arc::new((self.generator.network)(node_id));
+            let quorum_network = (self.generator.quorum_network)(network.clone());
+            let committee_network = (self.generator.committee_network)(network);
+            let storage = (self.generator.storage)(node_id);
+            let config = self.generator.config.clone();
             let initializer =
                 HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
             let node_id = self

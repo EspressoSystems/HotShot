@@ -13,13 +13,23 @@ use crate::round::{NetworkGenerator, Round};
 use crate::test_builder::{TestMetadata, TimingData};
 use crate::test_runner::{Generator, TestRunner};
 
+/// generators for resources used by each node
+pub struct ResourceGenerators<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+    /// generate the underlying network used for each node
+    pub(super) network: Generator<NetworkType<TYPES, I>>,
+    /// generate a new quorum network for each node
+    pub(super) quorum_network: NetworkGenerator<TYPES, I, QuorumNetwork<TYPES, I>>,
+    /// generate a new committee network for each node
+    pub(super) committee_network: NetworkGenerator<TYPES, I, CommitteeNetwork<TYPES, I>>,
+    /// generate a new storage for each node
+    pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
+    /// configuration used to generate each hotshot node
+    pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+}
+
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
 pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    pub(super) network: Generator<NetworkType<TYPES, I>>,
-    pub(super) quorum_network: NetworkGenerator<TYPES, I, QuorumNetwork<TYPES, I>>,
-    pub(super) committee_network: NetworkGenerator<TYPES, I, CommitteeNetwork<TYPES, I>>,
-    pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
-    pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
+    pub(super) generator: ResourceGenerators<TYPES, I>,
     // contains builder metadata that is used sporadically
     pub(super) metadata: TestMetadata,
     /// round information
@@ -86,11 +96,13 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
 
         let network = I::network_generator(total_nodes, num_bootstrap_nodes);
         Self {
-            network,
-            quorum_network: I::quorum_generator(),
-            committee_network: I::committee_generator(),
-            storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
-            config,
+            generator: ResourceGenerators {
+                network,
+                quorum_network: I::quorum_generator(),
+                committee_network: I::committee_generator(),
+                storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
+                config,
+            },
             metadata,
             round,
         }
@@ -101,15 +113,37 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
 // TODO make these functions generic over the target networking/storage/other generics
 // so we can hotswap out
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
+    /// Set a custom committee network generator
+    pub fn with_committee_network(
+        mut self,
+        committee_network: NetworkGenerator<TYPES, I, CommitteeNetwork<TYPES, I>>,
+    ) -> Self {
+        self.generator.committee_network = committee_network;
+        self
+    }
+
+    /// Set a custom committee network generator
+    pub fn with_quorum_network(
+        mut self,
+        quorum_network: NetworkGenerator<TYPES, I, QuorumNetwork<TYPES, I>>,
+    ) -> Self {
+        self.generator.quorum_network = quorum_network;
+        self
+    }
+
+    /// Set a custom committee network generator
+    pub fn with_network(mut self, network: Generator<NetworkType<TYPES, I>>) -> Self {
+        self.generator.network = network;
+        self
+    }
+
     /// Set a custom storage generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_storage(
-        self,
+        mut self,
         storage: impl Fn(u64) -> I::Storage + 'static,
     ) -> TestLauncher<TYPES, I> {
-        TestLauncher {
-            storage: Box::new(storage),
-            ..self
-        }
+        self.generator.storage = Box::new(storage);
+        self
     }
 
     /// directly override the round information
@@ -122,7 +156,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
         mut self,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     ) -> Self {
-        self.config = config;
+        self.generator.config = config;
         self
     }
 
@@ -131,7 +165,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
         mut self,
         mut f: impl FnMut(&mut HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>),
     ) -> Self {
-        f(&mut self.config);
+        f(&mut self.generator.config);
         self
     }
 }
