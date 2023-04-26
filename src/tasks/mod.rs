@@ -70,7 +70,7 @@ impl<TYPES: NodeType> TaskHandle<TYPES> {
             let handle = handle.as_ref().unwrap();
             if let Some(s) = &handle.run_view_channels {
                 handle.started.store(true, Ordering::Relaxed);
-                let _ = s.send(()).await;
+                let _: Result<_, _> = s.send(()).await;
             } else {
                 error!("Run one view channel not configured for this hotshot instance");
             }
@@ -269,9 +269,10 @@ pub async fn view_runner<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 
     while !shut_down.load(Ordering::Relaxed) && started.load(Ordering::Relaxed) {
         if let Some(ref recv) = run_once {
-            let _ = recv.recv().await;
+            let _: Result<(), _> = recv.recv().await;
         }
-        let _ = HotShot::<TYPES::ConsensusType, TYPES, I>::run_view(hotshot.clone()).await;
+        let _: Result<_, _> =
+            HotShot::<TYPES::ConsensusType, TYPES, I>::run_view(hotshot.clone()).await;
     }
 }
 
