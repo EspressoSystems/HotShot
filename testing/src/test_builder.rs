@@ -63,7 +63,7 @@ impl Default for TestMetadata {
 
 impl TestMetadata {
     /// generate a reasonable round description
-    pub fn gen_sane_round_description<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    pub fn gen_sane_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         metadata: &TestMetadata,
     ) -> RoundBuilder<TYPES, I> {
         RoundBuilder {
@@ -177,7 +177,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestBuilder<TYPES, I
     pub fn build(self) -> TestLauncher<TYPES, I> {
         let round = match self.over_ride {
             Some(over_ride) => over_ride,
-            None => TestMetadata::gen_sane_round_description(&self.metadata),
+            None => TestMetadata::gen_sane_round(&self.metadata),
         }
         .build();
         TestLauncher::new(self.metadata, round)

@@ -85,11 +85,11 @@ pub enum UpDown {
 #[derive(Clone, Debug)]
 pub struct ChangeNode {
     /// the index of the node
-    idx: usize,
+    pub idx: usize,
     /// the view on which to take action
-    view: usize,
+    pub view: usize,
     /// spin the node up or down
-    updown: UpDown,
+    pub updown: UpDown,
 }
 
 impl RoundSetupBuilder {
