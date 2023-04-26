@@ -109,8 +109,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
                     })
                 } else {
                     Ok(Some(vec![proposal.1.clone()]))
-                } 
-            },
+                }
+            }
             None => Err(ServerError {
                 status: StatusCode::NotImplemented,
                 message: format!("Proposal not found for view {view_number}"),
