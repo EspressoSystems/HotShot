@@ -21,6 +21,7 @@ use bincode::Options;
 use commit::{Commitment, Committable};
 use either::Either;
 use hotshot_utils::bincode::bincode_opts;
+use jf_primitives::aead::KeyPair;
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use snafu::Snafu;
@@ -30,7 +31,6 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::num::NonZeroU64;
 use tracing::error;
-use jf_primitives::aead::KeyPair;
 
 /// Error for election problems
 #[derive(Snafu, Debug)]
@@ -475,7 +475,7 @@ pub struct CommitteeExchange<
     /// This participant's private key.
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// This participant's encryption key.
-    encryption_key: jf_primitives::aead::KeyPair,
+    _encryption_key: jf_primitives::aead::KeyPair,
     #[doc(hidden)]
     _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP, M)>,
 }
@@ -565,7 +565,7 @@ impl<
             membership,
             public_key: pk,
             private_key: sk,
-            encryption_key: ek,
+            _encryption_key: ek,
             _pd: PhantomData,
         }
     }
@@ -710,7 +710,7 @@ pub struct QuorumExchange<
     /// This participant's private key.
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// This participant's encryption key
-    encryption_key: KeyPair,
+    _encryption_key: KeyPair,
     #[doc(hidden)]
     _pd: PhantomData<(LEAF, PROPOSAL, MEMBERSHIP, M)>,
 }
@@ -880,7 +880,7 @@ impl<
             membership,
             public_key: pk,
             private_key: sk,
-            encryption_key: ek,
+            _encryption_key: ek,
             _pd: PhantomData,
         }
     }
@@ -966,7 +966,7 @@ pub struct ViewSyncExchange<
     /// This participant's private key.
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     /// This participant's encryption key.
-    encryption_key: jf_primitives::aead::KeyPair,
+    _encryption_key: jf_primitives::aead::KeyPair,
     #[doc(hidden)]
     _pd: PhantomData<(PROPOSAL, MEMBERSHIP, M)>,
 }
@@ -1034,7 +1034,7 @@ impl<
             membership,
             public_key: pk,
             private_key: sk,
-            encryption_key: ek,
+            _encryption_key: ek,
             _pd: PhantomData,
         }
     }

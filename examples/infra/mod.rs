@@ -60,9 +60,9 @@ use libp2p::{
 };
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+use rand::SeedableRng;
 #[allow(deprecated)]
 use tracing::error;
-use rand::SeedableRng;
 
 // ORCHESTRATOR
 
@@ -226,7 +226,9 @@ pub trait Run<
 
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
-        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed([0u8; 32]));
+        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
+            [0u8; 32],
+        ));
         let known_nodes = config.config.known_nodes.clone();
 
         let network = self.get_network();
