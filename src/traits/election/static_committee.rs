@@ -48,7 +48,7 @@ impl<T, LEAF: LeafType<NodeType = T>, PUBKEY: SignatureKey>
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq)]
 #[serde(bound(deserialize = ""))]
-/// TODO ed - docs
+/// Vote token for a static committee
 pub struct StaticVoteToken<K: SignatureKey> {
     /// signature
     signature: EncodedSignature,
@@ -146,8 +146,12 @@ where
         }
     }
 
-    fn threshold(&self) -> NonZeroU64 {
+    fn success_threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((self.nodes.len() as u64 * 2) / 3) + 1).unwrap()
+    }
+
+    fn failure_threshold(&self) -> NonZeroU64 {
+        NonZeroU64::new(((self.nodes.len() as u64) / 3) + 1).unwrap()
     }
 
     fn get_committee(

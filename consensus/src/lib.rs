@@ -30,7 +30,8 @@ pub use sequencing_replica::SequencingReplica;
 pub use traits::ConsensusApi;
 pub use utils::{SendToTasks, View, ViewInner, ViewQueue};
 
-use commit::Commitment;
+use commit::{Commitment, Committable};
+use derivative::Derivative;
 use hotshot_types::certificate::QuorumCertificate;
 use hotshot_types::traits::metrics::Counter;
 use hotshot_types::{
@@ -42,7 +43,7 @@ use hotshot_types::{
     },
 };
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{hash_map::Entry, BTreeMap, HashMap},
     sync::Arc,
 };
 use tracing::{error, warn};
@@ -114,6 +115,11 @@ pub struct Consensus<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// - contains undecided leaves
     /// - includes the MOST RECENT decided leaf
     pub saved_leaves: CommitmentMap<LEAF>,
+
+    /// Saved blocks
+    ///
+    /// Contains the full block for every leaf in `saved_leaves` if that block is available.
+    pub saved_blocks: BlockStore<TYPES::BlockType>,
 
     /// The `locked_qc` view number
     pub locked_view: TYPES::Time,
@@ -245,8 +251,7 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
         F: FnMut(&LEAF) -> bool,
     {
         let mut next_leaf = if let Some(view) = self.state_map.get(&start_from) {
-            *view
-                .get_leaf_commitment()
+            view.get_leaf_commitment()
                 .ok_or_else(|| HotShotError::InvalidState {
                     context: format!(
                         "Visited failed view {start_from:?} leaf. Expected successfuil leaf"
@@ -306,9 +311,17 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
         // perform gc
         self.state_map
             .range(old_anchor_view..new_anchor_view)
+            .filter_map(|(_view_number, view)| view.get_block_commitment())
+            .for_each(|block| {
+                self.saved_blocks.remove(block);
+            });
+        self.state_map
+            .range(old_anchor_view..new_anchor_view)
             .filter_map(|(_view_number, view)| view.get_leaf_commitment())
             .for_each(|leaf| {
-                let _removed = self.saved_leaves.remove(leaf);
+                if let Some(removed) = self.saved_leaves.remove(&leaf) {
+                    self.saved_blocks.remove(removed.get_deltas_commitment());
+                }
             });
         self.state_map = self.state_map.split_off(&new_anchor_view);
     }
@@ -330,6 +343,60 @@ impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Consensus<TYPES, LEAF> {
         let leaf = view
             .get_leaf_commitment()
             .expect("Decided state not found! Consensus internally inconsistent");
-        self.saved_leaves.get(leaf).unwrap().clone()
+        self.saved_leaves.get(&leaf).unwrap().clone()
+    }
+}
+
+/// Mapping from block commitments to full blocks.
+///
+/// Entries in this mapping are reference-counted, so multiple consensus objects can refer to the
+/// same block, and the block will only be deleted after _all_ such objects are garbage collected.
+/// For example, multiple leaves may temporarily reference the same block on different branches,
+/// before all but one branch are ultimately garbage collected.
+#[derive(Clone, Debug, Derivative)]
+#[derivative(Default(bound = ""))]
+pub struct BlockStore<BLOCK: Committable>(HashMap<Commitment<BLOCK>, (BLOCK, u64)>);
+
+impl<BLOCK: Committable> BlockStore<BLOCK> {
+    /// Save `block` for later retrieval.
+    ///
+    /// After calling this function, and before the corresponding call to [`remove`](Self::remove),
+    /// `self.get(block.commit())` will return `Some(block)`.
+    ///
+    /// This function will increment a reference count on the saved block, so that multiple calls to
+    /// [`insert`](Self::insert) for the same block result in multiple owning references to the
+    /// block. [`remove`](Self::remove) must be called once for each reference before the block will
+    /// be deallocated.
+    pub fn insert(&mut self, block: BLOCK) {
+        self.0
+            .entry(block.commit())
+            .and_modify(|(_, refcount)| *refcount += 1)
+            .or_insert((block, 1));
+    }
+
+    /// Get a saved block, if available.
+    ///
+    /// If a block has been saved with [`insert`](Self::insert), this function will retrieve it. It
+    /// may return [`None`] if a block with the given commitment has not been saved or if the block
+    /// has been dropped with [`remove`](Self::remove).
+    #[must_use]
+    pub fn get(&self, block: Commitment<BLOCK>) -> Option<&BLOCK> {
+        self.0.get(&block).map(|(block, _)| block)
+    }
+
+    /// Drop a reference to a saved block.
+    ///
+    /// If the block exists and this call drops the last reference to it, the block will be
+    /// returned. Otherwise, the return value is [`None`].
+    pub fn remove(&mut self, block: Commitment<BLOCK>) -> Option<BLOCK> {
+        if let Entry::Occupied(mut e) = self.0.entry(block) {
+            let (_, refcount) = e.get_mut();
+            *refcount -= 1;
+            if *refcount == 0 {
+                let (block, _) = e.remove();
+                return Some(block);
+            }
+        }
+        None
     }
 }

@@ -1,6 +1,6 @@
 //! Contains the [`ValidatingLeader`] struct used for the leader step in the hotstuff consensus algorithm.
 
-use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
+use crate::{CommitmentMap, Consensus, ConsensusApi};
 use async_compatibility_layer::{
     art::{async_sleep, async_timeout},
     async_primitives::subscribable_rwlock::{ReadView, SubscribableRwLock},
@@ -57,12 +57,8 @@ impl<
         I: NodeImplementation<TYPES, Leaf = ValidatingLeaf<TYPES>>,
     > ValidatingLeader<A, TYPES, I>
 where
-    I::QuorumExchange: ConsensusExchange<
-            TYPES,
-            I::Leaf,
-            Message<TYPES, I>,
-            Proposal = ValidatingProposal<TYPES, I::Leaf>,
-        > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::QuorumExchange: ConsensusExchange<TYPES, Message<TYPES, I>, Proposal = ValidatingProposal<TYPES, I::Leaf>>
+        + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Run one view of the leader task
     #[instrument(skip(self), fields(id = self.id, view = *self.cur_view), name = "Validating ValidatingLeader Task", level = "error")]
@@ -75,28 +71,26 @@ where
         let consensus = self.consensus.read().await;
         let mut reached_decided = false;
 
-        let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
-            match &parent_view.view_inner {
-                ViewInner::Leaf { leaf } => {
-                    if let Some(leaf) = consensus.saved_leaves.get(leaf) {
-                        if leaf.view_number == consensus.last_decided_view {
-                            reached_decided = true;
-                        }
-                        leaf
-                    } else {
-                        warn!("Failed to find high QC parent.");
-                        return self.high_qc;
-                    }
-                }
-                ViewInner::Failed => {
-                    warn!("Parent of high QC points to a failed QC");
-                    return self.high_qc;
-                }
-            }
-        } else {
+        let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
             warn!("Couldn't find high QC parent in state map.");
             return self.high_qc;
         };
+        let Some(leaf) = parent_view.get_leaf_commitment() else {
+            warn!(
+                ?parent_view_number,
+                ?parent_view,
+                "Parent of high QC points to a view without a proposal"
+            );
+            return self.high_qc;
+        };
+        let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
+            warn!("Failed to find high QC parent.");
+            return self.high_qc;
+        };
+        if leaf.view_number == consensus.last_decided_view {
+            reached_decided = true;
+        }
+        let parent_leaf = leaf.clone();
 
         let original_parent_hash = parent_leaf.commit();
         let starting_state = &parent_leaf.state;

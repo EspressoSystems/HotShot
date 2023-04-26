@@ -4,7 +4,7 @@ use async_compatibility_layer::channel::{unbounded, UnboundedReceiver, Unbounded
 use async_lock::Mutex;
 use commit::Commitment;
 use hotshot_types::{
-    data::LeafType,
+    data::{LeafBlock, LeafType},
     message::ProcessedConsensusMessage,
     traits::node_implementation::{NodeImplementation, NodeType},
 };
@@ -17,6 +17,15 @@ use std::{
 /// A view's state
 #[derive(Debug)]
 pub enum ViewInner<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
+    /// A pending view with an available block but not leaf proposal yet.
+    ///
+    /// Storing this state allows us to garbage collect blocks for views where a proposal is never
+    /// made. This saves memory when a leader fails and subverts a DoS attack where malicious
+    /// leaders repeatedly request availability for blocks that they never propose.
+    DA {
+        /// Available block.
+        block: Commitment<LeafBlock<LEAF>>,
+    },
     /// Undecided view
     Leaf {
         /// Proposed leaf
@@ -29,9 +38,19 @@ pub enum ViewInner<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
 impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> ViewInner<TYPES, LEAF> {
     /// return the underlying leaf hash if it exists
     #[must_use]
-    pub fn get_leaf_commitment(&self) -> Option<&Commitment<LEAF>> {
+    pub fn get_leaf_commitment(&self) -> Option<Commitment<LEAF>> {
         if let Self::Leaf { leaf } = self {
-            Some(leaf)
+            Some(*leaf)
+        } else {
+            None
+        }
+    }
+
+    /// return the underlying block hash if it exists
+    #[must_use]
+    pub fn get_block_commitment(&self) -> Option<Commitment<LeafBlock<LEAF>>> {
+        if let Self::DA { block } = self {
+            Some(*block)
         } else {
             None
         }

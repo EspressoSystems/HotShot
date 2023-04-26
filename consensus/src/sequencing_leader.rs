@@ -1,7 +1,7 @@
 //! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
-use crate::{utils::ViewInner, CommitmentMap, Consensus, ConsensusApi};
+use crate::{CommitmentMap, Consensus, ConsensusApi};
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_compatibility_layer::{
     art::async_timeout,
@@ -75,14 +75,12 @@ impl<
 where
     I::QuorumExchange: ConsensusExchange<
         TYPES,
-        I::Leaf,
         Message<TYPES, I>,
         Proposal = CommitmentProposal<TYPES, I::Leaf>,
         Vote = QuorumVote<TYPES, I::Leaf>,
     >,
     I::CommitteeExchange: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             Proposal = DAProposal<TYPES>,
             Vote = DAVote<TYPES, I::Leaf>,
@@ -99,8 +97,12 @@ where
     ) -> Option<DACertificate<TYPES>> {
         let lock = self.vote_collection_chan.lock().await;
         let mut accumulator = VoteAccumulator {
-            vote_outcomes: HashMap::new(),
-            threshold,
+            total_vote_outcomes: HashMap::new(),
+            yes_vote_outcomes: HashMap::new(),
+            no_vote_outcomes: HashMap::new(),
+            // TODO ED Revisit this once Yes/No votes are in place for DA
+            success_threshold: threshold,
+            failure_threshold: threshold,
         };
 
         while let Ok(msg) = lock.recv().await {
@@ -124,6 +126,7 @@ where
                         &vote.signature.0,
                         &vote.signature.1,
                         vote.block_commitment,
+                        vote.vote_data,
                         vote.vote_token.clone(),
                         self.cur_view,
                         accumulator,
@@ -148,6 +151,7 @@ where
                 ProcessedConsensusMessage::DAProposal(_p, _sender) => {
                     warn!("The next leader has received an unexpected proposal!");
                 }
+                ProcessedConsensusMessage::ViewSync(_) => todo!(),
             }
         }
         None
@@ -156,26 +160,23 @@ where
     async fn parent_leaf(&self) -> Option<SequencingLeaf<TYPES>> {
         let parent_view_number = &self.high_qc.view_number();
         let consensus = self.consensus.read().await;
-        let parent_leaf = if let Some(parent_view) = consensus.state_map.get(parent_view_number) {
-            match &parent_view.view_inner {
-                ViewInner::Leaf { leaf } => {
-                    if let Some(leaf) = consensus.saved_leaves.get(leaf) {
-                        leaf
-                    } else {
-                        warn!("Failed to find high QC parent.");
-                        return None;
-                    }
-                }
-                ViewInner::Failed => {
-                    warn!("Parent of high QC points to a failed QC");
-                    return None;
-                }
-            }
-        } else {
+        let Some(parent_view) = consensus.state_map.get(parent_view_number) else {
             warn!("Couldn't find high QC parent in state map.");
             return None;
         };
-        Some(parent_leaf.clone())
+        let Some(leaf) = parent_view.get_leaf_commitment() else {
+            warn!(
+                ?parent_view_number,
+                ?parent_view,
+                "Parent of high QC points to a view without a proposal"
+            );
+            return None;
+        };
+        let Some(leaf) = consensus.saved_leaves.get(&leaf) else {
+            warn!("Failed to find high QC parent.");
+            return None;
+        };
+        Some(leaf.clone())
     }
     /// return None if we can't get transactions
     async fn wait_for_transactions(&self) -> Option<Vec<TYPES::Transaction>> {
@@ -270,7 +271,7 @@ where
         if let Some(cert) = self
             .wait_for_votes(
                 self.cur_view,
-                self.committee_exchange.threshold(),
+                self.committee_exchange.success_threshold(),
                 block_commitment,
             )
             .await
@@ -319,14 +320,12 @@ impl<
 where
     I::QuorumExchange: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             Proposal = CommitmentProposal<TYPES, I::Leaf>,
             // Vote = QuorumVote<TYPES, I::Leaf>,
         > + QuorumExchangeType<TYPES, I::Leaf, Message<TYPES, I>>,
     I::CommitteeExchange: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             // Proposal = DAProposal<TYPES>,
             // Vote = DAVote<TYPES, I::Leaf>,
@@ -413,7 +412,6 @@ impl<
 where
     I::QuorumExchange: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             Proposal = CommitmentProposal<TYPES, I::Leaf>,
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
@@ -430,8 +428,11 @@ where
         qcs.insert(self.generic_qc.clone());
 
         let mut accumulator = VoteAccumulator {
-            vote_outcomes: HashMap::new(),
-            threshold: self.quorum_exchange.threshold(),
+            total_vote_outcomes: HashMap::new(),
+            yes_vote_outcomes: HashMap::new(),
+            no_vote_outcomes: HashMap::new(),
+            success_threshold: self.quorum_exchange.success_threshold(),
+            failure_threshold: self.quorum_exchange.failure_threshold(),
         };
 
         let lock = self.vote_collection_chan.lock().await;
@@ -442,7 +443,7 @@ where
             }
             match msg {
                 ProcessedConsensusMessage::Vote(vote_message, sender) => match vote_message {
-                    QuorumVote::Yes(vote) => {
+                    QuorumVote::Yes(vote) | QuorumVote::No(vote) => {
                         if vote.signature.0
                             != <TYPES::SignatureKey as SignatureKey>::to_bytes(&sender)
                         {
@@ -453,6 +454,7 @@ where
                             &vote.signature.0,
                             &vote.signature.1,
                             vote.leaf_commitment,
+                            vote.vote_data,
                             vote.vote_token.clone(),
                             self.cur_view,
                             accumulator,
@@ -467,9 +469,6 @@ where
                     }
                     QuorumVote::Timeout(vote) => {
                         qcs.insert(vote.justify_qc);
-                    }
-                    QuorumVote::No(_) => {
-                        warn!("The next leader has received an unexpected vote!");
                     }
                 },
                 ProcessedConsensusMessage::InternalTrigger(trigger) => match trigger {
@@ -487,6 +486,7 @@ where
                 ProcessedConsensusMessage::DAVote(_, _sender) => {
                     warn!("The next leader has received an unexpected DA vote!");
                 }
+                ProcessedConsensusMessage::ViewSync(_) => todo!(),
             }
         }
         qcs.into_iter().max_by_key(|qc| qc.view_number).unwrap()

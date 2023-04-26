@@ -5,7 +5,10 @@ use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     HotShotError,
 };
-use hotshot_types::{data::LeafType, traits::node_implementation::NodeType};
+use hotshot_types::{
+    data::LeafType,
+    traits::node_implementation::{NetworkType, NodeType},
+};
 
 use crate::{
     round_builder::{RoundSafetyCheckBuilder, RoundSetupBuilder},
@@ -15,6 +18,9 @@ use crate::{
 
 /// Alias for `(Vec<S>, Vec<B>)`. Used in [`RoundResult`].
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
+
+/// Wrapper Type for function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
+pub type NetworkGenerator<TYPES, I, T> = Box<dyn Fn(Arc<NetworkType<TYPES, I>>) -> T + 'static>;
 
 /// Result of running a round of consensus
 #[derive(Debug, Default)]

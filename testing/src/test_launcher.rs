@@ -2,21 +2,22 @@ use hotshot::traits::TestableNodeImplementation;
 use hotshot::types::{Message, SignatureKey};
 
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
-use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
+use hotshot_types::traits::node_implementation::{CommitteeNetwork, NetworkType, QuorumNetwork};
 use hotshot_types::{
     traits::node_implementation::{NodeImplementation, NodeType},
     ExecutionType, HotShotConfig,
 };
 use std::{num::NonZeroUsize, time::Duration};
 
-use crate::round::Round;
+use crate::round::{NetworkGenerator, Round};
 use crate::test_builder::{TestMetadata, TimingData};
 use crate::test_runner::{Generator, TestRunner};
 
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
 pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    pub(super) quorum_network: Generator<QuorumNetwork<TYPES, I>>,
-    pub(super) committee_network: Generator<CommitteeNetwork<TYPES, I>>,
+    pub(super) network: Generator<NetworkType<TYPES, I>>,
+    pub(super) quorum_network: NetworkGenerator<TYPES, I, QuorumNetwork<TYPES, I>>,
+    pub(super) committee_network: NetworkGenerator<TYPES, I, CommitteeNetwork<TYPES, I>>,
     pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     pub(super) config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     // contains builder metadata that is used sporadically
@@ -59,7 +60,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
             election_config: Some(
                 <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
                     TYPES,
-                    I::Leaf,
                     Message<TYPES, I>,
                 >>::Membership::default_election_config(total_nodes as u64),
             ),
@@ -84,9 +84,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
                 a.propose_max_round_time = propose_max_round_time;
             };
 
+        let network = I::network_generator(total_nodes, num_bootstrap_nodes);
         Self {
-            quorum_network: I::quorum_generator(total_nodes, num_bootstrap_nodes, 1),
-            committee_network: I::committee_generator(total_nodes, num_bootstrap_nodes, 2),
+            network,
+            quorum_network: I::quorum_generator(),
+            committee_network: I::committee_generator(),
             storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
             config,
             metadata,
@@ -99,46 +101,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
 // TODO make these functions generic over the target networking/storage/other generics
 // so we can hotswap out
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, I> {
-    /// Set a custom quorum network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_quorum_network(
-        self,
-        quorum_network: impl Fn(u64, TYPES::SignatureKey) -> QuorumNetwork<TYPES, I> + 'static,
-    ) -> TestLauncher<TYPES, I> {
-        TestLauncher {
-            quorum_network: Box::new({
-                move |node_id| {
-                    // FIXME perhaps this pk generation is a separate function
-                    // to add as an input
-                    // that way we don't rely on threshold crypto
-                    let priv_key = I::generate_test_key(node_id);
-                    let pubkey = TYPES::SignatureKey::from_private(&priv_key);
-                    quorum_network(node_id, pubkey)
-                }
-            }),
-            ..self
-        }
-    }
-
-    /// Set a custom committee network generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
-    pub fn with_committee_network(
-        self,
-        committee_network: impl Fn(u64, TYPES::SignatureKey) -> CommitteeNetwork<TYPES, I> + 'static,
-    ) -> TestLauncher<TYPES, I> {
-        TestLauncher {
-            committee_network: Box::new({
-                move |node_id| {
-                    // FIXME perhaps this pk generation is a separate function
-                    // to add as an input
-                    // that way we don't rely on threshold crypto
-                    let priv_key = I::generate_test_key(node_id);
-                    let pubkey = TYPES::SignatureKey::from_private(&priv_key);
-                    committee_network(node_id, pubkey)
-                }
-            }),
-            ..self
-        }
-    }
-
     /// Set a custom storage generator. Note that this can also be overwritten per-node in the [`TestLauncher`].
     pub fn with_storage(
         self,

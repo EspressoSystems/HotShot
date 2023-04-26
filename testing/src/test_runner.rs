@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use hotshot::{
@@ -12,7 +12,7 @@ use hotshot_types::{
         election::Membership,
         metrics::NoMetrics,
         network::CommunicationChannel,
-        node_implementation::{CommitteeNetwork, NodeType, QuorumNetwork},
+        node_implementation::{CommitteeNetwork, NetworkType, NodeType, QuorumNetwork},
         signature_key::SignatureKey,
     },
     HotShotConfig,
@@ -20,7 +20,7 @@ use hotshot_types::{
 use tracing::{debug, error, info};
 
 use crate::{
-    round::{Round, RoundCtx, RoundResult},
+    round::{NetworkGenerator, Round, RoundCtx, RoundResult},
     test_builder::TestMetadata,
     test_errors::ConsensusTestError,
     test_launcher::TestLauncher,
@@ -32,8 +32,9 @@ pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    quorum_network_generator: Generator<QuorumNetwork<TYPES, I>>,
-    committee_network_generator: Generator<CommitteeNetwork<TYPES, I>>,
+    network_generator: Generator<NetworkType<TYPES, I>>,
+    quorum_network_generator: NetworkGenerator<TYPES, I, QuorumNetwork<TYPES, I>>,
+    committee_network_generator: NetworkGenerator<TYPES, I, CommitteeNetwork<TYPES, I>>,
     storage_generator: Generator<I::Storage>,
     default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     nodes: Vec<Node<TYPES, I>>,
@@ -50,6 +51,7 @@ struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
     pub(crate) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
+            network_generator: launcher.network,
             quorum_network_generator: launcher.quorum_network,
             committee_network_generator: launcher.committee_network,
             storage_generator: launcher.storage,
@@ -93,8 +95,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         let mut results = vec![];
         for _i in 0..count {
             let node_id = self.next_node_id;
-            let quorum_network = (self.quorum_network_generator)(node_id);
-            let committee_network = (self.committee_network_generator)(node_id);
+            let network = Arc::new((self.network_generator)(node_id));
+            let quorum_network = (self.quorum_network_generator)(network.clone());
+            let committee_network = (self.committee_network_generator)(network);
             let storage = (self.storage_generator)(node_id);
             let config = self.default_node_config.clone();
             let initializer =
@@ -148,7 +151,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         let election_config = config.election_config.clone().unwrap_or_else(|| {
             <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
                 TYPES,
-                I::Leaf,
                 Message<TYPES, I>,
             >>::Membership::default_election_config(config.total_nodes.get() as u64)
         });
