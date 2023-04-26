@@ -21,9 +21,8 @@ use tracing::{debug, error, info};
 
 use crate::{
     round::{Round, RoundCtx, RoundResult},
-    test_builder::TestMetadata,
     test_errors::ConsensusTestError,
-    test_launcher::{ResourceGenerators, TestLauncher},
+    test_launcher::TestLauncher,
 };
 
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
@@ -32,11 +31,9 @@ pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
-    generator: ResourceGenerators<TYPES, I>,
+    launcher: TestLauncher<TYPES, I>,
     nodes: Vec<Node<TYPES, I>>,
     next_node_id: u64,
-    round: Round<TYPES, I>,
-    metadata: TestMetadata,
 }
 
 struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
@@ -47,11 +44,9 @@ struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
     pub(crate) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
-            generator: launcher.generator,
             nodes: Vec::new(),
             next_node_id: 0,
-            round: launcher.round,
-            metadata: launcher.metadata,
+            launcher,
         }
     }
 
@@ -64,7 +59,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         setup_backtrace();
 
         // configure nodes/timing
-        self.add_nodes(self.metadata.start_nodes).await;
+        self.add_nodes(self.launcher.metadata.start_nodes).await;
 
         for (idx, node) in self.nodes().collect::<Vec<_>>().iter().enumerate().rev() {
             node.quorum_network().wait_for_ready().await;
@@ -72,9 +67,12 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             info!("EXECUTOR: NODE {:?} IS READY", idx);
         }
 
-        self.execute_rounds(self.metadata.num_succeeds, self.metadata.failure_threshold)
-            .await
-            .unwrap();
+        self.execute_rounds(
+            self.launcher.metadata.num_succeeds,
+            self.launcher.metadata.failure_threshold,
+        )
+        .await
+        .unwrap();
 
         Ok(())
     }
@@ -87,11 +85,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         let mut results = vec![];
         for _i in 0..count {
             let node_id = self.next_node_id;
-            let network = Arc::new((self.generator.network)(node_id));
-            let quorum_network = (self.generator.quorum_network)(network.clone());
-            let committee_network = (self.generator.committee_network)(network);
-            let storage = (self.generator.storage)(node_id);
-            let config = self.generator.config.clone();
+            let network = Arc::new((self.launcher.generator.network)(node_id));
+            let quorum_network = (self.launcher.generator.quorum_network)(network.clone());
+            let committee_network = (self.launcher.generator.committee_network)(network);
+            let storage = (self.launcher.generator.storage)(node_id);
+            let config = self.launcher.generator.config.clone();
             let initializer =
                 HotShotInitializer::<TYPES, I::Leaf>::from_genesis(I::block_genesis()).unwrap();
             let node_id = self
@@ -112,7 +110,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
     /// replace round list
     #[allow(clippy::type_complexity)]
     pub fn with_round(&mut self, round: Round<TYPES, I>) {
-        self.round = round;
+        self.launcher.round = round;
     }
 
     /// Get the next node id that would be used for `add_node_with_config`
@@ -216,7 +214,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             hooks,
             setup_round,
             safety_check,
-        } = self.round.clone();
+        } = self.launcher.round.clone();
 
         for hook in hooks {
             hook(self, ctx);
