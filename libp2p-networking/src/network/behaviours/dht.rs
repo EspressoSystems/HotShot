@@ -371,7 +371,7 @@ impl DHTBehaviour {
                 }
                 Err(e) => {
                     if let Some(chan) = self.in_progress_get_closest_peers.remove(&query_id) {
-                        let _ = chan.send(());
+                        let _: Result<_, _> = chan.send(());
                     } else {
                         self.random_walk.state = State::NotStarted;
                         self.random_walk.backoff.start_next(true);

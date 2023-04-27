@@ -105,7 +105,7 @@ tokio = { version = "1", optional = true, features = [
 tide = { version = "0.16", optional = true, default-features = false, features = [
     "h1-server",
 ] }
-tokio-stream = "0.1.13"
+tokio-stream = "0.1.14"
 tracing = "0.1.38"
 
 [target.'cfg(target_os = "linux")'.dependencies]

@@ -472,9 +472,8 @@ impl<
         let endpoint = match &message.purpose() {
             MessagePurpose::Proposal => config::post_proposal_route(*view_number),
             MessagePurpose::Vote => config::post_vote_route(*view_number),
-            MessagePurpose::Internal | MessagePurpose::Data => {
-                return Err(WebServerNetworkError::EndpointError)
-            }
+            MessagePurpose::Data => config::post_transactions_route(),
+            MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
         };
 
         let network_msg: SendMsg<M> = SendMsg {
