@@ -50,8 +50,7 @@ pub struct SequencingReplica<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// ID of node.
     pub id: u64,
@@ -60,7 +59,7 @@ pub struct SequencingReplica<
     /// Channel for accepting leader proposals and timeouts messages.
     #[allow(clippy::type_complexity)]
     pub proposal_collection_chan:
-        Arc<Mutex<UnboundedReceiver<ProcessedSequencingMessage<TYPES, I, I::ConsensusMessage>>>>,
+        Arc<Mutex<UnboundedReceiver<ProcessedSequencingMessage<TYPES, I>>>>,
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// The High QC.
@@ -88,15 +87,11 @@ impl<
         >,
     > SequencingReplica<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<
-        TYPES,
-        SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges: SequencingExchangesType<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
         Proposal = CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
@@ -104,7 +99,7 @@ where
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
         Commitment = TYPES::BlockType,
     >,
@@ -327,7 +322,7 @@ where
                                             self.quorum_exchange.get_leader(self.cur_view + 1);
                                         if self
                                             .api
-                                            .send_direct_message::<QuorumProposalType<TYPES, I,SequencingMessage<TYPES,I>>, QuorumVoteType<TYPES, I,SequencingMessage<TYPES,I>>>(next_leader, SequencingMessage(Left(message)))
+                                            .send_direct_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(next_leader, SequencingMessage(Left(message)))
                                             .await
                                             .is_err()
                                         {
@@ -382,11 +377,9 @@ where
                                                     .send_direct_message::<QuorumProposalType<
                                                         TYPES,
                                                         I,
-                                                        SequencingMessage<TYPES, I>,
                                                     >, QuorumVoteType<
                                                         TYPES,
                                                         I,
-                                                        SequencingMessage<TYPES, I>,
                                                     >>(
                                                         next_leader.clone(),
                                                         SequencingMessage(Left(timed_out_msg)),

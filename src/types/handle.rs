@@ -10,7 +10,6 @@ use crate::{
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use commit::Committable;
 use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::node_implementation::CommitteeNetwork;
 use hotshot_types::traits::node_implementation::QuorumNetwork;
 use hotshot_types::{
     data::LeafType,
@@ -306,12 +305,12 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         leaf_commitment: Commitment<I::Leaf>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
-    ) -> GeneralConsensusMessage<TYPES, I, I::ConsensusMessage>
+    ) -> GeneralConsensusMessage<TYPES, I>
     where
-        QuorumEx<TYPES, I, I::ConsensusMessage>: ConsensusExchange<
+        QuorumEx<TYPES, I>: ConsensusExchange<
             TYPES,
             I::Leaf,
-            Message<TYPES, I, I::ConsensusMessage>,
+            Message<TYPES, I>,
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
         >,
     {

@@ -8,9 +8,9 @@ use crate::traits::consensus_type::validating_consensus::ValidatingConsensus;
 use crate::traits::network::ViewMessage;
 use crate::vote::{DAVote, QuorumVote};
 use crate::{
-    data::{ProposalType, ValidatingLeaf},
+    data::ProposalType,
     traits::{
-        consensus_type::sequencing_consensus::SequencingConsensus,
+        consensus_type::{sequencing_consensus::SequencingConsensus, ConsensusType},
         network::NetworkMsg,
         node_implementation::{
             DAProposalType, ExchangesType, NodeImplementation, NodeType, QuorumProposalType,
@@ -27,60 +27,71 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 /// Incoming message
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Derivative)]
 #[serde(bound(deserialize = "", serialize = ""))]
-pub struct Message<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = CONSENSUSMESSAGE>,
-    CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
-        + Clone
-        + Debug
-        + Send
-        + Sync
-        + 'static
-        + for<'a> Deserialize<'a>
-        + Serialize,
-> {
+#[derivative(PartialEq)]
+pub struct Message<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     /// The sender of this message
     pub sender: TYPES::SignatureKey,
 
     /// The message kind
-    pub kind: MessageKind<TYPES, I, CONSENSUSMESSAGE>,
+    #[derivative(PartialEq = "ignore")]
+    pub kind: MessageKind<TYPES::ConsensusType, TYPES, I>,
 
     /// Phantom data.
     pub _phantom: PhantomData<I>,
 }
 
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkMsg for Message<TYPES, I> {}
+
+/// Enum representation of any message type
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "", serialize = ""))]
+pub enum MessageKind<
+    CONSENSUS: ConsensusType,
+    TYPES: NodeType<ConsensusType = CONSENSUS>,
+    I: NodeImplementation<TYPES>,
+> {
+    /// Messages related to the consensus protocol
+    Consensus(I::ConsensusMessage),
+    /// Messages relating to sharing data between nodes
+    Data(DataMessage<TYPES>),
+    /// Phantom data.
+    _Unreachable(PhantomData<I>),
+}
+
 impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = CONSENSUSMESSAGE>,
-        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
-            + Clone
-            + Debug
-            + Send
-            + Sync
-            + 'static
-            + for<'a> Deserialize<'a>
-            + Serialize,
-    > NetworkMsg for Message<TYPES, I, CONSENSUSMESSAGE>
+        CONSENSUS: ConsensusType,
+        TYPES: NodeType<ConsensusType = CONSENSUS>,
+        I: NodeImplementation<TYPES>,
+    > MessageKind<CONSENSUS, TYPES, I>
 {
+    // Can't implement `From<I::ConsensusMessage>` directly due to potential conflict with
+    // `From<DataMessage>`.
+    pub fn from_consensus_message(m: I::ConsensusMessage) -> Self {
+        Self::Consensus(m)
+    }
+}
+
+impl<
+        CONSENSUS: ConsensusType,
+        TYPES: NodeType<ConsensusType = CONSENSUS>,
+        I: NodeImplementation<TYPES>,
+    > From<DataMessage<TYPES>> for MessageKind<CONSENSUS, TYPES, I>
+{
+    fn from(m: DataMessage<TYPES>) -> Self {
+        Self::Data(m)
+    }
 }
 
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = ValidatingLeaf<TYPES>,
-            ConsensusMessage = ValidatingMessage<TYPES, I>,
-        >,
-    > ViewMessage<TYPES> for Message<TYPES, I, ValidatingMessage<TYPES, I>>
-where
-    I::Exchanges:
-        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
+        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+    > ViewMessage<TYPES> for MessageKind<ValidatingConsensus, TYPES, I>
 {
     /// get the view number out of a message
     fn get_view_number(&self) -> TYPES::Time {
-        match &self.kind {
+        match &self {
             MessageKind::Consensus(message) => match &message.0 {
                 GeneralConsensusMessage::Proposal(p) => p.data.get_view_number(),
                 GeneralConsensusMessage::Vote(v) => v.current_view(),
@@ -97,14 +108,13 @@ where
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > ViewMessage<TYPES> for Message<TYPES, I, SequencingMessage<TYPES, I>>
+    > ViewMessage<TYPES> for MessageKind<SequencingConsensus, TYPES, I>
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// get the view number out of a message
     fn get_view_number(&self) -> TYPES::Time {
-        match &self.kind {
+        match &self {
             MessageKind::Consensus(message) => match &message.0 {
                 Left(general_message) => match general_message {
                     GeneralConsensusMessage::Proposal(p) => p.data.get_view_number(),
@@ -124,46 +134,6 @@ where
     }
 }
 
-/// Enum representation of any message type
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(bound(deserialize = "", serialize = ""))]
-pub enum MessageKind<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = CONSENSUSMESSAGE>,
-    CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I> + for<'a> Deserialize<'a> + Serialize,
-> {
-    /// Messages related to the consensus protocol
-    Consensus(CONSENSUSMESSAGE),
-    /// Messages relating to sharing data between nodes
-    Data(DataMessage<TYPES>),
-    /// Phantom data.
-    _Unreachable(PhantomData<I>),
-}
-
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = CONSENSUSMESSAGE>,
-        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I> + for<'a> Deserialize<'a> + Serialize,
-    > MessageKind<TYPES, I, CONSENSUSMESSAGE>
-{
-    // Can't implement `From<CONSENSUSMESSAGE>` directly due to potential conflict with
-    // `From<DataMessage>`.
-    pub fn from_consensus_message(m: CONSENSUSMESSAGE) -> Self {
-        Self::Consensus(m)
-    }
-}
-
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = CONSENSUSMESSAGE>,
-        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I> + for<'a> Deserialize<'a> + Serialize,
-    > From<DataMessage<TYPES>> for MessageKind<TYPES, I, CONSENSUSMESSAGE>
-{
-    fn from(m: DataMessage<TYPES>) -> Self {
-        Self::Data(m)
-    }
-}
-
 /// Internal triggers sent by consensus messages.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(bound(deserialize = ""))]
@@ -176,26 +146,12 @@ pub enum InternalTrigger<TYPES: NodeType> {
 /// A processed consensus message for both validating and sequencing consensus.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = ""))]
-pub enum ProcessedGeneralConsensusMessage<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = CONSENSUSMESSAGE>,
-    CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
-        + Clone
-        + Debug
-        + Send
-        + Sync
-        + 'static
-        + for<'a> Deserialize<'a>
-        + Serialize,
-> where
-    I::Exchanges:
-        ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I, CONSENSUSMESSAGE>>,
+pub enum ProcessedGeneralConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>>
+where
+    I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Leader's proposal for full Quorom voting
-    Proposal(
-        Proposal<QuorumProposalType<TYPES, I, CONSENSUSMESSAGE>>,
-        TYPES::SignatureKey,
-    ),
+    Proposal(Proposal<QuorumProposalType<TYPES, I>>, TYPES::SignatureKey),
     /// Replica's vote on a proposal.
     Vote(QuorumVote<TYPES, I::Leaf>, TYPES::SignatureKey),
     /// Internal ONLY message indicating a view interrupt.
@@ -203,25 +159,13 @@ pub enum ProcessedGeneralConsensusMessage<
     InternalTrigger(InternalTrigger<TYPES>),
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = CONSENSUSMESSAGE>,
-        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
-            + Clone
-            + Debug
-            + Send
-            + Sync
-            + 'static
-            + for<'a> Deserialize<'a>
-            + Serialize,
-    > From<ProcessedGeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>>
-    for GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedGeneralConsensusMessage<TYPES, I>>
+    for GeneralConsensusMessage<TYPES, I>
 where
-    I::Exchanges:
-        ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I, CONSENSUSMESSAGE>>,
+    I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// row polymorphism would be great here
-    fn from(value: ProcessedGeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>) -> Self {
+    fn from(value: ProcessedGeneralConsensusMessage<TYPES, I>) -> Self {
         match value {
             ProcessedGeneralConsensusMessage::Proposal(p, _) => {
                 GeneralConsensusMessage::Proposal(p)
@@ -236,21 +180,11 @@ where
 
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = ValidatingLeaf<TYPES>,
-            ConsensusMessage = ValidatingMessage<TYPES, I>,
-        >,
-    > From<ProcessedGeneralConsensusMessage<TYPES, I, ValidatingMessage<TYPES, I>>>
-    for ValidatingMessage<TYPES, I>
-where
-    I::Exchanges:
-        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
+        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+    > From<ProcessedGeneralConsensusMessage<TYPES, I>> for ValidatingMessage<TYPES, I>
 {
     /// row polymorphism would be great here
-    fn from(
-        value: ProcessedGeneralConsensusMessage<TYPES, I, ValidatingMessage<TYPES, I>>,
-    ) -> Self {
+    fn from(value: ProcessedGeneralConsensusMessage<TYPES, I>) -> Self {
         match value {
             ProcessedGeneralConsensusMessage::Proposal(p, _) => {
                 ValidatingMessage(GeneralConsensusMessage::Proposal(p))
@@ -265,27 +199,12 @@ where
     }
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES, ConsensusMessage = CONSENSUSMESSAGE>,
-        CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
-            + Clone
-            + Debug
-            + Send
-            + Sync
-            + 'static
-            + for<'a> Deserialize<'a>
-            + Serialize,
-    > ProcessedGeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProcessedGeneralConsensusMessage<TYPES, I>
 where
-    I::Exchanges:
-        ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I, CONSENSUSMESSAGE>>,
+    I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// row polymorphism would be great here
-    pub fn new(
-        value: GeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>,
-        sender: TYPES::SignatureKey,
-    ) -> Self {
+    pub fn new(value: GeneralConsensusMessage<TYPES, I>, sender: TYPES::SignatureKey) -> Self {
         match value {
             GeneralConsensusMessage::Proposal(p) => {
                 ProcessedGeneralConsensusMessage::Proposal(p, sender)
@@ -305,8 +224,7 @@ pub enum ProcessedCommitteeConsensusMessage<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
 > where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Proposal for data availability committee
     DAProposal(Proposal<DAProposal<TYPES>>, TYPES::SignatureKey),
@@ -319,8 +237,7 @@ impl<
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > From<ProcessedCommitteeConsensusMessage<TYPES, I>> for CommitteeConsensusMessage<TYPES, I>
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// row polymorphism would be great here
     fn from(value: ProcessedCommitteeConsensusMessage<TYPES, I>) -> Self {
@@ -340,8 +257,7 @@ impl<
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > ProcessedCommitteeConsensusMessage<TYPES, I>
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// row polymorphism would be great here
     pub fn new(value: CommitteeConsensusMessage<TYPES, I>, sender: TYPES::SignatureKey) -> Self {
@@ -356,22 +272,20 @@ where
     }
 }
 
-pub type ProcessedSequencingMessage<TYPES, I, CONSENSUSMESSAGE> = Either<
-    ProcessedGeneralConsensusMessage<TYPES, I, CONSENSUSMESSAGE>,
+pub type ProcessedSequencingMessage<TYPES, I> = Either<
+    ProcessedGeneralConsensusMessage<TYPES, I>,
     ProcessedCommitteeConsensusMessage<TYPES, I>,
 >;
 
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > From<ProcessedSequencingMessage<TYPES, I, SequencingMessage<TYPES, I>>>
-    for SequencingMessage<TYPES, I>
+    > From<ProcessedSequencingMessage<TYPES, I>> for SequencingMessage<TYPES, I>
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// row polymorphism would be great here
-    fn from(value: ProcessedSequencingMessage<TYPES, I, SequencingMessage<TYPES, I>>) -> Self {
+    fn from(value: ProcessedSequencingMessage<TYPES, I>) -> Self {
         match value {
             Left(message) => SequencingMessage(Left(message.into())),
             Right(message) => SequencingMessage(Right(message.into())),
@@ -382,16 +296,12 @@ where
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > From<ProcessedGeneralConsensusMessage<TYPES, I, SequencingMessage<TYPES, I>>>
-    for ProcessedSequencingMessage<TYPES, I, SequencingMessage<TYPES, I>>
+    > From<ProcessedGeneralConsensusMessage<TYPES, I>> for ProcessedSequencingMessage<TYPES, I>
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// row polymorphism would be great here
-    fn from(
-        value: ProcessedGeneralConsensusMessage<TYPES, I, SequencingMessage<TYPES, I>>,
-    ) -> Self {
+    fn from(value: ProcessedGeneralConsensusMessage<TYPES, I>) -> Self {
         Left(value)
     }
 }
@@ -399,23 +309,12 @@ where
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = "", serialize = ""))]
 /// Messages related to both validating and sequencing consensus.
-pub enum GeneralConsensusMessage<
-    TYPES: NodeType,
-    I: NodeImplementation<TYPES, ConsensusMessage = CONSENSUSMESSAGE>,
-    CONSENSUSMESSAGE: ConsensusMessageType<TYPES, I>
-        + Clone
-        + Debug
-        + Send
-        + Sync
-        + 'static
-        + for<'a> Deserialize<'a>
-        + Serialize,
-> where
-    I::Exchanges:
-        ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I, CONSENSUSMESSAGE>>,
+pub enum GeneralConsensusMessage<TYPES: NodeType, I: NodeImplementation<TYPES>>
+where
+    I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Leader's proposal for full quorum voting
-    Proposal(Proposal<QuorumProposalType<TYPES, I, CONSENSUSMESSAGE>>),
+    Proposal(Proposal<QuorumProposalType<TYPES, I>>),
 
     /// Replica's vote on a proposal.
     Vote(QuorumVote<TYPES, I::Leaf>),
@@ -432,8 +331,7 @@ pub enum CommitteeConsensusMessage<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
 > where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// Proposal for data availability committee
     DAProposal(Proposal<DAProposal<TYPES>>),
@@ -473,60 +371,29 @@ pub trait SequencingMessageType<
 #[serde(bound(deserialize = "", serialize = ""))]
 pub struct ValidatingMessage<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    I: NodeImplementation<
-        TYPES,
-        Leaf = ValidatingLeaf<TYPES>,
-        ConsensusMessage = ValidatingMessage<TYPES, I>,
-    >,
->(pub GeneralConsensusMessage<TYPES, I, ValidatingMessage<TYPES, I>>)
-where
-    I::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
-    >;
+    I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
+>(pub GeneralConsensusMessage<TYPES, I>);
 
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = ValidatingLeaf<TYPES>,
-            ConsensusMessage = ValidatingMessage<TYPES, I>,
-        >,
+        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
     > ConsensusMessageType<TYPES, I> for ValidatingMessage<TYPES, I>
-where
-    I::Exchanges:
-        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
 {
-    type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I, Self>;
-    type ProcessedConsensusMessage = ProcessedGeneralConsensusMessage<TYPES, I, Self>;
+    type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I>;
+    type ProcessedConsensusMessage = ProcessedGeneralConsensusMessage<TYPES, I>;
 }
 
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = ValidatingLeaf<TYPES>,
-            ConsensusMessage = ValidatingMessage<TYPES, I>,
-        >,
+        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
     > ValidatingMessageType<TYPES, I> for ValidatingMessage<TYPES, I>
-where
-    I::Exchanges:
-        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
 {
 }
 
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = ValidatingLeaf<TYPES>,
-            ConsensusMessage = ValidatingMessage<TYPES, I>,
-        >,
+        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
     > ValidatingMessage<TYPES, I>
-where
-    I::Exchanges:
-        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
 {
     /// The view number of the (leader|replica) when the message was sent or the view of the
     /// timeout.
@@ -551,26 +418,19 @@ where
 pub struct SequencingMessage<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
->(
-    pub  Either<
-        GeneralConsensusMessage<TYPES, I, SequencingMessage<TYPES, I>>,
-        CommitteeConsensusMessage<TYPES, I>,
-    >,
-)
+>(pub Either<GeneralConsensusMessage<TYPES, I>, CommitteeConsensusMessage<TYPES, I>>)
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>;
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>;
 
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > ConsensusMessageType<TYPES, I> for SequencingMessage<TYPES, I>
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
-    type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I, Self>;
-    type ProcessedConsensusMessage = ProcessedSequencingMessage<TYPES, I, Self>;
+    type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I>;
+    type ProcessedConsensusMessage = ProcessedSequencingMessage<TYPES, I>;
 }
 
 impl<
@@ -578,8 +438,7 @@ impl<
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > SequencingMessageType<TYPES, I> for SequencingMessage<TYPES, I>
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     type CommitteeConsensusMessage = CommitteeConsensusMessage<TYPES, I>;
 }
@@ -589,8 +448,7 @@ impl<
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > SequencingMessage<TYPES, I>
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// The view number of the (leader|replica|committee member) when the message was sent or the
     /// view of the timeout.

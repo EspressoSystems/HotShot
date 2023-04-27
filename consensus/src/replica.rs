@@ -43,8 +43,7 @@ pub struct Replica<
         ConsensusMessage = ValidatingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges:
-        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
+    I::Exchanges: ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// id of node
     pub id: u64,
@@ -52,9 +51,8 @@ pub struct Replica<
     pub consensus: Arc<RwLock<Consensus<TYPES, ValidatingLeaf<TYPES>>>>,
     /// channel for accepting leader proposals and timeouts messages
     #[allow(clippy::type_complexity)]
-    pub proposal_collection_chan: Arc<
-        Mutex<UnboundedReceiver<ProcessedGeneralConsensusMessage<TYPES, I, I::ConsensusMessage>>>,
-    >,
+    pub proposal_collection_chan:
+        Arc<Mutex<UnboundedReceiver<ProcessedGeneralConsensusMessage<TYPES, I>>>>,
     /// view number this view is executing in
     pub cur_view: TYPES::Time,
     /// genericQC from the pseudocode
@@ -79,12 +77,11 @@ impl<
         >,
     > Replica<A, TYPES, I>
 where
-    I::Exchanges:
-        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
+    I::Exchanges: ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
         Commitment = ValidatingLeaf<TYPES>,
@@ -244,7 +241,7 @@ where
                                 info!("Sending vote to next leader {:?}", message);
                                 if self
                                     .api
-                                    .send_direct_message::<QuorumProposalType<TYPES, I,ValidatingMessage<TYPES,I>>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(next_leader, ValidatingMessage(message))
+                                    .send_direct_message::<QuorumProposalType<TYPES, I>, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(next_leader, ValidatingMessage(message))
                                     .await
                                     .is_err()
                                 {
@@ -300,7 +297,6 @@ where
                                             .send_direct_message::<QuorumProposalType<
                                                 TYPES,
                                                 I,
-                                                ValidatingMessage<TYPES, I>,
                                             >, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(
                                                 next_leader.clone(),
                                                 ValidatingMessage(timed_out_msg),

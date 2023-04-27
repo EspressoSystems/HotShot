@@ -52,8 +52,7 @@ pub struct DALeader<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// id of node
     pub id: u64,
@@ -74,8 +73,7 @@ pub struct DALeader<
     pub quorum_exchange: Arc<SequencingQuorumEx<TYPES, I>>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
-    pub vote_collection_chan:
-        Arc<Mutex<UnboundedReceiver<ProcessedSequencingMessage<TYPES, I, I::ConsensusMessage>>>>,
+    pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ProcessedSequencingMessage<TYPES, I>>>>,
     /// needed to typecheck
     pub _pd: PhantomData<I>,
 }
@@ -89,15 +87,11 @@ impl<
         >,
     > DALeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<
-        TYPES,
-        SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges: SequencingExchangesType<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
         Commitment = TYPES::BlockType,
     >,
@@ -310,8 +304,7 @@ pub struct ConsensusLeader<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// id of node
     pub id: u64,
@@ -346,15 +339,11 @@ impl<
         >,
     > ConsensusLeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<
-        TYPES,
-        SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges: SequencingExchangesType<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
         Proposal = CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
     >,
 {
@@ -394,7 +383,7 @@ where
             })));
         if let Err(e) = self
             .api
-            .send_broadcast_message::<QuorumProposalType<TYPES, I,SequencingMessage<TYPES,I>>, QuorumVoteType<TYPES, I,SequencingMessage<TYPES,I>>>(
+            .send_broadcast_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(
                 message.clone(),
             )
             .await
@@ -415,8 +404,7 @@ pub struct ConsensusNextLeader<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// id of node
     pub id: u64,
@@ -430,8 +418,7 @@ pub struct ConsensusNextLeader<
     pub generic_qc: QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
-    pub vote_collection_chan:
-        Arc<Mutex<UnboundedReceiver<ProcessedSequencingMessage<TYPES, I, I::ConsensusMessage>>>>,
+    pub vote_collection_chan: Arc<Mutex<UnboundedReceiver<ProcessedSequencingMessage<TYPES, I>>>>,
 
     /// the quorum exchnage
     pub quorum_exchange: Arc<SequencingQuorumEx<TYPES, I>>,
@@ -450,15 +437,11 @@ impl<
         >,
     > ConsensusNextLeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<
-        TYPES,
-        SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges: SequencingExchangesType<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
     >,

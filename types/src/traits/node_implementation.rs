@@ -69,12 +69,7 @@ pub trait NodeImplementation<TYPES: NodeType>:
     /// Consensus type selected exchanges.
     ///
     /// Implements either `ValidatingExchangesType` or `SequencingExchangesType`.
-    type Exchanges: ExchangesType<
-        TYPES::ConsensusType,
-        TYPES,
-        Self::Leaf,
-        Message<TYPES, Self, Self::ConsensusMessage>,
-    >;
+    type Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, Self::Leaf, Message<TYPES, Self>>;
 }
 
 // TODO (Keyao) move exchange types to election.rs?
@@ -285,13 +280,12 @@ where
 }
 
 /// Alias for the [`QuorumExchange`] type.
-pub type QuorumEx<TYPES, I, CONSENSUSMESSAGE> =
-    <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
-        <TYPES as NodeType>::ConsensusType,
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I, CONSENSUSMESSAGE>,
-    >>::QuorumExchange;
+pub type QuorumEx<TYPES, I> = <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
+    <TYPES as NodeType>::ConsensusType,
+    TYPES,
+    <I as NodeImplementation<TYPES>>::Leaf,
+    Message<TYPES, I>,
+>>::QuorumExchange;
 
 /// Alias for the [`CommitteeExchange`] type for validating consensus.
 pub type ValidatingQuorumEx<TYPES, I> =
@@ -299,7 +293,7 @@ pub type ValidatingQuorumEx<TYPES, I> =
         ValidatingConsensus,
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+        Message<TYPES, I>,
     >>::QuorumExchange;
 
 /// Alias for the [`CommitteeExchange`] type for sequencing consensus.
@@ -308,7 +302,7 @@ pub type SequencingQuorumEx<TYPES, I> =
         SequencingConsensus,
         TYPES,
         SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
     >>::QuorumExchange;
 
 /// Alias for the [`CommitteeExchange`] type.
@@ -316,7 +310,7 @@ pub type CommitteeEx<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::Exchanges as SequencingExchangesType<
         TYPES,
         SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
     >>::CommitteeExchange;
 
 /// extra functions required on a node implementation to be usable by hotshot-testing
@@ -342,7 +336,7 @@ pub trait TestableNodeImplementation<
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
-    ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, Self, Self::ConsensusMessage> + 'static>;
+    ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, Self> + 'static>;
 
     /// Creates random transaction if possible
     /// otherwise panics
@@ -394,29 +388,29 @@ where
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<
         TYPES,
         <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+        Message<TYPES, I>,
     >,
     <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
         TYPES,
         I::Leaf,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+        Message<TYPES, I>,
     >>::Networking: TestableNetworkingImplementation<
         TYPES,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+        Message<TYPES, I>,
         <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
             I::Leaf,
-            Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+            Message<TYPES, I>,
         >>::Proposal,
         <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
             I::Leaf,
-            Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+            Message<TYPES, I>,
         >>::Vote,
         <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
             I::Leaf,
-            Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+            Message<TYPES, I>,
         >>::Membership,
     >,
     TYPES::StateType: TestableState,
@@ -446,14 +440,14 @@ where
             ) -> <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
                 TYPES,
                 I::Leaf,
-                Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+                Message<TYPES, I>,
             >>::Networking
             + 'static,
     > {
         <<ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
             I::Leaf,
-            Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+            Message<TYPES, I>,
         >>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(
             expected_node_count,
             num_bootstrap,
@@ -511,52 +505,52 @@ where
     <I as NodeImplementation<TYPES>>::Exchanges: SequencingExchangesType<
         TYPES,
         SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
     >,
     <CommitteeEx<TYPES, I> as ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
     >>::Networking: TestableNetworkingImplementation<
         TYPES,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
         <CommitteeEx<TYPES, I> as ConsensusExchange<
             TYPES,
             SequencingLeaf<TYPES>,
-            Message<TYPES, I, SequencingMessage<TYPES, I>>,
+            Message<TYPES, I>,
         >>::Proposal,
         <CommitteeEx<TYPES, I> as ConsensusExchange<
             TYPES,
             SequencingLeaf<TYPES>,
-            Message<TYPES, I, SequencingMessage<TYPES, I>>,
+            Message<TYPES, I>,
         >>::Vote,
         <CommitteeEx<TYPES, I> as ConsensusExchange<
             TYPES,
             SequencingLeaf<TYPES>,
-            Message<TYPES, I, SequencingMessage<TYPES, I>>,
+            Message<TYPES, I>,
         >>::Membership,
     >,
     <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
     >>::Networking: TestableNetworkingImplementation<
         TYPES,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
         <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
             SequencingLeaf<TYPES>,
-            Message<TYPES, I, SequencingMessage<TYPES, I>>,
+            Message<TYPES, I>,
         >>::Proposal,
         <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
             SequencingLeaf<TYPES>,
-            Message<TYPES, I, SequencingMessage<TYPES, I>>,
+            Message<TYPES, I>,
         >>::Vote,
         <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
             SequencingLeaf<TYPES>,
-            Message<TYPES, I, SequencingMessage<TYPES, I>>,
+            Message<TYPES, I>,
         >>::Membership,
     >,
     TYPES::StateType: TestableState,
@@ -568,7 +562,7 @@ where
     type CommitteeNetwork = <CommitteeEx<TYPES, I> as ConsensusExchange<
         TYPES,
         I::Leaf,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
     >>::Networking;
 
     fn committee_generator(
@@ -579,7 +573,7 @@ where
         <<CommitteeEx<TYPES, I> as ConsensusExchange<
             TYPES,
             I::Leaf,
-            Message<TYPES, I, SequencingMessage<TYPES, I>>,
+            Message<TYPES, I>,
         >>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(
             expected_node_count,
             num_bootstrap,
@@ -597,14 +591,14 @@ where
             ) -> <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
                 TYPES,
                 I::Leaf,
-                Message<TYPES, I, SequencingMessage<TYPES, I>>,
+                Message<TYPES, I>,
             >>::Networking
             + 'static,
     > {
         <<SequencingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
             I::Leaf,
-            Message<TYPES, I, SequencingMessage<TYPES, I>>,
+            Message<TYPES, I>,
         >>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(
             expected_node_count,
             num_bootstrap,
@@ -650,64 +644,39 @@ where
 }
 
 /// A proposal to append a new leaf to the log which is output by consensus.
-pub type QuorumProposalType<TYPES, I, CONSENSUSMESSAGE> =
-    <QuorumEx<TYPES, I, CONSENSUSMESSAGE> as ConsensusExchange<
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I, CONSENSUSMESSAGE>,
-    >>::Proposal;
+pub type QuorumProposalType<TYPES, I> = <QuorumEx<TYPES, I> as ConsensusExchange<
+    TYPES,
+    <I as NodeImplementation<TYPES>>::Leaf,
+    Message<TYPES, I>,
+>>::Proposal;
 
 /// A proposal to provide data availability for a new leaf.
 pub type DAProposalType<TYPES, I> = <CommitteeEx<TYPES, I> as ConsensusExchange<
     TYPES,
     <I as NodeImplementation<TYPES>>::Leaf,
-    Message<TYPES, I, SequencingMessage<TYPES, I>>,
+    Message<TYPES, I>,
 >>::Proposal;
 
 /// A vote on a [`QuorumProposalType`].
-pub type QuorumVoteType<TYPES, I, CONSENSUSMESSAGE> =
-    <QuorumEx<TYPES, I, CONSENSUSMESSAGE> as ConsensusExchange<
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I, CONSENSUSMESSAGE>,
-    >>::Vote;
+pub type QuorumVoteType<TYPES, I> = <QuorumEx<TYPES, I> as ConsensusExchange<
+    TYPES,
+    <I as NodeImplementation<TYPES>>::Leaf,
+    Message<TYPES, I>,
+>>::Vote;
 
 /// A vote on a [`ComitteeProposal`].
 pub type CommitteeVote<TYPES, I> = <CommitteeEx<TYPES, I> as ConsensusExchange<
     TYPES,
     <I as NodeImplementation<TYPES>>::Leaf,
-    Message<TYPES, I, SequencingMessage<TYPES, I>>,
+    Message<TYPES, I>,
 >>::Vote;
 
 /// Networking implementation used to communicate [`QuorumProposalType`] and [`QuorumVote`].
-pub type QuorumNetwork<TYPES, I, CONSENSUSMESSAGE> =
-    <QuorumEx<TYPES, I, CONSENSUSMESSAGE> as ConsensusExchange<
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I, CONSENSUSMESSAGE>,
-    >>::Networking;
-
-/// Networking implementation used to communicate [`DAProposalType`] and [`CommitteeVote`].
-pub type CommitteeNetwork<TYPES, I> = <CommitteeEx<TYPES, I> as ConsensusExchange<
+pub type QuorumNetwork<TYPES, I> = <QuorumEx<TYPES, I> as ConsensusExchange<
     TYPES,
     <I as NodeImplementation<TYPES>>::Leaf,
-    Message<TYPES, I, SequencingMessage<TYPES, I>>,
+    Message<TYPES, I>,
 >>::Networking;
-
-/// Protocol for determining membership in a consensus committee.
-pub type QuorumMembership<TYPES, I, CONSENSUSMESSAGE> =
-    <QuorumEx<TYPES, I, CONSENSUSMESSAGE> as ConsensusExchange<
-        TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
-        Message<TYPES, I, CONSENSUSMESSAGE>,
-    >>::Membership;
-
-/// Protocol for determining membership in a data availability committee.
-pub type CommitteeMembership<TYPES, I> = <CommitteeEx<TYPES, I> as ConsensusExchange<
-    TYPES,
-    <I as NodeImplementation<TYPES>>::Leaf,
-    Message<TYPES, I, SequencingMessage<TYPES, I>>,
->>::Membership;
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
 pub trait NodeType:
@@ -727,7 +696,7 @@ pub trait NodeType:
     + 'static
 {
     /// the type of consensus (seuqencing or validating)
-    type ConsensusType: ConsensusType;
+    type ConsensusType: ConsensusType + Debug;
     /// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `StateType::Time` is using.

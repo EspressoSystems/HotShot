@@ -42,11 +42,7 @@ pub struct NextValidatingLeader<
         ConsensusMessage = ValidatingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
-    >,
+    I::Exchanges: ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
 {
     /// id of node
     pub id: u64,
@@ -54,9 +50,8 @@ pub struct NextValidatingLeader<
     pub generic_qc: QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     /// channel through which the leader collects votes
     #[allow(clippy::type_complexity)]
-    pub vote_collection_chan: Arc<
-        Mutex<UnboundedReceiver<ProcessedGeneralConsensusMessage<TYPES, I, I::ConsensusMessage>>>,
-    >,
+    pub vote_collection_chan:
+        Arc<Mutex<UnboundedReceiver<ProcessedGeneralConsensusMessage<TYPES, I>>>>,
     /// The view number we're running on
     pub cur_view: TYPES::Time,
     /// Limited access to the consensus protocol
@@ -82,15 +77,11 @@ impl<
         >,
     > NextValidatingLeader<A, TYPES, I>
 where
-    I::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
-    >,
+    I::Exchanges: ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
         Commitment = ValidatingLeaf<TYPES>,
     >,

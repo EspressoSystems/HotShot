@@ -15,7 +15,7 @@ use dashmap::DashMap;
 use futures::StreamExt;
 use hotshot_types::{
     data::ProposalType,
-    message::Message,
+    message::{Message, MessageKind},
     traits::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
@@ -295,17 +295,11 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    >
-    TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I, I::ConsensusMessage>,
-        PROPOSAL,
-        VOTE,
-        MEMBERSHIP,
-    > for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
-    Message<TYPES, I, I::ConsensusMessage>: ViewMessage<TYPES>,
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     fn generator(
         _expected_node_count: usize,
@@ -467,7 +461,7 @@ pub struct MemoryCommChannel<
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    MemoryNetwork<Message<TYPES, I, I::ConsensusMessage>, TYPES::SignatureKey>,
+    MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
     PhantomData<(I, PROPOSAL, VOTE, MEMBERSHIP)>,
 );
 
@@ -481,9 +475,7 @@ impl<
 {
     /// create new communication channel
     #[must_use]
-    pub fn new(
-        network: MemoryNetwork<Message<TYPES, I, I::ConsensusMessage>, TYPES::SignatureKey>,
-    ) -> Self {
+    pub fn new(network: MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>) -> Self {
         Self(network, PhantomData::default())
     }
 }
@@ -495,11 +487,10 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    >
-    CommunicationChannel<TYPES, Message<TYPES, I, I::ConsensusMessage>, PROPOSAL, VOTE, MEMBERSHIP>
+    > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
-    Message<TYPES, I, I::ConsensusMessage>: ViewMessage<TYPES>,
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
@@ -515,17 +506,19 @@ where
 
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, I, I::ConsensusMessage>,
+        message: Message<TYPES, I>,
         election: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
-        let recipients =
-            <MEMBERSHIP as Membership<TYPES>>::get_committee(election, message.get_view_number());
+        let recipients = <MEMBERSHIP as Membership<TYPES>>::get_committee(
+            election,
+            message.kind.get_view_number(),
+        );
         self.0.broadcast_message(message, recipients).await
     }
 
     async fn direct_message(
         &self,
-        message: Message<TYPES, I, I::ConsensusMessage>,
+        message: Message<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
@@ -534,7 +527,7 @@ where
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, I, I::ConsensusMessage>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 
@@ -613,263 +606,235 @@ mod tests {
     type TestMembership = GeneralStaticCommittee<Test, TestLeaf, Ed25519Pub>;
     type TestNetwork = MemoryCommChannel<Test, TestImpl, TestProposal, TestVote, TestMembership>;
 
-    // impl NodeImplementation<Test> for TestImpl {
-    //     type ConsensusMessage = ValidatingMessage<Test, Self>;
-    //     type Exchanges = ValidatingExchanges<
-    //         Test,
-    //         TestLeaf,
-    //         Message<Test, Self, ValidatingMessage<Test, Self>>,
-    //         QuorumExchange<
-    //             Test,
-    //             TestLeaf,
-    //             TestProposal,
-    //             TestMembership,
-    //             TestNetwork,
-    //             Message<Test, Self, ValidatingMessage<Test, Self>>,
-    //         >,
-    //     >;
-    //     type Leaf = TestLeaf;
-    //     type Storage = MemoryStorage<Test, TestLeaf>;
-    // }
+    impl NodeImplementation<Test> for TestImpl {
+        type ConsensusMessage = ValidatingMessage<Test, Self>;
+        type Exchanges = ValidatingExchanges<
+            Test,
+            TestLeaf,
+            Message<Test, Self>,
+            QuorumExchange<
+                Test,
+                TestLeaf,
+                TestProposal,
+                TestMembership,
+                TestNetwork,
+                Message<Test, Self>,
+            >,
+        >;
+        type Leaf = TestLeaf;
+        type Storage = MemoryStorage<Test, TestLeaf>;
+    }
 
     type TestLeaf = ValidatingLeaf<Test>;
     type TestVote = QuorumVote<Test, TestLeaf>;
     type TestProposal = ValidatingProposal<Test, TestLeaf>;
 
-    // TODO (Keyao) Fix "overflow evaluating the requirement" error and restore relevant tests.
-    // /// fake Eq
-    // /// we can't compare the votetokentype for equality, so we can't
-    // /// derive EQ on `VoteType<TYPES>` and thereby message
-    // /// we are only sending data messages, though so we compare key and
-    // /// data message
-    // fn fake_message_eq(
-    //     message_1: Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>,
-    //     message_2: Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>,
-    // ) {
-    //     assert_eq!(message_1.sender, message_2.sender);
-    //     if let MessageKind::Data(DataMessage::SubmitTransaction(d_1, _)) = message_1.kind {
-    //         if let MessageKind::Data(DataMessage::SubmitTransaction(d_2, _)) = message_2.kind {
-    //             assert_eq!(d_1, d_2);
-    //         }
-    //     } else {
-    //         panic!("Got unexpected message type in memory test!");
-    //     }
-    // }
+    /// fake Eq
+    /// we can't compare the votetokentype for equality, so we can't
+    /// derive EQ on `VoteType<TYPES>` and thereby message
+    /// we are only sending data messages, though so we compare key and
+    /// data message
+    fn fake_message_eq(message_1: Message<Test, TestImpl>, message_2: Message<Test, TestImpl>) {
+        assert_eq!(message_1.sender, message_2.sender);
+        if let MessageKind::Data(DataMessage::SubmitTransaction(d_1, _)) = message_1.kind {
+            if let MessageKind::Data(DataMessage::SubmitTransaction(d_2, _)) = message_2.kind {
+                assert_eq!(d_1, d_2);
+            }
+        } else {
+            panic!("Got unexpected message type in memory test!");
+        }
+    }
 
-    // #[instrument]
-    // fn get_pubkey() -> Ed25519Pub {
-    //     let priv_key = Ed25519Priv::generate();
-    //     Ed25519Pub::from_private(&priv_key)
-    // }
+    #[instrument]
+    fn get_pubkey() -> Ed25519Pub {
+        let priv_key = Ed25519Priv::generate();
+        Ed25519Pub::from_private(&priv_key)
+    }
 
-    // TODO (Keyao) Fix "overflow evaluating the requirement" error and restore relevant tests.
     /// create a message
-    // fn gen_messages(
-    //     num_messages: u64,
-    //     seed: u64,
-    //     pk: Ed25519Pub,
-    // ) -> Vec<Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>> {
-    //     let mut messages = Vec::new();
-    //     for i in 0..num_messages {
-    //         let message = Message {
-    //             sender: pk,
-    //             kind: MessageKind::Data(DataMessage::SubmitTransaction(
-    //                 VDemoTransaction {
-    //                     add: Addition {
-    //                         account: "A".to_string(),
-    //                         amount: 50 + i + seed,
-    //                     },
-    //                     sub: Subtraction {
-    //                         account: "B".to_string(),
-    //                         amount: 50 + i + seed,
-    //                     },
-    //                     nonce: seed + i,
-    //                     padding: vec![50; 0],
-    //                 },
-    //                 <ViewNumber as ConsensusTime>::new(0),
-    //             )),
-    //         };
-    //         messages.push(message);
-    //     }
-    //     messages
-    // }
+    fn gen_messages(num_messages: u64, seed: u64, pk: Ed25519Pub) -> Vec<Message<Test, TestImpl>> {
+        let mut messages = Vec::new();
+        for i in 0..num_messages {
+            let message = Message {
+                sender: pk,
+                kind: MessageKind::Data(DataMessage::SubmitTransaction(
+                    VDemoTransaction {
+                        add: Addition {
+                            account: "A".to_string(),
+                            amount: 50 + i + seed,
+                        },
+                        sub: Subtraction {
+                            account: "B".to_string(),
+                            amount: 50 + i + seed,
+                        },
+                        nonce: seed + i,
+                        padding: vec![50; 0],
+                    },
+                    <ViewNumber as ConsensusTime>::new(0),
+                )),
+                _phantom: PhantomData,
+            };
+            messages.push(message);
+        }
+        messages
+    }
 
-    // // Spawning a single MemoryNetwork should produce no errors
-    // #[cfg_attr(
-    //     feature = "tokio-executor",
-    //     tokio::test(flavor = "multi_thread", worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    // #[instrument]
-    // async fn spawn_single() {
-    //     setup_logging();
-    //     let group: Arc<
-    //         MasterMap<
-    //             Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>,
-    //             <Test as NodeType>::SignatureKey,
-    //         >,
-    //     > = MasterMap::new();
-    //     trace!(?group);
-    //     let pub_key = get_pubkey();
-    //     let _network = MemoryNetwork::new(pub_key, NoMetrics::boxed(), group, Option::None);
-    // }
+    // Spawning a single MemoryNetwork should produce no errors
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    #[instrument]
+    async fn spawn_single() {
+        setup_logging();
+        let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
+            MasterMap::new();
+        trace!(?group);
+        let pub_key = get_pubkey();
+        let _network = MemoryNetwork::new(pub_key, NoMetrics::boxed(), group, Option::None);
+    }
 
-    // // // Spawning a two MemoryNetworks and connecting them should produce no errors
-    // #[cfg_attr(
-    //     feature = "tokio-executor",
-    //     tokio::test(flavor = "multi_thread", worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    // #[instrument]
-    // async fn spawn_double() {
-    //     setup_logging();
-    //     let group: Arc<
-    //         MasterMap<
-    //             Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>,
-    //             <Test as NodeType>::SignatureKey,
-    //         >,
-    //     > = MasterMap::new();
-    //     trace!(?group);
-    //     let pub_key_1 = get_pubkey();
-    //     let _network_1 =
-    //         MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
-    //     let pub_key_2 = get_pubkey();
-    //     let _network_2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
-    // }
+    // // Spawning a two MemoryNetworks and connecting them should produce no errors
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    #[instrument]
+    async fn spawn_double() {
+        setup_logging();
+        let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
+            MasterMap::new();
+        trace!(?group);
+        let pub_key_1 = get_pubkey();
+        let _network_1 =
+            MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
+        let pub_key_2 = get_pubkey();
+        let _network_2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
+    }
 
-    // // Check to make sure direct queue works
-    // #[cfg_attr(
-    //     feature = "tokio-executor",
-    //     tokio::test(flavor = "multi_thread", worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    // #[allow(deprecated)]
-    // #[instrument]
-    // async fn direct_queue() {
-    //     setup_logging();
-    //     // Create some dummy messages
+    // Check to make sure direct queue works
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    #[allow(deprecated)]
+    #[instrument]
+    async fn direct_queue() {
+        setup_logging();
+        // Create some dummy messages
 
-    //     // Make and connect the networking instances
-    //     let group: Arc<
-    //         MasterMap<
-    //             Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>,
-    //             <Test as NodeType>::SignatureKey,
-    //         >,
-    //     > = MasterMap::new();
-    //     trace!(?group);
-    //     let pub_key_1 = get_pubkey();
-    //     let network1 =
-    //         MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
-    //     let pub_key_2 = get_pubkey();
-    //     let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
+        // Make and connect the networking instances
+        let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
+            MasterMap::new();
+        trace!(?group);
+        let pub_key_1 = get_pubkey();
+        let network1 =
+            MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
+        let pub_key_2 = get_pubkey();
+        let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
 
-    //     let first_messages: Vec<Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>> =
-    //         gen_messages(5, 100, pub_key_1);
+        let first_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);
 
-    //     // Test 1 -> 2
-    //     // Send messages
-    //     for sent_message in first_messages {
-    //         network1
-    //             .direct_message(sent_message.clone(), pub_key_2)
-    //             .await
-    //             .expect("Failed to message node");
-    //         let mut recv_messages = network2
-    //             .recv_msgs(TransmitType::Direct)
-    //             .await
-    //             .expect("Failed to receive message");
-    //         let recv_message = recv_messages.pop().unwrap();
-    //         assert!(recv_messages.is_empty());
-    //         // fake_message_eq(sent_message, recv_message);
-    //     }
+        // Test 1 -> 2
+        // Send messages
+        for sent_message in first_messages {
+            network1
+                .direct_message(sent_message.clone(), pub_key_2)
+                .await
+                .expect("Failed to message node");
+            let mut recv_messages = network2
+                .recv_msgs(TransmitType::Direct)
+                .await
+                .expect("Failed to receive message");
+            let recv_message = recv_messages.pop().unwrap();
+            assert!(recv_messages.is_empty());
+            // fake_message_eq(sent_message, recv_message);
+        }
 
-    //     let second_messages: Vec<Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>> =
-    //         gen_messages(5, 200, pub_key_2);
+        let second_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 200, pub_key_2);
 
-    //     // Test 2 -> 1
-    //     // Send messages
-    //     for sent_message in second_messages {
-    //         network2
-    //             .direct_message(sent_message.clone(), pub_key_1)
-    //             .await
-    //             .expect("Failed to message node");
-    //         let mut recv_messages = network1
-    //             .recv_msgs(TransmitType::Direct)
-    //             .await
-    //             .expect("Failed to receive message");
-    //         let recv_message = recv_messages.pop().unwrap();
-    //         assert!(recv_messages.is_empty());
-    //         // fake_message_eq(sent_message, recv_message);
-    //     }
-    // }
+        // Test 2 -> 1
+        // Send messages
+        for sent_message in second_messages {
+            network2
+                .direct_message(sent_message.clone(), pub_key_1)
+                .await
+                .expect("Failed to message node");
+            let mut recv_messages = network1
+                .recv_msgs(TransmitType::Direct)
+                .await
+                .expect("Failed to receive message");
+            let recv_message = recv_messages.pop().unwrap();
+            assert!(recv_messages.is_empty());
+            // fake_message_eq(sent_message, recv_message);
+        }
+    }
 
-    // // Check to make sure direct queue works
-    // #[cfg_attr(
-    //     feature = "tokio-executor",
-    //     tokio::test(flavor = "multi_thread", worker_threads = 2)
-    // )]
-    // #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    // #[allow(deprecated)]
-    // #[instrument]
-    // async fn broadcast_queue() {
-    //     setup_logging();
-    //     // Make and connect the networking instances
-    //     let group: Arc<
-    //         MasterMap<
-    //             Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>,
-    //             <Test as NodeType>::SignatureKey,
-    //         >,
-    //     > = MasterMap::new();
-    //     trace!(?group);
-    //     let pub_key_1 = get_pubkey();
-    //     let network1 =
-    //         MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
-    //     let pub_key_2 = get_pubkey();
-    //     let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
+    // Check to make sure direct queue works
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    #[allow(deprecated)]
+    #[instrument]
+    async fn broadcast_queue() {
+        setup_logging();
+        // Make and connect the networking instances
+        let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
+            MasterMap::new();
+        trace!(?group);
+        let pub_key_1 = get_pubkey();
+        let network1 =
+            MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
+        let pub_key_2 = get_pubkey();
+        let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
 
-    //     let first_messages: Vec<Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>> =
-    //         gen_messages(5, 100, pub_key_1);
+        let first_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);
 
-    //     // Test 1 -> 2
-    //     // Send messages
-    //     for sent_message in first_messages {
-    //         network1
-    //             .broadcast_message(
-    //                 sent_message.clone(),
-    //                 vec![pub_key_2].into_iter().collect::<BTreeSet<_>>(),
-    //             )
-    //             .await
-    //             .expect("Failed to message node");
-    //         let mut recv_messages = network2
-    //             .recv_msgs(TransmitType::Broadcast)
-    //             .await
-    //             .expect("Failed to receive message");
-    //         let recv_message = recv_messages.pop().unwrap();
-    //         assert!(recv_messages.is_empty());
-    //         // fake_message_eq(sent_message, recv_message);
-    //     }
+        // Test 1 -> 2
+        // Send messages
+        for sent_message in first_messages {
+            network1
+                .broadcast_message(
+                    sent_message.clone(),
+                    vec![pub_key_2].into_iter().collect::<BTreeSet<_>>(),
+                )
+                .await
+                .expect("Failed to message node");
+            let mut recv_messages = network2
+                .recv_msgs(TransmitType::Broadcast)
+                .await
+                .expect("Failed to receive message");
+            let recv_message = recv_messages.pop().unwrap();
+            assert!(recv_messages.is_empty());
+            // fake_message_eq(sent_message, recv_message);
+        }
 
-    //     let second_messages: Vec<Message<Test, TestImpl, ValidatingMessage<Test, TestImpl>>> =
-    //         gen_messages(5, 200, pub_key_2);
+        let second_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 200, pub_key_2);
 
-    //     // Test 2 -> 1
-    //     // Send messages
-    //     for sent_message in second_messages {
-    //         network2
-    //             .broadcast_message(
-    //                 sent_message.clone(),
-    //                 vec![pub_key_1].into_iter().collect::<BTreeSet<_>>(),
-    //             )
-    //             .await
-    //             .expect("Failed to message node");
-    //         let mut recv_messages = network1
-    //             .recv_msgs(TransmitType::Broadcast)
-    //             .await
-    //             .expect("Failed to receive message");
-    //         let recv_message = recv_messages.pop().unwrap();
-    //         assert!(recv_messages.is_empty());
-    //         // fake_message_eq(sent_message, recv_message);
-    //     }
-    // }
+        // Test 2 -> 1
+        // Send messages
+        for sent_message in second_messages {
+            network2
+                .broadcast_message(
+                    sent_message.clone(),
+                    vec![pub_key_1].into_iter().collect::<BTreeSet<_>>(),
+                )
+                .await
+                .expect("Failed to message node");
+            let mut recv_messages = network1
+                .recv_msgs(TransmitType::Broadcast)
+                .await
+                .expect("Failed to receive message");
+            let recv_message = recv_messages.pop().unwrap();
+            assert!(recv_messages.is_empty());
+            // fake_message_eq(sent_message, recv_message);
+        }
+    }
 
     #[cfg_attr(
         feature = "tokio-executor",
@@ -879,49 +844,49 @@ mod tests {
     #[instrument]
     #[allow(deprecated)]
     async fn test_in_flight_message_count() {
-        // setup_logging();
-        //
-        // let group: Arc<
-        //     MasterMap<Message<Test, TestImpl,TestImpl::ConsensusMessage>, <Test as NodeType>::SignatureKey>,
-        // > = MasterMap::new();
-        // trace!(?group);
-        // let pub_key_1 = get_pubkey();
-        // let network1 = MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
-        // let pub_key_2 = get_pubkey();
-        // let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
-        //
-        // // Create some dummy messages
-        // let messages: Vec<Message<Test, TestImpl,TestImpl::ConsensusMessage>> = gen_messages(5, 100, pub_key_1);
-        //
-        // // assert_eq!(network1.in_flight_message_count(), Some(0));
-        // // assert_eq!(network2.in_flight_message_count(), Some(0));
-        //
-        // for (_count, message) in messages.iter().enumerate() {
-        //     network1
-        //         .direct_message(message.clone(), pub_key_2)
-        //         .await
-        //         .unwrap();
-        //     // network 2 has received `count` broadcast messages and `count + 1` direct messages
-        //     // assert_eq!(network2.in_flight_message_count(), Some(count + count + 1));
-        //
-        //     // network2.broadcast_message(message.clone()).await.unwrap();
-        //     // network 1 has received `count` broadcast messages
-        //     // assert_eq!(network1.in_flight_message_count(), Some(count + 1));
-        //
-        //     // network 2 has received `count + 1` broadcast messages and `count + 1` direct messages
-        //     // assert_eq!(network2.in_flight_message_count(), Some((count + 1) * 2));
-        // }
-        //
-        // for _count in (0..messages.len()).rev() {
-        //     network1.recv_msgs(TransmitType::Broadcast).await.unwrap();
-        //     // assert_eq!(network1.in_flight_message_count(), Some(count));
-        //
-        //     network2.recv_msgs(TransmitType::Broadcast).await.unwrap();
-        //     network2.recv_msgs(TransmitType::Direct).await.unwrap();
-        //     // assert_eq!(network2.in_flight_message_count(), Some(count * 2));
-        // }
-        //
-        // // assert_eq!(network1.in_flight_message_count(), Some(0));
-        // // assert_eq!(network2.in_flight_message_count(), Some(0));
+        setup_logging();
+
+        let group: Arc<MasterMap<Message<Test, TestImpl>, <Test as NodeType>::SignatureKey>> =
+            MasterMap::new();
+        trace!(?group);
+        let pub_key_1 = get_pubkey();
+        let network1 =
+            MemoryNetwork::new(pub_key_1, NoMetrics::boxed(), group.clone(), Option::None);
+        let pub_key_2 = get_pubkey();
+        let network2 = MemoryNetwork::new(pub_key_2, NoMetrics::boxed(), group, Option::None);
+
+        // Create some dummy messages
+        let messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 100, pub_key_1);
+
+        // assert_eq!(network1.in_flight_message_count(), Some(0));
+        // assert_eq!(network2.in_flight_message_count(), Some(0));
+
+        for (_count, message) in messages.iter().enumerate() {
+            network1
+                .direct_message(message.clone(), pub_key_2)
+                .await
+                .unwrap();
+            // network 2 has received `count` broadcast messages and `count + 1` direct messages
+            // assert_eq!(network2.in_flight_message_count(), Some(count + count + 1));
+
+            // network2.broadcast_message(message.clone()).await.unwrap();
+            // network 1 has received `count` broadcast messages
+            // assert_eq!(network1.in_flight_message_count(), Some(count + 1));
+
+            // network 2 has received `count + 1` broadcast messages and `count + 1` direct messages
+            // assert_eq!(network2.in_flight_message_count(), Some((count + 1) * 2));
+        }
+
+        for _count in (0..messages.len()).rev() {
+            network1.recv_msgs(TransmitType::Broadcast).await.unwrap();
+            // assert_eq!(network1.in_flight_message_count(), Some(count));
+
+            network2.recv_msgs(TransmitType::Broadcast).await.unwrap();
+            network2.recv_msgs(TransmitType::Direct).await.unwrap();
+            // assert_eq!(network2.in_flight_message_count(), Some(count * 2));
+        }
+
+        // assert_eq!(network1.in_flight_message_count(), Some(0));
+        // assert_eq!(network2.in_flight_message_count(), Some(0));
     }
 }

@@ -40,11 +40,7 @@ pub struct ValidatingLeader<
         ConsensusMessage = ValidatingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
-    >,
+    I::Exchanges: ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
 {
     /// id of node
     pub id: u64,
@@ -76,15 +72,11 @@ impl<
         >,
     > ValidatingLeader<A, TYPES, I>
 where
-    I::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
-    >,
+    I::Exchanges: ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
     >,
 {
@@ -224,7 +216,7 @@ where
 
             if let Err(e) = self
                 .api
-                .send_broadcast_message::<QuorumProposalType<TYPES, I,ValidatingMessage<TYPES,I>>, QuorumVoteType<TYPES, I,ValidatingMessage<TYPES,I>>>(
+                .send_broadcast_message::<QuorumProposalType<TYPES, I>, QuorumVoteType<TYPES, I>>(
                     message.clone(),
                 )
                 .await

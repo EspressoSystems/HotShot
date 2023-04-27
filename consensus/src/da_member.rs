@@ -43,8 +43,7 @@ pub struct DAMember<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// ID of node.
     pub id: u64,
@@ -53,7 +52,7 @@ pub struct DAMember<
     /// Channel for accepting leader proposals and timeouts messages.
     #[allow(clippy::type_complexity)]
     pub proposal_collection_chan:
-        Arc<Mutex<UnboundedReceiver<ProcessedSequencingMessage<TYPES, I, I::ConsensusMessage>>>>,
+        Arc<Mutex<UnboundedReceiver<ProcessedSequencingMessage<TYPES, I>>>>,
     /// View number this view is executing in.
     pub cur_view: TYPES::Time,
     /// The High QC.
@@ -78,8 +77,7 @@ impl<
         >,
     > DAMember<A, TYPES, I>
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// DA committee member task that spins until a valid DA proposal can be signed or timeout is
     /// hit.

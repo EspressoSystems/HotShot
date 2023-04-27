@@ -73,7 +73,7 @@ pub struct WebCommChannel<
     MEMBERSHIP: Membership<TYPES>,
 >(
     WebServerNetwork<
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
         TYPES::SignatureKey,
         TYPES::ElectionConfigType,
         TYPES,
@@ -95,7 +95,7 @@ impl<
     #[must_use]
     pub fn new(
         network: WebServerNetwork<
-            Message<TYPES, I, I::ConsensusMessage>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
             TYPES::ElectionConfigType,
             TYPES,
@@ -109,8 +109,8 @@ impl<
 
 trait ParsePost<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     fn parse_post_message(
-        message: Message<TYPES, I, I::ConsensusMessage>,
-    ) -> Result<SendMsg<Message<TYPES, I, I::ConsensusMessage>>, WebServerNetworkError>;
+        message: Message<TYPES, I>,
+    ) -> Result<SendMsg<Message<TYPES, I>>, WebServerNetworkError>;
 }
 
 impl<
@@ -126,18 +126,15 @@ impl<
     > ParsePost<TYPES, I>
     for WebCommChannel<ValidatingConsensus, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
-    I::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
-    >,
+    I::Exchanges: ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     /// Parses a message to find the appropriate endpoint
     /// Returns a `SendMsg` containing the endpoint
     fn parse_post_message(
-        message: Message<TYPES, I, I::ConsensusMessage>,
-    ) -> Result<SendMsg<Message<TYPES, I, I::ConsensusMessage>>, WebServerNetworkError> {
-        let view_number: TYPES::Time = message.get_view_number();
+        message: Message<TYPES, I>,
+    ) -> Result<SendMsg<Message<TYPES, I>>, WebServerNetworkError> {
+        let view_number: TYPES::Time = message.kind.get_view_number();
 
         let endpoint = match &message.kind {
             MessageKind::Consensus(message_kind) => match message_kind.0 {
@@ -153,7 +150,7 @@ where
             MessageKind::_Unreachable(_) => unimplemented!(),
         };
 
-        let network_msg: SendMsg<Message<TYPES, I, I::ConsensusMessage>> = SendMsg {
+        let network_msg: SendMsg<Message<TYPES, I>> = SendMsg {
             message: Some(message),
             endpoint,
         };
@@ -174,18 +171,14 @@ impl<
     > ParsePost<TYPES, I>
     for WebCommChannel<SequencingConsensus, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
-    I::Exchanges: SequencingExchangesType<
-        TYPES,
-        SequencingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
-    >,
+    I::Exchanges: SequencingExchangesType<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
 {
     /// Parses a message to find the appropriate endpoint
     /// Returns a `SendMsg` containing the endpoint
     fn parse_post_message(
-        message: Message<TYPES, I, I::ConsensusMessage>,
-    ) -> Result<SendMsg<Message<TYPES, I, I::ConsensusMessage>>, WebServerNetworkError> {
-        let view_number: TYPES::Time = message.get_view_number();
+        message: Message<TYPES, I>,
+    ) -> Result<SendMsg<Message<TYPES, I>>, WebServerNetworkError> {
+        let view_number: TYPES::Time = message.kind.get_view_number();
 
         let endpoint = match &message.kind {
             MessageKind::Consensus(message_kind) => match &message_kind.0 {
@@ -211,7 +204,7 @@ where
             MessageKind::_Unreachable(_) => unimplemented!(),
         };
 
-        let network_msg: SendMsg<Message<TYPES, I, I::ConsensusMessage>> = SendMsg {
+        let network_msg: SendMsg<Message<TYPES, I>> = SendMsg {
             message: Some(message),
             endpoint,
         };
@@ -605,8 +598,7 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    >
-    CommunicationChannel<TYPES, Message<TYPES, I, I::ConsensusMessage>, PROPOSAL, VOTE, MEMBERSHIP>
+    > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     Self: ParsePost<TYPES, I>,
@@ -615,8 +607,8 @@ where
     /// into the network
     async fn wait_for_ready(&self) {
         <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I, I::ConsensusMessage>>,
-            SendMsg<Message<TYPES, I, I::ConsensusMessage>>,
+            RecvMsg<Message<TYPES, I>>,
+            SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
         .await;
@@ -626,8 +618,8 @@ where
     /// nonblocking
     async fn is_ready(&self) -> bool {
         <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I, I::ConsensusMessage>>,
-            SendMsg<Message<TYPES, I, I::ConsensusMessage>>,
+            RecvMsg<Message<TYPES, I>>,
+            SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -638,8 +630,8 @@ where
     /// This should also cause other functions to immediately return with a [`NetworkError`]
     async fn shut_down(&self) -> () {
         <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I, I::ConsensusMessage>>,
-            SendMsg<Message<TYPES, I, I::ConsensusMessage>>,
+            RecvMsg<Message<TYPES, I>>,
+            SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
         .await;
@@ -649,7 +641,7 @@ where
     /// blocking
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, I, I::ConsensusMessage>,
+        message: Message<TYPES, I>,
         _election: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
         let network_msg = Self::parse_post_message(message);
@@ -665,7 +657,7 @@ where
     /// blocking
     async fn direct_message(
         &self,
-        message: Message<TYPES, I, I::ConsensusMessage>,
+        message: Message<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         let network_msg = Self::parse_post_message(message);
@@ -684,10 +676,10 @@ where
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, I, I::ConsensusMessage>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
         let result = <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I, I::ConsensusMessage>>,
-            SendMsg<Message<TYPES, I, I::ConsensusMessage>>,
+            RecvMsg<Message<TYPES, I>>,
+            SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
         >>::recv_msgs(&self.0, transmit_type)
         .await;
@@ -708,8 +700,8 @@ where
 
     async fn inject_consensus_info(&self, tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
         <WebServerNetwork<_, _, _, _, _, _> as ConnectedNetwork<
-            RecvMsg<Message<TYPES, I, I::ConsensusMessage>>,
-            SendMsg<Message<TYPES, I, I::ConsensusMessage>>,
+            RecvMsg<Message<TYPES, I>>,
+            SendMsg<Message<TYPES, I>>,
             TYPES::SignatureKey,
         >>::inject_consensus_info(&self.0, tuple)
         .await
@@ -818,17 +810,10 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    >
-    TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I, I::ConsensusMessage>,
-        PROPOSAL,
-        VOTE,
-        MEMBERSHIP,
-    > for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
-    Message<TYPES, I, I::ConsensusMessage>: ViewMessage<TYPES>,
     WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>: ParsePost<TYPES, I>,
 {
     fn generator(

@@ -308,12 +308,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
         >,
     ) where
         <I::ConsensusMessage as ConsensusMessageType<TYPES, I>>::ProcessedConsensusMessage:
-            From<ProcessedGeneralConsensusMessage<TYPES, I, I::ConsensusMessage>>,
+            From<ProcessedGeneralConsensusMessage<TYPES, I>>,
     {
-        let msg =
-            ProcessedGeneralConsensusMessage::<TYPES, I, I::ConsensusMessage>::InternalTrigger(
-                InternalTrigger::Timeout(current_view),
-            );
+        let msg = ProcessedGeneralConsensusMessage::<TYPES, I>::InternalTrigger(
+            InternalTrigger::Timeout(current_view),
+        );
         if let Some(chan) = send_next_leader {
             if chan.send(msg.clone().into()).await.is_err() {
                 warn!("Error timing out next leader task");
@@ -418,7 +417,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     /// Will return any errors that the underlying `broadcast_message` can return.
     pub async fn send_broadcast_message(
         &self,
-        kind: impl Into<MessageKind<TYPES, I, I::ConsensusMessage>>,
+        kind: impl Into<MessageKind<TYPES::ConsensusType, TYPES, I>>,
     ) -> std::result::Result<(), NetworkError> {
         let inner = self.inner.clone();
         let pk = self.inner.public_key.clone();
@@ -455,7 +454,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     /// Will return any errors that the underlying `message_node` can return.
     pub async fn send_direct_message(
         &self,
-        kind: impl Into<MessageKind<TYPES, I, I::ConsensusMessage>>,
+        kind: impl Into<MessageKind<TYPES::ConsensusType, TYPES, I>>,
         recipient: TYPES::SignatureKey,
     ) -> std::result::Result<(), NetworkError> {
         self.inner
@@ -530,11 +529,7 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
     async fn spawn_all(&self) -> HotShotHandle<TYPES, I>;
 
     /// decide which handler to call based on the message variant and `transmit_type`
-    async fn handle_message(
-        &self,
-        item: Message<TYPES, I, I::ConsensusMessage>,
-        transmit_type: TransmitType,
-    ) {
+    async fn handle_message(&self, item: Message<TYPES, I>, transmit_type: TransmitType) {
         match (item.kind, transmit_type) {
             (MessageKind::Consensus(msg), TransmitType::Broadcast) => {
                 self.handle_broadcast_consensus_message(msg, item.sender)
@@ -629,12 +624,11 @@ impl<
         >,
     > HotShotType<TYPES, I> for HotShot<ValidatingConsensus, TYPES, I>
 where
-    I::Exchanges:
-        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
+    I::Exchanges: ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
+        Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
         Commitment = ValidatingLeaf<TYPES>,
@@ -833,15 +827,11 @@ impl<
         >,
     > HotShotType<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<
-        TYPES,
-        SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges: SequencingExchangesType<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
         Proposal = CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
@@ -849,7 +839,7 @@ where
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
         Commitment = TYPES::BlockType,
     >,
@@ -1156,15 +1146,11 @@ impl<
         >,
     > ViewRunner<TYPES, I> for HotShot<ValidatingConsensus, TYPES, I>
 where
-    I::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
-    >,
+    I::Exchanges: ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
         Commitment = ValidatingLeaf<TYPES>,
@@ -1360,15 +1346,11 @@ impl<
         >,
     > ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<
-        TYPES,
-        SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
-    >,
+    I::Exchanges: SequencingExchangesType<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
         Proposal = CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
@@ -1376,7 +1358,7 @@ where
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
-        Message<TYPES, I, SequencingMessage<TYPES, I>>,
+        Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
         Commitment = TYPES::BlockType,
     >,
@@ -1653,8 +1635,7 @@ impl<
     > hotshot_consensus::ValidatingConsensusApi<TYPES, I::Leaf, I>
     for HotShotValidatingConsensusApi<TYPES, I>
 where
-    I::Exchanges:
-        ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I, ValidatingMessage<TYPES, I>>>,
+    I::Exchanges: ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     async fn send_direct_message<
         PROPOSAL: ProposalType<NodeType = TYPES>,
@@ -1789,8 +1770,7 @@ impl<
     > hotshot_consensus::SequencingConsensusApi<TYPES, I::Leaf, I>
     for HotShotSequencingConsensusApi<TYPES, I>
 where
-    I::Exchanges:
-        SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I, SequencingMessage<TYPES, I>>>,
+    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     async fn send_direct_message<
         PROPOSAL: ProposalType<NodeType = TYPES>,

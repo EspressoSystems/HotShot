@@ -258,7 +258,7 @@ pub async fn network_lookup_task<TYPES: NodeType, I: NodeImplementation<TYPES>>(
 pub async fn network_task<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
-    EXCHANGE: ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I, I::ConsensusMessage>>,
+    EXCHANGE: ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>,
 >(
     hotshot: HotShot<TYPES::ConsensusType, TYPES, I>,
     shut_down: Arc<AtomicBool>,

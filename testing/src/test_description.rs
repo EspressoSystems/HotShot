@@ -168,10 +168,10 @@ where
             self.total_nodes,
             self.num_bootstrap_nodes,
             self.min_transactions,
-            <QuorumEx<TYPES, I, I::ConsensusMessage> as ConsensusExchange<
+            <QuorumEx<TYPES, I> as ConsensusExchange<
                 TYPES,
                 I::Leaf,
-                Message<TYPES, I, I::ConsensusMessage>,
+                Message<TYPES, I>,
             >>::Membership::default_election_config(self.total_nodes as u64),
         );
         // modify runner to recognize timing params
@@ -202,11 +202,8 @@ where
             TYPES::ConsensusType,
             TYPES,
             I::Leaf,
-            Message<TYPES, I, I::ConsensusMessage>,
-            Networks = (
-                QuorumNetwork<TYPES, I, I::ConsensusMessage>,
-                I::CommitteeNetwork,
-            ),
+            Message<TYPES, I>,
+            Networks = (QuorumNetwork<TYPES, I>, I::CommitteeNetwork),
         >,
     {
         setup_logging();

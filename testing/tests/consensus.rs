@@ -86,15 +86,12 @@ async fn submit_validating_proposal<
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
-    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
-    >,
+    <I as NodeImplementation<TYPES>>::Exchanges:
+        ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
 {
     let mut rng = rand::thread_rng();
     let handle = runner.get_handle(sender_node_id).unwrap();
@@ -131,18 +128,15 @@ async fn submit_validating_vote<
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
-    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
-    >,
+    <I as NodeImplementation<TYPES>>::Exchanges:
+        ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
     <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
     >>::Membership: TestableElection<TYPES>,
 {
     let mut rng = rand::thread_rng();
@@ -158,7 +152,7 @@ async fn submit_validating_vote<
         <<ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
             ValidatingLeaf<TYPES>,
-            Message<TYPES, I, I::ConsensusMessage>,
+            Message<TYPES, I>,
         >>::Membership as TestableElection<TYPES>>::generate_test_vote_token(),
     );
 
@@ -193,11 +187,8 @@ fn test_validating_vote_queueing_post_safety_check<
 where
     HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
-    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
-    >,
+    <I as NodeImplementation<TYPES>>::Exchanges:
+        ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;
@@ -244,21 +235,18 @@ fn test_validating_vote_queueing_round_setup<
 where
     HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
-    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
-    >,
+    <I as NodeImplementation<TYPES>>::Exchanges:
+        ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
     <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
     >>::Membership: TestableElection<TYPES>,
 {
     async move {
@@ -286,15 +274,12 @@ fn test_validating_proposal_queueing_post_safety_check<
 where
     HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
-    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
-    >,
+    <I as NodeImplementation<TYPES>>::Exchanges:
+        ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
@@ -346,15 +331,12 @@ fn test_validating_proposal_queueing_round_setup<
 where
     HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
-    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
-    >,
+    <I as NodeImplementation<TYPES>>::Exchanges:
+        ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
@@ -383,15 +365,12 @@ fn test_bad_validating_proposal_round_setup<
 where
     HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
-    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
-    >,
+    <I as NodeImplementation<TYPES>>::Exchanges:
+        ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
-        Message<TYPES, I, I::ConsensusMessage>,
+        Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
@@ -423,11 +402,8 @@ fn test_bad_validating_proposal_post_safety_check<
 where
     HotShot<ValidatingConsensus, TYPES, I>: HotShotType<TYPES, I>,
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
-    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<
-        TYPES,
-        ValidatingLeaf<TYPES>,
-        Message<TYPES, I, ValidatingMessage<TYPES, I>>,
-    >,
+    <I as NodeImplementation<TYPES>>::Exchanges:
+        ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;

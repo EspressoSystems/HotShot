@@ -15,7 +15,7 @@ use bincode::Options;
 use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::{
     data::ProposalType,
-    message::Message,
+    message::{Message, MessageKind},
     traits::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
@@ -120,17 +120,11 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    >
-    TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I, I::ConsensusMessage>,
-        PROPOSAL,
-        VOTE,
-        MEMBERSHIP,
-    > for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
-    Message<TYPES, I, I::ConsensusMessage>: ViewMessage<TYPES>,
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
     /// with the purpose of generating libp2p networks.
@@ -691,7 +685,7 @@ pub struct Libp2pCommChannel<
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    Libp2pNetwork<Message<TYPES, I, I::ConsensusMessage>, TYPES::SignatureKey>,
+    Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
     PhantomData<(TYPES, I, PROPOSAL, VOTE, MEMBERSHIP)>,
 );
 
@@ -705,9 +699,7 @@ impl<
 {
     /// create a new libp2p communication channel
     #[must_use]
-    pub fn new(
-        network: Libp2pNetwork<Message<TYPES, I, I::ConsensusMessage>, TYPES::SignatureKey>,
-    ) -> Self {
+    pub fn new(network: Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey>) -> Self {
         Self(network, PhantomData::default())
     }
 }
@@ -722,11 +714,10 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    >
-    CommunicationChannel<TYPES, Message<TYPES, I, I::ConsensusMessage>, PROPOSAL, VOTE, MEMBERSHIP>
+    > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
-    Message<TYPES, I, I::ConsensusMessage>: ViewMessage<TYPES>,
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
@@ -742,17 +733,19 @@ where
 
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, I, I::ConsensusMessage>,
+        message: Message<TYPES, I>,
         membership: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
-        let recipients =
-            <MEMBERSHIP as Membership<TYPES>>::get_committee(membership, message.get_view_number());
+        let recipients = <MEMBERSHIP as Membership<TYPES>>::get_committee(
+            membership,
+            message.kind.get_view_number(),
+        );
         self.0.broadcast_message(message, recipients).await
     }
 
     async fn direct_message(
         &self,
-        message: Message<TYPES, I, I::ConsensusMessage>,
+        message: Message<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
@@ -761,7 +754,7 @@ where
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, I, I::ConsensusMessage>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 

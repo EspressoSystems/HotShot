@@ -25,7 +25,7 @@ use hotshot_types::traits::network::ViewMessage;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     data::ProposalType,
-    message::Message,
+    message::{Message, MessageKind},
     traits::{
         election::{ElectionConfig, Membership},
         metrics::{Metrics, NoMetrics},
@@ -879,16 +879,15 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    >
-    CommunicationChannel<TYPES, Message<TYPES, I, I::ConsensusMessage>, PROPOSAL, VOTE, MEMBERSHIP>
+    > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
-    Message<TYPES, I, I::ConsensusMessage>: ViewMessage<TYPES>,
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     async fn wait_for_ready(&self) {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, I, I::ConsensusMessage>,
-            Message<TYPES, I, I::ConsensusMessage>,
+            Message<TYPES, I>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::wait_for_ready(&self.0)
         .await;
@@ -896,8 +895,8 @@ where
 
     async fn is_ready(&self) -> bool {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, I, I::ConsensusMessage>,
-            Message<TYPES, I, I::ConsensusMessage>,
+            Message<TYPES, I>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::is_ready(&self.0)
         .await
@@ -905,8 +904,8 @@ where
 
     async fn shut_down(&self) -> () {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, I, I::ConsensusMessage>,
-            Message<TYPES, I, I::ConsensusMessage>,
+            Message<TYPES, I>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::shut_down(&self.0)
         .await;
@@ -914,17 +913,17 @@ where
 
     async fn broadcast_message(
         &self,
-        message: Message<TYPES, I, I::ConsensusMessage>,
+        message: Message<TYPES, I>,
         membership: &MEMBERSHIP,
     ) -> Result<(), NetworkError> {
-        let view_number = message.get_view_number();
+        let view_number = message.kind.get_view_number();
         let recipients = <MEMBERSHIP as Membership<TYPES>>::get_committee(membership, view_number);
         self.0.broadcast_message(message, recipients).await
     }
 
     async fn direct_message(
         &self,
-        message: Message<TYPES, I, I::ConsensusMessage>,
+        message: Message<TYPES, I>,
         recipient: TYPES::SignatureKey,
     ) -> Result<(), NetworkError> {
         self.0.direct_message(message, recipient).await
@@ -933,14 +932,14 @@ where
     async fn recv_msgs(
         &self,
         transmit_type: TransmitType,
-    ) -> Result<Vec<Message<TYPES, I, I::ConsensusMessage>>, NetworkError> {
+    ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
         self.0.recv_msgs(transmit_type).await
     }
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         <CentralizedServerNetwork<_, _> as ConnectedNetwork<
-            Message<TYPES, I, I::ConsensusMessage>,
-            Message<TYPES, I, I::ConsensusMessage>,
+            Message<TYPES, I>,
+            Message<TYPES, I>,
             TYPES::SignatureKey,
         >>::lookup_node(&self.0, pk)
         .await
@@ -958,17 +957,11 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-    >
-    TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I, I::ConsensusMessage>,
-        PROPOSAL,
-        VOTE,
-        MEMBERSHIP,
-    > for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
+    for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
-    Message<TYPES, I, I::ConsensusMessage>: ViewMessage<TYPES>,
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     fn generator(
         expected_node_count: usize,

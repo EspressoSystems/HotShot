@@ -26,7 +26,7 @@ use hotshot::{
     HotShot, HotShotError, HotShotInitializer, HotShotType, ViewRunner, H_256,
 };
 use hotshot_types::message::Message;
-use hotshot_types::traits::node_implementation::{CommitteeNetwork, QuorumNetwork};
+use hotshot_types::traits::node_implementation::QuorumNetwork;
 use hotshot_types::traits::{
     election::ConsensusExchange,
     node_implementation::{ExchangesType, QuorumEx, ValidatingQuorumEx},
@@ -106,7 +106,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
-    quorum_network_generator: Generator<QuorumNetwork<TYPES, I, I::ConsensusMessage>>,
+    quorum_network_generator: Generator<QuorumNetwork<TYPES, I>>,
     committee_network_generator: Generator<I::CommitteeNetwork>,
     storage_generator: Generator<I::Storage>,
     default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
@@ -152,11 +152,8 @@ where
             TYPES::ConsensusType,
             TYPES,
             I::Leaf,
-            Message<TYPES, I, I::ConsensusMessage>,
-            Networks = (
-                QuorumNetwork<TYPES, I, I::ConsensusMessage>,
-                I::CommitteeNetwork,
-            ),
+            Message<TYPES, I>,
+            Networks = (QuorumNetwork<TYPES, I>, I::CommitteeNetwork),
         >,
     {
         let mut results = vec![];
@@ -201,7 +198,7 @@ where
     /// For a simpler way to add nodes to this runner, see `add_nodes`
     pub async fn add_node_with_config(
         &mut self,
-        quorum_network: QuorumNetwork<TYPES, I, I::ConsensusMessage>,
+        quorum_network: QuorumNetwork<TYPES, I>,
         committee_network: I::CommitteeNetwork,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
@@ -213,11 +210,8 @@ where
             TYPES::ConsensusType,
             TYPES,
             I::Leaf,
-            Message<TYPES, I, I::ConsensusMessage>,
-            Networks = (
-                QuorumNetwork<TYPES, I, I::ConsensusMessage>,
-                I::CommitteeNetwork,
-            ),
+            Message<TYPES, I>,
+            Networks = (QuorumNetwork<TYPES, I>, I::CommitteeNetwork),
         >,
     {
         let node_id = self.next_node_id;
@@ -227,10 +221,10 @@ where
         let private_key = I::generate_test_key(node_id);
         let public_key = TYPES::SignatureKey::from_private(&private_key);
         let election_config = config.election_config.clone().unwrap_or_else(|| {
-            <QuorumEx<TYPES, I, I::ConsensusMessage> as ConsensusExchange<
+            <QuorumEx<TYPES, I> as ConsensusExchange<
                 TYPES,
                 I::Leaf,
-                Message<TYPES, I, I::ConsensusMessage>,
+                Message<TYPES, I>,
             >>::Membership::default_election_config(config.total_nodes.get() as u64)
         });
 
