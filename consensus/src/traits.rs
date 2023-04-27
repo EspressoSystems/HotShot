@@ -141,7 +141,7 @@ pub trait ValidatingConsensusApi<
         ConsensusMessage = ValidatingMessage<TYPES, I>,
     >,
 >: ConsensusSharedApi<TYPES, LEAF, I> where
-    I::Exchanges: ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
+    I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
 {
     /// Send a direct message to the given recipient
     async fn send_direct_message<PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>(

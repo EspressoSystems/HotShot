@@ -253,6 +253,5 @@ members = [
         "testing",
         "types",
         "utils",
-        # TODO (Keyao) Restore after fixing types
-        # "testing-macros"
+        "testing-macros"
 ]

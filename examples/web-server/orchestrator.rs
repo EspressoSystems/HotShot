@@ -5,7 +5,7 @@ use hotshot::demos::vdemo::VDemoTypes;
 use tracing::instrument;
 use types::ThisMembership;
 
-use crate::infra::OrchestratorArgs;
+use crate::infra::{run_orchestrator, OrchestratorArgs};
 use crate::types::{NodeImpl, ThisNetwork};
 
 #[path = "../infra/mod.rs"]
@@ -20,6 +20,5 @@ pub mod infra;
 async fn main() {
     let args = OrchestratorArgs::parse();
 
-    // TODO (Keyao) Restore code after fixing "overflow evaludating" error.
-    // run_orchestrator::<VDemoTypes, ThisMembership, ThisNetwork, NodeImpl>(args).await;
+    run_orchestrator::<VDemoTypes, ThisMembership, ThisNetwork, NodeImpl>(args).await;
 }

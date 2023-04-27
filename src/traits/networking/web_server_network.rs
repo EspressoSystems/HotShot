@@ -126,7 +126,6 @@ impl<
     > ParsePost<TYPES, I>
     for WebCommChannel<ValidatingConsensus, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
-    I::Exchanges: ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
     MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     /// Parses a message to find the appropriate endpoint

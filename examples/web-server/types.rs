@@ -36,23 +36,21 @@ pub type ThisNetwork = WebCommChannel<
 pub type ThisProposal = ValidatingProposal<VDemoTypes, ThisLeaf>;
 pub type ThisVote = QuorumVote<VDemoTypes, ThisLeaf>;
 
-// TODO(Keyao) Restore after fixing
-// impl NodeImplementation<VDemoTypes> for NodeImpl {
-//     type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
-//     type Leaf = ValidatingLeaf<VDemoTypes>;
-//     type Exchanges = ValidatingExchanges<
-//         VDemoTypes,
-//         ValidatingLeaf<VDemoTypes>,
-//         Message<VDemoTypes, Self, ValidatingMessage<VDemoTypes, Self>>,
-//         QuorumExchange<
-//             VDemoTypes,
-//             Self::Leaf,
-//             ThisProposal,
-//             ThisMembership,
-//             ThisNetwork,
-//             Message<VDemoTypes, Self, ValidatingMessage<VDemoTypes, Self>>,
-//         >,
-//     >;
-//     type ConsensusMessage = ValidatingMessage<VDemoTypes, Self>;
-// }
+impl NodeImplementation<VDemoTypes> for NodeImpl {
+    type Storage = MemoryStorage<VDemoTypes, Self::Leaf>;
+    type Leaf = ValidatingLeaf<VDemoTypes>;
+    type Exchanges = ValidatingExchanges<
+        VDemoTypes,
+        Message<VDemoTypes, Self>,
+        QuorumExchange<
+            VDemoTypes,
+            Self::Leaf,
+            ThisProposal,
+            ThisMembership,
+            ThisNetwork,
+            Message<VDemoTypes, Self>,
+        >,
+    >;
+    type ConsensusMessage = ValidatingMessage<VDemoTypes, Self>;
+}
 pub type ThisRun = WebServerRun<VDemoTypes, NodeImpl, ThisMembership>;

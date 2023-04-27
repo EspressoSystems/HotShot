@@ -610,7 +610,6 @@ mod tests {
         type ConsensusMessage = ValidatingMessage<Test, Self>;
         type Exchanges = ValidatingExchanges<
             Test,
-            TestLeaf,
             Message<Test, Self>,
             QuorumExchange<
                 Test,

@@ -2,7 +2,10 @@ use clap::Parser;
 use hotshot::demos::vdemo::VDemoTypes;
 use tracing::instrument;
 
-use crate::types::{NodeImpl, ThisMembership, ThisNetwork, ThisRun};
+use crate::{
+    infra::{main_entry_point, ValidatorArgs},
+    types::{NodeImpl, ThisMembership, ThisNetwork, ThisRun},
+};
 
 pub mod types;
 
@@ -16,7 +19,6 @@ pub mod infra;
 #[cfg_attr(feature = "async-std-executor", async_std::main)]
 #[instrument]
 async fn main() {
-    // TODO (Keyao) restore
-    // let args = ValidatorArgs::parse();
-    // main_entry_point::<VDemoTypes, ThisMembership, ThisNetwork, NodeImpl, ThisRun>(args).await;
+    let args = ValidatorArgs::parse();
+    main_entry_point::<VDemoTypes, ThisMembership, ThisNetwork, NodeImpl, ThisRun>(args).await;
 }

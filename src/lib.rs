@@ -624,7 +624,7 @@ impl<
         >,
     > HotShotType<TYPES, I> for HotShot<ValidatingConsensus, TYPES, I>
 where
-    I::Exchanges: ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
@@ -1146,7 +1146,7 @@ impl<
         >,
     > ViewRunner<TYPES, I> for HotShot<ValidatingConsensus, TYPES, I>
 where
-    I::Exchanges: ValidatingExchangesType<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, I>>,
+    I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,
@@ -1635,7 +1635,7 @@ impl<
     > hotshot_consensus::ValidatingConsensusApi<TYPES, I::Leaf, I>
     for HotShotValidatingConsensusApi<TYPES, I>
 where
-    I::Exchanges: ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
 {
     async fn send_direct_message<
         PROPOSAL: ProposalType<NodeType = TYPES>,

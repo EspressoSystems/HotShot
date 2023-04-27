@@ -109,8 +109,6 @@ impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > ViewMessage<TYPES> for MessageKind<SequencingConsensus, TYPES, I>
-where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// get the view number out of a message
     fn get_view_number(&self) -> TYPES::Time {
@@ -223,9 +221,7 @@ where
 pub enum ProcessedCommitteeConsensusMessage<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-> where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
-{
+> {
     /// Proposal for data availability committee
     DAProposal(Proposal<DAProposal<TYPES>>, TYPES::SignatureKey),
     /// vote from the DA committee
@@ -236,8 +232,6 @@ impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > From<ProcessedCommitteeConsensusMessage<TYPES, I>> for CommitteeConsensusMessage<TYPES, I>
-where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// row polymorphism would be great here
     fn from(value: ProcessedCommitteeConsensusMessage<TYPES, I>) -> Self {
@@ -256,8 +250,6 @@ impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > ProcessedCommitteeConsensusMessage<TYPES, I>
-where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// row polymorphism would be great here
     pub fn new(value: CommitteeConsensusMessage<TYPES, I>, sender: TYPES::SignatureKey) -> Self {
@@ -281,8 +273,6 @@ impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > From<ProcessedSequencingMessage<TYPES, I>> for SequencingMessage<TYPES, I>
-where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// row polymorphism would be great here
     fn from(value: ProcessedSequencingMessage<TYPES, I>) -> Self {
@@ -297,8 +287,6 @@ impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > From<ProcessedGeneralConsensusMessage<TYPES, I>> for ProcessedSequencingMessage<TYPES, I>
-where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// row polymorphism would be great here
     fn from(value: ProcessedGeneralConsensusMessage<TYPES, I>) -> Self {
@@ -330,9 +318,7 @@ where
 pub enum CommitteeConsensusMessage<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-> where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
-{
+> {
     /// Proposal for data availability committee
     DAProposal(Proposal<DAProposal<TYPES>>),
 
@@ -418,16 +404,12 @@ impl<
 pub struct SequencingMessage<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
     I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
->(pub Either<GeneralConsensusMessage<TYPES, I>, CommitteeConsensusMessage<TYPES, I>>)
-where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>;
+>(pub Either<GeneralConsensusMessage<TYPES, I>, CommitteeConsensusMessage<TYPES, I>>);
 
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > ConsensusMessageType<TYPES, I> for SequencingMessage<TYPES, I>
-where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I>;
     type ProcessedConsensusMessage = ProcessedSequencingMessage<TYPES, I>;
@@ -437,8 +419,6 @@ impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > SequencingMessageType<TYPES, I> for SequencingMessage<TYPES, I>
-where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     type CommitteeConsensusMessage = CommitteeConsensusMessage<TYPES, I>;
 }
@@ -447,8 +427,6 @@ impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > SequencingMessage<TYPES, I>
-where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
 {
     /// The view number of the (leader|replica|committee member) when the message was sent or the
     /// view of the timeout.

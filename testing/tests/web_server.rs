@@ -37,51 +37,45 @@ type StaticCommunication = WebCommChannel<
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
 >;
 
-// TODO (Keyao) Restore code after fixing "overflow evaludating" error.
-// impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
-//     type Storage =
-//         MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
-//     type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
-//     type Exchanges = ValidatingExchanges<
-//         StaticCommitteeTestTypes,
-//         ValidatingLeaf<StaticCommitteeTestTypes>,
-//         Message<StaticCommitteeTestTypes, Self, ValidatingMessage<StaticCommitteeTestTypes, Self>>,
-//         QuorumExchange<
-//             StaticCommitteeTestTypes,
-//             ValidatingLeaf<StaticCommitteeTestTypes>,
-//             ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-//             StaticMembership,
-//             StaticCommunication,
-//             Message<
-//                 StaticCommitteeTestTypes,
-//                 Self,
-//                 ValidatingMessage<StaticCommitteeTestTypes, Self>,
-//             >,
-//         >,
-//     >;
-//     type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
-// }
+impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
+    type Storage =
+        MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
+    type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
+    type Exchanges = ValidatingExchanges<
+        StaticCommitteeTestTypes,
+        Message<StaticCommitteeTestTypes, Self>,
+        QuorumExchange<
+            StaticCommitteeTestTypes,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticMembership,
+            StaticCommunication,
+            Message<StaticCommitteeTestTypes, Self>,
+        >,
+    >;
+    type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
+}
 
-// /// Web server network test
-// #[cfg_attr(
-//     feature = "tokio-executor",
-//     tokio::test(flavor = "multi_thread", worker_threads = 2)
-// )]
-// #[cfg_attr(feature = "async-std-executor", async_std::test)]
-// #[instrument]
-// async fn centralized_server_network() {
-//     let description = GeneralTestDescriptionBuilder {
-//         round_start_delay: 25,
-//         num_succeeds: 5,
-//         next_view_timeout: 3000,
-//         start_delay: 120000,
-//         ..GeneralTestDescriptionBuilder::default()
-//     };
+/// Web server network test
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+#[instrument]
+async fn centralized_server_network() {
+    let description = GeneralTestDescriptionBuilder {
+        round_start_delay: 25,
+        num_succeeds: 5,
+        next_view_timeout: 3000,
+        start_delay: 120000,
+        ..GeneralTestDescriptionBuilder::default()
+    };
 
-//     description
-//         .build::<StaticCommitteeTestTypes, StaticCentralizedImp>()
-//         .execute()
-//         .await
-//         .unwrap();
-//     shutdown_logging();
-// }
+    description
+        .build::<StaticCommitteeTestTypes, StaticCentralizedImp>()
+        .execute()
+        .await
+        .unwrap();
+    shutdown_logging();
+}

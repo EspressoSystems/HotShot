@@ -110,9 +110,8 @@ pub trait ExchangesType<
 /// An [`ExchangesType`] for validating consensus.
 pub trait ValidatingExchangesType<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
->: ExchangesType<ValidatingConsensus, TYPES, LEAF, MESSAGE>
+>: ExchangesType<ValidatingConsensus, TYPES, ValidatingLeaf<TYPES>, MESSAGE>
 {
 }
 
@@ -133,35 +132,33 @@ pub trait SequencingExchangesType<
 #[derive(Clone, Debug)]
 pub struct ValidatingExchanges<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE>,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, ValidatingLeaf<TYPES>, MESSAGE>,
 > {
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
 
     /// Phantom data.
-    _phantom: PhantomData<(TYPES, LEAF, MESSAGE)>,
+    _phantom: PhantomData<(TYPES, MESSAGE)>,
 }
 
-impl<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE> ValidatingExchangesType<TYPES, LEAF, MESSAGE>
-    for ValidatingExchanges<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE>
+impl<TYPES, MESSAGE, QUORUMEXCHANGE> ValidatingExchangesType<TYPES, MESSAGE>
+    for ValidatingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE>
 where
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, ValidatingLeaf<TYPES>, MESSAGE> + Clone + Debug,
 {
 }
 
 #[async_trait]
-impl<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE> ExchangesType<ValidatingConsensus, TYPES, LEAF, MESSAGE>
-    for ValidatingExchanges<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE>
+impl<TYPES, MESSAGE, QUORUMEXCHANGE>
+    ExchangesType<ValidatingConsensus, TYPES, ValidatingLeaf<TYPES>, MESSAGE>
+    for ValidatingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE>
 where
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-    LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, ValidatingLeaf<TYPES>, MESSAGE> + Clone + Debug,
 {
     type QuorumExchange = QUORUMEXCHANGE;
     type Networks = (QUORUMEXCHANGE::Networking, ());
@@ -387,7 +384,6 @@ impl<
 where
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<
         TYPES,
-        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >,
     <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<

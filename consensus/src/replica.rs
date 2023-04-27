@@ -43,7 +43,7 @@ pub struct Replica<
         ConsensusMessage = ValidatingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges: ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
 {
     /// id of node
     pub id: u64,
@@ -77,7 +77,7 @@ impl<
         >,
     > Replica<A, TYPES, I>
 where
-    I::Exchanges: ValidatingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         ValidatingLeaf<TYPES>,

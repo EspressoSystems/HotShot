@@ -125,49 +125,42 @@ type StaticCommunication = MemoryCommChannel<
     StaticCommittee<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
 >;
 
-// TODO (Keyao) Restore code after fixing "overflow evaludating" error.
-// impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
-//     type Storage = MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>;
-//     type Leaf = ValidatingLeaf<VrfTestTypes>;
-//     type Exchanges = ValidatingExchanges<
-//         VrfTestTypes,
-//         ValidatingLeaf<VrfTestTypes>,
-//         Message<VrfTestTypes, Self, ValidatingMessage<VrfTestTypes, Self>>,
-//         QuorumExchange<
-//             VrfTestTypes,
-//             ValidatingLeaf<VrfTestTypes>,
-//             ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
-//             VrfMembership,
-//             VrfCommunication,
-//             Message<VrfTestTypes, Self, ValidatingMessage<VrfTestTypes, Self>>,
-//         >,
-//     >;
-//     type ConsensusMessage = ValidatingMessage<VrfTestTypes, Self>;
-// }
+impl NodeImplementation<VrfTestTypes> for StandardNodeImplType {
+    type Storage = MemoryStorage<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>;
+    type Leaf = ValidatingLeaf<VrfTestTypes>;
+    type Exchanges = ValidatingExchanges<
+        VrfTestTypes,
+        Message<VrfTestTypes, Self>,
+        QuorumExchange<
+            VrfTestTypes,
+            ValidatingLeaf<VrfTestTypes>,
+            ValidatingProposal<VrfTestTypes, ValidatingLeaf<VrfTestTypes>>,
+            VrfMembership,
+            VrfCommunication,
+            Message<VrfTestTypes, Self>,
+        >,
+    >;
+    type ConsensusMessage = ValidatingMessage<VrfTestTypes, Self>;
+}
 
-// impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
-//     type Storage =
-//         MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
-//     type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
-//     type Exchanges = ValidatingExchanges<
-//         StaticCommitteeTestTypes,
-//         ValidatingLeaf<StaticCommitteeTestTypes>,
-//         Message<StaticCommitteeTestTypes, Self, ValidatingMessage<StaticCommitteeTestTypes, Self>>,
-//         QuorumExchange<
-//             StaticCommitteeTestTypes,
-//             ValidatingLeaf<StaticCommitteeTestTypes>,
-//             ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
-//             StaticMembership,
-//             StaticCommunication,
-//             Message<
-//                 StaticCommitteeTestTypes,
-//                 Self,
-//                 ValidatingMessage<StaticCommitteeTestTypes, Self>,
-//             >,
-//         >,
-//     >;
-//     type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
-// }
+impl NodeImplementation<StaticCommitteeTestTypes> for StaticNodeImplType {
+    type Storage =
+        MemoryStorage<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>;
+    type Leaf = ValidatingLeaf<StaticCommitteeTestTypes>;
+    type Exchanges = ValidatingExchanges<
+        StaticCommitteeTestTypes,
+        Message<StaticCommitteeTestTypes, Self>,
+        QuorumExchange<
+            StaticCommitteeTestTypes,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+            ValidatingProposal<StaticCommitteeTestTypes, ValidatingLeaf<StaticCommitteeTestTypes>>,
+            StaticMembership,
+            StaticCommunication,
+            Message<StaticCommitteeTestTypes, Self>,
+        >,
+    >;
+    type ConsensusMessage = ValidatingMessage<StaticCommitteeTestTypes, Self>;
+}
 
 /// type alias for the test runner type
 pub type AppliedTestRunner<TYPES, I> = TestRunner<TYPES, I>;
