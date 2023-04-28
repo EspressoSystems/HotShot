@@ -1,4 +1,4 @@
-//! Networking Implementation that has a primary and a fallback newtork.  If the primary 
+//! Networking Implementation that has a primary and a fallback newtork.  If the primary
 //! Errors we will use the backup to send or receive
 use super::NetworkError;
 use crate::traits::implementations::Libp2pNetwork;
@@ -35,6 +35,7 @@ pub struct WebServerWithFallbackCommChannel<
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 > {
+    /// The two networks we'll use for send/recv
     networks: Arc<CombinedNetworks<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>>,
 }
 
@@ -46,11 +47,14 @@ impl<
         MEMBERSHIP: Membership<TYPES>,
     > WebServerWithFallbackCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 {
+    /// Constructor
     #[must_use]
     pub fn new(networks: Arc<CombinedNetworks<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>>) -> Self {
         Self { networks }
     }
 
+    /// Get a ref to the primary network
+    #[must_use]
     pub fn network(
         &self,
     ) -> &WebServerNetwork<
@@ -63,10 +67,17 @@ impl<
     > {
         &self.networks.0
     }
+
+    /// Get a ref to the backup network
+    #[must_use]
     pub fn fallback(&self) -> &Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey> {
         &self.networks.1
     }
 }
+
+/// Wrapper for the tuple of `WebServerNetwork` and `Libp2pNetwork`
+/// We need this so we can impl `TestableNetworkingImplementation`
+/// on the tuple
 pub struct CombinedNetworks<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -147,8 +158,10 @@ impl<
     type NETWORK = CombinedNetworks<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>;
 
     async fn wait_for_ready(&self) {
-        self.network().wait_for_ready().await;
-        self.fallback().wait_for_ready().await
+        join!(
+            self.network().wait_for_ready(),
+            self.fallback().wait_for_ready()
+        );
     }
 
     async fn is_ready(&self) -> bool {
@@ -156,8 +169,7 @@ impl<
     }
 
     async fn shut_down(&self) -> () {
-        self.network().shut_down().await;
-        self.fallback().shut_down().await;
+        join!(self.network().shut_down(), self.fallback().shut_down());
     }
 
     async fn broadcast_message(
@@ -188,10 +200,7 @@ impl<
             .await
         {
             Ok(_) => Ok(()),
-            Err(_e) => {
-                // TODO log e
-                self.fallback().direct_message(message, recipient).await
-            }
+            Err(_e) => self.fallback().direct_message(message, recipient).await,
         }
     }
 
@@ -199,22 +208,16 @@ impl<
         &self,
         transmit_type: TransmitType,
     ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
-        match self.network().recv_msgs(transmit_type.clone()).await {
+        match self.network().recv_msgs(transmit_type).await {
             Ok(msgs) => Ok(msgs),
-            Err(_e) => {
-                // TODO log e
-                self.fallback().recv_msgs(transmit_type).await
-            }
+            Err(_e) => self.fallback().recv_msgs(transmit_type).await,
         }
     }
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
         match self.network().lookup_node(pk.clone()).await {
             Ok(msgs) => Ok(msgs),
-            Err(_e) => {
-                // TODO log e
-                self.fallback().lookup_node(pk).await
-            }
+            Err(_e) => self.fallback().lookup_node(pk).await,
         }
     }
 
