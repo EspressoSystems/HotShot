@@ -1,3 +1,5 @@
+//! Networking Implementation that has a primary and a fallback newtork.  If the primary 
+//! Errors we will use the backup to send or receive
 use super::NetworkError;
 use crate::traits::implementations::Libp2pNetwork;
 use crate::traits::implementations::WebServerNetwork;
