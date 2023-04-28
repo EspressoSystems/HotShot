@@ -863,9 +863,9 @@ dependencies = [
 
 [[package]]
 name = "async-tungstenite"
-version = "0.21.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6d2c69d237cf761215175f390021344f5530101cca8164d69878b8a1779e80c"
+checksum = "188cc228bea29b2a1bde197854c6d410e26bdba2390a7795f2a9c38878c8a8a2"
 dependencies = [
  "async-std",
  "futures-io",
@@ -1020,7 +1020,7 @@ version = "0.1.0"
 dependencies = [
  "async-compatibility-layer",
  "async-std",
- "clap 4.2.4",
+ "clap 4.2.5",
  "futures",
  "hotshot-centralized-server",
  "hotshot-types",
@@ -1318,9 +1318,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.2.4"
+version = "4.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "956ac1f6381d8d82ab4684768f89c0ea3afe66925ceadb4eeb3fc452ffc55d62"
+checksum = "8a1f23fa97e1d1641371b51f35535cb26959b8e27ab50d167a8b996b5bada819"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1329,9 +1329,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.2.4"
+version = "4.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84080e799e54cff944f4b4a4b0e71630b0e0443b25b985175c7dddc1a859b749"
+checksum = "0fdc5d93c358224b4d6867ef1356d740de2303e9892edc06c5340daeccd96bab"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2925,12 +2925,12 @@ dependencies = [
  "async-lock",
  "async-std",
  "async-trait",
- "async-tungstenite 0.21.0",
+ "async-tungstenite 0.22.0",
  "atomic_store",
  "bimap",
  "bincode",
  "blake3",
- "clap 4.2.4",
+ "clap 4.2.5",
  "commit 0.2.2",
  "custom_debug",
  "dashmap",
@@ -3024,7 +3024,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
- "clap 4.2.4",
+ "clap 4.2.5",
  "commit 0.1.0",
  "futures",
  "hotshot-types",
@@ -3113,7 +3113,7 @@ dependencies = [
  "async-compatibility-layer",
  "async-std",
  "async-trait",
- "async-tungstenite 0.21.0",
+ "async-tungstenite 0.22.0",
  "atomic_store",
  "bincode",
  "blake3",
@@ -3156,7 +3156,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bincode",
- "clap 4.2.4",
+ "clap 4.2.5",
  "commit 0.1.0",
  "futures",
  "hotshot-types",
@@ -3170,6 +3170,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "surf-disco 0.4.1 (git+https://github.com/EspressoSystems/surf-disco.git?tag=v0.4.1)",
+ "tide",
  "tide-disco",
  "tokio",
  "toml 0.5.11",
@@ -4160,7 +4161,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
- "clap 4.2.4",
+ "clap 4.2.5",
  "color-eyre",
  "custom_debug",
  "derive_builder 0.12.0",
@@ -7575,7 +7576,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bincode",
- "clap 4.2.4",
+ "clap 4.2.5",
  "config",
  "derive_more",
  "dirs",
