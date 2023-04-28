@@ -248,9 +248,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 }
 
 /// Describes additional functionality needed by the test network implementation
-pub trait TestableNetworkingImplementation<TYPES: NodeType, M: NetworkMsg>:
-    ConnectedNetwork<M, TYPES::SignatureKey>
-{
+pub trait TestableNetworkingImplementation<TYPES: NodeType, M: NetworkMsg> {
     /// generates a network given an expected node count
     fn generator(
         expected_node_count: usize,
