@@ -827,7 +827,7 @@ impl<
         >,
     > HotShotType<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
@@ -1346,7 +1346,7 @@ impl<
         >,
     > ViewRunner<TYPES, I> for HotShot<SequencingConsensus, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
@@ -1770,7 +1770,7 @@ impl<
     > hotshot_consensus::SequencingConsensusApi<TYPES, I::Leaf, I>
     for HotShotSequencingConsensusApi<TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
 {
     async fn send_direct_message<
         PROPOSAL: ProposalType<NodeType = TYPES>,

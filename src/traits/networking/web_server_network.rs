@@ -170,7 +170,7 @@ impl<
     > ParsePost<TYPES, I>
     for WebCommChannel<SequencingConsensus, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
 {
     /// Parses a message to find the appropriate endpoint
     /// Returns a `SendMsg` containing the endpoint

@@ -169,7 +169,7 @@ pub trait SequencingConsensusApi<
     LEAF: LeafType<NodeType = TYPES>,
     I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
 >: ConsensusSharedApi<TYPES, LEAF, I> where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
 {
     /// Send a direct message to the given recipient
     async fn send_direct_message<PROPOSAL: ProposalType<NodeType = TYPES>, VOTE: VoteType<TYPES>>(

@@ -206,7 +206,6 @@ impl TestData {
                     let committee_exchange = quote! {
                         hotshot_types::traits::election::CommitteeExchange<
                             TestTypes,
-                            #leaf,
                             CommitteeMembership,
                             #comm_channel<
                                 TestTypes,
@@ -222,7 +221,6 @@ impl TestData {
                         hotshot_types::traits::node_implementation::SequencingExchanges<
                             hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus,
                             TestTypes,
-                            #leaf,
                             hotshot_types::message::Message<TestTypes, TestNodeImpl>,
                             TestQuorumExchange,
                             #committee_exchange

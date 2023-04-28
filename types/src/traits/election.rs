@@ -4,9 +4,8 @@ use super::node_implementation::{NodeImplementation, NodeType};
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
 use crate::certificate::VoteMetaData;
 use crate::certificate::{DACertificate, QuorumCertificate};
-use crate::data::ProposalType;
-
 use crate::data::DAProposal;
+use crate::data::ProposalType;
 use crate::message::{
     CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, Message,
     SequencingMessage,
@@ -20,7 +19,10 @@ use crate::traits::{
 };
 use crate::vote::VoteAccumulator;
 use crate::vote::{Accumulator, DAVote, QuorumVote, TimeoutVote, VoteType, YesOrNoVote};
-use crate::{data::LeafType, traits::signature_key::SignatureKey};
+use crate::{
+    data::{LeafType, SequencingLeaf},
+    traits::signature_key::SignatureKey,
+};
 use bincode::Options;
 use commit::{Commitment, Committable};
 use derivative::Derivative;
@@ -375,11 +377,8 @@ pub trait ConsensusExchange<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>, M
 }
 
 /// A [`ConsensusExchange`] where participants vote to provide availability for blobs of data.
-pub trait CommitteeExchangeType<
-    TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    LEAF: LeafType<NodeType = TYPES>,
-    M: NetworkMsg,
->: ConsensusExchange<TYPES, LEAF, M>
+pub trait CommitteeExchangeType<TYPES: NodeType<ConsensusType = SequencingConsensus>, M: NetworkMsg>:
+    ConsensusExchange<TYPES, SequencingLeaf<TYPES>, M>
 {
     /// Sign a DA proposal.
     fn sign_da_proposal(&self, block_commitment: &Commitment<TYPES::BlockType>)
@@ -396,16 +395,16 @@ pub trait CommitteeExchangeType<
 
     /// Create a message with a vote on DA proposal.
     fn create_da_message<
-        I: NodeImplementation<TYPES, Leaf = LEAF, ConsensusMessage = SequencingMessage<TYPES, I>>,
+        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     >(
         &self,
-        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, I::Leaf>>,
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> CommitteeConsensusMessage<TYPES, I>
     where
-        I::Exchanges: SequencingExchangesType<TYPES, LEAF, Message<TYPES, I>>;
+        I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>;
 }
 
 /// Standard implementation of [`CommitteeExchangeType`] utilizing a DA committee.
@@ -413,9 +412,14 @@ pub trait CommitteeExchangeType<
 #[derivative(Clone, Debug)]
 pub struct CommitteeExchange<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    LEAF: LeafType<NodeType = TYPES>,
     MEMBERSHIP: Membership<TYPES>,
-    NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES, LEAF>, MEMBERSHIP>,
+    NETWORK: CommunicationChannel<
+        TYPES,
+        M,
+        DAProposal<TYPES>,
+        DAVote<TYPES, SequencingLeaf<TYPES>>,
+        MEMBERSHIP,
+    >,
     M: NetworkMsg,
 > {
     /// The network being used by this exchange.
@@ -428,17 +432,21 @@ pub struct CommitteeExchange<
     #[derivative(Debug = "ignore")]
     private_key: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     #[doc(hidden)]
-    _pd: PhantomData<(TYPES, LEAF, MEMBERSHIP, M)>,
+    _pd: PhantomData<(TYPES, MEMBERSHIP, M)>,
 }
 
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        LEAF: LeafType<NodeType = TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-        NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES, LEAF>, MEMBERSHIP>,
+        NETWORK: CommunicationChannel<
+            TYPES,
+            M,
+            DAProposal<TYPES>,
+            DAVote<TYPES, SequencingLeaf<TYPES>>,
+            MEMBERSHIP,
+        >,
         M: NetworkMsg,
-    > CommitteeExchangeType<TYPES, LEAF, M>
-    for CommitteeExchange<TYPES, LEAF, MEMBERSHIP, NETWORK, M>
+    > CommitteeExchangeType<TYPES, M> for CommitteeExchange<TYPES, MEMBERSHIP, NETWORK, M>
 {
     /// Sign a DA proposal.
     fn sign_da_proposal(
@@ -458,22 +466,22 @@ impl<
     ) -> (EncodedPublicKey, EncodedSignature) {
         let signature = TYPES::SignatureKey::sign(
             &self.private_key,
-            &VoteData::<TYPES, LEAF>::DA(block_commitment).as_bytes(),
+            &VoteData::<TYPES, SequencingLeaf<TYPES>>::DA(block_commitment).as_bytes(),
         );
         (self.public_key.to_bytes(), signature)
     }
     /// Create a message with a vote on DA proposal.
     fn create_da_message<
-        I: NodeImplementation<TYPES, Leaf = LEAF, ConsensusMessage = SequencingMessage<TYPES, I>>,
+        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     >(
         &self,
-        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, LEAF>>,
+        justify_qc_commitment: Commitment<QuorumCertificate<TYPES, I::Leaf>>,
         block_commitment: Commitment<TYPES::BlockType>,
         current_view: TYPES::Time,
         vote_token: TYPES::VoteTokenType,
     ) -> CommitteeConsensusMessage<TYPES, I>
     where
-        I::Exchanges: SequencingExchangesType<TYPES, LEAF, Message<TYPES, I>>,
+        I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     {
         let signature = self.sign_da_vote(block_commitment);
         CommitteeConsensusMessage::<TYPES, I>::DAVote(DAVote {
@@ -488,14 +496,20 @@ impl<
 
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        LEAF: LeafType<NodeType = TYPES>,
         MEMBERSHIP: Membership<TYPES>,
-        NETWORK: CommunicationChannel<TYPES, M, DAProposal<TYPES>, DAVote<TYPES, LEAF>, MEMBERSHIP>,
+        NETWORK: CommunicationChannel<
+            TYPES,
+            M,
+            DAProposal<TYPES>,
+            DAVote<TYPES, SequencingLeaf<TYPES>>,
+            MEMBERSHIP,
+        >,
         M: NetworkMsg,
-    > ConsensusExchange<TYPES, LEAF, M> for CommitteeExchange<TYPES, LEAF, MEMBERSHIP, NETWORK, M>
+    > ConsensusExchange<TYPES, SequencingLeaf<TYPES>, M>
+    for CommitteeExchange<TYPES, MEMBERSHIP, NETWORK, M>
 {
     type Proposal = DAProposal<TYPES>;
-    type Vote = DAVote<TYPES, LEAF>;
+    type Vote = DAVote<TYPES, SequencingLeaf<TYPES>>;
     type Certificate = DACertificate<TYPES>;
     type Membership = MEMBERSHIP;
     type Networking = NETWORK;
@@ -509,7 +523,7 @@ impl<
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self {
         let membership =
-            <Self as ConsensusExchange<TYPES, LEAF, M>>::Membership::create_election(keys, config);
+            <Self as ConsensusExchange<TYPES, SequencingLeaf<TYPES>, M>>::Membership::create_election(keys, config);
         Self {
             network,
             membership,
@@ -529,7 +543,10 @@ impl<
             .make_vote_token(view_number, &self.private_key)
     }
 
-    fn vote_data(&self, commit: Commitment<Self::Commitment>) -> VoteData<TYPES, LEAF> {
+    fn vote_data(
+        &self,
+        commit: Commitment<Self::Commitment>,
+    ) -> VoteData<TYPES, SequencingLeaf<TYPES>> {
         VoteData::DA(commit)
     }
 

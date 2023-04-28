@@ -118,12 +118,11 @@ pub trait ValidatingExchangesType<
 /// An [`ExchangesType`] for sequencing consensus.
 pub trait SequencingExchangesType<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
->: ExchangesType<SequencingConsensus, TYPES, LEAF, MESSAGE>
+>: ExchangesType<SequencingConsensus, TYPES, SequencingLeaf<TYPES>, MESSAGE>
 {
     /// Protocol for exchanging data availability proposals and votes.
-    type CommitteeExchange: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug;
+    type CommitteeExchange: CommitteeExchangeType<TYPES, MESSAGE> + Clone + Debug;
 
     fn committee_exchange(&self) -> &Self::CommitteeExchange;
 }
@@ -193,10 +192,9 @@ where
 #[derive(Clone, Debug)]
 pub struct SequencingExchanges<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE>,
-    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE>,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, SequencingLeaf<TYPES>, MESSAGE>,
+    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, MESSAGE>,
 > {
     /// Quorum exchange.
     quorum_exchange: QUORUMEXCHANGE,
@@ -205,18 +203,16 @@ pub struct SequencingExchanges<
     committee_exchange: COMMITTEEEXCHANGE,
 
     /// Phantom data.
-    _phantom: PhantomData<(TYPES, LEAF, MESSAGE)>,
+    _phantom: PhantomData<(TYPES, MESSAGE)>,
 }
 
-impl<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
-    SequencingExchangesType<TYPES, LEAF, MESSAGE>
-    for SequencingExchanges<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE> SequencingExchangesType<TYPES, MESSAGE>
+    for SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
 where
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug,
-    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, SequencingLeaf<TYPES>, MESSAGE> + Clone + Debug,
+    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, MESSAGE> + Clone + Debug,
 {
     type CommitteeExchange = COMMITTEEEXCHANGE;
 
@@ -226,15 +222,14 @@ where
 }
 
 #[async_trait]
-impl<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
-    ExchangesType<SequencingConsensus, TYPES, LEAF, MESSAGE>
-    for SequencingExchanges<TYPES, LEAF, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+impl<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
+    ExchangesType<SequencingConsensus, TYPES, SequencingLeaf<TYPES>, MESSAGE>
+    for SequencingExchanges<TYPES, MESSAGE, QUORUMEXCHANGE, COMMITTEEEXCHANGE>
 where
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
-    LEAF: LeafType<NodeType = TYPES>,
     MESSAGE: NetworkMsg,
-    QUORUMEXCHANGE: QuorumExchangeType<TYPES, LEAF, MESSAGE> + Clone + Debug,
-    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, LEAF, MESSAGE> + Clone,
+    QUORUMEXCHANGE: QuorumExchangeType<TYPES, SequencingLeaf<TYPES>, MESSAGE> + Clone + Debug,
+    COMMITTEEEXCHANGE: CommitteeExchangeType<TYPES, MESSAGE> + Clone,
 {
     type QuorumExchange = QUORUMEXCHANGE;
     type Networks = (QUORUMEXCHANGE::Networking, COMMITTEEEXCHANGE::Networking);
@@ -306,7 +301,6 @@ pub type SequencingQuorumEx<TYPES, I> =
 pub type CommitteeEx<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::Exchanges as SequencingExchangesType<
         TYPES,
-        SequencingLeaf<TYPES>,
         Message<TYPES, I>,
     >>::CommitteeExchange;
 
@@ -500,7 +494,6 @@ impl<
 where
     <I as NodeImplementation<TYPES>>::Exchanges: SequencingExchangesType<
         TYPES,
-        SequencingLeaf<TYPES>,
         Message<TYPES, I>,
     >,
     <CommitteeEx<TYPES, I> as ConsensusExchange<

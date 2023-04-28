@@ -50,7 +50,7 @@ pub struct SequencingReplica<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
 {
     /// ID of node.
     pub id: u64,
@@ -87,7 +87,7 @@ impl<
         >,
     > SequencingReplica<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,

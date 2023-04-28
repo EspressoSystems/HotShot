@@ -80,7 +80,6 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
     type Leaf = SequencingLeaf<SequencingTestTypes>;
     type Exchanges = SequencingExchanges<
         SequencingTestTypes,
-        SequencingLeaf<SequencingTestTypes>,
         Message<SequencingTestTypes, Self>,
         QuorumExchange<
             SequencingTestTypes,
@@ -92,7 +91,6 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
         >,
         CommitteeExchange<
             SequencingTestTypes,
-            Self::Leaf,
             StaticMembership,
             StaticDAComm,
             Message<SequencingTestTypes, Self>,
@@ -142,7 +140,6 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
     type Leaf = SequencingLeaf<SequencingTestTypes>;
     type Exchanges = SequencingExchanges<
         SequencingTestTypes,
-        SequencingLeaf<SequencingTestTypes>,
         Message<SequencingTestTypes, Self>,
         QuorumExchange<
             SequencingTestTypes,
@@ -154,7 +151,6 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
         >,
         CommitteeExchange<
             SequencingTestTypes,
-            Self::Leaf,
             StaticMembership,
             StaticDACommP2p,
             Message<SequencingTestTypes, Self>,
@@ -204,7 +200,6 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
     type Leaf = SequencingLeaf<SequencingTestTypes>;
     type Exchanges = SequencingExchanges<
         SequencingTestTypes,
-        SequencingLeaf<SequencingTestTypes>,
         Message<SequencingTestTypes, Self>,
         QuorumExchange<
             SequencingTestTypes,
@@ -216,7 +211,6 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
         >,
         CommitteeExchange<
             SequencingTestTypes,
-            Self::Leaf,
             StaticMembership,
             StaticDACommCentral,
             Message<SequencingTestTypes, Self>,

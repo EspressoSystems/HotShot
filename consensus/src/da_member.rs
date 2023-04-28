@@ -43,7 +43,7 @@ pub struct DAMember<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
 {
     /// ID of node.
     pub id: u64,
@@ -77,7 +77,7 @@ impl<
         >,
     > DAMember<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
 {
     /// DA committee member task that spins until a valid DA proposal can be signed or timeout is
     /// hit.

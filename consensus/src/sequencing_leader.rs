@@ -52,7 +52,7 @@ pub struct DALeader<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
 {
     /// id of node
     pub id: u64,
@@ -87,7 +87,7 @@ impl<
         >,
     > DALeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
@@ -304,7 +304,7 @@ pub struct ConsensusLeader<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
 {
     /// id of node
     pub id: u64,
@@ -339,7 +339,7 @@ impl<
         >,
     > ConsensusLeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
@@ -404,7 +404,7 @@ pub struct ConsensusNextLeader<
         ConsensusMessage = SequencingMessage<TYPES, I>,
     >,
 > where
-    I::Exchanges: SequencingExchangesType<TYPES, I::Leaf, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
 {
     /// id of node
     pub id: u64,
@@ -437,7 +437,7 @@ impl<
         >,
     > ConsensusNextLeader<A, TYPES, I>
 where
-    I::Exchanges: SequencingExchangesType<TYPES, SequencingLeaf<TYPES>, Message<TYPES, I>>,
+    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
         SequencingLeaf<TYPES>,
