@@ -24,7 +24,7 @@ use hotshot_types::{
     vote::VoteType,
 };
 use std::{marker::PhantomData, sync::Arc};
-
+use tracing::error;
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
 #[derive(Clone)]
@@ -184,7 +184,21 @@ impl<
             .broadcast_message(message.clone(), recipients.clone());
         let network = self.network().broadcast_message(message, recipients);
         match join!(fallback, network) {
-            (Err(e), Err(_)) => Err(e),
+            (Err(e1), Err(e2)) => {
+                error!(
+                    "Both network broadcasts failed primary error: {}, fallback error: {}",
+                    e1, e2
+                );
+                Err(e1)
+            }
+            (Err(e), _) => {
+                error!("Failed primary broadcast with error: {}", e);
+                Ok(())
+            }
+            (_, Err(e)) => {
+                error!("Failed backup broadcast with error: {}", e);
+                Ok(())
+            }
             _ => Ok(()),
         }
     }
@@ -200,7 +214,13 @@ impl<
             .await
         {
             Ok(_) => Ok(()),
-            Err(_e) => self.fallback().direct_message(message, recipient).await,
+            Err(e) => {
+                error!(
+                    "Falling back on direct message, error on primary network: {}",
+                    e
+                );
+                self.fallback().direct_message(message, recipient).await
+            }
         }
     }
 
@@ -210,14 +230,37 @@ impl<
     ) -> Result<Vec<Message<TYPES, I>>, NetworkError> {
         match self.network().recv_msgs(transmit_type).await {
             Ok(msgs) => Ok(msgs),
-            Err(_e) => self.fallback().recv_msgs(transmit_type).await,
+            Err(e) => {
+                error!(
+                    "Falling back on recv message, error on primary network: {}",
+                    e
+                );
+                self.fallback().recv_msgs(transmit_type).await
+            }
         }
     }
 
     async fn lookup_node(&self, pk: TYPES::SignatureKey) -> Result<(), NetworkError> {
-        match self.network().lookup_node(pk.clone()).await {
-            Ok(msgs) => Ok(msgs),
-            Err(_e) => self.fallback().lookup_node(pk).await,
+        match join!(
+            self.network().lookup_node(pk.clone()),
+            self.fallback().lookup_node(pk)
+        ) {
+            (Err(e1), Err(e2)) => {
+                error!(
+                    "Both network lookups failed primary error: {}, fallback error: {}",
+                    e1, e2
+                );
+                Err(e1)
+            }
+            (Err(e), _) => {
+                error!("Failed primary lookup with error: {}", e);
+                Ok(())
+            }
+            (_, Err(e)) => {
+                error!("Failed backup lookup with error: {}", e);
+                Ok(())
+            }
+            _ => Ok(()),
         }
     }
 
