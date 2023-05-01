@@ -23,20 +23,19 @@ use futures::channel::oneshot::Sender;
 use hotshot_utils::bincode::bincode_opts;
 use libp2p::{
     build_multiaddr,
-    core::{muxing::StreamMuxerBox, transport::Boxed, upgrade},
+    core::{muxing::StreamMuxerBox, transport::Boxed, upgrade::Version},
     gossipsub::TopicHash,
     identify::Event as IdentifyEvent,
     identity::Keypair,
-    noise,
     request_response::ResponseChannel,
     tcp,
     yamux::{WindowUpdateMode, YamuxConfig},
-    InboundUpgradeExt, Multiaddr, OutboundUpgradeExt, Transport,
+    Multiaddr, Transport,
 };
 use libp2p_identity::PeerId;
 use rand::seq::IteratorRandom;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, fmt::Debug, io, str::FromStr, sync::Arc, time::Duration};
+use std::{collections::HashSet, fmt::Debug, str::FromStr, sync::Arc, time::Duration};
 use tracing::{info, instrument};
 
 #[cfg(feature = "async-std-executor")]
@@ -223,32 +222,72 @@ pub async fn gen_transport(
     }
     .await?;
 
-    // keys for signing messages
-    let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
-        .into_authentic(&identity)
-        .expect("Signing libp2p-noise static DH keypair failed.");
     let multiplexing_config = {
         let mut yamux_config = YamuxConfig::default();
         yamux_config.set_window_update_mode(WindowUpdateMode::on_read());
-
         yamux_config
-            .map_inbound(StreamMuxerBox::new)
-            .map_outbound(StreamMuxerBox::new)
     };
 
     Ok(transport
-        .upgrade(upgrade::Version::V1)
-        // authentication: messages are signed
-        .authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
-        // muxxing streams
-        // useful because only one connection opened
-        // with multiple substreams
-        // https://docs.libp2p.io/concepts/stream-multiplexing/
+        .upgrade(Version::V1)
+        .authenticate(libp2p_noise::Config::new(&identity).unwrap())
         .multiplex(multiplexing_config)
-        .timeout(Duration::from_secs(20))
-        .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
+        .timeout(std::time::Duration::from_secs(20))
         .boxed())
 }
+// pub async fn development_transport(
+//     keypair: identity::Keypair,
+// ) -> std::io::Result<core::transport::Boxed<(PeerId, core::muxing::StreamMuxerBox)>> {
+//     let transport = {
+//         let dns_tcp = dns::DnsConfig::system(tcp::async_io::Transport::new(
+//             tcp::Config::new().nodelay(true),
+//         ))
+//         .await?;
+//         let ws_dns_tcp = websocket::WsConfig::new(
+//             dns::DnsConfig::system(tcp::async_io::Transport::new(
+//                 tcp::Config::new().nodelay(true),
+//             ))
+//             .await?,
+//         );
+//         dns_tcp.or_transport(ws_dns_tcp)
+//     };
+//
+//     Ok(transport
+//         .upgrade(core::upgrade::Version::V1)
+//         .authenticate(noise::Config::new(&keypair).unwrap())
+//         .multiplex(core::upgrade::SelectUpgrade::new(
+//             yamux::Config::default(),
+//             #[allow(deprecated)]
+//             mplex::MplexConfig::default(),
+//         ))
+//         .timeout(std::time::Duration::from_secs(20))
+//         .boxed())
+// }
+
+// pub fn tokio_development_transport(
+//     keypair: identity::Keypair,
+// ) -> std::io::Result<core::transport::Boxed<(PeerId, core::muxing::StreamMuxerBox)>> {
+//     let transport = {
+//         let dns_tcp = dns::TokioDnsConfig::system(tcp::tokio::Transport::new(
+//             tcp::Config::new().nodelay(true),
+//         ))?;
+//         let ws_dns_tcp = websocket::WsConfig::new(dns::TokioDnsConfig::system(
+//             tcp::tokio::Transport::new(tcp::Config::new().nodelay(true)),
+//         )?);
+//         dns_tcp.or_transport(ws_dns_tcp)
+//     };
+//
+//     Ok(transport
+//         .upgrade(core::upgrade::Version::V1)
+//         .authenticate(noise::Config::new(&keypair).unwrap())
+//         .multiplex(core::upgrade::SelectUpgrade::new(
+//             yamux::Config::default(),
+//             #[allow(deprecated)]
+//             mplex::MplexConfig::default(),
+//         ))
+//         .timeout(std::time::Duration::from_secs(20))
+//         .boxed())
+// }
 
 /// a single node, connects them to each other
 /// and waits for connections to propagate to all nodes.
