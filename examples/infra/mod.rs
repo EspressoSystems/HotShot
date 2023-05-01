@@ -227,7 +227,7 @@ pub trait Run<
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
         let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
-            [0u8; 32],
+            config.seed
         ));
         let known_nodes = config.config.known_nodes.clone();
 

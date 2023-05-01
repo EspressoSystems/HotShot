@@ -16,6 +16,9 @@ use tide_disco::error::ServerError;
 use tide_disco::method::ReadState;
 use tide_disco::method::WriteState;
 
+use rand::SeedableRng;
+use serde::Serialize;
+
 use futures::FutureExt;
 
 use crate::config::NetworkConfig;
@@ -35,6 +38,13 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
     let ed_kp = <EdKeypair as From<SecretKey>>::from(sk_bytes);
     #[allow(deprecated)]
     Keypair::Ed25519(ed_kp)
+}
+
+#[derive(Serialize)]
+
+struct ServerEncKey{
+    #[serde(with = "jf_utils::field_elem")]
+    enc_key: jf_primitives::aead::EncKey
 }
 
 #[derive(Default, Clone)]
@@ -102,11 +112,15 @@ where
         //add new node's key to stake table
         if self.config.web_server_config.clone().is_some() {
             let new_key = KEY::generated_from_seed_indexed(self.config.seed, node_index.into()).0;
+            let new_enc_key = jf_primitives::aead::KeyPair::generate(
+                &mut rand_chacha::ChaChaRng::from_seed(self.config.seed),
+            ).enc_key();
+            let keypair = (new_key, ServerEncKey{enc_key: new_enc_key});
             let client_clone = self.client.clone().unwrap();
             async move {
                 client_clone
                     .post::<()>("api/staketable")
-                    .body_binary(&new_key)
+                    .body_binary(&(keypair))
                     .unwrap()
                     .send()
                     .await
