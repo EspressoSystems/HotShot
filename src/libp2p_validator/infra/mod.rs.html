@@ -1345,7 +1345,7 @@
     hasher.update(<span class="kw-2">&amp;</span>seed);
     hasher.update(<span class="kw-2">&amp;</span>index.to_le_bytes());
     <span class="kw">let </span>new_seed = <span class="kw-2">*</span>hasher.finalize().as_bytes();
-    <span class="kw">let </span>sk_bytes = SecretKey::from_bytes(new_seed).unwrap();
+    <span class="kw">let </span>sk_bytes = SecretKey::try_from_bytes(new_seed).unwrap();
     <span class="kw">let </span>ed_kp = &lt;EdKeypair <span class="kw">as </span>From&lt;SecretKey&gt;&gt;::from(sk_bytes);
     <span class="attr">#[allow(deprecated)]
     </span>Keypair::Ed25519(ed_kp)

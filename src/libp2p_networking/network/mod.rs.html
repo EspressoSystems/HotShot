@@ -278,6 +278,45 @@
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
 </pre><pre class="rust"><code><span class="doccomment">/// networking behaviours wrapping libp2p&#39;s behaviours
 </span><span class="kw">pub mod </span>behaviours;
 <span class="kw">mod </span>def;
@@ -303,20 +342,19 @@
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
 <span class="kw">use </span>libp2p::{
     build_multiaddr,
-    core::{muxing::StreamMuxerBox, transport::Boxed, upgrade},
+    core::{muxing::StreamMuxerBox, transport::Boxed, upgrade::Version},
     gossipsub::TopicHash,
     identify::Event <span class="kw">as </span>IdentifyEvent,
     identity::Keypair,
-    noise,
     request_response::ResponseChannel,
     tcp,
     yamux::{WindowUpdateMode, YamuxConfig},
-    InboundUpgradeExt, Multiaddr, OutboundUpgradeExt, Transport,
+    Multiaddr, Transport,
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>rand::seq::IteratorRandom;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::{collections::HashSet, fmt::Debug, io, str::FromStr, sync::Arc, time::Duration};
+<span class="kw">use </span>std::{collections::HashSet, fmt::Debug, str::FromStr, sync::Arc, time::Duration};
 <span class="kw">use </span>tracing::{info, instrument};
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;async-std-executor&quot;</span>)]
@@ -503,34 +541,74 @@
     }
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="comment">// keys for signing messages
-    </span><span class="kw">let </span>noise_keys = noise::Keypair::&lt;noise::X25519Spec&gt;::new()
-        .into_authentic(<span class="kw-2">&amp;</span>identity)
-        .expect(<span class="string">&quot;Signing libp2p-noise static DH keypair failed.&quot;</span>);
     <span class="kw">let </span>multiplexing_config = {
         <span class="kw">let </span><span class="kw-2">mut </span>yamux_config = YamuxConfig::default();
         yamux_config.set_window_update_mode(WindowUpdateMode::on_read());
-
         yamux_config
-            .map_inbound(StreamMuxerBox::new)
-            .map_outbound(StreamMuxerBox::new)
     };
 
     <span class="prelude-val">Ok</span>(transport
-        .upgrade(upgrade::Version::V1)
-        <span class="comment">// authentication: messages are signed
-        </span>.authenticate(noise::NoiseConfig::xx(noise_keys).into_authenticated())
-        <span class="comment">// muxxing streams
-        // useful because only one connection opened
-        // with multiple substreams
-        // https://docs.libp2p.io/concepts/stream-multiplexing/
-        </span>.multiplex(multiplexing_config)
-        .timeout(Duration::from_secs(<span class="number">20</span>))
-        .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
+        .upgrade(Version::V1)
+        .authenticate(libp2p_noise::Config::new(<span class="kw-2">&amp;</span>identity).unwrap())
+        .multiplex(multiplexing_config)
+        .timeout(std::time::Duration::from_secs(<span class="number">20</span>))
         .boxed())
 }
+<span class="comment">// pub async fn development_transport(
+//     keypair: identity::Keypair,
+// ) -&gt; std::io::Result&lt;core::transport::Boxed&lt;(PeerId, core::muxing::StreamMuxerBox)&gt;&gt; {
+//     let transport = {
+//         let dns_tcp = dns::DnsConfig::system(tcp::async_io::Transport::new(
+//             tcp::Config::new().nodelay(true),
+//         ))
+//         .await?;
+//         let ws_dns_tcp = websocket::WsConfig::new(
+//             dns::DnsConfig::system(tcp::async_io::Transport::new(
+//                 tcp::Config::new().nodelay(true),
+//             ))
+//             .await?,
+//         );
+//         dns_tcp.or_transport(ws_dns_tcp)
+//     };
+//
+//     Ok(transport
+//         .upgrade(core::upgrade::Version::V1)
+//         .authenticate(noise::Config::new(&amp;keypair).unwrap())
+//         .multiplex(core::upgrade::SelectUpgrade::new(
+//             yamux::Config::default(),
+//             #[allow(deprecated)]
+//             mplex::MplexConfig::default(),
+//         ))
+//         .timeout(std::time::Duration::from_secs(20))
+//         .boxed())
+// }
 
-<span class="doccomment">/// a single node, connects them to each other
+// pub fn tokio_development_transport(
+//     keypair: identity::Keypair,
+// ) -&gt; std::io::Result&lt;core::transport::Boxed&lt;(PeerId, core::muxing::StreamMuxerBox)&gt;&gt; {
+//     let transport = {
+//         let dns_tcp = dns::TokioDnsConfig::system(tcp::tokio::Transport::new(
+//             tcp::Config::new().nodelay(true),
+//         ))?;
+//         let ws_dns_tcp = websocket::WsConfig::new(dns::TokioDnsConfig::system(
+//             tcp::tokio::Transport::new(tcp::Config::new().nodelay(true)),
+//         )?);
+//         dns_tcp.or_transport(ws_dns_tcp)
+//     };
+//
+//     Ok(transport
+//         .upgrade(core::upgrade::Version::V1)
+//         .authenticate(noise::Config::new(&amp;keypair).unwrap())
+//         .multiplex(core::upgrade::SelectUpgrade::new(
+//             yamux::Config::default(),
+//             #[allow(deprecated)]
+//             mplex::MplexConfig::default(),
+//         ))
+//         .timeout(std::time::Duration::from_secs(20))
+//         .boxed())
+// }
+
+</span><span class="doccomment">/// a single node, connects them to each other
 /// and waits for connections to propagate to all nodes.
 </span><span class="attr">#[instrument]
 </span><span class="kw">pub async fn </span>spin_up_swarm&lt;S: std::fmt::Debug + Default&gt;(
