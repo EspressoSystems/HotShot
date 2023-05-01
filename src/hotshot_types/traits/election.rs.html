@@ -1070,6 +1070,20 @@
 <a href="#1070" id="1070">1070</a>
 <a href="#1071" id="1071">1071</a>
 <a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The election trait, used to decide which node is the leader and determine if a vote is valid.
 
 </span><span class="kw">use </span><span class="kw">super</span>::node_implementation::{NodeImplementation, NodeType};
@@ -1093,6 +1107,7 @@
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>either::Either;
 <span class="kw">use </span>hotshot_utils::bincode::bincode_opts;
+<span class="kw">use </span>jf_primitives::aead::KeyPair;
 <span class="kw">use </span>serde::Deserialize;
 <span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
 <span class="kw">use </span>snafu::Snafu;
@@ -1311,6 +1326,7 @@
         network: <span class="self">Self</span>::Networking,
         pk: TYPES::SignatureKey,
         sk: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+        ek: jf_primitives::aead::KeyPair,
     ) -&gt; <span class="self">Self</span>;
 
     <span class="doccomment">/// The network being used by this exchange.
@@ -1544,6 +1560,8 @@
     </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// This participant&#39;s private key.
     </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    <span class="doccomment">/// This participant&#39;s encryption key.
+    </span>_encryption_key: jf_primitives::aead::KeyPair,
     <span class="attr">#[doc(hidden)]
     </span>_pd: PhantomData&lt;(TYPES, LEAF, MEMBERSHIP, M)&gt;,
 }
@@ -1624,6 +1642,7 @@
         network: <span class="self">Self</span>::Networking,
         pk: TYPES::SignatureKey,
         sk: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+        ek: jf_primitives::aead::KeyPair,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>membership =
             &lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Membership::create_election(keys, config);
@@ -1632,6 +1651,7 @@
             membership,
             public_key: pk,
             private_key: sk,
+            _encryption_key: ek,
             _pd: PhantomData,
         }
     }
@@ -1775,6 +1795,8 @@
     </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// This participant&#39;s private key.
     </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    <span class="doccomment">/// This participant&#39;s encryption key
+    </span>_encryption_key: KeyPair,
     <span class="attr">#[doc(hidden)]
     </span>_pd: PhantomData&lt;(LEAF, PROPOSAL, MEMBERSHIP, M)&gt;,
 }
@@ -1935,6 +1957,7 @@
         network: <span class="self">Self</span>::Networking,
         pk: TYPES::SignatureKey,
         sk: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+        ek: jf_primitives::aead::KeyPair,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>membership =
             &lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Membership::create_election(keys, config);
@@ -1943,6 +1966,7 @@
             membership,
             public_key: pk,
             private_key: sk,
+            _encryption_key: ek,
             _pd: PhantomData,
         }
     }
@@ -2027,6 +2051,8 @@
     </span>public_key: TYPES::SignatureKey,
     <span class="doccomment">/// This participant&#39;s private key.
     </span>private_key: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+    <span class="doccomment">/// This participant&#39;s encryption key.
+    </span>_encryption_key: jf_primitives::aead::KeyPair,
     <span class="attr">#[doc(hidden)]
     </span>_pd: PhantomData&lt;(PROPOSAL, MEMBERSHIP, M)&gt;,
 }
@@ -2085,6 +2111,7 @@
         network: <span class="self">Self</span>::Networking,
         pk: TYPES::SignatureKey,
         sk: &lt;TYPES::SignatureKey <span class="kw">as </span>SignatureKey&gt;::PrivateKey,
+        ek: jf_primitives::aead::KeyPair,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>membership =
             &lt;<span class="self">Self </span><span class="kw">as </span>ConsensusExchange&lt;TYPES, M&gt;&gt;::Membership::create_election(keys, config);
@@ -2093,6 +2120,7 @@
             membership,
             public_key: pk,
             private_key: sk,
+            _encryption_key: ek,
             _pd: PhantomData,
         }
     }

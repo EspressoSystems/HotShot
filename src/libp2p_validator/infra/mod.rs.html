@@ -944,6 +944,12 @@
 <a href="#944" id="944">944</a>
 <a href="#945" id="945">945</a>
 <a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
 </pre><pre class="rust"><code><span class="kw">use </span>futures::Future;
 <span class="kw">use </span>futures::FutureExt;
 <span class="kw">use </span>std::net::Ipv4Addr;
@@ -1006,6 +1012,7 @@
 };
 <span class="kw">use </span>libp2p_identity::PeerId;
 <span class="kw">use </span>libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+<span class="kw">use </span>rand::SeedableRng;
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">use </span>tracing::error;
 
@@ -1171,6 +1178,9 @@
 
         <span class="kw">let </span>(pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
+        <span class="kw">let </span>ek = jf_primitives::aead::KeyPair::generate(<span class="kw-2">&amp;mut </span>rand_chacha::ChaChaRng::from_seed(
+            [<span class="number">0u8</span>; <span class="number">32</span>],
+        ));
         <span class="kw">let </span>known_nodes = config.config.known_nodes.clone();
 
         <span class="kw">let </span>network = <span class="self">self</span>.get_network();
@@ -1194,6 +1204,7 @@
             network.clone(),
             pk.clone(),
             sk.clone(),
+            ek.clone(),
         );
         <span class="kw">let </span>committee_exchange = NODE::CommitteeExchange::create(
             known_nodes,
@@ -1201,6 +1212,7 @@
             network,
             pk.clone(),
             sk.clone(),
+            ek.clone(),
         );
         <span class="kw">let </span>hotshot = HotShot::init(
             pk,
