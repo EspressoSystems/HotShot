@@ -1,16 +1,19 @@
-pub mod config;
+pub mod api_config;
 
 use async_compatibility_layer::channel::OneShotReceiver;
 use async_lock::RwLock;
+use bincode::Options as BincodeOpts;
 use clap::Args;
-use config::DEFAULT_WEB_SERVER_PORT;
+use api_config::{DEFAULT_WEB_SERVER_PORT, ServerEncKey, MAX_VIEWS, MAX_TXNS};
 use futures::FutureExt;
 
-use hotshot_types::traits::signature_key::EncodedPublicKey;
 use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_utils::bincode::bincode_opts;
+use jf_primitives::aead::EncKey;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
+
 use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
@@ -26,11 +29,7 @@ use tracing::{error, info};
 type State<KEY> = RwLock<WebServerState<KEY>>;
 type Error = ServerError;
 
-// TODO ED: Below values should be in a config file
-/// How many views to keep in memory
-const MAX_VIEWS: usize = 10;
-/// How many transactions to keep in memory
-const MAX_TXNS: usize = 10;
+
 
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
@@ -52,7 +51,7 @@ struct WebServerState<KEY> {
     /// shutdown signal
     shutdown: Option<OneShotReceiver<()>>,
     /// stake table with leader keys
-    stake_table: Vec<KEY>,
+    stake_table: Vec<(KEY, EncKey)>,
     /// prng for generating endpoint
     _prng: StdRng,
 }
@@ -89,7 +88,7 @@ pub trait WebServerDataSource<KEY> {
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
-    fn post_staketable(&mut self, key: Vec<u8>) -> Result<(), Error>;
+    fn post_staketable(&mut self, keypair: Vec<u8>) -> Result<(), Error>;
     fn post_secret_proposal(&mut self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error>;
     fn proposal(&self, view_number: u64) -> Option<(String, Vec<u8>)>;
 }
@@ -200,23 +199,24 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         Ok(())
     }
 
-    fn post_staketable(&mut self, key: Vec<u8>) -> Result<(), Error> {
+    fn post_staketable(&mut self, keypair: Vec<u8>) -> Result<(), Error> {
         // KALEY TODO: need security checks here
-        let new_key = KEY::from_bytes(&(EncodedPublicKey(key)));
-        if let Some(new_key) = new_key {
+        let keypair = bincode_opts().deserialize::<(KEY, ServerEncKey)>(&keypair);
+        if let Ok((pub_key, enc_key)) = keypair {
+            //let new_enc_key = jf_primitives::aead::EncKey::from(keypair.1.1);
             let node_index = self.stake_table.len() as u64;
             //generate secret for leader's first submission endpoint when key is added
-            //secret should be random, and then wrapped with leader's pubkey once encryption keys are added
-            // https://github.com/EspressoSystems/HotShot/issues/1141
+            //secret should be random
             let secret = thread_rng()
                 .sample_iter(&Alphanumeric)
                 .take(30)
                 .map(char::from)
                 .collect();
             self.proposals.insert(node_index, (secret, Vec::new()));
-            self.stake_table.push(new_key);
+            self.stake_table.push((pub_key, enc_key.enc_key));
             Ok(())
-        } else {
+        } 
+        else {
             Err(ServerError {
                 status: StatusCode::BadRequest,
                 message: "Only signature keys can be added to stake table".to_string(),
@@ -330,8 +330,8 @@ where
     .post("poststaketable", |req, state| {
         async move {
             //works one key at a time for now
-            let key = req.body_bytes();
-            state.post_staketable(key)
+            let keypair = req.body_bytes();
+            state.post_staketable(keypair)
         }
         .boxed()
     })?

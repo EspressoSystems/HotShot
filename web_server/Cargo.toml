@@ -45,11 +45,13 @@ hotshot-utils = { path = "../utils"}
 jf-primitives = { git = "https://github.com/EspressoSystems/jellyfish", tag = "0.1.2-patch.1", features = [
   "std",
 ] }
+jf-utils = { features = ["std"], git = "https://github.com/EspressoSystems/jellyfish.git", tag = "0.1.2" }
 tide-disco = { git = "https://github.com/EspressoSystems/tide-disco.git", tag = "v0.4.1" }
 nll = { git = "https://github.com/EspressoSystems/nll.git" }
 tracing = "0.1.37"
 rand = "0.8.5"
 serde = { version = "1.0.147", features = ["derive"] }
+serde_with = "2.0.1"
 serde_json = "1.0.87"
 snafu = "0.7.3"
 tide = { version = "0.16.0", default-features = false }

@@ -17,7 +17,7 @@ use async_compatibility_layer::{
 use hotshot_types::message::MessagePurpose;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 
-use hotshot_web_server::{self, config};
+use hotshot_web_server::{self, api_config};
 
 use async_lock::RwLock;
 use async_trait::async_trait;
@@ -202,11 +202,11 @@ impl<
 
         while self.running.load(Ordering::Relaxed) {
             let endpoint = match message_type {
-                MessageType::Proposal => config::get_proposal_route(consensus_info.view_number),
+                MessageType::Proposal => api_config::get_proposal_route(consensus_info.view_number),
                 MessageType::VoteTimedOut => {
-                    config::get_vote_route(consensus_info.view_number, vote_index)
+                    api_config::get_vote_route(consensus_info.view_number, vote_index)
                 }
-                MessageType::Transaction => config::get_transactions_route(tx_index),
+                MessageType::Transaction => api_config::get_transactions_route(tx_index),
             };
 
             let possible_message =
@@ -470,9 +470,9 @@ impl<
         let view_number: TYPES::Time = message.get_view_number();
 
         let endpoint = match &message.purpose() {
-            MessagePurpose::Proposal => config::post_proposal_route(*view_number),
-            MessagePurpose::Vote => config::post_vote_route(*view_number),
-            MessagePurpose::Data => config::post_transactions_route(),
+            MessagePurpose::Proposal => api_config::post_proposal_route(*view_number),
+            MessagePurpose::Vote => api_config::post_vote_route(*view_number),
+            MessagePurpose::Data => api_config::post_transactions_route(),
             MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
         };
 

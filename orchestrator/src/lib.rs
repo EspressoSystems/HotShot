@@ -3,6 +3,7 @@ pub mod config;
 use async_lock::RwLock;
 use hotshot_types::traits::election::ElectionConfig;
 use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_web_server::api_config::ServerEncKey;
 use std::io;
 use std::io::ErrorKind;
 use std::net::IpAddr;
@@ -17,7 +18,7 @@ use tide_disco::method::ReadState;
 use tide_disco::method::WriteState;
 
 use rand::SeedableRng;
-use serde::Serialize;
+
 
 use futures::FutureExt;
 
@@ -38,13 +39,6 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
     let ed_kp = <EdKeypair as From<SecretKey>>::from(sk_bytes);
     #[allow(deprecated)]
     Keypair::Ed25519(ed_kp)
-}
-
-#[derive(Serialize)]
-
-struct ServerEncKey{
-    #[serde(with = "jf_utils::field_elem")]
-    enc_key: jf_primitives::aead::EncKey
 }
 
 #[derive(Default, Clone)]
