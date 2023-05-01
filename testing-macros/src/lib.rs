@@ -188,89 +188,101 @@ impl TestData {
             quote! {}
         };
 
-        let (consensus_type, leaf, vote, proposal, exchanges, committee_exchange) =
-            match supported_consensus_type {
-                SupportedConsensusTypes::SequencingConsensus => {
-                    let consensus_type = quote! {
-                        hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus
-                    };
-                    let leaf = quote! {
-                        hotshot_types::data::SequencingLeaf<TestTypes>
-                    };
-                    let vote = quote! {
-                        hotshot_types::vote::DAVote<TestTypes, #leaf>
-                    };
-                    let proposal = quote! {
-                        hotshot_types::data::DAProposal<TestTypes>
-                    };
-                    let committee_exchange = quote! {
-                        hotshot_types::traits::election::CommitteeExchange<
+        let (
+            consensus_type,
+            leaf,
+            vote,
+            proposal,
+            consensus_message,
+            exchanges,
+            committee_exchange,
+        ) = match supported_consensus_type {
+            SupportedConsensusTypes::SequencingConsensus => {
+                let consensus_type = quote! {
+                    hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus
+                };
+                let leaf = quote! {
+                    hotshot_types::data::SequencingLeaf<TestTypes>
+                };
+                let vote = quote! {
+                    hotshot_types::vote::DAVote<TestTypes, #leaf>
+                };
+                let proposal = quote! {
+                    hotshot_types::data::DAProposal<TestTypes>
+                };
+                let consensus_message = quote! {
+                    hotshot_types::message::SequencingMessage<TestTypes, TestNodeImpl>
+                };
+                let committee_exchange = quote! {
+                    hotshot_types::traits::election::CommitteeExchange<
+                        TestTypes,
+                        CommitteeMembership,
+                        #comm_channel<
                             TestTypes,
+                            TestNodeImpl,
+                            #proposal,
+                            #vote,
                             CommitteeMembership,
-                            #comm_channel<
-                                TestTypes,
-                                TestNodeImpl,
-                                #proposal,
-                                #vote,
-                                CommitteeMembership,
-                            >,
-                            hotshot_types::message::Message<TestTypes, TestNodeImpl>,
-                        >
-                    };
-                    let exchanges = quote! {
-                        hotshot_types::traits::node_implementation::SequencingExchanges<
-                            hotshot_types::traits::consensus_type::sequencing_consensus::SequencingConsensus,
-                            TestTypes,
-                            hotshot_types::message::Message<TestTypes, TestNodeImpl>,
-                            TestQuorumExchange,
-                            #committee_exchange
-                        >
-                    };
+                        >,
+                        hotshot_types::message::Message<TestTypes, TestNodeImpl>,
+                    >
+                };
+                let exchanges = quote! {
+                    hotshot_types::traits::node_implementation::SequencingExchanges<
+                        TestTypes,
+                        hotshot_types::message::Message<TestTypes, TestNodeImpl>,
+                        TestQuorumExchange,
+                        #committee_exchange
+                    >
+                };
 
-                    (
-                        consensus_type,
-                        leaf,
-                        vote,
-                        proposal,
-                        exchanges,
-                        committee_exchange,
-                    )
-                }
-                SupportedConsensusTypes::ValidatingConsensus => {
-                    let consensus_type = quote! {
-                        hotshot_types::traits::consensus_type::validating_consensus::ValidatingConsensus
-                    };
-                    let leaf = quote! {
-                        hotshot_types::data::ValidatingLeaf<TestTypes>
-                    };
-                    let vote = quote! {
-                        hotshot_types::vote::QuorumVote<TestTypes, #leaf>
-                    };
-                    let proposal = quote! {
-                        hotshot_types::data::ValidatingProposal<TestTypes, #leaf>
-                    };
-                    let committee_exchange = quote! {
+                (
+                    consensus_type,
+                    leaf,
+                    vote,
+                    proposal,
+                    consensus_message,
+                    exchanges,
+                    committee_exchange,
+                )
+            }
+            SupportedConsensusTypes::ValidatingConsensus => {
+                let consensus_type = quote! {
+                    hotshot_types::traits::consensus_type::validating_consensus::ValidatingConsensus
+                };
+                let leaf = quote! {
+                    hotshot_types::data::ValidatingLeaf<TestTypes>
+                };
+                let vote = quote! {
+                    hotshot_types::vote::QuorumVote<TestTypes, #leaf>
+                };
+                let proposal = quote! {
+                    hotshot_types::data::ValidatingProposal<TestTypes, #leaf>
+                };
+                let consensus_message = quote! {
+                    hotshot_types::message::ValidatingMessage<TestTypes, TestNodeImpl>
+                };
+                let committee_exchange = quote! {
+                    TestQuorumExchange
+                };
+                let exchanges = quote! {
+                    hotshot_types::traits::node_implementation::ValidatingExchanges<
+                        TestTypes,
+                        hotshot_types::message::Message<TestTypes, TestNodeImpl>,
                         TestQuorumExchange
-                    };
-                    let exchanges = quote! {
-                        hotshot_types::traits::node_implementation::ValidatingExchanges<
-                            hotshot_types::traits::consensus_type::validating_consensus::ValidatingConsensus,
-                            TestTypes,
-                            #leaf,
-                            hotshot_types::message::Message<TestTypes, TestNodeImpl>,
-                            TestQuorumExchange
-                        >
-                    };
-                    (
-                        consensus_type,
-                        leaf,
-                        vote,
-                        proposal,
-                        exchanges,
-                        committee_exchange,
-                    )
-                }
-            };
+                    >
+                };
+                (
+                    consensus_type,
+                    leaf,
+                    vote,
+                    proposal,
+                    consensus_message,
+                    exchanges,
+                    committee_exchange,
+                )
+            }
+        };
 
         quote! {
 
@@ -334,14 +346,11 @@ impl TestData {
                         hotshot_types::message::Message<TestTypes, TestNodeImpl>,
                     >;
 
-                type TestCommitteeExchange = #committee_exchange;
-
                 impl hotshot_types::traits::node_implementation::NodeImplementation<TestTypes> for TestNodeImpl {
                     type Leaf = #leaf;
                     type Storage = #storage<TestTypes, #leaf>;
+                    type ConsensusMessage = #consensus_message;
                     type Exchanges = #exchanges;
-                    type QuorumExchange = TestQuorumExchange;
-                    type CommitteeExchange = TestCommitteeExchange;
                 }
 
                 #slow_attribute

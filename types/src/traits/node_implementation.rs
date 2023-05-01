@@ -417,7 +417,7 @@ where
         _network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self::CommitteeNetwork + 'static> {
         // This function is only useful for sequencing consensus.
-        unimplemented!()
+        Box::new(|_|())
     }
 
     fn quorum_generator(
