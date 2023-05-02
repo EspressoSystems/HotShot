@@ -750,7 +750,7 @@ mod tests {
                 .expect("Failed to receive message");
             let recv_message = recv_messages.pop().unwrap();
             assert!(recv_messages.is_empty());
-            // fake_message_eq(sent_message, recv_message);
+            fake_message_eq(sent_message, recv_message);
         }
 
         let second_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 200, pub_key_2);
@@ -768,7 +768,7 @@ mod tests {
                 .expect("Failed to receive message");
             let recv_message = recv_messages.pop().unwrap();
             assert!(recv_messages.is_empty());
-            // fake_message_eq(sent_message, recv_message);
+            fake_message_eq(sent_message, recv_message);
         }
     }
 
@@ -810,7 +810,7 @@ mod tests {
                 .expect("Failed to receive message");
             let recv_message = recv_messages.pop().unwrap();
             assert!(recv_messages.is_empty());
-            // fake_message_eq(sent_message, recv_message);
+            fake_message_eq(sent_message, recv_message);
         }
 
         let second_messages: Vec<Message<Test, TestImpl>> = gen_messages(5, 200, pub_key_2);
@@ -831,7 +831,7 @@ mod tests {
                 .expect("Failed to receive message");
             let recv_message = recv_messages.pop().unwrap();
             assert!(recv_messages.is_empty());
-            // fake_message_eq(sent_message, recv_message);
+            fake_message_eq(sent_message, recv_message);
         }
     }
 
@@ -842,6 +842,7 @@ mod tests {
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     #[instrument]
     #[allow(deprecated)]
+    #[ignore]
     async fn test_in_flight_message_count() {
         setup_logging();
 

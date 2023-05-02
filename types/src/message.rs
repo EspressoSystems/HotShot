@@ -12,10 +12,7 @@ use crate::{
     traits::{
         consensus_type::{sequencing_consensus::SequencingConsensus, ConsensusType},
         network::NetworkMsg,
-        node_implementation::{
-            DAProposalType, ExchangesType, NodeImplementation, NodeType, QuorumProposalType,
-            SequencingExchangesType, ValidatingExchangesType,
-        },
+        node_implementation::{ExchangesType, NodeImplementation, NodeType, QuorumProposalType},
         signature_key::EncodedSignature,
     },
     vote::VoteType,
@@ -68,6 +65,7 @@ impl<
 {
     // Can't implement `From<I::ConsensusMessage>` directly due to potential conflict with
     // `From<DataMessage>`.
+    /// Construct a [`MessageKind`] from [`I::ConsensusMessage`].
     pub fn from_consensus_message(m: I::ConsensusMessage) -> Self {
         Self::Consensus(m)
     }
@@ -264,6 +262,7 @@ impl<
     }
 }
 
+/// A processed consensus message for sequencing consensus.
 pub type ProcessedSequencingMessage<TYPES, I> = Either<
     ProcessedGeneralConsensusMessage<TYPES, I>,
     ProcessedCommitteeConsensusMessage<TYPES, I>,
@@ -328,9 +327,10 @@ pub enum CommitteeConsensusMessage<
 
 /// Messages related to the consensus protocol.
 pub trait ConsensusMessageType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Messages for both validating and sequencing consensus.
+    /// The type of messages for both validating and sequencing consensus.
     type GeneralConsensusMessage;
 
+    /// The type of processed consensus messages.
     type ProcessedConsensusMessage: Send;
 }
 

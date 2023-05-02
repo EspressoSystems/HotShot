@@ -7,8 +7,7 @@ use crate::certificate::{DACertificate, QuorumCertificate};
 use crate::data::DAProposal;
 use crate::data::ProposalType;
 use crate::message::{
-    CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, Message,
-    SequencingMessage,
+    CommitteeConsensusMessage, GeneralConsensusMessage, Message, SequencingMessage,
 };
 use crate::traits::network::CommunicationChannel;
 use crate::traits::network::NetworkMsg;

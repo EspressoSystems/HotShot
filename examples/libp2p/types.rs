@@ -8,7 +8,6 @@ use hotshot::{
 };
 use hotshot_types::message::{Message, ValidatingMessage};
 use hotshot_types::traits::{
-    consensus_type::validating_consensus::ValidatingConsensus,
     election::QuorumExchange,
     node_implementation::{NodeImplementation, ValidatingExchanges},
 };

@@ -8,6 +8,7 @@ use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
+use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::node_implementation::{
     NodeImplementation, QuorumProposalType, ValidatingExchangesType, ValidatingQuorumEx,
@@ -25,7 +26,6 @@ use hotshot_types::{
     },
     vote::{QuorumVote, TimeoutVote},
 };
-use hotshot_types::{message::ConsensusMessageType, traits::election::ConsensusExchange};
 use hotshot_utils::bincode::bincode_opts;
 use std::marker::PhantomData;
 use std::ops::Bound::{Excluded, Included};

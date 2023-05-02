@@ -57,9 +57,7 @@ use hotshot_consensus::{
     SequencingReplica, ValidatingLeader, View, ViewInner, ViewQueue,
 };
 use hotshot_types::data::CommitmentProposal;
-use hotshot_types::data::{DAProposal, DeltasType, SequencingLeaf};
-use hotshot_types::traits::election::CommitteeExchangeType;
-use hotshot_types::traits::election::QuorumExchangeType;
+use hotshot_types::data::{DeltasType, SequencingLeaf};
 use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{certificate::DACertificate, message::GeneralConsensusMessage};
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
@@ -88,7 +86,7 @@ use hotshot_types::{
         storage::StoredView,
         State,
     },
-    vote::{DAVote, QuorumVote, VoteType},
+    vote::VoteType,
     ExecutionType, HotShotConfig,
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -515,12 +513,15 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     }
 }
 
+/// [`HotShot`] implementations that depend on [`TYPES::ConsensusType`].
 #[async_trait]
 pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// Get the [`transactions`] field of [`HotShot`].
     fn transactions(
         &self,
     ) -> &Arc<SubscribableRwLock<HashMap<Commitment<TYPES::Transaction>, TYPES::Transaction>>>;
 
+    /// Get the [`hotstuff`] field of [`HotShot`].
     fn hotstuff(&self) -> &Arc<RwLock<Consensus<TYPES, I::Leaf>>>;
 
     /// Spawn all tasks that operate on the given [`HotShot`].

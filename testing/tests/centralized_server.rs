@@ -9,16 +9,14 @@ use hotshot_testing::{
     test_description::GeneralTestDescriptionBuilder,
     test_types::{StaticCommitteeTestTypes, VrfTestTypes},
 };
+use hotshot_types::message::{Message, ValidatingMessage};
+use hotshot_types::traits::{
+    election::QuorumExchange,
+    node_implementation::{NodeImplementation, ValidatingExchanges},
+};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
     vote::QuorumVote,
-};
-// use hotshot_utils::test_util::shutdown_logging;
-use hotshot_types::message::{Message, ValidatingMessage};
-use hotshot_types::traits::{
-    consensus_type::validating_consensus::ValidatingConsensus,
-    election::QuorumExchange,
-    node_implementation::{NodeImplementation, ValidatingExchanges},
 };
 use jf_primitives::{signatures::BLSSignatureScheme, vrf::blsvrf::BLSVRFScheme};
 use serde::{Deserialize, Serialize};

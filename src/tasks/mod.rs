@@ -1,13 +1,11 @@
 //! Provides a number of tasks that run continuously on a [`HotShot`]
 
-use crate::{types::HotShotHandle, HotShot, HotShotType, ViewRunner};
+use crate::{HotShot, HotShotType, ViewRunner};
 use async_compatibility_layer::{
-    art::{async_sleep, async_spawn, async_spawn_local, async_timeout},
-    async_primitives::broadcast::channel,
-    channel::{unbounded, UnboundedReceiver, UnboundedSender},
+    art::{async_sleep, async_spawn_local, async_timeout},
+    channel::{UnboundedReceiver, UnboundedSender},
 };
 use async_lock::RwLock;
-
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
@@ -16,7 +14,6 @@ use hotshot_types::{
         network::{CommunicationChannel, TransmitType},
         node_implementation::{ExchangesType, NodeImplementation, NodeType},
     },
-    ExecutionType,
 };
 use std::{
     collections::HashMap,
@@ -27,7 +24,7 @@ use std::{
     },
     time::Duration,
 };
-use tracing::{error, info, info_span, trace, Instrument};
+use tracing::{error, info, trace};
 
 #[cfg(feature = "async-std-executor")]
 use async_std::task::{yield_now, JoinHandle};

@@ -29,7 +29,7 @@ use hotshot_types::message::Message;
 use hotshot_types::traits::node_implementation::QuorumNetwork;
 use hotshot_types::traits::{
     election::ConsensusExchange,
-    node_implementation::{ExchangesType, QuorumEx, ValidatingQuorumEx},
+    node_implementation::{ExchangesType, QuorumEx},
 };
 use hotshot_types::{
     data::LeafType,

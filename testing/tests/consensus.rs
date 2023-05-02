@@ -20,7 +20,6 @@ use hotshot_testing::{
 };
 
 use hotshot_types::message::{GeneralConsensusMessage, Message};
-use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
     event::EventType,
@@ -29,12 +28,10 @@ use hotshot_types::{
         consensus_type::validating_consensus::ValidatingConsensus,
         election::{ConsensusExchange, SignedCertificate, TestableElection},
         node_implementation::{
-            ExchangesType, NodeImplementation, NodeType, ValidatingExchangesType,
-            ValidatingQuorumEx,
+            NodeImplementation, NodeType, ValidatingExchangesType, ValidatingQuorumEx,
         },
         state::ConsensusTime,
     },
-    vote::QuorumVote,
 };
 
 use snafu::{ensure, OptionExt};

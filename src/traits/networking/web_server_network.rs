@@ -19,9 +19,7 @@ use hotshot_types::traits::consensus_type::{
     sequencing_consensus::SequencingConsensus, validating_consensus::ValidatingConsensus,
     ConsensusType,
 };
-use hotshot_types::traits::node_implementation::{
-    NodeImplementation, SequencingExchangesType, ValidatingExchangesType,
-};
+use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
 use hotshot_types::{
     data::{SequencingLeaf, ValidatingLeaf},
     message::{

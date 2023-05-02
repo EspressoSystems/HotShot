@@ -10,16 +10,14 @@ use async_lock::{Mutex, RwLock, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use bincode::Options;
 use commit::Committable;
 use either::{Left, Right};
-use hotshot_types::data::DAProposal;
 use hotshot_types::message::Message;
+use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::election::{CommitteeExchangeType, ConsensusExchange};
 use hotshot_types::traits::node_implementation::{
     CommitteeEx, NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingExchangesType,
     SequencingQuorumEx,
 };
 use hotshot_types::traits::state::ConsensusTime;
-use hotshot_types::vote::DAVote;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, LeafType, SequencingLeaf},
@@ -31,7 +29,6 @@ use hotshot_types::{
         consensus_type::sequencing_consensus::SequencingConsensus, election::SignedCertificate,
         node_implementation::NodeType, signature_key::SignatureKey, Block,
     },
-    vote::QuorumVote,
 };
 use hotshot_utils::bincode::bincode_opts;
 use std::collections::HashSet;

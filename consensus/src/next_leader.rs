@@ -5,12 +5,10 @@ use crate::ValidatingConsensusApi;
 use async_compatibility_layer::channel::UnboundedReceiver;
 use async_lock::Mutex;
 use either::Either;
-use either::{Left, Right};
 use hotshot_types::data::ValidatingLeaf;
 use hotshot_types::message::Message;
 use hotshot_types::message::ProcessedGeneralConsensusMessage;
 use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::election::{Checked::Unchecked, VoteData};
 use hotshot_types::traits::node_implementation::{
     NodeImplementation, NodeType, ValidatingExchangesType, ValidatingQuorumEx,

@@ -12,12 +12,11 @@ use hotshot::{
     traits::NetworkReliability, types::Message, HotShot, HotShotError, HotShotType, ViewRunner,
 };
 use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::node_implementation::{QuorumEx, ValidatingQuorumEx};
+use hotshot_types::traits::node_implementation::QuorumEx;
 use hotshot_types::{
     traits::{
         election::Membership,
-        network::CommunicationChannel,
-        node_implementation::{ExchangesType, NodeImplementation, NodeType, QuorumNetwork},
+        node_implementation::{ExchangesType, NodeType, QuorumNetwork},
     },
     HotShotConfig,
 };

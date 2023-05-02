@@ -34,7 +34,7 @@ use hotshot_types::{
         signature_key::SignatureKey,
         Block,
     },
-    vote::{DAVote, QuorumVote, VoteAccumulator},
+    vote::{QuorumVote, VoteAccumulator},
 };
 use std::collections::HashMap;
 use std::marker::PhantomData;

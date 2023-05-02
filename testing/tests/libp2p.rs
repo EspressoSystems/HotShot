@@ -9,7 +9,6 @@ use hotshot_testing::{
     test_description::GeneralTestDescriptionBuilder, test_types::StaticCommitteeTestTypes,
 };
 use hotshot_types::traits::{
-    consensus_type::validating_consensus::ValidatingConsensus,
     election::QuorumExchange,
     node_implementation::{NodeImplementation, ValidatingExchanges},
 };

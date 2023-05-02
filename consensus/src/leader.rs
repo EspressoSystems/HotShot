@@ -10,7 +10,7 @@ use commit::Committable;
 use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
-    message::{GeneralConsensusMessage, SequencingMessage},
+    message::GeneralConsensusMessage,
     traits::{
         consensus_type::validating_consensus::ValidatingConsensus,
         election::SignedCertificate,

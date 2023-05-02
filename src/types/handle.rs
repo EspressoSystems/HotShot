@@ -10,21 +10,18 @@ use crate::{
 use async_compatibility_layer::async_primitives::broadcast::{BroadcastReceiver, BroadcastSender};
 use commit::Committable;
 use hotshot_types::traits::election::QuorumExchangeType;
-use hotshot_types::traits::node_implementation::QuorumNetwork;
 use hotshot_types::{
     data::LeafType,
     error::{HotShotError, RoundTimedoutState},
     event::EventType,
-    message::{ConsensusMessageType, GeneralConsensusMessage, MessageKind},
+    message::{GeneralConsensusMessage, MessageKind},
     traits::{
         election::ConsensusExchange,
         election::SignedCertificate,
-        network::CommunicationChannel,
         node_implementation::{ExchangesType, NodeType, QuorumEx},
         state::ConsensusTime,
         storage::Storage,
     },
-    vote::QuorumVote,
 };
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -314,10 +311,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
         >,
     {
-        use hotshot_types::{
-            message::GeneralConsensusMessage, traits::node_implementation::QuorumEx,
-        };
-
         let inner = self.hotshot.inner.clone();
         inner.exchanges.quorum_exchange().create_yes_message(
             justify_qc_commitment,

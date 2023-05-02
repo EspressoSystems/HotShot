@@ -11,22 +11,20 @@ use commit::Committable;
 use either::{Left, Right};
 use hotshot_types::{
     certificate::QuorumCertificate,
-    data::{DAProposal, SequencingLeaf},
+    data::SequencingLeaf,
     message::{
         Message, ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
         ProcessedSequencingMessage, SequencingMessage,
     },
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
-        election::{CommitteeExchangeType, ConsensusExchange, QuorumExchange, QuorumExchangeType},
-        network::NetworkMsg,
+        election::{CommitteeExchangeType, ConsensusExchange},
         node_implementation::{
             CommitteeEx, CommitteeVote, DAProposalType, NodeImplementation, NodeType,
-            SequencingExchanges, SequencingExchangesType,
+            SequencingExchangesType,
         },
         signature_key::SignatureKey,
     },
-    vote::DAVote,
 };
 use std::marker::PhantomData;
 use std::sync::Arc;

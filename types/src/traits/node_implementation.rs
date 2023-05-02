@@ -5,13 +5,9 @@
 
 use super::{
     block_contents::Transaction,
-    consensus_type::{
-        sequencing_consensus::SequencingConsensusType,
-        validating_consensus::ValidatingConsensusType, ConsensusType,
-    },
+    consensus_type::ConsensusType,
     election::{
-        CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchange,
-        QuorumExchangeType, VoteToken,
+        CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchangeType, VoteToken,
     },
     network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
@@ -32,7 +28,6 @@ use crate::{
         Block,
     },
 };
-use async_compatibility_layer::async_primitives::broadcast::channel;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -97,6 +92,7 @@ pub trait ExchangesType<
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
     ) -> Self;
 
+    /// Get the quorum exchange.
     fn quorum_exchange(&self) -> &Self::QuorumExchange;
 
     /// Block the underlying networking interfaces until node is successfully initialized into the
@@ -124,6 +120,7 @@ pub trait SequencingExchangesType<
     /// Protocol for exchanging data availability proposals and votes.
     type CommitteeExchange: CommitteeExchangeType<TYPES, MESSAGE> + Clone + Debug;
 
+    /// Get the committee exchange.
     fn committee_exchange(&self) -> &Self::CommitteeExchange;
 }
 
