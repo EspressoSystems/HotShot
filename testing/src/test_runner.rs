@@ -232,7 +232,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         } = self.launcher.round.clone();
 
         for hook in hooks {
-            hook(self, ctx);
+            hook(self, ctx).await?;
         }
 
         let txns = setup_round(self, ctx).await;

@@ -1,7 +1,7 @@
 use async_lock::Mutex;
 
 use hotshot_testing::{
-    round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
+    round::{RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
     round_builder::{RoundBuilder, RoundSafetyCheckBuilder},
     test_builder::{TestBuilder, TestMetadata, TimingData},
     test_errors::{ConsensusSafetyFailedSnafu, ConsensusTestError},
@@ -655,71 +655,55 @@ async fn test_max_propose() {
 }
 
 /// Tests that the chain heights are sequential
-// #[cfg_attr(
-//     feature = "tokio-executor",
-//     tokio::test(flavor = "multi_thread", worker_threads = 2)
-// )]
-// #[cfg_attr(feature = "async-std-executor", async_std::test)]
-// #[instrument]
-// async fn test_chain_height() {
-//     let _num_rounds = 10;
+#[cfg_attr(
+    feature = "tokio-executor",
+    tokio::test(flavor = "multi_thread", worker_threads = 2)
+)]
+#[cfg_attr(feature = "async-std-executor", async_std::test)]
+#[instrument]
+async fn test_chain_height() {
+    let num_rounds = 10;
 
-// Only start a subset of the nodes, ensuring there will be failed views so that height is
-// different from view number.
-// let total_nodes = 6;
-// let start_nodes = 4;
-//
-// let mut test = TestMetadata {
-//     total_nodes,
-//     start_nodes,
-//     num_succeeds: num_rounds,
-//     failure_threshold: num_rounds,
-//     ..Default::default()
-// }
-// .build::<StaticCommitteeTestTypes, StaticNodeImplType>();
+    //Only start a subset of the nodes, ensuring there will be failed views so that height is
+    //different from view number.
+    let total_nodes = 6;
+    let start_nodes = 4;
 
-// let heights = Arc::new(Mutex::new(vec![0; start_nodes]));
-// for i in 0..num_rounds {
-//     let heights = heights.clone();
-//     test.round[i].safety_check_post = Some(Box::new(move |runner, _| {
-//         async move {
-//             let mut heights = heights.lock().await;
-//             for (i, handle) in runner.nodes().enumerate() {
-//                 let leaf = handle.get_decided_leaf().await;
-//                 if leaf.justify_qc.is_genesis() {
-//                     ensure!(
-//                         leaf.get_height() == 0,
-//                         SafetyFailedSnafu {
-//                             description: format!(
-//                                 "node {} has non-zero height {} for genesis leaf",
-//                                 i,
-//                                 leaf.get_height()
-//                             ),
-//                         }
-//                     );
-//                 } else {
-//                     ensure!(
-//                         leaf.get_height() == heights[i] + 1,
-//                         SafetyFailedSnafu {
-//                             description: format!(
-//                                 "node {} has incorrect height {} for previous height {}",
-//                                 i,
-//                                 leaf.get_height(),
-//                                 heights[i]
-//                             ),
-//                         }
-//                     );
-//                     heights[i] = leaf.get_height();
-//                 }
-//             }
-//             Ok(())
-//         }
-//         .boxed_local()
-//     }));
-// }
+    let heights = Arc::new(Mutex::new(vec![0; start_nodes]));
+    let hook = RoundHook(Arc::new(move |runner, _ctx| {
+        let heights = heights.clone();
+        async move {
+            let mut heights = heights.lock().await;
+            for (i, handle) in runner.nodes().enumerate() {
+                let leaf: ValidatingLeaf<StaticCommitteeTestTypes> =
+                    handle.get_decided_leaf().await;
+                if leaf.justify_qc.is_genesis() {
+                    assert!(leaf.get_height() == 0,);
+                } else {
+                    assert!(leaf.get_height() == heights[i] + 1,);
+                    heights[i] = leaf.get_height();
+                }
+            }
+            Ok(())
+        }
+        .boxed_local()
+    }));
 
-// test.execute().await.unwrap();
-// }
+    let builder = TestBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
+        metadata: TestMetadata {
+            total_nodes,
+            start_nodes,
+            num_succeeds: num_rounds,
+            failure_threshold: num_rounds,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let built = builder.build();
+
+    built.push_hook(hook).launch().run_test().await.unwrap();
+}
 
 /// Tests that the leaf chains in decide events are always consistent.
 #[cfg_attr(
@@ -729,7 +713,7 @@ async fn test_max_propose() {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_decide_leaf_chain() {
-    let mut round = Round::<StaticCommitteeTestTypes, StaticNodeImplType>::default();
+    let mut round = RoundBuilder::<StaticCommitteeTestTypes, StaticNodeImplType>::default();
 
     // Collection of (handle, leaf) pairs collected at the start of the round. The leaf is the
     // last decided leaf before the round, so that after the round we can check that the new
@@ -762,7 +746,7 @@ async fn test_decide_leaf_chain() {
             .boxed_local()
         }))];
     }
-    round.safety_check = RoundSafetyCheck(Arc::new(move |_, _ctx, _| {
+    round.check = Left(RoundSafetyCheck(Arc::new(move |_, _ctx, _| {
         let handles = handles.clone();
         async move {
             for (mut handle, last_leaf) in std::mem::take(&mut *handles.lock().await) {
@@ -835,14 +819,14 @@ async fn test_decide_leaf_chain() {
             Ok(())
         }
         .boxed_local()
-    }));
+    })));
     let builder = TestBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
         metadata: TestMetadata {
             num_succeeds: 10,
-            failure_threshold: 0,
+            failure_threshold: 3,
             ..Default::default()
         },
-        over_ride: Some(RoundBuilder::default()),
+        over_ride: Some(round),
     };
 
     builder.build().launch().run_test().await.unwrap();

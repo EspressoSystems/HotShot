@@ -9,7 +9,7 @@ use hotshot_types::{
 };
 use std::{num::NonZeroUsize, time::Duration};
 
-use crate::round::{NetworkGenerator, Round};
+use crate::round::{NetworkGenerator, Round, RoundHook, RoundSafetyCheck, RoundSetup};
 use crate::test_builder::{TestMetadata, TimingData};
 use crate::test_runner::{Generator, TestRunner};
 
@@ -149,6 +149,51 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
     /// directly override the round information
     pub fn with_round(self, round: Round<TYPES, I>) -> TestLauncher<TYPES, I> {
         TestLauncher { round, ..self }
+    }
+
+    /// directly override hooks
+    pub fn with_hooks(self, hooks: Vec<RoundHook<TYPES, I>>) -> Self {
+        let round = self.round.clone();
+        TestLauncher {
+            round: Round { hooks, ..round },
+            ..self
+        }
+    }
+
+    /// push ah ook
+    pub fn push_hook(self, hook: RoundHook<TYPES, I>) -> Self {
+        let round = self.round.clone();
+        let mut hooks = round.hooks.clone();
+        hooks.push(hook);
+
+        TestLauncher {
+            round: Round { hooks, ..round },
+            ..self
+        }
+    }
+
+    /// directly override safety check
+    pub fn with_safety_check(self, safety_check: RoundSafetyCheck<TYPES, I>) -> Self {
+        let round = self.round.clone();
+        TestLauncher {
+            round: Round {
+                safety_check,
+                ..round
+            },
+            ..self
+        }
+    }
+
+    /// directly override hooks
+    pub fn with_setup(self, setup_round: RoundSetup<TYPES, I>) -> Self {
+        let round = self.round.clone();
+        TestLauncher {
+            round: Round {
+                setup_round,
+                ..round
+            },
+            ..self
+        }
     }
 
     /// Set the default config of each node. Note that this can also be overwritten per-node in the [`TestLauncher`].
