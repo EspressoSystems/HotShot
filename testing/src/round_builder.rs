@@ -263,7 +263,7 @@ impl RoundSafetyCheckBuilder {
 
                     if check_state {
                         let mut states =
-                            HashMap::<<I::Leaf as LeafType>::StateCommitmentType, usize>::new();
+                            HashMap::<<I::Leaf as LeafType>::MaybeState, usize>::new();
                         for (_idx, (s, _b)) in round_result.success_nodes.clone() {
                             if let Some(most_recent_state) = s.iter().last() {
                                 match states.entry(most_recent_state.clone()) {
