@@ -9,10 +9,11 @@ use hotshot_types::{
     data::LeafType,
     traits::node_implementation::{NetworkType, NodeType},
 };
+use tracing::error;
 
 use crate::{
     round_builder::{RoundSafetyCheckBuilder, RoundSetupBuilder},
-    test_errors::ConsensusTestError,
+    test_errors::{ConsensusRoundError, ConsensusTestError},
     test_runner::TestRunner,
 };
 
@@ -23,7 +24,7 @@ pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 pub type NetworkGenerator<TYPES, I, T> = Box<dyn Fn(Arc<NetworkType<TYPES, I>>) -> T + 'static>;
 
 /// Result of running a round of consensus
-#[derive(Debug, Default)]
+#[derive(Debug)]
 // TODO do we need static here
 pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// Transactions that were submitted
@@ -43,7 +44,21 @@ pub struct RoundResult<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     pub agreed_leaf: Option<LEAF>,
 
     /// whether or not the round succeeded (for a custom defn of succeeded)
-    pub success: bool,
+    pub success: Result<(), ConsensusRoundError>,
+}
+
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Default for RoundResult<TYPES, LEAF> {
+    fn default() -> Self {
+        Self {
+            txns: Default::default(),
+            success_nodes: Default::default(),
+            failed_nodes: Default::default(),
+            agreed_state: Default::default(),
+            agreed_block: Default::default(),
+            agreed_leaf: Default::default(),
+            success: Ok(()),
+        }
+    }
 }
 
 /// context for a round
@@ -59,6 +74,22 @@ pub struct RoundCtx<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     /// totall number o failed views. TODO this will need to change
     /// during the run view refactor
     pub total_failed_views: usize,
+    /// successful views
+    pub total_successful_views: usize,
+}
+
+impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RoundCtx<TYPES, I> {
+    /// prints a summary
+    /// TODO this should probably include a formatter as an arg
+    pub fn print_summary(&self) {
+        let errors = self
+            .prior_round_results
+            .iter()
+            .enumerate()
+            .map(|(idx, r)| (idx, &r.success))
+            .collect::<Vec<_>>();
+        error!("SUMMARY OF TEST: {:#?}", errors);
+    }
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for RoundCtx<TYPES, I> {
@@ -67,9 +98,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for RoundCtx
             prior_round_results: Default::default(),
             views_since_progress: 0,
             total_failed_views: 0,
+            total_successful_views: 0,
         }
     }
 }
+
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Round<TYPES, I> {
     /// an empty `Round`
     pub fn empty() -> Self {

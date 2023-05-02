@@ -4,12 +4,6 @@ use snafu::Snafu;
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum ConsensusTestError {
-    /// inconsistent blocks
-    InconsistentBlocks,
-    /// inconsistent states
-    InconsistentStates,
-    /// inconsistent leaves
-    InconsistentLeaves,
     /// Too many nodes failed
     TooManyFailures,
     /// too many consecutive failures
@@ -28,4 +22,20 @@ pub enum ConsensusTestError {
         /// the node requested
         requested_id: u64,
     },
+}
+
+/// A view specific error
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
+pub enum ConsensusRoundError {
+    /// inconsistent blocks
+    InconsistentBlocks,
+    /// inconsistent states
+    InconsistentStates,
+    /// inconsistent leaves
+    InconsistentLeaves,
+    /// lack of progress
+    NoMajorityProgress,
+    /// Too Many timed out nodes
+    TooManyTimedOutNodes,
 }

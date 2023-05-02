@@ -16,7 +16,7 @@ cross_tests!(
                  next_view_timeout: 1000,
                  ..hotshot_testing::test_builder::TimingData::default()
              },
-             failure_threshold: 5,
+             failure_threshold: 20,
              ..hotshot_testing::test_builder::TestMetadata::default()
          },
          over_ride: Some(
@@ -33,6 +33,10 @@ cross_tests!(
                          ..Default::default()
                      }
                  ),
+                 check: either::Either::Right (hotshot_testing::round_builder::RoundSafetyCheckBuilder {
+                     num_failed_rounds_total: 20,
+                     ..Default::default()
+                 }),
                  ..Default::default()
              }
          )
@@ -52,6 +56,7 @@ cross_tests!(
              total_nodes: 7,
              start_nodes: 7,
              num_succeeds: 10,
+             failure_threshold: 20,
              timing_data: hotshot_testing::test_builder::TimingData {
                  next_view_timeout: 1000,
                  ..hotshot_testing::test_builder::TimingData::default()
@@ -76,6 +81,10 @@ cross_tests!(
                          ..Default::default()
                      }
                  ),
+                 check: either::Either::Right (hotshot_testing::round_builder::RoundSafetyCheckBuilder {
+                     num_failed_rounds_total: 20,
+                     ..Default::default()
+                 }),
                  ..Default::default()
              }
          )

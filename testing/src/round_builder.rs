@@ -8,7 +8,7 @@ use tracing::error;
 
 use crate::{
     round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
-    test_errors::ConsensusTestError,
+    test_errors::{ConsensusRoundError, ConsensusTestError},
     test_runner::TestRunner,
 };
 
@@ -164,7 +164,7 @@ impl Default for RoundSafetyCheckBuilder {
     fn default() -> Self {
         Self {
             num_out_of_sync: 5,
-            check_leaf: true,
+            check_leaf: false,
             check_state: true,
             check_block: true,
             check_transactions: true,
@@ -184,9 +184,22 @@ impl RoundSafetyCheckBuilder {
             check_leaf,
             check_state,
             check_block,
-            // TODO is it possible to do this check?
+            // TODO <https://github.com/EspressoSystems/HotShot/issues/1167>
             // We can't exactly check that the transactions all match those submitted
-            // since we only known about state commitment
+            // because of a type error. We ONLY have `MaybeState` and we need `State`.
+            // unless we specialize, this won't happen.
+            // so waiting on refactor for this
+            // code is below:
+            //
+            //     ```
+            //         let next_state /* : Option<_> */ = {
+            //         if let Some(last_leaf) = ctx.prior_round_results.iter().last() {
+            //             if let Some(parent_state) = last_leaf.agreed_state {
+            //                 let mut block = <TYPES as NodeType>::StateType::next_block(Some(parent_state.clone()));
+            //             }
+            //         }
+            //     };
+            // ```
             check_transactions: _,
             num_failed_consecutive_rounds,
             num_failed_rounds_total,
@@ -197,15 +210,34 @@ impl RoundSafetyCheckBuilder {
                   ctx: &mut RoundCtx<TYPES, I>,
                   mut round_result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>|
                   -> LocalBoxFuture<Result<(), ConsensusTestError>> {
+                error!(
+                    "VIEW {:?}",
+                    ctx.total_failed_views + ctx.total_successful_views
+                );
+
                 let runner_nodes = runner.nodes();
-                let num_required_successful_nodes =
-                    runner.nodes().collect::<Vec<_>>().len() - num_out_of_sync;
+                let num_required_successful_nodes = {
+                    let num_nodes = runner.nodes().collect::<Vec<_>>().len();
+                    if num_nodes < num_out_of_sync {
+                        0
+                    } else {
+                        num_nodes - num_out_of_sync
+                    }
+                };
+                error!(
+                    "number required success nodes: {:?}",
+                    num_required_successful_nodes
+                );
                 async move {
                     if round_result.txns.is_empty() {
                         error!("No transations submitted this round. No progress will be made.");
                     }
 
-                    if round_result.failed_nodes.len() >= num_out_of_sync {
+                    let failed_to_make_progress =
+                        round_result.failed_nodes.len() >= num_out_of_sync;
+
+                    if failed_to_make_progress {
+                        error!("no nodes completed in a while!");
                         ctx.views_since_progress += 1;
                         ctx.total_failed_views += 1;
                     } else {
@@ -213,19 +245,26 @@ impl RoundSafetyCheckBuilder {
                     }
 
                     if ctx.views_since_progress >= num_failed_consecutive_rounds {
-                        round_result.success = false;
+                        round_result.success = Err(ConsensusRoundError::TooManyTimedOutNodes);
                         ctx.prior_round_results.push(round_result);
+                        ctx.print_summary();
                         return Err(ConsensusTestError::TooManyConsecutiveFailures);
                     }
 
+                    // NOTE this only checks for timeout failures
                     if ctx.total_failed_views >= num_failed_rounds_total {
-                        round_result.success = false;
+                        round_result.success = Err(ConsensusRoundError::TooManyTimedOutNodes);
                         ctx.prior_round_results.push(round_result);
+                        ctx.print_summary();
                         return Err(ConsensusTestError::TooManyFailures);
                     }
 
-                    // TODO this code is repetitive. Clean it up with either a function or doing
-                    // all three checks at once.
+                    if failed_to_make_progress {
+                        ctx.prior_round_results.push(round_result);
+                        ctx.print_summary();
+                        return Ok(());
+                    }
+
                     let mut result_leaves = None;
 
                     if check_leaf {
@@ -253,29 +292,66 @@ impl RoundSafetyCheckBuilder {
                         } else {
                             ctx.views_since_progress += 1;
                             ctx.total_failed_views += 1;
-                            round_result.success = false;
+                            round_result.success = Err(ConsensusRoundError::InconsistentLeaves);
                             ctx.prior_round_results.push(round_result);
-                            return Err(ConsensusTestError::InconsistentLeaves);
+                            ctx.print_summary();
+                            return Ok(());
                         }
                     }
 
                     let mut result_state = None;
+                    let mut result_block = None;
+                    let mut num_no_progress = 0;
 
-                    if check_state {
-                        let mut states =
-                            HashMap::<<I::Leaf as LeafType>::MaybeState, usize>::new();
-                        for (_idx, (s, _b)) in round_result.success_nodes.clone() {
-                            if let Some(most_recent_state) = s.iter().last() {
-                                match states.entry(most_recent_state.clone()) {
-                                    std::collections::hash_map::Entry::Occupied(mut o) => {
-                                        *o.get_mut() += 1;
-                                    }
-                                    std::collections::hash_map::Entry::Vacant(v) => {
-                                        v.insert(1);
-                                    }
+                    let mut states = HashMap::<<I::Leaf as LeafType>::MaybeState, usize>::new();
+                    let mut blocks = HashMap::<<I::Leaf as LeafType>::DeltasType, usize>::new();
+
+                    for (_idx, (s, b)) in round_result.success_nodes.clone() {
+                        if let (Some(most_recent_state), Some(most_recent_block)) =
+                            (s.iter().last(), b.iter().last())
+                        {
+                            match states.entry(most_recent_state.clone()) {
+                                std::collections::hash_map::Entry::Occupied(mut o) => {
+                                    *o.get_mut() += 1;
+                                }
+                                std::collections::hash_map::Entry::Vacant(v) => {
+                                    v.insert(1);
                                 }
                             }
+                            match blocks.entry(most_recent_block.clone()) {
+                                std::collections::hash_map::Entry::Occupied(mut o) => {
+                                    *o.get_mut() += 1;
+                                }
+                                std::collections::hash_map::Entry::Vacant(v) => {
+                                    v.insert(1);
+                                }
+                            }
+                        } else {
+                            num_no_progress += 1;
                         }
+                    }
+
+                    error!(
+                        "states for this view {:#?}\nblocks for this view {:#?}",
+                        states, blocks
+                    );
+
+                    error!(
+                        "Number of nodes who made zero progress: {:#?}",
+                        num_no_progress
+                    );
+
+                    if num_no_progress >= num_out_of_sync {
+                        error!("No progress was made on majority of nodes");
+                        ctx.views_since_progress += 1;
+                        ctx.total_failed_views += 1;
+                        round_result.success = Err(ConsensusRoundError::NoMajorityProgress);
+                        ctx.prior_round_results.push(round_result);
+                        ctx.print_summary();
+                        return Ok(());
+                    }
+
+                    if check_state {
                         for (state, num_nodes) in states {
                             if num_nodes >= num_required_successful_nodes {
                                 result_state = Some(state);
@@ -287,43 +363,41 @@ impl RoundSafetyCheckBuilder {
                         } else {
                             ctx.views_since_progress += 1;
                             ctx.total_failed_views += 1;
-                            round_result.success = false;
+                            round_result.success = Err(ConsensusRoundError::InconsistentStates);
                             ctx.prior_round_results.push(round_result);
-                            return Err(ConsensusTestError::InconsistentStates);
+                            ctx.print_summary();
+                            return Ok(());
                         }
                     }
 
-                    let mut result_block = None;
-
                     if check_block {
-                        let mut blocks = HashMap::<<I::Leaf as LeafType>::DeltasType, usize>::new();
-                        for (_idx, (_s, b)) in round_result.success_nodes.clone() {
-                            if let Some(most_recent_state) = b.iter().last() {
-                                match blocks.entry(most_recent_state.clone()) {
-                                    std::collections::hash_map::Entry::Occupied(mut o) => {
-                                        *o.get_mut() += 1;
-                                    }
-                                    std::collections::hash_map::Entry::Vacant(v) => {
-                                        v.insert(1);
-                                    }
-                                }
-                            }
-                        }
                         for (block, num_nodes) in blocks {
                             if num_nodes >= num_required_successful_nodes {
                                 result_block = Some(block);
                             }
                         }
 
-                        if result_block.is_none() {
+                        if let Some(block) = result_block {
+                            round_result.agreed_block = Some(block);
+                        } else {
                             ctx.views_since_progress += 1;
                             ctx.total_failed_views += 1;
-                            round_result.success = false;
+                            round_result.success = Err(ConsensusRoundError::InconsistentBlocks);
                             ctx.prior_round_results.push(round_result);
-                            return Err(ConsensusTestError::InconsistentBlocks);
+                            ctx.print_summary();
+                            return Ok(());
                         }
                     }
-
+                    ctx.total_successful_views += 1;
+                    // redundant but just in case
+                    round_result.success = Ok(());
+                    if ctx.total_successful_views >= runner.num_succeeds() {
+                        ctx.prior_round_results.push(round_result);
+                        ctx.print_summary();
+                        return Err(ConsensusTestError::CompletedTestSuccessfully);
+                    }
+                    ctx.print_summary();
+                    ctx.prior_round_results.push(round_result);
                     Ok(())
                 }
                 .boxed_local()

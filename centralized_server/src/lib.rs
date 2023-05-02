@@ -354,6 +354,7 @@ impl<K: SignatureKey + 'static, E: ElectionConfig + 'static> Server<K, E> {
                 }
             }
         }
+        // asf
         debug!("Server shutting down");
         sender
             .send(ToBackground::Shutdown)

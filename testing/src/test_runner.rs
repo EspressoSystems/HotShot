@@ -50,6 +50,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         }
     }
 
+    /// return the number of juccesses needed
+    pub fn num_succeeds(&self) -> usize {
+        self.launcher.metadata.num_succeeds
+    }
+
     /// run the test
     pub async fn run_test(mut self) -> Result<(), ConsensusTestError>
     where
@@ -195,7 +200,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             if let Err(e) = self.execute_round(&mut ctx).await {
                 match e {
                     ConsensusTestError::CompletedTestSuccessfully => return Ok(()),
-                    e => return Err(e),
+                    e => {
+                        panic!(
+                            "TEST FAILED WITH Err: {e:#?}, \n TEST FAILED WITH context: {ctx:#?}"
+                        )
+                    }
                 }
             }
         }
@@ -268,9 +277,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             txns,
             success_nodes: results,
             failed_nodes: failures,
-            /// setting this to true, It's the repsonsibiity of the checks and hooks
+            /// setting this to success, It's the repsonsibiity of the checks and hooks
             /// to mark and report this as a failure
-            success: true,
+            success: Ok(()),
             agreed_state: None,
             agreed_block: None,
             agreed_leaf: None,

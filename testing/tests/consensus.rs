@@ -2,7 +2,7 @@ use async_lock::Mutex;
 
 use hotshot_testing::{
     round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
-    round_builder::RoundBuilder,
+    round_builder::{RoundBuilder, RoundSafetyCheckBuilder},
     test_builder::{TestBuilder, TestMetadata, TimingData},
     test_errors::{ConsensusSafetyFailedSnafu, ConsensusTestError},
     test_types::{
@@ -12,7 +12,7 @@ use hotshot_testing::{
 };
 
 use commit::Committable;
-use either::Either::{self, Left};
+use either::Either::{self, Left, Right};
 use futures::{
     future::{join_all, LocalBoxFuture},
     FutureExt,
@@ -560,10 +560,19 @@ async fn test_single_node_network() {
             total_nodes: 1,
             start_nodes: 1,
             num_succeeds: num_rounds,
-            failure_threshold: 0,
+            // this must be at least 3
+            // since we need 3 rounds to make progress
+            // to make progress
+            failure_threshold: 3,
             ..TestMetadata::default()
         },
-        over_ride: None,
+        over_ride: Some(RoundBuilder {
+            check: Right(RoundSafetyCheckBuilder {
+                num_out_of_sync: 0,
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
     };
     builder.build().launch().run_test().await.unwrap();
 }

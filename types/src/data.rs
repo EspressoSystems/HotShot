@@ -342,7 +342,15 @@ pub trait LeafType:
     /// Type of block contained by this leaf.
     type DeltasType: DeltasType<LeafBlock<Self>>;
     /// Either state or empty
-    type MaybeState: Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Eq + std::hash::Hash + Send + Serialize + Sync;
+    type MaybeState: Clone
+        + Debug
+        + for<'a> Deserialize<'a>
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + Send
+        + Serialize
+        + Sync;
 
     /// Create a new leaf from its components.
     fn new(
