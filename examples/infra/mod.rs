@@ -60,6 +60,7 @@ use libp2p::{
 };
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+use rand::SeedableRng;
 #[allow(deprecated)]
 use tracing::error;
 
@@ -225,6 +226,9 @@ pub trait Run<
 
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
+        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
+            [0u8; 32],
+        ));
         let known_nodes = config.config.known_nodes.clone();
 
         let network = self.get_network();
@@ -248,6 +252,7 @@ pub trait Run<
             network.clone(),
             pk.clone(),
             sk.clone(),
+            ek.clone(),
         );
         let committee_exchange = NODE::CommitteeExchange::create(
             known_nodes,
@@ -255,6 +260,7 @@ pub trait Run<
             network,
             pk.clone(),
             sk.clone(),
+            ek.clone(),
         );
         let hotshot = HotShot::init(
             pk,
@@ -399,7 +405,7 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
     hasher.update(&seed);
     hasher.update(&index.to_le_bytes());
     let new_seed = *hasher.finalize().as_bytes();
-    let sk_bytes = SecretKey::from_bytes(new_seed).unwrap();
+    let sk_bytes = SecretKey::try_from_bytes(new_seed).unwrap();
     let ed_kp = <EdKeypair as From<SecretKey>>::from(sk_bytes);
     #[allow(deprecated)]
     Keypair::Ed25519(ed_kp)

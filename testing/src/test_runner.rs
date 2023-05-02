@@ -1,3 +1,4 @@
+use rand::SeedableRng;
 use std::{collections::HashMap, sync::Arc};
 
 use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
@@ -143,6 +144,9 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         let known_nodes = config.known_nodes.clone();
         let private_key = I::generate_test_key(node_id);
         let public_key = TYPES::SignatureKey::from_private(&private_key);
+        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
+            [0u8; 32],
+        ));
         let election_config = config.election_config.clone().unwrap_or_else(|| {
             <<I as NodeImplementation<TYPES>>::QuorumExchange as ConsensusExchange<
                 TYPES,
@@ -155,6 +159,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             quorum_network,
             public_key.clone(),
             private_key.clone(),
+            ek.clone(),
         );
         let committee_exchange = I::CommitteeExchange::create(
             known_nodes,
@@ -162,6 +167,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             committee_network,
             public_key.clone(),
             private_key.clone(),
+            ek.clone(),
         );
         let handle = HotShot::init(
             public_key,
