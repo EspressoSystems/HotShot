@@ -217,6 +217,9 @@
 <a href="#217" id="217">217</a>
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Abstraction over the global state that blocks modify
 //!
 //! This module provides the [`State`] trait, which serves as an compatibility over the current
@@ -260,7 +263,7 @@
     </span><span class="kw">type </span>Time: ConsensusTime;
 
     <span class="doccomment">/// Returns an empty, template next block given this current state
-    </span><span class="kw">fn </span>next_block(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::BlockType;
+    </span><span class="kw">fn </span>next_block(prev_commitment: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;) -&gt; <span class="self">Self</span>::BlockType;
 
     <span class="doccomment">/// Returns true if and only if the provided block is valid and can extend this state
     </span><span class="kw">fn </span>validate_block(<span class="kw-2">&amp;</span><span class="self">self</span>, block: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockType, view_number: <span class="kw-2">&amp;</span><span class="self">Self</span>::Time) -&gt; bool;
@@ -405,8 +408,11 @@
         <span class="kw">type </span>BlockType = DummyBlock;
         <span class="kw">type </span>Time = ViewNumber;
 
-        <span class="kw">fn </span>next_block(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::BlockType {
-            DummyBlock { nonce: <span class="self">self</span>.nonce }
+        <span class="kw">fn </span>next_block(state: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;) -&gt; <span class="self">Self</span>::BlockType {
+            <span class="kw">match </span>state {
+                <span class="prelude-val">Some</span>(state) =&gt; DummyBlock { nonce: state.nonce },
+                <span class="prelude-val">None </span>=&gt; <span class="macro">unimplemented!</span>(),
+            }
         }
 
         <span class="kw">fn </span>validate_block(<span class="kw-2">&amp;</span><span class="self">self</span>, _block: <span class="kw-2">&amp;</span><span class="self">Self</span>::BlockType, _view_number: <span class="kw-2">&amp;</span><span class="self">Self</span>::Time) -&gt; bool {

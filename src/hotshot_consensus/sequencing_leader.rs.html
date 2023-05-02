@@ -492,6 +492,7 @@
 <a href="#492" id="492">492</a>
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Contains the [`DALeader`], [`ConsensusLeader`] and [`ConsensusNextLeader`] structs used for the
 //! leader steps in the consensus algorithm with DA committee, i.e. in the sequencing consensus.
 
@@ -510,6 +511,7 @@
 <span class="kw">use </span>hotshot_types::traits::election::CommitteeExchangeType;
 <span class="kw">use </span>hotshot_types::traits::election::ConsensusExchange;
 <span class="kw">use </span>hotshot_types::traits::election::QuorumExchangeType;
+<span class="kw">use </span>hotshot_types::traits::state::State;
 
 <span class="kw">use </span>hotshot_types::traits::node_implementation::{
     NodeImplementation, QuorumProposal, QuorumVoteType,
@@ -732,7 +734,7 @@
              <span class="kw">return </span><span class="prelude-val">None</span>;
          };
 
-        <span class="kw">let </span><span class="kw-2">mut </span>block = TYPES::BlockType::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>block = &lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType::next_block(<span class="prelude-val">None</span>);
         <span class="kw">let </span>txns = <span class="self">self</span>.wait_for_transactions().<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">for </span>txn <span class="kw">in </span>txns {

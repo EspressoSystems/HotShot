@@ -504,7 +504,7 @@
     /// # Errors
     ///
     /// Returns an error if the underlying `Storage` returns an error
-    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;I::Leaf <span class="kw">as </span>LeafType&gt;::StateCommitmentType {
+    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;I::Leaf <span class="kw">as </span>LeafType&gt;::MaybeState {
         <span class="self">self</span>.hotshot.get_state().<span class="kw">await
     </span>}
 
@@ -580,7 +580,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
-            Vec&lt;&lt;I::Leaf <span class="kw">as </span>LeafType&gt;::StateCommitmentType&gt;,
+            Vec&lt;&lt;I::Leaf <span class="kw">as </span>LeafType&gt;::MaybeState&gt;,
             Vec&lt;&lt;I::Leaf <span class="kw">as </span>LeafType&gt;::DeltasType&gt;,
         ),
         HotShotError&lt;TYPES&gt;,

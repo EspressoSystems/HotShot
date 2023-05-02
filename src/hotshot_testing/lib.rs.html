@@ -618,7 +618,7 @@
     <span class="doccomment">/// Transactions that were submitted
     </span><span class="kw">pub </span>txns: Vec&lt;TYPES::Transaction&gt;,
     <span class="doccomment">/// Nodes that committed this round
-    </span><span class="kw">pub </span>results: HashMap&lt;u64, StateAndBlock&lt;LEAF::StateCommitmentType, LEAF::DeltasType&gt;&gt;,
+    </span><span class="kw">pub </span>results: HashMap&lt;u64, StateAndBlock&lt;LEAF::MaybeState, LEAF::DeltasType&gt;&gt;,
     <span class="doccomment">/// Nodes that failed to commit this round
     </span><span class="kw">pub </span>failures: HashMap&lt;u64, HotShotError&lt;TYPES&gt;&gt;,
 }

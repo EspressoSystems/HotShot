@@ -1715,7 +1715,7 @@
     /// # Panics
     ///
     /// Panics if internal state for consensus is inconsistent
-    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;I::Leaf <span class="kw">as </span>LeafType&gt;::StateCommitmentType {
+    </span><span class="kw">pub async fn </span>get_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; &lt;I::Leaf <span class="kw">as </span>LeafType&gt;::MaybeState {
         <span class="self">self</span>.hotstuff.read().<span class="kw">await</span>.get_decided_leaf().get_state()
     }
 

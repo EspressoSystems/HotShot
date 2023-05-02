@@ -587,6 +587,10 @@
 <a href="#587" id="587">587</a>
 <a href="#588" id="588">588</a>
 <a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Validating (vanilla) consensus demo
 //!
 //! This module provides an implementation of the `HotShot` suite of traits that implements a
@@ -820,11 +824,15 @@
 
     <span class="kw">type </span>Time = ViewNumber;
 
-    <span class="kw">fn </span>next_block(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::BlockType {
-        VDemoBlock::Normal(VDemoNormalBlock {
-            previous_state: <span class="self">self</span>.commit(),
-            transactions: Vec::new(),
-        })
+    <span class="attr">#[allow(clippy::panic)]
+    </span><span class="kw">fn </span>next_block(state: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;) -&gt; <span class="self">Self</span>::BlockType {
+        <span class="kw">match </span>state {
+            <span class="prelude-val">Some</span>(state) =&gt; VDemoBlock::Normal(VDemoNormalBlock {
+                previous_state: state.commit(),
+                transactions: Vec::new(),
+            }),
+            <span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;State is required for the next block&quot;</span>),
+        }
     }
 
     <span class="comment">// Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check

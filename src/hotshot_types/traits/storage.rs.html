@@ -313,7 +313,7 @@
     <span class="doccomment">/// The justify QC of this view. See the hotstuff paper for more information on this.
     </span><span class="kw">pub </span>justify_qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
     <span class="doccomment">/// The state of this view
-    </span><span class="kw">pub </span>state: LEAF::StateCommitmentType,
+    </span><span class="kw">pub </span>state: LEAF::MaybeState,
     <span class="doccomment">/// The deltas of this view
     </span><span class="kw">pub </span>deltas: LEAF::DeltasType,
     <span class="doccomment">/// transactions rejected in this view
@@ -337,7 +337,7 @@
     </span><span class="kw">pub fn </span>from_qc_block_and_state(
         qc: QuorumCertificate&lt;TYPES, LEAF&gt;,
         deltas: LEAF::DeltasType,
-        state: LEAF::StateCommitmentType,
+        state: LEAF::MaybeState,
         height: u64,
         parent_commitment: Commitment&lt;LEAF&gt;,
         rejected: Vec&lt;&lt;TYPES::BlockType <span class="kw">as </span>Block&gt;::Transaction&gt;,

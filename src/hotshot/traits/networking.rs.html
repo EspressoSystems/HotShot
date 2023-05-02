@@ -53,6 +53,7 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Network access compatibility
 //!
 //! This module contains a trait abstracting over network access, as well as implementations of that
@@ -64,6 +65,7 @@
 <span class="kw">pub mod </span>libp2p_network;
 <span class="kw">pub mod </span>memory_network;
 <span class="kw">pub mod </span>web_server_network;
+<span class="kw">pub mod </span>web_sever_libp2p_fallback;
 
 <span class="kw">pub use </span>hotshot_types::traits::network::{
     ChannelSendSnafu, CouldNotDeliverSnafu, FailedToDeserializeSnafu, FailedToSerializeSnafu,

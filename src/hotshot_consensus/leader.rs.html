@@ -328,7 +328,7 @@
         async_sleep(<span class="self">self</span>.api.propose_min_round_time() - passed_time).<span class="kw">await</span>;
 
         <span class="kw">let </span>receiver = <span class="self">self</span>.transactions.subscribe().<span class="kw">await</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>block = starting_state.next_block();
+        <span class="kw">let </span><span class="kw-2">mut </span>block = &lt;TYPES <span class="kw">as </span>NodeType&gt;::StateType::next_block(<span class="prelude-val">Some</span>(starting_state.clone()));
 
         <span class="comment">// Wait until we have min_transactions for the block or we hit propose_max_round_time
         </span><span class="kw">while </span>task_start_time.elapsed() &lt; <span class="self">self</span>.api.propose_max_round_time() {

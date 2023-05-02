@@ -26,6 +26,7 @@
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
 </pre><pre class="rust"><code><span class="doccomment">/// Sortition trait
 </span><span class="kw">pub mod </span>election;
 <span class="kw">mod </span>networking;
@@ -45,6 +46,7 @@
             libp2p_network::{Libp2pCommChannel, Libp2pNetwork, PeerInfoVec},
             memory_network::{DummyReliability, MasterMap, MemoryCommChannel, MemoryNetwork},
             web_server_network::{WebCommChannel, WebServerNetwork},
+            web_sever_libp2p_fallback::WebServerWithFallbackCommChannel,
         },
         storage::memory_storage::MemoryStorage, <span class="comment">// atomic_storage::AtomicStorage,
     </span>};
