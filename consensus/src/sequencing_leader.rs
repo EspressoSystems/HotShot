@@ -16,6 +16,7 @@ use hotshot_types::message::Message;
 use hotshot_types::traits::election::CommitteeExchangeType;
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::traits::election::QuorumExchangeType;
+use hotshot_types::traits::state::State;
 
 use hotshot_types::traits::node_implementation::{
     NodeImplementation, QuorumProposal, QuorumVoteType,
@@ -238,7 +239,7 @@ where
              return None;
          };
 
-        let mut block = TYPES::BlockType::new();
+        let mut block = <TYPES as NodeType>::StateType::next_block(None);
         let txns = self.wait_for_transactions().await?;
 
         for txn in txns {

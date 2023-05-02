@@ -134,7 +134,7 @@ pub struct StoredView<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> {
     /// The justify QC of this view. See the hotstuff paper for more information on this.
     pub justify_qc: QuorumCertificate<TYPES, LEAF>,
     /// The state of this view
-    pub state: LEAF::StateCommitmentType,
+    pub state: LEAF::MaybeState,
     /// The deltas of this view
     pub deltas: LEAF::DeltasType,
     /// transactions rejected in this view
@@ -158,7 +158,7 @@ where
     pub fn from_qc_block_and_state(
         qc: QuorumCertificate<TYPES, LEAF>,
         deltas: LEAF::DeltasType,
-        state: LEAF::StateCommitmentType,
+        state: LEAF::MaybeState,
         height: u64,
         parent_commitment: Commitment<LEAF>,
         rejected: Vec<<TYPES::BlockType as Block>::Transaction>,
