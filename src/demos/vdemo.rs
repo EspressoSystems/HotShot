@@ -231,11 +231,14 @@ impl State for VDemoState {
 
     type Time = ViewNumber;
 
-    fn next_block(&self) -> Self::BlockType {
-        VDemoBlock::Normal(VDemoNormalBlock {
-            previous_state: self.commit(),
-            transactions: Vec::new(),
-        })
+    fn next_block(state: Option<Self>) -> Self::BlockType {
+        match state {
+            Some(state) => VDemoBlock::Normal(VDemoNormalBlock {
+                previous_state: state.commit(),
+                transactions: Vec::new(),
+            }),
+            None => panic!("State is required for the next block"),
+        }
     }
 
     // Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check

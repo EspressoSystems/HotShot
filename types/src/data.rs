@@ -325,14 +325,8 @@ pub trait LeafType:
     type NodeType: NodeType;
     /// Type of block contained by this leaf.
     type DeltasType: DeltasType<LeafBlock<Self>>;
-    /// Commitment to the blockchain state.
-    type StateCommitmentType: Clone
-        + Debug
-        + for<'a> Deserialize<'a>
-        + PartialEq
-        + Send
-        + Serialize
-        + Sync;
+    /// Either state or empty
+    type MaybeState: Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Send + Serialize + Sync;
 
     /// Create a new leaf from its components.
     fn new(
@@ -366,7 +360,7 @@ pub trait LeafType:
     /// to be stored for some implementation-defined reason.
     fn fill_deltas(&mut self, block: LeafBlock<Self>) -> Result<(), LeafDeltasError<Self>>;
     /// The blockchain state after appending this leaf.
-    fn get_state(&self) -> Self::StateCommitmentType;
+    fn get_state(&self) -> Self::MaybeState;
     /// Transactions rejected or invalidated by the application of this leaf.
     fn get_rejected(&self) -> Vec<LeafTransaction<Self>>;
     /// Real-world time when this leaf was created.
@@ -488,7 +482,7 @@ pub struct SequencingLeaf<TYPES: NodeType> {
 impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
     type NodeType = TYPES;
     type DeltasType = TYPES::BlockType;
-    type StateCommitmentType = TYPES::StateType;
+    type MaybeState = TYPES::StateType;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
@@ -541,7 +535,7 @@ impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
         self.deltas.fill(block)
     }
 
-    fn get_state(&self) -> Self::StateCommitmentType {
+    fn get_state(&self) -> Self::MaybeState {
         self.state.clone()
     }
 
@@ -595,7 +589,7 @@ where
 impl<TYPES: NodeType> LeafType for SequencingLeaf<TYPES> {
     type NodeType = TYPES;
     type DeltasType = Either<TYPES::BlockType, Commitment<TYPES::BlockType>>;
-    type StateCommitmentType = ();
+    type MaybeState = ();
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
@@ -648,7 +642,7 @@ impl<TYPES: NodeType> LeafType for SequencingLeaf<TYPES> {
     }
 
     // The Sequencing Leaf doesn't have a state.
-    fn get_state(&self) -> Self::StateCommitmentType {}
+    fn get_state(&self) -> Self::MaybeState {}
 
     fn get_rejected(&self) -> Vec<<TYPES::BlockType as Block>::Transaction> {
         self.rejected.clone()
