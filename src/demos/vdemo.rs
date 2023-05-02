@@ -231,6 +231,7 @@ impl State for VDemoState {
 
     type Time = ViewNumber;
 
+    #[allow(clippy::panic)]
     fn next_block(state: Option<Self>) -> Self::BlockType {
         match state {
             Some(state) => VDemoBlock::Normal(VDemoNormalBlock {
