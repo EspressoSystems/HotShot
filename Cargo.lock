@@ -1020,7 +1020,7 @@ version = "0.1.0"
 dependencies = [
  "async-compatibility-layer",
  "async-std",
- "clap 4.2.5",
+ "clap 4.2.7",
  "futures",
  "hotshot-centralized-server",
  "hotshot-types",
@@ -1318,9 +1318,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.2.5"
+version = "4.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a1f23fa97e1d1641371b51f35535cb26959b8e27ab50d167a8b996b5bada819"
+checksum = "34d21f9bf1b425d2968943631ec91202fe5e837264063503708b83013f8fc938"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1329,9 +1329,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.2.5"
+version = "4.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fdc5d93c358224b4d6867ef1356d740de2303e9892edc06c5340daeccd96bab"
+checksum = "914c8c79fb560f238ef6429439a30023c862f7a28e688c58f7203f12b29970bd"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2930,7 +2930,7 @@ dependencies = [
  "bimap",
  "bincode",
  "blake3",
- "clap 4.2.5",
+ "clap 4.2.7",
  "commit 0.2.2",
  "custom_debug",
  "dashmap",
@@ -3024,7 +3024,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
- "clap 4.2.5",
+ "clap 4.2.7",
  "commit 0.1.0",
  "futures",
  "hotshot-types",
@@ -3159,7 +3159,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bincode",
- "clap 4.2.5",
+ "clap 4.2.7",
  "commit 0.1.0",
  "futures",
  "hotshot-types",
@@ -4163,7 +4163,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
- "clap 4.2.5",
+ "clap 4.2.7",
  "color-eyre",
  "custom_debug",
  "derive_builder 0.12.0",
@@ -7579,7 +7579,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bincode",
- "clap 4.2.5",
+ "clap 4.2.7",
  "config",
  "derive_more",
  "dirs",
