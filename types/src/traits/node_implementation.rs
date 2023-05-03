@@ -9,7 +9,10 @@ use super::{
     election::{
         CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchangeType, VoteToken,
     },
-    network::{CommunicationChannel, NetworkMsg, TestableChannelImplementation, TestableNetworkingImplementation},
+    network::{
+        CommunicationChannel, NetworkMsg, TestableChannelImplementation,
+        TestableNetworkingImplementation,
+    },
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
@@ -29,8 +32,8 @@ use crate::{
     },
 };
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use commit::Committable;
+use serde::{Deserialize, Serialize};
 
 use std::hash::Hash;
 use std::{fmt::Debug, marker::PhantomData};
@@ -490,65 +493,55 @@ impl<
         >,
     > TestableNodeImplementation<SequencingConsensus, TYPES> for I
 where
-    <I as NodeImplementation<TYPES>>::Exchanges: SequencingExchangesType<
-        TYPES,
-        Message<TYPES, I>,
-    >,
-    <CommitteeEx<TYPES, I> as ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        <CommitteeEx<TYPES, I> as ConsensusExchange<
+    <I as NodeImplementation<TYPES>>::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
+    <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking:
+        TestableNetworkingImplementation<
             TYPES,
-            SequencingLeaf<TYPES>,
             Message<TYPES, I>,
-        >>::Proposal,
-        <CommitteeEx<TYPES, I> as ConsensusExchange<
+            <CommitteeEx<TYPES, I> as ConsensusExchange<
+                TYPES,
+                SequencingLeaf<TYPES>,
+                Message<TYPES, I>,
+            >>::Proposal,
+            <CommitteeEx<TYPES, I> as ConsensusExchange<
+                TYPES,
+                SequencingLeaf<TYPES>,
+                Message<TYPES, I>,
+            >>::Vote,
+            <CommitteeEx<TYPES, I> as ConsensusExchange<
+                TYPES,
+                SequencingLeaf<TYPES>,
+                Message<TYPES, I>,
+            >>::Membership,
+        >,
+    <SequencingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking:
+        TestableNetworkingImplementation<
             TYPES,
-            SequencingLeaf<TYPES>,
             Message<TYPES, I>,
-        >>::Vote,
-        <CommitteeEx<TYPES, I> as ConsensusExchange<
-            TYPES,
-            SequencingLeaf<TYPES>,
-            Message<TYPES, I>,
-        >>::Membership,
-    >,
-    <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
-            TYPES,
-            SequencingLeaf<TYPES>,
-            Message<TYPES, I>,
-        >>::Proposal,
-        <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
-            TYPES,
-            SequencingLeaf<TYPES>,
-            Message<TYPES, I>,
-        >>::Vote,
-        <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
-            TYPES,
-            SequencingLeaf<TYPES>,
-            Message<TYPES, I>,
-        >>::Membership,
-    >,
+            <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
+                TYPES,
+                SequencingLeaf<TYPES>,
+                Message<TYPES, I>,
+            >>::Proposal,
+            <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
+                TYPES,
+                SequencingLeaf<TYPES>,
+                Message<TYPES, I>,
+            >>::Vote,
+            <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
+                TYPES,
+                SequencingLeaf<TYPES>,
+                Message<TYPES, I>,
+            >>::Membership,
+        >,
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
-    type CommitteeNetwork = <CommitteeEx<TYPES, I> as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking;
+    type CommitteeNetwork =
+        <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking;
 
     fn committee_generator(
         expected_node_count: usize,

@@ -14,25 +14,14 @@ use async_compatibility_layer::{
     art::{async_sleep, async_spawn},
     channel::{oneshot, OneShotSender},
 };
+use async_lock::RwLock;
+use async_trait::async_trait;
 use either::Either::{Left, Right};
 use hotshot_types::traits::consensus_type::{
     sequencing_consensus::SequencingConsensus, validating_consensus::ValidatingConsensus,
     ConsensusType,
 };
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
-use hotshot_types::{
-    data::{SequencingLeaf, ValidatingLeaf},
-    message::{
-        CommitteeConsensusMessage, DataMessage, GeneralConsensusMessage, MessageKind,
-        SequencingMessage, ValidatingMessage,
-    },
-};
->>>>>>> main
-
-use hotshot_web_server::{self, config};
-
-use async_lock::RwLock;
-use async_trait::async_trait;
 use hotshot_types::{
     data::ProposalType,
     message::Message,
@@ -48,6 +37,14 @@ use hotshot_types::{
     },
     vote::VoteType,
 };
+use hotshot_types::{
+    data::{SequencingLeaf, ValidatingLeaf},
+    message::{
+        CommitteeConsensusMessage, DataMessage, GeneralConsensusMessage, MessageKind,
+        SequencingMessage, ValidatingMessage,
+    },
+};
+use hotshot_web_server::{self, config};
 use serde::{Deserialize, Serialize};
 
 use hotshot_types::traits::network::ViewMessage;

@@ -128,10 +128,8 @@ async fn submit_validating_vote<
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
-    <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-    >>::Membership: TestableElection<TYPES>,
+    <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership:
+        TestableElection<TYPES>,
 {
     let mut rng = rand::thread_rng();
     let handle = runner.get_handle(sender_node_id).unwrap();
@@ -234,10 +232,8 @@ where
         Message<TYPES, I>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
-    <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
-        TYPES,
-        Message<TYPES, I>,
-    >>::Membership: TestableElection<TYPES>,
+    <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership:
+        TestableElection<TYPES>,
 {
     async move {
         let node_id = DEFAULT_NODE_ID;

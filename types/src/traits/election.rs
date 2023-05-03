@@ -4,11 +4,12 @@ use super::node_implementation::{NodeImplementation, NodeType};
 use super::signature_key::{EncodedPublicKey, EncodedSignature};
 use crate::certificate::ViewSyncCertificate;
 use crate::certificate::VoteMetaData;
-use crate::certificate::{DACertificate, QuorumCertificate,YesNoSignature};
+use crate::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
 use crate::data::DAProposal;
 use crate::data::ProposalType;
 use crate::message::{
-    CommitteeConsensusMessage, GeneralConsensusMessage, Message, SequencingMessage,ConsensusMessage
+    CommitteeConsensusMessage, ConsensusMessage, GeneralConsensusMessage, Message,
+    SequencingMessage,
 };
 use crate::traits::network::CommunicationChannel;
 use crate::traits::network::NetworkMsg;
@@ -569,8 +570,7 @@ impl<
             MEMBERSHIP,
         >,
         M: NetworkMsg,
-    > ConsensusExchange<TYPES, M>
-    for CommitteeExchange<TYPES, MEMBERSHIP, NETWORK, M>
+    > ConsensusExchange<TYPES, M> for CommitteeExchange<TYPES, MEMBERSHIP, NETWORK, M>
 {
     type Proposal = DAProposal<TYPES>;
     type Vote = DAVote<TYPES, SequencingLeaf<TYPES>>;

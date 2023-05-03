@@ -140,11 +140,11 @@ where
                                 }
                             }
                         }
-                    QuorumVote::Timeout(vote) => {
-                        qcs.insert(vote.justify_qc);
+                        QuorumVote::Timeout(vote) => {
+                            qcs.insert(vote.justify_qc);
+                        }
                     }
                 }
-                },
                 ProcessedGeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
                     InternalTrigger::Timeout(_) => {
                         self.api.send_next_leader_timeout(self.cur_view).await;

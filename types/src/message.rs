@@ -3,9 +3,9 @@
 //! This module contains types used to represent the various types of messages that
 //! `HotShot` nodes can send among themselves.
 
+use crate::certificate::ViewSyncCertificate;
 use crate::data::DAProposal;
 use crate::traits::consensus_type::validating_consensus::ValidatingConsensus;
-use crate::certificate::ViewSyncCertificate;
 use crate::traits::network::ViewMessage;
 use crate::vote::{DAVote, QuorumVote};
 use crate::{
@@ -263,7 +263,6 @@ where
                 ProcessedGeneralConsensusMessage::InternalTrigger(a)
             }
         }
-
     }
     /// # Panics
     /// Unimplemented features - TODO ED remove this panic when implementation is finished

@@ -62,11 +62,7 @@ use libp2p::{
 };
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
-<<<<<<< HEAD
 use std::fmt::Debug;
-=======
-use rand::SeedableRng;
->>>>>>> main
 #[allow(deprecated)]
 use tracing::error;
 
@@ -258,19 +254,7 @@ pub trait Run<
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
             election_config.clone(),
-<<<<<<< HEAD
             (network.clone(), ()),
-=======
-            network.clone(),
-            pk.clone(),
-            sk.clone(),
-            ek.clone(),
-        );
-        let committee_exchange = NODE::CommitteeExchange::create(
-            known_nodes,
-            election_config,
-            network,
->>>>>>> main
             pk.clone(),
             sk.clone(),
             ek.clone(),
