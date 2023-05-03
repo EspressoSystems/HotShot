@@ -17,6 +17,7 @@ use async_compatibility_layer::{
 use hotshot_types::message::MessagePurpose;
 use hotshot_types::traits::node_implementation::NodeImplementation;
 
+use hotshot_web_server::api_config::ProposalWithEncSecret;
 use hotshot_web_server::{self, api_config};
 
 use async_lock::RwLock;
@@ -209,12 +210,24 @@ impl<
                 MessageType::Transaction => api_config::get_transactions_route(tx_index),
             };
 
-            let possible_message =
-                if message_type == MessageType::VoteTimedOut && !consensus_info.is_next_leader {
-                    Ok(None)
-                } else {
-                    self.get_message_from_web_server(endpoint).await
-                };
+            let possible_message = match message_type {
+                MessageType::VoteTimedOut => {
+                    if !consensus_info.is_next_leader {
+                        Ok(None)
+                    } else {
+                        self.get_message_from_web_server(endpoint).await
+                    }
+                }
+                MessageType::Proposal => self.get_proposal_from_web_server(endpoint).await,
+                _ => self.get_message_from_web_server(endpoint).await,
+            };
+            //KALEY TODO: implement get_proposal_from_web_server
+            // let possible_message =
+            //     if message_type == MessageType::VoteTimedOut && !consensus_info.is_next_leader {
+            //         Ok(None)
+            //     } else {
+            //         self.get_message_from_web_server(endpoint).await
+            //     };
 
             match possible_message {
                 Ok(Some(deserialized_messages)) => {
@@ -280,12 +293,6 @@ impl<
             Err(_error) => Err(NetworkError::WebServer {
                 source: WebServerNetworkError::ClientError,
             }),
-            //KALEY TODO: match message {
-            //     if proposal:
-            //         deserialize to (endpoint, msg)
-            //         add if consensus_info.is_next_leader:
-            //             add endpoint to Inner
-            // }
             Ok(Some(messages)) => {
                 let mut deserialized_messages = Vec::new();
                 for message in &messages {
@@ -296,6 +303,27 @@ impl<
                     deserialized_messages.push(deserialized_message.unwrap());
                 }
                 Ok(Some(deserialized_messages))
+            }
+            Ok(None) => Ok(None),
+        }
+    }
+    async fn get_proposal_from_web_server(
+        &self,
+        endpoint: String,
+    ) -> Result<Option<Vec<RecvMsg<M>>>, NetworkError> {
+        let result: Result<Option<ProposalWithEncSecret>, ClientError> =
+            self.client.get(&endpoint).send().await;
+        match result {
+            Err(_error) => Err(NetworkError::WebServer {
+                source: WebServerNetworkError::ClientError,
+            }),
+            Ok(Some(message)) => {
+                //KALEY TODO: add secret somewhere here
+                let deserialized_message = bincode::deserialize(&message.proposal);
+                if let Err(e) = deserialized_message {
+                    return Err(NetworkError::FailedToDeserialize { source: e });
+                }
+                Ok(Some(deserialized_message.unwrap()))
             }
             Ok(None) => Ok(None),
         }

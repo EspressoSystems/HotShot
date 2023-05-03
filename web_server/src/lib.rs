@@ -256,11 +256,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
     //KALEY TODO: this will be merged with post_proposal once it is fully working,
     //but keeping it separate to not break things in the meantime
-    fn post_secret_proposal(
-        &mut self,
-        view_number: u64,
-        proposal: Vec<u8>,
-    ) -> Result<(), Error> {
+    fn post_secret_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error> {
         info!("Received proposal for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of views
@@ -273,7 +269,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
 
         //KALEY TODO: current implementation relies on proposal being submitted/requested
         //in the sequential order. Leader of view n+1 can only get the secret by requesting the proposal
-        //for view n, which has the encrypted secret
+        //for view n, which has the encrypted secret. Unsure if this is a problem, so noting it for now
 
         //generate new secret for the next time this node is leader
         let secret = thread_rng()
@@ -300,7 +296,8 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
                 .take(30)
                 .map(char::from)
                 .collect();
-            self.secrets.insert(next_view_for_leader, next_secret.clone());
+            self.secrets
+                .insert(next_view_for_leader, next_secret.clone());
             next_leader_keys.1.encrypt(
                 &mut rng,
                 next_secret.as_bytes(),
