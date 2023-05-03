@@ -38,15 +38,13 @@ async {
         ..Default::default()
     };
 
-    // create normal check and round setup functions based on our spec
-    // note: we could override the general setup, hooks, or add in custom safety checks here
-    let mut over_ride = Some(TestMetadata::gen_sane_round(&metadata));
-
     // construct the builder
-    // this is meant to be where we can choose to specify "sane" correctness properties under the over_ride attribute
     let mut test_builder = TestBuilder {
         metadata,
-        over_ride
+        /// we could build a check
+        check: None,
+        /// or a round setup if we want
+        setup: None
     };
 
     // construct the launcher

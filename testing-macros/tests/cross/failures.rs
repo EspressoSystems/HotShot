@@ -15,25 +15,18 @@ cross_all_types!(
             failure_threshold: 20,
             ..hotshot_testing::test_builder::TestMetadata::default()
         },
-        over_ride: Some(
-            hotshot_testing::round_builder::RoundBuilder {
-                setup:
-                    hotshot_testing::round_builder::RoundSetupBuilder {
-                        scheduled_changes: vec![
-                            hotshot_testing::round_builder::ChangeNode {
-                                idx: 5,
-                                view: 1,
-                                updown: hotshot_testing::round_builder::UpDown::Down
-                            },
-                        ],
-                        ..Default::default()
+        setup:
+            Some(hotshot_testing::round_builder::RoundSetupBuilder {
+                scheduled_changes: vec![
+                    hotshot_testing::round_builder::ChangeNode {
+                        idx: 5,
+                        view: 1,
+                        updown: hotshot_testing::round_builder::UpDown::Down
                     },
-                check: hotshot_testing::round_builder::RoundSafetyCheckBuilder {
-                    num_failed_rounds_total: 20,
-                    ..Default::default()
-                },
-            }
-        )
+                ],
+                ..Default::default()
+            }),
+        check: None
     },
     Slow: true,
 );
@@ -55,29 +48,22 @@ cross_all_types!(
                  },
                  ..hotshot_testing::test_builder::TestMetadata::default()
              },
-             over_ride: Some(
-                 hotshot_testing::round_builder::RoundBuilder {
-                     setup:
-                         hotshot_testing::round_builder::RoundSetupBuilder {
-                             scheduled_changes: vec![
-                                 hotshot_testing::round_builder::ChangeNode {
-                                     idx: 5,
-                                     view: 1,
-                                     updown: hotshot_testing::round_builder::UpDown::Down
-                                 },
-                                 hotshot_testing::round_builder::ChangeNode {
-                                     idx: 6,
-                                     view: 1,
-                                     updown: hotshot_testing::round_builder::UpDown::Down },
-                             ],
-                             ..Default::default()
+             setup:
+                 Some(hotshot_testing::round_builder::RoundSetupBuilder {
+                     scheduled_changes: vec![
+                         hotshot_testing::round_builder::ChangeNode {
+                             idx: 5,
+                             view: 1,
+                             updown: hotshot_testing::round_builder::UpDown::Down
                          },
-                     check: hotshot_testing::round_builder::RoundSafetyCheckBuilder {
-                         num_failed_rounds_total: 20,
-                         ..Default::default()
-                     },
-                 }
-             )
+                         hotshot_testing::round_builder::ChangeNode {
+                             idx: 6,
+                             view: 1,
+                             updown: hotshot_testing::round_builder::UpDown::Down },
+                     ],
+                     ..Default::default()
+                 }),
+             check: None
          }
     Slow: true,
 );

@@ -8,7 +8,8 @@ use hotshot_types::traits::node_implementation::NodeType;
 
 use snafu::Snafu;
 
-use crate::round_builder::{RoundBuilder, RoundSafetyCheckBuilder, RoundSetupBuilder};
+use crate::round::Round;
+use crate::round_builder::{RoundSafetyCheckBuilder, RoundSetupBuilder};
 
 use crate::test_launcher::TestLauncher;
 
@@ -61,15 +62,20 @@ impl Default for TestMetadata {
 
 impl TestMetadata {
     /// generate a reasonable round description
-    pub fn gen_sane_round(metadata: &TestMetadata) -> RoundBuilder {
-        RoundBuilder {
-            setup: RoundSetupBuilder {
+    pub fn gen_sane_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+        metadata: &TestMetadata,
+    ) -> Round<TYPES, I> {
+        Round {
+            setup_round: RoundSetupBuilder {
                 num_txns_per_round: metadata.num_txns_per_round,
                 ..RoundSetupBuilder::default()
-            },
-            check: RoundSafetyCheckBuilder {
+            }
+            .build(),
+            safety_check: RoundSafetyCheckBuilder {
                 ..RoundSafetyCheckBuilder::default()
-            },
+            }
+            .build(),
+            hooks: vec![],
         }
     }
 }
@@ -155,8 +161,10 @@ pub struct TimingData {
 pub struct TestBuilder {
     /// metadata with which to generate round
     pub metadata: TestMetadata,
-    /// optional override for round generation
-    pub over_ride: Option<RoundBuilder>,
+    /// optional override to build safety check
+    pub check: Option<RoundSafetyCheckBuilder>,
+    /// optional override to build setup
+    pub setup: Option<RoundSetupBuilder>,
 }
 
 impl TestBuilder {
@@ -164,11 +172,22 @@ impl TestBuilder {
     pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
         self,
     ) -> TestLauncher<TYPES, I> {
-        let round = match self.over_ride {
-            Some(over_ride) => over_ride,
-            None => TestMetadata::gen_sane_round(&self.metadata),
-        }
-        .build();
+        let sane_round = TestMetadata::gen_sane_round(&self.metadata);
+
+        let setup_round = self
+            .setup
+            .map(|x| x.build())
+            .unwrap_or_else(|| sane_round.setup_round);
+        let safety_check = self
+            .check
+            .map(|x| x.build())
+            .unwrap_or_else(|| sane_round.safety_check);
+
+        let round = Round {
+            hooks: vec![],
+            setup_round,
+            safety_check,
+        };
         TestLauncher::new(self.metadata, round)
     }
 }

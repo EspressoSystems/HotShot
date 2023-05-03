@@ -66,7 +66,7 @@ async fn centralized_server_network() {
             num_succeeds: 5,
             ..TestMetadata::default()
         },
-        over_ride: None,
+        ..Default::default()
     };
 
     builder

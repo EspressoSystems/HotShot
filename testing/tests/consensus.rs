@@ -2,7 +2,7 @@ use async_lock::Mutex;
 
 use hotshot_testing::{
     round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
-    round_builder::{RoundBuilder, RoundSafetyCheckBuilder},
+    round_builder::RoundSafetyCheckBuilder,
     test_builder::{TestBuilder, TestMetadata, TimingData},
     test_errors::ConsensusTestError,
     test_types::{
@@ -458,7 +458,7 @@ async fn test_validating_proposal_queueing() {
             failure_threshold: 0,
             ..TestMetadata::default()
         },
-        over_ride: None,
+        ..Default::default()
     };
     builder
         .build::<VrfTestTypes, StandardNodeImplType>()
@@ -494,7 +494,7 @@ async fn test_vote_queueing() {
             failure_threshold: 0,
             ..TestMetadata::default()
         },
-        over_ride: None,
+        ..Default::default()
     };
 
     builder
@@ -529,7 +529,7 @@ async fn test_bad_proposal() {
             failure_threshold: 0,
             ..TestMetadata::default()
         },
-        over_ride: None,
+        ..Default::default()
     };
     builder
         .build::<VrfTestTypes, StandardNodeImplType>()
@@ -561,13 +561,11 @@ async fn test_single_node_network() {
             failure_threshold: 3,
             ..TestMetadata::default()
         },
-        over_ride: Some(RoundBuilder {
-            check: RoundSafetyCheckBuilder {
-                num_out_of_sync: 1,
-                ..Default::default()
-            },
+        check: Some(RoundSafetyCheckBuilder {
+            num_out_of_sync: 1,
             ..Default::default()
         }),
+        ..Default::default()
     };
     builder
         .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
@@ -603,7 +601,7 @@ async fn test_min_propose() {
             },
             ..TestMetadata::default()
         },
-        over_ride: None,
+        ..Default::default()
     };
     let start_time = Instant::now();
     builder
@@ -649,7 +647,7 @@ async fn test_max_propose() {
             },
             ..TestMetadata::default()
         },
-        over_ride: None,
+        ..Default::default()
     };
     let start_time = Instant::now();
     builder
@@ -717,7 +715,7 @@ async fn test_chain_height() {
             failure_threshold: num_rounds,
             ..Default::default()
         },
-        over_ride: None,
+        ..Default::default()
     };
 
     let built = builder.build::<StaticCommitteeTestTypes, StaticNodeImplType>();
@@ -847,7 +845,7 @@ async fn test_decide_leaf_chain() {
             failure_threshold: 3,
             ..Default::default()
         },
-        over_ride: None,
+        ..Default::default()
     };
 
     builder

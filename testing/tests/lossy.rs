@@ -24,7 +24,7 @@ async fn test_no_loss_network() {
             network_reliability: Some(Arc::new(SynchronousNetwork::default())),
             ..TestMetadata::default()
         },
-        over_ride: None,
+        ..Default::default()
     };
     builder
         .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
@@ -49,7 +49,7 @@ async fn test_synchronous_network() {
             num_succeeds: 2,
             ..TestMetadata::default()
         },
-        over_ride: None,
+        ..Default::default()
     };
     builder
         .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
@@ -77,7 +77,7 @@ async fn test_asynchronous_network() {
             network_reliability: Some(Arc::new(AsynchronousNetwork::new(97, 100, 0, 5))),
             ..TestMetadata::default()
         },
-        over_ride: None,
+        ..Default::default()
     };
     builder
         .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
@@ -108,7 +108,7 @@ async fn test_partially_synchronous_network() {
             network_reliability: Some(Arc::new(PartiallySynchronousNetwork::new(asn, sn, gst))),
             ..TestMetadata::default()
         },
-        over_ride: None,
+        ..Default::default()
     };
     builder
         .build::<StaticCommitteeTestTypes, StaticNodeImplType>()

@@ -6,34 +6,12 @@ use hotshot_types::{data::LeafType, traits::node_implementation::NodeType};
 use tracing::error;
 
 use crate::{
-    round::{Round, RoundCtx, RoundResult, RoundSafetyCheck, RoundSetup, StateAndBlock},
+    round::{RoundCtx, RoundResult, RoundSafetyCheck, RoundSetup, StateAndBlock},
     test_errors::{ConsensusRoundError, ConsensusTestError},
     test_runner::TestRunner,
 };
 
-/// a builder for a round
-#[derive(Default)]
-pub struct RoundBuilder {
-    /// the setup / description for the round
-    pub setup: RoundSetupBuilder,
-    /// the safety check for the round
-    pub check: RoundSafetyCheckBuilder,
-}
-
-impl RoundBuilder {
-    /// build the `Round` from the description
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(self) -> Round<TYPES, I> {
-        Round {
-            setup_round: self.setup.build(),
-            safety_check: self.check.build(),
-            hooks: vec![],
-        }
-    }
-}
-
-// TODO make this fancier by varying the size
 /// describes how to set up the round
-/// very naive as it stands. We want to add in more support for spinning up and down nodes
 #[derive(Clone, Debug)]
 pub struct RoundSetupBuilder {
     /// TODO add in sampling
