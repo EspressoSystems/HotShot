@@ -1,10 +1,10 @@
 use async_lock::Mutex;
 
 use hotshot_testing::{
-    round::{RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
+    round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
     round_builder::{RoundBuilder, RoundSafetyCheckBuilder},
     test_builder::{TestBuilder, TestMetadata, TimingData},
-    test_errors::{ConsensusSafetyFailedSnafu, ConsensusTestError},
+    test_errors::ConsensusTestError,
     test_types::{
         AppliedTestRunner, StandardNodeImplType, StaticCommitteeTestTypes, StaticNodeImplType,
         VrfTestTypes,
@@ -13,22 +13,17 @@ use hotshot_testing::{
 
 use commit::Committable;
 use either::Either::{self, Left, Right};
-use futures::{
-    future::{join_all, LocalBoxFuture},
-    FutureExt,
-};
+use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
     certificate::QuorumCertificate,
     demos::vdemo::random_validating_leaf,
     traits::{NodeImplementation, TestableNodeImplementation},
-    types::HotShotHandle,
 };
 
 use hotshot_types::message::Message;
 use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
-    event::EventType,
     message::{ConsensusMessage, Proposal},
     traits::{
         election::{ConsensusExchange, SignedCertificate, TestableElection},
@@ -38,12 +33,10 @@ use hotshot_types::{
     vote::QuorumVote,
 };
 
-use snafu::{ensure, OptionExt};
-
-use std::iter::once;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
+use std::{iter::once, sync::atomic::AtomicU8};
 use tracing::{instrument, warn};
 
 const NUM_VIEWS: u64 = 100;
@@ -568,7 +561,7 @@ async fn test_single_node_network() {
         },
         over_ride: Some(RoundBuilder {
             check: Right(RoundSafetyCheckBuilder {
-                num_out_of_sync: 0,
+                num_out_of_sync: 1,
                 ..Default::default()
             }),
             ..Default::default()
@@ -670,8 +663,10 @@ async fn test_chain_height() {
     let start_nodes = 4;
 
     let heights = Arc::new(Mutex::new(vec![0; start_nodes]));
+    let num_views = Arc::new(Mutex::new(0));
     let hook = RoundHook(Arc::new(move |runner, _ctx| {
         let heights = heights.clone();
+        let num_views = num_views.clone();
         async move {
             let mut heights = heights.lock().await;
             for (i, handle) in runner.nodes().enumerate() {
@@ -684,6 +679,14 @@ async fn test_chain_height() {
                     heights[i] = leaf.get_height();
                 }
             }
+
+            let mut num_views = num_views.lock().await;
+            *num_views += 1;
+
+            if *num_views == 10 {
+                return Err(ConsensusTestError::CompletedTestSuccessfully);
+            }
+
             Ok(())
         }
         .boxed_local()
@@ -697,12 +700,16 @@ async fn test_chain_height() {
             failure_threshold: num_rounds,
             ..Default::default()
         },
-        ..Default::default()
+        over_ride: Some(RoundBuilder {
+            hooks: vec![hook],
+            check: Left(Round::empty().safety_check),
+            ..Default::default()
+        }),
     };
 
     let built = builder.build();
 
-    built.push_hook(hook).launch().run_test().await.unwrap();
+    built.launch().run_test().await.unwrap();
 }
 
 /// Tests that the leaf chains in decide events are always consistent.
@@ -721,108 +728,102 @@ async fn test_decide_leaf_chain() {
     // round starts so that it will buffer events emitted during the round.
     #[allow(clippy::type_complexity)]
     let handles: Arc<
-        Mutex<
-            Vec<(
-                HotShotHandle<StaticCommitteeTestTypes, StaticNodeImplType>,
-                <StaticNodeImplType as NodeImplementation<StaticCommitteeTestTypes>>::Leaf,
-            )>,
-        >,
+        Mutex<Vec<<StaticNodeImplType as NodeImplementation<StaticCommitteeTestTypes>>::Leaf>>,
     > = Arc::new(Mutex::new(vec![]));
+
+    let view_no = Arc::new(AtomicU8::new(0));
+    let num_rounds = 10;
 
     // Initialize `handles` at the start of the round.
     {
-        let handles = Arc::new(Mutex::new(vec![]));
+        let handles = handles.clone();
         round.hooks = vec![RoundHook(Arc::new(move |runner, _ctx| {
             let handles = handles.clone();
             async move {
-                *handles.lock().await = join_all(
-                    runner
-                        .nodes()
-                        .map(|handle| async { (handle.clone(), handle.get_decided_leaf().await) }),
-                )
-                .await;
+                let mut new_decided_leaves = vec![];
+                for node in runner.nodes() {
+                    new_decided_leaves.push(node.get_decided_leaf().await);
+                }
+                *handles.lock().await = new_decided_leaves;
                 Ok(())
             }
             .boxed_local()
         }))];
     }
-    round.check = Left(RoundSafetyCheck(Arc::new(move |_, _ctx, _| {
-        let handles = handles.clone();
-        async move {
-            for (mut handle, last_leaf) in std::mem::take(&mut *handles.lock().await) {
-                // Get the decide event from this round.
-                let (leaf_chain, qc) = loop {
-                    let event = handle
-                        .try_next_event()
-                        .map_err(|_| {
-                            ConsensusSafetyFailedSnafu {
-                                description: "HotShot shut down",
-                            }
-                            .build()
-                        })?
-                        .context(ConsensusSafetyFailedSnafu {
-                            description: "round did not produce a Decide or ViewFinished event",
-                        })?;
-                    match event.event {
-                        EventType::Decide { leaf_chain, qc } => break (leaf_chain, qc),
-                        EventType::ViewFinished { view_number } => {
-                            tracing::warn!(
-                                "round {:?} did not produce a decide, skipping safety check",
-                                view_number
-                            );
-                            return Ok(());
+    round.check = Left(RoundSafetyCheck(Arc::new(
+        move |_,
+              _ctx,
+              result: RoundResult<
+            StaticCommitteeTestTypes,
+            ValidatingLeaf<StaticCommitteeTestTypes>,
+        >| {
+            let handles = handles.clone();
+            let view_no = view_no.clone();
+            async move {
+                let mut round_reuslts = None;
+                for (_k, v) in result.success_nodes {
+                    if let Some(ref r) = round_reuslts {
+                        if &v == r {
+                            continue;
+                        } else {
+                            return Err(ConsensusTestError::CustomError {
+                                err: "Disagreement between nodes. Shouldn't happen.".to_string(),
+                            });
                         }
-                        _ => continue,
+                    } else {
+                        round_reuslts = Some(v);
                     }
-                };
-                tracing::info!("got decide {:?} {:?}", qc, leaf_chain);
-
-                // Starting from `qc` and continuing with the `justify_qc` of each leaf in the
-                // chain, the chain of QCs should justify the chain of leaves.
-                let qcs = once(&*qc).chain(leaf_chain.iter().map(|leaf| &leaf.justify_qc));
-                // The new leaf chain should extend from the previously decided leaf.
-                let leaves = leaf_chain.iter().chain(once(&last_leaf));
-                for (i, (qc, leaf)) in qcs.zip(leaves).enumerate() {
-                    if qc.is_genesis() {
-                        tracing::warn!("skipping validation of genesis QC");
-                        continue;
-                    }
-                    ensure!(
-                        qc.leaf_commitment() == leaf.commit(),
-                        ConsensusSafetyFailedSnafu {
-                            description: format!(
-                                "QC {}/{} justifies {}, but the parent leaf is {}",
-                                i + 1,
-                                leaf_chain.len() + 1,
-                                qc.leaf_commitment(),
-                                leaf.commit()
-                            ),
-                        }
-                    );
-                    //TODO (da) QC doesn't have block_commitment anymore. Should we check some
-                    // other field?
-                    // ensure!(
-                    //     qc.block_commitment == leaf.deltas.commit(),
-                    //     SafetyFailedSnafu {
-                    //         description: format!(
-                    //             "QC {}/{} justifies block {}, but parent leaf has block {}",
-                    //             i + 1,
-                    //             leaf_chain.len() + 1,
-                    //             qc.leaf_commitment,
-                    //             leaf.commit()
-                    //         ),
-                    //     }
-                    // );
                 }
-            }
 
-            Ok(())
-        }
-        .boxed_local()
-    })));
+                if round_reuslts.is_none() {
+                    // if there's nothing, then return nothing
+                    return Ok(());
+                }
+
+                // unwrap is fine since we know the len is 1
+                let (leaf_chain, qc) = round_reuslts.unwrap();
+                let handles = handles.lock().await;
+                for last_leaf in handles.iter() {
+                    // Starting from `qc` and continuing with the `justify_qc` of each leaf in the
+                    // chain, the chain of QCs should justify the chain of leaves.
+                    let qcs = once(qc.clone())
+                        .chain(leaf_chain.iter().map(|leaf| leaf.justify_qc.clone()));
+                    // The new leaf chain should extend from the previously decided leaf.
+                    let leaves = leaf_chain.iter().chain(once(last_leaf));
+
+                    for (i, (qc, leaf)) in qcs.zip(leaves).enumerate() {
+                        if qc.is_genesis() {
+                            tracing::error!("Skipping validation of genesis QC");
+                            continue;
+                        }
+                        let qc_commitment = qc.leaf_commitment();
+                        let leaf_commitment = leaf.commit();
+                        if qc_commitment != leaf_commitment {
+                            return Err(ConsensusTestError::CustomError {
+                                err: format!(
+                                    "QC {}/{} justifies {}, but the parent leaf is {}",
+                                    i + 1,
+                                    leaf_chain.len() + 1,
+                                    qc.leaf_commitment(),
+                                    leaf.commit()
+                                ),
+                            });
+                        }
+                    }
+                }
+                // ordering doesn't matter. Nothing happening in parallel
+                // rust doesn't understand that
+                let old_view = view_no.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if old_view >= num_rounds {
+                    return Err(ConsensusTestError::CompletedTestSuccessfully);
+                }
+                Ok(())
+            }
+            .boxed_local()
+        },
+    )));
     let builder = TestBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
         metadata: TestMetadata {
-            num_succeeds: 10,
             failure_threshold: 3,
             ..Default::default()
         },

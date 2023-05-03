@@ -22,6 +22,11 @@ pub enum ConsensusTestError {
         /// the node requested
         requested_id: u64,
     },
+    /// custom correctness property failed
+    CustomError {
+        /// description
+        err: String,
+    },
 }
 
 /// A view specific error

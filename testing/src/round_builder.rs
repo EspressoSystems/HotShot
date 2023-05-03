@@ -7,7 +7,7 @@ use hotshot_types::{data::LeafType, traits::node_implementation::NodeType};
 use tracing::error;
 
 use crate::{
-    round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup},
+    round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup, StateAndBlock},
     test_errors::{ConsensusRoundError, ConsensusTestError},
     test_runner::TestRunner,
 };
@@ -218,6 +218,7 @@ impl RoundSafetyCheckBuilder {
                 let runner_nodes = runner.nodes();
                 let num_required_successful_nodes = {
                     let num_nodes = runner.nodes().collect::<Vec<_>>().len();
+                    // prevent overflow
                     if num_nodes < num_out_of_sync {
                         0
                     } else {
@@ -237,8 +238,11 @@ impl RoundSafetyCheckBuilder {
                         round_result.failed_nodes.len() >= num_out_of_sync;
 
                     if failed_to_make_progress {
-                        error!("no nodes completed in a while!");
                         ctx.views_since_progress += 1;
+                        error!(
+                            "The majority of nodes haven't made progress in {:?} views!",
+                            ctx.views_since_progress
+                        );
                         ctx.total_failed_views += 1;
                     } else {
                         ctx.views_since_progress = 0;
@@ -306,9 +310,19 @@ impl RoundSafetyCheckBuilder {
                     let mut states = HashMap::<<I::Leaf as LeafType>::MaybeState, usize>::new();
                     let mut blocks = HashMap::<<I::Leaf as LeafType>::DeltasType, usize>::new();
 
-                    for (_idx, (s, b)) in round_result.success_nodes.clone() {
+                    for (_idx, leaves) in round_result.success_nodes.clone() {
+                        let (state, block): StateAndBlock<
+                            <I::Leaf as LeafType>::MaybeState,
+                            <I::Leaf as LeafType>::DeltasType,
+                        > = leaves
+                            .0
+                            .iter()
+                            .cloned()
+                            .map(|leaf| (leaf.get_state(), leaf.get_deltas()))
+                            .unzip();
+
                         if let (Some(most_recent_state), Some(most_recent_block)) =
-                            (s.iter().last(), b.iter().last())
+                            (state.iter().last(), block.iter().last())
                         {
                             match states.entry(most_recent_state.clone()) {
                                 std::collections::hash_map::Entry::Occupied(mut o) => {

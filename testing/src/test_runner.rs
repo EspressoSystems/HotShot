@@ -18,7 +18,7 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     round::{Round, RoundCtx, RoundResult},
@@ -231,12 +231,16 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
             safety_check,
         } = self.launcher.round.clone();
 
+        info!("RUNNING HOOK");
         for hook in hooks {
             hook(self, ctx).await?;
         }
 
+        info!("RUNNING SETUP");
         let txns = setup_round(self, ctx).await;
+        info!("RUNNING VIEW");
         let results = self.run_one_round(txns).await;
+        info!("RUNNING SAFETY");
         safety_check(self, ctx, results).await?;
         Ok(())
     }
@@ -252,20 +256,22 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
 
         info!("EXECUTOR: running one round");
         for handle in self.nodes() {
+            info!("STARTING ONE ROUND");
             handle.start_one_round().await;
         }
         info!("EXECUTOR: done running one round");
         let mut failures = HashMap::new();
         for node in &mut self.nodes {
+            info!("COLLECTING NODE {:?}", node.node_id.clone());
             let result = node.handle.collect_round_events().await;
-            info!(
+            error!(
                 "EXECUTOR: collected node {:?} results: {:?}",
                 node.node_id.clone(),
                 result
             );
             match result {
-                Ok((state, block)) => {
-                    results.insert(node.node_id, (state, block));
+                Ok(leaves) => {
+                    results.insert(node.node_id, leaves);
                 }
                 Err(e) => {
                     failures.insert(node.node_id, e);
@@ -274,7 +280,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         }
         info!("All nodes reached decision");
         if !failures.is_empty() {
-            error!(
+            warn!(
                 "Some failures this round. Failing nodes: {:?}. Successful nodes: {:?}",
                 failures, results
             );

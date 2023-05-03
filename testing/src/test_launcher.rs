@@ -160,7 +160,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
         }
     }
 
-    /// push ah ook
+    /// push a hook
     pub fn push_hook(self, hook: RoundHook<TYPES, I>) -> Self {
         let round = self.round.clone();
         let mut hooks = round.hooks.clone();
