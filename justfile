@@ -96,3 +96,7 @@ fix_async_std:
 doc:
   echo Generating docs
   cargo doc --no-deps --workspace --profile=release-lto --document-private-items --bins --examples --features=full-ci --lib
+
+doc_test:
+  echo Test docs
+  cargo test --doc --workspace --features=full-ci
