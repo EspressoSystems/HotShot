@@ -5,9 +5,7 @@ use hotshot::{
     },
     types::Message,
 };
-use hotshot_testing::{
-    test_types::StaticCommitteeTestTypes, test_builder::TestBuilder,
-};
+use hotshot_testing::{test_builder::TestBuilder, test_types::StaticCommitteeTestTypes};
 use hotshot_types::traits::election::QuorumExchange;
 
 use hotshot_types::traits::node_implementation::NodeImplementation;
@@ -57,7 +55,6 @@ async fn webserver_libp2p_network() {
     let builder = TestBuilder::<StaticCommitteeTestTypes, FallbackImpl>::default_multiple_rounds();
 
     builder.build().launch().run_test().await.unwrap();
-
 }
 
 // stress test for web server with libp2p
