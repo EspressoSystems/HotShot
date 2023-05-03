@@ -177,6 +177,7 @@ where
                             }
                         }
                     }
+                    ProcessedConsensusMessage::ViewSync(_) => todo!(),
                 }
             }
             // fall through logic if we did not receive successfully from channel

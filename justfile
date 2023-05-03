@@ -24,7 +24,7 @@ test_async_std_all:
 
 test_pkg := "hotshot"
 
-test_name := "sequencing_libp2p_test"
+test_name := "webserver_libp2p_network"
 
 test_async_std_pkg_all pkg=test_pkg:
   cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --package={{pkg}} --no-fail-fast -- --test-threads=1 --nocapture

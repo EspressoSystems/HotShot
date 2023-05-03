@@ -169,7 +169,6 @@ where
             self.min_transactions,
             <QuorumEx<TYPES, I> as ConsensusExchange<
                 TYPES,
-                I::Leaf,
                 Message<TYPES, I>,
             >>::Membership::default_election_config(self.total_nodes as u64),
         );

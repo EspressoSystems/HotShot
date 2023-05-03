@@ -1,4 +1,4 @@
-use super::{Generator, TestRunner};
+use super::{Generator, NetworkGenerator, NetworkType, TestRunner};
 
 use hotshot::types::SignatureKey;
 use hotshot::{traits::TestableNodeImplementation, HotShot, HotShotType};
@@ -51,10 +51,11 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
             propose_max_round_time: Duration::from_millis(1000),
             election_config: Some(election_config),
         };
-
+        let network = I::network_generator(expected_node_count, num_bootstrap_nodes);
         Self {
-            quorum_network: I::quorum_generator(expected_node_count, num_bootstrap_nodes, 1),
-            committee_network: I::committee_generator(expected_node_count, num_bootstrap_nodes, 2),
+            network,
+            quorum_network: I::quorum_generator(),
+            committee_network: I::committee_generator(),
             storage: Box::new(|_| I::construct_tmp_storage().unwrap()),
             block: Box::new(|_| I::block_genesis()),
             config,
@@ -119,6 +120,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
         storage: impl Fn(u64) -> I::Storage + 'static,
     ) -> TestLauncher<TYPES, I> {
         TestLauncher {
+            network: self.network,
             quorum_network: self.quorum_network,
             committee_network: self.committee_network,
             storage: Box::new(storage),
@@ -133,6 +135,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
         block: impl Fn(u64) -> TYPES::BlockType + 'static,
     ) -> TestLauncher<TYPES, I> {
         TestLauncher {
+            network: self.network,
             quorum_network: self.quorum_network,
             committee_network: self.committee_network,
             storage: self.storage,

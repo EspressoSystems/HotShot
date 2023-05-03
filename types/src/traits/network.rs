@@ -11,10 +11,11 @@ use tokio::time::error::Elapsed as TimeoutError;
 std::compile_error! {"Either feature \"async-std-executor\" or feature \"tokio-executor\" must be enabled for this crate."}
 
 use super::{election::Membership, node_implementation::NodeType, signature_key::SignatureKey};
-use crate::{data::ProposalType, vote::VoteType};
+use crate::{data::ProposalType, message::MessagePurpose, vote::VoteType};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use snafu::Snafu;
+use std::sync::Arc;
 use std::{collections::BTreeSet, time::Duration};
 
 impl From<NetworkNodeHandleError> for NetworkError {
@@ -137,6 +138,9 @@ pub trait NetworkMsg:
 pub trait ViewMessage<TYPES: NodeType> {
     /// get the view out of the message
     fn get_view_number(&self) -> TYPES::Time;
+    // TODO move out of this trait.
+    /// get the purpose of the message
+    fn purpose(&self) -> MessagePurpose;
 }
 
 /// API for interacting directly with a consensus committee
@@ -150,6 +154,8 @@ pub trait CommunicationChannel<
     MEMBERSHIP: Membership<TYPES>,
 >: Clone + Send + Sync + 'static
 {
+    /// Underlying Network implementation's type
+    type NETWORK;
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self);
@@ -199,7 +205,7 @@ pub trait CommunicationChannel<
 /// intended to be implemented for libp2p, the centralized server,
 /// and memory network
 #[async_trait]
-pub trait ConnectedNetwork<RECVMSG: NetworkMsg, SENDMSG: NetworkMsg, K: SignatureKey + 'static>:
+pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
     Clone + Send + Sync + 'static
 {
     /// Blocks until the network is successfully initialized
@@ -217,19 +223,19 @@ pub trait ConnectedNetwork<RECVMSG: NetworkMsg, SENDMSG: NetworkMsg, K: Signatur
     /// blocking
     async fn broadcast_message(
         &self,
-        message: SENDMSG,
+        message: M,
         recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError>;
 
     /// Sends a direct message to a specific node
     /// blocking
-    async fn direct_message(&self, message: SENDMSG, recipient: K) -> Result<(), NetworkError>;
+    async fn direct_message(&self, message: M, recipient: K) -> Result<(), NetworkError>;
 
     /// Moves out the entire queue of received messages of 'transmit_type`
     ///
     /// Will unwrap the underlying `NetworkMessage`
     /// blocking
-    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<RECVMSG>, NetworkError>;
+    async fn recv_msgs(&self, transmit_type: TransmitType) -> Result<Vec<M>, NetworkError>;
 
     /// look up a node
     /// blocking
@@ -242,14 +248,7 @@ pub trait ConnectedNetwork<RECVMSG: NetworkMsg, SENDMSG: NetworkMsg, K: Signatur
 }
 
 /// Describes additional functionality needed by the test network implementation
-pub trait TestableNetworkingImplementation<
-    TYPES: NodeType,
-    M: NetworkMsg,
-    PROPOSAL: ProposalType<NodeType = TYPES>,
-    VOTE: VoteType<TYPES>,
-    MEMBERSHIP: Membership<TYPES>,
->: CommunicationChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
-{
+pub trait TestableNetworkingImplementation<TYPES: NodeType, M: NetworkMsg> {
     /// generates a network given an expected node count
     fn generator(
         expected_node_count: usize,
@@ -261,6 +260,19 @@ pub trait TestableNetworkingImplementation<
     ///
     /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
     fn in_flight_message_count(&self) -> Option<usize>;
+}
+/// Describes additional functionality needed by the test communication channel
+pub trait TestableChannelImplementation<
+    TYPES: NodeType,
+    M: NetworkMsg,
+    PROPOSAL: ProposalType<NodeType = TYPES>,
+    VOTE: VoteType<TYPES>,
+    MEMBERSHIP: Membership<TYPES>,
+    NETWORK,
+>: CommunicationChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
+{
+    /// generates the `CommunicationChannel` given it's associated network type
+    fn generate_network() -> Box<dyn Fn(Arc<NETWORK>) -> Self + 'static>;
 }
 
 /// Changes that can occur in the network

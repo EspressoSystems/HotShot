@@ -87,7 +87,6 @@ where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        SequencingLeaf<TYPES>,
         Message<TYPES, I>,
         Proposal = CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
@@ -95,7 +94,6 @@ where
     >,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        SequencingLeaf<TYPES>,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
         Commitment = TYPES::BlockType,
@@ -427,6 +425,7 @@ where
                             }
                         }
                     }
+                    ProcessedConsensusMessage::ViewSync(_) => todo!(),
                 }
             }
             // fall through logic if we did not receive successfully from channel

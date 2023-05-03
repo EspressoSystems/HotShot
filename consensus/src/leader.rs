@@ -75,7 +75,6 @@ where
     I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        ValidatingLeaf<TYPES>,
         Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
     >,

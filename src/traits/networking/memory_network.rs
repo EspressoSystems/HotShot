@@ -20,8 +20,8 @@ use hotshot_types::{
         election::Membership,
         metrics::{Metrics, NoMetrics},
         network::{
-            CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableNetworkingImplementation,
-            TransmitType,
+            CommunicationChannel, ConnectedNetwork, NetworkMsg, TestableChannelImplementation,
+            TestableNetworkingImplementation, TransmitType,
         },
         node_implementation::NodeType,
         signature_key::{SignatureKey, TestableSignatureKey},
@@ -289,14 +289,9 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
     }
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
-    for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
+    TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>
 where
     TYPES::SignatureKey: TestableSignatureKey,
     MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
@@ -310,23 +305,18 @@ where
         Box::new(move |node_id| {
             let privkey = TYPES::SignatureKey::generate_test_key(node_id);
             let pubkey = TYPES::SignatureKey::from_private(&privkey);
-            MemoryCommChannel::new(MemoryNetwork::new(
-                pubkey,
-                NoMetrics::boxed(),
-                master.clone(),
-                None,
-            ))
+            MemoryNetwork::new(pubkey, NoMetrics::boxed(), master.clone(), None)
         })
     }
 
     fn in_flight_message_count(&self) -> Option<usize> {
-        Some(self.0.inner.in_flight_message_count.load(Ordering::Relaxed))
+        Some(self.inner.in_flight_message_count.load(Ordering::Relaxed))
     }
 }
 
 // TODO instrument these functions
 #[async_trait]
-impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, M, K> for MemoryNetwork<M, K> {
+impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for MemoryNetwork<M, K> {
     #[instrument(name = "MemoryNetwork::ready_blocking")]
     async fn wait_for_ready(&self) {}
 
@@ -461,7 +451,7 @@ pub struct MemoryCommChannel<
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
 >(
-    MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
+    Arc<MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>>,
     PhantomData<(I, PROPOSAL, VOTE, MEMBERSHIP)>,
 );
 
@@ -475,7 +465,7 @@ impl<
 {
     /// create new communication channel
     #[must_use]
-    pub fn new(network: MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>) -> Self {
+    pub fn new(network: Arc<MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>>) -> Self {
         Self(network, PhantomData::default())
     }
 }
@@ -492,6 +482,8 @@ impl<
 where
     MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
+    type NETWORK = MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>;
+
     async fn wait_for_ready(&self) {
         self.0.wait_for_ready().await;
     }
@@ -538,6 +530,31 @@ where
     async fn inject_consensus_info(&self, _tuple: (u64, bool, bool)) -> Result<(), NetworkError> {
         // Not required
         Ok(())
+    }
+}
+
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    >
+    TestableChannelImplementation<
+        TYPES,
+        Message<TYPES, I>,
+        PROPOSAL,
+        VOTE,
+        MEMBERSHIP,
+        MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>,
+    > for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+{
+    fn generate_network(
+    ) -> Box<dyn Fn(Arc<MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>>) -> Self + 'static>
+    {
+        Box::new(move |network| MemoryCommChannel::new(network))
     }
 }
 

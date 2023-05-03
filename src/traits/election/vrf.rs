@@ -1,3 +1,7 @@
+#![allow(clippy::let_underscore_untyped)]
+// TODO why is the let binding lint triggered on a struct??
+// if it's in a macro then this is the best we can do
+
 use ark_bls12_381::Parameters as Param381;
 use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;
@@ -324,6 +328,7 @@ where
     /// phantom data
     _pd: PhantomData<(TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS)>,
 }
+
 impl<TYPES, LEAF: LeafType<NodeType = TYPES>, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS> Clone
     for VrfImpl<TYPES, LEAF, SIGSCHEME, VRF, VRFHASHER, VRFPARAMS>
 where
@@ -579,10 +584,13 @@ where
         }
     }
 
-    fn threshold(&self) -> NonZeroU64 {
+    fn success_threshold(&self) -> NonZeroU64 {
         NonZeroU64::new(((u64::from(self.sortition_parameter) * 2) / 3) + 1).unwrap()
     }
 
+    fn failure_threshold(&self) -> NonZeroU64 {
+        NonZeroU64::new(((u64::from(self.sortition_parameter)) / 3) + 1).unwrap()
+    }
     /// TODO if we ever come back to using this, we'll need to change this
     /// this stub is incorrect as it stands right now
     fn get_committee(

@@ -763,6 +763,7 @@ where
             GeneralConsensusMessage::Vote(_) => {
                 warn!("Received a broadcast for a vote message. This shouldn't be possible.");
             }
+            GeneralConsensusMessage::ViewSync(_) => todo!(),
         };
     }
 
@@ -1150,7 +1151,6 @@ where
     I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        ValidatingLeaf<TYPES>,
         Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
@@ -1350,7 +1350,6 @@ where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        SequencingLeaf<TYPES>,
         Message<TYPES, I>,
         Proposal = CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
@@ -1358,7 +1357,6 @@ where
     >,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        SequencingLeaf<TYPES>,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
         Commitment = TYPES::BlockType,

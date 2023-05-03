@@ -5,6 +5,7 @@
 
 use crate::data::DAProposal;
 use crate::traits::consensus_type::validating_consensus::ValidatingConsensus;
+use crate::certificate::ViewSyncCertificate;
 use crate::traits::network::ViewMessage;
 use crate::vote::{DAVote, QuorumVote};
 use crate::{
@@ -15,7 +16,7 @@ use crate::{
         node_implementation::{ExchangesType, NodeImplementation, NodeType, QuorumProposalType},
         signature_key::EncodedSignature,
     },
-    vote::VoteType,
+    vote::{ViewSyncVote, VoteType},
 };
 use derivative::Derivative;
 use either::Either::{self, Left, Right};
@@ -41,6 +42,56 @@ pub struct Message<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkMsg for Message<TYPES, I> {}
 
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Message<TYPES, I> {
+    /// get the view number out of a message
+    /// # Panics
+    /// Unimplemented features - TODO ED remove this panic when implementation is finished
+    fn get_view_number(&self) -> TYPES::Time {
+        match &self.kind {
+            MessageKind::Consensus(c) => match c {
+                ConsensusMessage::Proposal(p) => p.data.get_view_number(),
+                ConsensusMessage::DAProposal(p) => p.data.get_view_number(),
+                ConsensusMessage::Vote(v) => v.current_view(),
+                ConsensusMessage::DAVote(v) => v.current_view(),
+                ConsensusMessage::InternalTrigger(trigger) => match trigger {
+                    InternalTrigger::Timeout(v) => *v,
+                },
+                ConsensusMessage::ViewSync(_) => todo!(),
+            },
+            MessageKind::Data(DataMessage::SubmitTransaction(_, v)) => *v,
+        }
+    }
+    fn purpose(&self) -> MessagePurpose {
+        match &self.kind {
+            MessageKind::Consensus(message_kind) => match message_kind {
+                ConsensusMessage::Proposal(_) | ConsensusMessage::DAProposal(_) => {
+                    MessagePurpose::Proposal
+                }
+                ConsensusMessage::Vote(_) | ConsensusMessage::DAVote(_) => MessagePurpose::Vote,
+                ConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
+                ConsensusMessage::ViewSync(_) => todo!(),
+            },
+            MessageKind::Data(message_kind) => match message_kind {
+                DataMessage::SubmitTransaction(_, _) => MessagePurpose::Data,
+            },
+        }
+    }
+}
+
+/// A message type agnostic description of a messages purpose
+pub enum MessagePurpose {
+    /// Message contains a proposal
+    Proposal,
+    /// Message contains a vote
+    Vote,
+    /// Message for internal use
+    Internal,
+    /// Data message
+    Data,
+}
+
+// TODO (da) make it more customized to the consensus layer, maybe separating the specific message
+// data from the kind enum.
 /// Enum representation of any message type
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(bound(deserialize = "", serialize = ""))]
@@ -153,6 +204,8 @@ where
     /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
+    /// A view sync related message - either a vote or certificate
+    ViewSync(ViewSyncMessageType<TYPES>),
 }
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedGeneralConsensusMessage<TYPES, I>>
@@ -210,6 +263,19 @@ where
                 ProcessedGeneralConsensusMessage::InternalTrigger(a)
             }
         }
+
+    }
+    /// # Panics
+    /// Unimplemented features - TODO ED remove this panic when implementation is finished
+    fn from(value: ProcessedConsensusMessage<TYPES, I>) -> Self {
+        match value {
+            ProcessedConsensusMessage::Proposal(p, _) => ConsensusMessage::Proposal(p),
+            ProcessedConsensusMessage::DAProposal(p, _) => ConsensusMessage::DAProposal(p),
+            ProcessedConsensusMessage::Vote(v, _) => ConsensusMessage::Vote(v),
+            ProcessedConsensusMessage::DAVote(v, _) => ConsensusMessage::DAVote(v),
+            ProcessedConsensusMessage::InternalTrigger(a) => ConsensusMessage::InternalTrigger(a),
+            ProcessedConsensusMessage::ViewSync(_) => todo!(),
+        }
     }
 }
 
@@ -240,6 +306,19 @@ impl<
             ProcessedCommitteeConsensusMessage::DAVote(v, _) => {
                 CommitteeConsensusMessage::DAVote(v)
             }
+        }
+    }
+
+    /// # Panics
+    /// Unimplemented features - TODO ED remove this panic when implementation is finished
+    pub fn new(value: ConsensusMessage<TYPES, I>, sender: TYPES::SignatureKey) -> Self {
+        match value {
+            ConsensusMessage::Proposal(p) => ProcessedConsensusMessage::Proposal(p, sender),
+            ConsensusMessage::DAProposal(p) => ProcessedConsensusMessage::DAProposal(p, sender),
+            ConsensusMessage::Vote(v) => ProcessedConsensusMessage::Vote(v, sender),
+            ConsensusMessage::DAVote(v) => ProcessedConsensusMessage::DAVote(v, sender),
+            ConsensusMessage::InternalTrigger(a) => ProcessedConsensusMessage::InternalTrigger(a),
+            ConsensusMessage::ViewSync(_) => todo!(),
         }
     }
 }
@@ -309,6 +388,19 @@ where
     /// Internal ONLY message indicating a view interrupt.
     #[serde(skip)]
     InternalTrigger(InternalTrigger<TYPES>),
+
+    /// View Sync related message - either a vote or certificate
+    ViewSync(ViewSyncMessageType<TYPES>),
+}
+
+/// A view sync message
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(bound(deserialize = "", serialize = ""))]
+pub enum ViewSyncMessageType<TYPES: NodeType> {
+    /// A view sync vote
+    Vote(ViewSyncVote<TYPES>),
+    /// A view sync certificate
+    Certificate(ViewSyncCertificate<TYPES>),
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
@@ -394,6 +486,7 @@ impl<
             GeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
                 InternalTrigger::Timeout(time) => *time,
             },
+            ConsensusMessage::ViewSync(_) => todo!(),
         }
     }
 }

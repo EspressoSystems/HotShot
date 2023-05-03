@@ -130,7 +130,6 @@ async fn submit_validating_vote<
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
         TYPES,
-        ValidatingLeaf<TYPES>,
         Message<TYPES, I>,
     >>::Membership: TestableElection<TYPES>,
 {
@@ -146,7 +145,6 @@ async fn submit_validating_vote<
         leaf.view_number,
         <<ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
-            ValidatingLeaf<TYPES>,
             Message<TYPES, I>,
         >>::Membership as TestableElection<TYPES>>::generate_test_vote_token(),
     );
@@ -238,7 +236,6 @@ where
     >,
     <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
         TYPES,
-        ValidatingLeaf<TYPES>,
         Message<TYPES, I>,
     >>::Membership: TestableElection<TYPES>,
 {

@@ -24,7 +24,7 @@ use hotshot_types::{
         consensus_type::validating_consensus::ValidatingConsensus, node_implementation::NodeType,
         signature_key::SignatureKey, Block, State,
     },
-    vote::{QuorumVote, TimeoutVote},
+    vote::QuorumVote,
 };
 use hotshot_utils::bincode::bincode_opts;
 use std::marker::PhantomData;
@@ -80,7 +80,6 @@ where
     I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        ValidatingLeaf<TYPES>,
         Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
@@ -229,6 +228,29 @@ where
                                 info!("We were chosen for committee on {:?}", self.cur_view);
 
                                 // Generate and send vote
+                                // TODO ED Will remove the below code once actual tests are in place
+                                // let message = if self.id % 2 == 0 {
+                                //     self.exchange.create_no_message(
+                                //         leaf.justify_qc.commit(),
+                                //         leaf_commitment,
+                                //         self.cur_view,
+                                //         vote_token,
+                                //     )
+                                // } else if self.id % 5 == 0 {
+                                //     self.exchange.create_timeout_message(
+                                //         leaf.justify_qc.clone(),
+                                //         self.cur_view,
+                                //         vote_token,
+                                //     )
+                                // } else {
+                                //     self.exchange.create_yes_message(
+                                //         leaf.justify_qc.commit(),
+                                //         leaf_commitment,
+                                //         self.cur_view,
+                                //         vote_token,
+                                //     )
+                                // };
+
                                 let message = self.exchange.create_yes_message(
                                     leaf.justify_qc.commit(),
                                     leaf_commitment,
@@ -261,7 +283,6 @@ where
 
                                 consensus.metrics.number_of_timeouts.add(1);
 
-                                let signature = self.exchange.sign_timeout_vote(self.cur_view);
                                 let vote_token = self.exchange.make_vote_token(self.cur_view);
 
                                 match vote_token {
@@ -278,17 +299,14 @@ where
                                         );
                                     }
                                     Ok(Some(vote_token)) => {
-                                        let timed_out_msg = GeneralConsensusMessage::Vote(
-                                            QuorumVote::Timeout(TimeoutVote {
-                                                justify_qc: self.high_qc.clone(),
-                                                signature,
-                                                current_view: self.cur_view,
-                                                vote_token,
-                                            }),
+                                        let timeout_msg = self.exchange.create_timeout_message(
+                                            self.high_qc.clone(),
+                                            self.cur_view,
+                                            vote_token,
                                         );
                                         warn!(
                                             "Timed out! Sending timeout to next leader {:?}",
-                                            timed_out_msg
+                                            timeout_msg
                                         );
 
                                         // send timedout message to the next leader
@@ -326,6 +344,7 @@ where
                         warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
                         continue;
                     }
+                    ProcessedConsensusMessage::ViewSync(_) => todo!(),
                 }
             }
             // fall through logic if we did not receive successfully from channel

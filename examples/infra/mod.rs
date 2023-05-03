@@ -62,7 +62,11 @@ use libp2p::{
 };
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+<<<<<<< HEAD
 use std::fmt::Debug;
+=======
+use rand::SeedableRng;
+>>>>>>> main
 #[allow(deprecated)]
 use tracing::error;
 
@@ -230,6 +234,9 @@ pub trait Run<
 
         let (pk, sk) =
             TYPES::SignatureKey::generated_from_seed_indexed(config.seed, config.node_index);
+        let ek = jf_primitives::aead::KeyPair::generate(&mut rand_chacha::ChaChaRng::from_seed(
+            [0u8; 32],
+        ));
         let known_nodes = config.config.known_nodes.clone();
 
         let network = self.get_network();
@@ -243,7 +250,7 @@ pub trait Run<
                 MEMBERSHIP,
                 NETWORK,
                 Message<TYPES, NODE>,
-            > as ConsensusExchange<TYPES, ValidatingLeaf<TYPES>, Message<TYPES, NODE>>>::Membership::default_election_config(
+            > as ConsensusExchange<TYPES, Message<TYPES, NODE>>>::Membership::default_election_config(
                 config.config.total_nodes.get() as u64
             )
         });
@@ -251,9 +258,22 @@ pub trait Run<
         let exchanges = NODE::Exchanges::create(
             known_nodes.clone(),
             election_config.clone(),
+<<<<<<< HEAD
             (network.clone(), ()),
+=======
+            network.clone(),
             pk.clone(),
             sk.clone(),
+            ek.clone(),
+        );
+        let committee_exchange = NODE::CommitteeExchange::create(
+            known_nodes,
+            election_config,
+            network,
+>>>>>>> main
+            pk.clone(),
+            sk.clone(),
+            ek.clone(),
         );
         let hotshot = HotShot::init(
             pk,
@@ -401,7 +421,7 @@ pub fn libp2p_generate_indexed_identity(seed: [u8; 32], index: u64) -> Keypair {
     hasher.update(&seed);
     hasher.update(&index.to_le_bytes());
     let new_seed = *hasher.finalize().as_bytes();
-    let sk_bytes = SecretKey::from_bytes(new_seed).unwrap();
+    let sk_bytes = SecretKey::try_from_bytes(new_seed).unwrap();
     let ed_kp = <EdKeypair as From<SecretKey>>::from(sk_bytes);
     #[allow(deprecated)]
     Keypair::Ed25519(ed_kp)
@@ -558,46 +578,48 @@ where
         config_builder.mesh_params(Some(mesh_params));
 
         let node_config = config_builder.build().unwrap();
-        let network = Libp2pNetwork::new(
-            NoMetrics::boxed(),
-            node_config,
-            pubkey.clone(),
-            Arc::new(RwLock::new(
-                bootstrap_nodes
-                    .iter()
-                    .map(|(peer_id, addr)| (Some(*peer_id), addr.clone()))
-                    .collect(),
-            )),
-            bs_len,
-            config.node_index as usize,
-            // NOTE: this introduces an invariant that the keys are assigned using this indexed
-            // function
-            {
-                let mut keys = BTreeSet::new();
-                for i in 0..config.config.total_nodes.get() {
-                    let pk = <TYPES::SignatureKey as SignatureKey>::generated_from_seed_indexed(
-                        config.seed,
-                        i as u64,
-                    )
-                    .0;
-                    keys.insert(pk);
-                }
-                keys
-            },
-        )
-        .await
-        .map(
-            Libp2pCommChannel::<
-                TYPES,
-                NODE,
-                ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
-                QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-                MEMBERSHIP,
-            >::new,
-        )
-        .unwrap();
+        let network = Arc::new(
+            Libp2pNetwork::new(
+                NoMetrics::boxed(),
+                node_config,
+                pubkey.clone(),
+                Arc::new(RwLock::new(
+                    bootstrap_nodes
+                        .iter()
+                        .map(|(peer_id, addr)| (Some(*peer_id), addr.clone()))
+                        .collect(),
+                )),
+                bs_len,
+                config.node_index as usize,
+                // NOTE: this introduces an invariant that the keys are assigned using this indexed
+                // function
+                {
+                    let mut keys = BTreeSet::new();
+                    for i in 0..config.config.total_nodes.get() {
+                        let pk =
+                            <TYPES::SignatureKey as SignatureKey>::generated_from_seed_indexed(
+                                config.seed,
+                                i as u64,
+                            )
+                            .0;
+                        keys.insert(pk);
+                    }
+                    keys
+                },
+            )
+            .await
+            .unwrap(),
+        );
 
-        network.wait_for_ready().await;
+        let comm_channel = Libp2pCommChannel::<
+            TYPES,
+            NODE,
+            ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
+            QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+            MEMBERSHIP,
+        >::new(network);
+
+        comm_channel.wait_for_ready().await;
 
         Libp2pRun {
             config,
@@ -607,7 +629,7 @@ where
             _identity: identity,
             _bound_addr: bound_addr,
             // _socket: stream,
-            network,
+            network: comm_channel,
         }
     }
 
@@ -725,12 +747,9 @@ where
             Proposal<TYPES>,
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
-        > = WebCommChannel::new(WebServerNetwork::create(
-            &host.to_string(),
-            port,
-            wait_between_polls,
-            pub_key,
-        ));
+        > = WebCommChannel::new(
+            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key).into(),
+        );
         WebServerRun { config, network }
     }
 

@@ -90,7 +90,6 @@ where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     CommitteeEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        SequencingLeaf<TYPES>,
         Message<TYPES, I>,
         Certificate = DACertificate<TYPES>,
         Commitment = TYPES::BlockType,
@@ -105,8 +104,12 @@ where
     ) -> Option<DACertificate<TYPES>> {
         let lock = self.vote_collection_chan.lock().await;
         let mut accumulator = VoteAccumulator {
-            vote_outcomes: HashMap::new(),
-            threshold,
+            total_vote_outcomes: HashMap::new(),
+            yes_vote_outcomes: HashMap::new(),
+            no_vote_outcomes: HashMap::new(),
+            // TODO ED Revisit this once Yes/No votes are in place for DA
+            success_threshold: threshold,
+            failure_threshold: threshold,
         };
 
         while let Ok(msg) = lock.recv().await {
@@ -128,6 +131,7 @@ where
                     ProcessedGeneralConsensusMessage::Proposal(_p, _sender) => {
                         warn!("The next leader has received an unexpected proposal!");
                     }
+                    ProcessedGeneralConsensusMessage::ViewSync(_) => todo!(),
                 },
                 Right(committee_message) => match committee_message {
                     ProcessedCommitteeConsensusMessage::DAVote(vote, sender) => {
@@ -143,6 +147,7 @@ where
                             &vote.signature.0,
                             &vote.signature.1,
                             vote.block_commitment,
+                            vote.vote_data,
                             vote.vote_token.clone(),
                             self.cur_view,
                             accumulator,
@@ -282,7 +287,7 @@ where
         if let Some(cert) = self
             .wait_for_votes(
                 self.cur_view,
-                self.committee_exchange.threshold(),
+                self.committee_exchange.success_threshold(),
                 block_commitment,
             )
             .await
@@ -342,7 +347,6 @@ where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        SequencingLeaf<TYPES>,
         Message<TYPES, I>,
         Proposal = CommitmentProposal<TYPES, SequencingLeaf<TYPES>>,
     >,
@@ -440,7 +444,6 @@ where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     SequencingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        SequencingLeaf<TYPES>,
         Message<TYPES, I>,
         Certificate = QuorumCertificate<TYPES, SequencingLeaf<TYPES>>,
         Commitment = SequencingLeaf<TYPES>,
@@ -455,8 +458,11 @@ where
         qcs.insert(self.generic_qc.clone());
 
         let mut accumulator = VoteAccumulator {
-            vote_outcomes: HashMap::new(),
-            threshold: self.quorum_exchange.threshold(),
+            total_vote_outcomes: HashMap::new(),
+            yes_vote_outcomes: HashMap::new(),
+            no_vote_outcomes: HashMap::new(),
+            success_threshold: self.quorum_exchange.success_threshold(),
+            failure_threshold: self.quorum_exchange.failure_threshold(),
         };
 
         let lock = self.vote_collection_chan.lock().await;
@@ -480,6 +486,7 @@ where
                                     &vote.signature.0,
                                     &vote.signature.1,
                                     vote.leaf_commitment,
+                                    vote.vote_data,
                                     vote.vote_token.clone(),
                                     self.cur_view,
                                     accumulator,
@@ -508,7 +515,8 @@ where
                     },
                     ProcessedGeneralConsensusMessage::Proposal(_p, _sender) => {
                         warn!("The next leader has received an unexpected proposal!");
-                    }
+                    },
+                    ProcessedGeneralConsensusMessage::ViewSync(_) => todo!(),
                 },
                 Right(committee_message) => match committee_message {
                     ProcessedCommitteeConsensusMessage::DAProposal(_p, _sender) => {

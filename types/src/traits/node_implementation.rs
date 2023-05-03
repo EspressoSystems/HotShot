@@ -9,7 +9,7 @@ use super::{
     election::{
         CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchangeType, VoteToken,
     },
-    network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
+    network::{CommunicationChannel, NetworkMsg, TestableChannelImplementation, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
@@ -30,6 +30,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use commit::Committable;
 
 use std::hash::Hash;
 use std::{fmt::Debug, marker::PhantomData};
@@ -495,7 +496,6 @@ where
     >,
     <CommitteeEx<TYPES, I> as ConsensusExchange<
         TYPES,
-        SequencingLeaf<TYPES>,
         Message<TYPES, I>,
     >>::Networking: TestableNetworkingImplementation<
         TYPES,
@@ -518,7 +518,6 @@ where
     >,
     <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
         TYPES,
-        SequencingLeaf<TYPES>,
         Message<TYPES, I>,
     >>::Networking: TestableNetworkingImplementation<
         TYPES,
@@ -686,7 +685,7 @@ pub trait NodeType:
     /// The time type that this hotshot setup is using.
     ///
     /// This should be the same `Time` that `StateType::Time` is using.
-    type Time: ConsensusTime;
+    type Time: ConsensusTime + Committable;
     /// The block type that this hotshot setup is using.
     ///
     /// This should be the same block that `StateType::BlockType` is using.
