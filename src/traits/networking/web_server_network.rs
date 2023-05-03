@@ -221,7 +221,7 @@ impl<
                     match message_type {
                         MessageType::Proposal => {
                             info!("Received proposal for view {}", consensus_info.view_number);
-                            // Only pushing the first proposal since we will soon only be allowing 1 proposal per view
+                            // Only pushing the first proposal since we only allow 1 proposal per view
                             self.broadcast_poll_queue
                                 .write()
                                 .await
@@ -280,6 +280,12 @@ impl<
             Err(_error) => Err(NetworkError::WebServer {
                 source: WebServerNetworkError::ClientError,
             }),
+            //KALEY TODO: match message {
+            //     if proposal:
+            //         deserialize to (endpoint, msg)
+            //         add if consensus_info.is_next_leader:
+            //             add endpoint to Inner
+            // }
             Ok(Some(messages)) => {
                 let mut deserialized_messages = Vec::new();
                 for message in &messages {
@@ -470,6 +476,7 @@ impl<
         let view_number: TYPES::Time = message.get_view_number();
 
         let endpoint = match &message.purpose() {
+            //KALEY TODO: add endpoint and view number to post_proposal_route
             MessagePurpose::Proposal => api_config::post_proposal_route(*view_number),
             MessagePurpose::Vote => api_config::post_vote_route(*view_number),
             MessagePurpose::Data => api_config::post_transactions_route(),

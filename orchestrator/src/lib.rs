@@ -3,6 +3,7 @@ pub mod config;
 use async_lock::RwLock;
 use hotshot_types::traits::election::ElectionConfig;
 use hotshot_types::traits::signature_key::SignatureKey;
+use hotshot_web_server::api_config;
 use hotshot_web_server::api_config::ServerEncKey;
 use std::io;
 use std::io::ErrorKind;
@@ -18,7 +19,6 @@ use tide_disco::method::ReadState;
 use tide_disco::method::WriteState;
 
 use rand::SeedableRng;
-
 
 use futures::FutureExt;
 
@@ -108,12 +108,19 @@ where
             let new_key = KEY::generated_from_seed_indexed(self.config.seed, node_index.into()).0;
             let new_enc_key = jf_primitives::aead::KeyPair::generate(
                 &mut rand_chacha::ChaChaRng::from_seed(self.config.seed),
-            ).enc_key();
-            let keypair = (new_key, ServerEncKey{enc_key: new_enc_key});
+            )
+            .enc_key();
+            let keypair = (
+                new_key,
+                ServerEncKey {
+                    enc_key: new_enc_key,
+                },
+            );
             let client_clone = self.client.clone().unwrap();
+            let endpoint = api_config::post_staketable_route();
             async move {
                 client_clone
-                    .post::<()>("api/staketable")
+                    .post::<()>(&endpoint)
                     .body_binary(&(keypair))
                     .unwrap()
                     .send()

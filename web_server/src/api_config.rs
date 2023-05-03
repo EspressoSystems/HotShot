@@ -1,4 +1,5 @@
-use serde::{Serialize, Deserialize};
+use jf_primitives::aead::Ciphertext;
+use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_WEB_SERVER_PORT: u16 = 9000;
 /// How many views to keep in memory
@@ -35,8 +36,13 @@ pub fn post_staketable_route() -> String {
 }
 
 #[derive(Serialize, Deserialize)]
-
-pub struct ServerEncKey{
+pub struct ServerEncKey {
     #[serde(with = "jf_utils::field_elem")]
-    pub enc_key: jf_primitives::aead::EncKey
+    pub enc_key: jf_primitives::aead::EncKey,
+}
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ProposalWithEncSecret {
+    #[serde(with = "jf_utils::field_elem")]
+    pub secret: Ciphertext,
+    pub proposal: Vec<u8>,
 }

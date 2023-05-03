@@ -1,10 +1,12 @@
 pub mod api_config;
 
+use api_config::{
+    ProposalWithEncSecret, ServerEncKey, DEFAULT_WEB_SERVER_PORT, MAX_TXNS, MAX_VIEWS,
+};
 use async_compatibility_layer::channel::OneShotReceiver;
 use async_lock::RwLock;
 use bincode::Options as BincodeOpts;
 use clap::Args;
-use api_config::{DEFAULT_WEB_SERVER_PORT, ServerEncKey, MAX_VIEWS, MAX_TXNS};
 use futures::FutureExt;
 
 use hotshot_types::traits::signature_key::SignatureKey;
@@ -13,6 +15,7 @@ use jf_primitives::aead::EncKey;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use rand_chacha::ChaCha20Rng;
 
 use std::collections::HashMap;
 use std::io;
@@ -29,13 +32,13 @@ use tracing::{error, info};
 type State<KEY> = RwLock<WebServerState<KEY>>;
 type Error = ServerError;
 
-
-
 /// State that tracks proposals and votes the server receives
 /// Data is stored as a `Vec<u8>` to not incur overhead from deserializing
 struct WebServerState<KEY> {
     /// view number -> (secret, proposal)
-    proposals: HashMap<u64, (String, Vec<u8>)>,
+    old_proposals_struct: HashMap<u64, (String, Vec<u8>)>,
+    /// view number -> (plaintext secret for this view, proposal to be sent out with encrypted secret for the next view)
+    proposals: HashMap<u64, ProposalWithEncSecret>,
     /// view for oldest proposals in memory
     oldest_proposal: u64,
     /// view number -> Vec(index, vote)
@@ -54,11 +57,14 @@ struct WebServerState<KEY> {
     stake_table: Vec<(KEY, EncKey)>,
     /// prng for generating endpoint
     _prng: StdRng,
+    /// view number -> plaintext secret
+    secrets: HashMap<u64, String>,
 }
 
 impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
     fn new() -> Self {
         Self {
+            old_proposals_struct: HashMap::new(),
             proposals: HashMap::new(),
             votes: HashMap::new(),
             num_txns: 0,
@@ -69,6 +75,20 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             vote_index: HashMap::new(),
             transactions: HashMap::new(),
             _prng: StdRng::from_entropy(),
+            secrets: HashMap::new(),
+            //generate first 10 views' secrets
+            // secrets: (0..10)
+            //     .map(|view| {
+            //         (
+            //             view,
+            //             thread_rng()
+            //                 .sample_iter(&Alphanumeric)
+            //                 .take(30)
+            //                 .map(char::from)
+            //                 .collect(),
+            //         )
+            //     })
+            //     .collect(),
         }
     }
     pub fn with_shutdown_signal(mut self, shutdown_listener: Option<OneShotReceiver<()>>) -> Self {
@@ -82,32 +102,40 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
 
 /// Trait defining methods needed for the `WebServerState`
 pub trait WebServerDataSource<KEY> {
-    fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
+    fn get_proposal(&self, view_number: u64) -> Result<Option<ProposalWithEncSecret>, Error>;
     fn get_votes(&self, view_number: u64, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn get_transactions(&self, index: u64) -> Result<Option<Vec<Vec<u8>>>, Error>;
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
     fn post_staketable(&mut self, keypair: Vec<u8>) -> Result<(), Error>;
-    fn post_secret_proposal(&mut self, _view_number: u64, _proposal: Vec<u8>) -> Result<(), Error>;
-    fn proposal(&self, view_number: u64) -> Option<(String, Vec<u8>)>;
+    fn post_secret_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
+    fn proposal(&self, view_number: u64) -> Option<ProposalWithEncSecret>;
+    fn secret(&self, view_number: u64) -> Option<String>;
+    fn next_leader(&self, view_number: u64) -> u64;
 }
 
 impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
-    fn proposal(&self, view_number: u64) -> Option<(String, Vec<u8>)> {
+    fn proposal(&self, view_number: u64) -> Option<ProposalWithEncSecret> {
         self.proposals.get(&view_number).cloned()
     }
+    fn secret(&self, view_number: u64) -> Option<String> {
+        self.secrets.get(&view_number).cloned()
+    }
+    fn next_leader(&self, view_number: u64) -> u64 {
+        (view_number + 1) % self.stake_table.len() as u64
+    }
     /// Return the proposal the server has received for a particular view
-    fn get_proposal(&self, view_number: u64) -> Result<Option<Vec<Vec<u8>>>, Error> {
+    fn get_proposal(&self, view_number: u64) -> Result<Option<ProposalWithEncSecret>, Error> {
         match self.proposals.get(&view_number) {
             Some(proposal) => {
-                if proposal.1.is_empty() {
+                if proposal.proposal.is_empty() {
                     Err(ServerError {
                         status: StatusCode::NotImplemented,
                         message: format!("Proposal not found for view {view_number}"),
                     })
                 } else {
-                    Ok(Some(vec![proposal.1.clone()]))
+                    Ok(Some(proposal.clone()))
                 }
             }
             None => Err(ServerError {
@@ -175,13 +203,16 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         error!("Received proposal for view {}", view_number);
 
         // Only keep proposal history for MAX_VIEWS number of view
-        if self.proposals.len() >= MAX_VIEWS {
-            self.proposals.remove(&self.oldest_proposal);
-            while !self.proposals.contains_key(&self.oldest_proposal) {
+        if self.old_proposals_struct.len() >= MAX_VIEWS {
+            self.old_proposals_struct.remove(&self.oldest_proposal);
+            while !self
+                .old_proposals_struct
+                .contains_key(&self.oldest_proposal)
+            {
                 self.oldest_proposal += 1;
             }
         }
-        self.proposals
+        self.old_proposals_struct
             .entry(view_number)
             .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal))
             .or_insert_with(|| (String::new(), proposal));
@@ -212,11 +243,10 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
                 .take(30)
                 .map(char::from)
                 .collect();
-            self.proposals.insert(node_index, (secret, Vec::new()));
+            self.secrets.insert(node_index, secret);
             self.stake_table.push((pub_key, enc_key.enc_key));
             Ok(())
-        } 
-        else {
+        } else {
             Err(ServerError {
                 status: StatusCode::BadRequest,
                 message: "Only signature keys can be added to stake table".to_string(),
@@ -229,7 +259,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     fn post_secret_proposal(
         &mut self,
         view_number: u64,
-        mut proposal: Vec<u8>,
+        proposal: Vec<u8>,
     ) -> Result<(), Error> {
         info!("Received proposal for view {}", view_number);
 
@@ -240,9 +270,10 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
                 self.oldest_proposal += 1;
             }
         }
-        self.proposals
-            .entry(view_number)
-            .and_modify(|(_, empty_proposal)| empty_proposal.append(&mut proposal));
+
+        //KALEY TODO: current implementation relies on proposal being submitted/requested
+        //in the sequential order. Leader of view n+1 can only get the secret by requesting the proposal
+        //for view n, which has the encrypted secret
 
         //generate new secret for the next time this node is leader
         let secret = thread_rng()
@@ -251,8 +282,41 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             .map(char::from)
             .collect();
         let next_view_for_leader = view_number + self.stake_table.len() as u64;
-        self.proposals
-            .insert(next_view_for_leader, (secret, Vec::new()));
+        self.secrets.insert(next_view_for_leader, secret);
+
+        //add next leader's encrypted secret to proposal
+        let next_leader_keys = &self.stake_table[self.next_leader(view_number) as usize];
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+        let next_view_secret = self.secrets.get(&(view_number + 1));
+        let encrypted_secret = if let Some(next_view_secret) = next_view_secret {
+            next_leader_keys.1.encrypt(
+                &mut rng,
+                next_view_secret.as_bytes(),
+                &next_leader_keys.0.to_bytes().0,
+            )
+        } else {
+            let next_secret: String = thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(30)
+                .map(char::from)
+                .collect();
+            self.secrets.insert(next_view_for_leader, next_secret.clone());
+            next_leader_keys.1.encrypt(
+                &mut rng,
+                next_secret.as_bytes(),
+                &next_leader_keys.0.to_bytes().0,
+            )
+        }
+        .expect("Failed to encrypt secret");
+
+        self.proposals.insert(
+            view_number,
+            ProposalWithEncSecret {
+                secret: encrypted_secret,
+                proposal: proposal,
+            },
+        );
+
         Ok(())
     }
 }
@@ -340,9 +404,9 @@ where
             let view_number: u64 = req.integer_param("view_number")?;
             let secret: &str = req.string_param("secret")?;
             //if secret is correct and view_number->proposal is empty, proposal is valid
-            if let Some(prop) = state.proposal(view_number) {
-                if prop.1.is_empty() {
-                    if prop.0 == secret {
+            if let None = state.proposal(view_number) {
+                if let Some(server_secret) = state.secret(view_number) {
+                    if server_secret == secret {
                         let proposal = req.body_bytes();
                         state.post_secret_proposal(view_number, proposal)
                     } else {
@@ -357,13 +421,13 @@ where
                 } else {
                     Err(ServerError {
                         status: StatusCode::BadRequest,
-                        message: format!("Proposal already submitted for view {:?}", view_number),
+                        message: format!("No endpoint for view number {} yet", view_number),
                     })
                 }
             } else {
                 Err(ServerError {
                     status: StatusCode::BadRequest,
-                    message: format!("No endpoint for view number {} yet", view_number),
+                    message: format!("Proposal already submitted for view {:?}", view_number),
                 })
             }
         }
