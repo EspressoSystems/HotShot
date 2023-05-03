@@ -17,7 +17,7 @@ cross_all_types!(
         },
         over_ride: Some(
             hotshot_testing::round_builder::RoundBuilder {
-                setup: either::Either::Right(
+                setup:
                     hotshot_testing::round_builder::RoundSetupBuilder {
                         scheduled_changes: vec![
                             hotshot_testing::round_builder::ChangeNode {
@@ -27,13 +27,11 @@ cross_all_types!(
                             },
                         ],
                         ..Default::default()
-                    }
-                ),
-                check: either::Either::Right (hotshot_testing::round_builder::RoundSafetyCheckBuilder {
+                    },
+                check: hotshot_testing::round_builder::RoundSafetyCheckBuilder {
                     num_failed_rounds_total: 20,
                     ..Default::default()
-                }),
-                ..Default::default()
+                },
             }
         )
     },
@@ -59,7 +57,7 @@ cross_all_types!(
              },
              over_ride: Some(
                  hotshot_testing::round_builder::RoundBuilder {
-                     setup: either::Either::Right(
+                     setup:
                          hotshot_testing::round_builder::RoundSetupBuilder {
                              scheduled_changes: vec![
                                  hotshot_testing::round_builder::ChangeNode {
@@ -73,13 +71,11 @@ cross_all_types!(
                                      updown: hotshot_testing::round_builder::UpDown::Down },
                              ],
                              ..Default::default()
-                         }
-                     ),
-                     check: either::Either::Right (hotshot_testing::round_builder::RoundSafetyCheckBuilder {
+                         },
+                     check: hotshot_testing::round_builder::RoundSafetyCheckBuilder {
                          num_failed_rounds_total: 20,
                          ..Default::default()
-                     }),
-                     ..Default::default()
+                     },
                  }
              )
          }

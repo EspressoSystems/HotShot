@@ -319,10 +319,10 @@ impl TestData {
                     #[cfg_attr(feature = "async-std-executor", async_std::test)]
                     #[tracing::instrument]
                     async fn #test_name() {
-                        hotshot_testing::test_builder::TestBuilder::<
+                        hotshot_testing::test_builder::TestBuilder::build::<
                             TestTypes,
                             TestNodeImpl
-                        >::build(#test_builder).launch().run_test().await.unwrap();
+                        >(#test_builder).launch().run_test().await.unwrap();
                     }
         }
     }

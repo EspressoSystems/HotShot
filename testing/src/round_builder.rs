@@ -1,51 +1,31 @@
 use std::{collections::HashMap, sync::Arc};
 
-use either::Either::{self, Left, Right};
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::{data::LeafType, traits::node_implementation::NodeType};
 use tracing::error;
 
 use crate::{
-    round::{Round, RoundCtx, RoundHook, RoundResult, RoundSafetyCheck, RoundSetup, StateAndBlock},
+    round::{Round, RoundCtx, RoundResult, RoundSafetyCheck, RoundSetup, StateAndBlock},
     test_errors::{ConsensusRoundError, ConsensusTestError},
     test_runner::TestRunner,
 };
 
 /// a builder for a round
-pub struct RoundBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+#[derive(Default)]
+pub struct RoundBuilder {
     /// the setup / description for the round
-    pub setup: Either<RoundSetup<TYPES, I>, RoundSetupBuilder>,
+    pub setup: RoundSetupBuilder,
     /// the safety check for the round
-    pub check: Either<RoundSafetyCheck<TYPES, I>, RoundSafetyCheckBuilder>,
-    /// the hooks to run each round
-    pub hooks: Vec<RoundHook<TYPES, I>>,
+    pub check: RoundSafetyCheckBuilder,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RoundBuilder<TYPES, I> {
+impl RoundBuilder {
     /// build the `Round` from the description
-    pub fn build(self) -> Round<TYPES, I> {
-        let setup = match self.setup {
-            Left(setup) => setup,
-            Right(desc) => desc.build(),
-        };
-        let check = match self.check {
-            Left(check) => check,
-            Right(desc) => desc.build(),
-        };
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(self) -> Round<TYPES, I> {
         Round {
-            setup_round: setup,
-            safety_check: check,
-            hooks: self.hooks,
-        }
-    }
-}
-
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for RoundBuilder<TYPES, I> {
-    fn default() -> Self {
-        Self {
-            setup: Right(RoundSetupBuilder::default()),
-            check: Right(RoundSafetyCheckBuilder::default()),
+            setup_round: self.setup.build(),
+            safety_check: self.check.build(),
             hooks: vec![],
         }
     }
@@ -112,8 +92,8 @@ impl RoundSetupBuilder {
                         .iter()
                         .filter(|node| node.view == cur_view)
                         .map(|node| match node.updown {
-                            UpDown::Up => Either::Left(node.idx),
-                            UpDown::Down => Either::Right(node.idx),
+                            UpDown::Up => either::Either::Left(node.idx),
+                            UpDown::Down => either::Either::Right(node.idx),
                         });
                     // maybe we should switch to itertools
                     // they have saner either functions

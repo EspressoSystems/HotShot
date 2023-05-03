@@ -52,9 +52,14 @@ impl NodeImplementation<StaticCommitteeTestTypes> for FallbackImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn webserver_libp2p_network() {
-    let builder = TestBuilder::<StaticCommitteeTestTypes, FallbackImpl>::default_multiple_rounds();
+    let builder = TestBuilder::default_multiple_rounds();
 
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<StaticCommitteeTestTypes, FallbackImpl>()
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
 }
 
 // stress test for web server with libp2p
@@ -66,7 +71,12 @@ async fn webserver_libp2p_network() {
 #[instrument]
 #[ignore]
 async fn test_stress_webserver_libp2p_network() {
-    let builder = TestBuilder::<StaticCommitteeTestTypes, FallbackImpl>::default_multiple_rounds();
+    let builder = TestBuilder::default_multiple_rounds();
 
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<StaticCommitteeTestTypes, FallbackImpl>()
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
 }

@@ -52,9 +52,14 @@ impl NodeImplementation<StaticCommitteeTestTypes> for Libp2pImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn libp2p_network() {
-    let builder = TestBuilder::<StaticCommitteeTestTypes, Libp2pImpl>::default_multiple_rounds();
+    let builder = TestBuilder::default_multiple_rounds();
 
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<StaticCommitteeTestTypes, Libp2pImpl>()
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
 }
 
 // stress test for libp2p
@@ -66,6 +71,11 @@ async fn libp2p_network() {
 #[instrument]
 #[ignore]
 async fn test_stress_libp2p_network() {
-    let builder = TestBuilder::<StaticCommitteeTestTypes, Libp2pImpl>::default_stress();
-    builder.build().launch().run_test().await.unwrap();
+    let builder = TestBuilder::default_stress();
+    builder
+        .build::<StaticCommitteeTestTypes, Libp2pImpl>()
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
 }

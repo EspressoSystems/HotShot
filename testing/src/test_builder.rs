@@ -1,8 +1,6 @@
 use std::num::NonZeroUsize;
 use std::{sync::Arc, time::Duration};
 
-use either::Either::Right;
-
 use hotshot::traits::TestableNodeImplementation;
 use hotshot::{traits::NetworkReliability, HotShotError};
 
@@ -63,18 +61,15 @@ impl Default for TestMetadata {
 
 impl TestMetadata {
     /// generate a reasonable round description
-    pub fn gen_sane_round<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
-        metadata: &TestMetadata,
-    ) -> RoundBuilder<TYPES, I> {
+    pub fn gen_sane_round(metadata: &TestMetadata) -> RoundBuilder {
         RoundBuilder {
-            setup: Right(RoundSetupBuilder {
+            setup: RoundSetupBuilder {
                 num_txns_per_round: metadata.num_txns_per_round,
                 ..RoundSetupBuilder::default()
-            }),
-            check: Right(RoundSafetyCheckBuilder {
+            },
+            check: RoundSafetyCheckBuilder {
                 ..RoundSafetyCheckBuilder::default()
-            }),
-            hooks: vec![],
+            },
         }
     }
 }
@@ -92,7 +87,7 @@ impl Default for TimingData {
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestBuilder<TYPES, I> {
+impl TestBuilder {
     /// Default constructor for multiple rounds.
     pub fn default_multiple_rounds() -> Self {
         TestBuilder {
@@ -133,15 +128,6 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestBuilder<TYPES, I
     }
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> Default for TestBuilder<TYPES, I> {
-    fn default() -> Self {
-        Self {
-            metadata: Default::default(),
-            over_ride: None,
-        }
-    }
-}
-
 #[derive(Debug, Snafu)]
 enum RoundError<TYPES: NodeType> {
     HotShot { source: HotShotError<TYPES> },
@@ -165,16 +151,19 @@ pub struct TimingData {
 }
 
 /// Builder for a test
-pub struct TestBuilder<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
+#[derive(Default)]
+pub struct TestBuilder {
     /// metadata with which to generate round
     pub metadata: TestMetadata,
     /// optional override for round generation
-    pub over_ride: Option<RoundBuilder<TYPES, I>>,
+    pub over_ride: Option<RoundBuilder>,
 }
 
-impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestBuilder<TYPES, I> {
+impl TestBuilder {
     /// build a test description from a detailed testing spec
-    pub fn build(self) -> TestLauncher<TYPES, I> {
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+        self,
+    ) -> TestLauncher<TYPES, I> {
         let round = match self.over_ride {
             Some(over_ride) => over_ride,
             None => TestMetadata::gen_sane_round(&self.metadata),

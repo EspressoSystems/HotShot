@@ -17,7 +17,7 @@ use tracing::instrument;
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_no_loss_network() {
-    let builder = TestBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
+    let builder = TestBuilder {
         metadata: TestMetadata {
             total_nodes: 10,
             start_nodes: 10,
@@ -26,7 +26,12 @@ async fn test_no_loss_network() {
         },
         over_ride: None,
     };
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
 }
 
 // // tests network with forced packet delay
@@ -37,7 +42,7 @@ async fn test_no_loss_network() {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_synchronous_network() {
-    let builder = TestBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
+    let builder = TestBuilder {
         metadata: TestMetadata {
             total_nodes: 5,
             start_nodes: 5,
@@ -46,7 +51,12 @@ async fn test_synchronous_network() {
         },
         over_ride: None,
     };
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
 }
 
 // tests network with small packet delay and dropped packets
@@ -58,7 +68,7 @@ async fn test_synchronous_network() {
 #[instrument]
 #[ignore]
 async fn test_asynchronous_network() {
-    let builder = TestBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
+    let builder = TestBuilder {
         metadata: TestMetadata {
             total_nodes: 5,
             start_nodes: 5,
@@ -69,7 +79,12 @@ async fn test_asynchronous_network() {
         },
         over_ride: None,
     };
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
 }
 
 /// tests network with asynchronous patch that eventually becomes synchronous
@@ -85,7 +100,7 @@ async fn test_partially_synchronous_network() {
     let sn = SynchronousNetwork::new(10, 0);
     let gst = std::time::Duration::new(10, 0);
 
-    let builder = TestBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
+    let builder = TestBuilder {
         metadata: TestMetadata {
             total_nodes: 5,
             start_nodes: 5,
@@ -95,5 +110,10 @@ async fn test_partially_synchronous_network() {
         },
         over_ride: None,
     };
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
 }

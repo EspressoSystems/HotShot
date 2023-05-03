@@ -55,7 +55,7 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn centralized_server_network() {
-    let builder = TestBuilder::<StaticCommitteeTestTypes, StaticCentralizedImp> {
+    let builder = TestBuilder {
         metadata: TestMetadata {
             timing_data: TimingData {
                 round_start_delay: 25,
@@ -69,6 +69,11 @@ async fn centralized_server_network() {
         over_ride: None,
     };
 
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<StaticCommitteeTestTypes, StaticCentralizedImp>()
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
     shutdown_logging();
 }

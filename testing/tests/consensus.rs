@@ -12,7 +12,6 @@ use hotshot_testing::{
 };
 
 use commit::Committable;
-use either::Either::{self, Left, Right};
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
     certificate::QuorumCertificate,
@@ -451,7 +450,7 @@ where
 #[ignore]
 async fn test_validating_proposal_queueing() {
     let num_rounds = 10;
-    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> = TestBuilder {
+    let builder: TestBuilder = TestBuilder {
         metadata: TestMetadata {
             total_nodes: 4,
             start_nodes: 4,
@@ -459,17 +458,20 @@ async fn test_validating_proposal_queueing() {
             failure_threshold: 0,
             ..TestMetadata::default()
         },
-        over_ride: Some(RoundBuilder {
-            hooks: Vec::new(),
-            setup: Either::Left(RoundSetup(Arc::new(
-                test_validating_proposal_queueing_round_setup,
-            ))),
-            check: Either::Left(RoundSafetyCheck(Arc::new(
-                test_validating_proposal_queueing_post_safety_check,
-            ))),
-        }),
+        over_ride: None,
     };
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<VrfTestTypes, StandardNodeImplType>()
+        .with_setup(RoundSetup(Arc::new(
+            test_validating_proposal_queueing_round_setup,
+        )))
+        .with_safety_check(RoundSafetyCheck(Arc::new(
+            test_validating_proposal_queueing_post_safety_check,
+        )))
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
 }
 
 /// Tests that next leaders receive and queue valid vote messages properly
@@ -482,13 +484,9 @@ async fn test_validating_proposal_queueing() {
 #[ignore]
 async fn test_vote_queueing() {
     let num_rounds = 10;
-    let setup = Left(RoundSetup(Arc::new(
-        test_validating_vote_queueing_round_setup,
-    )));
-    let check = Left(RoundSafetyCheck(Arc::new(
-        test_validating_vote_queueing_post_safety_check,
-    )));
-    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> = TestBuilder {
+    let setup = RoundSetup(Arc::new(test_validating_vote_queueing_round_setup));
+    let check = RoundSafetyCheck(Arc::new(test_validating_vote_queueing_post_safety_check));
+    let builder: TestBuilder = TestBuilder {
         metadata: TestMetadata {
             total_nodes: 4,
             start_nodes: 4,
@@ -496,14 +494,17 @@ async fn test_vote_queueing() {
             failure_threshold: 0,
             ..TestMetadata::default()
         },
-        over_ride: Some(RoundBuilder {
-            setup,
-            check,
-            hooks: Vec::new(),
-        }),
+        over_ride: None,
     };
 
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<VrfTestTypes, StandardNodeImplType>()
+        .with_setup(setup)
+        .with_safety_check(check)
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
 }
 
 /// Tests that replicas handle bad Proposal messages properly
@@ -516,13 +517,11 @@ async fn test_vote_queueing() {
 #[ignore]
 async fn test_bad_proposal() {
     let num_rounds = 10;
-    let setup = Left(RoundSetup(Arc::new(
-        test_bad_validating_proposal_round_setup,
-    )));
-    let check = Left(RoundSafetyCheck(Arc::new(
+    let setup = RoundSetup(Arc::new(test_bad_validating_proposal_round_setup));
+    let check = RoundSafetyCheck(Arc::new(
         test_bad_validating_proposal_post_safety_check::<VrfTestTypes, StandardNodeImplType>,
-    )));
-    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> = TestBuilder {
+    ));
+    let builder: TestBuilder = TestBuilder {
         metadata: TestMetadata {
             total_nodes: 4,
             start_nodes: 4,
@@ -530,13 +529,16 @@ async fn test_bad_proposal() {
             failure_threshold: 0,
             ..TestMetadata::default()
         },
-        over_ride: Some(RoundBuilder {
-            setup,
-            check,
-            hooks: vec![],
-        }),
+        over_ride: None,
     };
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<VrfTestTypes, StandardNodeImplType>()
+        .with_setup(setup)
+        .with_safety_check(check)
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
 }
 
 /// Tests a single node network, which also tests when a node is leader in consecutive views
@@ -548,7 +550,7 @@ async fn test_bad_proposal() {
 #[instrument]
 async fn test_single_node_network() {
     let num_rounds = 100;
-    let builder: TestBuilder<StaticCommitteeTestTypes, StaticNodeImplType> = TestBuilder {
+    let builder: TestBuilder = TestBuilder {
         metadata: TestMetadata {
             total_nodes: 1,
             start_nodes: 1,
@@ -560,14 +562,19 @@ async fn test_single_node_network() {
             ..TestMetadata::default()
         },
         over_ride: Some(RoundBuilder {
-            check: Right(RoundSafetyCheckBuilder {
+            check: RoundSafetyCheckBuilder {
                 num_out_of_sync: 1,
                 ..Default::default()
-            }),
+            },
             ..Default::default()
         }),
     };
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
 }
 
 /// Tests that min propose time works as expected
@@ -582,7 +589,7 @@ async fn test_min_propose() {
     let num_rounds = 5;
     let propose_min_round_time = Duration::new(1, 0);
     let propose_max_round_time = Duration::new(5, 0);
-    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> = TestBuilder {
+    let builder: TestBuilder = TestBuilder {
         metadata: TestMetadata {
             total_nodes: 5,
             start_nodes: 5,
@@ -599,7 +606,12 @@ async fn test_min_propose() {
         over_ride: None,
     };
     let start_time = Instant::now();
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<VrfTestTypes, StandardNodeImplType>()
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
     let duration = Instant::now() - start_time;
     let min_duration = num_rounds as u128 * propose_min_round_time.as_millis();
     let max_duration = num_rounds as u128 * propose_max_round_time.as_millis();
@@ -622,7 +634,7 @@ async fn test_max_propose() {
     let propose_min_round_time = Duration::new(0, 0);
     let propose_max_round_time = Duration::new(1, 0);
     let min_transactions: usize = 10;
-    let builder: TestBuilder<VrfTestTypes, StandardNodeImplType> = TestBuilder {
+    let builder: TestBuilder = TestBuilder {
         metadata: TestMetadata {
             total_nodes: 5,
             start_nodes: 5,
@@ -640,7 +652,12 @@ async fn test_max_propose() {
         over_ride: None,
     };
     let start_time = Instant::now();
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<VrfTestTypes, StandardNodeImplType>()
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
     let duration = Instant::now() - start_time;
     let max_duration = num_rounds as u128 * propose_max_round_time.as_millis();
     // Since we are not submitting enough transactions, we should hit the max timeout every round
@@ -692,7 +709,7 @@ async fn test_chain_height() {
         .boxed_local()
     }));
 
-    let builder = TestBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
+    let builder = TestBuilder {
         metadata: TestMetadata {
             total_nodes,
             start_nodes,
@@ -700,16 +717,18 @@ async fn test_chain_height() {
             failure_threshold: num_rounds,
             ..Default::default()
         },
-        over_ride: Some(RoundBuilder {
-            hooks: vec![hook],
-            check: Left(Round::empty().safety_check),
-            ..Default::default()
-        }),
+        over_ride: None,
     };
 
-    let built = builder.build();
+    let built = builder.build::<StaticCommitteeTestTypes, StaticNodeImplType>();
 
-    built.launch().run_test().await.unwrap();
+    built
+        .with_safety_check(Round::empty().safety_check)
+        .push_hook(hook)
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
 }
 
 /// Tests that the leaf chains in decide events are always consistent.
@@ -720,8 +739,6 @@ async fn test_chain_height() {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn test_decide_leaf_chain() {
-    let mut round = RoundBuilder::<StaticCommitteeTestTypes, StaticNodeImplType>::default();
-
     // Collection of (handle, leaf) pairs collected at the start of the round. The leaf is the
     // last decided leaf before the round, so that after the round we can check that the new
     // leaf chain extends from it. The handle must be copied out of the round runner before the
@@ -735,9 +752,10 @@ async fn test_decide_leaf_chain() {
     let num_rounds = 10;
 
     // Initialize `handles` at the start of the round.
+    let hook;
     {
         let handles = handles.clone();
-        round.hooks = vec![RoundHook(Arc::new(move |runner, _ctx| {
+        hook = RoundHook(Arc::new(move |runner, _ctx| {
             let handles = handles.clone();
             async move {
                 let mut new_decided_leaves = vec![];
@@ -748,9 +766,10 @@ async fn test_decide_leaf_chain() {
                 Ok(())
             }
             .boxed_local()
-        }))];
+        }));
     }
-    round.check = Left(RoundSafetyCheck(Arc::new(
+
+    let check = RoundSafetyCheck(Arc::new(
         move |_,
               _ctx,
               result: RoundResult<
@@ -821,14 +840,22 @@ async fn test_decide_leaf_chain() {
             }
             .boxed_local()
         },
-    )));
-    let builder = TestBuilder::<StaticCommitteeTestTypes, StaticNodeImplType> {
+    ));
+
+    let builder = TestBuilder {
         metadata: TestMetadata {
             failure_threshold: 3,
             ..Default::default()
         },
-        over_ride: Some(round),
+        over_ride: None,
     };
 
-    builder.build().launch().run_test().await.unwrap();
+    builder
+        .build::<StaticCommitteeTestTypes, StaticNodeImplType>()
+        .push_hook(hook)
+        .with_safety_check(check)
+        .launch()
+        .run_test()
+        .await
+        .unwrap();
 }
