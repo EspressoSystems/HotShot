@@ -19,6 +19,7 @@ use hotshot_types::traits::election::QuorumExchangeType;
 use hotshot_types::traits::node_implementation::{
     NodeImplementation, QuorumProposalType, QuorumVoteType, SequencingExchangesType,
 };
+use hotshot_types::traits::state::State;
 use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, DAProposal, SequencingLeaf},
