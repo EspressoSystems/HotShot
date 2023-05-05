@@ -286,7 +286,7 @@ pub type ValidatingQuorumEx<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
         ValidatingConsensus,
         TYPES,
-        ValidatingLeaf<TYPES>,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::QuorumExchange;
 
@@ -295,7 +295,7 @@ pub type SequencingQuorumEx<TYPES, I> =
     <<I as NodeImplementation<TYPES>>::Exchanges as ExchangesType<
         SequencingConsensus,
         TYPES,
-        SequencingLeaf<TYPES>,
+        <I as NodeImplementation<TYPES>>::Leaf,
         Message<TYPES, I>,
     >>::QuorumExchange;
 
@@ -321,14 +321,12 @@ pub trait TestableNodeImplementation<
     fn committee_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-        network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self::CommitteeNetwork + 'static>;
 
     /// Generates a network for all replicas given an expected node count.
     fn quorum_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-        network_id: usize,
     ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, Self> + 'static>;
 
     /// Creates random transaction if possible
@@ -371,11 +369,7 @@ pub trait TestableNodeImplementation<
 #[async_trait]
 impl<
         TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = ValidatingLeaf<TYPES>,
-            ConsensusMessage = ValidatingMessage<TYPES, Self>,
-        >,
+        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, Self>>,
     > TestableNodeImplementation<ValidatingConsensus, TYPES> for I
 where
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
@@ -392,7 +386,6 @@ where
     fn committee_generator(
         _expected_node_count: usize,
         _num_bootstrap: usize,
-        _network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self::CommitteeNetwork + 'static> {
         // This function is only useful for sequencing consensus.
         Box::new(|_| ())
@@ -401,7 +394,6 @@ where
     fn quorum_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-        network_id: usize,
     ) -> Box<
         dyn Fn(
                 u64,
@@ -417,7 +409,7 @@ where
         >>::Networking as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
-            network_id,
+            1,
         )
     }
 
@@ -461,11 +453,7 @@ where
 #[async_trait]
 impl<
         TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = SequencingLeaf<TYPES>,
-            ConsensusMessage = SequencingMessage<TYPES, Self>,
-        >,
+        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, Self>>,
     > TestableNodeImplementation<SequencingConsensus, TYPES> for I
 where
     <I as NodeImplementation<TYPES>>::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
@@ -485,7 +473,6 @@ where
     fn committee_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-        network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self::CommitteeNetwork + 'static> {
         <<CommitteeEx<TYPES, I> as ConsensusExchange<
             TYPES,
@@ -493,14 +480,13 @@ where
         >>::Networking as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
-            network_id,
+            1,
         )
     }
 
     fn quorum_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-        network_id: usize,
     ) -> Box<
         dyn Fn(
                 u64,
@@ -516,7 +502,7 @@ where
         >>::Networking as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
-            network_id,
+            1,
         )
     }
 

@@ -17,7 +17,7 @@ use hotshot_types::{
     certificate::QuorumCertificate,
     data::{ValidatingLeaf, ValidatingProposal},
     message::{
-        GeneralConsensusMessage, InternalTrigger, Message, ProcessedGeneralConsensusMessage,
+        ConsensusMessageType, InternalTrigger, Message, ProcessedGeneralConsensusMessage,
         ValidatingMessage,
     },
     traits::{
@@ -317,7 +317,7 @@ where
                                                 I,
                                             >, QuorumVote<TYPES, ValidatingLeaf<TYPES>>>(
                                                 next_leader.clone(),
-                                                ValidatingMessage(timed_out_msg),
+                                                ValidatingMessage(timeout_msg),
                                             )
                                             .await
                                         {
@@ -344,7 +344,7 @@ where
                         warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
                         continue;
                     }
-                    ProcessedConsensusMessage::ViewSync(_) => todo!(),
+                    ProcessedGeneralConsensusMessage::ViewSync(_) => todo!(),
                 }
             }
             // fall through logic if we did not receive successfully from channel

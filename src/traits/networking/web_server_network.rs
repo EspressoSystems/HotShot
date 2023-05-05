@@ -24,7 +24,6 @@ use hotshot_types::traits::consensus_type::{
 use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
 use hotshot_types::{
     data::ProposalType,
-    message::Message,
     traits::{
         election::{ElectionConfig, Membership},
         network::{
@@ -40,8 +39,8 @@ use hotshot_types::{
 use hotshot_types::{
     data::{SequencingLeaf, ValidatingLeaf},
     message::{
-        CommitteeConsensusMessage, DataMessage, GeneralConsensusMessage, MessageKind,
-        SequencingMessage, ValidatingMessage,
+        CommitteeConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind,
+        MessagePurpose, SequencingMessage, ValidatingMessage,
     },
 };
 use hotshot_web_server::{self, config};
@@ -143,6 +142,7 @@ where
                 GeneralConsensusMessage::InternalTrigger(_) => {
                     return Err(WebServerNetworkError::EndpointError)
                 }
+                GeneralConsensusMessage::ViewSync(_) => todo!(),
             },
             MessageKind::Data(message_kind) => match message_kind {
                 DataMessage::SubmitTransaction(_, _) => config::post_transactions_route(),
@@ -190,6 +190,7 @@ where
                     GeneralConsensusMessage::InternalTrigger(_) => {
                         return Err(WebServerNetworkError::EndpointError)
                     }
+                    GeneralConsensusMessage::ViewSync(_) => todo!(),
                 },
                 Right(message) => match message {
                     CommitteeConsensusMessage::DAProposal(_) => {
@@ -841,7 +842,6 @@ impl<
     >
 where
     TYPES::SignatureKey: TestableSignatureKey,
-    WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>: ParsePost<TYPES, I>,
 {
     fn generator(
         expected_node_count: usize,
@@ -901,9 +901,10 @@ impl<
             PROPOSAL,
             VOTE,
         >,
-    > for WebCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    > for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
+    WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>: ParsePost<TYPES, I>,
 {
     fn generate_network() -> Box<
         dyn Fn(

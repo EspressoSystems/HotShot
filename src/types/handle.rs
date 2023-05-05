@@ -306,7 +306,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     where
         QuorumEx<TYPES, I>: ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
             Certificate = QuorumCertificate<TYPES, I::Leaf>,
         >,

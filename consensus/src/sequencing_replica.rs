@@ -22,8 +22,8 @@ use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, LeafType, SequencingLeaf},
     message::{
-        InternalTrigger, ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
-        ProcessedSequencingMessage, SequencingMessage,
+        ConsensusMessageType, InternalTrigger, ProcessedCommitteeConsensusMessage,
+        ProcessedGeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage,
     },
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus, election::SignedCertificate,
@@ -410,6 +410,7 @@ where
                                 warn!("Replica receieved a vote message. This is not what the replica expects. Skipping.");
                                 continue;
                             }
+                            ProcessedGeneralConsensusMessage::ViewSync(_) => todo!(),
                         }
                     }
                     Right(committee_message) => {
@@ -425,7 +426,6 @@ where
                             }
                         }
                     }
-                    ProcessedConsensusMessage::ViewSync(_) => todo!(),
                 }
             }
             // fall through logic if we did not receive successfully from channel

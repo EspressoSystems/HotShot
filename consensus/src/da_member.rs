@@ -13,8 +13,8 @@ use hotshot_types::{
     certificate::QuorumCertificate,
     data::SequencingLeaf,
     message::{
-        Message, ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
-        ProcessedSequencingMessage, SequencingMessage,
+        ConsensusMessageType, Message, ProcessedCommitteeConsensusMessage,
+        ProcessedGeneralConsensusMessage, ProcessedSequencingMessage, SequencingMessage,
     },
     traits::{
         consensus_type::sequencing_consensus::SequencingConsensus,
@@ -107,10 +107,12 @@ where
                                 warn!("DA committee member receieved a vote message. This is not what the member expects. Skipping.");
                                 continue;
                             }
-
                             ProcessedGeneralConsensusMessage::Proposal(_, _) => {
                                 warn!("DA committee member receieved a Non DA Proposal message. This is not what the member expects. Skipping.");
                                 continue;
+                            }
+                            ProcessedGeneralConsensusMessage::ViewSync(_) => {
+                                todo!()
                             }
                         }
                     }
@@ -177,7 +179,6 @@ where
                             }
                         }
                     }
-                    ProcessedConsensusMessage::ViewSync(_) => todo!(),
                 }
             }
             // fall through logic if we did not receive successfully from channel

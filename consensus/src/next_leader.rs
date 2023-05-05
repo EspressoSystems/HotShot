@@ -9,7 +9,6 @@ use hotshot_types::data::ValidatingLeaf;
 use hotshot_types::message::Message;
 use hotshot_types::message::ProcessedGeneralConsensusMessage;
 use hotshot_types::traits::election::ConsensusExchange;
-use hotshot_types::traits::election::{Checked::Unchecked, VoteData};
 use hotshot_types::traits::node_implementation::{
     NodeImplementation, NodeType, ValidatingExchangesType, ValidatingQuorumEx,
 };
@@ -17,7 +16,7 @@ use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_types::vote::VoteAccumulator;
 use hotshot_types::{
     certificate::QuorumCertificate,
-    message::{InternalTrigger, ValidatingMessage},
+    message::{ConsensusMessageType, InternalTrigger, ValidatingMessage},
     traits::consensus_type::validating_consensus::ValidatingConsensus,
     vote::QuorumVote,
 };
@@ -78,7 +77,6 @@ where
     I::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        ValidatingLeaf<TYPES>,
         Message<TYPES, I>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
         Commitment = ValidatingLeaf<TYPES>,
@@ -154,6 +152,7 @@ where
                 ProcessedGeneralConsensusMessage::Proposal(_p, _sender) => {
                     warn!("The next leader has received an unexpected proposal!");
                 }
+                ProcessedGeneralConsensusMessage::ViewSync(_) => todo!(),
             }
         }
 

@@ -23,7 +23,7 @@ use hotshot_types::{
     certificate::{DACertificate, QuorumCertificate},
     data::{CommitmentProposal, DAProposal, SequencingLeaf},
     message::{
-        CommitteeConsensusMessage, GeneralConsensusMessage, InternalTrigger,
+        CommitteeConsensusMessage, ConsensusMessageType, GeneralConsensusMessage, InternalTrigger,
         ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
         ProcessedSequencingMessage, Proposal, SequencingMessage,
     },
