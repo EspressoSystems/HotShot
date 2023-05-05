@@ -250,7 +250,7 @@ where
              return None;
          };
 
-        let mut block = TYPES::BlockType::new();
+        let mut block = <TYPES as NodeType>::StateType::next_block(None);
         let txns = self.wait_for_transactions().await?;
 
         for txn in txns {

@@ -351,7 +351,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> HotShot<TYPES::ConsensusType
     /// # Panics
     ///
     /// Panics if internal state for consensus is inconsistent
-    pub async fn get_state(&self) -> <I::Leaf as LeafType>::StateCommitmentType {
+    pub async fn get_state(&self) -> <I::Leaf as LeafType>::MaybeState {
         self.hotstuff.read().await.get_decided_leaf().get_state()
     }
 

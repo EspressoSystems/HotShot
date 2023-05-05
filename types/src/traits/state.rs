@@ -41,7 +41,7 @@ pub trait State:
     type Time: ConsensusTime;
 
     /// Returns an empty, template next block given this current state
-    fn next_block(&self) -> Self::BlockType;
+    fn next_block(prev_commitment: Option<Self>) -> Self::BlockType;
 
     /// Returns true if and only if the provided block is valid and can extend this state
     fn validate_block(&self, block: &Self::BlockType, view_number: &Self::Time) -> bool;
@@ -157,8 +157,11 @@ pub mod dummy {
         type BlockType = DummyBlock;
         type Time = ViewNumber;
 
-        fn next_block(&self) -> Self::BlockType {
-            DummyBlock { nonce: self.nonce }
+        fn next_block(state: Option<Self>) -> Self::BlockType {
+            match state {
+                Some(state) => DummyBlock { nonce: state.nonce },
+                None => unimplemented!(),
+            }
         }
 
         fn validate_block(&self, _block: &Self::BlockType, _view_number: &Self::Time) -> bool {

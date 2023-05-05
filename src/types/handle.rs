@@ -115,7 +115,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
     /// # Errors
     ///
     /// Returns an error if the underlying `Storage` returns an error
-    pub async fn get_state(&self) -> <I::Leaf as LeafType>::StateCommitmentType {
+    pub async fn get_state(&self) -> <I::Leaf as LeafType>::MaybeState {
         self.hotshot.get_state().await
     }
 
@@ -191,7 +191,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         &mut self,
     ) -> Result<
         (
-            Vec<<I::Leaf as LeafType>::StateCommitmentType>,
+            Vec<<I::Leaf as LeafType>::MaybeState>,
             Vec<<I::Leaf as LeafType>::DeltasType>,
         ),
         HotShotError<TYPES>,

@@ -136,7 +136,7 @@ where
         async_sleep(self.api.propose_min_round_time() - passed_time).await;
 
         let receiver = self.transactions.subscribe().await;
-        let mut block = starting_state.next_block();
+        let mut block = <TYPES as NodeType>::StateType::next_block(Some(starting_state.clone()));
 
         // Wait until we have min_transactions for the block or we hit propose_max_round_time
         while task_start_time.elapsed() < self.api.propose_max_round_time() {
