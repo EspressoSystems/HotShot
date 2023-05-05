@@ -886,6 +886,54 @@ impl<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+{
+    fn generator(
+        expected_node_count: usize,
+        _num_bootstrap: usize,
+        _network_id: usize,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let (server_shutdown_sender, server_shutdown) = oneshot();
+        let sender = Arc::new(server_shutdown_sender);
+        // Start web server
+        async_spawn(hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
+            Some(server_shutdown),
+        ));
+
+        let known_nodes = (0..expected_node_count as u64)
+            .map(|id| {
+                TYPES::SignatureKey::from_private(&TYPES::SignatureKey::generate_test_key(id))
+            })
+            .collect::<Vec<_>>();
+
+        // Start each node's web server client
+        Box::new(move |id| {
+            let sender = Arc::clone(&sender);
+            let mut network = WebServerNetwork::create(
+                "0.0.0.0",
+                9000,
+                Duration::from_millis(100),
+                known_nodes[id as usize].clone(),
+            );
+            network.server_shutdown_signal = Some(sender);
+            Self(network.into(), PhantomData)
+        })
+    }
+
+    fn in_flight_message_count(&self) -> Option<usize> {
+        None
+    }
+}
+
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
     >
     TestableChannelImplementation<
         TYPES,

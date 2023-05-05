@@ -289,31 +289,6 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
-    TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
-    for MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>
-where
-    TYPES::SignatureKey: TestableSignatureKey,
-    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
-{
-    fn generator(
-        _expected_node_count: usize,
-        _num_bootstrap: usize,
-        _network_id: usize,
-    ) -> Box<dyn Fn(u64) -> Self + 'static> {
-        let master: Arc<_> = MasterMap::new();
-        Box::new(move |node_id| {
-            let privkey = TYPES::SignatureKey::generate_test_key(node_id);
-            let pubkey = TYPES::SignatureKey::from_private(&privkey);
-            MemoryNetwork::new(pubkey, NoMetrics::boxed(), master.clone(), None)
-        })
-    }
-
-    fn in_flight_message_count(&self) -> Option<usize> {
-        Some(self.inner.in_flight_message_count.load(Ordering::Relaxed))
-    }
-}
-
 // TODO instrument these functions
 #[async_trait]
 impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for MemoryNetwork<M, K> {
@@ -467,6 +442,37 @@ impl<
     #[must_use]
     pub fn new(network: Arc<MemoryNetwork<Message<TYPES, I>, TYPES::SignatureKey>>) -> Self {
         Self(network, PhantomData::default())
+    }
+}
+
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for MemoryCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
+{
+    fn generator(
+        _expected_node_count: usize,
+        _num_bootstrap: usize,
+        _network_id: usize,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let master: Arc<_> = MasterMap::new();
+        Box::new(move |node_id| {
+            let privkey = TYPES::SignatureKey::generate_test_key(node_id);
+            let pubkey = TYPES::SignatureKey::from_private(&privkey);
+            let network = MemoryNetwork::new(pubkey, NoMetrics::boxed(), master.clone(), None);
+            Self(network.into(), PhantomData)
+        })
+    }
+
+    fn in_flight_message_count(&self) -> Option<usize> {
+        Some(self.0.inner.in_flight_message_count.load(Ordering::Relaxed))
     }
 }
 

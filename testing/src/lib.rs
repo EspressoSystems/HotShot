@@ -33,15 +33,11 @@ use hotshot_types::traits::{
 };
 use hotshot_types::{
     data::LeafType,
-    traits::{
-        election::Membership, metrics::NoMetrics, node_implementation::NetworkType,
-        node_implementation::NodeType,
-    },
+    traits::{election::Membership, metrics::NoMetrics, node_implementation::NodeType},
     HotShotConfig,
 };
 use rand::SeedableRng;
 use snafu::Snafu;
-use std::sync::Arc;
 use std::{collections::HashMap, fmt::Debug};
 use tracing::{debug, error, info, warn};
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
@@ -53,8 +49,6 @@ pub const N: usize = H_256;
 /// Alias for `(Vec<S>, Vec<B>)`. Used in [`RoundResult`].
 pub type StateAndBlock<S, B> = (Vec<S>, Vec<B>);
 
-/// Wrapper Type for function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
-pub type NetworkGenerator<TYPES, I, T> = Box<dyn Fn(Arc<NetworkType<TYPES, I>>) -> T + 'static>;
 /// Result of running a round of consensus
 #[derive(Debug)]
 // TODO do we need static here
@@ -133,7 +127,6 @@ where
 {
     pub(self) fn new(launcher: TestLauncher<TYPES, I>) -> Self {
         Self {
-            network_generator: launcher.network,
             quorum_network_generator: launcher.quorum_network,
             committee_network_generator: launcher.committee_network,
             storage_generator: launcher.storage,
@@ -166,9 +159,8 @@ where
         let mut results = vec![];
         for _i in 0..count {
             let node_id = self.next_node_id;
-            let network = Arc::new((self.network_generator)(node_id));
-            let quorum_network = (self.quorum_network_generator)(network.clone());
-            let committee_network = (self.committee_network_generator)(network);
+            let quorum_network = (self.quorum_network_generator)(node_id);
+            let committee_network = (self.committee_network_generator)(node_id);
             let storage = (self.storage_generator)(node_id);
             let config = self.default_node_config.clone();
             let initializer =

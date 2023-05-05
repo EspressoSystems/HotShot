@@ -82,7 +82,6 @@ async fn submit_validating_proposal<
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        ValidatingLeaf<TYPES>,
         Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
@@ -123,7 +122,6 @@ async fn submit_validating_vote<
     I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        ValidatingLeaf<TYPES>,
         Message<TYPES, I>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
@@ -228,7 +226,6 @@ where
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        ValidatingLeaf<TYPES>,
         Message<TYPES, I>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
     >,
@@ -263,7 +260,6 @@ where
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        ValidatingLeaf<TYPES>,
         Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
@@ -319,7 +315,6 @@ where
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        ValidatingLeaf<TYPES>,
         Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,
@@ -352,7 +347,6 @@ where
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
     ValidatingQuorumEx<TYPES, I>: ConsensusExchange<
         TYPES,
-        ValidatingLeaf<TYPES>,
         Message<TYPES, I>,
         Proposal = ValidatingProposal<TYPES, ValidatingLeaf<TYPES>>,
         Certificate = QuorumCertificate<TYPES, ValidatingLeaf<TYPES>>,

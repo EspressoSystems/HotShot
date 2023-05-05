@@ -27,7 +27,7 @@ use std::{marker::PhantomData, sync::Arc};
 use tracing::error;
 /// A communication channel with 2 networks, where we can fall back to the slower network if the
 /// primary fails
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WebServerWithFallbackCommChannel<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -78,6 +78,7 @@ impl<
 /// Wrapper for the tuple of `WebServerNetwork` and `Libp2pNetwork`
 /// We need this so we can impl `TestableNetworkingImplementation`
 /// on the tuple
+#[derive(Debug)]
 pub struct CombinedNetworks<
     TYPES: NodeType,
     I: NodeImplementation<TYPES>,
@@ -104,7 +105,7 @@ impl<
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
     > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
-    for CombinedNetworks<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    for WebServerWithFallbackCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -129,11 +130,14 @@ where
             <Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey> as TestableNetworkingImplementation<_, _>>::generator(expected_node_count, num_bootstrap, network_id)
         );
         Box::new(move |node_id| {
-            CombinedNetworks(
+            let networks = CombinedNetworks(
                 generators.0(node_id),
                 generators.1(node_id),
                 PhantomData::default(),
-            )
+            );
+            Self {
+                networks: networks.into(),
+            }
         })
     }
 

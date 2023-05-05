@@ -218,20 +218,6 @@ where
             GeneralConsensusMessage::ViewSync(_) => todo!(),
         }
     }
-
-    // TODO (Keyao) remove?
-    // /// # Panics
-    // /// Unimplemented features - TODO ED remove this panic when implementation is finished
-    // fn from(value: ProcessedConsensusMessage<TYPES, I>) -> Self {
-    //     match value {
-    //         ProcessedConsensusMessage::Proposal(p, _) => ConsensusMessage::Proposal(p),
-    //         ProcessedConsensusMessage::DAProposal(p, _) => ConsensusMessage::DAProposal(p),
-    //         ProcessedConsensusMessage::Vote(v, _) => ConsensusMessage::Vote(v),
-    //         ProcessedConsensusMessage::DAVote(v, _) => ConsensusMessage::DAVote(v),
-    //         ProcessedConsensusMessage::InternalTrigger(a) => ConsensusMessage::InternalTrigger(a),
-    //         ProcessedConsensusMessage::ViewSync(_) => todo!(),
-    //     }
-    // }
 }
 
 /// A processed consensus message for the DA committee in sequencing consensus.
@@ -263,20 +249,6 @@ impl<
             }
         }
     }
-
-    // TODO (Keyao) remove?
-    // /// # Panics
-    // /// Unimplemented features - TODO ED remove this panic when implementation is finished
-    // pub fn new(value: ConsensusMessage<TYPES, I>, sender: TYPES::SignatureKey) -> Self {
-    //     match value {
-    //         ConsensusMessage::Proposal(p) => ProcessedConsensusMessage::Proposal(p, sender),
-    //         ConsensusMessage::DAProposal(p) => ProcessedConsensusMessage::DAProposal(p, sender),
-    //         ConsensusMessage::Vote(v) => ProcessedConsensusMessage::Vote(v, sender),
-    //         ConsensusMessage::DAVote(v) => ProcessedConsensusMessage::DAVote(v, sender),
-    //         ConsensusMessage::InternalTrigger(a) => ProcessedConsensusMessage::InternalTrigger(a),
-    //         ConsensusMessage::ViewSync(_) => todo!(),
-    //     }
-    // }
 }
 
 impl<

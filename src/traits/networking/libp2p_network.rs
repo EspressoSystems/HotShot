@@ -697,6 +697,117 @@ impl<
     }
 }
 
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for Libp2pCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
+{
+    /// Returns a boxed function `f(node_id, public_key) -> Libp2pNetwork`
+    /// with the purpose of generating libp2p networks.
+    /// Generates `num_bootstrap` bootstrap nodes. The remainder of nodes are normal
+    /// nodes with sane defaults.
+    /// # Panics
+    /// Returned function may panic either:
+    /// - An invalid configuration
+    ///   (probably an issue with the defaults of this function)
+    /// - An inability to spin up the replica's network
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let bootstrap_addrs: PeerInfoVec = Arc::default();
+        let mut all_keys = BTreeSet::new();
+
+        for i in 0u64..(expected_node_count as u64) {
+            let privkey = TYPES::SignatureKey::generate_test_key(i);
+            let pubkey = TYPES::SignatureKey::from_private(&privkey);
+            all_keys.insert(pubkey);
+        }
+
+        // NOTE uncomment this for easier debugging
+        // let start_port = 5000;
+        Box::new({
+            move |node_id| {
+                info!(
+                    "GENERATOR: Node id {:?}, is bootstrap: {:?}",
+                    node_id,
+                    node_id < num_bootstrap as u64
+                );
+                let addr =
+                    // Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/0")).unwrap();
+                    Multiaddr::from_str(&format!("/ip4/127.0.0.1/tcp/{}{}", 5000 + node_id, network_id)).unwrap();
+                let privkey = TYPES::SignatureKey::generate_test_key(node_id);
+                let pubkey = TYPES::SignatureKey::from_private(&privkey);
+                // we want the majority of peers to have this lying around.
+                let replication_factor = NonZeroUsize::new(2 * expected_node_count / 3).unwrap();
+                let config = if node_id < num_bootstrap as u64 {
+                    NetworkNodeConfigBuilder::default()
+                        // NOTICE the implicit assumption that bootstrap is less
+                        // than half the network. This seems reasonable.
+                        .mesh_params(Some(MeshParams {
+                            mesh_n_high: expected_node_count,
+                            mesh_n_low: 5,
+                            mesh_outbound_min: 3,
+                            // the worst case of 7/2+3 > 5
+                            mesh_n: (expected_node_count / 2 + 3),
+                        }))
+                        .replication_factor(replication_factor)
+                        .node_type(NetworkNodeType::Bootstrap)
+                        .bound_addr(Some(addr))
+                        .to_connect_addrs(HashSet::default())
+                        .build()
+                        .unwrap()
+                } else {
+                    NetworkNodeConfigBuilder::default()
+                        // NOTE I'm hardcoding these because this is probably the MAX
+                        // parameters. If there aren't this many nodes, gossip keeps looking
+                        // for more. That is fine.
+                        .mesh_params(Some(MeshParams {
+                            mesh_n_high: 15,
+                            mesh_n_low: 5,
+                            mesh_outbound_min: 4,
+                            mesh_n: 8,
+                        }))
+                        .replication_factor(replication_factor)
+                        .node_type(NetworkNodeType::Regular)
+                        .bound_addr(Some(addr))
+                        .to_connect_addrs(HashSet::default())
+                        .build()
+                        .unwrap()
+                };
+                let bootstrap_addrs_ref = bootstrap_addrs.clone();
+                let all_keys = all_keys.clone();
+                async_block_on(async move {
+                    let network = Libp2pNetwork::new(
+                        NoMetrics::boxed(),
+                        config,
+                        pubkey,
+                        bootstrap_addrs_ref,
+                        num_bootstrap,
+                        node_id as usize,
+                        all_keys,
+                    )
+                    .await
+                    .unwrap();
+                    Self(network.into(), PhantomData)
+                })
+            }
+        })
+    }
+
+    fn in_flight_message_count(&self) -> Option<usize> {
+        None
+    }
+}
+
 // FIXME maybe we should macro this...? It's repeated at verbatum EXCEPT for impl generics at the
 // top
 // we don't really want to make this the default implementation because that forces it to require ConnectedNetwork to be implemented. The struct we implement over might use multiple ConnectedNetworks

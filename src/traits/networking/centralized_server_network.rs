@@ -977,9 +977,14 @@ where
     }
 }
 
-impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
-    TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
-    for CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
     MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
@@ -1015,7 +1020,7 @@ where
                 known_nodes[id as usize].clone(),
             );
             network.server_shutdown_signal = Some(sender);
-            network
+            Self(network.into(), PhantomData)
         })
     }
 
