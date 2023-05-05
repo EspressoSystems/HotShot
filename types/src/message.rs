@@ -44,37 +44,11 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> NetworkMsg for Message<TYPES
 
 impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ViewMessage<TYPES> for Message<TYPES, I> {
     /// get the view number out of a message
-    /// # Panics
-    /// Unimplemented features - TODO ED remove this panic when implementation is finished
     fn get_view_number(&self) -> TYPES::Time {
-        match &self.kind {
-            MessageKind::Consensus(c) => match c {
-                ConsensusMessage::Proposal(p) => p.data.get_view_number(),
-                ConsensusMessage::DAProposal(p) => p.data.get_view_number(),
-                ConsensusMessage::Vote(v) => v.current_view(),
-                ConsensusMessage::DAVote(v) => v.current_view(),
-                ConsensusMessage::InternalTrigger(trigger) => match trigger {
-                    InternalTrigger::Timeout(v) => *v,
-                },
-                ConsensusMessage::ViewSync(_) => todo!(),
-            },
-            MessageKind::Data(DataMessage::SubmitTransaction(_, v)) => *v,
-        }
+        self.kind.get_view_number()
     }
     fn purpose(&self) -> MessagePurpose {
-        match &self.kind {
-            MessageKind::Consensus(message_kind) => match message_kind {
-                ConsensusMessage::Proposal(_) | ConsensusMessage::DAProposal(_) => {
-                    MessagePurpose::Proposal
-                }
-                ConsensusMessage::Vote(_) | ConsensusMessage::DAVote(_) => MessagePurpose::Vote,
-                ConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
-                ConsensusMessage::ViewSync(_) => todo!(),
-            },
-            MessageKind::Data(message_kind) => match message_kind {
-                DataMessage::SubmitTransaction(_, _) => MessagePurpose::Data,
-            },
-        }
+        self.kind.purpose()
     }
 }
 
@@ -134,48 +108,25 @@ impl<
 }
 
 impl<
-        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
-    > ViewMessage<TYPES> for MessageKind<ValidatingConsensus, TYPES, I>
+        CONSENSUS: ConsensusType,
+        TYPES: NodeType<ConsensusType = CONSENSUS>,
+        I: NodeImplementation<TYPES>,
+    > ViewMessage<TYPES> for MessageKind<CONSENSUS, TYPES, I>
 {
-    /// get the view number out of a message
     fn get_view_number(&self) -> TYPES::Time {
         match &self {
-            MessageKind::Consensus(message) => match &message.0 {
-                GeneralConsensusMessage::Proposal(p) => p.data.get_view_number(),
-                GeneralConsensusMessage::Vote(v) => v.current_view(),
-                GeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
-                    InternalTrigger::Timeout(v) => *v,
-                },
-            },
+            MessageKind::Consensus(message) => message.view_number(),
             MessageKind::Data(DataMessage::SubmitTransaction(_, v)) => *v,
             MessageKind::_Unreachable(_) => unimplemented!(),
         }
     }
-}
 
-impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > ViewMessage<TYPES> for MessageKind<SequencingConsensus, TYPES, I>
-{
-    /// get the view number out of a message
-    fn get_view_number(&self) -> TYPES::Time {
+    fn purpose(&self) -> MessagePurpose {
         match &self {
-            MessageKind::Consensus(message) => match &message.0 {
-                Left(general_message) => match general_message {
-                    GeneralConsensusMessage::Proposal(p) => p.data.get_view_number(),
-                    GeneralConsensusMessage::Vote(v) => v.current_view(),
-                    GeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
-                        InternalTrigger::Timeout(v) => *v,
-                    },
-                },
-                Right(committee_message) => match committee_message {
-                    CommitteeConsensusMessage::DAProposal(p) => p.data.get_view_number(),
-                    CommitteeConsensusMessage::DAVote(v) => v.current_view(),
-                },
+            MessageKind::Consensus(message) => message.purpose(),
+            MessageKind::Data(message) => match message {
+                DataMessage::SubmitTransaction(_, _) => MessagePurpose::Data,
             },
-            MessageKind::Data(DataMessage::SubmitTransaction(_, v)) => *v,
             MessageKind::_Unreachable(_) => unimplemented!(),
         }
     }
@@ -223,6 +174,7 @@ where
             ProcessedGeneralConsensusMessage::InternalTrigger(a) => {
                 GeneralConsensusMessage::InternalTrigger(a)
             }
+            ProcessedGeneralConsensusMessage::ViewSync(_) => todo!(),
         }
     }
 }
@@ -244,6 +196,7 @@ impl<
             ProcessedGeneralConsensusMessage::InternalTrigger(a) => {
                 ValidatingMessage(GeneralConsensusMessage::InternalTrigger(a))
             }
+            ProcessedGeneralConsensusMessage::ViewSync(_) => todo!(),
         }
     }
 }
@@ -262,20 +215,23 @@ where
             GeneralConsensusMessage::InternalTrigger(a) => {
                 ProcessedGeneralConsensusMessage::InternalTrigger(a)
             }
+            GeneralConsensusMessage::ViewSync(_) => todo!(),
         }
     }
-    /// # Panics
-    /// Unimplemented features - TODO ED remove this panic when implementation is finished
-    fn from(value: ProcessedConsensusMessage<TYPES, I>) -> Self {
-        match value {
-            ProcessedConsensusMessage::Proposal(p, _) => ConsensusMessage::Proposal(p),
-            ProcessedConsensusMessage::DAProposal(p, _) => ConsensusMessage::DAProposal(p),
-            ProcessedConsensusMessage::Vote(v, _) => ConsensusMessage::Vote(v),
-            ProcessedConsensusMessage::DAVote(v, _) => ConsensusMessage::DAVote(v),
-            ProcessedConsensusMessage::InternalTrigger(a) => ConsensusMessage::InternalTrigger(a),
-            ProcessedConsensusMessage::ViewSync(_) => todo!(),
-        }
-    }
+
+    // TODO (Keyao) remove?
+    // /// # Panics
+    // /// Unimplemented features - TODO ED remove this panic when implementation is finished
+    // fn from(value: ProcessedConsensusMessage<TYPES, I>) -> Self {
+    //     match value {
+    //         ProcessedConsensusMessage::Proposal(p, _) => ConsensusMessage::Proposal(p),
+    //         ProcessedConsensusMessage::DAProposal(p, _) => ConsensusMessage::DAProposal(p),
+    //         ProcessedConsensusMessage::Vote(v, _) => ConsensusMessage::Vote(v),
+    //         ProcessedConsensusMessage::DAVote(v, _) => ConsensusMessage::DAVote(v),
+    //         ProcessedConsensusMessage::InternalTrigger(a) => ConsensusMessage::InternalTrigger(a),
+    //         ProcessedConsensusMessage::ViewSync(_) => todo!(),
+    //     }
+    // }
 }
 
 /// A processed consensus message for the DA committee in sequencing consensus.
@@ -308,18 +264,19 @@ impl<
         }
     }
 
-    /// # Panics
-    /// Unimplemented features - TODO ED remove this panic when implementation is finished
-    pub fn new(value: ConsensusMessage<TYPES, I>, sender: TYPES::SignatureKey) -> Self {
-        match value {
-            ConsensusMessage::Proposal(p) => ProcessedConsensusMessage::Proposal(p, sender),
-            ConsensusMessage::DAProposal(p) => ProcessedConsensusMessage::DAProposal(p, sender),
-            ConsensusMessage::Vote(v) => ProcessedConsensusMessage::Vote(v, sender),
-            ConsensusMessage::DAVote(v) => ProcessedConsensusMessage::DAVote(v, sender),
-            ConsensusMessage::InternalTrigger(a) => ProcessedConsensusMessage::InternalTrigger(a),
-            ConsensusMessage::ViewSync(_) => todo!(),
-        }
-    }
+    // TODO (Keyao) remove?
+    // /// # Panics
+    // /// Unimplemented features - TODO ED remove this panic when implementation is finished
+    // pub fn new(value: ConsensusMessage<TYPES, I>, sender: TYPES::SignatureKey) -> Self {
+    //     match value {
+    //         ConsensusMessage::Proposal(p) => ProcessedConsensusMessage::Proposal(p, sender),
+    //         ConsensusMessage::DAProposal(p) => ProcessedConsensusMessage::DAProposal(p, sender),
+    //         ConsensusMessage::Vote(v) => ProcessedConsensusMessage::Vote(v, sender),
+    //         ConsensusMessage::DAVote(v) => ProcessedConsensusMessage::DAVote(v, sender),
+    //         ConsensusMessage::InternalTrigger(a) => ProcessedConsensusMessage::InternalTrigger(a),
+    //         ConsensusMessage::ViewSync(_) => todo!(),
+    //     }
+    // }
 }
 
 impl<
@@ -423,6 +380,12 @@ pub trait ConsensusMessageType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
 
     /// The type of processed consensus messages.
     type ProcessedConsensusMessage: Send;
+
+    /// Get the view number when the message was sent or the view of the timeout.
+    fn view_number(&self) -> TYPES::Time;
+
+    /// Get the message purpose.
+    fn purpose(&self) -> MessagePurpose;
 }
 
 /// Messages related to the validating consensus protocol.
@@ -458,23 +421,8 @@ impl<
 {
     type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I>;
     type ProcessedConsensusMessage = ProcessedGeneralConsensusMessage<TYPES, I>;
-}
 
-impl<
-        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
-    > ValidatingMessageType<TYPES, I> for ValidatingMessage<TYPES, I>
-{
-}
-
-impl<
-        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
-    > ValidatingMessage<TYPES, I>
-{
-    /// The view number of the (leader|replica) when the message was sent or the view of the
-    /// timeout.
-    pub fn view_number(&self) -> TYPES::Time {
+    fn view_number(&self) -> TYPES::Time {
         match &self.0 {
             GeneralConsensusMessage::Proposal(p) => {
                 // view of leader in the leaf when proposal
@@ -485,7 +433,16 @@ impl<
             GeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
                 InternalTrigger::Timeout(time) => *time,
             },
-            ConsensusMessage::ViewSync(_) => todo!(),
+            GeneralConsensusMessage::ViewSync(_) => todo!(),
+        }
+    }
+
+    fn purpose(&self) -> MessagePurpose {
+        match &self.0 {
+            GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
+            GeneralConsensusMessage::Vote(_) => MessagePurpose::Vote,
+            GeneralConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
+            GeneralConsensusMessage::ViewSync(_) => todo!(),
         }
     }
 }
@@ -505,24 +462,8 @@ impl<
 {
     type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I>;
     type ProcessedConsensusMessage = ProcessedSequencingMessage<TYPES, I>;
-}
 
-impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > SequencingMessageType<TYPES, I> for SequencingMessage<TYPES, I>
-{
-    type CommitteeConsensusMessage = CommitteeConsensusMessage<TYPES, I>;
-}
-
-impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
-    > SequencingMessage<TYPES, I>
-{
-    /// The view number of the (leader|replica|committee member) when the message was sent or the
-    /// view of the timeout.
-    pub fn view_number(&self) -> TYPES::Time {
+    fn view_number(&self) -> TYPES::Time {
         match &self.0 {
             Left(general_message) => {
                 match general_message {
@@ -535,6 +476,7 @@ impl<
                     GeneralConsensusMessage::InternalTrigger(trigger) => match trigger {
                         InternalTrigger::Timeout(time) => *time,
                     },
+                    GeneralConsensusMessage::ViewSync(_) => todo!(),
                 }
             }
             Right(committee_message) => {
@@ -549,6 +491,29 @@ impl<
             }
         }
     }
+
+    fn purpose(&self) -> MessagePurpose {
+        match &self.0 {
+            Left(general_message) => match general_message {
+                GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
+                GeneralConsensusMessage::Vote(_) => MessagePurpose::Vote,
+                GeneralConsensusMessage::InternalTrigger(_) => MessagePurpose::Internal,
+                GeneralConsensusMessage::ViewSync(_) => todo!(),
+            },
+            Right(committee_message) => match committee_message {
+                CommitteeConsensusMessage::DAProposal(_) => MessagePurpose::Proposal,
+                CommitteeConsensusMessage::DAVote(_) => MessagePurpose::Vote,
+            },
+        }
+    }
+}
+
+impl<
+        TYPES: NodeType<ConsensusType = SequencingConsensus>,
+        I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
+    > SequencingMessageType<TYPES, I> for SequencingMessage<TYPES, I>
+{
+    type CommitteeConsensusMessage = CommitteeConsensusMessage<TYPES, I>;
 }
 
 #[derive(Serialize, Deserialize, Derivative, Clone, Debug, PartialEq, Eq)]

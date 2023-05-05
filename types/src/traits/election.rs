@@ -8,8 +8,7 @@ use crate::certificate::{DACertificate, QuorumCertificate, YesNoSignature};
 use crate::data::DAProposal;
 use crate::data::ProposalType;
 use crate::message::{
-    CommitteeConsensusMessage, ConsensusMessage, GeneralConsensusMessage, Message,
-    SequencingMessage,
+    CommitteeConsensusMessage, GeneralConsensusMessage, Message, SequencingMessage,
 };
 use crate::traits::network::CommunicationChannel;
 use crate::traits::network::NetworkMsg;
@@ -440,7 +439,7 @@ pub trait ConsensusExchange<TYPES: NodeType, M: NetworkMsg>: Send + Sync {
 
 /// A [`ConsensusExchange`] where participants vote to provide availability for blobs of data.
 pub trait CommitteeExchangeType<TYPES: NodeType<ConsensusType = SequencingConsensus>, M: NetworkMsg>:
-    ConsensusExchange<TYPES, SequencingLeaf<TYPES>, M>
+    ConsensusExchange<TYPES, M>
 {
     /// Sign a DA proposal.
     fn sign_da_proposal(&self, block_commitment: &Commitment<TYPES::BlockType>)
@@ -959,19 +958,19 @@ pub trait ViewSyncExchangeType<TYPES: NodeType, M: NetworkMsg>:
     ConsensusExchange<TYPES, M>
 {
     /// Creates a precommit vote
-    fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> ConsensusMessage<TYPES, I>;
+    fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage;
 
     /// Signs a precommit vote
     fn sign_precommit_message(&self) -> (EncodedPublicKey, EncodedSignature);
 
     /// Creates a commit vote
-    fn create_commit_message<I: NodeImplementation<TYPES>>(&self) -> ConsensusMessage<TYPES, I>;
+    fn create_commit_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage;
 
     /// Signs a commit vote
     fn sign_commit_message(&self) -> (EncodedPublicKey, EncodedSignature);
 
     /// Creates a finalize vote
-    fn create_finalize_message<I: NodeImplementation<TYPES>>(&self) -> ConsensusMessage<TYPES, I>;
+    fn create_finalize_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage;
 
     /// Sings a finalize vote
     fn sign_finalize_message(&self) -> (EncodedPublicKey, EncodedSignature);
@@ -1007,7 +1006,7 @@ impl<
         M: NetworkMsg,
     > ViewSyncExchangeType<TYPES, M> for ViewSyncExchange<TYPES, PROPOSAL, MEMBERSHIP, NETWORK, M>
 {
-    fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> ConsensusMessage<TYPES, I> {
+    fn create_precommit_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage {
         todo!()
     }
 
@@ -1015,7 +1014,7 @@ impl<
         todo!()
     }
 
-    fn create_commit_message<I: NodeImplementation<TYPES>>(&self) -> ConsensusMessage<TYPES, I> {
+    fn create_commit_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage {
         todo!()
     }
 
@@ -1023,7 +1022,7 @@ impl<
         todo!()
     }
 
-    fn create_finalize_message<I: NodeImplementation<TYPES>>(&self) -> ConsensusMessage<TYPES, I> {
+    fn create_finalize_message<I: NodeImplementation<TYPES>>(&self) -> I::ConsensusMessage {
         todo!()
     }
 

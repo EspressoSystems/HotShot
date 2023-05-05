@@ -9,10 +9,7 @@ use super::{
     election::{
         CommitteeExchangeType, ConsensusExchange, ElectionConfig, QuorumExchangeType, VoteToken,
     },
-    network::{
-        CommunicationChannel, NetworkMsg, TestableChannelImplementation,
-        TestableNetworkingImplementation,
-    },
+    network::{CommunicationChannel, NetworkMsg, TestableNetworkingImplementation},
     signature_key::TestableSignatureKey,
     state::{ConsensusTime, TestableBlock, TestableState},
     storage::{StorageError, StorageState, TestableStorage},
@@ -94,6 +91,7 @@ pub trait ExchangesType<
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        ek: jf_primitives::aead::KeyPair,
     ) -> Self;
 
     /// Get the quorum exchange.
@@ -169,9 +167,10 @@ where
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         Self {
-            quorum_exchange: QUORUMEXCHANGE::create(keys, config, networks.0, pk, sk),
+            quorum_exchange: QUORUMEXCHANGE::create(keys, config, networks.0, pk, sk, ek),
             _phantom: PhantomData,
         }
     }
@@ -241,6 +240,7 @@ where
         networks: Self::Networks,
         pk: TYPES::SignatureKey,
         sk: <TYPES::SignatureKey as SignatureKey>::PrivateKey,
+        ek: jf_primitives::aead::KeyPair,
     ) -> Self {
         let quorum_exchange = QUORUMEXCHANGE::create(
             keys.clone(),
@@ -248,8 +248,9 @@ where
             networks.0,
             pk.clone(),
             sk.clone(),
+            ek.clone(),
         );
-        let committee_exchange = COMMITTEEEXCHANGE::create(keys, config, networks.1, pk, sk);
+        let committee_exchange = COMMITTEEEXCHANGE::create(keys, config, networks.1, pk, sk, ek);
         Self {
             quorum_exchange,
             committee_exchange,
@@ -377,33 +378,9 @@ impl<
         >,
     > TestableNodeImplementation<ValidatingConsensus, TYPES> for I
 where
-    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<
-        TYPES,
-        Message<TYPES, I>,
-    >,
-    <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
-        TYPES,
-        I::Leaf,
-        Message<TYPES, I>,
-    >>::Networking: TestableNetworkingImplementation<
-        TYPES,
-        Message<TYPES, I>,
-        <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
-            TYPES,
-            I::Leaf,
-            Message<TYPES, I>,
-        >>::Proposal,
-        <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
-            TYPES,
-            I::Leaf,
-            Message<TYPES, I>,
-        >>::Vote,
-        <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
-            TYPES,
-            I::Leaf,
-            Message<TYPES, I>,
-        >>::Membership,
-    >,
+    <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
+    <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking:
+        TestableNetworkingImplementation<TYPES, Message<TYPES, I>>,
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
@@ -418,7 +395,7 @@ where
         _network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self::CommitteeNetwork + 'static> {
         // This function is only useful for sequencing consensus.
-        Box::new(|_|())
+        Box::new(|_| ())
     }
 
     fn quorum_generator(
@@ -430,16 +407,14 @@ where
                 u64,
             ) -> <ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
                 TYPES,
-                I::Leaf,
                 Message<TYPES, I>,
             >>::Networking
             + 'static,
-    > {
+    >{
         <<ValidatingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
-        >>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(
+        >>::Networking as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
             network_id,
@@ -495,45 +470,9 @@ impl<
 where
     <I as NodeImplementation<TYPES>>::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking:
-        TestableNetworkingImplementation<
-            TYPES,
-            Message<TYPES, I>,
-            <CommitteeEx<TYPES, I> as ConsensusExchange<
-                TYPES,
-                SequencingLeaf<TYPES>,
-                Message<TYPES, I>,
-            >>::Proposal,
-            <CommitteeEx<TYPES, I> as ConsensusExchange<
-                TYPES,
-                SequencingLeaf<TYPES>,
-                Message<TYPES, I>,
-            >>::Vote,
-            <CommitteeEx<TYPES, I> as ConsensusExchange<
-                TYPES,
-                SequencingLeaf<TYPES>,
-                Message<TYPES, I>,
-            >>::Membership,
-        >,
+        TestableNetworkingImplementation<TYPES, Message<TYPES, I>>,
     <SequencingQuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking:
-        TestableNetworkingImplementation<
-            TYPES,
-            Message<TYPES, I>,
-            <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
-                TYPES,
-                SequencingLeaf<TYPES>,
-                Message<TYPES, I>,
-            >>::Proposal,
-            <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
-                TYPES,
-                SequencingLeaf<TYPES>,
-                Message<TYPES, I>,
-            >>::Vote,
-            <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
-                TYPES,
-                SequencingLeaf<TYPES>,
-                Message<TYPES, I>,
-            >>::Membership,
-        >,
+        TestableNetworkingImplementation<TYPES, Message<TYPES, I>>,
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
     I::Storage: TestableStorage<TYPES, I::Leaf>,
@@ -541,7 +480,7 @@ where
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
     type CommitteeNetwork =
-        <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Networking;
+        <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking;
 
     fn committee_generator(
         expected_node_count: usize,
@@ -550,9 +489,8 @@ where
     ) -> Box<dyn Fn(u64) -> Self::CommitteeNetwork + 'static> {
         <<CommitteeEx<TYPES, I> as ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
-        >>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(
+        >>::Networking as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
             network_id,
@@ -568,16 +506,14 @@ where
                 u64,
             ) -> <SequencingQuorumEx<TYPES, I> as ConsensusExchange<
                 TYPES,
-                I::Leaf,
                 Message<TYPES, I>,
             >>::Networking
             + 'static,
-    > {
+    >{
         <<SequencingQuorumEx<TYPES, I> as ConsensusExchange<
             TYPES,
-            I::Leaf,
             Message<TYPES, I>,
-        >>::Networking as TestableNetworkingImplementation<_, _, _, _, _>>::generator(
+        >>::Networking as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
             network_id,
@@ -622,39 +558,24 @@ where
 }
 
 /// A proposal to append a new leaf to the log which is output by consensus.
-pub type QuorumProposalType<TYPES, I> = <QuorumEx<TYPES, I> as ConsensusExchange<
-    TYPES,
-    <I as NodeImplementation<TYPES>>::Leaf,
-    Message<TYPES, I>,
->>::Proposal;
+pub type QuorumProposalType<TYPES, I> =
+    <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal;
 
 /// A proposal to provide data availability for a new leaf.
-pub type DAProposalType<TYPES, I> = <CommitteeEx<TYPES, I> as ConsensusExchange<
-    TYPES,
-    <I as NodeImplementation<TYPES>>::Leaf,
-    Message<TYPES, I>,
->>::Proposal;
+pub type DAProposalType<TYPES, I> =
+    <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal;
 
 /// A vote on a [`QuorumProposalType`].
-pub type QuorumVoteType<TYPES, I> = <QuorumEx<TYPES, I> as ConsensusExchange<
-    TYPES,
-    <I as NodeImplementation<TYPES>>::Leaf,
-    Message<TYPES, I>,
->>::Vote;
+pub type QuorumVoteType<TYPES, I> =
+    <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote;
 
 /// A vote on a [`ComitteeProposal`].
-pub type CommitteeVote<TYPES, I> = <CommitteeEx<TYPES, I> as ConsensusExchange<
-    TYPES,
-    <I as NodeImplementation<TYPES>>::Leaf,
-    Message<TYPES, I>,
->>::Vote;
+pub type CommitteeVote<TYPES, I> =
+    <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote;
 
 /// Networking implementation used to communicate [`QuorumProposalType`] and [`QuorumVote`].
-pub type QuorumNetwork<TYPES, I> = <QuorumEx<TYPES, I> as ConsensusExchange<
-    TYPES,
-    <I as NodeImplementation<TYPES>>::Leaf,
-    Message<TYPES, I>,
->>::Networking;
+pub type QuorumNetwork<TYPES, I> =
+    <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking;
 
 /// Trait with all the type definitions that are used in the current hotshot setup.
 pub trait NodeType:
