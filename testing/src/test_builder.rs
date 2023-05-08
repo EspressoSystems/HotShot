@@ -72,6 +72,7 @@ impl TestMetadata {
             }
             .build(),
             safety_check: RoundSafetyCheckBuilder {
+                num_failed_rounds_total: metadata.failure_threshold,
                 ..RoundSafetyCheckBuilder::default()
             }
             .build(),

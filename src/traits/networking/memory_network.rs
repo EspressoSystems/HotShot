@@ -237,7 +237,7 @@ impl<M: NetworkMsg, K: SignatureKey> MemoryNetwork<M, K> {
                         }
                     }
                 }
-                error!("Stream shutdown");
+                warn!("Stream shutdown");
             }
             .instrument(info_span!("MemoryNetwork Background task", map = ?master_map)),
         );
@@ -356,7 +356,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
                 }
                 Err(e) => {
                     self.inner.metrics.message_failed_to_send.add(1);
-                    error!(?e, ?key, "Error sending broadcast message to node");
+                    warn!(?e, ?key, "Error sending broadcast message to node");
                 }
             }
         }
@@ -382,7 +382,7 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
                 }
                 Err(e) => {
                     self.inner.metrics.message_failed_to_send.add(1);
-                    error!(?e, ?recipient, "Error delivering direct message");
+                    warn!(?e, ?recipient, "Error delivering direct message");
                     Err(NetworkError::CouldNotDeliver)
                 }
             }
