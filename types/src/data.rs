@@ -23,7 +23,10 @@ use espresso_systems_common::hotshot::tag;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
-use std::{fmt::Debug, hash::Hash};
+use std::{
+    fmt::{Debug, Display},
+    hash::Hash,
+};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -327,6 +330,7 @@ where
 /// An item which is appended to a blockchain.
 pub trait LeafType:
     Debug
+    + Display
     + Clone
     + 'static
     + Committable
@@ -503,6 +507,16 @@ pub struct SequencingLeaf<TYPES: NodeType> {
     pub proposer_id: EncodedPublicKey,
 }
 
+impl<TYPES: NodeType> Display for ValidatingLeaf<TYPES> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "view: {:?}, height: {:?}, justify: {}",
+            self.view_number, self.height, self.justify_qc
+        )
+    }
+}
+
 impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
     type NodeType = TYPES;
     type DeltasType = TYPES::BlockType;
@@ -606,6 +620,16 @@ where
             Some(&self.state),
             rng,
             padding,
+        )
+    }
+}
+
+impl<TYPES: NodeType> Display for SequencingLeaf<TYPES> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "view: {:?}, height: {:?}, justify: {}",
+            self.view_number, self.height, self.justify_qc
         )
     }
 }

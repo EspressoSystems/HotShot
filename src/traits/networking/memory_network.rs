@@ -388,7 +388,10 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> ConnectedNetwork<M, K> for Memory
             }
         } else {
             self.inner.metrics.message_failed_to_send.add(1);
-            error!(?recipient, ?self.inner.master_map.map, "Node does not exist in map");
+            warn!(
+                "{:#?} {:#?} {:#?}",
+                recipient, self.inner.master_map.map, "Node does not exist in map"
+            );
             Err(NetworkError::NoSuchNode)
         }
     }

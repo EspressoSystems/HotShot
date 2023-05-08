@@ -13,6 +13,7 @@ use crate::{
 use commit::{Commitment, Committable};
 use espresso_systems_common::hotshot::tag;
 use serde::{Deserialize, Serialize};
+use std::fmt::{self, Display, Formatter};
 use std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 
 /// A `DACertificate` is a threshold signature that some data is available.
@@ -56,6 +57,16 @@ pub struct QuorumCertificate<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> 
     pub signatures: YesNoSignature<LEAF, TYPES::VoteTokenType>,
     /// If this QC is for the genesis block
     pub is_genesis: bool,
+}
+
+impl<TYPES: NodeType, LEAF: LeafType<NodeType = TYPES>> Display for QuorumCertificate<TYPES, LEAF> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "view: {:?}, is_genesis: {:?}",
+            self.view_number, self.is_genesis
+        )
+    }
 }
 
 /// A view sync certificate representing a quorum of votes for a particular view sync phase

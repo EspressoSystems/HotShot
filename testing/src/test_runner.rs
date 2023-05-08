@@ -5,9 +5,10 @@ use async_compatibility_layer::logging::{setup_backtrace, setup_logging};
 use hotshot::{
     traits::{NodeImplementation, TestableNodeImplementation},
     types::{HotShotHandle, Message},
-    HotShot, HotShotInitializer, ViewRunner,
+    HotShot, HotShotError, HotShotInitializer, ViewRunner,
 };
 use hotshot_types::{
+    certificate::QuorumCertificate,
     traits::{
         election::ConsensusExchange,
         election::Membership,
@@ -18,7 +19,7 @@ use hotshot_types::{
     },
     HotShotConfig,
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 use crate::{
     round::{Round, RoundCtx, RoundResult},
@@ -40,6 +41,35 @@ pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
 struct Node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> {
     pub node_id: u64,
     pub handle: HotShotHandle<TYPES, I>,
+}
+
+/// HACK we want a concise and a wordy way to print things
+/// unfortunately, debug is only available for option
+/// and display is not
+#[allow(clippy::type_complexity)]
+pub fn concise_leaf_and_node<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    result: &Result<
+        (
+            Vec<<I as NodeImplementation<TYPES>>::Leaf>,
+            QuorumCertificate<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
+        ),
+        HotShotError<TYPES>,
+    >,
+) -> String {
+    match result {
+        Ok(ok) => {
+            let mut rstring = "vec![".to_string();
+            for leaf in &ok.0 {
+                rstring.push_str(&format!("{}", leaf));
+            }
+            rstring.push(']');
+
+            format!("Ok(({}, {}))", rstring, ok.1)
+        }
+        Err(err) => {
+            format!("Err({})", err)
+        }
+    }
 }
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I> {
@@ -262,12 +292,12 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestRunner<TYPES, I>
         info!("EXECUTOR: done running one round");
         let mut failures = HashMap::new();
         for node in &mut self.nodes {
-            info!("COLLECTING NODE {:?}", node.node_id.clone());
+            info!("EXECUTOR: COLLECTING NODE {:?}", node.node_id.clone());
             let result = node.handle.collect_round_events().await;
-            error!(
-                "EXECUTOR: collected node {:?} results: {:?}",
+            info!(
+                "EXECUTOR: collected node {:?} results: {}",
                 node.node_id.clone(),
-                result
+                concise_leaf_and_node::<TYPES, I>(&result)
             );
             match result {
                 Ok(leaves) => {

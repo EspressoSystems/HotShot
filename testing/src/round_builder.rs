@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::{data::LeafType, traits::node_implementation::NodeType};
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::{
     round::{RoundCtx, RoundResult, RoundSafetyCheck, RoundSetup, StateAndBlock},
@@ -223,7 +223,6 @@ impl RoundSafetyCheckBuilder {
 
                     if failed_to_make_progress {
                         ctx.prior_round_results.push(round_result);
-                        ctx.print_summary();
                         return Ok(());
                     }
 
@@ -256,7 +255,6 @@ impl RoundSafetyCheckBuilder {
                             ctx.total_failed_views += 1;
                             round_result.success = Err(ConsensusRoundError::InconsistentLeaves);
                             ctx.prior_round_results.push(round_result);
-                            ctx.print_summary();
                             return Ok(());
                         }
                     }
@@ -303,12 +301,12 @@ impl RoundSafetyCheckBuilder {
                         }
                     }
 
-                    error!(
+                    warn!(
                         "states for this view {:#?}\nblocks for this view {:#?}",
                         states, blocks
                     );
 
-                    error!(
+                    warn!(
                         "Number of nodes who made zero progress: {:#?}",
                         num_no_progress
                     );
@@ -319,7 +317,6 @@ impl RoundSafetyCheckBuilder {
                         ctx.total_failed_views += 1;
                         round_result.success = Err(ConsensusRoundError::NoMajorityProgress);
                         ctx.prior_round_results.push(round_result);
-                        ctx.print_summary();
                         return Ok(());
                     }
 
@@ -337,7 +334,6 @@ impl RoundSafetyCheckBuilder {
                             ctx.total_failed_views += 1;
                             round_result.success = Err(ConsensusRoundError::InconsistentStates);
                             ctx.prior_round_results.push(round_result);
-                            ctx.print_summary();
                             return Ok(());
                         }
                     }
@@ -356,7 +352,6 @@ impl RoundSafetyCheckBuilder {
                             ctx.total_failed_views += 1;
                             round_result.success = Err(ConsensusRoundError::InconsistentBlocks);
                             ctx.prior_round_results.push(round_result);
-                            ctx.print_summary();
                             return Ok(());
                         }
                     }
@@ -368,7 +363,6 @@ impl RoundSafetyCheckBuilder {
                         ctx.print_summary();
                         return Err(ConsensusTestError::CompletedTestSuccessfully);
                     }
-                    ctx.print_summary();
                     ctx.prior_round_results.push(round_result);
                     Ok(())
                 }

@@ -88,7 +88,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> RoundCtx<TYPES, I> {
             .prior_round_results
             .iter()
             .enumerate()
-            .map(|(idx, r)| (idx, &r.success))
+            .map(|(idx, r)| (format!("View: {}", idx), &r.success))
             .collect::<Vec<_>>();
         error!("SUMMARY OF TEST: {:#?}", errors);
     }

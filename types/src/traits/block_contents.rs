@@ -6,7 +6,12 @@
 use commit::{Commitment, Committable};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
+use std::{
+    collections::HashSet,
+    error::Error,
+    fmt::{Debug, Display},
+    hash::Hash,
+};
 
 /// Abstraction over the full contents of a block
 ///
@@ -18,7 +23,17 @@ use std::{collections::HashSet, error::Error, fmt::Debug, hash::Hash};
 ///     ([`add_transaction_raw`](Block::add_transaction_raw))
 ///   * Must be hashable
 pub trait Block:
-    Serialize + Clone + Debug + Hash + PartialEq + Eq + Send + Sync + Committable + DeserializeOwned
+    Serialize
+    + Clone
+    + Debug
+    + Display
+    + Hash
+    + PartialEq
+    + Eq
+    + Send
+    + Sync
+    + Committable
+    + DeserializeOwned
 {
     /// The error type for this type of block
     type Error: Error + Debug + Send + Sync;
@@ -56,6 +71,8 @@ pub trait Transaction:
 
 /// Dummy implementation of `BlockContents` for unit tests
 pub mod dummy {
+    use std::fmt::Display;
+
     use super::{Block, Commitment, Committable, Debug, Hash, HashSet, Serialize};
     use rand::Rng;
     use serde::Deserialize;
@@ -106,6 +123,12 @@ pub mod dummy {
     impl std::fmt::Display for DummyError {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str("A bad thing happened")
+        }
+    }
+
+    impl Display for DummyBlock {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{self:#?}")
         }
     }
 

@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
 use std::{
     collections::{BTreeMap, HashSet},
-    fmt::Debug,
+    fmt::{Debug, Display},
     marker::PhantomData,
 };
 use tracing::error;
@@ -380,6 +380,19 @@ impl State for VDemoState {
 
     fn on_commit(&self) {
         // Does nothing in this implementation
+    }
+}
+
+impl Display for VDemoBlock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VDemoBlock::Genesis(block) => {
+                write!(f, "VDemo Genesis Block: {block:#?}")
+            }
+            VDemoBlock::Normal(block) => {
+                write!(f, "VDemo Normal Block #txns={}", block.transactions.len())
+            }
+        }
     }
 }
 
