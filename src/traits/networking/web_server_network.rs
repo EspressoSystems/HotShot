@@ -107,7 +107,11 @@ impl<
     }
 }
 
+/// A massage parse-post trait implemented by [`WebCommChannel`].
 trait ParsePost<TYPES: NodeType, I: NodeImplementation<TYPES>> {
+    /// Parse a message to find the appropriate endpoint.
+    ///
+    /// Returns a `SendMsg` containing the endpoint.
     fn parse_post_message(
         message: Message<TYPES, I>,
     ) -> Result<SendMsg<Message<TYPES, I>>, WebServerNetworkError>;
@@ -128,8 +132,6 @@ impl<
 where
     MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
-    /// Parses a message to find the appropriate endpoint
-    /// Returns a `SendMsg` containing the endpoint
     fn parse_post_message(
         message: Message<TYPES, I>,
     ) -> Result<SendMsg<Message<TYPES, I>>, WebServerNetworkError> {
@@ -173,8 +175,6 @@ impl<
 where
     I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
 {
-    /// Parses a message to find the appropriate endpoint
-    /// Returns a `SendMsg` containing the endpoint
     fn parse_post_message(
         message: Message<TYPES, I>,
     ) -> Result<SendMsg<Message<TYPES, I>>, WebServerNetworkError> {

@@ -1,20 +1,3 @@
-use futures::Future;
-use futures::FutureExt;
-use std::net::Ipv4Addr;
-use std::{
-    cmp,
-    collections::{BTreeSet, VecDeque},
-    fs, mem,
-    net::IpAddr,
-    num::NonZeroUsize,
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, Instant},
-};
-use surf_disco::Client;
-
-use surf_disco::error::ClientError;
-
 use async_compatibility_layer::{
     art::async_sleep,
     logging::{setup_backtrace, setup_logging},
@@ -22,6 +5,8 @@ use async_compatibility_layer::{
 use async_lock::RwLock;
 use async_trait::async_trait;
 use clap::Parser;
+use futures::Future;
+use futures::FutureExt;
 use hotshot::{
     traits::{
         implementations::{
@@ -62,7 +47,21 @@ use libp2p::{
 };
 use libp2p_identity::PeerId;
 use libp2p_networking::network::{MeshParams, NetworkNodeConfigBuilder, NetworkNodeType};
+use rand::SeedableRng;
 use std::fmt::Debug;
+use std::net::Ipv4Addr;
+use std::{
+    cmp,
+    collections::{BTreeSet, VecDeque},
+    fs, mem,
+    net::IpAddr,
+    num::NonZeroUsize,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
+use surf_disco::error::ClientError;
+use surf_disco::Client;
 #[allow(deprecated)]
 use tracing::error;
 
@@ -639,6 +638,16 @@ where
 
 // WEB SERVER
 
+/// Alias for the [`WebCommChannel`] for validating consensus.
+type ValidatingWebCommChannel<TYPES, I, MEMBERSHIP> = WebCommChannel<
+    <TYPES as NodeType>::ConsensusType,
+    TYPES,
+    I,
+    Proposal<TYPES>,
+    QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
+    MEMBERSHIP,
+>;
+
 /// Represents a web server-based run
 pub struct WebServerRun<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
@@ -646,14 +655,7 @@ pub struct WebServerRun<
     MEMBERSHIP: Membership<TYPES>,
 > {
     config: NetworkConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
-    network: WebCommChannel<
-        TYPES::ConsensusType,
-        TYPES,
-        I,
-        Proposal<TYPES>,
-        QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
-        MEMBERSHIP,
-    >,
+    network: ValidatingWebCommChannel<TYPES, I, MEMBERSHIP>,
 }
 
 #[async_trait]

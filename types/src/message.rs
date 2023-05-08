@@ -164,7 +164,6 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> From<ProcessedGeneralConsens
 where
     I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I>>,
 {
-    /// row polymorphism would be great here
     fn from(value: ProcessedGeneralConsensusMessage<TYPES, I>) -> Self {
         match value {
             ProcessedGeneralConsensusMessage::Proposal(p, _) => {
@@ -184,7 +183,6 @@ impl<
         I: NodeImplementation<TYPES, ConsensusMessage = ValidatingMessage<TYPES, I>>,
     > From<ProcessedGeneralConsensusMessage<TYPES, I>> for ValidatingMessage<TYPES, I>
 {
-    /// row polymorphism would be great here
     fn from(value: ProcessedGeneralConsensusMessage<TYPES, I>) -> Self {
         match value {
             ProcessedGeneralConsensusMessage::Proposal(p, _) => {
@@ -205,7 +203,9 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES>> ProcessedGeneralConsensusMes
 where
     I::Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, I::Leaf, Message<TYPES, I>>,
 {
-    /// row polymorphism would be great here
+    /// Create a [`ProcessedGeneralConsensusMessage`] from a [`GeneralConsensusMessage`].
+    /// # Panics
+    /// if reaching the unimplemented `ViewSync` case.
     pub fn new(value: GeneralConsensusMessage<TYPES, I>, sender: TYPES::SignatureKey) -> Self {
         match value {
             GeneralConsensusMessage::Proposal(p) => {
@@ -238,7 +238,6 @@ impl<
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > From<ProcessedCommitteeConsensusMessage<TYPES, I>> for CommitteeConsensusMessage<TYPES, I>
 {
-    /// row polymorphism would be great here
     fn from(value: ProcessedCommitteeConsensusMessage<TYPES, I>) -> Self {
         match value {
             ProcessedCommitteeConsensusMessage::DAProposal(p, _) => {
@@ -256,7 +255,7 @@ impl<
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > ProcessedCommitteeConsensusMessage<TYPES, I>
 {
-    /// row polymorphism would be great here
+    /// Create a [`ProcessedCommitteeConsensusMessage`] from a [`CommitteeConsensusMessage`].
     pub fn new(value: CommitteeConsensusMessage<TYPES, I>, sender: TYPES::SignatureKey) -> Self {
         match value {
             CommitteeConsensusMessage::DAProposal(p) => {
@@ -280,7 +279,6 @@ impl<
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > From<ProcessedSequencingMessage<TYPES, I>> for SequencingMessage<TYPES, I>
 {
-    /// row polymorphism would be great here
     fn from(value: ProcessedSequencingMessage<TYPES, I>) -> Self {
         match value {
             Left(message) => SequencingMessage(Left(message.into())),
@@ -294,7 +292,6 @@ impl<
         I: NodeImplementation<TYPES, ConsensusMessage = SequencingMessage<TYPES, I>>,
     > From<ProcessedGeneralConsensusMessage<TYPES, I>> for ProcessedSequencingMessage<TYPES, I>
 {
-    /// row polymorphism would be great here
     fn from(value: ProcessedGeneralConsensusMessage<TYPES, I>) -> Self {
         Left(value)
     }
@@ -394,6 +391,8 @@ impl<
     type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I>;
     type ProcessedConsensusMessage = ProcessedGeneralConsensusMessage<TYPES, I>;
 
+    // TODO: Disable panic after the `ViewSync` case is implemented.
+    #[allow(clippy::panic)]
     fn view_number(&self) -> TYPES::Time {
         match &self.0 {
             GeneralConsensusMessage::Proposal(p) => {
@@ -409,6 +408,8 @@ impl<
         }
     }
 
+    // TODO: Disable panic after the `ViewSync` case is implemented.
+    #[allow(clippy::panic)]
     fn purpose(&self) -> MessagePurpose {
         match &self.0 {
             GeneralConsensusMessage::Proposal(_) => MessagePurpose::Proposal,
@@ -435,6 +436,8 @@ impl<
     type GeneralConsensusMessage = GeneralConsensusMessage<TYPES, I>;
     type ProcessedConsensusMessage = ProcessedSequencingMessage<TYPES, I>;
 
+    // TODO: Disable panic after the `ViewSync` case is implemented.
+    #[allow(clippy::panic)]
     fn view_number(&self) -> TYPES::Time {
         match &self.0 {
             Left(general_message) => {
@@ -464,6 +467,8 @@ impl<
         }
     }
 
+    // TODO: Disable panic after the `ViewSync` case is implemented.
+    #[allow(clippy::panic)]
     fn purpose(&self) -> MessagePurpose {
         match &self.0 {
             Left(general_message) => match general_message {

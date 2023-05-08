@@ -1,7 +1,3 @@
-#![allow(clippy::let_underscore_untyped)]
-// TODO why is the let binding lint triggered on a struct??
-// if it's in a macro then this is the best we can do
-
 use ark_bls12_381::Parameters as Param381;
 use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;

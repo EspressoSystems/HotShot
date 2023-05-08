@@ -749,7 +749,7 @@ where
                 if !chan.has_received_proposal.swap(true, Ordering::Relaxed)
                     && chan
                         .sender_chan
-                        .send(ProcessedGeneralConsensusMessage::new(msg.0.into(), sender))
+                        .send(ProcessedGeneralConsensusMessage::new(msg.0, sender))
                         .await
                         .is_err()
                 {
@@ -776,8 +776,9 @@ where
         // We can only recv from a replicas
         // replicas should only send votes or if they timed out, timeouts
         match msg {
-            ValidatingMessage(GeneralConsensusMessage::Proposal(_))
-            | ValidatingMessage(GeneralConsensusMessage::InternalTrigger(_)) => {
+            ValidatingMessage(
+                GeneralConsensusMessage::Proposal(_) | GeneralConsensusMessage::InternalTrigger(_),
+            ) => {
                 warn!("Received a direct message for a proposal. This shouldn't be possible.");
             }
             // this is ONLY intended for next leader
