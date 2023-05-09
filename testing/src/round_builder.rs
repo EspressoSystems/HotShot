@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
 use hotshot_types::{data::LeafType, traits::node_implementation::NodeType};
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 use crate::{
     round::{RoundCtx, RoundResult, RoundSafetyCheck, RoundSetup, StateAndBlock},
@@ -183,7 +183,7 @@ impl RoundSafetyCheckBuilder {
                         num_nodes - num_out_of_sync
                     }
                 };
-                error!(
+                info!(
                     "number required success nodes: {:?}",
                     num_required_successful_nodes
                 );

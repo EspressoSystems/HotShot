@@ -48,8 +48,8 @@ impl Default for TestMetadata {
         Self {
             total_nodes: 5,
             start_nodes: 5,
-            num_succeeds: 1,
-            failure_threshold: 0,
+            num_succeeds: 10,
+            failure_threshold: 10,
             network_reliability: None,
             num_bootstrap_nodes: 5,
             max_transactions: NonZeroUsize::new(999999).unwrap(),
