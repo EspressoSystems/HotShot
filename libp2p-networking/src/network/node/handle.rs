@@ -160,7 +160,7 @@ impl<S: Default + Debug> NetworkNodeHandle<S> {
                         let incoming_message = match incoming_message {
                             Ok(msg) => msg,
                             Err(e) => {
-                                tracing::error!(?e, "NetworkNodeHandle::spawn_handle was unable to receive more messages");
+                                tracing::warn!(?e, "NetworkNodeHandle::spawn_handle was unable to receive more messages");
                                 return;
                             }
                         };
