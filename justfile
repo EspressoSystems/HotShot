@@ -20,18 +20,18 @@ test_tokio:
 
 test_async_std_all:
   echo Testing with async std executor
-  RUST_LOG="" cargo test --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture
+  RUST_LOG="" cargo test --verbose --profile=release-lto --features=full-ci --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1
 
 test_pkg := "hotshot"
 
-test_name := "webserver_libp2p_network"
+test_name := "sequencing_libp2p_test"
 
 test_async_std_pkg_all pkg=test_pkg:
   cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --package={{pkg}} --no-fail-fast -- --test-threads=1 --nocapture
 
 
 test_async_std_pkg_test name=test_name:
-  cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --workspace --no-fail-fast -- --test-threads=1 --nocapture {{name}}
+  cargo test --verbose --release --features=async-std-executor,demo,channel-async-std --lib --bins --tests --benches --workspace --no-fail-fast {{name}} -- --test-threads=1 --nocapture
 
 list_tests_json package=test_pkg:
   RUST_LOG=none cargo test --verbose --profile=release-lto --features=full-ci,channel-async-std --lib --bins --tests --benches --package={{package}} --no-fail-fast -- --test-threads=1 -Zunstable-options --format json
@@ -96,3 +96,7 @@ fix_async_std:
 doc:
   echo Generating docs
   cargo doc --no-deps --workspace --profile=release-lto --document-private-items --bins --examples --features=full-ci --lib
+
+doc_test:
+  echo Test docs
+  cargo test --doc --workspace --features=full-ci

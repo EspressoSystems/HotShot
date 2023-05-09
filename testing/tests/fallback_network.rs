@@ -5,9 +5,9 @@ use hotshot::{
     },
     types::Message,
 };
-use hotshot_testing::{
-    test_description::GeneralTestDescriptionBuilder, test_types::StaticCommitteeTestTypes,
-};
+use hotshot_testing::{test_builder::TestBuilder, test_types::StaticCommitteeTestTypes};
+use hotshot_types::traits::election::QuorumExchange;
+
 use hotshot_types::traits::node_implementation::{NodeImplementation, ValidatingExchanges};
 use hotshot_types::{
     data::{ValidatingLeaf, ValidatingProposal},
@@ -58,11 +58,12 @@ impl NodeImplementation<StaticCommitteeTestTypes> for FallbackImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn webserver_libp2p_network() {
-    let description = GeneralTestDescriptionBuilder::default_multiple_rounds();
+    let builder = TestBuilder::default_multiple_rounds();
 
-    description
+    builder
         .build::<StaticCommitteeTestTypes, FallbackImpl>()
-        .execute()
+        .launch()
+        .run_test()
         .await
         .unwrap();
 }
@@ -76,11 +77,12 @@ async fn webserver_libp2p_network() {
 #[instrument]
 #[ignore]
 async fn test_stress_webserver_libp2p_network() {
-    let description = GeneralTestDescriptionBuilder::default_stress();
+    let builder = TestBuilder::default_multiple_rounds();
 
-    description
+    builder
         .build::<StaticCommitteeTestTypes, FallbackImpl>()
-        .execute()
+        .launch()
+        .run_test()
         .await
         .unwrap();
 }

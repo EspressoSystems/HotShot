@@ -191,8 +191,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         &mut self,
     ) -> Result<
         (
-            Vec<<I::Leaf as LeafType>::MaybeState>,
-            Vec<<I::Leaf as LeafType>::DeltasType>,
+            Vec<<I as NodeImplementation<TYPES>>::Leaf>,
+            QuorumCertificate<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
         ),
         HotShotError<TYPES>,
     > {
@@ -201,7 +201,7 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
         // to check against
 
         // drain all events from this node
-        let mut results = Ok((Vec::new(), Vec::new()));
+        let mut results = Ok((vec![], QuorumCertificate::genesis()));
         loop {
             // unwrap is fine here since the thing hasn't been shut down
             let event = self.next_event().await.unwrap();
@@ -213,12 +213,8 @@ impl<TYPES: NodeType, I: NodeImplementation<TYPES> + 'static> HotShotHandle<TYPE
                         state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                     });
                 }
-                EventType::Decide { leaf_chain, .. } => {
-                    results = Ok(leaf_chain
-                        .iter()
-                        .cloned()
-                        .map(|leaf| (leaf.get_state(), leaf.get_deltas()))
-                        .unzip());
+                EventType::Decide { leaf_chain, qc } => {
+                    results = Ok((leaf_chain.to_vec(), (*qc).clone()));
                 }
                 EventType::ViewFinished { view_number: _ } => return results,
                 event => {

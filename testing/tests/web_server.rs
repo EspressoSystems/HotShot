@@ -6,7 +6,8 @@ use hotshot::traits::{
 };
 
 use hotshot_testing::{
-    test_description::GeneralTestDescriptionBuilder, test_types::StaticCommitteeTestTypes,
+    test_builder::{TestBuilder, TestMetadata, TimingData},
+    test_types::StaticCommitteeTestTypes,
 };
 use hotshot_types::message::Message;
 use hotshot_types::traits::{
@@ -64,17 +65,24 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn centralized_server_network() {
-    let description = GeneralTestDescriptionBuilder {
-        round_start_delay: 25,
-        num_succeeds: 5,
-        next_view_timeout: 3000,
-        start_delay: 120000,
-        ..GeneralTestDescriptionBuilder::default()
+    let builder = TestBuilder {
+        metadata: TestMetadata {
+            timing_data: TimingData {
+                round_start_delay: 25,
+                next_view_timeout: 3000,
+                start_delay: 120000,
+                ..Default::default()
+            },
+            num_succeeds: 5,
+            ..TestMetadata::default()
+        },
+        ..Default::default()
     };
 
-    description
+    builder
         .build::<StaticCommitteeTestTypes, StaticCentralizedImp>()
-        .execute()
+        .launch()
+        .run_test()
         .await
         .unwrap();
     shutdown_logging();

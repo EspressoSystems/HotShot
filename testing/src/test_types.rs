@@ -1,4 +1,4 @@
-use crate::TestRunner;
+use crate::test_runner::TestRunner;
 use ark_bls12_381::Parameters as Param381;
 use blake3::Hasher;
 use hotshot::{
