@@ -893,34 +893,22 @@ where
 {
     fn generator(
         expected_node_count: usize,
-        _num_bootstrap: usize,
-        _network_id: usize,
+        num_bootstrap: usize,
+        network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
-        let (server_shutdown_sender, server_shutdown) = oneshot();
-        let sender = Arc::new(server_shutdown_sender);
-        // Start web server
-        async_spawn(hotshot_web_server::run_web_server::<TYPES::SignatureKey>(
-            Some(server_shutdown),
-        ));
-
-        let known_nodes = (0..expected_node_count as u64)
-            .map(|id| {
-                TYPES::SignatureKey::from_private(&TYPES::SignatureKey::generate_test_key(id))
-            })
-            .collect::<Vec<_>>();
-
-        // Start each node's web server client
-        Box::new(move |id| {
-            let sender = Arc::clone(&sender);
-            let mut network = WebServerNetwork::create(
-                "0.0.0.0",
-                9000,
-                Duration::from_millis(100),
-                known_nodes[id as usize].clone(),
-            );
-            network.server_shutdown_signal = Some(sender);
-            Self(network.into(), PhantomData)
-        })
+        let generator = <WebServerNetwork<
+            Message<TYPES, I>,
+            TYPES::SignatureKey,
+            TYPES::ElectionConfigType,
+            TYPES,
+            PROPOSAL,
+            VOTE,
+        > as TestableNetworkingImplementation<_, _>>::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+        );
+        Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }
 
     fn in_flight_message_count(&self) -> Option<usize> {

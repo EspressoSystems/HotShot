@@ -38,10 +38,14 @@ use hotshot_types::{
 };
 use rand::SeedableRng;
 use snafu::Snafu;
-use std::{collections::HashMap, fmt::Debug};
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use tracing::{debug, error, info, warn};
+
 /// Wrapper for a function that takes a `node_id` and returns an instance of `T`.
 pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
+
+/// Wrapper Type for function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
+pub type NetworkGenerator<T> = Box<dyn Fn(Arc<T>) -> T + 'static>;
 
 /// For now we only support a size of [`H_256`]. This can be changed in the future.
 pub const N: usize = H_256;
@@ -106,8 +110,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 /// The runner of a test network
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> {
-    quorum_network_generator: Generator<QuorumNetwork<TYPES, I>>,
-    committee_network_generator: Generator<I::CommitteeNetwork>,
+    quorum_network_generator: NetworkGenerator<QuorumNetwork<TYPES, I>>,
+    committee_network_generator: NetworkGenerator<I::CommitteeNetwork>,
     storage_generator: Generator<I::Storage>,
     default_node_config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
     nodes: Vec<Node<TYPES, I>>,
