@@ -278,6 +278,14 @@
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides two types of cerrtificates and their accumulators.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::vote::ViewSyncData;
@@ -293,6 +301,7 @@
 <span class="kw">use </span>commit::{Commitment, Committable};
 <span class="kw">use </span>espresso_systems_common::hotshot::tag;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::fmt::{<span class="self">self</span>, Display, Formatter};
 <span class="kw">use </span>std::{collections::BTreeMap, fmt::Debug, ops::Deref};
 
 <span class="doccomment">/// A `DACertificate` is a threshold signature that some data is available.
@@ -326,10 +335,7 @@
 </span><span class="attr">#[derive(custom_debug::Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Hash)]
 #[serde(bound(deserialize = <span class="string">&quot;&quot;</span>))]
 </span><span class="kw">pub struct </span>QuorumCertificate&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; {
-    <span class="comment">// block commitment is contained within the leaf. Still need to check this
-    </span><span class="doccomment">/// TODO (da) we need to check
-    ///   - parent QC PROPOSAL
-    ///   - somehow make this semantically equivalent to what is currently `Leaf`
+    <span class="doccomment">/// commitment to previous leaf
     </span><span class="attr">#[debug(skip)]
     </span><span class="kw">pub </span>leaf_commitment: Commitment&lt;LEAF&gt;,
 
@@ -339,6 +345,16 @@
     </span><span class="kw">pub </span>signatures: YesNoSignature&lt;LEAF, TYPES::VoteTokenType&gt;,
     <span class="doccomment">/// If this QC is for the genesis block
     </span><span class="kw">pub </span>is_genesis: bool,
+}
+
+<span class="kw">impl</span>&lt;TYPES: NodeType, LEAF: LeafType&lt;NodeType = TYPES&gt;&gt; Display <span class="kw">for </span>QuorumCertificate&lt;TYPES, LEAF&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        <span class="macro">write!</span>(
+            f,
+            <span class="string">&quot;view: {:?}, is_genesis: {:?}&quot;</span>,
+            <span class="self">self</span>.view_number, <span class="self">self</span>.is_genesis
+        )
+    }
 }
 
 <span class="doccomment">/// A view sync certificate representing a quorum of votes for a particular view sync phase

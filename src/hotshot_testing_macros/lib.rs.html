@@ -579,8 +579,6 @@
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
 <a href="#581" id="581">581</a>
-<a href="#582" id="582">582</a>
-<a href="#583" id="583">583</a>
 </pre><pre class="rust"><code><span class="kw">extern crate </span>proc_macro;
 
 <span class="kw">use </span>proc_macro::TokenStream;
@@ -615,7 +613,7 @@
     <span class="doccomment">/// name of the test
     </span>test_name: Ident,
     <span class="doccomment">/// test description/spec
-    </span>test_description: Expr,
+    </span>test_builder: Expr,
     <span class="doccomment">/// whether or not to hide behind slow feature flag
     </span>slow: LitBool,
 }
@@ -626,7 +624,7 @@
     <span class="doccomment">/// name of the test
     </span>test_name: Ident,
     <span class="doccomment">/// test description/spec
-    </span>test_description: Expr,
+    </span>test_builder: Expr,
     <span class="doccomment">/// whether or not to hide behind slow feature flag
     </span>slow: LitBool,
 }
@@ -640,18 +638,18 @@
                 input.parse::&lt;<span class="macro">Token!</span>[:]&gt;()<span class="question-mark">?</span>;
                 <span class="kw">let </span>test_name = input.parse::&lt;Ident&gt;()<span class="question-mark">?</span>;
                 description.test_name(test_name);
-            } <span class="kw">else if </span>input.peek(keywords::TestDescription) {
-                <span class="kw">let _ </span>= input.parse::&lt;keywords::TestDescription&gt;()<span class="question-mark">?</span>;
+            } <span class="kw">else if </span>input.peek(keywords::TestBuilder) {
+                <span class="kw">let _ </span>= input.parse::&lt;keywords::TestBuilder&gt;()<span class="question-mark">?</span>;
                 input.parse::&lt;<span class="macro">Token!</span>[:]&gt;()<span class="question-mark">?</span>;
-                <span class="kw">let </span>test_description = input.parse::&lt;Expr&gt;()<span class="question-mark">?</span>;
-                description.test_description(test_description);
+                <span class="kw">let </span>test_builder = input.parse::&lt;Expr&gt;()<span class="question-mark">?</span>;
+                description.test_builder(test_builder);
             } <span class="kw">else if </span>input.peek(keywords::Slow) {
                 <span class="kw">let _ </span>= input.parse::&lt;keywords::Slow&gt;()<span class="question-mark">?</span>;
                 input.parse::&lt;<span class="macro">Token!</span>[:]&gt;()<span class="question-mark">?</span>;
                 <span class="kw">let </span>slow = input.parse::&lt;LitBool&gt;()<span class="question-mark">?</span>;
                 description.slow(slow);
             } <span class="kw">else </span>{
-                <span class="macro">panic!</span>(<span class="string">&quot;Unexpected token. Expected one f: Time, DemoType, SignatureKey, CommChannel, Storage, TestName, TestDescription, Slow&quot;</span>);
+                <span class="macro">panic!</span>(<span class="string">&quot;Unexpected token. Expected one f: Time, DemoType, SignatureKey, CommChannel, Storage, TestName, TestBuilder, Slow&quot;</span>);
             }
             <span class="kw">if </span>input.peek(<span class="macro">Token!</span>[,]) {
                 input.parse::&lt;<span class="macro">Token!</span>[,]&gt;()<span class="question-mark">?</span>;
@@ -665,7 +663,7 @@
 
 <span class="kw">impl </span>CrossAllTypesSpecBuilder {
     <span class="kw">fn </span>is_ready(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="self">self</span>.test_name.is_some() &amp;&amp; <span class="self">self</span>.test_description.is_some() &amp;&amp; <span class="self">self</span>.slow.is_some()
+        <span class="self">self</span>.test_name.is_some() &amp;&amp; <span class="self">self</span>.test_builder.is_some() &amp;&amp; <span class="self">self</span>.slow.is_some()
     }
 }
 
@@ -677,7 +675,7 @@
             &amp;&amp; <span class="self">self</span>.comm_channels.is_some()
             &amp;&amp; <span class="self">self</span>.storages.is_some()
             &amp;&amp; <span class="self">self</span>.test_name.is_some()
-            &amp;&amp; <span class="self">self</span>.test_description.is_some()
+            &amp;&amp; <span class="self">self</span>.test_builder.is_some()
             &amp;&amp; <span class="self">self</span>.slow.is_some()
     }
 }
@@ -691,7 +689,7 @@
     comm_channel: ExprPath,
     storage: ExprPath,
     test_name: Ident,
-    test_description: Expr,
+    test_builder: Expr,
     slow: LitBool,
 }
 
@@ -737,7 +735,7 @@
             demo_types,
             signature_key_type,
             test_name,
-            test_description,
+            test_builder,
             slow,
             comm_channel,
             storage,
@@ -902,12 +900,10 @@
                     #[cfg_attr(feature = <span class="string">&quot;async-std-executor&quot;</span>, async_std::test)]
                     #[tracing::instrument]
                     </span><span class="kw">async fn </span>#test_name() {
-                        <span class="kw">let </span>description = #test_description;
-
-                        description.build::&lt;
+                        hotshot_testing::test_builder::TestBuilder::build::&lt;
                             TestTypes,
                             TestNodeImpl
-                        &gt;().execute().<span class="kw">await</span>.unwrap();
+                        &gt;(#test_builder).launch().run_test().<span class="kw">await</span>.unwrap();
                     }
         }
     }
@@ -920,7 +916,7 @@
     <span class="macro">syn::custom_keyword!</span>(SignatureKey);
     <span class="macro">syn::custom_keyword!</span>(Vote);
     <span class="macro">syn::custom_keyword!</span>(TestName);
-    <span class="macro">syn::custom_keyword!</span>(TestDescription);
+    <span class="macro">syn::custom_keyword!</span>(TestBuilder);
     <span class="macro">syn::custom_keyword!</span>(Slow);
     <span class="macro">syn::custom_keyword!</span>(CommChannel);
     <span class="macro">syn::custom_keyword!</span>(Storage);
@@ -961,18 +957,18 @@
                 input.parse::&lt;<span class="macro">Token!</span>[:]&gt;()<span class="question-mark">?</span>;
                 <span class="kw">let </span>test_name = input.parse::&lt;Ident&gt;()<span class="question-mark">?</span>;
                 description.test_name(test_name);
-            } <span class="kw">else if </span>input.peek(keywords::TestDescription) {
-                <span class="kw">let _ </span>= input.parse::&lt;keywords::TestDescription&gt;()<span class="question-mark">?</span>;
+            } <span class="kw">else if </span>input.peek(keywords::TestBuilder) {
+                <span class="kw">let _ </span>= input.parse::&lt;keywords::TestBuilder&gt;()<span class="question-mark">?</span>;
                 input.parse::&lt;<span class="macro">Token!</span>[:]&gt;()<span class="question-mark">?</span>;
-                <span class="kw">let </span>test_description = input.parse::&lt;Expr&gt;()<span class="question-mark">?</span>;
-                description.test_description(test_description);
+                <span class="kw">let </span>test_builder = input.parse::&lt;Expr&gt;()<span class="question-mark">?</span>;
+                description.test_builder(test_builder);
             } <span class="kw">else if </span>input.peek(keywords::Slow) {
                 <span class="kw">let _ </span>= input.parse::&lt;keywords::Slow&gt;()<span class="question-mark">?</span>;
                 input.parse::&lt;<span class="macro">Token!</span>[:]&gt;()<span class="question-mark">?</span>;
                 <span class="kw">let </span>slow = input.parse::&lt;LitBool&gt;()<span class="question-mark">?</span>;
                 description.slow(slow);
             } <span class="kw">else </span>{
-                <span class="macro">panic!</span>(<span class="string">&quot;Unexpected token. Expected one f: Time, DemoType, SignatureKey, CommChannel, Storage, TestName, TestDescription, Slow&quot;</span>);
+                <span class="macro">panic!</span>(<span class="string">&quot;Unexpected token. Expected one f: Time, DemoType, SignatureKey, CommChannel, Storage, TestName, TestBuilder, Slow&quot;</span>);
             }
             <span class="kw">if </span>input.peek(<span class="macro">Token!</span>[,]) {
                 input.parse::&lt;<span class="macro">Token!</span>[,]&gt;()<span class="question-mark">?</span>;
@@ -1033,7 +1029,7 @@
                             .comm_channel(comm_channel.clone())
                             .storage(storage.clone())
                             .test_name(test_spec.test_name.clone())
-                            .test_description(test_spec.test_description.clone())
+                            .test_builder(test_spec.test_builder.clone())
                             .slow(test_spec.slow.clone())
                             .build()
                             .unwrap();
@@ -1103,7 +1099,7 @@
 /// - `CommChannel: [CommChannel1, CommChannel2, ..]` - a list of `CommunicationChannel` implementations
 /// - `Time: [ Time1, Time2, ...]` - a list of `ConsensusTime` implementations]`
 /// - `TestName: example_test` - the name of the test
-/// - `TestDescription: { some_test_description_expression }` - the `TestDescription` to use
+/// - `TestBuilder: { some_test_builder_expression }` - the `TestBuilder` to use
 /// - `Storage: Storage1, Storage2, ...` - a list of `Storage` implementations to use
 /// - `Slow`: whether or not this set of tests are hidden behind the `slow` feature flag
 /// Example usage:
@@ -1115,12 +1111,12 @@
 ///     Storage: [ hotshot::traits::implementations::MemoryStorage ],
 ///     Time: [ hotshot_types::data::ViewNumber ],
 ///     TestName: ten_tx_seven_nodes_fast,
-///     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder {
+///     TestBuilder: hotshot_testing::test_builder::TestBuilder {
 ///         total_nodes: 7,
 ///         start_nodes: 7,
 ///         num_succeeds: 10,
 ///         txn_ids: either::Either::Right(1),
-///         ..hotshot_testing::test_description::GeneralTestDescriptionBuilder::default()
+///         ..hotshot_testing::test_builder::TestBuilder::default()
 ///     },
 ///     Slow: false,
 /// );
@@ -1134,13 +1130,13 @@
 <span class="doccomment">/// Generate a cartesian product of tests across all impls known to `hotshot_types`
 /// Arguments:
 /// - `TestName: example_test` - the name of the test
-/// - `TestDescription: { some_test_description_expression }` - the `TestDescription` to use
+/// - `TestBuilder: { some_test_builder_expression }` - the `TestBuilder` to use
 /// - `Slow`: whether or not this set of tests are hidden behind the `slow` feature flag
 /// Example usage:
 /// ```
 /// hotshot_testing_macros::cross_all_types!(
 ///     TestName: example_test,
-///     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder::default(),
+///     TestBuilder: hotshot_testing::test_builder::TestBuilder::default(),
 ///     Slow: false,
 /// );
 /// ```
@@ -1148,7 +1144,7 @@
 </span><span class="kw">pub fn </span>cross_all_types(input: TokenStream) -&gt; TokenStream {
     <span class="kw">let </span>CrossAllTypesSpec {
         test_name,
-        test_description,
+        test_builder,
         slow,
     } = <span class="macro">parse_macro_input!</span>(input <span class="kw">as </span>CrossAllTypesSpec);
     <span class="kw">let </span>tokens = <span class="macro">quote! </span>{
@@ -1158,7 +1154,7 @@
             Time: [ hotshot_types::data::ViewNumber ],
             Storage: [ hotshot::traits::implementations::MemoryStorage ],
             TestName: #test_name,
-            TestDescription: #test_description,
+            TestBuilder: #test_builder,
             Slow: #slow,
     }.into();
     <span class="kw">let </span>test_spec = <span class="macro">parse_macro_input!</span>(tokens <span class="kw">as </span>CrossTestData);

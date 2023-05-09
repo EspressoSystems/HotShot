@@ -382,10 +382,6 @@
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
 <a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Provides an event-streaming handle for a [`HotShot`] running in the background
 
 </span><span class="kw">use </span><span class="kw">crate</span>::Message;
@@ -580,8 +576,8 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
-            Vec&lt;&lt;I::Leaf <span class="kw">as </span>LeafType&gt;::MaybeState&gt;,
-            Vec&lt;&lt;I::Leaf <span class="kw">as </span>LeafType&gt;::DeltasType&gt;,
+            Vec&lt;&lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf&gt;,
+            QuorumCertificate&lt;TYPES, &lt;I <span class="kw">as </span>NodeImplementation&lt;TYPES&gt;&gt;::Leaf&gt;,
         ),
         HotShotError&lt;TYPES&gt;,
     &gt; {
@@ -590,7 +586,7 @@
         // to check against
 
         // drain all events from this node
-        </span><span class="kw">let </span><span class="kw-2">mut </span>results = <span class="prelude-val">Ok</span>((Vec::new(), Vec::new()));
+        </span><span class="kw">let </span><span class="kw-2">mut </span>results = <span class="prelude-val">Ok</span>((<span class="macro">vec!</span>[], QuorumCertificate::genesis()));
         <span class="kw">loop </span>{
             <span class="comment">// unwrap is fine here since the thing hasn&#39;t been shut down
             </span><span class="kw">let </span>event = <span class="self">self</span>.next_event().<span class="kw">await</span>.unwrap();
@@ -602,12 +598,8 @@
                         state: RoundTimedoutState::TestCollectRoundEventsTimedOut,
                     });
                 }
-                EventType::Decide { leaf_chain, .. } =&gt; {
-                    results = <span class="prelude-val">Ok</span>(leaf_chain
-                        .iter()
-                        .cloned()
-                        .map(|leaf| (leaf.get_state(), leaf.get_deltas()))
-                        .unzip());
+                EventType::Decide { leaf_chain, qc } =&gt; {
+                    results = <span class="prelude-val">Ok</span>((leaf_chain.to_vec(), (<span class="kw-2">*</span>qc).clone()));
                 }
                 EventType::ViewFinished { view_number: <span class="kw">_ </span>} =&gt; <span class="kw">return </span>results,
                 event =&gt; {

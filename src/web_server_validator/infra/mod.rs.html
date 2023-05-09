@@ -950,8 +950,14 @@
 <a href="#950" id="950">950</a>
 <a href="#951" id="951">951</a>
 <a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
 </pre><pre class="rust"><code><span class="kw">use </span>futures::Future;
 <span class="kw">use </span>futures::FutureExt;
+<span class="kw">use </span>hotshot_types::data::LeafType;
 <span class="kw">use </span>std::net::Ipv4Addr;
 <span class="kw">use </span>std::{
     cmp,
@@ -1299,8 +1305,12 @@
             </span><span class="kw">let </span>view_results = hotshot.collect_round_events().<span class="kw">await</span>;
 
             <span class="kw">match </span>view_results {
-                <span class="prelude-val">Ok</span>((state, blocks)) =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(_state) = state.get(<span class="number">0</span>) {}
+                <span class="prelude-val">Ok</span>((leaf_chain, _qc)) =&gt; {
+                    <span class="kw">let </span>blocks: Vec&lt;TYPES::BlockType&gt; = leaf_chain
+                        .into_iter()
+                        .map(|leaf| leaf.get_deltas())
+                        .collect();
+
                     <span class="kw">for </span>block <span class="kw">in </span>blocks {
                         total_transactions += block.txn_count();
                     }

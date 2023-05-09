@@ -837,7 +837,7 @@
                         <span class="kw">let </span>incoming_message = <span class="kw">match </span>incoming_message {
                             <span class="prelude-val">Ok</span>(msg) =&gt; msg,
                             <span class="prelude-val">Err</span>(e) =&gt; {
-                                <span class="macro">tracing::error!</span>(<span class="question-mark">?</span>e, <span class="string">&quot;NetworkNodeHandle::spawn_handle was unable to receive more messages&quot;</span>);
+                                <span class="macro">tracing::warn!</span>(<span class="question-mark">?</span>e, <span class="string">&quot;NetworkNodeHandle::spawn_handle was unable to receive more messages&quot;</span>);
                                 <span class="kw">return</span>;
                             }
                         };

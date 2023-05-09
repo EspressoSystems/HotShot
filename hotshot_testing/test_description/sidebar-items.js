@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["RoundError"],"fn":["default_randomized_ids_to_round","default_submitter_id_to_round","get_threshold","get_tolerance"],"static":["CALLSITE","META"],"struct":["DetailedTestDescriptionBuilder","GeneralTestDescriptionBuilder","HotShotSnafu","TestDescription","TimingData"],"type":["GenRunner","TestSetup"]};

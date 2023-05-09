@@ -591,6 +591,19 @@
 <a href="#591" id="591">591</a>
 <a href="#592" id="592">592</a>
 <a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Validating (vanilla) consensus demo
 //!
 //! This module provides an implementation of the `HotShot` suite of traits that implements a
@@ -625,7 +638,7 @@
 <span class="kw">use </span>snafu::{ensure, Snafu};
 <span class="kw">use </span>std::{
     collections::{BTreeMap, HashSet},
-    fmt::Debug,
+    fmt::{Debug, Display},
     marker::PhantomData,
 };
 <span class="kw">use </span>tracing::error;
@@ -974,6 +987,19 @@
     <span class="kw">fn </span>on_commit(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="comment">// Does nothing in this implementation
     </span>}
+}
+
+<span class="kw">impl </span>Display <span class="kw">for </span>VDemoBlock {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            VDemoBlock::Genesis(block) =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">&quot;VDemo Genesis Block: {block:#?}&quot;</span>)
+            }
+            VDemoBlock::Normal(block) =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">&quot;VDemo Normal Block #txns={}&quot;</span>, block.transactions.len())
+            }
+        }
+    }
 }
 
 <span class="kw">impl </span>TestableState <span class="kw">for </span>VDemoState {
