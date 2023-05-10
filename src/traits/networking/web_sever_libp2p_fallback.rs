@@ -105,7 +105,7 @@ impl<
         VOTE: VoteType<TYPES>,
         MEMBERSHIP: Membership<TYPES>,
     > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
-    for WebServerWithFallbackCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+    for CombinedNetworks<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
 {
@@ -130,14 +130,43 @@ where
             <Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey> as TestableNetworkingImplementation<_, _>>::generator(expected_node_count, num_bootstrap, network_id)
         );
         Box::new(move |node_id| {
-            let networks = CombinedNetworks(
+            CombinedNetworks(
                 generators.0(node_id),
                 generators.1(node_id),
                 PhantomData::default(),
-            );
-            Self {
-                networks: networks.into(),
-            }
+            )
+        })
+    }
+
+    /// Get the number of messages in-flight.
+    ///
+    /// Some implementations will not be able to tell how many messages there are in-flight. These implementations should return `None`.
+    fn in_flight_message_count(&self) -> Option<usize> {
+        None
+    }
+}
+
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for WebServerWithFallbackCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+{
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let generator=
+        <   CombinedNetworks<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>as TestableNetworkingImplementation<_, _>>::generator(expected_node_count, num_bootstrap, network_id)
+    ;
+        Box::new(move |node_id| Self {
+            networks: generator(node_id).into(),
         })
     }
 

@@ -977,17 +977,11 @@ where
     }
 }
 
-impl<
-        TYPES: NodeType,
-        I: NodeImplementation<TYPES>,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
-    for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+impl<TYPES: NodeType, I: NodeImplementation<TYPES>>
+    TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType>
 where
     TYPES::SignatureKey: TestableSignatureKey,
-    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
 {
     fn generator(
         expected_node_count: usize,
@@ -1020,8 +1014,36 @@ where
                 known_nodes[id as usize].clone(),
             );
             network.server_shutdown_signal = Some(sender);
-            Self(network.into(), PhantomData)
+            network
         })
+    }
+
+    fn in_flight_message_count(&self) -> Option<usize> {
+        None
+    }
+}
+
+impl<
+        TYPES: NodeType,
+        I: NodeImplementation<TYPES>,
+        PROPOSAL: ProposalType<NodeType = TYPES>,
+        VOTE: VoteType<TYPES>,
+        MEMBERSHIP: Membership<TYPES>,
+    > TestableNetworkingImplementation<TYPES, Message<TYPES, I>>
+    for CentralizedCommChannel<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
+where
+    TYPES::SignatureKey: TestableSignatureKey,
+    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
+{
+    fn generator(
+        expected_node_count: usize,
+        num_bootstrap: usize,
+        network_id: usize,
+    ) -> Box<dyn Fn(u64) -> Self + 'static> {
+        let generator=
+            <  CentralizedServerNetwork<TYPES::SignatureKey, TYPES::ElectionConfigType> as TestableNetworkingImplementation<TYPES, Message<TYPES, I>>>::generator(expected_node_count, num_bootstrap, network_id)
+        ;
+        Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }
 
     fn in_flight_message_count(&self) -> Option<usize> {

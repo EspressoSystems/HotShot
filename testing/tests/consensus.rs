@@ -14,16 +14,14 @@ use hotshot_testing::{
 use commit::Committable;
 use futures::{future::LocalBoxFuture, FutureExt};
 use hotshot::{
-    certificate::QuorumCertificate,
-    demos::vdemo::random_validating_leaf,
-    traits::{NodeImplementation, TestableNodeImplementation},
-    HotShot, HotShotType,
+    certificate::QuorumCertificate, demos::vdemo::random_validating_leaf,
+    traits::TestableNodeImplementation, HotShot, HotShotType,
 };
 
-use hotshot_types::message::{GeneralConsensusMessage, Message};
+use hotshot_types::message::{GeneralConsensusMessage, Message, ValidatingMessage};
 use hotshot_types::{
     data::{LeafType, ValidatingLeaf, ValidatingProposal},
-    message::{ConsensusMessage, Proposal},
+    message::Proposal,
     traits::{
         consensus_type::validating_consensus::ValidatingConsensus,
         election::{ConsensusExchange, SignedCertificate, TestableElection},

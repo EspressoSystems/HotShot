@@ -1,8 +1,19 @@
 use std::{collections::HashMap, sync::Arc};
 
 use futures::{future::LocalBoxFuture, FutureExt};
-use hotshot::traits::{NodeImplementation, TestableNodeImplementation};
-use hotshot_types::{data::LeafType, traits::node_implementation::NodeType};
+use hotshot::{
+    traits::{NodeImplementation, TestableNodeImplementation},
+    HotShot, HotShotType,
+};
+use hotshot_types::{
+    data::LeafType,
+    message::Message,
+    traits::{
+        election::ConsensusExchange,
+        network::CommunicationChannel,
+        node_implementation::{ExchangesType, NodeType, QuorumEx, QuorumNetwork},
+    },
+};
 use tracing::{error, info, warn};
 
 use crate::{
@@ -52,9 +63,26 @@ pub struct ChangeNode {
 
 impl RoundSetupBuilder {
     /// build the round setup
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
         &self,
-    ) -> RoundSetup<TYPES, I> {
+    ) -> RoundSetup<TYPES, I>
+    where
+        HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+        I::Exchanges: ExchangesType<
+            TYPES::ConsensusType,
+            TYPES,
+            I::Leaf,
+            Message<TYPES, I>,
+            Networks = (QuorumNetwork<TYPES, I>, I::CommitteeNetwork),
+        >,
+        QuorumNetwork<TYPES, I>: CommunicationChannel<
+            TYPES,
+            Message<TYPES, I>,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+        >,
+    {
         let Self {
             num_txns_per_round,
             scheduled_changes,
@@ -134,9 +162,19 @@ impl Default for RoundSafetyCheckBuilder {
 
 impl RoundSafetyCheckBuilder {
     /// builds a saety check based on a `RoundSafetyCheckBuilder`
-    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>(
+    pub fn build<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>(
         self,
-    ) -> RoundSafetyCheck<TYPES, I> {
+    ) -> RoundSafetyCheck<TYPES, I>
+    where
+        HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
+        QuorumNetwork<TYPES, I>: CommunicationChannel<
+            TYPES,
+            Message<TYPES, I>,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote,
+            <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership,
+        >,
+    {
         let Self {
             num_out_of_sync,
             check_leaf,
