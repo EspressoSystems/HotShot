@@ -314,18 +314,20 @@ pub trait TestableNodeImplementation<
     TYPES: NodeType<ConsensusType = CONSENSUS>,
 >: NodeImplementation<TYPES>
 {
-    /// Network for communications in the DA committee. Only needed for the sequencing consensus.
+    /// Communication channel the DA committee. Only needed for the sequencing consensus.
+    type CommitteeCommChannel;
+
+    /// Connected network for the DA committee. Only needed for the sequencing consensus.
     type CommitteeNetwork;
-    type CommitteeNetworkType;
 
     // TODO (Keyao) Is it better to move this where clause to the `TestableNodeImplementation` trait?
     /// Generate a quorum network given an expected node count.
     fn quorum_network_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-    ) -> Box<dyn Fn(u64) -> QuorumNetworkType<TYPES, Self> + 'static>
+    ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, Self> + 'static>
     where
-        QuorumNetwork<TYPES, Self>: CommunicationChannel<
+        QuorumCommChannel<TYPES, Self>: CommunicationChannel<
             TYPES,
             Message<TYPES, Self>,
             <QuorumEx<TYPES, Self> as ConsensusExchange<TYPES, Message<TYPES, Self>>>::Proposal,
@@ -337,13 +339,13 @@ pub trait TestableNodeImplementation<
     fn committee_network_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-    ) -> Box<dyn Fn(u64) -> Self::CommitteeNetworkType>;
+    ) -> Box<dyn Fn(u64) -> Self::CommitteeNetwork>;
 
     /// Generate a quorum communication channel given the network.
     fn quorum_comm_channel_generator(
-    ) -> Box<dyn Fn(Arc<QuorumNetworkType<TYPES, Self>>) -> QuorumNetwork<TYPES, Self> + 'static>
+    ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, Self>>) -> QuorumCommChannel<TYPES, Self> + 'static>
     where
-        QuorumNetwork<TYPES, Self>: CommunicationChannel<
+        QuorumCommChannel<TYPES, Self>: CommunicationChannel<
             TYPES,
             Message<TYPES, Self>,
             <QuorumEx<TYPES, Self> as ConsensusExchange<TYPES, Message<TYPES, Self>>>::Proposal,
@@ -353,7 +355,7 @@ pub trait TestableNodeImplementation<
 
     /// Generate a committee communication channel given the network.
     fn committee_comm_channel_generator(
-    ) -> Box<dyn Fn(Arc<Self::CommitteeNetworkType>) -> Self::CommitteeNetwork + 'static>;
+    ) -> Box<dyn Fn(Arc<Self::CommitteeNetwork>) -> Self::CommitteeCommChannel + 'static>;
 
     /// Creates random transaction if possible
     /// otherwise panics
@@ -399,14 +401,14 @@ impl<
     > TestableNodeImplementation<ValidatingConsensus, TYPES> for I
 where
     <I as NodeImplementation<TYPES>>::Exchanges: ValidatingExchangesType<TYPES, Message<TYPES, I>>,
-    QuorumNetworkType<TYPES, I>: TestableNetworkingImplementation<TYPES, Message<TYPES, I>>,
-    QuorumNetwork<TYPES, I>: TestableChannelImplementation<
+    QuorumNetwork<TYPES, I>: TestableNetworkingImplementation<TYPES, Message<TYPES, I>>,
+    QuorumCommChannel<TYPES, I>: TestableChannelImplementation<
         TYPES,
         Message<TYPES, I>,
         QuorumProposalType<TYPES, I>,
         QuorumVoteType<TYPES, I>,
         QuorumMembership<TYPES, I>,
-        QuorumNetworkType<TYPES, I>,
+        QuorumNetwork<TYPES, I>,
     >,
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -414,14 +416,14 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
+    type CommitteeCommChannel = ();
     type CommitteeNetwork = ();
-    type CommitteeNetworkType = ();
 
     fn quorum_network_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-    ) -> Box<dyn Fn(u64) -> QuorumNetworkType<TYPES, I> + 'static> {
-        <QuorumNetworkType<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
+    ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, I> + 'static> {
+        <QuorumNetwork<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
             1,
@@ -431,17 +433,17 @@ where
     fn committee_network_generator(
         _expected_node_count: usize,
         _num_bootstrap: usize,
-    ) -> Box<dyn Fn(u64) -> Self::CommitteeNetworkType + 'static> {
+    ) -> Box<dyn Fn(u64) -> Self::CommitteeNetwork + 'static> {
         Box::new(|_| ())
     }
 
     fn quorum_comm_channel_generator(
-    ) -> Box<dyn Fn(Arc<QuorumNetworkType<TYPES, I>>) -> QuorumNetwork<TYPES, Self> + 'static> {
-        < QuorumNetwork::<TYPES, Self> as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
+    ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, I>>) -> QuorumCommChannel<TYPES, Self> + 'static> {
+        < QuorumCommChannel::<TYPES, Self> as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
     }
 
     fn committee_comm_channel_generator(
-    ) -> Box<dyn Fn(Arc<Self::CommitteeNetworkType>) -> Self::CommitteeNetwork + 'static> {
+    ) -> Box<dyn Fn(Arc<Self::CommitteeNetwork>) -> Self::CommitteeCommChannel + 'static> {
         Box::new(|_| ())
     }
 
@@ -489,23 +491,23 @@ impl<
     > TestableNodeImplementation<SequencingConsensus, TYPES> for I
 where
     <I as NodeImplementation<TYPES>>::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-    CommitteeNetworkType<TYPES, I>: TestableNetworkingImplementation<TYPES, Message<TYPES, I>>,
-    QuorumNetworkType<TYPES, I>: TestableNetworkingImplementation<TYPES, Message<TYPES, I>>,
-    QuorumNetwork<TYPES, I>: TestableChannelImplementation<
+    CommitteeNetwork<TYPES, I>: TestableNetworkingImplementation<TYPES, Message<TYPES, I>>,
+    QuorumNetwork<TYPES, I>: TestableNetworkingImplementation<TYPES, Message<TYPES, I>>,
+    QuorumCommChannel<TYPES, I>: TestableChannelImplementation<
         TYPES,
         Message<TYPES, I>,
         QuorumProposalType<TYPES, I>,
         QuorumVoteType<TYPES, I>,
         QuorumMembership<TYPES, I>,
-        QuorumNetworkType<TYPES, I>,
+        QuorumNetwork<TYPES, I>,
     >,
-    CommitteeNetwork<TYPES, I>: TestableChannelImplementation<
+    CommitteeCommChannel<TYPES, I>: TestableChannelImplementation<
         TYPES,
         Message<TYPES, I>,
-        DAProposalType<TYPES, I>,
+        CommitteeProposalType<TYPES, I>,
         CommitteeVote<TYPES, I>,
         CommitteeMembership<TYPES, I>,
-        CommitteeNetworkType<TYPES, I>,
+        CommitteeNetwork<TYPES, I>,
     >,
     TYPES::StateType: TestableState,
     TYPES::BlockType: TestableBlock,
@@ -513,14 +515,14 @@ where
     TYPES::SignatureKey: TestableSignatureKey,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
 {
+    type CommitteeCommChannel = CommitteeCommChannel<TYPES, I>;
     type CommitteeNetwork = CommitteeNetwork<TYPES, I>;
-    type CommitteeNetworkType = CommitteeNetworkType<TYPES, I>;
 
     fn quorum_network_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-    ) -> Box<dyn Fn(u64) -> QuorumNetworkType<TYPES, I> + 'static> {
-        <QuorumNetworkType<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
+    ) -> Box<dyn Fn(u64) -> QuorumNetwork<TYPES, I> + 'static> {
+        <QuorumNetwork<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
             1,
@@ -530,22 +532,22 @@ where
     fn committee_network_generator(
         expected_node_count: usize,
         num_bootstrap: usize,
-    ) -> Box<dyn Fn(u64) -> CommitteeNetworkType<TYPES, I> + 'static> {
-        <CommitteeNetworkType<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
+    ) -> Box<dyn Fn(u64) -> CommitteeNetwork<TYPES, I> + 'static> {
+        <CommitteeNetwork<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,
-            1,
+            2,
         )
     }
 
     fn quorum_comm_channel_generator(
-    ) -> Box<dyn Fn(Arc<QuorumNetworkType<TYPES, I>>) -> QuorumNetwork<TYPES, Self> + 'static> {
-        < QuorumNetwork::<TYPES, Self> as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
+    ) -> Box<dyn Fn(Arc<QuorumNetwork<TYPES, I>>) -> QuorumCommChannel<TYPES, Self> + 'static> {
+        < QuorumCommChannel::<TYPES, Self> as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
     }
 
     fn committee_comm_channel_generator(
-    ) -> Box<dyn Fn(Arc<CommitteeNetworkType<TYPES, I>>) -> Self::CommitteeNetwork + 'static> {
-        < CommitteeNetwork<TYPES, I>as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
+    ) -> Box<dyn Fn(Arc<CommitteeNetwork<TYPES, I>>) -> Self::CommitteeCommChannel + 'static> {
+        < CommitteeCommChannel<TYPES, I>as TestableChannelImplementation<_, _, _, _, _, _>>::generate_network()
     }
 
     fn state_create_random_transaction(
@@ -590,7 +592,7 @@ pub type QuorumProposalType<TYPES, I> =
     <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal;
 
 /// A proposal to provide data availability for a new leaf.
-pub type DAProposalType<TYPES, I> =
+pub type CommitteeProposalType<TYPES, I> =
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal;
 
 /// A vote on a [`QuorumProposalType`].
@@ -601,12 +603,12 @@ pub type QuorumVoteType<TYPES, I> =
 pub type CommitteeVote<TYPES, I> =
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Vote;
 
-/// Networking implementation used to communicate [`QuorumProposalType`] and [`QuorumVote`].
-pub type QuorumNetwork<TYPES, I> =
+/// Communication channel for [`QuorumProposalType`] and [`QuorumVote`].
+pub type QuorumCommChannel<TYPES, I> =
     <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking;
 
-/// Networking implementation used to communicate [`DAProposalType`] and [`DAVote`].
-pub type CommitteeNetwork<TYPES, I> =
+/// Communication channel for [`CommitteeProposalType`] and [`DAVote`].
+pub type CommitteeCommChannel<TYPES, I> =
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Networking;
 
 /// Protocol for determining membership in a consensus committee.
@@ -618,8 +620,7 @@ pub type CommitteeMembership<TYPES, I> =
     <CommitteeEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Membership;
 
 /// Type for the underlying quorum `ConnectedNetwork` that will be shared (for now) b/t Communication Channels
-// TODO (Keyao) Rename
-pub type QuorumNetworkType<TYPES, I> = <QuorumNetwork<TYPES, I> as CommunicationChannel<
+pub type QuorumNetwork<TYPES, I> = <QuorumCommChannel<TYPES, I> as CommunicationChannel<
     TYPES,
     Message<TYPES, I>,
     QuorumProposalType<TYPES, I>,
@@ -628,11 +629,10 @@ pub type QuorumNetworkType<TYPES, I> = <QuorumNetwork<TYPES, I> as Communication
 >>::NETWORK;
 
 /// Type for the underlying committee `ConnectedNetwork` that will be shared (for now) b/t Communication Channels
-// TODO (Keyao) Rename
-pub type CommitteeNetworkType<TYPES, I> = <CommitteeNetwork<TYPES, I> as CommunicationChannel<
+pub type CommitteeNetwork<TYPES, I> = <CommitteeCommChannel<TYPES, I> as CommunicationChannel<
     TYPES,
     Message<TYPES, I>,
-    DAProposalType<TYPES, I>,
+    CommitteeProposalType<TYPES, I>,
     CommitteeVote<TYPES, I>,
     CommitteeMembership<TYPES, I>,
 >>::NETWORK;

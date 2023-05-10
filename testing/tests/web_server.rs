@@ -64,7 +64,7 @@ impl NodeImplementation<StaticCommitteeTestTypes> for StaticCentralizedImp {
 )]
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
-async fn centralized_server_network() {
+async fn web_server_network() {
     let builder = TestBuilder {
         metadata: TestMetadata {
             timing_data: TimingData {

@@ -23,7 +23,7 @@ use hotshot_orchestrator::{
 };
 use hotshot_types::traits::election::ConsensusExchange;
 use hotshot_types::{
-    data::{TestableLeaf, ValidatingLeaf, ValidatingProposal},
+    data::{LeafType, TestableLeaf, ValidatingLeaf, ValidatingProposal},
     message::ValidatingMessage,
     traits::{
         consensus_type::validating_consensus::ValidatingConsensus,

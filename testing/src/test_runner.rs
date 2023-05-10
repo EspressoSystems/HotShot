@@ -20,7 +20,7 @@ use hotshot_types::{
         metrics::NoMetrics,
         network::CommunicationChannel,
         node_implementation::{
-            ExchangesType, NodeType, QuorumEx, QuorumNetwork, QuorumNetworkType,
+            ExchangesType, NodeType, QuorumCommChannel, QuorumEx, QuorumNetwork,
         },
         signature_key::SignatureKey,
     },
@@ -33,7 +33,7 @@ pub type Generator<T> = Box<dyn Fn(u64) -> T + 'static>;
 
 /// Wrapper Type for quorum function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
 pub type QuorumNetworkGenerator<TYPES, I, T> =
-    Box<dyn Fn(Arc<QuorumNetworkType<TYPES, I>>) -> T + 'static>;
+    Box<dyn Fn(Arc<QuorumNetwork<TYPES, I>>) -> T + 'static>;
 
 /// Wrapper Type for committee function that takes a `ConnectedNetwork` and returns a `CommunicationChannel`
 pub type CommitteeNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
@@ -42,7 +42,7 @@ pub type CommitteeNetworkGenerator<N, T> = Box<dyn Fn(Arc<N>) -> T + 'static>;
 /// spin up and down nodes, execute rounds
 pub struct TestRunner<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -96,7 +96,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
     TestRunner<TYPES, I>
 where
     HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -126,7 +126,7 @@ where
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (QuorumNetwork<TYPES, I>, I::CommitteeNetwork),
+            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
         >,
     {
         setup_logging();
@@ -159,7 +159,7 @@ where
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (QuorumNetwork<TYPES, I>, I::CommitteeNetwork),
+            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
         >,
     {
         let mut results = vec![];
@@ -209,8 +209,8 @@ where
     /// For a simpler way to add nodes to this runner, see `add_nodes`
     pub async fn add_node_with_config(
         &mut self,
-        quorum_network: QuorumNetwork<TYPES, I>,
-        committee_network: I::CommitteeNetwork,
+        quorum_network: QuorumCommChannel<TYPES, I>,
+        committee_network: I::CommitteeCommChannel,
         storage: I::Storage,
         initializer: HotShotInitializer<TYPES, I::Leaf>,
         config: HotShotConfig<TYPES::SignatureKey, TYPES::ElectionConfigType>,
@@ -222,7 +222,7 @@ where
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (QuorumNetwork<TYPES, I>, I::CommitteeNetwork),
+            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
         >,
     {
         let node_id = self.next_node_id;

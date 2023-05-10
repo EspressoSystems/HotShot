@@ -20,7 +20,7 @@ use hotshot_types::{
         consensus_type::sequencing_consensus::SequencingConsensus,
         election::{CommitteeExchangeType, ConsensusExchange},
         node_implementation::{
-            CommitteeEx, CommitteeVote, DAProposalType, NodeImplementation, NodeType,
+            CommitteeEx, CommitteeProposalType, CommitteeVote, NodeImplementation, NodeType,
             SequencingExchangesType,
         },
         signature_key::SignatureKey,
@@ -162,7 +162,7 @@ where
                                         info!("Sending vote to the leader {:?}", message);
 
                                         let consensus = self.consensus.read().await;
-                                        if self.api.send_direct_da_message::<DAProposalType<TYPES, I>, CommitteeVote<TYPES, I>>(sender, SequencingMessage(Right(message))).await.is_err() {
+                                        if self.api.send_direct_da_message::<CommitteeProposalType<TYPES, I>, CommitteeVote<TYPES, I>>(sender, SequencingMessage(Right(message))).await.is_err() {
                                             consensus.metrics.failed_to_send_messages.add(1);
                                             warn!("Failed to send vote to the leader");
                                         } else {

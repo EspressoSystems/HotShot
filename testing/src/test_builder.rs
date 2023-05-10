@@ -8,7 +8,7 @@ use hotshot_types::{
     traits::{
         election::ConsensusExchange,
         network::CommunicationChannel,
-        node_implementation::{ExchangesType, NodeType, QuorumEx, QuorumNetwork},
+        node_implementation::{ExchangesType, NodeType, QuorumCommChannel, QuorumEx},
     },
 };
 
@@ -81,9 +81,9 @@ impl TestMetadata {
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (QuorumNetwork<TYPES, I>, I::CommitteeNetwork),
+            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
         >,
-        QuorumNetwork<TYPES, I>: CommunicationChannel<
+        QuorumCommChannel<TYPES, I>: CommunicationChannel<
             TYPES,
             Message<TYPES, I>,
             <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -206,9 +206,9 @@ impl TestBuilder {
             TYPES,
             I::Leaf,
             Message<TYPES, I>,
-            Networks = (QuorumNetwork<TYPES, I>, I::CommitteeNetwork),
+            Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
         >,
-        QuorumNetwork<TYPES, I>: CommunicationChannel<
+        QuorumCommChannel<TYPES, I>: CommunicationChannel<
             TYPES,
             Message<TYPES, I>,
             <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,

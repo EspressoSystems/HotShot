@@ -6,11 +6,11 @@ use crate::test_runner::{
 use hotshot::types::{Message, SignatureKey};
 use hotshot::{traits::TestableNodeImplementation, HotShot, HotShotType};
 use hotshot_types::traits::election::{ConsensusExchange, Membership};
-use hotshot_types::traits::node_implementation::{QuorumEx, QuorumNetwork};
+use hotshot_types::traits::node_implementation::{QuorumCommChannel, QuorumEx, QuorumNetwork};
 use hotshot_types::{
     traits::{
         network::CommunicationChannel,
-        node_implementation::{NodeImplementation, NodeType, QuorumNetworkType},
+        node_implementation::{NodeImplementation, NodeType},
     },
     ExecutionType, HotShotConfig,
 };
@@ -21,7 +21,7 @@ pub struct ResourceGenerators<
     TYPES: NodeType,
     I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>,
 > where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -30,14 +30,14 @@ pub struct ResourceGenerators<
     >,
 {
     /// generate the underlying quorum network used for each node
-    pub(super) quorum_network_generator: Generator<QuorumNetworkType<TYPES, I>>,
+    pub(super) quorum_network_generator: Generator<QuorumNetwork<TYPES, I>>,
     /// generate the underlying committee network used for each node
-    pub(super) committee_network_generator: Generator<I::CommitteeNetworkType>,
+    pub(super) committee_network_generator: Generator<I::CommitteeNetwork>,
     /// generate a new quorum network for each node
-    pub(super) quorum_network: QuorumNetworkGenerator<TYPES, I, QuorumNetwork<TYPES, I>>,
+    pub(super) quorum_network: QuorumNetworkGenerator<TYPES, I, QuorumCommChannel<TYPES, I>>,
     /// generate a new committee network for each node
     pub(super) committee_network:
-        CommitteeNetworkGenerator<I::CommitteeNetworkType, I::CommitteeNetwork>,
+        CommitteeNetworkGenerator<I::CommitteeNetwork, I::CommitteeCommChannel>,
     /// generate a new storage for each node
     pub(super) storage: Generator<<I as NodeImplementation<TYPES>>::Storage>,
     /// configuration used to generate each hotshot node
@@ -47,7 +47,7 @@ pub struct ResourceGenerators<
 /// A launcher for [`TestRunner`], allowing you to customize the network and some default settings for spawning nodes.
 pub struct TestLauncher<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -65,7 +65,7 @@ where
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
     TestLauncher<TYPES, I>
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -77,7 +77,7 @@ where
     /// Note that `expected_node_count` should be set to an accurate value, as this is used to calculate the `threshold` internally.
     pub fn new(metadata: TestMetadata, round: Round<TYPES, I>) -> Self
     where
-        QuorumNetwork<TYPES, I>: CommunicationChannel<
+        QuorumCommChannel<TYPES, I>: CommunicationChannel<
             TYPES,
             Message<TYPES, I>,
             <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -164,7 +164,7 @@ where
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
     TestLauncher<TYPES, I>
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -175,7 +175,7 @@ where
     /// Set a custom committee network generator
     pub fn with_committee_network(
         mut self,
-        committee_network: CommitteeNetworkGenerator<I::CommitteeNetworkType, I::CommitteeNetwork>,
+        committee_network: CommitteeNetworkGenerator<I::CommitteeNetwork, I::CommitteeCommChannel>,
     ) -> Self {
         self.generator.committee_network = committee_network;
         self
@@ -184,10 +184,10 @@ where
     /// Set a custom committee network generator
     pub fn with_quorum_network(
         mut self,
-        quorum_network: QuorumNetworkGenerator<TYPES, I, QuorumNetwork<TYPES, I>>,
+        quorum_network: QuorumNetworkGenerator<TYPES, I, QuorumCommChannel<TYPES, I>>,
     ) -> Self
     where
-        QuorumNetwork<TYPES, I>: CommunicationChannel<
+        QuorumCommChannel<TYPES, I>: CommunicationChannel<
             TYPES,
             Message<TYPES, I>,
             <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -287,7 +287,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
     TestLauncher<TYPES, I>
 where
     HotShot<TYPES::ConsensusType, TYPES, I>: HotShotType<TYPES, I>,
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,

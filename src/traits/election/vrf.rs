@@ -1,3 +1,6 @@
+// Needed to avoid the non-biding `let` warning.
+#![allow(clippy::let_underscore_untyped)]
+
 use ark_bls12_381::Parameters as Param381;
 use ark_ec::bls12::Bls12Parameters;
 use bincode::Options;

@@ -12,7 +12,7 @@ use hotshot_types::{
     traits::{
         election::ConsensusExchange,
         network::CommunicationChannel,
-        node_implementation::{ExchangesType, NodeType, QuorumEx, QuorumNetwork},
+        node_implementation::{ExchangesType, NodeType, QuorumCommChannel, QuorumEx},
     },
 };
 use tracing::error;
@@ -113,7 +113,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>
 
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Round<TYPES, I>
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -140,9 +140,9 @@ where
         TYPES,
         I::Leaf,
         Message<TYPES, I>,
-        Networks = (QuorumNetwork<TYPES, I>, I::CommitteeNetwork),
+        Networks = (QuorumCommChannel<TYPES, I>, I::CommitteeCommChannel),
     >,
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -161,7 +161,7 @@ where
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Clone
     for Round<TYPES, I>
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -189,7 +189,7 @@ pub fn empty_setup_round<
     _ctx: &'a RoundCtx<TYPES, I>,
 ) -> LocalBoxFuture<'a, Vec<TRANS>>
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -212,7 +212,7 @@ pub fn empty_safety_check<
     _result: RoundResult<TYPES, <I as NodeImplementation<TYPES>>::Leaf>,
 ) -> LocalBoxFuture<'a, Result<(), ConsensusTestError>>
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -240,7 +240,7 @@ pub struct RoundSafetyCheck<
     >,
 )
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -260,7 +260,7 @@ pub struct RoundHook<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Conse
     >,
 )
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -271,7 +271,7 @@ where
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Deref
     for RoundHook<TYPES, I>
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -292,7 +292,7 @@ where
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Deref
     for RoundSafetyCheck<TYPES, I>
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -323,7 +323,7 @@ pub struct RoundSetup<TYPES: NodeType, I: TestableNodeImplementation<TYPES::Cons
     >,
 )
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -334,7 +334,7 @@ where
 impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>> Deref
     for RoundSetup<TYPES, I>
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
@@ -356,7 +356,7 @@ where
 /// the control flow is: (0) setup round, (1) hooks, (2) execute round, (3) safety check
 pub struct Round<TYPES: NodeType, I: TestableNodeImplementation<TYPES::ConsensusType, TYPES>>
 where
-    QuorumNetwork<TYPES, I>: CommunicationChannel<
+    QuorumCommChannel<TYPES, I>: CommunicationChannel<
         TYPES,
         Message<TYPES, I>,
         <QuorumEx<TYPES, I> as ConsensusExchange<TYPES, Message<TYPES, I>>>::Proposal,
