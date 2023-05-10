@@ -16,12 +16,9 @@ use async_compatibility_layer::{
 };
 use async_lock::RwLock;
 use async_trait::async_trait;
-use either::Either::{Left, Right};
-use hotshot_types::traits::consensus_type::{
-    sequencing_consensus::SequencingConsensus, validating_consensus::ValidatingConsensus,
-    ConsensusType,
-};
-use hotshot_types::traits::node_implementation::{NodeImplementation, SequencingExchangesType};
+use hotshot_types::message::{Message, MessagePurpose};
+use hotshot_types::traits::consensus_type::ConsensusType;
+use hotshot_types::traits::node_implementation::NodeImplementation;
 use hotshot_types::{
     data::ProposalType,
     traits::{
@@ -35,13 +32,6 @@ use hotshot_types::{
         signature_key::{SignatureKey, TestableSignatureKey},
     },
     vote::VoteType,
-};
-use hotshot_types::{
-    data::{SequencingLeaf, ValidatingLeaf},
-    message::{
-        CommitteeConsensusMessage, DataMessage, GeneralConsensusMessage, Message, MessageKind,
-        MessagePurpose, SequencingMessage, ValidatingMessage,
-    },
 };
 use hotshot_web_server::{self, config};
 use serde::{Deserialize, Serialize};
@@ -104,112 +94,6 @@ impl<
         >,
     ) -> Self {
         Self(network, PhantomData::default())
-    }
-}
-
-/// A massage parse-post trait implemented by [`WebCommChannel`].
-trait ParsePost<TYPES: NodeType, I: NodeImplementation<TYPES>> {
-    /// Parse a message to find the appropriate endpoint.
-    ///
-    /// Returns a `SendMsg` containing the endpoint.
-    fn parse_post_message(
-        message: Message<TYPES, I>,
-    ) -> Result<SendMsg<Message<TYPES, I>>, WebServerNetworkError>;
-}
-
-impl<
-        TYPES: NodeType<ConsensusType = ValidatingConsensus>,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = ValidatingLeaf<TYPES>,
-            ConsensusMessage = ValidatingMessage<TYPES, I>,
-        >,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > ParsePost<TYPES, I>
-    for WebCommChannel<ValidatingConsensus, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
-where
-    MessageKind<TYPES::ConsensusType, TYPES, I>: ViewMessage<TYPES>,
-{
-    fn parse_post_message(
-        message: Message<TYPES, I>,
-    ) -> Result<SendMsg<Message<TYPES, I>>, WebServerNetworkError> {
-        let view_number: TYPES::Time = message.kind.get_view_number();
-
-        let endpoint = match &message.kind {
-            MessageKind::Consensus(message_kind) => match message_kind.0 {
-                GeneralConsensusMessage::Proposal(_) => config::post_proposal_route(*view_number),
-                GeneralConsensusMessage::Vote(_) => config::post_vote_route(*view_number),
-                GeneralConsensusMessage::InternalTrigger(_) => {
-                    return Err(WebServerNetworkError::EndpointError)
-                }
-                GeneralConsensusMessage::ViewSync(_) => todo!(),
-            },
-            MessageKind::Data(message_kind) => match message_kind {
-                DataMessage::SubmitTransaction(_, _) => config::post_transactions_route(),
-            },
-            MessageKind::_Unreachable(_) => unimplemented!(),
-        };
-
-        let network_msg: SendMsg<Message<TYPES, I>> = SendMsg {
-            message: Some(message),
-            endpoint,
-        };
-        Ok(network_msg)
-    }
-}
-
-impl<
-        TYPES: NodeType<ConsensusType = SequencingConsensus>,
-        I: NodeImplementation<
-            TYPES,
-            Leaf = SequencingLeaf<TYPES>,
-            ConsensusMessage = SequencingMessage<TYPES, I>,
-        >,
-        PROPOSAL: ProposalType<NodeType = TYPES>,
-        VOTE: VoteType<TYPES>,
-        MEMBERSHIP: Membership<TYPES>,
-    > ParsePost<TYPES, I>
-    for WebCommChannel<SequencingConsensus, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
-where
-    I::Exchanges: SequencingExchangesType<TYPES, Message<TYPES, I>>,
-{
-    fn parse_post_message(
-        message: Message<TYPES, I>,
-    ) -> Result<SendMsg<Message<TYPES, I>>, WebServerNetworkError> {
-        let view_number: TYPES::Time = message.kind.get_view_number();
-
-        let endpoint = match &message.kind {
-            MessageKind::Consensus(message_kind) => match &message_kind.0 {
-                Left(message) => match message {
-                    GeneralConsensusMessage::Proposal(_) => {
-                        config::post_proposal_route(*view_number)
-                    }
-                    GeneralConsensusMessage::Vote(_) => config::post_vote_route(*view_number),
-                    GeneralConsensusMessage::InternalTrigger(_) => {
-                        return Err(WebServerNetworkError::EndpointError)
-                    }
-                    GeneralConsensusMessage::ViewSync(_) => todo!(),
-                },
-                Right(message) => match message {
-                    CommitteeConsensusMessage::DAProposal(_) => {
-                        config::post_proposal_route(*view_number)
-                    }
-                    CommitteeConsensusMessage::DAVote(_) => config::post_vote_route(*view_number),
-                },
-            },
-            MessageKind::Data(message_kind) => match message_kind {
-                DataMessage::SubmitTransaction(_, _) => config::post_transactions_route(),
-            },
-            MessageKind::_Unreachable(_) => unimplemented!(),
-        };
-
-        let network_msg: SendMsg<Message<TYPES, I>> = SendMsg {
-            message: Some(message),
-            endpoint,
-        };
-        Ok(network_msg)
     }
 }
 
@@ -620,8 +504,6 @@ impl<
         MEMBERSHIP: Membership<TYPES>,
     > CommunicationChannel<TYPES, Message<TYPES, I>, PROPOSAL, VOTE, MEMBERSHIP>
     for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
-where
-    Self: ParsePost<TYPES, I>,
 {
     type NETWORK = WebServerNetwork<
         Message<TYPES, I>,
@@ -940,7 +822,6 @@ impl<
     > for WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>
 where
     TYPES::SignatureKey: TestableSignatureKey,
-    WebCommChannel<TYPES::ConsensusType, TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>: ParsePost<TYPES, I>,
 {
     fn generate_network() -> Box<
         dyn Fn(
