@@ -168,8 +168,6 @@ where
     I::Storage: TestableStorage<TYPES, I::Leaf>,
     TYPES::SignatureKey: TestableSignatureKey,
     I::Leaf: TestableLeaf<NodeType = TYPES>,
-    // <I::QuorumExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership : TestableElection<TYPES>,
-    // <I::CommitteeExchange as ConsensusExchange<TYPES, I::Leaf, Message<TYPES, I>>>::Membership : TestableElection<TYPES>,
 {
     fn network_generator(
         expected_node_count: usize,

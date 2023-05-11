@@ -12,7 +12,7 @@ use hotshot::{
         NodeImplementation,
     },
 };
-use hotshot_testing::test_description::GeneralTestDescriptionBuilder;
+use hotshot_testing::test_builder::TestBuilder;
 use hotshot_types::data::CommitmentProposal;
 use hotshot_types::message::Message;
 
@@ -103,11 +103,12 @@ impl NodeImplementation<SequencingTestTypes> for SequencingMemoryImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn sequencing_memory_network_test() {
-    let builder = GeneralTestDescriptionBuilder::default_multiple_rounds();
+    let builder = TestBuilder::default_multiple_rounds();
 
     builder
         .build::<SequencingTestTypes, SequencingMemoryImpl>()
-        .execute()
+        .launch()
+        .run_test()
         .await
         .unwrap();
 }
@@ -159,11 +160,12 @@ impl NodeImplementation<SequencingTestTypes> for SequencingLibP2PImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn sequencing_libp2p_test() {
-    let builder = GeneralTestDescriptionBuilder::default_multiple_rounds();
+    let builder = TestBuilder::default_multiple_rounds();
 
     builder
         .build::<SequencingTestTypes, SequencingLibP2PImpl>()
-        .execute()
+        .launch()
+        .run_test()
         .await
         .unwrap();
 }
@@ -215,11 +217,12 @@ impl NodeImplementation<SequencingTestTypes> for SequencingCentralImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn sequencing_centralized_server_test() {
-    let builder = GeneralTestDescriptionBuilder::default_multiple_rounds();
+    let builder = TestBuilder::default_multiple_rounds();
 
     builder
         .build::<SequencingTestTypes, SequencingCentralImpl>()
-        .execute()
+        .launch()
+        .run_test()
         .await
         .unwrap();
 }
