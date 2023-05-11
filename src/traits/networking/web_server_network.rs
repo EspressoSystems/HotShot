@@ -181,8 +181,8 @@ struct Inner<
     client: surf_disco::Client<ClientError>,
     /// The duration to wait between poll attempts
     wait_between_polls: Duration,
-    // Secret for submitting proposal to protected endpoint
-    //secret: String,
+    /// Secret for submitting proposal to protected endpoint
+    secret: Arc<RwLock<String>>,
 }
 
 impl<
@@ -205,7 +205,6 @@ impl<
         let mut consensus_info = self.consensus_info.copied().await;
         let mut vote_index: u64 = 0;
         let mut tx_index: u64 = 0;
-        let mut secret = String::new();
 
         while self.running.load(Ordering::Relaxed) {
             let endpoint = match message_type {
@@ -230,7 +229,8 @@ impl<
                         Ok(Some(new_msg)) => {
                             // save new secret if we're next leader
                             if !new_msg.1.is_empty() {
-                                secret = new_msg.1;
+                                *self.secret.write().await = new_msg.1;
+
                             }
                             Ok(Some(vec![new_msg.0]))
                         },
@@ -445,7 +445,7 @@ impl<
             wait_between_polls,
             own_key: key,
             encryption_key,
-            //secret: String::new(),
+            secret: Arc::default(),
         });
         inner.connected.store(true, Ordering::Relaxed);
 
@@ -526,12 +526,11 @@ impl<
 
     /// Parses a message to find the appropriate endpoint
     /// Returns a `SendMsg` containing the endpoint
-    fn parse_post_message(message: M) -> Result<SendMsg<M>, WebServerNetworkError> {
+    fn parse_post_message(message: M, secret: String) -> Result<SendMsg<M>, WebServerNetworkError> {
         let view_number: TYPES::Time = message.get_view_number();
 
         let endpoint = match &message.purpose() {
-            //KALEY TODO: add endpoint and view number to post_proposal_route
-            MessagePurpose::Proposal => api_config::post_proposal_route(*view_number),
+            MessagePurpose::Proposal => api_config::post_proposal_route(*view_number, secret),
             MessagePurpose::Vote => api_config::post_vote_route(*view_number),
             MessagePurpose::Data => api_config::post_transactions_route(),
             MessagePurpose::Internal => return Err(WebServerNetworkError::EndpointError),
@@ -691,7 +690,8 @@ impl<
         message: M,
         _recipients: BTreeSet<K>,
     ) -> Result<(), NetworkError> {
-        let network_msg = Self::parse_post_message(message);
+        let secret = self.inner.secret.read().await.clone();
+        let network_msg = Self::parse_post_message(message, secret);
         match network_msg {
             Ok(network_msg) => self.post_message_to_web_server(network_msg).await,
             Err(network_msg) => Err(NetworkError::WebServer {
@@ -703,7 +703,8 @@ impl<
     /// Sends a direct message to a specific node
     /// blocking
     async fn direct_message(&self, message: M, _recipient: K) -> Result<(), NetworkError> {
-        let network_msg = Self::parse_post_message(message);
+        let secret = self.inner.secret.read().await.clone();
+        let network_msg = Self::parse_post_message(message, secret);
         match network_msg {
             Ok(network_msg) => self.post_message_to_web_server(network_msg).await,
             Err(network_msg) => Err(NetworkError::WebServer {

@@ -11,8 +11,11 @@ pub fn get_proposal_route(view_number: u64) -> String {
     format!("api/proposal/{view_number}")
 }
 
-pub fn post_proposal_route(view_number: u64) -> String {
-    format!("api/proposal/{view_number}")
+// pub fn post_proposal_route(view_number: u64) -> String {
+//     format!("api/proposal/{view_number}")
+// }
+pub fn post_proposal_route(view_number: u64, secret: String) -> String {
+    format!("api/secret/{view_number}/{secret}")
 }
 
 pub fn get_vote_route(view_number: u64, index: u64) -> String {
