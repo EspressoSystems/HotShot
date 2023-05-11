@@ -134,6 +134,7 @@ where
         expected_node_count: usize,
         num_bootstrap: usize,
         network_id: usize,
+        da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let bootstrap_addrs: PeerInfoVec = Arc::default();
         let mut all_keys = BTreeSet::new();
@@ -196,8 +197,8 @@ where
                         .unwrap()
                 };
                 let bootstrap_addrs_ref = bootstrap_addrs.clone();
-                let all_keys = all_keys.clone();
-                async_block_on(async move {
+                let keys = all_keys.clone();
+                let network = async_block_on(async move {
                     Libp2pNetwork::new(
                         NoMetrics::boxed(),
                         config,
@@ -205,11 +206,15 @@ where
                         bootstrap_addrs_ref,
                         num_bootstrap,
                         node_id as usize,
-                        all_keys,
+                        keys,
                     )
                     .await
                     .unwrap()
-                })
+                });
+                /// TODO configure the network.
+                let da_topic = "DA".to_string();
+                network.add_topic(&da_topic, all_keys.clone());
+                network
             }
         })
     }
@@ -462,6 +467,15 @@ impl<M: NetworkMsg, K: SignatureKey + 'static> Libp2pNetwork<M, K> {
             error!("Network receiever shut down!");
             Ok::<(), NetworkError>(())
         });
+    }
+
+    async fn add_topic(&self, name: &String, committee_pks: BTreeSet<K>) {
+        self.inner.handle.subscribe(name.clone());
+        self.inner
+            .topic_map
+            .write()
+            .await
+            .insert(committee_pks, name.clone());
     }
 }
 

@@ -162,6 +162,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestDescription<TYPE
                 TYPES,
                 Message<TYPES, I>,
             >>::Membership::default_election_config(self.total_nodes as u64),
+            self.num_da_nodes,
         );
         // modify runner to recognize timing params
         let set_timing_params =
@@ -262,6 +263,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>>
             num_bootstrap_nodes: self.general_info.num_bootstrap_nodes,
             max_transactions: self.general_info.max_transactions,
             min_transactions: self.general_info.min_transactions,
+            num_da_nodes: self.general_info.total_nodes,
         }
     }
 }
@@ -293,6 +295,8 @@ pub struct TestDescription<TYPES: NodeType, I: TestableNodeImplementation<TYPES>
     pub max_transactions: NonZeroUsize,
     /// Minimum transactions required for a block
     pub min_transactions: usize,
+    /// The size of the DA committee for the test.  0 == no DA.
+    pub num_da_nodes: usize,
 }
 
 /// type alias for generating a [`TestRunner`]

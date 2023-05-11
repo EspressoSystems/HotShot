@@ -60,6 +60,7 @@ pub trait TestableNodeImplementation<TYPES: NodeType>: NodeImplementation<TYPES>
     fn network_generator(
         expected_node_count: usize,
         num_bootstrap_nodes: usize,
+        da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> NetworkType<TYPES, Self> + 'static>;
     /// generates a committee communication channel given the network
     fn committee_generator() -> Box<
@@ -173,11 +174,13 @@ where
     fn network_generator(
         expected_node_count: usize,
         num_bootstrap_nodes: usize,
+        da_committee_size: usize,
     ) -> Box<dyn Fn(u64) -> NetworkType<TYPES, I> + 'static> {
         <NetworkType<TYPES, I> as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap_nodes,
             1,
+            da_committee_size,
         )
     }
     fn committee_generator() -> Box<

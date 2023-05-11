@@ -28,6 +28,7 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
         num_bootstrap_nodes: usize,
         min_transactions: usize,
         election_config: TYPES::ElectionConfigType,
+        da_committee_size: usize,
     ) -> Self {
         let known_nodes = (0..expected_node_count)
             .map(|id| {
@@ -50,7 +51,8 @@ impl<TYPES: NodeType, I: TestableNodeImplementation<TYPES>> TestLauncher<TYPES, 
             propose_max_round_time: Duration::from_millis(1000),
             election_config: Some(election_config),
         };
-        let network = I::network_generator(expected_node_count, num_bootstrap_nodes);
+        let network =
+            I::network_generator(expected_node_count, num_bootstrap_nodes, da_committee_size);
         Self {
             network,
             quorum_network: I::quorum_generator(),
