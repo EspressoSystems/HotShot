@@ -160,7 +160,7 @@ pub trait CommunicationChannel<
 >: Clone + Send + Sync + 'static
 {
     /// Underlying Network implementation's type
-    type NETWORK: ConnectedNetwork<M, TYPES::SignatureKey>;
+    type NETWORK;
     /// Blocks until node is successfully initialized
     /// into the network
     async fn wait_for_ready(&self);
@@ -253,9 +253,7 @@ pub trait ConnectedNetwork<M: NetworkMsg, K: SignatureKey + 'static>:
 }
 
 /// Describes additional functionality needed by the test network implementation
-pub trait TestableNetworkingImplementation<TYPES: NodeType, M: NetworkMsg>:
-    ConnectedNetwork<M, TYPES::SignatureKey>
-{
+pub trait TestableNetworkingImplementation<TYPES: NodeType, M: NetworkMsg> {
     /// generates a network given an expected node count
     fn generator(
         expected_node_count: usize,
@@ -275,7 +273,7 @@ pub trait TestableChannelImplementation<
     PROPOSAL: ProposalType<NodeType = TYPES>,
     VOTE: VoteType<TYPES>,
     MEMBERSHIP: Membership<TYPES>,
-    NETWORK: ConnectedNetwork<M, TYPES::SignatureKey>,
+    NETWORK,
 >: CommunicationChannel<TYPES, M, PROPOSAL, VOTE, MEMBERSHIP>
 {
     /// generates the `CommunicationChannel` given it's associated network type

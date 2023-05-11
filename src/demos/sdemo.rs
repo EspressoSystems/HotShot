@@ -5,7 +5,7 @@
 //!
 //! These implementations are useful in examples and integration testing, but are not suitable for
 //! production use.
-use std::{collections::HashSet, ops::Deref};
+use std::{collections::HashSet, fmt::Display, ops::Deref};
 
 use commit::{Commitment, Committable};
 use hotshot_types::{
@@ -70,7 +70,7 @@ pub struct SDemoGenesisBlock {}
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Debug)]
 pub struct SDemoNormalBlock {
     /// Block state commitment
-    pub previous_state: Commitment<SDemoState>,
+    pub previous_state: (),
     /// Transaction vector
     pub transactions: Vec<SDemoTransaction>,
 }
@@ -91,8 +91,7 @@ impl Committable for SDemoBlock {
                 commit::RawCommitmentBuilder::new("SDemo Genesis Comm").finalize()
             }
             SDemoBlock::Normal(block) => {
-                let mut builder = commit::RawCommitmentBuilder::new("SDemo Normal Comm")
-                    .var_size_field("Previous State", block.previous_state.as_ref());
+                let mut builder = commit::RawCommitmentBuilder::new("SDemo Normal Comm");
                 for txn in &block.transactions {
                     builder = builder.u64_field("transaction", **txn);
                 }
@@ -158,6 +157,19 @@ pub enum SDemoError {
     InvalidBlock,
 }
 
+impl Display for SDemoBlock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SDemoBlock::Genesis(_) => {
+                write!(f, "SDemo Genesis Block")
+            }
+            SDemoBlock::Normal(block) => {
+                write!(f, "SDemo Normal Block #txns={}", block.transactions.len())
+            }
+        }
+    }
+}
+
 impl TestableBlock for SDemoBlock {
     fn genesis() -> Self {
         SDemoBlock::Genesis(SDemoGenesisBlock {})
@@ -213,9 +225,9 @@ impl State for SDemoState {
 
     type Time = ViewNumber;
 
-    fn next_block(&self) -> Self::BlockType {
+    fn next_block(_state: Option<Self>) -> Self::BlockType {
         SDemoBlock::Normal(SDemoNormalBlock {
-            previous_state: self.commit(),
+            previous_state: (),
             transactions: Vec::new(),
         })
     }
@@ -225,9 +237,7 @@ impl State for SDemoState {
             SDemoBlock::Genesis(_) => {
                 view_number == &ViewNumber::genesis() && view_number == &self.view_number
             }
-            SDemoBlock::Normal(n) => {
-                n.previous_state == self.commit() && self.view_number < *view_number
-            }
+            SDemoBlock::Normal(_n) => self.view_number < *view_number,
         }
     }
 

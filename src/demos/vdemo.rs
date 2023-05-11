@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
 use std::{
     collections::{BTreeMap, HashSet},
-    fmt::Debug,
+    fmt::{Debug, Display},
     marker::PhantomData,
 };
 use tracing::error;
@@ -231,11 +231,15 @@ impl State for VDemoState {
 
     type Time = ViewNumber;
 
-    fn next_block(&self) -> Self::BlockType {
-        VDemoBlock::Normal(VDemoNormalBlock {
-            previous_state: self.commit(),
-            transactions: Vec::new(),
-        })
+    #[allow(clippy::panic)]
+    fn next_block(state: Option<Self>) -> Self::BlockType {
+        match state {
+            Some(state) => VDemoBlock::Normal(VDemoNormalBlock {
+                previous_state: state.commit(),
+                transactions: Vec::new(),
+            }),
+            None => panic!("State is required for the next block"),
+        }
     }
 
     // Note: validate_block is actually somewhat redundant, its meant to be a quick and dirty check
@@ -376,6 +380,19 @@ impl State for VDemoState {
 
     fn on_commit(&self) {
         // Does nothing in this implementation
+    }
+}
+
+impl Display for VDemoBlock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VDemoBlock::Genesis(block) => {
+                write!(f, "VDemo Genesis Block: {block:#?}")
+            }
+            VDemoBlock::Normal(block) => {
+                write!(f, "VDemo Normal Block #txns={}", block.transactions.len())
+            }
+        }
     }
 }
 

@@ -32,7 +32,7 @@ struct CrossTestData {
     /// name of the test
     test_name: Ident,
     /// test description/spec
-    test_description: Expr,
+    test_builder: Expr,
     /// whether or not to hide behind slow feature flag
     slow: LitBool,
 }
@@ -43,7 +43,7 @@ struct CrossAllTypesSpec {
     /// name of the test
     test_name: Ident,
     /// test description/spec
-    test_description: Expr,
+    test_builder: Expr,
     /// whether or not to hide behind slow feature flag
     slow: LitBool,
 }
@@ -57,18 +57,18 @@ impl Parse for CrossAllTypesSpec {
                 input.parse::<Token![:]>()?;
                 let test_name = input.parse::<Ident>()?;
                 description.test_name(test_name);
-            } else if input.peek(keywords::TestDescription) {
-                let _ = input.parse::<keywords::TestDescription>()?;
+            } else if input.peek(keywords::TestBuilder) {
+                let _ = input.parse::<keywords::TestBuilder>()?;
                 input.parse::<Token![:]>()?;
-                let test_description = input.parse::<Expr>()?;
-                description.test_description(test_description);
+                let test_builder = input.parse::<Expr>()?;
+                description.test_builder(test_builder);
             } else if input.peek(keywords::Slow) {
                 let _ = input.parse::<keywords::Slow>()?;
                 input.parse::<Token![:]>()?;
                 let slow = input.parse::<LitBool>()?;
                 description.slow(slow);
             } else {
-                panic!("Unexpected token. Expected one f: Time, DemoType, SignatureKey, CommChannel, Storage, TestName, TestDescription, Slow");
+                panic!("Unexpected token. Expected one f: Time, DemoType, SignatureKey, CommChannel, Storage, TestName, TestBuilder, Slow");
             }
             if input.peek(Token![,]) {
                 input.parse::<Token![,]>()?;
@@ -82,7 +82,7 @@ impl Parse for CrossAllTypesSpec {
 
 impl CrossAllTypesSpecBuilder {
     fn is_ready(&self) -> bool {
-        self.test_name.is_some() && self.test_description.is_some() && self.slow.is_some()
+        self.test_name.is_some() && self.test_builder.is_some() && self.slow.is_some()
     }
 }
 
@@ -94,7 +94,7 @@ impl CrossTestDataBuilder {
             && self.comm_channels.is_some()
             && self.storages.is_some()
             && self.test_name.is_some()
-            && self.test_description.is_some()
+            && self.test_builder.is_some()
             && self.slow.is_some()
     }
 }
@@ -108,7 +108,7 @@ struct TestData {
     comm_channel: ExprPath,
     storage: ExprPath,
     test_name: Ident,
-    test_description: Expr,
+    test_builder: Expr,
     slow: LitBool,
 }
 
@@ -154,7 +154,7 @@ impl TestData {
             demo_types,
             signature_key_type,
             test_name,
-            test_description,
+            test_builder,
             slow,
             comm_channel,
             storage,
@@ -319,12 +319,10 @@ impl TestData {
                     #[cfg_attr(feature = "async-std-executor", async_std::test)]
                     #[tracing::instrument]
                     async fn #test_name() {
-                        let description = #test_description;
-
-                        description.build::<
+                        hotshot_testing::test_builder::TestBuilder::build::<
                             TestTypes,
                             TestNodeImpl
-                        >().execute().await.unwrap();
+                        >(#test_builder).launch().run_test().await.unwrap();
                     }
         }
     }
@@ -337,7 +335,7 @@ mod keywords {
     syn::custom_keyword!(SignatureKey);
     syn::custom_keyword!(Vote);
     syn::custom_keyword!(TestName);
-    syn::custom_keyword!(TestDescription);
+    syn::custom_keyword!(TestBuilder);
     syn::custom_keyword!(Slow);
     syn::custom_keyword!(CommChannel);
     syn::custom_keyword!(Storage);
@@ -378,18 +376,18 @@ impl Parse for CrossTestData {
                 input.parse::<Token![:]>()?;
                 let test_name = input.parse::<Ident>()?;
                 description.test_name(test_name);
-            } else if input.peek(keywords::TestDescription) {
-                let _ = input.parse::<keywords::TestDescription>()?;
+            } else if input.peek(keywords::TestBuilder) {
+                let _ = input.parse::<keywords::TestBuilder>()?;
                 input.parse::<Token![:]>()?;
-                let test_description = input.parse::<Expr>()?;
-                description.test_description(test_description);
+                let test_builder = input.parse::<Expr>()?;
+                description.test_builder(test_builder);
             } else if input.peek(keywords::Slow) {
                 let _ = input.parse::<keywords::Slow>()?;
                 input.parse::<Token![:]>()?;
                 let slow = input.parse::<LitBool>()?;
                 description.slow(slow);
             } else {
-                panic!("Unexpected token. Expected one f: Time, DemoType, SignatureKey, CommChannel, Storage, TestName, TestDescription, Slow");
+                panic!("Unexpected token. Expected one f: Time, DemoType, SignatureKey, CommChannel, Storage, TestName, TestBuilder, Slow");
             }
             if input.peek(Token![,]) {
                 input.parse::<Token![,]>()?;
@@ -450,7 +448,7 @@ fn cross_tests_internal(test_spec: CrossTestData) -> TokenStream {
                             .comm_channel(comm_channel.clone())
                             .storage(storage.clone())
                             .test_name(test_spec.test_name.clone())
-                            .test_description(test_spec.test_description.clone())
+                            .test_builder(test_spec.test_builder.clone())
                             .slow(test_spec.slow.clone())
                             .build()
                             .unwrap();
@@ -520,7 +518,7 @@ fn cross_tests_internal(test_spec: CrossTestData) -> TokenStream {
 /// - `CommChannel: [CommChannel1, CommChannel2, ..]` - a list of `CommunicationChannel` implementations
 /// - `Time: [ Time1, Time2, ...]` - a list of `ConsensusTime` implementations]`
 /// - `TestName: example_test` - the name of the test
-/// - `TestDescription: { some_test_description_expression }` - the `TestDescription` to use
+/// - `TestBuilder: { some_test_builder_expression }` - the `TestBuilder` to use
 /// - `Storage: Storage1, Storage2, ...` - a list of `Storage` implementations to use
 /// - `Slow`: whether or not this set of tests are hidden behind the `slow` feature flag
 /// Example usage:
@@ -532,12 +530,12 @@ fn cross_tests_internal(test_spec: CrossTestData) -> TokenStream {
 ///     Storage: [ hotshot::traits::implementations::MemoryStorage ],
 ///     Time: [ hotshot_types::data::ViewNumber ],
 ///     TestName: ten_tx_seven_nodes_fast,
-///     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder {
+///     TestBuilder: hotshot_testing::test_builder::TestBuilder {
 ///         total_nodes: 7,
 ///         start_nodes: 7,
 ///         num_succeeds: 10,
 ///         txn_ids: either::Either::Right(1),
-///         ..hotshot_testing::test_description::GeneralTestDescriptionBuilder::default()
+///         ..hotshot_testing::test_builder::TestBuilder::default()
 ///     },
 ///     Slow: false,
 /// );
@@ -551,13 +549,13 @@ pub fn cross_tests(input: TokenStream) -> TokenStream {
 /// Generate a cartesian product of tests across all impls known to `hotshot_types`
 /// Arguments:
 /// - `TestName: example_test` - the name of the test
-/// - `TestDescription: { some_test_description_expression }` - the `TestDescription` to use
+/// - `TestBuilder: { some_test_builder_expression }` - the `TestBuilder` to use
 /// - `Slow`: whether or not this set of tests are hidden behind the `slow` feature flag
 /// Example usage:
 /// ```
 /// hotshot_testing_macros::cross_all_types!(
 ///     TestName: example_test,
-///     TestDescription: hotshot_testing::test_description::GeneralTestDescriptionBuilder::default(),
+///     TestBuilder: hotshot_testing::test_builder::TestBuilder::default(),
 ///     Slow: false,
 /// );
 /// ```
@@ -565,7 +563,7 @@ pub fn cross_tests(input: TokenStream) -> TokenStream {
 pub fn cross_all_types(input: TokenStream) -> TokenStream {
     let CrossAllTypesSpec {
         test_name,
-        test_description,
+        test_builder,
         slow,
     } = parse_macro_input!(input as CrossAllTypesSpec);
     let tokens = quote! {
@@ -575,7 +573,7 @@ pub fn cross_all_types(input: TokenStream) -> TokenStream {
             Time: [ hotshot_types::data::ViewNumber ],
             Storage: [ hotshot::traits::implementations::MemoryStorage ],
             TestName: #test_name,
-            TestDescription: #test_description,
+            TestBuilder: #test_builder,
             Slow: #slow,
     }.into();
     let test_spec = parse_macro_input!(tokens as CrossTestData);

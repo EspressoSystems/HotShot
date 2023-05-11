@@ -5,9 +5,7 @@ use hotshot::{
     },
     types::Message,
 };
-use hotshot_testing::{
-    test_description::GeneralTestDescriptionBuilder, test_types::StaticCommitteeTestTypes,
-};
+use hotshot_testing::{test_builder::TestBuilder, test_types::StaticCommitteeTestTypes};
 use hotshot_types::traits::election::QuorumExchange;
 
 use hotshot_types::traits::node_implementation::NodeImplementation;
@@ -54,11 +52,12 @@ impl NodeImplementation<StaticCommitteeTestTypes> for Libp2pImpl {
 #[cfg_attr(feature = "async-std-executor", async_std::test)]
 #[instrument]
 async fn libp2p_network() {
-    let description = GeneralTestDescriptionBuilder::default_multiple_rounds();
+    let builder = TestBuilder::default_multiple_rounds();
 
-    description
+    builder
         .build::<StaticCommitteeTestTypes, Libp2pImpl>()
-        .execute()
+        .launch()
+        .run_test()
         .await
         .unwrap();
 }
@@ -72,11 +71,11 @@ async fn libp2p_network() {
 #[instrument]
 #[ignore]
 async fn test_stress_libp2p_network() {
-    let description = GeneralTestDescriptionBuilder::default_stress();
-
-    description
+    let builder = TestBuilder::default_stress();
+    builder
         .build::<StaticCommitteeTestTypes, Libp2pImpl>()
-        .execute()
+        .launch()
+        .run_test()
         .await
         .unwrap();
 }

@@ -507,7 +507,7 @@ dependencies = [
  "num-traits",
  "rusticata-macros",
  "thiserror",
- "time 0.3.20",
+ "time 0.3.21",
 ]
 
 [[package]]
@@ -523,7 +523,7 @@ dependencies = [
  "num-traits",
  "rusticata-macros",
  "thiserror",
- "time 0.3.20",
+ "time 0.3.21",
 ]
 
 [[package]]
@@ -863,9 +863,9 @@ dependencies = [
 
 [[package]]
 name = "async-tungstenite"
-version = "0.22.0"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "188cc228bea29b2a1bde197854c6d410e26bdba2390a7795f2a9c38878c8a8a2"
+checksum = "6a48bf42ab2178374a79853bceef600e279258c75049b20481b022d73c908882"
 dependencies = [
  "async-std",
  "futures-io",
@@ -1020,7 +1020,7 @@ version = "0.1.0"
 dependencies = [
  "async-compatibility-layer",
  "async-std",
- "clap 4.2.5",
+ "clap 4.2.7",
  "futures",
  "hotshot-centralized-server",
  "hotshot-types",
@@ -1318,9 +1318,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.2.5"
+version = "4.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a1f23fa97e1d1641371b51f35535cb26959b8e27ab50d167a8b996b5bada819"
+checksum = "34d21f9bf1b425d2968943631ec91202fe5e837264063503708b83013f8fc938"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1329,9 +1329,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.2.5"
+version = "4.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fdc5d93c358224b4d6867ef1356d740de2303e9892edc06c5340daeccd96bab"
+checksum = "914c8c79fb560f238ef6429439a30023c862f7a28e688c58f7203f12b29970bd"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2925,12 +2925,12 @@ dependencies = [
  "async-lock",
  "async-std",
  "async-trait",
- "async-tungstenite 0.22.0",
+ "async-tungstenite 0.22.1",
  "atomic_store",
  "bimap",
  "bincode",
  "blake3",
- "clap 4.2.5",
+ "clap 4.2.7",
  "commit 0.2.2",
  "custom_debug",
  "dashmap",
@@ -2963,7 +2963,7 @@ dependencies = [
  "snafu",
  "surf-disco 0.4.1 (git+https://github.com/EspressoSystems/surf-disco.git?branch=main)",
  "tempfile",
- "time 0.3.20",
+ "time 0.3.21",
  "tokio",
  "toml 0.7.3",
  "tracing",
@@ -3009,7 +3009,7 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "snafu",
- "time 0.3.20",
+ "time 0.3.21",
  "tokio",
  "tracing",
 ]
@@ -3024,7 +3024,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
- "clap 4.2.5",
+ "clap 4.2.7",
  "commit 0.1.0",
  "futures",
  "hotshot-types",
@@ -3067,6 +3067,7 @@ dependencies = [
  "hotshot-types",
  "hotshot-utils",
  "jf-primitives",
+ "nll",
  "proptest",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
@@ -3119,7 +3120,7 @@ dependencies = [
  "async-compatibility-layer",
  "async-std",
  "async-trait",
- "async-tungstenite 0.22.0",
+ "async-tungstenite 0.22.1",
  "atomic_store",
  "bincode",
  "blake3",
@@ -3141,7 +3142,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "tagged-base64 0.2.4",
- "time 0.3.20",
+ "time 0.3.21",
  "tokio",
  "tracing",
 ]
@@ -3163,7 +3164,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bincode",
- "clap 4.2.5",
+ "clap 4.2.7",
  "commit 0.1.0",
  "futures",
  "hotshot-types",
@@ -4198,7 +4199,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "blake3",
- "clap 4.2.5",
+ "clap 4.2.7",
  "color-eyre",
  "custom_debug",
  "derive_builder 0.12.0",
@@ -6109,9 +6110,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.26"
+version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4424af4bf778aae2051a77b60283332f386554255d722233d09fbfc7e30da2fc"
+checksum = "8f4f29d145265ec1c483c7c654450edde0bfe043d3938d6972630663356d9500"
 dependencies = [
  "proc-macro2",
 ]
@@ -6241,7 +6242,7 @@ checksum = "6413f3de1edee53342e6138e75b56d32e7bc6e332b3bd62d497b1929d4cfbcdd"
 dependencies = [
  "pem",
  "ring",
- "time 0.3.20",
+ "time 0.3.21",
  "x509-parser 0.13.2",
  "yasna",
 ]
@@ -6254,7 +6255,7 @@ checksum = "ffbe84efe2f38dea12e9bfc1f65377fdf03e53a18cb3b995faedf7934c7e785b"
 dependencies = [
  "pem",
  "ring",
- "time 0.3.20",
+ "time 0.3.21",
  "yasna",
 ]
 
@@ -6767,9 +6768,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.160"
+version = "1.0.163"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb2f3770c8bce3bcda7e149193a069a0f4365bda1fa5cd88e03bca26afc1216c"
+checksum = "2113ab51b87a539ae008b5c6c02dc020ffa39afd2d83cffcb3f4eb2722cebec2"
 dependencies = [
  "serde_derive",
 ]
@@ -6794,9 +6795,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.160"
+version = "1.0.163"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "291a097c63d8497e00160b166a967a4a79c64f3facdd01cbd7502231688d77df"
+checksum = "8c805777e3930c8883389c602315a24224bcc738b63905ef87cd1420353ea93e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6859,7 +6860,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with_macros",
- "time 0.3.20",
+ "time 0.3.21",
 ]
 
 [[package]]
@@ -7614,7 +7615,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "bincode",
- "clap 4.2.5",
+ "clap 4.2.7",
  "config",
  "derive_more",
  "dirs",
@@ -7687,21 +7688,21 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.20"
+version = "0.3.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd0cbfecb4d19b5ea75bb31ad904eb5b9fa13f21079c3b92017ebdf4999a5890"
+checksum = "8f3403384eaacbca9923fa06940178ac13e4edb725486d70e8e15881d0c836cc"
 dependencies = [
  "itoa 1.0.6",
  "serde",
  "time-core",
- "time-macros 0.2.8",
+ "time-macros 0.2.9",
 ]
 
 [[package]]
 name = "time-core"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e153e1f1acaef8acc537e68b44906d2db6436e2b35ac2c6b42640fff91f00fd"
+checksum = "7300fbefb4dadc1af235a9cef3737cea692a9d97e1b9cbcd4ebdae6f8868e6fb"
 
 [[package]]
 name = "time-macros"
@@ -7715,9 +7716,9 @@ dependencies = [
 
 [[package]]
 name = "time-macros"
-version = "0.2.8"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd80a657e71da814b8e5d60d3374fc6d35045062245d80224748ae522dd76f36"
+checksum = "372950940a5f07bf38dbe211d7283c9e6d7327df53794992d293e534c733d09b"
 dependencies = [
  "time-core",
 ]
@@ -7762,9 +7763,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.28.0"
+version = "1.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3c786bf8134e5a3a166db9b29ab8f48134739014a3eca7bc6bfa95d673b136f"
+checksum = "0aa32867d44e6f2ce3385e89dceb990188b8bb0fb25b0cf576647a6f98ac5105"
 dependencies = [
  "autocfg",
  "bytes 1.4.0",
@@ -8643,7 +8644,7 @@ dependencies = [
  "sha2 0.10.6",
  "stun",
  "thiserror",
- "time 0.3.20",
+ "time 0.3.21",
  "tokio",
  "turn",
  "url",
@@ -9141,7 +9142,7 @@ dependencies = [
  "ring",
  "rusticata-macros",
  "thiserror",
- "time 0.3.20",
+ "time 0.3.21",
 ]
 
 [[package]]
@@ -9159,7 +9160,7 @@ dependencies = [
  "oid-registry 0.6.1",
  "rusticata-macros",
  "thiserror",
- "time 0.3.20",
+ "time 0.3.21",
 ]
 
 [[package]]
@@ -9204,7 +9205,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e17bb3549cc1321ae1296b9cdc2698e2b6cb1992adfa19a8c72e5b7a738f44cd"
 dependencies = [
- "time 0.3.20",
+ "time 0.3.21",
 ]
 
 [[package]]

@@ -23,7 +23,10 @@ use espresso_systems_common::hotshot::tag;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
-use std::{fmt::Debug, hash::Hash};
+use std::{
+    fmt::{Debug, Display},
+    hash::Hash,
+};
 
 /// Type-safe wrapper around `u64` so we know the thing we're talking about is a view number.
 #[derive(
@@ -201,7 +204,7 @@ pub trait ProposalType:
 /// provides an interface for resolving the commitment to a full block if the full block is
 /// available.
 pub trait DeltasType<Block: Committable>:
-    Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Send + Serialize + Sync
+    Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Eq + std::hash::Hash + Send + Serialize + Sync
 {
     /// Errors reported by this type.
     type Error: std::error::Error;
@@ -242,8 +245,16 @@ pub struct InconsistentDeltasError<BLOCK: Committable + Debug> {
 
 impl<BLOCK> DeltasType<BLOCK> for BLOCK
 where
-    BLOCK:
-        Committable + Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Send + Serialize + Sync,
+    BLOCK: Committable
+        + Clone
+        + Debug
+        + for<'a> Deserialize<'a>
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + Send
+        + Serialize
+        + Sync,
 {
     type Error = InconsistentDeltasError<BLOCK>;
 
@@ -271,8 +282,16 @@ where
 
 impl<BLOCK> DeltasType<BLOCK> for Either<BLOCK, Commitment<BLOCK>>
 where
-    BLOCK:
-        Committable + Clone + Debug + for<'a> Deserialize<'a> + PartialEq + Send + Serialize + Sync,
+    BLOCK: Committable
+        + Clone
+        + Debug
+        + for<'a> Deserialize<'a>
+        + PartialEq
+        + Eq
+        + std::hash::Hash
+        + Send
+        + Serialize
+        + Sync,
 {
     type Error = InconsistentDeltasError<BLOCK>;
 
@@ -311,6 +330,7 @@ where
 /// An item which is appended to a blockchain.
 pub trait LeafType:
     Debug
+    + Display
     + Clone
     + 'static
     + Committable
@@ -325,11 +345,13 @@ pub trait LeafType:
     type NodeType: NodeType;
     /// Type of block contained by this leaf.
     type DeltasType: DeltasType<LeafBlock<Self>>;
-    /// Commitment to the blockchain state.
-    type StateCommitmentType: Clone
+    /// Either state or empty
+    type MaybeState: Clone
         + Debug
         + for<'a> Deserialize<'a>
         + PartialEq
+        + Eq
+        + std::hash::Hash
         + Send
         + Serialize
         + Sync;
@@ -366,7 +388,7 @@ pub trait LeafType:
     /// to be stored for some implementation-defined reason.
     fn fill_deltas(&mut self, block: LeafBlock<Self>) -> Result<(), LeafDeltasError<Self>>;
     /// The blockchain state after appending this leaf.
-    fn get_state(&self) -> Self::StateCommitmentType;
+    fn get_state(&self) -> Self::MaybeState;
     /// Transactions rejected or invalidated by the application of this leaf.
     fn get_rejected(&self) -> Vec<LeafTransaction<Self>>;
     /// Real-world time when this leaf was created.
@@ -485,10 +507,20 @@ pub struct SequencingLeaf<TYPES: NodeType> {
     pub proposer_id: EncodedPublicKey,
 }
 
+impl<TYPES: NodeType> Display for ValidatingLeaf<TYPES> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "view: {:?}, height: {:?}, justify: {}",
+            self.view_number, self.height, self.justify_qc
+        )
+    }
+}
+
 impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
     type NodeType = TYPES;
     type DeltasType = TYPES::BlockType;
-    type StateCommitmentType = TYPES::StateType;
+    type MaybeState = TYPES::StateType;
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
@@ -541,7 +573,7 @@ impl<TYPES: NodeType> LeafType for ValidatingLeaf<TYPES> {
         self.deltas.fill(block)
     }
 
-    fn get_state(&self) -> Self::StateCommitmentType {
+    fn get_state(&self) -> Self::MaybeState {
         self.state.clone()
     }
 
@@ -592,10 +624,20 @@ where
     }
 }
 
+impl<TYPES: NodeType> Display for SequencingLeaf<TYPES> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "view: {:?}, height: {:?}, justify: {}",
+            self.view_number, self.height, self.justify_qc
+        )
+    }
+}
+
 impl<TYPES: NodeType> LeafType for SequencingLeaf<TYPES> {
     type NodeType = TYPES;
     type DeltasType = Either<TYPES::BlockType, Commitment<TYPES::BlockType>>;
-    type StateCommitmentType = ();
+    type MaybeState = ();
 
     fn new(
         view_number: <Self::NodeType as NodeType>::Time,
@@ -648,7 +690,7 @@ impl<TYPES: NodeType> LeafType for SequencingLeaf<TYPES> {
     }
 
     // The Sequencing Leaf doesn't have a state.
-    fn get_state(&self) -> Self::StateCommitmentType {}
+    fn get_state(&self) -> Self::MaybeState {}
 
     fn get_rejected(&self) -> Vec<<TYPES::BlockType as Block>::Transaction> {
         self.rejected.clone()

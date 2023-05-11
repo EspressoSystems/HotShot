@@ -1,5 +1,6 @@
 use futures::Future;
 use futures::FutureExt;
+use hotshot_types::data::LeafType;
 use std::net::Ipv4Addr;
 use std::{
     cmp,
@@ -347,8 +348,12 @@ pub trait Run<
             let view_results = hotshot.collect_round_events().await;
 
             match view_results {
-                Ok((state, blocks)) => {
-                    if let Some(_state) = state.get(0) {}
+                Ok((leaf_chain, _qc)) => {
+                    let blocks: Vec<TYPES::BlockType> = leaf_chain
+                        .into_iter()
+                        .map(|leaf| leaf.get_deltas())
+                        .collect();
+
                     for block in blocks {
                         total_transactions += block.txn_count();
                     }
