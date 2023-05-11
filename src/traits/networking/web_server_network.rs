@@ -329,7 +329,6 @@ impl<
                 source: WebServerNetworkError::ClientError,
             }),
             Ok(Some(message)) => {
-                //KALEY TODO: add secret somewhere here
                 let deserialized_message = bincode::deserialize(&message.proposal);
                 if let Err(e) = deserialized_message {
                     return Err(NetworkError::FailedToDeserialize { source: e });

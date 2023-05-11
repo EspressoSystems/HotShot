@@ -37,7 +37,7 @@ type Error = ServerError;
 struct WebServerState<KEY> {
     /// view number -> (secret, proposal)
     old_proposals_struct: HashMap<u64, (String, Vec<u8>)>,
-    /// view number -> (plaintext secret for this view, proposal to be sent out with encrypted secret for the next view)
+    /// view number -> proposal for view n, encrypted secret for view n+1
     proposals: HashMap<u64, ProposalWithEncSecret>,
     /// view for oldest proposals in memory
     oldest_proposal: u64,
@@ -76,19 +76,6 @@ impl<KEY: SignatureKey + 'static> WebServerState<KEY> {
             transactions: HashMap::new(),
             _prng: StdRng::from_entropy(),
             secrets: HashMap::new(),
-            //generate first 10 views' secrets
-            // secrets: (0..10)
-            //     .map(|view| {
-            //         (
-            //             view,
-            //             thread_rng()
-            //                 .sample_iter(&Alphanumeric)
-            //                 .take(30)
-            //                 .map(char::from)
-            //                 .collect(),
-            //         )
-            //     })
-            //     .collect(),
         }
     }
     pub fn with_shutdown_signal(mut self, shutdown_listener: Option<OneShotReceiver<()>>) -> Self {
@@ -234,7 +221,6 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         // KALEY TODO: need security checks here
         let keypair = bincode_opts().deserialize::<(KEY, ServerEncKey)>(&keypair);
         if let Ok((pub_key, enc_key)) = keypair {
-            //let new_enc_key = jf_primitives::aead::EncKey::from(keypair.1.1);
             let node_index = self.stake_table.len() as u64;
             //generate secret for leader's first submission endpoint when key is added
             //secret should be random
@@ -266,10 +252,6 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
                 self.oldest_proposal += 1;
             }
         }
-
-        //KALEY TODO: current implementation relies on proposal being submitted/requested
-        //in the sequential order. Leader of view n+1 can only get the secret by requesting the proposal
-        //for view n, which has the encrypted secret. Unsure if this is a problem, so noting it for now
 
         //generate new secret for the next time this node is leader
         let secret = thread_rng()
