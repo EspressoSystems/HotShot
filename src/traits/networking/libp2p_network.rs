@@ -723,9 +723,14 @@ where
         num_bootstrap: usize,
         network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
-        let generator=
-            <Libp2pNetwork<Message<TYPES, I>, TYPES::SignatureKey> as TestableNetworkingImplementation<_, _>>::generator(expected_node_count, num_bootstrap, network_id)
-        ;
+        let generator = <Libp2pNetwork<
+            Message<TYPES, I>,
+            TYPES::SignatureKey,
+        > as TestableNetworkingImplementation<_, _>>::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+        );
         Box::new(move |node_id| Self(generator(node_id).into(), PhantomData))
     }
 

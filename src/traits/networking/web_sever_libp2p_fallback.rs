@@ -162,9 +162,17 @@ where
         num_bootstrap: usize,
         network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
-        let generator=
-        <   CombinedNetworks<TYPES, I, PROPOSAL, VOTE, MEMBERSHIP>as TestableNetworkingImplementation<_, _>>::generator(expected_node_count, num_bootstrap, network_id)
-    ;
+        let generator = <CombinedNetworks<
+                TYPES,
+                I,
+                PROPOSAL,
+                VOTE,
+                MEMBERSHIP,
+        > as TestableNetworkingImplementation<_, _>>::generator(
+            expected_node_count,
+            num_bootstrap,
+            network_id,
+        );
         Box::new(move |node_id| Self {
             networks: generator(node_id).into(),
         })
