@@ -126,6 +126,11 @@ pub enum NetworkError {
     ShutDown,
     /// unable to cancel a request, the request has already been cancelled
     UnableToCancel,
+    /// Failed to decrypt endpoint secret
+    FailedToDecrypt {
+        /// Source of error
+        source: jf_primitives::errors::PrimitivesError,
+    }
 }
 
 /// common traits we would like our network messages to implement

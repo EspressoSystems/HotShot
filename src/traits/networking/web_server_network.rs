@@ -51,6 +51,7 @@ use std::{
 };
 use surf_disco::error::ClientError;
 use tracing::{error, info};
+use rand::SeedableRng;
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone)]
 pub struct WebCommChannel<
@@ -147,7 +148,7 @@ pub struct ConsensusInfo {
     /// Whether this node is the leader of `view_number`
     _is_current_leader: bool,
     /// Whether this node is the leader of the next view
-    is_next_leader: bool,
+    pub is_next_leader: bool,
 }
 
 /// Represents the core of web server networking
@@ -165,7 +166,9 @@ struct Inner<
     /// Consensus data about the current view number, leader, and next leader
     consensus_info: Arc<SubscribableRwLock<ConsensusInfo>>,
     /// Our own key
-    _own_key: TYPES::SignatureKey,
+    own_key: TYPES::SignatureKey,
+    /// Our own decryption key (for secret endpoint)
+    encryption_key: jf_primitives::aead::KeyPair,
     /// Queue for broadcasted messages
     broadcast_poll_queue: Arc<RwLock<Vec<RecvMsg<M>>>>,
     /// Queue for direct messages
@@ -178,6 +181,8 @@ struct Inner<
     client: surf_disco::Client<ClientError>,
     /// The duration to wait between poll attempts
     wait_between_polls: Duration,
+    // Secret for submitting proposal to protected endpoint
+    //secret: String,
 }
 
 impl<
@@ -200,6 +205,7 @@ impl<
         let mut consensus_info = self.consensus_info.copied().await;
         let mut vote_index: u64 = 0;
         let mut tx_index: u64 = 0;
+        let mut secret = String::new();
 
         while self.running.load(Ordering::Relaxed) {
             let endpoint = match message_type {
@@ -218,23 +224,28 @@ impl<
                         self.get_message_from_web_server(endpoint).await
                     }
                 }
-                MessageType::Proposal => self.get_proposal_from_web_server(endpoint).await,
+                MessageType::Proposal => {
+                    let msg = self.get_proposal_from_web_server(endpoint).await;
+                    match msg {
+                        Ok(Some(new_msg)) => {
+                            // save new secret if we're next leader
+                            if !new_msg.1.is_empty() {
+                                secret = new_msg.1;
+                            }
+                            Ok(Some(vec![new_msg.0]))
+                        },
+                        Ok(None) => Ok(None),
+                        Err(e) => Err(e),
+                    }
+                }
                 _ => self.get_message_from_web_server(endpoint).await,
             };
-            //KALEY TODO: implement get_proposal_from_web_server
-            // let possible_message =
-            //     if message_type == MessageType::VoteTimedOut && !consensus_info.is_next_leader {
-            //         Ok(None)
-            //     } else {
-            //         self.get_message_from_web_server(endpoint).await
-            //     };
 
             match possible_message {
                 Ok(Some(deserialized_messages)) => {
                     match message_type {
                         MessageType::Proposal => {
                             info!("Received proposal for view {}", consensus_info.view_number);
-                            // Only pushing the first proposal since we only allow 1 proposal per view
                             self.broadcast_poll_queue
                                 .write()
                                 .await
@@ -310,7 +321,7 @@ impl<
     async fn get_proposal_from_web_server(
         &self,
         endpoint: String,
-    ) -> Result<Option<Vec<RecvMsg<M>>>, NetworkError> {
+    ) -> Result<Option<(RecvMsg<M>, String)>, NetworkError> {
         let result: Result<Option<ProposalWithEncSecret>, ClientError> =
             self.client.get(&endpoint).send().await;
         match result {
@@ -322,8 +333,20 @@ impl<
                 let deserialized_message = bincode::deserialize(&message.proposal);
                 if let Err(e) = deserialized_message {
                     return Err(NetworkError::FailedToDeserialize { source: e });
+                } else {
+                    // decrypt secret and save for submitting next proposal
+                    let mut secret = String::new();
+                    if self.consensus_info.copied().await.is_next_leader {
+                        let decrypted_secret = self.encryption_key.decrypt(&message.secret, &self.own_key.to_bytes().0);
+                        match decrypted_secret {
+                            Ok(secret_string) => {
+                                secret = String::from_utf8(secret_string).expect("Failed to convert secret to string");
+                            },
+                            Err(e) => return Err(NetworkError::FailedToDecrypt { source: e }),
+                        }
+                    }
+                    Ok(Some((deserialized_message.unwrap(), secret)))
                 }
-                Ok(Some(deserialized_message.unwrap()))
             }
             Ok(None) => Ok(None),
         }
@@ -398,6 +421,7 @@ impl<
         port: u16,
         wait_between_polls: Duration,
         key: TYPES::SignatureKey,
+        encryption_key: jf_primitives::aead::KeyPair,
     ) -> Self {
         let base_url_string = format!("http://{host}:{port}");
         error!("Connecting to web server at {base_url_string:?}");
@@ -419,7 +443,9 @@ impl<
             connected: AtomicBool::new(false),
             client,
             wait_between_polls,
-            _own_key: key,
+            own_key: key,
+            encryption_key,
+            //secret: String::new(),
         });
         inner.connected.store(true, Ordering::Relaxed);
 
@@ -778,6 +804,15 @@ where
             })
             .collect::<Vec<_>>();
 
+        let mut rng = rand_chacha::ChaChaRng::from_seed([0u8; 32]);
+        let node_encryption_keys = (0..expected_node_count as u64)
+        .map(|_| {
+            jf_primitives::aead::KeyPair::generate(
+                &mut rng,
+            )
+        })
+        .collect::<Vec<_>>();
+
         // Start each node's web server client
         Box::new(move |id| {
             let sender = Arc::clone(&sender);
@@ -786,6 +821,7 @@ where
                 9000,
                 Duration::from_millis(100),
                 known_nodes[id as usize].clone(),
+                node_encryption_keys[id as usize].clone(),
             );
             network.server_shutdown_signal = Some(sender);
             network

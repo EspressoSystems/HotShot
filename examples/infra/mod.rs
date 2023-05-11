@@ -731,6 +731,11 @@ where
                 config.node_index,
             );
 
+        // Generate encryption keypair
+        let encryption_key = jf_primitives::aead::KeyPair::generate(
+            &mut rand_chacha::ChaChaRng::from_seed(config.seed),
+        );
+
         // Get the configuration for the web server
         let WebServerConfig {
             host,
@@ -746,7 +751,7 @@ where
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key).into(),
+            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key, encryption_key).into(),
         );
         WebServerRun { config, network }
     }
