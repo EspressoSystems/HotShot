@@ -756,7 +756,14 @@ where
             QuorumVote<TYPES, ValidatingLeaf<TYPES>>,
             MEMBERSHIP,
         > = WebCommChannel::new(
-            WebServerNetwork::create(&host.to_string(), port, wait_between_polls, pub_key, encryption_key).into(),
+            WebServerNetwork::create(
+                &host.to_string(),
+                port,
+                wait_between_polls,
+                pub_key,
+                encryption_key,
+            )
+            .into(),
         );
         WebServerRun { config, network }
     }

@@ -292,7 +292,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             view_number,
             ProposalWithEncSecret {
                 secret: encrypted_secret,
-                proposal: proposal,
+                proposal,
             },
         );
 
@@ -383,7 +383,7 @@ where
             let view_number: u64 = req.integer_param("view_number")?;
             let secret: &str = req.string_param("secret")?;
             //if secret is correct and view_number->proposal is empty, proposal is valid
-            if let None = state.proposal(view_number) {
+            if state.proposal(view_number).is_none() {
                 if let Some(server_secret) = state.secret(view_number) {
                     if server_secret == secret {
                         let proposal = req.body_bytes();
@@ -431,7 +431,7 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
 #[cfg(test)]
 #[cfg(feature = "demo")]
 mod test {
-    use crate::config::{
+    use crate::api_config::{
         get_proposal_route, get_transactions_route, get_vote_route, post_proposal_route,
         post_transactions_route, post_vote_route,
     };
@@ -467,7 +467,7 @@ mod test {
         // Test posting and getting proposals
         let prop1 = "prop1";
         client
-            .post::<()>(&post_proposal_route(1))
+            .post::<()>(&post_proposal_route(1, String::new()))
             .body_binary(&prop1)
             .unwrap()
             .send()
@@ -484,7 +484,7 @@ mod test {
 
         let prop2 = "prop2";
         client
-            .post::<()>(&post_proposal_route(2))
+            .post::<()>(&post_proposal_route(2, String::new()))
             .body_binary(&prop2)
             .unwrap()
             .send()

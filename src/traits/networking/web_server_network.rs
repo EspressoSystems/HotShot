@@ -40,6 +40,7 @@ use hotshot_types::{
 use serde::{Deserialize, Serialize};
 
 use hotshot_types::traits::network::ViewMessage;
+use rand::SeedableRng;
 use std::{
     collections::BTreeSet,
     marker::PhantomData,
@@ -51,7 +52,6 @@ use std::{
 };
 use surf_disco::error::ClientError;
 use tracing::{error, info};
-use rand::SeedableRng;
 /// Represents the communication channel abstraction for the web server
 #[derive(Clone)]
 pub struct WebCommChannel<
@@ -217,10 +217,10 @@ impl<
 
             let possible_message = match message_type {
                 MessageType::VoteTimedOut => {
-                    if !consensus_info.is_next_leader {
-                        Ok(None)
-                    } else {
+                    if consensus_info.is_next_leader {
                         self.get_message_from_web_server(endpoint).await
+                    } else {
+                        Ok(None)
                     }
                 }
                 MessageType::Proposal => {
@@ -230,15 +230,14 @@ impl<
                             // save new secret if we're next leader
                             if !new_msg.1.is_empty() {
                                 *self.secret.write().await = new_msg.1;
-
                             }
                             Ok(Some(vec![new_msg.0]))
-                        },
+                        }
                         Ok(None) => Ok(None),
                         Err(e) => Err(e),
                     }
                 }
-                _ => self.get_message_from_web_server(endpoint).await,
+                MessageType::Transaction => self.get_message_from_web_server(endpoint).await,
             };
 
             match possible_message {
@@ -318,6 +317,9 @@ impl<
             Ok(None) => Ok(None),
         }
     }
+
+    /// Sends a GET request to the webserver for a proposal.
+    /// Returns a struct containing the proposal and the encrypted secret for the next view's proposal submission
     async fn get_proposal_from_web_server(
         &self,
         endpoint: String,
@@ -331,16 +333,19 @@ impl<
             Ok(Some(message)) => {
                 let deserialized_message = bincode::deserialize(&message.proposal);
                 if let Err(e) = deserialized_message {
-                    return Err(NetworkError::FailedToDeserialize { source: e });
+                    Err(NetworkError::FailedToDeserialize { source: e })
                 } else {
                     // decrypt secret and save for submitting next proposal
                     let mut secret = String::new();
                     if self.consensus_info.copied().await.is_next_leader {
-                        let decrypted_secret = self.encryption_key.decrypt(&message.secret, &self.own_key.to_bytes().0);
+                        let decrypted_secret = self
+                            .encryption_key
+                            .decrypt(&message.secret, &self.own_key.to_bytes().0);
                         match decrypted_secret {
                             Ok(secret_string) => {
-                                secret = String::from_utf8(secret_string).expect("Failed to convert secret to string");
-                            },
+                                secret = String::from_utf8(secret_string)
+                                    .expect("Failed to convert secret to string");
+                            }
                             Err(e) => return Err(NetworkError::FailedToDecrypt { source: e }),
                         }
                     }
@@ -806,12 +811,8 @@ where
 
         let mut rng = rand_chacha::ChaChaRng::from_seed([0u8; 32]);
         let node_encryption_keys = (0..expected_node_count as u64)
-        .map(|_| {
-            jf_primitives::aead::KeyPair::generate(
-                &mut rng,
-            )
-        })
-        .collect::<Vec<_>>();
+            .map(|_| jf_primitives::aead::KeyPair::generate(&mut rng))
+            .collect::<Vec<_>>();
 
         // Start each node's web server client
         Box::new(move |id| {

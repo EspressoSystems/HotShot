@@ -130,7 +130,7 @@ pub enum NetworkError {
     FailedToDecrypt {
         /// Source of error
         source: jf_primitives::errors::PrimitivesError,
-    }
+    },
 }
 
 /// common traits we would like our network messages to implement
