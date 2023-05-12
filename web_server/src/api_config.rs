@@ -6,6 +6,7 @@ pub const DEFAULT_WEB_SERVER_PORT: u16 = 9000;
 pub const MAX_VIEWS: usize = 10;
 /// How many transactions to keep in memory
 pub const MAX_TXNS: usize = 10;
+pub const FIRST_SECRET: &str = "first";
 
 pub fn get_proposal_route(view_number: u64) -> String {
     format!("api/proposal/{view_number}")
@@ -44,7 +45,7 @@ pub struct ServerKeys<KEY> {
     pub enc_key: jf_primitives::aead::EncKey,
     pub pub_key: KEY,
 }
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ProposalWithEncSecret {
     #[serde(with = "jf_utils::field_elem")]
     pub secret: Ciphertext,

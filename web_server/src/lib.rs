@@ -1,7 +1,7 @@
 pub mod api_config;
 
 use api_config::{
-    ProposalWithEncSecret, ServerKeys, DEFAULT_WEB_SERVER_PORT, MAX_TXNS, MAX_VIEWS,
+    ProposalWithEncSecret, ServerKeys, DEFAULT_WEB_SERVER_PORT, MAX_TXNS, MAX_VIEWS, FIRST_SECRET,
 };
 use async_compatibility_layer::channel::OneShotReceiver;
 use async_lock::RwLock;
@@ -110,7 +110,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         self.secrets.get(&view_number).cloned()
     }
     fn next_leader(&self, view_number: u64) -> u64 {
-        (view_number + 1) % self.stake_table.len() as u64
+        (view_number+1) % self.stake_table.len() as u64
     }
     /// Return the proposal the server has received for a particular view
     fn get_proposal(&self, view_number: u64) -> Result<Option<ProposalWithEncSecret>, Error> {
@@ -220,13 +220,18 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
     fn post_staketable(&mut self, keypair: ServerKeys<KEY>) -> Result<(), Error> {
         // KALEY TODO: need security checks here for valid staketable entries
         let node_index = self.stake_table.len() as u64;
+        let mut secret = String::new();
+        if node_index == 0 {
+            secret = String::from(FIRST_SECRET);
+        } else {
         //generate secret for leader's first submission endpoint when key is added
         //secret should be random
-        let secret = thread_rng()
+            secret = thread_rng()
             .sample_iter(&Alphanumeric)
             .take(30)
             .map(char::from)
             .collect();
+        }
         self.secrets.insert(node_index, secret);
         self.stake_table.push((keypair.pub_key, keypair.enc_key));
         Ok(())
@@ -252,9 +257,11 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
             .map(char::from)
             .collect();
         let next_view_for_leader = view_number + self.stake_table.len() as u64;
+        print!("current view: {:?}, next view for leader: {:?}", view_number, next_view_for_leader);
         self.secrets.insert(next_view_for_leader, secret);
 
         //add next leader's encrypted secret to proposal
+        print!("next leader: {:?}", self.next_leader(view_number));
         let next_leader_keys = &self.stake_table[self.next_leader(view_number) as usize];
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
         let next_view_secret = self.secrets.get(&(view_number + 1));
@@ -271,7 +278,7 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
                 .map(char::from)
                 .collect();
             self.secrets
-                .insert(next_view_for_leader, next_secret.clone());
+                .insert(view_number+1, next_secret.clone());
             next_leader_keys.1.encrypt(
                 &mut rng,
                 next_secret.as_bytes(),
@@ -429,7 +436,7 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
 }
 
 #[cfg(test)]
-#[cfg(feature = "demo")]
+//#[cfg(feature = "demo")]
 mod test {
     use crate::api_config::{
         get_proposal_route, get_transactions_route, get_vote_route, post_proposal_route,
@@ -466,63 +473,77 @@ mod test {
     )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     
-    async fn test_web_server() {
+    async fn test_proposals() {
         let client = start_web_server().await;
 
         // Test stake table addition
-        let enc_keypair = jf_primitives::aead::KeyPair::generate(
+        let enc_keypair0 = jf_primitives::aead::KeyPair::generate(
             &mut rand_chacha::ChaChaRng::from_seed([0u8; 32]),
         );
-        let pub_key = Ed25519Pub::generated_from_seed_indexed([0u8; 32], 0).0;
-        let server_key = ServerKeys{enc_key: enc_keypair.enc_key(), pub_key};
+        let pub_key0 = Ed25519Pub::generated_from_seed_indexed([0u8; 32], 0).0;
+        let server_key0 = ServerKeys{enc_key: enc_keypair0.enc_key(), pub_key: pub_key0};
+        let enc_keypair1 = jf_primitives::aead::KeyPair::generate(
+            &mut rand_chacha::ChaChaRng::from_seed([0u8; 32]),
+        );
+        let pub_key1 = Ed25519Pub::generated_from_seed_indexed([0u8; 32], 1).0;
+        let server_key1 = ServerKeys{enc_key: enc_keypair1.enc_key(), pub_key: pub_key1};
         client
             .post::<()>(&post_staketable_route())
-            .body_binary(&server_key)
+            .body_binary(&server_key0)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+        client
+            .post::<()>(&post_staketable_route())
+            .body_binary(&server_key1)
             .unwrap()
             .send()
             .await
             .unwrap();
         
         // Test posting and getting proposals
-        let prop1 = "prop1";
+        let prop0 = "prop0";
         client
-            .post::<()>(&post_proposal_route(1, String::new()))
+            .post::<()>(&post_proposal_route(0, String::from(FIRST_SECRET)))
+            .body_binary(&prop0)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+        print!("here");
+        let resp = client
+            .get::<Option<ProposalWithEncSecret>>(&get_proposal_route(0))
+            .send()
+            .await
+            .unwrap()
+            .unwrap();
+        let res0: &str = bincode::deserialize(&resp.proposal).unwrap();
+        assert_eq!(res0, prop0);
+
+        let prop1 = "prop1";
+        let decrypted_secret = String::from_utf8(enc_keypair1.decrypt(&resp.secret, &pub_key1.to_bytes().0).unwrap()).unwrap();
+        client
+            .post::<()>(&post_proposal_route(1, decrypted_secret))
             .body_binary(&prop1)
             .unwrap()
             .send()
             .await
             .unwrap();
-        let resp = client
-            .get::<Option<Vec<Vec<u8>>>>(&get_proposal_route(1))
+        let resp1 = client
+            .get::<Option<ProposalWithEncSecret>>(&get_proposal_route(1))
             .send()
             .await
             .unwrap()
             .unwrap();
-        let res1: &str = bincode::deserialize(&resp[0]).unwrap();
+
+        let res1: &str = bincode::deserialize(&resp1.proposal).unwrap();
         assert_eq!(res1, prop1);
-
-        let prop2 = "prop2";
-        client
-            .post::<()>(&post_proposal_route(2, String::new()))
-            .body_binary(&prop2)
-            .unwrap()
-            .send()
-            .await
-            .unwrap();
-        let resp = client
-            .get::<Option<Vec<Vec<u8>>>>(&get_proposal_route(2))
-            .send()
-            .await
-            .unwrap()
-            .unwrap();
-
-        let res2: &str = bincode::deserialize(&resp[0]).unwrap();
-        assert_eq!(res2, prop2);
-        assert_ne!(res1, res2);
+        assert_ne!(res0, res1);
 
         assert_eq!(
             client
-                .get::<Option<Vec<u8>>>(&get_proposal_route(3))
+                .get::<Option<ProposalWithEncSecret>>(&get_proposal_route(3))
                 .send()
                 .await,
             Err(ClientError {
@@ -530,7 +551,33 @@ mod test {
                 message: "Proposal not found for view 3".to_string()
             })
         );
+        let prop2 = "prop2";
+        let decrypted_secret = String::from_utf8(enc_keypair0.decrypt(&resp1.secret, &pub_key0.to_bytes().0).unwrap()).unwrap();
+        client
+            .post::<()>(&post_proposal_route(2, decrypted_secret))
+            .body_binary(&prop2)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+        let resp2 = client
+            .get::<Option<ProposalWithEncSecret>>(&get_proposal_route(2))
+            .send()
+            .await
+            .unwrap()
+            .unwrap();
 
+        let res2: &str = bincode::deserialize(&resp2.proposal).unwrap();
+        assert_eq!(res2, prop2);
+    }
+
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_votes_and_txns() {
+        let client = start_web_server().await;
         // Test posting and getting votes
         let vote1 = "vote1";
         client
