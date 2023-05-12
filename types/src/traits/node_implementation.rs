@@ -68,7 +68,6 @@ pub trait NodeImplementation<TYPES: NodeType>:
     type Exchanges: ExchangesType<TYPES::ConsensusType, TYPES, Self::Leaf, Message<TYPES, Self>>;
 }
 
-// TODO (Keyao) move exchange types to election.rs?
 /// Contains the protocols for exchanging proposals and votes.
 #[async_trait]
 pub trait ExchangesType<
@@ -320,7 +319,6 @@ pub trait TestableNodeImplementation<
     /// Connected network for the DA committee. Only needed for the sequencing consensus.
     type CommitteeNetwork;
 
-    // TODO (Keyao) Is it better to move this where clause to the `TestableNodeImplementation` trait?
     /// Generate a quorum network given an expected node count.
     fn quorum_network_generator(
         expected_node_count: usize,
