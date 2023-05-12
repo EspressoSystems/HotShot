@@ -1,5 +1,5 @@
 [package]
-authors = ["Nathan McCarty <nathan.mccarty@translucence.net>"]
+authors = ["Espresso Systems <hello@espressosys.com>"]
 description = "HotShot consesus module"
 edition = "2021"
 name = "hotshot"
@@ -253,5 +253,6 @@ members = [
         "testing",
         "types",
         "utils",
-        "testing-macros"
+        "testing-macros",
+        "task",
 ]
