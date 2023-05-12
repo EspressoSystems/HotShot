@@ -38,12 +38,13 @@ pub fn post_staketable_route() -> String {
     "api/staketable".to_string()
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct ServerEncKey {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ServerKeys<KEY> {
     #[serde(with = "jf_utils::field_elem")]
     pub enc_key: jf_primitives::aead::EncKey,
+    pub pub_key: KEY,
 }
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ProposalWithEncSecret {
     #[serde(with = "jf_utils::field_elem")]
     pub secret: Ciphertext,

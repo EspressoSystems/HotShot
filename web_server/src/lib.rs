@@ -1,7 +1,7 @@
 pub mod api_config;
 
 use api_config::{
-    ProposalWithEncSecret, ServerEncKey, DEFAULT_WEB_SERVER_PORT, MAX_TXNS, MAX_VIEWS,
+    ProposalWithEncSecret, ServerKeys, DEFAULT_WEB_SERVER_PORT, MAX_TXNS, MAX_VIEWS,
 };
 use async_compatibility_layer::channel::OneShotReceiver;
 use async_lock::RwLock;
@@ -95,7 +95,7 @@ pub trait WebServerDataSource<KEY> {
     fn post_vote(&mut self, view_number: u64, vote: Vec<u8>) -> Result<(), Error>;
     fn post_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
     fn post_transaction(&mut self, txn: Vec<u8>) -> Result<(), Error>;
-    fn post_staketable(&mut self, keypair: Vec<u8>) -> Result<(), Error>;
+    fn post_staketable(&mut self, keypair: ServerKeys<KEY>) -> Result<(), Error>;
     fn post_secret_proposal(&mut self, view_number: u64, proposal: Vec<u8>) -> Result<(), Error>;
     fn proposal(&self, view_number: u64) -> Option<ProposalWithEncSecret>;
     fn secret(&self, view_number: u64) -> Option<String>;
@@ -217,27 +217,19 @@ impl<KEY: SignatureKey> WebServerDataSource<KEY> for WebServerState<KEY> {
         Ok(())
     }
 
-    fn post_staketable(&mut self, keypair: Vec<u8>) -> Result<(), Error> {
-        // KALEY TODO: need security checks here
-        let keypair = bincode_opts().deserialize::<(KEY, ServerEncKey)>(&keypair);
-        if let Ok((pub_key, enc_key)) = keypair {
-            let node_index = self.stake_table.len() as u64;
-            //generate secret for leader's first submission endpoint when key is added
-            //secret should be random
-            let secret = thread_rng()
-                .sample_iter(&Alphanumeric)
-                .take(30)
-                .map(char::from)
-                .collect();
-            self.secrets.insert(node_index, secret);
-            self.stake_table.push((pub_key, enc_key.enc_key));
-            Ok(())
-        } else {
-            Err(ServerError {
-                status: StatusCode::BadRequest,
-                message: "Only signature keys can be added to stake table".to_string(),
-            })
-        }
+    fn post_staketable(&mut self, keypair: ServerKeys<KEY>) -> Result<(), Error> {
+        // KALEY TODO: need security checks here for valid staketable entries
+        let node_index = self.stake_table.len() as u64;
+        //generate secret for leader's first submission endpoint when key is added
+        //secret should be random
+        let secret = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect();
+        self.secrets.insert(node_index, secret);
+        self.stake_table.push((keypair.pub_key, keypair.enc_key));
+        Ok(())
     }
 
     //KALEY TODO: this will be merged with post_proposal once it is fully working,
@@ -373,8 +365,16 @@ where
     .post("poststaketable", |req, state| {
         async move {
             //works one key at a time for now
-            let keypair = req.body_bytes();
-            state.post_staketable(keypair)
+            let keypair = req.body_auto::<ServerKeys<KEY>>();
+            if keypair.is_err() {
+                Err(ServerError {
+                    status: StatusCode::BadRequest,
+                    message: "Only signature keys can be added to stake table".to_string(),
+                })
+            } else {
+                state.post_staketable(keypair.unwrap())
+            }
+            
         }
         .boxed()
     })?
@@ -433,7 +433,7 @@ pub async fn run_web_server<KEY: SignatureKey + 'static>(
 mod test {
     use crate::api_config::{
         get_proposal_route, get_transactions_route, get_vote_route, post_proposal_route,
-        post_transactions_route, post_vote_route,
+        post_transactions_route, post_vote_route, post_staketable_route
     };
 
     use super::*;
@@ -445,12 +445,7 @@ mod test {
     type State = RwLock<WebServerState<Ed25519Pub>>;
     type Error = ServerError;
 
-    #[cfg_attr(
-        feature = "tokio-executor",
-        tokio::test(flavor = "multi_thread", worker_threads = 2)
-    )]
-    #[cfg_attr(feature = "async-std-executor", async_std::test)]
-    async fn test_web_server() {
+    async fn start_web_server() -> surf_disco::Client::<ServerError> {
         let port = pick_unused_port().unwrap();
         let base_url = format!("0.0.0.0:{port}");
         let options = Options::default();
@@ -463,7 +458,31 @@ mod test {
         let base_url = format!("http://{base_url}").parse().unwrap();
         let client = surf_disco::Client::<ClientError>::new(base_url);
         assert!(client.connect(None).await);
+        client
+    }
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+    )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    
+    async fn test_web_server() {
+        let client = start_web_server().await;
 
+        // Test stake table addition
+        let enc_keypair = jf_primitives::aead::KeyPair::generate(
+            &mut rand_chacha::ChaChaRng::from_seed([0u8; 32]),
+        );
+        let pub_key = Ed25519Pub::generated_from_seed_indexed([0u8; 32], 0).0;
+        let server_key = ServerKeys{enc_key: enc_keypair.enc_key(), pub_key};
+        client
+            .post::<()>(&post_staketable_route())
+            .body_binary(&server_key)
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+        
         // Test posting and getting proposals
         let prop1 = "prop1";
         client
