@@ -198,11 +198,15 @@ impl GlobalRegistry {
     }
 }
 
-/// the state
+/// The state of a task
+/// `AtomicHotShotTaskStatus` + book keeping to notify btwn tasks
 #[derive(Clone)]
 pub struct HotShotTaskState {
+    /// previous status
     prev: Arc<AtomicHotShotTaskStatus>,
+    /// next status
     next: Arc<AtomicHotShotTaskStatus>,
+    /// using `std::sync::mutex` here because it's faster than async's version
     wakers: Arc<Mutex<Vec<Waker>>>,
 }
 
@@ -232,7 +236,6 @@ impl HotShotTaskState {
     }
 }
 
-// TODO store as tuple
 impl Stream for HotShotTaskState {
     type Item = HotShotTaskStatus;
 
@@ -255,7 +258,6 @@ impl Stream for HotShotTaskState {
 #[cfg(test)]
 pub mod test {
     use async_compatibility_layer::art::{async_spawn, async_sleep};
-    use std::sync::Arc;
 
     #[cfg(test)]
     #[cfg_attr(
@@ -267,7 +269,6 @@ pub mod test {
         setup_logging();
         use async_compatibility_layer::logging::setup_logging;
         use futures::StreamExt;
-        tracing::error!("HELLO WORLD!");
 
         let mut task = crate::HotShotTaskState::new();
 
@@ -280,7 +281,7 @@ pub mod test {
 
         // spawn new task that sleeps then increments
 
-        task.next().await;
+        assert_eq!(task.next().await.unwrap(), crate::HotShotTaskStatus::Running);
 
     }
     // TODO test global registry using either global + lazy_static
