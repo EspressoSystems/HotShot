@@ -11,13 +11,15 @@
 
 use std::{
     marker::PhantomData,
-    sync::{atomic::AtomicUsize, Arc},
+    sync::{atomic::{AtomicUsize, Ordering}, Arc},
 };
 
 use async_compatibility_layer::channel::{UnboundedReceiver, UnboundedSender, UnboundedStream};
 use async_trait::async_trait;
+use atomic_enum::atomic_enum;
 use futures::Stream;
 use nll::nll_todo::nll_todo;
+use serde::{Deserialize, Serialize};
 
 pub trait Event: Clone + std::fmt::Debug + Sync + Send {}
 
@@ -67,8 +69,19 @@ impl<EVENT: Event> EventStream for ChannelEventStream<EVENT> {
     }
 }
 
+// Nit: wish this was for u8 but sadly no
+#[atomic_enum]
+#[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum HotShotTaskStatus {
+    Running,
+    NotStarted,
+    Completed
+}
+
 // //Example EventStream impl
 struct HotShotTask<EVENT: Event, STATE, STREAM: EventStream<EventType = EVENT>> {
+    // state of the task
+    status: AtomicHotShotTaskStatus,
     // TODO remove
     _pd: PhantomData<(EVENT, STREAM, STATE)>,
     /// registry
@@ -78,21 +91,21 @@ struct HotShotTask<EVENT: Event, STATE, STREAM: EventStream<EventType = EVENT>> 
     /// state
     state: STATE,
     /// handler for events
-    handle_event: HandleEvent<EVENT, STATE>,
+    handle_event: Option<HandleEvent<EVENT, STATE>>,
     /// handler for messages
-    handle_message: HandleMessage<STATE>,
+    handle_message: Option<HandleMessage<STATE>>,
     /// handler for filtering events (to use with stream)
-    filter_event: FilterEvent<EVENT>,
+    filter_event: Option<FilterEvent<EVENT>>,
 }
 
-pub enum HotShotTaskHandler<STATE, EVENT> {
-    HandleEvent(HandleEvent<STATE, EVENT>),
+pub enum HotShotTaskHandler<EVENT, STATE> {
+    HandleEvent(HandleEvent<EVENT, STATE>),
     HandleMessage(HandleMessage<STATE>),
     FilterEvent(FilterEvent<EVENT>),
 }
 
 ///
-pub struct HandleEvent<EVENT, STATE>(Box<dyn Fn(&mut STATE, EVENT) -> bool>);
+pub struct HandleEvent<EVENT, STATE>(Box<dyn Fn(EVENT, &mut STATE) -> bool>);
 
 /// TODO hardcode? or generic?
 pub struct Message;
@@ -105,29 +118,49 @@ impl<EVENT: Event, STATE, STREAM: EventStream<EventType = EVENT>>
     HotShotTask<EVENT, STATE, STREAM>
 {
     /// register a handler with the task
-    pub fn register_handler(&mut self, handler: HotShotTaskHandler<EVENT, STATE>) {
+    pub fn register_handler(mut self, handler: HotShotTaskHandler<EVENT, STATE>) -> Self {
         match handler {
-            HotShotTaskHandler::HandleEvent(handler) => self.handle_event = handler,
-            HotShotTaskHandler::HandleMessage(handler) => self.handle_message = handler,
-            HotShotTaskHandler::FilterEvent(handler) => self.filter_event = handler,
+            HotShotTaskHandler::HandleEvent(handler) => {
+                Self {
+                  handle_event : Some(handler),
+                  ..self
+                }
+            },
+            HotShotTaskHandler::HandleMessage(handler) => {
+                Self {
+                  handle_message : Some(handler),
+                  ..self
+                }
+            },
+            HotShotTaskHandler::FilterEvent(handler) => {
+                Self {
+                  filter_event : Some(handler),
+                  ..self
+                }
+            },
         }
     }
 
     /// create a new task
-    pub fn new(shared_registry: GlobalRegistry, shared_stream: STREAM, state: STATE) -> Self {
+    pub fn new(
+        shared_registry: GlobalRegistry,
+        shared_stream: STREAM,
+        state: STATE
+    ) -> Self {
         Self {
+            status: HotShotTaskStatus::NotStarted.into(),
             _pd: PhantomData,
             shared_registry,
             shared_stream,
             state,
-            handle_event: nll_todo(),
-            handle_message: nll_todo(),
-            filter_event: nll_todo(),
+            handle_event: None,
+            handle_message: None,
+            filter_event: None,
         }
     }
 
     /// fire and forget the task.
-    pub fn run(mut self) {
+    pub fn register_and_run(mut self) {
         let running: bool = true;
         loop {}
     }
@@ -135,31 +168,23 @@ impl<EVENT: Event, STATE, STREAM: EventStream<EventType = EVENT>>
 
 pub struct DeregisterFn(Box<dyn Fn()>);
 
+/// the global registry provides a place to:
+/// - inquire about the state of various tasks
+/// - gracefully shut down tasks
 // TODO should we also track the handle? Or is this only for book keeping?
 // With a gc-ed bitvec, we'll be able to tell which tasks have been shut down
 // threadsafe
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct GlobalRegistry {
-    /// each bit represents a task
-    /// if 0, then task is killed
-    /// if 1, then task is alive
-    /// for the first iteration, we can do sth similar to a bump allocator
-    /// TODO there's definitely a cleverer way to do this.
-    /// reminds me of memory allocation.
-    task_status: Arc<Vec<AtomicUsize>>,
-    /// number of deleted blocks
-    deleted_block_num: Arc<AtomicUsize>,
-    /// bit index of next task
-    next_task_idx: Arc<AtomicUsize>,
+    /// writing to the status should gracefully shut down the task
+    status_list: Vec<(AtomicHotShotTaskStatus, String)>,
 }
 
 impl GlobalRegistry {
     /// create new registry
     pub fn new() -> Self {
         Self {
-            task_status: Arc::new(vec![]),
-            deleted_block_num: Arc::new(AtomicUsize::new(0)),
-            next_task_idx: Arc::new(AtomicUsize::new(0)),
+            status_list: vec![]
         }
     }
     /// register with the garbage collector
@@ -173,7 +198,69 @@ impl GlobalRegistry {
     }
 }
 
+/// the state
+pub struct HotShotTaskState {
+    prev: AtomicHotShotTaskStatus,
+    next: AtomicHotShotTaskStatus
+}
+
+impl HotShotTaskState {
+    pub fn new() -> Self {
+        Self {
+            prev: HotShotTaskStatus::NotStarted.into(),
+            next: HotShotTaskStatus::NotStarted.into()
+        }
+    }
+    /// sets the state
+    pub fn set_state(&self, state: HotShotTaskStatus) {
+        self.next.swap(state, Ordering::Relaxed);
+    }
+    /// gets a possibly stale version of the state
+    pub fn get_status(&self) -> HotShotTaskStatus {
+        self.next.load(Ordering::Relaxed)
+    }
+}
+
+// TODO store as tuple
+impl Stream for HotShotTaskState {
+    type Item = HotShotTaskStatus;
+
+    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Self::Item>> {
+        let next = self.next.load(Ordering::Relaxed);
+        let prev = self.prev.swap(next, Ordering::Relaxed);
+        if prev != next {
+            std::task::Poll::Ready(Some(next))
+        } else {
+            std::task::Poll::Pending
+        }
+    }
+}
+
+#[cfg(test)]
 pub mod test {
+    use async_compatibility_layer::art::{async_spawn, async_sleep};
+
+    #[cfg(test)]
+    #[cfg_attr(
+        feature = "tokio-executor",
+        tokio::test(flavor = "multi_thread", worker_threads = 2)
+        )]
+    #[cfg_attr(feature = "async-std-executor", async_std::test)]
+    async fn test_stream() {
+        use futures::StreamExt;
+
+        let task = crate::HotShotTaskState::new();
+
+        async_spawn(async move {
+            async_sleep(std::time::Duration::from_secs(2)).await;
+            task.set_state(crate::HotShotTaskStatus::Running);
+        });
+
+        // spawn new task that sleeps then increments
+
+        task.next().await;
+
+    }
     // TODO test global registry using either global + lazy_static
     // or passing around global registry
 }
