@@ -75,4 +75,12 @@ DOC = """
 Secret path for leader to post proposal for a given view
 """
 
+# GET secret endpoint for first leader
+[route.getfirstsecret]
+PATH = ["firstsecret"]
+METHOD = "GET"
+DOC = """
+Get the initial secret for the protected endpoint
+"""
+
 

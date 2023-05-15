@@ -4,7 +4,7 @@ use async_lock::RwLock;
 use hotshot_types::traits::election::ElectionConfig;
 use hotshot_types::traits::signature_key::SignatureKey;
 use hotshot_web_server::api_config;
-use hotshot_web_server::api_config::ServerEncKey;
+use hotshot_web_server::api_config::ServerKeys;
 use std::io;
 use std::io::ErrorKind;
 use std::net::IpAddr;
@@ -110,18 +110,16 @@ where
                 &mut rand_chacha::ChaChaRng::from_seed(self.config.seed),
             )
             .enc_key();
-            let keypair = (
-                new_key,
-                ServerEncKey {
-                    enc_key: new_enc_key,
-                },
-            );
+            let keypair = ServerKeys {
+                enc_key: new_enc_key,
+                pub_key: new_key,
+            };
             let client_clone = self.client.clone().unwrap();
             let endpoint = api_config::post_staketable_route();
             async move {
                 client_clone
                     .post::<()>(&endpoint)
-                    .body_binary(&(keypair))
+                    .body_binary(&keypair)
                     .unwrap()
                     .send()
                     .await

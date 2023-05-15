@@ -38,12 +38,20 @@ pub fn post_transactions_route() -> String {
 pub fn post_staketable_route() -> String {
     "api/staketable".to_string()
 }
+pub fn get_firstsecret_route() -> String {
+    format!("api/firstsecret")
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ServerKeys<KEY> {
     #[serde(with = "jf_utils::field_elem")]
     pub enc_key: jf_primitives::aead::EncKey,
     pub pub_key: KEY,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct FirstSecret {
+    #[serde(with = "jf_utils::field_elem")]
+    pub secret: Ciphertext,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ProposalWithEncSecret {
