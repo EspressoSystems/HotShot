@@ -11,7 +11,7 @@
 
 use std::{
     marker::PhantomData,
-    sync::{atomic::{AtomicUsize, Ordering}, Arc},
+    sync::{atomic::{AtomicUsize, Ordering}, Arc, Mutex}, task::Waker,
 };
 
 use async_compatibility_layer::channel::{UnboundedReceiver, UnboundedSender, UnboundedStream};
@@ -55,7 +55,7 @@ pub struct ChannelEventStreamInner<EVENT: Event> {
 #[async_trait]
 impl<EVENT: Event> EventStream for ChannelEventStream<EVENT> {
     type EventType = EVENT;
-    type StreamType = UnboundedStream<Item = Self::EventType>;
+    type StreamType = UnboundedStream<Self::EventType>;
 
     /// publish an event to the event stream
     async fn publish(&self, event: Self::EventType) {
@@ -199,21 +199,32 @@ impl GlobalRegistry {
 }
 
 /// the state
+#[derive(Clone)]
 pub struct HotShotTaskState {
-    prev: AtomicHotShotTaskStatus,
-    next: AtomicHotShotTaskStatus
+    prev: Arc<AtomicHotShotTaskStatus>,
+    next: Arc<AtomicHotShotTaskStatus>,
+    wakers: Arc<Mutex<Vec<Waker>>>,
 }
 
 impl HotShotTaskState {
     pub fn new() -> Self {
         Self {
-            prev: HotShotTaskStatus::NotStarted.into(),
-            next: HotShotTaskStatus::NotStarted.into()
+            prev: Arc::new(HotShotTaskStatus::NotStarted.into()),
+            next: Arc::new(HotShotTaskStatus::NotStarted.into()),
+            wakers: Arc::default()
         }
     }
     /// sets the state
     pub fn set_state(&self, state: HotShotTaskStatus) {
         self.next.swap(state, Ordering::Relaxed);
+        // no panics, so can never be poisoned.
+        let mut wakers = self.wakers.lock().unwrap();
+
+        // drain the wakers
+        for waker in wakers.drain(..) {
+            waker.wake();
+        }
+
     }
     /// gets a possibly stale version of the state
     pub fn get_status(&self) -> HotShotTaskStatus {
@@ -228,9 +239,14 @@ impl Stream for HotShotTaskState {
     fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Self::Item>> {
         let next = self.next.load(Ordering::Relaxed);
         let prev = self.prev.swap(next, Ordering::Relaxed);
+        // a new value has been set
         if prev != next {
             std::task::Poll::Ready(Some(next))
         } else {
+            // no panics, so impossible to be poisoned
+            self.wakers.lock().unwrap().push(cx.waker().clone());
+
+            // no value has been set, poll again later
             std::task::Poll::Pending
         }
     }
@@ -239,6 +255,7 @@ impl Stream for HotShotTaskState {
 #[cfg(test)]
 pub mod test {
     use async_compatibility_layer::art::{async_spawn, async_sleep};
+    use std::sync::Arc;
 
     #[cfg(test)]
     #[cfg_attr(
@@ -247,13 +264,18 @@ pub mod test {
         )]
     #[cfg_attr(feature = "async-std-executor", async_std::test)]
     async fn test_stream() {
+        setup_logging();
+        use async_compatibility_layer::logging::setup_logging;
         use futures::StreamExt;
+        tracing::error!("HELLO WORLD!");
 
-        let task = crate::HotShotTaskState::new();
+        let mut task = crate::HotShotTaskState::new();
+
+        let task_dup = task.clone();
 
         async_spawn(async move {
             async_sleep(std::time::Duration::from_secs(2)).await;
-            task.set_state(crate::HotShotTaskStatus::Running);
+            task_dup.set_state(crate::HotShotTaskStatus::Running);
         });
 
         // spawn new task that sleeps then increments
