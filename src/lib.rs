@@ -62,12 +62,12 @@ use hotshot_types::traits::network::CommunicationChannel;
 use hotshot_types::{certificate::DACertificate, message::GeneralConsensusMessage};
 use hotshot_types::{data::ProposalType, traits::election::ConsensusExchange};
 use hotshot_types::{
-    data::{LeafType, ValidatingLeaf, ValidatingProposal},
+    data::{DAProposal, LeafType, ValidatingLeaf, ValidatingProposal},
     error::StorageSnafu,
     message::{
         CommitteeConsensusMessage, ConsensusMessageType, DataMessage, InternalTrigger, Message,
         MessageKind, ProcessedCommitteeConsensusMessage, ProcessedGeneralConsensusMessage,
-        SequencingMessage, ValidatingMessage,
+        Proposal, SequencingMessage, ValidatingMessage,
     },
     traits::{
         consensus_type::{
@@ -78,15 +78,15 @@ use hotshot_types::{
         metrics::Metrics,
         network::{NetworkError, TransmitType},
         node_implementation::{
-            CommitteeEx, ExchangesType, NodeType, SequencingExchangesType, SequencingQuorumEx,
-            ValidatingExchangesType, ValidatingQuorumEx,
+            CommitteeEx, ExchangesType, NodeType, QuorumProposalType, SequencingExchangesType,
+            SequencingQuorumEx, ValidatingExchangesType, ValidatingQuorumEx,
         },
         signature_key::SignatureKey,
         state::ConsensusTime,
         storage::StoredView,
         State,
     },
-    vote::VoteType,
+    vote::{DAVote, QuorumVote, VoteType},
     ExecutionType, HotShotConfig,
 };
 use hotshot_utils::bincode::bincode_opts;
@@ -157,12 +157,8 @@ pub struct HotShot<CONSENSUS: ConsensusType, TYPES: NodeType, I: NodeImplementat
     /// The hotstuff implementation
     hotstuff: Arc<RwLock<Consensus<TYPES, I::Leaf>>>,
 
-    // TODO: use associated traits to pair these maps with respective exchanges
-    // e.g. per exchange
-    // struct ChannelMaps {
-    //    proposal_channel:Arc<RwLock<SendToTasks<TYPES, I>>>,
-    //    votes_channel<:Arc<RwLock<SendToTasks<TYPES, I>>>,
-    // }
+    // TODO (DA): Pair channel maps with respective exchanges.
+    // <https://github.com/EspressoSystems/HotShot/issues/1193>
     /// for sending/recv-ing things with the DA member task
     member_channel_map: Arc<RwLock<SendToTasks<TYPES, I>>>,
 
@@ -592,7 +588,10 @@ pub trait HotShotType<TYPES: NodeType, I: NodeImplementation<TYPES>> {
                     consensus
                         .metrics
                         .outstanding_transactions_memory_size
-                        .update(i64::try_from(size).unwrap_or(i64::MAX));
+                        .update(i64::try_from(size).unwrap_or_else(|e| {
+                            warn!("Conversion failed: {e}. Using the max value.");
+                            i64::MAX
+                        }));
                 }
             }
         }
@@ -671,7 +670,7 @@ where
 
         async_spawn(
             tasks::network_lookup_task(self.clone(), shut_down.clone())
-                .instrument(info_span!("HotShot network lookup task",)),
+                .instrument(info_span!("HotShot Network Lookup Task",)),
         );
 
         let (handle_channels, task_channels) = match self.inner.config.execution_type {
@@ -689,7 +688,7 @@ where
                 shut_down.clone(),
                 task_channels,
             )
-            .instrument(info_span!("Consensus task handle",)),
+            .instrument(info_span!("Consensus Task Handle",)),
         );
 
         let (broadcast_sender, broadcast_receiver) = channel();
@@ -728,8 +727,6 @@ where
         msg: ValidatingMessage<TYPES, I>,
         sender: TYPES::SignatureKey,
     ) {
-        // TODO validate incoming data message based on sender signature key
-        // <github.com/ExpressoSystems/HotShot/issues/418>
         let msg_time = msg.view_number();
 
         match msg.0 {
@@ -739,7 +736,11 @@ where
 
                 // skip if the proposal is stale
                 if msg_time < channel_map.cur_view {
-                    warn!("Throwing away proposal for view number: {:?}", msg_time);
+                    warn!(
+                        "Throwing away {} for view number: {:?}",
+                        std::any::type_name::<Proposal<QuorumProposalType<TYPES, I>>>(),
+                        msg_time
+                    );
                     return;
                 }
 
@@ -798,7 +799,8 @@ where
                     .is_leader(msg_time + 1);
                 if !is_leader || msg_time < channel_map.cur_view {
                     warn!(
-                        "Throwing away VoteType<TYPES>message for view number: {:?}",
+                        "Throwing away {} message for view number: {:?}",
+                        std::any::type_name::<QuorumVote<TYPES, I::Leaf>>(),
                         msg_time
                     );
                     return;
@@ -902,7 +904,7 @@ where
 
         async_spawn(
             tasks::network_lookup_task(self.clone(), shut_down.clone())
-                .instrument(info_span!("HotShot network lookup task",)),
+                .instrument(info_span!("HotShot Network Lookup Task",)),
         );
 
         let (handle_channels, task_channels) = match self.inner.config.execution_type {
@@ -920,7 +922,7 @@ where
                 shut_down.clone(),
                 task_channels,
             )
-            .instrument(info_span!("Consensus task handle",)),
+            .instrument(info_span!("Consensus Task Handle",)),
         );
 
         let (broadcast_sender, broadcast_receiver) = channel();
@@ -959,8 +961,6 @@ where
         msg: SequencingMessage<TYPES, I>,
         sender: TYPES::SignatureKey,
     ) {
-        // TODO validate incoming data message based on sender signature key
-        // <github.com/ExpressoSystems/HotShot/issues/418>
         let msg_time = msg.view_number();
 
         match msg.0 {
@@ -972,7 +972,11 @@ where
 
                         // skip if the proposal is stale
                         if msg_time < channel_map.cur_view {
-                            warn!("Throwing away proposal for view number: {:?}", msg_time);
+                            warn!(
+                                "Throwing away {} for view number: {:?}",
+                                std::any::type_name::<Proposal<QuorumProposalType<TYPES, I>>>(),
+                                msg_time
+                            );
                             return;
                         }
 
@@ -1015,7 +1019,11 @@ where
 
                         // skip if the proposal is stale
                         if msg_time < channel_map.cur_view {
-                            warn!("Throwing away DA proposal for view number: {:?}", msg_time);
+                            warn!(
+                                "Throwing away {} for view number: {:?}",
+                                std::any::type_name::<Proposal<DAProposal<TYPES>>>(),
+                                msg_time
+                            );
                             return;
                         }
 
@@ -1071,7 +1079,8 @@ where
                         .is_leader(msg_time + 1);
                     if !is_leader || msg_time < channel_map.cur_view {
                         warn!(
-                            "Throwing away VoteType<TYPES>message for view number: {:?}",
+                            "Throwing away {} message for view number: {:?}",
+                            std::any::type_name::<QuorumVote<TYPES, I::Leaf>>(),
                             msg_time
                         );
                         return;
@@ -1106,7 +1115,8 @@ where
                             .is_leader(msg_time);
                         if !is_leader || msg_time < channel_map.cur_view {
                             warn!(
-                                "Throwing away VoteType<TYPES>message for view number: {:?}, Channel cur view: {:?}",
+                                "Throwing away {} message for view number: {:?}, Channel cur view: {:?}",
+                                std::any::type_name::<DAVote<TYPES, I::Leaf>>(),
                                 msg_time,
                                 channel_map.cur_view,
                             );
@@ -1665,7 +1675,8 @@ where
         Ok(())
     }
 
-    // TODO remove and use exchange directly.
+    // TODO (DA) Refactor ConsensusApi and HotShot to use HotShotInner directly.
+    // <https://github.com/EspressoSystems/HotShot/issues/1194>
     async fn send_broadcast_message<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
@@ -1684,7 +1695,6 @@ where
                     kind: MessageKind::from_consensus_message(message),
                     _phantom: PhantomData,
                 },
-                // TODO this is morally wrong!
                 &self.inner.exchanges.quorum_exchange().membership().clone(),
             )
             .await?;
@@ -1828,7 +1838,8 @@ where
         Ok(())
     }
 
-    // TODO remove and use exchange directly.
+    // TODO (DA) Refactor ConsensusApi and HotShot to use HotShotInner directly.
+    // <https://github.com/EspressoSystems/HotShot/issues/1194>
     async fn send_broadcast_message<
         PROPOSAL: ProposalType<NodeType = TYPES>,
         VOTE: VoteType<TYPES>,
@@ -1847,7 +1858,6 @@ where
                     kind: MessageKind::from_consensus_message(message),
                     _phantom: PhantomData,
                 },
-                // TODO this is morally wrong!
                 &self.inner.exchanges.quorum_exchange().membership().clone(),
             )
             .await?;
@@ -1869,7 +1879,6 @@ where
                     kind: MessageKind::from_consensus_message(message),
                     _phantom: PhantomData,
                 },
-                // TODO this is morally wrong!
                 &self
                     .inner
                     .exchanges

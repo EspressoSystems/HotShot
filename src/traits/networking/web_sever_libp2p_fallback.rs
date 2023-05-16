@@ -163,11 +163,11 @@ where
         network_id: usize,
     ) -> Box<dyn Fn(u64) -> Self + 'static> {
         let generator = <CombinedNetworks<
-                TYPES,
-                I,
-                PROPOSAL,
-                VOTE,
-                MEMBERSHIP,
+            TYPES,
+            I,
+            PROPOSAL,
+            VOTE,
+            MEMBERSHIP,
         > as TestableNetworkingImplementation<_, _>>::generator(
             expected_node_count,
             num_bootstrap,

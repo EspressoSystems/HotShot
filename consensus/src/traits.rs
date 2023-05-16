@@ -24,10 +24,8 @@ use hotshot_types::{
 
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
-// FIXME these should be nonzero u64s
-/// The API that [`HotStuff`] needs to talk to the system. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
-///
-/// [`HotStuff`]: struct.HotStuff.html
+/// The API that [`HotStuff`] needs to talk to the system, implemented for both validating and
+/// sequencing consensus.
 #[async_trait]
 pub trait ConsensusSharedApi<
     TYPES: NodeType,
@@ -128,9 +126,7 @@ pub trait ConsensusSharedApi<
     }
 }
 
-/// The API that [`HotStuff`] needs to talk to the system for validating applications. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
-///
-/// [`HotStuff`]: struct.HotStuff.html
+/// The API that [`HotStuff`] needs to talk to the system for validating consensus.
 #[async_trait]
 pub trait ValidatingConsensusApi<
     TYPES: NodeType<ConsensusType = ValidatingConsensus>,
@@ -160,9 +156,7 @@ pub trait ValidatingConsensusApi<
     ) -> std::result::Result<(), NetworkError>;
 }
 
-/// The API that [`HotStuff`] needs to talk to the system for sequencing applications. This should be implemented in the `hotshot` crate and passed to all functions on `HotStuff`.
-///
-/// [`HotStuff`]: struct.HotStuff.html
+/// The API that [`HotStuff`] needs to talk to the system, for sequencing consensus.
 #[async_trait]
 pub trait SequencingConsensusApi<
     TYPES: NodeType<ConsensusType = SequencingConsensus>,
